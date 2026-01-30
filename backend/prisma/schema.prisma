@@ -1,0 +1,294 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+model company{
+  id String @id @default(uuid())
+  name String
+  logo_url String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users user[]
+  roles role[]
+  customers customer[]
+  customer_locations customer_location[]
+  pos po[]
+  po_communication_matrix po_communication_matrix[]
+  jobs job[]
+  document_master document_master[]
+  single_document single_document[]
+  group group[]
+  job_group job_group[]
+  group_document group_document[]
+  document_type document_type[]
+}
+
+model role{
+  id String @id @default(uuid())
+  company_id String
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  user_roles user_roles[]
+}
+
+ 
+
+model user{
+  id String @id @default(uuid())
+  name String
+  email String @unique
+  empid String @unique
+  mobile String? @unique
+  password String
+  company_id String
+  department String?
+  designation String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  user_roles user_roles[]
+  single_document single_document[]
+  group_document group_document[]
+}
+
+model user_roles{
+  id String @id @default(uuid())
+  user_id String
+  role_id String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user user @relation(fields: [user_id], references: [id])
+  role role @relation(fields: [role_id], references: [id])
+}
+
+model siteadmin{
+  id String @id @default(uuid())
+  name String
+  email String @unique
+  password String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model customer{
+  id String @id @default(uuid())
+  company_id String
+  customer_name String
+  customer_short_name String
+  email String 
+  mobile String? 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+
+  customer_locations customer_location[]
+  pos po[]
+  jobs job[]
+  group_document group_document[]
+  single_document single_document[]
+}
+
+
+model customer_location{
+  id String @id @default(uuid())
+  company_id String
+  customer_id String
+  location_name String
+  customer_number_as_per_sap String
+  gst_number String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer customer @relation(fields: [customer_id], references: [id])
+  company company @relation(fields: [company_id], references: [id])
+  pos po[]
+  jobs job[]
+  group_document group_document[]
+  single_document single_document[]
+}
+
+model po{
+  id String @id @default(uuid())
+  company_id String
+  customer_id String
+  customer_location_id String
+  po_number String
+  po_date DateTime
+  po_doc_url String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer_location customer_location @relation(fields: [customer_location_id], references: [id])
+  customer customer @relation(fields: [customer_id], references: [id])
+  company company @relation(fields: [company_id], references: [id])
+
+  po_communication_matrix po_communication_matrix[]
+  jobs job[]
+  group_document group_document[]
+  single_document single_document[]
+}
+
+model po_communication_matrix{
+  id String @id @default(uuid())
+  company_id String
+  po_id String
+  name String
+  email String
+  type String // "shreno" or "client"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  po po @relation(fields: [po_id], references: [id])
+  
+}
+
+model job{
+  id String @id @default(uuid())
+  company_id String
+  customer_id String
+  customer_location_id String
+  po_id String
+  job_number String
+  project_id String
+  equipement_name String
+  tag_number String
+  code String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  customer customer @relation(fields: [customer_id], references: [id])
+  customer_location customer_location @relation(fields: [customer_location_id], references: [id])
+  po po @relation(fields: [po_id], references: [id])
+
+  single_document single_document[]
+  job_group job_group[]
+}
+
+model document_type{
+  id String @id @default(uuid())
+  company_id String
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  document_master document_master[]
+}
+
+model document_master{
+  id String @id @default(uuid())
+  company_id String
+  document_number String
+  document_name String
+  document_type_id String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  document_type document_type @relation(fields: [document_type_id], references: [id])
+  single_document single_document[]
+  group_document group_document[]
+}
+
+model single_document{
+  id String @id @default(uuid())
+  company_id String
+  customer_id String
+  customer_location_id String
+  po_id String
+  job_id String
+  document_id String
+  shreno_doc_no String?
+  shreno_reference_no String?
+  client_doc_no String?
+  client_reference_no String?
+  upload_due_days Int?
+  reponce_due_days Int?
+  user_id String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  document document_master @relation(fields: [document_id], references: [id])
+  customer customer @relation(fields: [customer_id], references: [id])
+  customer_location customer_location @relation(fields: [customer_location_id], references: [id])
+  po po @relation(fields: [po_id], references: [id])
+  job job @relation(fields: [job_id], references: [id])
+  user user @relation(fields: [user_id], references: [id])
+}
+
+model group{
+  id String @id @default(uuid())
+  company_id String 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  job_group job_group[]
+  group_document group_document[]
+}
+
+model job_group{
+  id String @id @default(uuid())
+  company_id String
+  group_id String
+  job_id String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  group group @relation(fields: [group_id], references: [id])
+  job job @relation(fields: [job_id], references: [id])
+}
+
+
+model group_document{
+  id String @id @default(uuid())
+  company_id String
+  customer_id String
+  customer_location_id String
+  po_id String
+  group_id String
+  document_id String
+  shreno_doc_no String?
+  shreno_reference_no String?
+  client_doc_no String?
+  client_reference_no String?
+  upload_due_days Int?
+  reponce_due_days Int?
+  user_id String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  group group @relation(fields: [group_id], references: [id])
+  document document_master @relation(fields: [document_id], references: [id])
+  user user @relation(fields: [user_id], references: [id])
+  customer customer @relation(fields: [customer_id], references: [id])
+  customer_location customer_location @relation(fields: [customer_location_id], references: [id])
+  po po @relation(fields: [po_id], references: [id])
+}
+
+
