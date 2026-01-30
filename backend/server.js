@@ -43,6 +43,9 @@ app.use('/api/dcc', dccRoutes);
 const userRoutes = require('#routes/users/user.routes.js');
 app.use('/api/users', userRoutes);
 
+const wpjRoutes = require('#routes/wpj/wpj.routes.js');
+app.use('/api/wpj', wpjRoutes);
+
 
 
 
@@ -70,7 +73,7 @@ async function startServer() {
   try {
     // Setup admin on startup
     await setupAdmin();
-    
+
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });

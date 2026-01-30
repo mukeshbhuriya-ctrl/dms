@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -63,33 +63,59 @@ function WeldingJoints() {
   ])
   const [isLoading, setIsLoading] = useState(false)
 
-  // Mock job data - replace with actual API call
-  const jobs = [
-    {
-      id: "1",
-      jobNo: "JOB-001",
-      tagId: "TAG-001",
-      projectId: "PROJ-001",
-      clientName: "Client A",
-      equipmentName: "Pump Assembly",
-    },
-    {
-      id: "2",
-      jobNo: "JOB-002",
-      tagId: "TAG-002",
-      projectId: "PROJ-002",
-      clientName: "Client B",
-      equipmentName: "Heat Exchanger",
-    },
-    {
-      id: "3",
-      jobNo: "JOB-003",
-      tagId: "TAG-003",
-      projectId: "PROJ-003",
-      clientName: "Client C",
-      equipmentName: "Pressure Vessel",
-    },
-  ]
+  const [jobs, setJobs] = useState([])
+  const [error, setError] = useState("")
+
+  // Fetch jobs from API
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+
+        // Get auth token
+        const authData = localStorage.getItem("user_auth")
+        let token = null
+        if (authData) {
+          try {
+            const parsed = JSON.parse(authData)
+            token = parsed?.payload?.token || parsed?.token
+          } catch {
+            // If parsing fails, continue without token
+          }
+        }
+
+        const headers = {
+          "Content-Type": "application/json",
+        }
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`
+        }
+
+        const res = await fetch(`${backendUrl}/api/wpj/get-job-info`, {
+          method: "GET",
+          headers,
+          credentials: "include",
+        })
+
+        const contentType = res.headers.get("content-type") || ""
+        const payload = contentType.includes("application/json")
+          ? await res.json()
+          : await res.text()
+
+        if (res.ok) {
+          setJobs(payload?.data || [])
+        } else {
+          console.error("Failed to fetch jobs", payload)
+          setError("Failed to load jobs")
+        }
+      } catch (err) {
+        console.error("Error fetching jobs:", err)
+        setError("Failed to load jobs")
+      }
+    }
+
+    fetchJobs()
+  }, [])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -100,14 +126,15 @@ function WeldingJoints() {
   }
 
   const handleJobChange = (jobNo) => {
-    const selectedJob = jobs.find((job) => job.jobNo === jobNo)
+    const selectedJob = jobs.find((job) => job.job_number === jobNo)
     setFormData((prev) => ({
       ...prev,
       jobNo,
-      tagId: selectedJob?.tagId || "",
-      projectId: selectedJob?.projectId || "",
-      clientName: selectedJob?.clientName || "",
-      equipmentName: selectedJob?.equipmentName || "",
+      tagId: selectedJob?.tag_number || "",
+      projectId: selectedJob?.project_id || "",
+      clientName: selectedJob?.customer?.customer_name || "",
+      equipmentName: selectedJob?.equipement_name || "",
+      weldPlanNo: selectedJob?.code || prev.weldPlanNo, // Auto-fill if available, else keep existing
     }))
   }
 
@@ -116,7 +143,7 @@ function WeldingJoints() {
       prev.map((row) => {
         if (row.id === id) {
           const updatedRow = { ...row, [field]: value }
-          
+
           // Clear Back Chip Req, PWHT, PT, RT if jointType is not A or B
           if (field === "jointType") {
             if (value !== "A" && value !== "B") {
@@ -126,7 +153,7 @@ function WeldingJoints() {
               updatedRow.rt = ""
             }
           }
-          
+
           return updatedRow
         }
         return row
@@ -286,8 +313,8 @@ function WeldingJoints() {
                         </SelectTrigger>
                         <SelectContent>
                           {jobs.map((job) => (
-                            <SelectItem key={job.id} value={job.jobNo}>
-                              {job.jobNo}
+                            <SelectItem key={job.id} value={job.job_number}>
+                              {job.job_number}
                             </SelectItem>
                           ))}
                         </SelectContent>
