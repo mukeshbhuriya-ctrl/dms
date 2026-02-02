@@ -26,7 +26,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, X, Copy } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Eye, Plus, X, Copy } from "lucide-react"
 
 function WeldingJoints() {
   const [formData, setFormData] = useState({
@@ -68,6 +75,11 @@ function WeldingJoints() {
   const [view, setView] = useState("list") // 'list' or 'create'
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+
+  // View Modal State
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
+  const [isViewOpen, setIsViewOpen] = useState(false)
+  const [isViewLoading, setIsViewLoading] = useState(false)
 
   const fetchPlans = async () => {
     try {
@@ -336,6 +348,48 @@ function WeldingJoints() {
     setIsLoading(false)
   }
 
+  const handleViewClick = async (planId) => {
+    setIsViewLoading(true)
+    setError("")
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : ""
+      }
+
+      const res = await fetch(`${backendUrl}/api/wpj/get-weld-joint-plan/${planId}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setSelectedPlanDetails(data.data)
+        setIsViewOpen(true)
+      } else {
+        console.error("Failed to fetch plan details", data)
+        setError("Failed to fetch plan details")
+      }
+    } catch (err) {
+      console.error("Error fetching plan details:", err)
+      setError("Error fetching plan details")
+    } finally {
+      setIsViewLoading(false)
+    }
+  }
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -398,6 +452,7 @@ function WeldingJoints() {
                         <TableHead>Client</TableHead>
                         <TableHead>Equipment</TableHead>
                         <TableHead className="text-right">Created Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -413,11 +468,20 @@ function WeldingJoints() {
                             <TableCell className="text-right">
                               {new Date(plan.createdAt).toLocaleDateString()}
                             </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleViewClick(plan.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center">
+                          <TableCell colSpan={8} className="h-24 text-center">
                             No welding plans found.
                           </TableCell>
                         </TableRow>
@@ -607,61 +671,108 @@ function WeldingJoints() {
                               </TableHead>
                               <TableHead
                                 rowSpan={2}
-                                className="sticky left-0 z-20 w-[110px] min-w-[110px] bg-background"
+                                className="min-w-[100px] align-middle"
                               >
                                 Joint No
                               </TableHead>
-                              <TableHead rowSpan={2}>Joint Category</TableHead>
-                              <TableHead rowSpan={2}>Joint</TableHead>
                               <TableHead
-                                colSpan={2}
-                                className="text-center border-x"
+                                rowSpan={2}
+                                className="w-[80px] align-middle"
                               >
-                                Base-Metal Thickness mm
+                                Joint Type (A/B)
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="min-w-[150px] align-middle"
+                              >
+                                Description of Joint
                               </TableHead>
                               <TableHead
                                 colSpan={2}
-                                className="text-center border-x"
+                                className="text-center border-b"
                               >
-                                Base Metal Specification
+                                Base Metal Thickness (mm)
                               </TableHead>
-                              <TableHead rowSpan={2}>Consumable</TableHead>
-                              <TableHead rowSpan={2}>WPS No/PQR No</TableHead>
-                              <TableHead rowSpan={2}>Process</TableHead>
-                              <TableHead rowSpan={2}>Impact Test</TableHead>
-                              <TableHead rowSpan={2}>Back Chip Req</TableHead>
-                              <TableHead rowSpan={2}>PWHT</TableHead>
-                              <TableHead rowSpan={2}>RT</TableHead>
-                              <TableHead rowSpan={2}>PT</TableHead>
-                              <TableHead rowSpan={2}>Remarks</TableHead>
-                              <TableHead rowSpan={2} className="w-[120px] align-middle">
+                              <TableHead
+                                colSpan={2}
+                                className="text-center border-b"
+                              >
+                                Base Metal Spec. (Gr.)
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="min-w-[120px] align-middle"
+                              >
+                                Consu- -mable
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="min-w-[120px] align-middle"
+                              >
+                                WPS No / PQR No
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="w-[100px] align-middle"
+                              >
+                                Process
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="w-[100px] align-middle"
+                              >
+                                Impact Test
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="w-[80px] align-middle"
+                              >
+                                Back Chip Req.
+                              </TableHead>
+                              <TableHead
+                                colSpan={3}
+                                className="text-center border-b"
+                              >
+                                NDT
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="min-w-[150px] align-middle"
+                              >
+                                Remarks
+                              </TableHead>
+                              <TableHead
+                                rowSpan={2}
+                                className="w-[100px] align-middle"
+                              >
                                 Actions
                               </TableHead>
                             </TableRow>
-                            {/* Second row: Sub-headers */}
+                            {/* Second row: Sub headers */}
                             <TableRow>
-                              <TableHead className="text-center">
-                                Part No. 1
+                              <TableHead className="min-w-[80px]">
+                                Part 1
                               </TableHead>
-                              <TableHead className="text-center border-r">
-                                Part No. 2
+                              <TableHead className="min-w-[80px]">
+                                Part 2
                               </TableHead>
-                              <TableHead className="text-center">
-                                Part No. 1
+                              <TableHead className="min-w-[80px]">
+                                Part 1
                               </TableHead>
-                              <TableHead className="text-center border-r">
-                                Part No. 2
+                              <TableHead className="min-w-[80px]">
+                                Part 2
                               </TableHead>
+                              <TableHead className="w-[80px]">PWHT</TableHead>
+                              <TableHead className="w-[80px]">RT</TableHead>
+                              <TableHead className="w-[80px]">PT</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {tableRows.length > 0 ? (
-                              tableRows.map((row, index) => (
+                              tableRows.map((row) => (
                                 <TableRow key={row.id}>
-                                  <TableCell className="font-medium">
-                                    {index + 1}
-                                  </TableCell>
-                                  <TableCell className="sticky left-0 z-20 w-[110px] min-w-[110px] bg-background">
+                                  <TableCell>{row.id}</TableCell>
+                                  <TableCell>
                                     <Input
                                       placeholder="Joint No"
                                       value={row.jointNo}
@@ -673,32 +784,35 @@ function WeldingJoints() {
                                         )
                                       }
                                       disabled={isLoading}
-                                      className="w-[90px] min-w-[90px]"
+                                      className="w-full"
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Select
                                       value={row.jointType}
                                       onValueChange={(value) =>
-                                        handleTableRowChange(row.id, "jointType", value)
+                                        handleTableRowChange(
+                                          row.id,
+                                          "jointType",
+                                          value
+                                        )
                                       }
                                       disabled={isLoading}
                                     >
-                                      <SelectTrigger className="w-[110px] min-w-[110px]">
-                                        <SelectValue placeholder="Select category" />
+                                      <SelectTrigger className="w-[70px] min-w-[70px]">
+                                        <SelectValue placeholder="-" />
                                       </SelectTrigger>
                                       <SelectContent>
                                         <SelectItem value="A">A</SelectItem>
                                         <SelectItem value="B">B</SelectItem>
                                         <SelectItem value="C">C</SelectItem>
                                         <SelectItem value="D">D</SelectItem>
-                                        <SelectItem value="F">F</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Joint"
+                                      placeholder="Description"
                                       value={row.joint}
                                       onChange={(e) =>
                                         handleTableRowChange(
@@ -708,12 +822,13 @@ function WeldingJoints() {
                                         )
                                       }
                                       disabled={isLoading}
-                                      className="w-[90px] min-w-[90px]"
+                                      className="w-[150px] min-w-[150px]"
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Thickness Part 1"
+                                      type="number"
+                                      placeholder="Part 1"
                                       value={row.baseMetalThicknessPart1}
                                       onChange={(e) =>
                                         handleTableRowChange(
@@ -723,12 +838,13 @@ function WeldingJoints() {
                                         )
                                       }
                                       disabled={isLoading}
-                                      className="w-[110px] min-w-[110px]"
+                                      className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Thickness Part 2"
+                                      type="number"
+                                      placeholder="Part 2"
                                       value={row.baseMetalThicknessPart2}
                                       onChange={(e) =>
                                         handleTableRowChange(
@@ -738,12 +854,12 @@ function WeldingJoints() {
                                         )
                                       }
                                       disabled={isLoading}
-                                      className="w-[110px] min-w-[110px]"
+                                      className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Spec Part 1"
+                                      placeholder="Spec 1"
                                       value={row.baseMetalSpecPart1}
                                       onChange={(e) =>
                                         handleTableRowChange(
@@ -753,12 +869,12 @@ function WeldingJoints() {
                                         )
                                       }
                                       disabled={isLoading}
-                                      className="w-[130px] min-w-[130px]"
+                                      className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Spec Part 2"
+                                      placeholder="Spec 2"
                                       value={row.baseMetalSpecPart2}
                                       onChange={(e) =>
                                         handleTableRowChange(
@@ -768,7 +884,7 @@ function WeldingJoints() {
                                         )
                                       }
                                       disabled={isLoading}
-                                      className="w-[130px] min-w-[130px]"
+                                      className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
                                   <TableCell>
@@ -783,12 +899,12 @@ function WeldingJoints() {
                                         )
                                       }
                                       disabled={isLoading}
-                                      className="w-[110px] min-w-[110px]"
+                                      className="w-[100px] min-w-[100px]"
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="WPS No/PQR No"
+                                      placeholder="WPS/PQR No"
                                       value={row.wpsNoPqrNo}
                                       onChange={(e) =>
                                         handleTableRowChange(
@@ -981,6 +1097,124 @@ function WeldingJoints() {
                 </div>
               </form>
             )}
+
+            {/* View Details Modal */}
+            <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+              <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
+                <DialogHeader className="mb-4">
+                  <DialogTitle className="text-xl font-bold text-center">Weld Joint Plan Details</DialogTitle>
+                </DialogHeader>
+
+                {selectedPlanDetails && (
+                  <div className="space-y-6">
+                    {/* Job Info Header - Grid layout */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm border p-4 bg-muted/10 rounded-lg">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Job No:</span>
+                        <span>{selectedPlanDetails.job?.job_number}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Client:</span>
+                        <span>{selectedPlanDetails.job?.customer?.customer_name}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Project ID:</span>
+                        <span>{selectedPlanDetails.job?.project_id}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Equipment:</span>
+                        <span>{selectedPlanDetails.job?.equipement_name}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Drawing No(s):</span>
+                        <span>{selectedPlanDetails.shreno_drg_no}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Weld Plan No:</span>
+                        <span>{selectedPlanDetails.weld_plan_no}</span>
+                      </div>
+                    </div>
+
+                    {/* Technical Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-black text-xs text-center font-medium">
+                        <thead>
+                          {/* Row 1: Code of Construction */}
+                          <tr className="bg-white">
+                            <th className="border border-black p-1 text-left font-bold" colSpan={2}>
+                              CODE OF CONSTRUCTION
+                            </th>
+                            <th className="border border-black p-1 text-left font-bold" colSpan={13}>
+                              {selectedPlanDetails.code_of_construction}
+                            </th>
+                          </tr>
+                          {/* Row 2: Main Headers */}
+                          <tr className="bg-gray-50">
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint No</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint</th>
+
+                            {/* Thickness Group */}
+                            <th className="border border-black p-2 font-bold" colSpan={2}>Base-Metal Thickness mm</th>
+
+                            {/* Spec Group */}
+                            <th className="border border-black p-2 font-bold" colSpan={2}>Base Metal Specification</th>
+
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Consumable</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>WPS No/PQR No</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Process</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Impact Test</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>PWHT</th>
+
+                            <th className="border border-black p-2 font-bold align-middle" colSpan={2}>NDT</th>
+
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Remarks</th>
+                          </tr>
+                          {/* Row 3: Sub Headers */}
+                          <tr className="bg-gray-50">
+                            <th className="border border-black p-1 font-bold">Part No. 1</th>
+                            <th className="border border-black p-1 font-bold">Part No. 2</th>
+
+                            <th className="border border-black p-1 font-bold">Part No. 1</th>
+                            <th className="border border-black p-1 font-bold">Part No. 2</th>
+
+                            <th className="border border-black p-1 font-bold">RT</th>
+                            <th className="border border-black p-1 font-bold">PT</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedPlanDetails.weld_joints?.map((joint) => (
+                            <tr key={joint.id} className="hover:bg-muted/5">
+                              <td className="border border-black p-2 whitespace-nowrap">{joint.joint_no}</td>
+                              <td className="border border-black p-2">{joint.joint_description || joint.joint}</td>
+
+                              {/* Thickness */}
+                              <td className="border border-black p-2">{joint.base_metal_thickness_p1}</td>
+                              <td className="border border-black p-2">{joint.base_metal_thickness_p2}</td>
+
+                              {/* Spec */}
+                              <td className="border border-black p-2">{joint.base_metal_spec_p1}</td>
+                              <td className="border border-black p-2">{joint.base_metal_spec_p2}</td>
+
+                              <td className="border border-black p-2">{joint.consumable}</td>
+                              <td className="border border-black p-2">{joint.wps_pqr_no || joint.wpsNoPqrNo}</td>
+                              <td className="border border-black p-2">{joint.process}</td>
+                              <td className="border border-black p-2">{joint.impact_test || joint.impactTest}</td>
+                              <td className="border border-black p-2">{joint.pwht}</td>
+
+                              {/* NDT */}
+                              <td className="border border-black p-2">{joint.rt === 'yes' ? 'YES' : ''}</td>
+                              <td className="border border-black p-2">{joint.pt === 'yes' ? 'YES' : ''}</td>
+
+                              <td className="border border-black p-2 min-w-[150px]">{joint.remarks}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         </main>
       </SidebarInset>

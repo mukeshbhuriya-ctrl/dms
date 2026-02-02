@@ -223,4 +223,66 @@ async function getWeldJointPlans(req, res) {
     }
 }
 
-module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans }
+/**
+ * Get Weld Joint Plan Details API
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function getWeldJointPlanDetails(req, res) {
+    try {
+        const { id } = req.params;
+
+        const plan = await prisma.weld_joint_plan.findUnique({
+            where: {
+                id: id
+            },
+            include: {
+                job: {
+                    select: {
+                        job_number: true,
+                        tag_number: true,
+                        project_id: true,
+                        equipement_name: true,
+                        customer: {
+                            select: {
+                                customer_name: true
+                            }
+                        }
+                    }
+                },
+                weld_joints: {
+                    orderBy: {
+                        createdAt: 'asc' // Or by joint_no if sortable
+                    }
+                },
+                creator: {
+                    select: {
+                        name: true // Assuming name field exists
+                    }
+                }
+            }
+        });
+
+        if (!plan) {
+            return res.status(404).json({
+                success: false,
+                message: 'Weld Joint Plan not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Weld Joint Plan details fetched successfully',
+            data: plan
+        });
+    } catch (error) {
+        console.error('Get weld joint plan details error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+    }
+}
+
+module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails }
