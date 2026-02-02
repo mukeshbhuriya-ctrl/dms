@@ -5,7 +5,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, Plus } from "lucide-react"
+import { Eye, EyeOff, Plus, ArrowLeft } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -247,30 +247,41 @@ function CreateUser() {
     <SidebarProvider>
       <AdminSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 justify-between">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-          </div>
-          <div className="flex gap-2">
-            {view === "list" ? (
-              <Button onClick={() => setView("create")}>
-                <Plus className="mr-2 h-4 w-4" /> Create User
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={() => setView("list")}>
-                Cancel
-              </Button>
-            )}
-          </div>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
         </header>
         <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-6xl mx-auto w-full">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">
+                  {view === "list" ? "Users List" : "Create User"}
+                </h1>
+                <p className="text-muted-foreground">
+                  {view === "list"
+                    ? "List of all users in the system"
+                    : "Fill in the user information below to create a new user account."}
+                </p>
+              </div>
+              <div>
+                {view === "list" ? (
+                  <Button onClick={() => setView("create")}>
+                    <Plus className="mr-2 h-4 w-4" /> Create User
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={() => setView("list")}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                  </Button>
+                )}
+              </div>
+            </div>
+
             {view === "list" ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>Users List</CardTitle>
+                  <CardTitle>Users</CardTitle>
                   <CardDescription>
-                    List of all users in the system
+                    View and manage system users.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -313,13 +324,7 @@ function CreateUser() {
                 </CardContent>
               </Card>
             ) : (
-              <div>
-                <div className="mb-6">
-                  <h1 className="text-3xl font-bold mb-2">Create User</h1>
-                  <p className="text-muted-foreground">
-                    Fill in the user information below to create a new user account.
-                  </p>
-                </div>
+              <div className="space-y-6">
                 <form onSubmit={handleSubmit}>
                   <Card>
                     <CardHeader>
@@ -542,4 +547,3 @@ function CreateUser() {
 }
 
 export default CreateUser
-
