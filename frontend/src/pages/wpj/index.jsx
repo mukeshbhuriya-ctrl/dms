@@ -1,1 +1,0 @@
-export { default as WeldingJoints } from "./welding_joints"

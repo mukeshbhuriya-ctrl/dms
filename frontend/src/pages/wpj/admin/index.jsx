@@ -1,0 +1,1 @@
+export { default as WeldingJoints } from "../admin/welding_joints"

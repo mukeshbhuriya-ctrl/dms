@@ -23,7 +23,7 @@ import {
 import {
   CreateUser,
 } from "@/pages/admin"
-import { WeldingJoints } from "@/pages/wpj"
+import { WeldingJoints } from "@/pages/wpj/admin"
 
 const userAuthProps = {
   authKey: "user_auth",
