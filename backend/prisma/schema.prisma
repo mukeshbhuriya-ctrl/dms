@@ -34,6 +34,7 @@ model company{
   job_group job_group[]
   group_document group_document[]
   document_type document_type[]
+  weld_joint_plans weld_joint_plan[]
 }
 
 model role{
@@ -66,6 +67,7 @@ model user{
   user_roles user_roles[]
   single_document single_document[]
   group_document group_document[]
+  weld_joint_plans_created weld_joint_plan[]
 }
 
 model user_roles{
@@ -184,6 +186,7 @@ model job{
 
   single_document single_document[]
   job_group job_group[]
+  weld_joint_plans weld_joint_plan[]
 }
 
 model document_type{
@@ -292,3 +295,56 @@ model group_document{
 }
 
 
+
+
+model weld_joint_plan {
+  id                  String   @id @default(uuid())
+  company_id          String
+  job_id              String
+  
+  shreno_drg_no       String
+  customer_drg_no     String?
+  code_of_construction String
+  
+  company   company @relation(fields: [company_id], references: [id])
+  job       job     @relation(fields: [job_id], references: [id])
+  
+  weld_joints weld_joint[]
+  
+  created_by          String?
+  creator             user?   @relation(fields: [created_by], references: [id])
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model weld_joint {
+  id                      String   @id @default(uuid())
+  weld_joint_plan_id      String
+  
+  joint_no                String
+  joint_type              String
+  joint_description       String
+  
+  base_metal_thickness_p1 String?
+  base_metal_thickness_p2 String?
+  
+  base_metal_spec_p1      String?
+  base_metal_spec_p2      String?
+  
+  consumable              String?
+  wps_pqr_no              String?
+  process                 String?
+  impact_test             String?
+  
+  back_chip_req           String?
+  pwht                    String?
+  rt                      String?
+  pt                      String?
+  remarks                 String?
+  
+  weld_joint_plan weld_joint_plan @relation(fields: [weld_joint_plan_id], references: [id], onDelete: Cascade)
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}

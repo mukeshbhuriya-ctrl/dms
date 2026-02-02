@@ -65,6 +65,7 @@ function WeldingJoints() {
 
   const [jobs, setJobs] = useState([])
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
 
   // Fetch jobs from API
   useEffect(() => {
@@ -211,16 +212,51 @@ function WeldingJoints() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
+    setError("")
+    setSuccess("")
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Welding Joints creation data:", {
-        ...formData,
-        tableRows: tableRows,
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
+      }
+
+      const res = await fetch(`${backendUrl}/api/wpj/create-weld-joint-plan`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : ""
+        },
+        body: JSON.stringify({
+          ...formData,
+          tableRows
+        }),
+        credentials: "include"
       })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        setSuccess("Welding Joint Plan created successfully!")
+        handleReset()
+        setTimeout(() => setSuccess(""), 3000)
+      } else {
+        setError(data.message || "Failed to create plan")
+        console.error("Submission failed:", data)
+      }
+
+    } catch (err) {
+      console.error("Error submitting form:", err)
+      setError("An error occurred during submission")
+    } finally {
       setIsLoading(false)
-      // Add your API call here
-    }, 1000)
+    }
   }
 
   const handleReset = () => {
@@ -274,6 +310,18 @@ function WeldingJoints() {
                 Fill in the details to create a new Welding Joints plan.
               </p>
             </div>
+
+            {error && (
+              <div className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-6 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+                {success}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit}>
               <div className="grid gap-6 w-full">

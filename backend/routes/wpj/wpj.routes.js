@@ -1,5 +1,5 @@
 const express = require('express');
-const { getjobInfo } = require('#api/wpj/weld-joint.js');
+const { getjobInfo, createWeldJointPlan } = require('#api/wpj/weld-joint.js');
 const { authenticateUser } = require('#api/middleware/user.middleware.js');
 
 const router = express.Router();
@@ -9,5 +9,6 @@ const router = express.Router();
 router.use(authenticateUser(['ADMIN', 'WELD_PLAN_ADMIN']));
 
 router.get('/get-job-info', getjobInfo);
+router.post('/create-weld-joint-plan', createWeldJointPlan);
 
 module.exports = router;
