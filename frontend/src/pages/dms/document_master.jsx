@@ -26,9 +26,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus } from "lucide-react"
+import { Plus, ArrowLeft } from "lucide-react"
 
 function DocumentMaster() {
+  const [view, setView] = useState("list") // 'list' or 'create'
+
   const [documentFormData, setDocumentFormData] = useState({
     document_number: "",
     document_name: "",
@@ -49,116 +51,82 @@ function DocumentMaster() {
   const [showTypeForm, setShowTypeForm] = useState(false)
 
   // Fetch documents and document types from API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        
-        // Get auth token
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch {
-            // If parsing fails, continue without token
-          }
-        }
+  const fetchData = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
 
-        const headers = {
-          "Content-Type": "application/json",
-        }
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`
-        }
-
-        // Fetch documents and document types in parallel
-        const [documentsRes, typesRes] = await Promise.all([
-          fetch(`${backendUrl}/api/dcc/document`, {
-            method: "GET",
-            headers,
-            credentials: "include",
-          }),
-          fetch(`${backendUrl}/api/dcc/document-type`, {
-            method: "GET",
-            headers,
-            credentials: "include",
-          }),
-        ])
-
-        const documentsContentType = documentsRes.headers.get("content-type") || ""
-        const documentsPayload = documentsContentType.includes("application/json")
-          ? await documentsRes.json()
-          : await documentsRes.text()
-
-        const typesContentType = typesRes.headers.get("content-type") || ""
-        const typesPayload = typesContentType.includes("application/json")
-          ? await typesRes.json()
-          : await typesRes.text()
-
-        if (!documentsRes.ok) {
-          const message =
-            typeof documentsPayload === "string"
-              ? documentsPayload
-              : documentsPayload?.message || "Failed to fetch documents"
-          throw new Error(message)
-        }
-
-        if (!typesRes.ok) {
-          const message =
-            typeof typesPayload === "string"
-              ? typesPayload
-              : typesPayload?.message || "Failed to fetch document types"
-          throw new Error(message)
-        }
-
-        // Extract data from responses
-        const documentsData = documentsPayload?.data || documentsPayload?.documents || []
-        const typesData = typesPayload?.data || typesPayload?.documentTypes || []
-
-        setDocuments(documentsData)
-        setDocumentTypes(typesData)
-      } catch (err) {
-        console.error("Error fetching data:", err)
-        setError(err?.message || "Failed to load data")
-      } finally {
-        setIsLoadingData(false)
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
       }
-    }
 
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : ""
+      }
+
+      // Fetch documents and document types in parallel
+      const [documentsRes, typesRes] = await Promise.all([
+        fetch(`${backendUrl}/api/dcc/document`, {
+          method: "GET",
+          headers,
+          credentials: "include",
+        }),
+        fetch(`${backendUrl}/api/dcc/document-type`, {
+          method: "GET",
+          headers,
+          credentials: "include",
+        }),
+      ])
+
+      const documentsContentType = documentsRes.headers.get("content-type") || ""
+      const documentsPayload = documentsContentType.includes("application/json")
+        ? await documentsRes.json()
+        : await documentsRes.text()
+
+      const typesContentType = typesRes.headers.get("content-type") || ""
+      const typesPayload = typesContentType.includes("application/json")
+        ? await typesRes.json()
+        : await typesRes.text()
+
+      if (!documentsRes.ok) throw new Error(documentsPayload?.message || "Failed to fetch documents")
+      if (!typesRes.ok) throw new Error(typesPayload?.message || "Failed to fetch document types")
+
+      setDocuments(documentsPayload?.data || documentsPayload?.documents || [])
+      setDocumentTypes(typesPayload?.data || typesPayload?.documentTypes || [])
+    } catch (err) {
+      console.error("Error fetching data:", err)
+      setError(err?.message || "Failed to load data")
+    } finally {
+      setIsLoadingData(false)
+    }
+  }
+
+  useEffect(() => {
     fetchData()
   }, [])
 
-  // Handle document form input changes
   const handleDocumentInputChange = (e) => {
     const { name, value } = e.target
-    setDocumentFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    setDocumentFormData((prev) => ({ ...prev, [name]: value }))
     if (error) setError("")
   }
 
   const handleDocumentTypeSelectChange = (value) => {
-    setDocumentFormData((prev) => ({
-      ...prev,
-      document_type_id: value,
-    }))
+    setDocumentFormData((prev) => ({ ...prev, document_type_id: value }))
     if (error) setError("")
   }
 
-  // Handle document type form input changes
   const handleTypeInputChange = (e) => {
     const { name, value } = e.target
-    setDocumentTypeFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    setDocumentTypeFormData((prev) => ({ ...prev, [name]: value }))
     if (typeError) setTypeError("")
   }
 
-  // Create document type
   const handleCreateDocumentType = async (e) => {
     e.preventDefault()
     setTypeError("")
@@ -167,71 +135,47 @@ function DocumentMaster() {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      
-      // Get auth token
       const authData = localStorage.getItem("user_auth")
       let token = null
       if (authData) {
         try {
           const parsed = JSON.parse(authData)
           token = parsed?.payload?.token || parsed?.token
-        } catch {
-          // If parsing fails, continue without token
-        }
+        } catch { }
       }
 
       const headers = {
         "Content-Type": "application/json",
-      }
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
+        "Authorization": token ? `Bearer ${token}` : ""
       }
 
       const res = await fetch(`${backendUrl}/api/dcc/create-document-type`, {
         method: "POST",
         headers,
         credentials: "include",
-        body: JSON.stringify({
-          name: documentTypeFormData.name.trim(),
-        }),
+        body: JSON.stringify({ name: documentTypeFormData.name.trim() }),
       })
 
-      const contentType = res.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await res.json()
-        : await res.text()
+      const data = await res.json()
 
-      if (!res.ok) {
-        const message =
-          typeof payload === "string"
-            ? payload
-            : payload?.message || "Failed to create document type"
-        throw new Error(message)
-      }
+      if (!res.ok) throw new Error(data.message || "Failed to create document type")
 
       setTypeSuccess("Document type created successfully!")
       setDocumentTypeFormData({ name: "" })
       setShowTypeForm(false)
 
-      // Refresh document types list
+      // Refresh types
       const typesRes = await fetch(`${backendUrl}/api/dcc/document-type`, {
         method: "GET",
         headers,
         credentials: "include",
       })
-      const typesContentType = typesRes.headers.get("content-type") || ""
-      const typesPayload = typesContentType.includes("application/json")
-        ? await typesRes.json()
-        : await typesRes.text()
-
+      const typesData = await typesRes.json()
       if (typesRes.ok) {
-        const typesData = typesPayload?.data || typesPayload?.documentTypes || []
-        setDocumentTypes(typesData)
+        setDocumentTypes(typesData.data || typesData.documentTypes || [])
       }
 
-      setTimeout(() => {
-        setTypeSuccess("")
-      }, 3000)
+      setTimeout(() => setTypeSuccess(""), 3000)
     } catch (err) {
       setTypeError(err?.message || "Something went wrong")
     } finally {
@@ -239,7 +183,6 @@ function DocumentMaster() {
     }
   }
 
-  // Create document
   const handleCreateDocument = async (e) => {
     e.preventDefault()
     setError("")
@@ -248,24 +191,18 @@ function DocumentMaster() {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      
-      // Get auth token
       const authData = localStorage.getItem("user_auth")
       let token = null
       if (authData) {
         try {
           const parsed = JSON.parse(authData)
           token = parsed?.payload?.token || parsed?.token
-        } catch {
-          // If parsing fails, continue without token
-        }
+        } catch { }
       }
 
       const headers = {
         "Content-Type": "application/json",
-      }
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
+        "Authorization": token ? `Bearer ${token}` : ""
       }
 
       const res = await fetch(`${backendUrl}/api/dcc/create-document-master`, {
@@ -279,18 +216,9 @@ function DocumentMaster() {
         }),
       })
 
-      const contentType = res.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await res.json()
-        : await res.text()
+      const data = await res.json()
 
-      if (!res.ok) {
-        const message =
-          typeof payload === "string"
-            ? payload
-            : payload?.message || "Failed to create document"
-        throw new Error(message)
-      }
+      if (!res.ok) throw new Error(data.message || "Failed to create document")
 
       setSuccess("Document created successfully!")
       setDocumentFormData({
@@ -299,24 +227,11 @@ function DocumentMaster() {
         document_type_id: "",
       })
 
-      // Refresh documents list
-      const documentsRes = await fetch(`${backendUrl}/api/dcc/document`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-      const documentsContentType = documentsRes.headers.get("content-type") || ""
-      const documentsPayload = documentsContentType.includes("application/json")
-        ? await documentsRes.json()
-        : await documentsRes.text()
-
-      if (documentsRes.ok) {
-        const documentsData = documentsPayload?.data || documentsPayload?.documents || []
-        setDocuments(documentsData)
-      }
+      fetchData() // Refresh list
 
       setTimeout(() => {
         setSuccess("")
+        setView("list")
       }, 3000)
     } catch (err) {
       setError(err?.message || "Something went wrong")
@@ -333,43 +248,81 @@ function DocumentMaster() {
           <SidebarTrigger className="-ml-1" />
         </header>
         <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">Document Master</h1>
-              <p className="text-muted-foreground">
-                Create and manage document types and documents in the system.
-              </p>
+          <div className="max-w-6xl mx-auto w-full">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">
+                  {view === "list" ? "Document Master List" : "Create Document"}
+                </h1>
+                <p className="text-muted-foreground">
+                  {view === "list"
+                    ? "List of all documents and types"
+                    : "Create and manage document types and documents."}
+                </p>
+              </div>
+              <div>
+                {view === "list" ? (
+                  <Button onClick={() => setView("create")}>
+                    <Plus className="mr-2 h-4 w-4" /> Create Document
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={() => setView("list")}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Error and Success Messages */}
-            {error && (
-              <div className="mb-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-                <p className="text-sm text-destructive">{error}</p>
-              </div>
-            )}
-            {success && (
-              <div className="mb-4 p-4 bg-green-500/10 border border-green-500/20 rounded-md">
-                <p className="text-sm text-green-600 dark:text-green-400">{success}</p>
-              </div>
-            )}
-
-            {isLoadingData ? (
+            {view === "list" ? (
               <Card>
-                <CardContent className="p-6">
-                  <p className="text-muted-foreground">Loading data...</p>
+                <CardHeader>
+                  <CardTitle>Documents</CardTitle>
+                  <CardDescription>View all documents in the system.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[80px]">S.No</TableHead>
+                        <TableHead>Document Number</TableHead>
+                        <TableHead>Document Name</TableHead>
+                        <TableHead>Document Type</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {documents.length > 0 ? (
+                        documents.map((document, index) => (
+                          <TableRow key={document.id}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{document.document_number || document.documentNumber}</TableCell>
+                            <TableCell>{document.document_name || document.documentName}</TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                                {document.document_type?.name || document.documentType || "N/A"}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-24 text-center">
+                            No documents found.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
             ) : (
-              <>
+              <div className="space-y-6">
                 {/* Create Document Type Section */}
-                <Card className="mb-6">
+                <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div>
                         <CardTitle>Create Document Type</CardTitle>
-                        <CardDescription>
-                          Add a new document type to the system
-                        </CardDescription>
+                        <CardDescription>Add a new document type to the system</CardDescription>
                       </div>
                       <Button
                         type="button"
@@ -397,13 +350,10 @@ function DocumentMaster() {
                       <form onSubmit={handleCreateDocumentType}>
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label htmlFor="typeName">
-                              Document Type Name <span className="text-destructive">*</span>
-                            </Label>
+                            <Label htmlFor="typeName">Document Type Name *</Label>
                             <Input
                               id="typeName"
                               name="name"
-                              type="text"
                               placeholder="e.g., Invoice, Receipt, Certificate"
                               value={documentTypeFormData.name}
                               onChange={handleTypeInputChange}
@@ -418,8 +368,6 @@ function DocumentMaster() {
                               onClick={() => {
                                 setShowTypeForm(false)
                                 setDocumentTypeFormData({ name: "" })
-                                setTypeError("")
-                                setTypeSuccess("")
                               }}
                               disabled={isLoadingType}
                             >
@@ -440,64 +388,59 @@ function DocumentMaster() {
                   <Card>
                     <CardHeader>
                       <CardTitle>Create Document</CardTitle>
-                      <CardDescription>
-                        Enter the details for the new document
-                      </CardDescription>
+                      <CardDescription>Enter the details for the new document</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {error && (
+                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          {error}
+                        </div>
+                      )}
+                      {success && (
+                        <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+                          {success}
+                        </div>
+                      )}
                       <div className="space-y-2">
-                        <Label htmlFor="document_number">
-                          Document Number <span className="text-destructive">*</span>
-                        </Label>
+                        <Label htmlFor="document_number">Document Number *</Label>
                         <Input
                           id="document_number"
                           name="document_number"
-                          type="text"
                           placeholder="e.g., DOC-001, INV-001"
                           value={documentFormData.document_number}
                           onChange={handleDocumentInputChange}
                           required
                           disabled={isLoading}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Enter a unique number for this document
-                        </p>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="document_name">
-                          Document Name <span className="text-destructive">*</span>
-                        </Label>
+                        <Label htmlFor="document_name">Document Name *</Label>
                         <Input
                           id="document_name"
                           name="document_name"
-                          type="text"
                           placeholder="e.g., Sales Invoice, Purchase Receipt"
                           value={documentFormData.document_name}
                           onChange={handleDocumentInputChange}
                           required
                           disabled={isLoading}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Enter a descriptive name for this document
-                        </p>
                       </div>
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="document_type_id">
-                            Document Type <span className="text-destructive">*</span>
-                          </Label>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowTypeForm(true)}
-                            className="text-xs h-auto p-1"
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Add New Type
-                          </Button>
+                          <Label htmlFor="document_type_id">Document Type *</Label>
+                          {!showTypeForm && (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="sm"
+                              onClick={() => setShowTypeForm(true)}
+                              className="h-auto p-0 text-xs"
+                            >
+                              + Add New Type
+                            </Button>
+                          )}
                         </div>
                         <Select
                           value={documentFormData.document_type_id}
@@ -522,88 +465,33 @@ function DocumentMaster() {
                             )}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Select the category for this document
-                        </p>
+                      </div>
+
+                      <div className="flex justify-end gap-4 mt-6">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setDocumentFormData({
+                              document_number: "",
+                              document_name: "",
+                              document_type_id: "",
+                            })
+                            setError("")
+                          }}
+                          disabled={isLoading}
+                        >
+                          Reset
+                        </Button>
+                        <Button type="submit" disabled={isLoading || documentTypes.length === 0}>
+                          {isLoading ? "Creating..." : "Create Document"}
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
-
-                  {/* Submit Buttons */}
-                  <div className="flex justify-end gap-4 mt-6">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setDocumentFormData({
-                          document_number: "",
-                          document_name: "",
-                          document_type_id: "",
-                        })
-                        setError("")
-                      }}
-                      disabled={isLoading}
-                    >
-                      Reset
-                    </Button>
-                    <Button type="submit" disabled={isLoading || documentTypes.length === 0}>
-                      {isLoading ? "Creating..." : "Create Document"}
-                    </Button>
-                  </div>
                 </form>
-              </>
+              </div>
             )}
-
-            {/* Documents List Table */}
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>Documents List</CardTitle>
-                <CardDescription>
-                  List of all documents in the system
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[100px]">S.No</TableHead>
-                        <TableHead>Document Number</TableHead>
-                        <TableHead>Document Name</TableHead>
-                        <TableHead>Document Type</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {documents.length > 0 ? (
-                        documents.map((document, index) => (
-                          <TableRow key={document.id}>
-                            <TableCell className="font-medium">
-                              {index + 1}
-                            </TableCell>
-                            <TableCell>{document.document_number || document.documentNumber}</TableCell>
-                            <TableCell>{document.document_name || document.documentName}</TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                {document.document_type?.name || document.documentType || "N/A"}
-                              </span>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell
-                            colSpan={4}
-                            className="h-24 text-center"
-                          >
-                            No documents found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </main>
       </SidebarInset>
@@ -612,4 +500,3 @@ function DocumentMaster() {
 }
 
 export default DocumentMaster
-

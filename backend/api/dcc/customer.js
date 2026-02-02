@@ -703,10 +703,77 @@ async function getCustomers(req, res) {
 }
 
 
+/**
+ * Get Customer Locations API - Get all customer locations
+ */
+async function getCustomerLocations(req, res) {
+  try {
+    const company_id = req.user.company_id;
+    const locations = await prisma.customer_location.findMany({
+      where: { company_id },
+      include: {
+        customer: { select: { customer_name: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.status(200).json({ success: true, data: locations });
+  } catch (error) {
+    console.error('Get locations error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
+/**
+ * Get POs API - Get all purchase orders
+ */
+async function getPos(req, res) {
+  try {
+    const company_id = req.user.company_id;
+    const pos = await prisma.po.findMany({
+      where: { company_id },
+      include: {
+        customer: { select: { customer_name: true } },
+        customer_location: { select: { location_name: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.status(200).json({ success: true, data: pos });
+  } catch (error) {
+    console.error('Get POs error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
+/**
+ * Get Jobs API - Get all jobs
+ */
+async function getJobs(req, res) {
+  try {
+    const company_id = req.user.company_id;
+    const jobs = await prisma.job.findMany({
+      where: { company_id },
+      include: {
+        customer: { select: { customer_name: true } },
+        customer_location: { select: { location_name: true } },
+        po: { select: { po_number: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.status(200).json({ success: true, data: jobs });
+  } catch (error) {
+    console.error('Get Jobs error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
+
 module.exports = {
   createCustomer,
   createCustomerLocation,
   createPo,
   createJob,
   getCustomers,
+  getCustomerLocations,
+  getPos,
+  getJobs
 };

@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCustomer, createCustomerLocation, createPo,createJob, getCustomers } = require('#api/dcc/customer.js');
+const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs } = require('#api/dcc/customer.js');
 const { getDocumentType, createDocumentType, getDocumentMaster, createDocumentMaster, assignDocument } = require('#api/dcc/document.js');
 const { getUsers } = require('#api/users/user.js');
 
@@ -12,7 +12,11 @@ const router = express.Router();
 router.use(authenticateUser(['DCC']));
 
 
+
 router.get('/get-customers', getCustomers);
+router.get('/get-customer-locations', getCustomerLocations);
+router.get('/get-pos', getPos);
+router.get('/get-jobs', getJobs);
 
 router.post('/create-customer', createCustomer);
 router.post('/create-customer-location', createCustomerLocation);

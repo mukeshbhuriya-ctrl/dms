@@ -18,22 +18,35 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Upload, X, Plus, Mail } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Upload, X, Plus, Mail, ArrowLeft, FileText } from "lucide-react"
 
 function CreatePO() {
+  const [view, setView] = useState("list") // 'list' or 'create'
+  const [pos, setPos] = useState([]) // List of POs
+
   const [formData, setFormData] = useState({
     customerId: "",
     locationId: "",
     poNumber: "",
     poDate: "",
   })
+
   const [selectedLocation, setSelectedLocation] = useState(null)
-  const [poDocument, setPoDocument] = useState(null) // Single file for po_doc_url
+  const [poDocument, setPoDocument] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true)
   const [customers, setCustomers] = useState([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+
   const [shrenoCommunication, setShrenoCommunication] = useState([
     { name: "", email: "" },
   ])
@@ -41,65 +54,84 @@ function CreatePO() {
     { name: "", email: "" },
   ])
 
-  // Fetch customers from API
-  useEffect(() => {
-    const fetchCustomers = async () => {
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        
-        // Get auth token
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch {
-            // If parsing fails, continue without token
-          }
-        }
-
-        const headers = {
-          "Content-Type": "application/json",
-        }
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`
-        }
-
-        const res = await fetch(`${backendUrl}/api/dcc/get-customers`, {
-          method: "GET",
-          headers,
-          credentials: "include",
-        })
-
-        const contentType = res.headers.get("content-type") || ""
-        const payload = contentType.includes("application/json")
-          ? await res.json()
-          : await res.text()
-
-        if (!res.ok) {
-          const message =
-            typeof payload === "string"
-              ? payload
-              : payload?.message || "Failed to fetch customers"
-          throw new Error(message)
-        }
-
-        // Extract customers from response
-        const customersData = payload?.data || payload?.customers || []
-        setCustomers(customersData)
-      } catch (err) {
-        console.error("Error fetching customers:", err)
-        setError(err?.message || "Failed to load customers")
-      } finally {
-        setIsLoadingCustomers(false)
+  // Fetch POs for List View
+  const fetchPos = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
       }
-    }
 
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : ""
+      }
+
+      const res = await fetch(`${backendUrl}/api/dcc/get-pos`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setPos(data.data || [])
+      } else {
+        console.error("Failed to fetch POs", data)
+      }
+    } catch (err) {
+      console.error("Error fetching POs:", err)
+    }
+  }
+
+  // Fetch customers
+  const fetchCustomers = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : ""
+      }
+
+      const res = await fetch(`${backendUrl}/api/dcc/get-customers`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setCustomers(data.data || [])
+      } else {
+        console.error("Failed to fetch customers", data)
+      }
+    } catch (err) {
+      console.error("Error fetching customers:", err)
+      setError(err?.message || "Failed to load customers")
+    } finally {
+      setIsLoadingCustomers(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchPos()
     fetchCustomers()
   }, [])
 
-  // Get locations for selected customer
   const getLocationsForCustomer = (customerId) => {
     const customer = customers.find((c) => c.id === customerId)
     return customer?.customer_locations || []
@@ -143,7 +175,6 @@ function CreatePO() {
 
   const handleRemoveDocument = () => {
     setPoDocument(null)
-    // Reset file input
     const fileInput = document.getElementById("documentUpload")
     if (fileInput) {
       fileInput.value = ""
@@ -191,20 +222,15 @@ function CreatePO() {
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      
-      // Get auth token
       const authData = localStorage.getItem("user_auth")
       let token = null
       if (authData) {
         try {
           const parsed = JSON.parse(authData)
           token = parsed?.payload?.token || parsed?.token
-        } catch {
-          // If parsing fails, continue without token
-        }
+        } catch { }
       }
 
-      // Prepare communication matrix - ensure it's always a valid object
       const communicationMatrix = {
         shreno: shrenoCommunication
           .filter((contact) => contact.name && contact.email)
@@ -220,7 +246,6 @@ function CreatePO() {
           })),
       }
 
-      // Validate communication matrix structure
       if (
         !communicationMatrix ||
         typeof communicationMatrix !== "object" ||
@@ -230,54 +255,38 @@ function CreatePO() {
         throw new Error("Invalid communication matrix format")
       }
 
-      // Create FormData to send file along with other data
       const formDataToSend = new FormData()
-      
-      // Add text fields
       formDataToSend.append("customer_id", formData.customerId)
       formDataToSend.append("customer_location_id", formData.locationId)
       formDataToSend.append("po_number", formData.poNumber)
       formDataToSend.append("po_date", formData.poDate)
-      
-      // Send communication_matrix as JSON string - backend should parse it
-      // If backend uses multer or similar, it will be available as string in req.body
-      // Backend needs to: const communication_matrix = JSON.parse(req.body.communication_matrix)
       formDataToSend.append("communication_matrix", JSON.stringify(communicationMatrix))
-      
-      // Add file if provided
+
       if (poDocument) {
-        formDataToSend.append("po_document", poDocument) // Backend will handle file upload
+        formDataToSend.append("po_document", poDocument)
       }
 
       const headers = {}
       if (token) {
         headers["Authorization"] = `Bearer ${token}`
       }
-      // Don't set Content-Type header - browser will set it with boundary for FormData
 
       const res = await fetch(`${backendUrl}/api/dcc/create-po`, {
         method: "POST",
         headers,
         credentials: "include",
-        body: formDataToSend, // Send FormData instead of JSON
+        body: formDataToSend,
       })
 
-      const contentType = res.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await res.json()
-        : await res.text()
+      const data = await res.json()
 
       if (!res.ok) {
-        const message =
-          typeof payload === "string"
-            ? payload
-            : payload?.message || "Failed to create PO"
-        throw new Error(message)
+        throw new Error(data.message || "Failed to create PO")
       }
 
       setSuccess("PO created successfully!")
-      
-      // Reset form after successful creation
+
+      // Reset form
       setFormData({
         customerId: "",
         locationId: "",
@@ -288,16 +297,17 @@ function CreatePO() {
       setPoDocument(null)
       setShrenoCommunication([{ name: "", email: "" }])
       setClientCommunication([{ name: "", email: "" }])
-      
-      // Reset file input
-      const fileInput = document.getElementById("documentUpload")
-      if (fileInput) {
-        fileInput.value = ""
-      }
 
+      const fileInput = document.getElementById("documentUpload")
+      if (fileInput) fileInput.value = ""
+
+      // Refresh list and switch view
+      fetchPos()
       setTimeout(() => {
         setSuccess("")
+        setView("list")
       }, 3000)
+
     } catch (err) {
       setError(err?.message || "Something went wrong")
     } finally {
@@ -317,177 +327,195 @@ function CreatePO() {
           <SidebarTrigger className="-ml-1" />
         </header>
         <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">Create Purchase Order</h1>
-              <p className="text-muted-foreground">
-                Fill in the purchase order information below.
-              </p>
+          <div className="max-w-6xl mx-auto w-full">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">
+                  {view === "list" ? "Purchase Orders List" : "Create Purchase Order"}
+                </h1>
+                <p className="text-muted-foreground">
+                  {view === "list"
+                    ? "List of all purchase orders"
+                    : "Fill in the purchase order information below."}
+                </p>
+              </div>
+              <div>
+                {view === "list" ? (
+                  <Button onClick={() => setView("create")}>
+                    <Plus className="mr-2 h-4 w-4" /> Create PO
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={() => setView("list")}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-6">
-                {/* Customer and Location Selection */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Customer & Location</CardTitle>
-                    <CardDescription>
-                      Select the customer and location for this purchase order
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {error && !formData.customerId && (
-                      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                        {error}
-                      </div>
-                    )}
-                    {success && (
-                      <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
-                        {success}
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="customerId">
-                        Customer <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.customerId}
-                        onValueChange={handleCustomerChange}
-                        disabled={isLoading || isLoadingCustomers}
-                        required
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue 
-                            placeholder={
-                              isLoadingCustomers 
-                                ? "Loading customers..." 
-                                : "Select a customer"
-                            } 
-                          />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {customers.length === 0 && !isLoadingCustomers ? (
-                            <SelectItem value="no-customers" disabled>
-                              No customers found
-                            </SelectItem>
-                          ) : (
-                            customers.map((customer) => (
-                              <SelectItem key={customer.id} value={String(customer.id)}>
-                                {customer.customer_name || customer.name || `Customer ${customer.id}`}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.customerId && (
-                      <div className="space-y-2">
-                        <Label htmlFor="locationId">
-                          Location <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={formData.locationId}
-                          onValueChange={handleLocationChange}
-                          disabled={isLoading || !formData.customerId}
-                          required
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a location" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableLocations.length === 0 ? (
-                              <SelectItem value="no-locations" disabled>
-                                No locations found for this customer
-                              </SelectItem>
-                            ) : (
-                              availableLocations.map((location) => (
-                                <SelectItem key={location.id} value={String(location.id)}>
-                                  <div className="flex flex-col">
-                                    <span>{location.location_name || location.name}</span>
-                                    {location.gst_number && (
-                                      <span className="text-xs text-muted-foreground">
-                                        GST: {location.gst_number}
-                                      </span>
-                                    )}
-                                  </div>
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                        {selectedLocation && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Selected Location: <strong>{selectedLocation.location_name || selectedLocation.name}</strong>
-                            {selectedLocation.gst_number && (
-                              <> | GST Number: <strong>{selectedLocation.gst_number}</strong></>
-                            )}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* PO Details */}
-                {formData.locationId && (
+            {view === "list" ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Purchase Orders</CardTitle>
+                  <CardDescription>View and manage purchase orders.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[80px]">S.No</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>PO Number</TableHead>
+                        <TableHead>PO Date</TableHead>
+                        <TableHead>Document</TableHead>
+                        <TableHead className="text-right">Created Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pos.length > 0 ? (
+                        pos.map((po, index) => (
+                          <TableRow key={po.id}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell className="font-medium">{po.customer?.customer_name}</TableCell>
+                            <TableCell>{po.customer_location?.location_name}</TableCell>
+                            <TableCell>{po.po_number}</TableCell>
+                            <TableCell>{new Date(po.po_date).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              {po.po_doc_url ? (
+                                <a
+                                  href={po.po_doc_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-600 hover:underline flex items-center gap-1"
+                                >
+                                  <FileText className="h-3 w-3" /> View
+                                </a>
+                              ) : "-"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {new Date(po.createdAt).toLocaleDateString()}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={7} className="h-24 text-center">
+                            No purchase orders found.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ) : (
+              <form onSubmit={handleSubmit}>
+                <div className="grid gap-6">
+                  {/* Form Content */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Purchase Order Details</CardTitle>
+                      <CardTitle>Customer & Location</CardTitle>
                       <CardDescription>
-                        Enter the purchase order information
+                        Select the customer and location for this purchase order
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      {error && !formData.customerId && (
+                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                          {error}
+                        </div>
+                      )}
                       <div className="space-y-2">
-                        <Label htmlFor="poNumber">
-                          PO Number <span className="text-destructive">*</span>
+                        <Label htmlFor="customerId">
+                          Customer <span className="text-destructive">*</span>
                         </Label>
-                        <Input
-                          id="poNumber"
-                          name="poNumber"
-                          type="text"
-                          placeholder="Enter PO number"
-                          value={formData.poNumber}
-                          onChange={handleInputChange}
+                        <Select
+                          value={formData.customerId}
+                          onValueChange={handleCustomerChange}
+                          disabled={isLoading || isLoadingCustomers}
                           required
-                          disabled={isLoading}
-                        />
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a customer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {customers.map((customer) => (
+                              <SelectItem key={customer.id} value={String(customer.id)}>
+                                {customer.customer_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="poDate">
-                          PO Date <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="poDate"
-                          name="poDate"
-                          type="date"
-                          value={formData.poDate}
-                          onChange={handleInputChange}
-                          required
-                          disabled={isLoading}
-                        />
-                      </div>
+                      {formData.customerId && (
+                        <div className="space-y-2">
+                          <Label htmlFor="locationId">
+                            Location <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={formData.locationId}
+                            onValueChange={handleLocationChange}
+                            disabled={isLoading || !formData.customerId}
+                            required
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Select a location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableLocations.map((location) => (
+                                <SelectItem key={location.id} value={String(location.id)}>
+                                  {location.location_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="poDocuments">
-                          PO Document <span className="text-destructive">*</span>
-                        </Label>
-                        <div className="space-y-4">
-                          <div>
+                  {formData.locationId && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Purchase Order Details</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="poNumber">PO Number *</Label>
+                            <Input
+                              id="poNumber"
+                              name="poNumber"
+                              value={formData.poNumber}
+                              onChange={handleInputChange}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="poDate">PO Date *</Label>
+                            <Input
+                              id="poDate"
+                              name="poDate"
+                              type="date"
+                              value={formData.poDate}
+                              onChange={handleInputChange}
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>PO Document *</Label>
+                          <div className="space-y-4">
                             <Label htmlFor="documentUpload" className="cursor-pointer">
                               <div className="flex items-center gap-2">
                                 <Button
                                   type="button"
                                   variant="outline"
-                                  onClick={() =>
-                                    document.getElementById("documentUpload").click()
-                                  }
-                                  disabled={isLoading}
+                                  onClick={() => document.getElementById("documentUpload").click()}
                                 >
-                                  <Upload className="h-4 w-4 mr-2" />
-                                  Upload Document
+                                  <Upload className="h-4 w-4 mr-2" /> Upload Document
                                 </Button>
                               </div>
                             </Label>
@@ -497,273 +525,127 @@ function CreatePO() {
                               accept=".pdf,.doc,.docx,.xls,.xlsx"
                               onChange={handleDocumentUpload}
                               className="hidden"
-                              disabled={isLoading}
                             />
-                            <p className="text-sm text-muted-foreground mt-2">
-                              Upload PO document (PDF, DOC, DOCX, XLS, XLSX)
-                            </p>
-                          </div>
-
-                          {poDocument && (
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Uploaded Document</p>
-                              <div className="flex items-center justify-between p-3 border rounded-lg">
-                                <div className="flex items-center gap-2">
-                                  <Upload className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm">{poDocument.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    ({(poDocument.size / 1024).toFixed(2)} KB)
-                                  </span>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleRemoveDocument}
-                                  disabled={isLoading}
-                                  className="text-destructive hover:text-destructive"
-                                >
+                            {poDocument && (
+                              <div className="flex items-center gap-2 p-2 border rounded">
+                                <span className="text-sm">{poDocument.name}</span>
+                                <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
                                   <X className="h-4 w-4" />
                                 </Button>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* PO Communication Matrix */}
-                {formData.locationId && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>PO Communication Matrix</CardTitle>
-                      <CardDescription>
-                        Add communication contacts for Shreno and Client side
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Shreno Communication */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                              <Mail className="h-5 w-5" />
-                              Shreno Communication
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              Add Shreno team members for communication
-                            </p>
+                            )}
                           </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={addShrenoCommunication}
-                            disabled={isLoading}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Contact
-                          </Button>
                         </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
-                        <div className="space-y-3">
+                  {formData.locationId && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Communication Matrix</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        {/* Shreno */}
+                        <div className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h3 className="font-semibold flex items-center gap-2">
+                              <Mail className="h-4 w-4" /> Shreno Communication
+                            </h3>
+                            <Button type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
+                              <Plus className="h-4 w-4 mr-2" /> Add
+                            </Button>
+                          </div>
                           {shrenoCommunication.map((contact, index) => (
-                            <div
-                              key={index}
-                              className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg"
-                            >
-                              <div className="space-y-2">
-                                <Label htmlFor={`shreno-name-${index}`}>
-                                  Name <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                  id={`shreno-name-${index}`}
-                                  type="text"
-                                  placeholder="Enter name"
-                                  value={contact.name}
-                                  onChange={(e) =>
-                                    handleShrenoCommunicationChange(
-                                      index,
-                                      "name",
-                                      e.target.value
-                                    )
-                                  }
-                                  disabled={isLoading}
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`shreno-email-${index}`}>
-                                  Email <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                  id={`shreno-email-${index}`}
-                                  type="email"
-                                  placeholder="Enter email"
-                                  value={contact.email}
-                                  onChange={(e) =>
-                                    handleShrenoCommunicationChange(
-                                      index,
-                                      "email",
-                                      e.target.value
-                                    )
-                                  }
-                                  disabled={isLoading}
-                                  required
-                                />
-                              </div>
-                              <div className="flex items-end">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeShrenoCommunication(index)}
-                                  disabled={
-                                    isLoading || shrenoCommunication.length === 1
-                                  }
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
+                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                              <Input
+                                placeholder="Name"
+                                value={contact.name}
+                                onChange={(e) => handleShrenoCommunicationChange(index, "name", e.target.value)}
+                                required
+                              />
+                              <Input
+                                placeholder="Email"
+                                type="email"
+                                value={contact.email}
+                                onChange={(e) => handleShrenoCommunicationChange(index, "email", e.target.value)}
+                                required
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeShrenoCommunication(index)}
+                                disabled={shrenoCommunication.length === 1}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
                           ))}
                         </div>
-                      </div>
 
-                      {/* Divider */}
-                      <div className="border-t"></div>
-
-                      {/* Client Side Communication */}
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-lg font-semibold flex items-center gap-2">
-                              <Mail className="h-5 w-5" />
-                              Client Side Communication
+                        {/* Client */}
+                        <div className="space-y-4 border-t pt-4">
+                          <div className="flex justify-between items-center">
+                            <h3 className="font-semibold flex items-center gap-2">
+                              <Mail className="h-4 w-4" /> Client Communication
                             </h3>
-                            <p className="text-sm text-muted-foreground">
-                              Add client team members for communication
-                            </p>
+                            <Button type="button" variant="outline" size="sm" onClick={addClientCommunication}>
+                              <Plus className="h-4 w-4 mr-2" /> Add
+                            </Button>
                           </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={addClientCommunication}
-                            disabled={isLoading}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Contact
-                          </Button>
-                        </div>
-
-                        <div className="space-y-3">
                           {clientCommunication.map((contact, index) => (
-                            <div
-                              key={index}
-                              className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg"
-                            >
-                              <div className="space-y-2">
-                                <Label htmlFor={`client-name-${index}`}>
-                                  Name <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                  id={`client-name-${index}`}
-                                  type="text"
-                                  placeholder="Enter name"
-                                  value={contact.name}
-                                  onChange={(e) =>
-                                    handleClientCommunicationChange(
-                                      index,
-                                      "name",
-                                      e.target.value
-                                    )
-                                  }
-                                  disabled={isLoading}
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`client-email-${index}`}>
-                                  Email <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                  id={`client-email-${index}`}
-                                  type="email"
-                                  placeholder="Enter email"
-                                  value={contact.email}
-                                  onChange={(e) =>
-                                    handleClientCommunicationChange(
-                                      index,
-                                      "email",
-                                      e.target.value
-                                    )
-                                  }
-                                  disabled={isLoading}
-                                  required
-                                />
-                              </div>
-                              <div className="flex items-end">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeClientCommunication(index)}
-                                  disabled={
-                                    isLoading || clientCommunication.length === 1
-                                  }
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
+                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                              <Input
+                                placeholder="Name"
+                                value={contact.name}
+                                onChange={(e) => handleClientCommunicationChange(index, "name", e.target.value)}
+                                required
+                              />
+                              <Input
+                                placeholder="Email"
+                                type="email"
+                                value={contact.email}
+                                onChange={(e) => handleClientCommunicationChange(index, "email", e.target.value)}
+                                required
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeClientCommunication(index)}
+                                disabled={clientCommunication.length === 1}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                      </CardContent>
+                    </Card>
+                  )}
 
-                {/* Submit Buttons */}
-                {formData.locationId && (
-                  <div className="flex justify-end gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setFormData({
-                          customerId: "",
-                          locationId: "",
-                          poNumber: "",
-                          poDate: "",
-                        })
-                        setSelectedLocation(null)
-                        setPoDocument(null)
-                        setShrenoCommunication([{ name: "", email: "" }])
-                        setClientCommunication([{ name: "", email: "" }])
-                        setError("")
-                        setSuccess("")
-                        // Reset file input
-                        const fileInput = document.getElementById("documentUpload")
-                        if (fileInput) {
-                          fileInput.value = ""
-                        }
-                      }}
-                      disabled={isLoading}
-                    >
-                      Reset
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Creating..." : "Create PO"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </form>
+                  {formData.locationId && (
+                    <div className="flex justify-end gap-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
+                          setSelectedLocation(null)
+                          setPoDocument(null)
+                        }}
+                      >
+                        Reset
+                      </Button>
+                      <Button type="submit" disabled={isLoading}>
+                        {isLoading ? "Creating..." : "Create PO"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </form>
+            )}
           </div>
         </main>
       </SidebarInset>
@@ -772,4 +654,3 @@ function CreatePO() {
 }
 
 export default CreatePO
-
