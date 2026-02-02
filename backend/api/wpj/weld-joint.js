@@ -176,4 +176,51 @@ async function createWeldJointPlan(req, res) {
     }
 }
 
-module.exports = { getjobInfo, createWeldJointPlan }
+/**
+ * Get Weld Joint Plans API
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function getWeldJointPlans(req, res) {
+    try {
+        const company_id = req.user.company_id;
+
+        const plans = await prisma.weld_joint_plan.findMany({
+            where: {
+                company_id: company_id
+            },
+            include: {
+                job: {
+                    select: {
+                        job_number: true,
+                        project_id: true,
+                        equipement_name: true,
+                        customer: {
+                            select: {
+                                customer_name: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Weld Joint Plans fetched successfully',
+            data: plans
+        });
+    } catch (error) {
+        console.error('Get weld joint plans error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+    }
+}
+
+module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans }
