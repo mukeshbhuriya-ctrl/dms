@@ -9,8 +9,8 @@ async function getjobInfo(req, res) {
     try {
         const company_id = req.user.company_id; // Get company_id from authenticated user
 
-        // Fetch all jobs for the company
-        const jobInfo = await prisma.job.findMany({
+        // Fetch all jobs for the company with their latest weld plan serial number
+        const jobs = await prisma.job.findMany({
             where: {
                 company_id: company_id,
             },
@@ -20,22 +20,44 @@ async function getjobInfo(req, res) {
                 tag_number: true,
                 project_id: true,
                 equipement_name: true,
-                code: true, // Assuming this maps to Weld Plan No or similar
+                code: true,
                 customer: {
                     select: {
                         customer_name: true,
                     },
                 },
+                weld_joint_plans: {
+                    select: {
+                        serial_no: true
+                    },
+                    orderBy: {
+                        serial_no: 'desc'
+                    },
+                    take: 1
+                }
             },
             orderBy: {
                 createdAt: 'desc',
             },
         });
 
+        // Process jobs to add next_serial_no and next_weld_plan_no
+        const processedJobs = jobs.map(job => {
+            const lastSerial = job.weld_joint_plans?.[0]?.serial_no || 0;
+            const nextSerial = lastSerial + 1;
+
+            return {
+                ...job,
+                next_serial_no: nextSerial,
+                // Generate the dynamic Weld Plan No: SHR/JobNo/WTP/SerialNo
+                next_weld_plan_no: `SHR/job${job.job_number}/WTP/${nextSerial}`
+            };
+        });
+
         res.status(200).json({
             success: true,
             message: 'Job Information fetched successfully',
-            data: jobInfo,
+            data: processedJobs,
         });
     } catch (error) {
         console.error('Get job information error:', error);
@@ -70,17 +92,29 @@ async function createWeldJointPlan(req, res) {
             return res.status(400).json({ success: false, message: 'Job Number is required' });
         }
 
-        // Find the job to link
+        // Find the job to link and get its latest serial number
         const job = await prisma.job.findFirst({
             where: {
                 job_number: jobNo,
                 company_id: company_id
+            },
+            include: {
+                weld_joint_plans: {
+                    select: { serial_no: true },
+                    orderBy: { serial_no: 'desc' },
+                    take: 1
+                }
             }
         });
 
         if (!job) {
             return res.status(404).json({ success: false, message: 'Job not found' });
         }
+
+        // Calculate next serial number and weld plan no
+        const lastSerial = job.weld_joint_plans?.[0]?.serial_no || 0;
+        const nextSerial = lastSerial + 1;
+        const generatedWeldPlanNo = `SHR/${job.job_number}/WTP/${nextSerial}`;
 
         // Create Plan and Joints in transaction
         const result = await prisma.$transaction(async (tx) => {
@@ -92,7 +126,9 @@ async function createWeldJointPlan(req, res) {
                     shreno_drg_no: shrDrgNo,
                     customer_drg_no: customerDrgNumber,
                     code_of_construction: codeOfConstruction,
-                    created_by: user_id
+                    created_by: user_id,
+                    weld_plan_no: generatedWeldPlanNo,
+                    serial_no: nextSerial
                 }
             });
 

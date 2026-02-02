@@ -135,7 +135,7 @@ function WeldingJoints() {
       projectId: selectedJob?.project_id || "",
       clientName: selectedJob?.customer?.customer_name || "",
       equipmentName: selectedJob?.equipement_name || "",
-      weldPlanNo: selectedJob?.code || prev.weldPlanNo, // Auto-fill if available, else keep existing
+      weldPlanNo: selectedJob?.next_weld_plan_no || prev.weldPlanNo, // Auto-fill with dynamic plan no
     }))
   }
 

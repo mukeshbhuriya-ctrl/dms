@@ -305,6 +305,8 @@ model weld_joint_plan {
   shreno_drg_no       String
   customer_drg_no     String?
   code_of_construction String
+  weld_plan_no        String
+  serial_no           Int
   
   company   company @relation(fields: [company_id], references: [id])
   job       job     @relation(fields: [job_id], references: [id])
