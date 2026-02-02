@@ -139,6 +139,13 @@ const roleMenus = {
       path: "/welding-joints",
     },
   ],
+  WELD_PLAN_USER: [
+    {
+      title: "View Welding Joints",
+      icon: Wrench,
+      path: "/view-weldingjoints",
+    },
+  ],
 }
 
 const roleKeyMap = Object.keys(roleMenus).reduce((acc, key) => {

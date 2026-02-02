@@ -24,6 +24,7 @@ import {
   CreateUser,
 } from "@/pages/admin"
 import { WeldingJoints } from "@/pages/wpj/admin"
+import { ViewWeldingJoints } from "@/pages/wpj/user"
 
 const userAuthProps = {
   authKey: "user_auth",
@@ -114,6 +115,13 @@ const weldAdminRoutes = [
   },
 ]
 
+const weldUserRoutes = [
+  {
+    path: "/view-weldingjoints",
+    element: <ViewWeldingJoints />,
+  },
+]
+
 const protectedDccRoutes = dccRoutes.map((route) => ({
   ...route,
   element: wrapProtected(route.element, userAuthProps),
@@ -128,6 +136,7 @@ const appRoutes = [
   ...userRoutes,
   ...adminRoutes,
   ...weldAdminRoutes,
+  ...weldUserRoutes,
   ...protectedDccRoutes,
 ]
 

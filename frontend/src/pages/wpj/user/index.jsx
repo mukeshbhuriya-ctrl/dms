@@ -1,0 +1,1 @@
+export { default as ViewWeldingJoints } from "./view_welding_joints"

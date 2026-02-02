@@ -1,1 +1,1 @@
-export { default as WeldingJoints } from "../admin/welding_joints"
+export { default as WeldingJoints } from "./welding_joints"
