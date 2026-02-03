@@ -55,7 +55,17 @@ function ViewWeldingJoints() {
         if (res.ok) {
           const mappedJoints = (data.data || []).map(joint => ({
             id: joint.id,
-            msnNumber: joint.weld_joint_plan?.job?.job_number || "-", // Mapping Job No to MSN Number
+            msnNumber: joint.weld_joint_plan?.job?.job_number || "-",
+            // Basic Info for Stage 1
+            client: joint.weld_joint_plan?.job?.customer?.customer_name || "",
+            poNo: joint.weld_joint_plan?.job?.po?.po_number || "",
+            tagNo: joint.weld_joint_plan?.job?.tag_number || "",
+            equipment: joint.weld_joint_plan?.job?.equipement_name || "",
+            projectsId: joint.weld_joint_plan?.job?.project_id || "",
+            lindeDrgNo: joint.weld_joint_plan?.shreno_drg_no || "",
+            drgNo: joint.weld_joint_plan?.customer_drg_no || "",
+            code: joint.weld_joint_plan?.job?.code || "",
+
             jointNo: joint.joint_no,
             jointCategory: joint.joint_type,
             status: "stage1", // Defaulting to stage1 as confirmed
@@ -238,7 +248,7 @@ function ViewWeldingJoints() {
             </DialogTitle>
           </DialogHeader>
           <div className="mt-4">
-            {selectedStage === "stage1" && <Stage1 key={selectedJoint?.id} />}
+            {selectedStage === "stage1" && <Stage1 key={selectedJoint?.id} initialData={selectedJoint} />}
             {(selectedStage === "stage2" || selectedStage === "stage3") && (
               <Stage2
                 key={selectedJoint?.id}

@@ -504,15 +504,18 @@ function CreateJob() {
                   {formData.poId && (
                     <Card>
                       <CardHeader>
-                        <CardTitle>Enter Job Details</CardTitle>
-                      </CardHeader>
+                      <CardTitle>Job Details</CardTitle>
+                      <CardDescription>
+                        Enter the job details for this purchase order
+                      </CardDescription>
+                    </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
                           {jobs.map((job) => (
                             <div key={job.id}>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                  <Label>Job Number *</Label>
+                                  <Label>Job Number <span className="text-destructive">*</span></Label>
                                   <Input
                                     value={job.job_number}
                                     onChange={(e) => handleJobChange(job.id, "job_number", e.target.value)}
@@ -520,28 +523,28 @@ function CreateJob() {
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Project ID</Label>
+                                  <Label>Project ID <span className="text-destructive">*</span></Label>
                                   <Input
                                     value={job.project_id}
                                     onChange={(e) => handleJobChange(job.id, "project_id", e.target.value)}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Equipment Name</Label>
+                                  <Label>Equipment Name <span className="text-destructive">*</span></Label>
                                   <Input
                                     value={job.equipement_name}
                                     onChange={(e) => handleJobChange(job.id, "equipement_name", e.target.value)}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Tag Number</Label>
+                                  <Label>Tag Number <span className="text-destructive">*</span></Label>
                                   <Input
                                     value={job.tag_number}
                                     onChange={(e) => handleJobChange(job.id, "tag_number", e.target.value)}
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Code</Label>
+                                  <Label>Code <span className="text-destructive">*</span></Label>
                                   <Input
                                     value={job.code}
                                     onChange={(e) => handleJobChange(job.id, "code", e.target.value)}

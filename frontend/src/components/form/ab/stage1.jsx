@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-function Stage1() {
+function Stage1({ initialData }) {
   // First section - Display fields (read-only)
   const [displayFields, setDisplayFields] = useState({
     msn: "",
@@ -35,6 +35,26 @@ function Stage1() {
     code: "",
     inspAgency: "",
   })
+
+  useEffect(() => {
+    if (initialData) {
+      setDisplayFields({
+        msn: initialData.msnNumber || "",
+        client: initialData.client || "",
+        poNo: initialData.poNo || "",
+      })
+
+      setInputFields((prev) => ({
+        ...prev,
+        tagNo: initialData.tagNo || "",
+        equipment: initialData.equipment || "",
+        projectsId: initialData.projectsId || "",
+        lindeDrgNo: initialData.lindeDrgNo || "",
+        drgNo: initialData.drgNo || "",
+        code: initialData.code || "",
+      }))
+    }
+  }, [initialData])
 
   // Second section - Fixed rows with predefined names
   const [inspectionRows, setInspectionRows] = useState([

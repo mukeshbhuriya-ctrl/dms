@@ -305,9 +305,23 @@ async function getWeldJoints(req, res) {
                     include: {
                         job: {
                             select: {
-                                job_number: true
+                                job_number: true,
+                                project_id: true,
+                                equipement_name: true,
+                                tag_number: true,
+                                code: true,
+                                customer: {
+                                    select: {
+                                        customer_name: true
+                                    }
+                                },
+                                po: {
+                                    select: {
+                                        po_number: true
+                                    }
+                                }
                             }
-                        }
+                        },
                     }
                 }
             },
