@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -24,57 +24,60 @@ function ViewWeldingJoints() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedStage, setSelectedStage] = useState(null)
   const [selectedJoint, setSelectedJoint] = useState(null)
+  const [weldingJoints, setWeldingJoints] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  // Dummy data - replace with actual API call
-  const weldingJoints = [
-    {
-      id: 1,
-      msnNumber: "MSN-001",
-      jointNo: "JN-001",
-      jointCategory: "A",
-      status: "stage1",
-      backChip: false,
-    },
-    {
-      id: 2,
-      msnNumber: "MSN-002",
-      jointNo: "JN-002",
-      jointCategory: "B",
-      status: "stage2",
-      backChip: true,
-    },
-    {
-      id: 3,
-      msnNumber: "MSN-003",
-      jointNo: "JN-003",
-      jointCategory: "A",
-      status: "stage1",
-    },
-    {
-      id: 4,
-      msnNumber: "MSN-004",
-      jointNo: "JN-004",
-      jointCategory: "B",
-      status: "stage2",
-      backChip: false,
-    },
-    {
-      id: 5,
-      msnNumber: "MSN-005",
-      jointNo: "JN-005",
-      jointCategory: "A",
-      status: "stage1",
-      backChip: false,
-    },
-    {
-      id: 6,
-      msnNumber: "MSN-006",
-      jointNo: "JN-006",
-      jointCategory: "A",
-      status: "stage3",
-      backChip: true,
-    },
-  ]
+  useEffect(() => {
+    const fetchJoints = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+        const authData = localStorage.getItem("user_auth")
+        let token = null
+        if (authData) {
+          try {
+            const parsed = JSON.parse(authData)
+            token = parsed?.payload?.token || parsed?.token
+          } catch { }
+        }
+
+        const res = await fetch(`${backendUrl}/api/wpj/get-all-weld-joints`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : ""
+          },
+          credentials: "include",
+        })
+
+        const data = await res.json()
+
+        if (res.ok) {
+          const mappedJoints = (data.data || []).map(joint => ({
+            id: joint.id,
+            msnNumber: joint.weld_joint_plan?.job?.job_number || "-", // Mapping Job No to MSN Number
+            jointNo: joint.joint_no,
+            jointCategory: joint.joint_type,
+            status: "stage1", // Defaulting to stage1 as confirmed
+            backChip: joint.back_chip_req || false,
+            // Preserve other details if needed for stages
+            ...joint
+          }))
+          setWeldingJoints(mappedJoints)
+        } else {
+          console.error("Failed to fetch joints", data)
+          setError("Failed to load welding joints")
+        }
+      } catch (err) {
+        console.error("Error fetching joints:", err)
+        setError("Error fetching data")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchJoints()
+  }, [])
 
   const getStatusBadge = (status) => {
     if (status === "stage1") {
@@ -154,60 +157,66 @@ function ViewWeldingJoints() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[100px]">S.No</TableHead>
-                        <TableHead>MSN Number</TableHead>
-                        <TableHead>Joint No</TableHead>
-                        <TableHead>Joint Category</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {weldingJoints.length === 0 ? (
+                {isLoading ? (
+                  <div className="text-center py-4">Loading...</div>
+                ) : error ? (
+                  <div className="text-destructive text-center py-4">{error}</div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
                         <TableRow>
-                          <TableCell
-                            colSpan={6}
-                            className="h-24 text-center"
-                          >
-                            No welding joints found.
-                          </TableCell>
+                          <TableHead className="w-[100px]">S.No</TableHead>
+                          <TableHead>MSN Number</TableHead>
+                          <TableHead>Joint No</TableHead>
+                          <TableHead>Joint Category</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Action</TableHead>
                         </TableRow>
-                      ) : (
-                        weldingJoints.map((joint, index) => (
-                          <TableRow key={joint.id}>
-                            <TableCell className="font-medium">
-                              {index + 1}
-                            </TableCell>
-                            <TableCell>{joint.msnNumber}</TableCell>
-                            <TableCell>{joint.jointNo}</TableCell>
-                            <TableCell>{getJointCategoryBadge(joint.jointCategory)}</TableCell>
-                            <TableCell>{getStatusBadge(joint.status)}</TableCell>
-                            <TableCell>
-                              <Button
-                                onClick={() => handleOpenStage(joint)}
-                                variant="outline"
-                                size="sm"
-                              >
-                                Open{" "}
-                                {joint.status === "stage1"
-                                  ? "Stage 1"
-                                  : joint.status === "stage2"
-                                    ? "Stage 2"
-                                    : joint.status === "stage3"
-                                      ? "Stage 3"
-                                      : joint.status}
-                              </Button>
+                      </TableHeader>
+                      <TableBody>
+                        {weldingJoints.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={6}
+                              className="h-24 text-center"
+                            >
+                              No welding joints found.
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                        ) : (
+                          weldingJoints.map((joint, index) => (
+                            <TableRow key={joint.id}>
+                              <TableCell className="font-medium">
+                                {index + 1}
+                              </TableCell>
+                              <TableCell>{joint.msnNumber}</TableCell>
+                              <TableCell>{joint.jointNo}</TableCell>
+                              <TableCell>{getJointCategoryBadge(joint.jointCategory)}</TableCell>
+                              <TableCell>{getStatusBadge(joint.status)}</TableCell>
+                              <TableCell>
+                                <Button
+                                  onClick={() => handleOpenStage(joint)}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Open{" "}
+                                  {joint.status === "stage1"
+                                    ? "Stage 1"
+                                    : joint.status === "stage2"
+                                      ? "Stage 2"
+                                      : joint.status === "stage3"
+                                        ? "Stage 3"
+                                        : joint.status}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -245,4 +254,3 @@ function ViewWeldingJoints() {
 }
 
 export default ViewWeldingJoints
-

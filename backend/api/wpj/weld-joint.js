@@ -148,10 +148,10 @@ async function createWeldJointPlan(req, res) {
                         wps_pqr_no: row.wpsNoPqrNo,
                         process: row.process,
                         impact_test: row.impactTest,
-                        back_chip_req: row.backChipReq === 'yes' ? 'yes' : (row.backChipReq === 'no' ? 'no' : null),
-                        pwht: row.pwht === 'yes' ? 'yes' : (row.pwht === 'no' ? 'no' : null),
-                        rt: row.rt === 'yes' ? 'yes' : (row.rt === 'no' ? 'no' : null),
-                        pt: row.pt === 'yes' ? 'yes' : (row.pt === 'no' ? 'no' : null),
+                        back_chip_req: row.backChipReq === 'yes' ? true : (row.backChipReq === 'no' ? false : null),
+                        pwht: row.pwht === 'yes' ? true : (row.pwht === 'no' ? false : null),
+                        rt: row.rt === 'yes' ? true : (row.rt === 'no' ? false : null),
+                        pt: row.pt === 'yes' ? true : (row.pt === 'no' ? false : null),
                         remarks: row.remarks
                     }))
                 });
@@ -285,4 +285,50 @@ async function getWeldJointPlanDetails(req, res) {
     }
 }
 
-module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails }
+/**
+ * Get All Weld Joints API
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function getWeldJoints(req, res) {
+    try {
+        const company_id = req.user.company_id;
+
+        const joints = await prisma.weld_joint.findMany({
+            where: {
+                weld_joint_plan: {
+                    company_id: company_id
+                }
+            },
+            include: {
+                weld_joint_plan: {
+                    include: {
+                        job: {
+                            select: {
+                                job_number: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Weld Joints fetched successfully',
+            data: joints
+        });
+    } catch (error) {
+        console.error('Get weld joints error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+    }
+}
+
+module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints }

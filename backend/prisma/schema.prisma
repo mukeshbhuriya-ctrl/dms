@@ -339,10 +339,10 @@ model weld_joint {
   process                 String?
   impact_test             String?
   
-  back_chip_req           String?
-  pwht                    String?
-  rt                      String?
-  pt                      String?
+  back_chip_req           Boolean?
+  pwht                    Boolean?
+  rt                      Boolean?
+  pt                      Boolean?
   remarks                 String?
   
   weld_joint_plan weld_joint_plan @relation(fields: [weld_joint_plan_id], references: [id], onDelete: Cascade)

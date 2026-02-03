@@ -1199,11 +1199,11 @@ function WeldingJoints() {
                               <td className="border border-black p-2">{joint.wps_pqr_no || joint.wpsNoPqrNo}</td>
                               <td className="border border-black p-2">{joint.process}</td>
                               <td className="border border-black p-2">{joint.impact_test || joint.impactTest}</td>
-                              <td className="border border-black p-2">{joint.pwht}</td>
+                              <td className="border border-black p-2">{joint.pwht ? 'YES' : ''}</td>
 
                               {/* NDT */}
-                              <td className="border border-black p-2">{joint.rt === 'yes' ? 'YES' : ''}</td>
-                              <td className="border border-black p-2">{joint.pt === 'yes' ? 'YES' : ''}</td>
+                              <td className="border border-black p-2">{joint.rt ? 'YES' : ''}</td>
+                              <td className="border border-black p-2">{joint.pt ? 'YES' : ''}</td>
 
                               <td className="border border-black p-2 min-w-[150px]">{joint.remarks}</td>
                             </tr>
