@@ -244,7 +244,12 @@ function ViewWeldingJoints() {
     const isAssignedToMe = userId && assignedId && String(assignedId) === String(userId);
     const hasAssignment = !!assignedId;
 
-    return { isPending, isAssignedToMe, hasAssignment };
+    // Check submission status (sX_completed_at is set when Prod submits)
+    const prefix = currentStage.replace('stage', 's');
+    const completedAtKey = `${prefix}_completed_at`;
+    const isSubmitted = !!joint.inspectionData?.[completedAtKey];
+
+    return { isPending, isAssignedToMe, hasAssignment, isSubmitted };
   };
 
   return (
@@ -310,7 +315,7 @@ function ViewWeldingJoints() {
                               <TableCell>{getStatusBadge(joint.status)}</TableCell>
                               <TableCell>
                                 {(() => {
-                                  const { isPending, isAssignedToMe, hasAssignment } = getStageActionState(joint);
+                                  const { isPending, isAssignedToMe, hasAssignment, isSubmitted } = getStageActionState(joint);
                                   const stageName = joint.status === "stage1" ? "Stage 1"
                                     : joint.status === "stage2" ? "Stage 2"
                                       : joint.status === "stage3" ? "Stage 3"
@@ -350,7 +355,7 @@ function ViewWeldingJoints() {
                                             size="sm"
                                             disabled
                                           >
-                                           Approval Pending {stageName}
+                                            Approval Pending {stageName}
                                           </Button>
                                         );
                                       }
@@ -358,19 +363,15 @@ function ViewWeldingJoints() {
                                     return <span className="text-muted-foreground">-</span>;
                                   } else {
                                     // Production Engineer
+                                    const showPending = isPending && isSubmitted;
                                     return (
                                       <Button
                                         onClick={() => handleOpenStage(joint)}
-                                        disabled={isPending}
+                                        disabled={showPending}
                                         variant="outline"
                                         size="sm"
                                       >
-                                        {isPending ? "Approval Pending" : "Open"} {
-                                          joint.status === "stage1" ? "Stage 1"
-                                            : joint.status === "stage2" ? "Stage 2"
-                                              : joint.status === "stage3" ? "Stage 3"
-                                                : joint.status
-                                        }
+                                        {showPending ? `Approval Pending ${stageName}` : `Open ${stageName}`}
                                       </Button>
                                     );
                                   }
