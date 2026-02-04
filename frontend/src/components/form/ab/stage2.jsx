@@ -243,11 +243,10 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         stage: currentStage,
         status: status,
         engineerId: userId,
-        role: role,
-        data: {}
+        role: role
       }
 
-      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+      const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

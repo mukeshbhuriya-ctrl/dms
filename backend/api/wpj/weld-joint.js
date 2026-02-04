@@ -439,6 +439,64 @@ async function updateStageStatus(req, res) {
 }
 
 /**
+ * Review Stage Status API - Separate endpoint for Approve/Reject to prevent data overwrite
+ */
+async function reviewStageStatus(req, res) {
+    try {
+        const { jointId, stage, status, engineerId, role } = req.body;
+
+        if (!jointId || !stage || !status) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        const stagePrefix = {
+            'stage1': 's1', 'stage2': 's2', 'stage3': 's3',
+            'stage4': 's4', 'stage5': 's5', 'stage6': 's6', 'stage7': 's7'
+        }[stage];
+
+        if (!stagePrefix) return res.status(400).json({ success: false, message: 'Invalid stage' });
+
+        const updateData = {
+            [`${stagePrefix}_status`]: status
+        };
+
+        if (status === 'approved') {
+            updateData[`${stagePrefix}_completed_at`] = new Date();
+        }
+
+        // Handle Status Transition (e.g. Stage 1 Approved -> Move to Stage 2)
+        // I need to update the parent weld_joint status.
+        // Assuming linear progression:
+        const nextStageMap = {
+            'stage1': 'stage2', 'stage2': 'stage3', 'stage3': 'stage4',
+            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'stage7', 'stage7': 'completed'
+        };
+
+        let parentStatusUpdate = {};
+        if (status === 'approved' && nextStageMap[stage]) {
+            parentStatusUpdate = { status: nextStageMap[stage] };
+        }
+        // If rejected, usually stays in current stage or moves back? 
+        // User didn't specify reject logic, but usually rejection keeps it in current stage or marks 'rejected'. 
+        // Existing logic likely keeps it 'stageX' but sX_status becomes 'rejected'.
+
+        // Update Inspection Table
+        await prisma.weld_joint_inspection.update({
+            where: { weld_joint_id: jointId },
+            data: updateData
+        });
+
+        // NOT updating parent table as 'status' column does not exist on weld_joint.
+        // The frontend and other logic seem to infer stage from weld_joint_inspection status.
+
+        res.status(200).json({ success: true, message: `Stage ${status} successfully` });
+    } catch (error) {
+        console.error('Review stage error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
+/**
  * Get Assigned Weld Joints API - For QC/NDT Engineers
  * Retrieves only joints that have a pending stage assigned to the authenticated user.
  * @param {Object} req - Express request object
@@ -550,4 +608,9 @@ async function getAssignedWeldJoints(req, res) {
     }
 }
 
-module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints, updateStageStatus, getAssignedWeldJoints }
+module.exports = {
+    getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints,
+    updateStageStatus,
+    getAssignedWeldJoints,
+    reviewStageStatus
+};

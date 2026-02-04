@@ -15,8 +15,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { FormAlert } from "@/components/ui/form-alert"
 
 function Stage1({ initialData, isReview = false }) {
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   // First section - Display fields (read-only)
   const [displayFields, setDisplayFields] = useState({
     msn: "",
@@ -211,6 +214,8 @@ function Stage1({ initialData, isReview = false }) {
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
+    setError("")
+    setSuccess("")
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -225,7 +230,7 @@ function Stage1({ initialData, isReview = false }) {
       }
 
       if (!qeEngineer) {
-        alert("Please select QE Engineer");
+        setError("Please select QE Engineer");
         setIsSubmitting(false);
         return;
       }
@@ -257,15 +262,15 @@ function Stage1({ initialData, isReview = false }) {
 
       const data = await res.json();
       if (res.ok) {
-        alert("Stage 1 submitted successfully");
-        window.location.reload();
+        setSuccess("Stage 1 submitted successfully");
+        setTimeout(() => window.location.reload(), 1500);
       } else {
-        alert(data.message || "Submission failed");
+        setError(data.message || "Submission failed");
       }
 
     } catch (error) {
       console.error(error);
-      alert("Error submitting form");
+      setError("Error submitting form");
     } finally {
       setIsSubmitting(false);
     }
@@ -273,6 +278,8 @@ function Stage1({ initialData, isReview = false }) {
 
   const handleReviewAction = async (status) => {
     setIsSubmitting(true);
+    setError("")
+    setSuccess("")
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -291,11 +298,10 @@ function Stage1({ initialData, isReview = false }) {
         stage: "stage1",
         status: status, // 'approved' or 'rejected'
         engineerId: userId,
-        role: role,
-        data: {} // No data update during review, just status change
+        role: role
       }
 
-      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+      const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -307,14 +313,14 @@ function Stage1({ initialData, isReview = false }) {
 
       const data = await res.json();
       if (res.ok) {
-        alert(`Stage 1 ${status} successfully`);
-        window.location.reload();
+        setSuccess(`Stage 1 ${status} successfully`);
+        setTimeout(() => window.location.reload(), 1500);
       } else {
-        alert(data.message || "Review action failed");
+        setError(data.message || "Review action failed");
       }
     } catch (error) {
       console.error(error);
-      alert("Error processing review");
+      setError("Error processing review");
     } finally {
       setIsSubmitting(false);
     }
@@ -322,6 +328,8 @@ function Stage1({ initialData, isReview = false }) {
 
   return (
     <div className="w-full mx-auto p-6 space-y-6">
+      <FormAlert type="error" message={error} />
+      <FormAlert type="success" message={success} />
       {/* First Section */}
       <Card>
         <CardHeader>

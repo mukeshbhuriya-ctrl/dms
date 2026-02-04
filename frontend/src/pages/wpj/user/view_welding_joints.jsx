@@ -242,8 +242,9 @@ function ViewWeldingJoints() {
     const assignedId = joint.inspectionData?.[idKey];
 
     const isAssignedToMe = userId && assignedId && String(assignedId) === String(userId);
+    const hasAssignment = !!assignedId;
 
-    return { isPending, isAssignedToMe };
+    return { isPending, isAssignedToMe, hasAssignment };
   };
 
   return (
@@ -309,25 +310,50 @@ function ViewWeldingJoints() {
                               <TableCell>{getStatusBadge(joint.status)}</TableCell>
                               <TableCell>
                                 {(() => {
-                                  const { isPending, isAssignedToMe } = getStageActionState(joint);
+                                  const { isPending, isAssignedToMe, hasAssignment } = getStageActionState(joint);
+                                  const stageName = joint.status === "stage1" ? "Stage 1"
+                                    : joint.status === "stage2" ? "Stage 2"
+                                      : joint.status === "stage3" ? "Stage 3"
+                                        : joint.status === "stage4" ? "Stage 4"
+                                          : joint.status === "stage5" ? "Stage 5"
+                                            : joint.status === "stage6" ? "Stage 6"
+                                              : joint.status === "stage7" ? "Stage 7"
+                                                : joint.status;
 
                                   if (isQCOrNDT) {
-                                    if (isPending && isAssignedToMe) {
-                                      return (
-                                        <Button
-                                          onClick={() => handleOpenStage(joint)}
-                                          variant="default"
-                                          size="sm"
-                                          className="bg-black hover:bg-gray-800"
-                                        >
-                                          Review & Approve {
-                                            joint.status === "stage1" ? "Stage 1"
-                                              : joint.status === "stage2" ? "Stage 2"
-                                                : joint.status === "stage3" ? "Stage 3"
-                                                  : joint.status
-                                          }
-                                        </Button>
-                                      );
+                                    if (isPending) {
+                                      if (isAssignedToMe) {
+                                        return (
+                                          <Button
+                                            onClick={() => handleOpenStage(joint)}
+                                            variant="default"
+                                            size="sm"
+                                            className="bg-black hover:bg-gray-800"
+                                          >
+                                            Review & Approve {stageName}
+                                          </Button>
+                                        );
+                                      } else if (hasAssignment) {
+                                        return (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled
+                                          >
+                                            Assigned to Other {stageName}
+                                          </Button>
+                                        );
+                                      } else {
+                                        return (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled
+                                          >
+                                           Approval Pending {stageName}
+                                          </Button>
+                                        );
+                                      }
                                     }
                                     return <span className="text-muted-foreground">-</span>;
                                   } else {
