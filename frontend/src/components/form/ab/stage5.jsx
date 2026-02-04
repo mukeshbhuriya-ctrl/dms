@@ -16,7 +16,7 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 
-function Stage5({ initialData, inspectionData }) {
+function Stage5({ initialData, inspectionData, isReview = false }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate] = useState(new Date().toLocaleDateString())
     const [ndtEngineer, setNdtEngineer] = useState("")
@@ -106,7 +106,7 @@ function Stage5({ initialData, inspectionData }) {
             const payload = {
                 jointId: initialData?.id,
                 stage: "stage5",
-                status: "approved",
+                status: "pending",
                 engineerId: userId,
                 role: role,
                 data: {
@@ -135,6 +135,55 @@ function Stage5({ initialData, inspectionData }) {
         } catch (error) {
             console.error(error);
             alert("Error submitting form");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    const handleReviewAction = async (status) => {
+        setIsSubmitting(true);
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+            const authData = localStorage.getItem("user_auth")
+            let token = null
+            let userId = null;
+            const role = 'QC'; // Assuming QC/NDT performing review
+
+            if (authData) {
+                const parsed = JSON.parse(authData)
+                token = parsed?.payload?.token || parsed?.token
+                userId = parsed?.payload?.user?.id || parsed?.user?.id
+            }
+
+            const payload = {
+                jointId: initialData?.id,
+                stage: "stage5",
+                status: status,
+                engineerId: userId,
+                role: role,
+                data: {}
+            }
+
+            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": token ? `Bearer ${token}` : ""
+                },
+                body: JSON.stringify(payload),
+                credentials: "include",
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Stage 5 ${status} successfully`);
+                window.location.reload();
+            } else {
+                alert(data.message || "Review action failed");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error processing review");
         } finally {
             setIsSubmitting(false);
         }
@@ -170,7 +219,7 @@ function Stage5({ initialData, inspectionData }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="ndtEngineer">NDT Engineer:</Label>
-                            <Select value={ndtEngineer} onValueChange={setNdtEngineer}>
+                            <Select value={ndtEngineer} onValueChange={setNdtEngineer} disabled={isReview}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select NDT Engineer" />
                                 </SelectTrigger>
@@ -185,9 +234,20 @@ function Stage5({ initialData, inspectionData }) {
                         </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-2">
-                        <Button onClick={handleSubmit} disabled={isSubmitting}>
-                            {isSubmitting ? "Saving..." : "Save & Complete Stage 5"}
-                        </Button>
+                        {!isReview ? (
+                            <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                {isSubmitting ? "Saving..." : "Save & Complete Stage 5"}
+                            </Button>
+                        ) : (
+                            <>
+                                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                                    {isSubmitting ? "Processing..." : "Reject"}
+                                </Button>
+                                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                                    {isSubmitting ? "Processing..." : "Approve"}
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </CardContent>
             </Card>

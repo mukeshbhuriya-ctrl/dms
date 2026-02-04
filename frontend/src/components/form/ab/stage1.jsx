@@ -16,7 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-function Stage1({ initialData }) {
+function Stage1({ initialData, isReview = false }) {
   // First section - Display fields (read-only)
   const [displayFields, setDisplayFields] = useState({
     msn: "",
@@ -44,6 +44,7 @@ function Stage1({ initialData }) {
         poNo: initialData.poNo || "",
       })
 
+      // Default load from initialData (root props)
       setInputFields((prev) => ({
         ...prev,
         tagNo: initialData.tagNo || "",
@@ -53,6 +54,27 @@ function Stage1({ initialData }) {
         drgNo: initialData.drgNo || "",
         code: initialData.code || "",
       }))
+
+      // If Stage 1 data exists in inspectionData (e.g., from DB), override default fields
+      if (initialData.inspectionData?.s1_data) {
+        try {
+          const savedData = typeof initialData.inspectionData.s1_data === 'string'
+            ? JSON.parse(initialData.inspectionData.s1_data)
+            : initialData.inspectionData.s1_data;
+
+          if (savedData?.inputFields) {
+            setInputFields(prev => ({
+              ...prev,
+              ...savedData.inputFields
+            }));
+          }
+          if (savedData?.inspectionRows) {
+            setInspectionRows(savedData.inspectionRows);
+          }
+        } catch (e) {
+          console.error("Error parsing s1_data", e);
+        }
+      }
     }
   }, [initialData])
 
@@ -192,7 +214,6 @@ function Stage1({ initialData }) {
         role: role,
         data: {
           inputFields,
-          inputFields,
           inspectionRows,
           assignedQcEngineerId: qeEngineer
         }
@@ -219,6 +240,55 @@ function Stage1({ initialData }) {
     } catch (error) {
       console.error(error);
       alert("Error submitting form");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const handleReviewAction = async (status) => {
+    setIsSubmitting(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      let userId = null;
+      const role = 'QC'; // Assuming QC/NDT performing review
+
+      if (authData) {
+        const parsed = JSON.parse(authData)
+        token = parsed?.payload?.token || parsed?.token
+        userId = parsed?.payload?.user?.id || parsed?.user?.id
+      }
+
+      const payload = {
+        jointId: initialData?.id,
+        stage: "stage1",
+        status: status, // 'approved' or 'rejected'
+        engineerId: userId,
+        role: role,
+        data: {} // No data update during review, just status change
+      }
+
+      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : ""
+        },
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Stage 1 ${status} successfully`);
+        window.location.reload();
+      } else {
+        alert(data.message || "Review action failed");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error processing review");
     } finally {
       setIsSubmitting(false);
     }
@@ -286,6 +356,8 @@ function Stage1({ initialData }) {
                 value={inputFields.reportNo}
                 onChange={handleInputChange}
                 placeholder="Enter Report No"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
 
@@ -298,6 +370,8 @@ function Stage1({ initialData }) {
                 value={inputFields.tagNo}
                 onChange={handleInputChange}
                 placeholder="Enter TAG NO."
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
 
@@ -310,6 +384,8 @@ function Stage1({ initialData }) {
                 value={inputFields.equipment}
                 onChange={handleInputChange}
                 placeholder="Enter EQUIPMENT"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
 
@@ -322,6 +398,8 @@ function Stage1({ initialData }) {
                 value={inputFields.projectsId}
                 onChange={handleInputChange}
                 placeholder="Enter Projects ID"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
 
@@ -334,6 +412,8 @@ function Stage1({ initialData }) {
                 value={inputFields.lindeDrgNo}
                 onChange={handleInputChange}
                 placeholder="Enter Linde DRG No"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
 
@@ -346,6 +426,8 @@ function Stage1({ initialData }) {
                 value={inputFields.drgNo}
                 onChange={handleInputChange}
                 placeholder="Enter DRG. NO."
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
 
@@ -358,6 +440,8 @@ function Stage1({ initialData }) {
                 value={inputFields.code}
                 onChange={handleInputChange}
                 placeholder="Enter CODE"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
 
@@ -370,6 +454,8 @@ function Stage1({ initialData }) {
                 value={inputFields.inspAgency}
                 onChange={handleInputChange}
                 placeholder="Enter INSP. AGENCY"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
               />
             </div>
           </div>
@@ -410,7 +496,8 @@ function Stage1({ initialData }) {
                             handleInspectionRowChange(row.id, e.target.value)
                           }
                           placeholder="Enter value"
-                          className="w-full"
+                          className={`w-full ${isReview ? "bg-muted" : ""}`}
+                          readOnly={isReview}
                         />
                       </td>
                     </tr>
@@ -451,7 +538,7 @@ function Stage1({ initialData }) {
 
             <div className="space-y-2">
               <Label htmlFor="qeEngineer">QE Engineer:</Label>
-              <Select value={qeEngineer} onValueChange={setQeEngineer}>
+              <Select value={qeEngineer} onValueChange={setQeEngineer} disabled={isReview}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select QE Engineer" />
                 </SelectTrigger>
@@ -467,9 +554,20 @@ function Stage1({ initialData }) {
           </div>
 
           <div className="mt-6 flex justify-end gap-2">
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
-            </Button>
+            {!isReview ? (
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
+              </Button>
+            ) : (
+              <>
+                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                  {isSubmitting ? "Processing..." : "Reject"}
+                </Button>
+                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                  {isSubmitting ? "Processing..." : "Approve"}
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -52,7 +52,7 @@ function ViewWeldingJoints() {
             const parsed = JSON.parse(authData)
             token = parsed?.payload?.token || parsed?.token
             // Extract roles
-            const roles = parsed?.payload?.user?.roles || parsed?.user?.roles || []
+            const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
             // Simplify role structure to array of names if it's array of objects
             const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
             setUserRoles(roleNames)
@@ -189,6 +189,29 @@ function ViewWeldingJoints() {
 
   const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
 
+  const isStagePendingReview = (joint) => {
+    if (!isQCOrNDT) return false;
+    const currentStage = joint.status; // e.g., 'stage1'
+    if (currentStage === 'completed') return false;
+
+    // Map stage name to status key in inspectionData
+    const statusKeyMap = {
+      'stage1': 's1_status',
+      'stage2': 's2_status',
+      'stage3': 's3_status',
+      'stage4': 's4_status',
+      'stage5': 's5_status',
+      'stage6': 's6_status',
+      'stage7': 's7_status',
+    };
+
+    const statusKey = statusKeyMap[currentStage];
+    if (!statusKey) return false;
+
+    // Check if that specific stage status is pending
+    return joint.inspectionData?.[statusKey] === 'pending';
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -253,11 +276,11 @@ function ViewWeldingJoints() {
                               <TableCell>
                                 <Button
                                   onClick={() => handleOpenStage(joint)}
-                                  variant="outline"
+                                  variant={isStagePendingReview(joint) ? "default" : "outline"}
                                   size="sm"
+                                  className={isStagePendingReview(joint) ? "bg-black hover:bg-gray-800" : ""}
                                 >
-                                  Open{" "}
-                                  {joint.status === "stage1"
+                                  {isStagePendingReview(joint) ? "Review & Approve" : "Open"} {joint.status === "stage1"
                                     ? "Stage 1"
                                     : joint.status === "stage2"
                                       ? "Stage 2"
@@ -294,49 +317,79 @@ function ViewWeldingJoints() {
             </DialogTitle>
           </DialogHeader>
 
-          {selectedStage === "stage1" && (
-            <Stage1
-              key={selectedJoint?.id}
-              initialData={selectedJoint}
-            />
-          )}
-          {(selectedStage === "stage2" || selectedStage === "stage3") && (
-            <Stage2
-              key={selectedJoint?.id}
-              initialData={selectedJoint}
-              backChip={selectedJoint?.backChip || false}
-              stage={selectedStage}
-              inspectionData={selectedJoint?.inspectionData}
-            />
-          )}
-          {selectedStage === "stage4" && (
-            <Stage4
-              key={selectedJoint?.id}
-              initialData={selectedJoint}
-              inspectionData={selectedJoint?.inspectionData}
-            />
-          )}
-          {selectedStage === "stage5" && (
-            <Stage5
-              key={selectedJoint?.id}
-              initialData={selectedJoint}
-              inspectionData={selectedJoint?.inspectionData}
-            />
-          )}
-          {selectedStage === "stage6" && (
-            <Stage6
-              key={selectedJoint?.id}
-              initialData={selectedJoint}
-              inspectionData={selectedJoint?.inspectionData}
-            />
-          )}
-          {selectedStage === "stage7" && (
-            <Stage7
-              key={selectedJoint?.id}
-              initialData={selectedJoint}
-              inspectionData={selectedJoint?.inspectionData}
-            />
-          )}
+          {(() => {
+            // Determine if the *current open stage* is in review mode
+            let isReviewMode = false;
+            if (isQCOrNDT && selectedJoint && selectedStage) {
+              const statusKeyMap = {
+                'stage1': 's1_status',
+                'stage2': 's2_status',
+                'stage3': 's3_status',
+                'stage4': 's4_status',
+                'stage5': 's5_status',
+                'stage6': 's6_status',
+                'stage7': 's7_status',
+              };
+              const statusKey = statusKeyMap[selectedStage];
+              if (selectedJoint.inspectionData?.[statusKey] === 'pending') {
+                isReviewMode = true;
+              }
+            }
+
+            return (
+              <>
+                {selectedStage === "stage1" && (
+                  <Stage1
+                    key={selectedJoint?.id}
+                    initialData={selectedJoint}
+                    isReview={isReviewMode}
+                  />
+                )}
+                {(selectedStage === "stage2" || selectedStage === "stage3") && (
+                  <Stage2
+                    key={selectedJoint?.id}
+                    initialData={selectedJoint}
+                    backChip={selectedJoint?.backChip || false}
+                    stage={selectedStage}
+                    inspectionData={selectedJoint?.inspectionData}
+                    isReview={isReviewMode}
+                  />
+                )}
+                {selectedStage === "stage4" && (
+                  <Stage4
+                    key={selectedJoint?.id}
+                    initialData={selectedJoint}
+                    inspectionData={selectedJoint?.inspectionData}
+                    isReview={isReviewMode}
+                  />
+                )}
+                {selectedStage === "stage5" && (
+                  <Stage5
+                    key={selectedJoint?.id}
+                    initialData={selectedJoint}
+                    inspectionData={selectedJoint?.inspectionData}
+                    isReview={isReviewMode}
+                  />
+                )}
+                {selectedStage === "stage6" && (
+                  <Stage6
+                    key={selectedJoint?.id}
+                    initialData={selectedJoint}
+                    inspectionData={selectedJoint?.inspectionData}
+                    isReview={isReviewMode}
+                  />
+                )}
+                {selectedStage === "stage7" && (
+                  <Stage7
+                    key={selectedJoint?.id}
+                    initialData={selectedJoint}
+                    inspectionData={selectedJoint?.inspectionData}
+                    isReview={isReviewMode}
+                  />
+                )}
+              </>
+            );
+          })()}
 
         </DialogContent>
       </Dialog>

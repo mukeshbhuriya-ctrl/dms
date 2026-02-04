@@ -16,7 +16,7 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 
-function Stage6({ initialData, inspectionData }) {
+function Stage6({ initialData, inspectionData, isReview = false }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate] = useState(new Date().toLocaleDateString())
     const [qcEngineer, setQcEngineer] = useState("")
@@ -111,7 +111,7 @@ function Stage6({ initialData, inspectionData }) {
             const payload = {
                 jointId: initialData?.id,
                 stage: "stage6",
-                status: "approved",
+                status: "pending",
                 engineerId: userId,
                 role: role,
                 data: {
@@ -147,6 +147,55 @@ function Stage6({ initialData, inspectionData }) {
         }
     }
 
+    const handleReviewAction = async (status) => {
+        setIsSubmitting(true);
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+            const authData = localStorage.getItem("user_auth")
+            let token = null
+            let userId = null;
+            const role = 'QC'; // Assuming QC/NDT performing review
+
+            if (authData) {
+                const parsed = JSON.parse(authData)
+                token = parsed?.payload?.token || parsed?.token
+                userId = parsed?.payload?.user?.id || parsed?.user?.id
+            }
+
+            const payload = {
+                jointId: initialData?.id,
+                stage: "stage6",
+                status: status,
+                engineerId: userId,
+                role: role,
+                data: {}
+            }
+
+            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": token ? `Bearer ${token}` : ""
+                },
+                body: JSON.stringify(payload),
+                credentials: "include",
+            });
+
+            const data = await res.json();
+            if (res.ok) {
+                alert(`Stage 6 ${status} successfully`);
+                window.location.reload();
+            } else {
+                alert(data.message || "Review action failed");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error processing review");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
     return (
         <div className="w-full mx-auto p-6 space-y-6">
             <Card>
@@ -157,7 +206,7 @@ function Stage6({ initialData, inspectionData }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                         <div className="space-y-2">
                             <Label htmlFor="postRt">Post PWHT RT Status:</Label>
-                            <Select value={postRtStatus} onValueChange={setPostRtStatus}>
+                            <Select value={postRtStatus} onValueChange={setPostRtStatus} disabled={isReview}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select Status" />
                                 </SelectTrigger>
@@ -170,7 +219,7 @@ function Stage6({ initialData, inspectionData }) {
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="postPt">Post PWHT PT Status:</Label>
-                            <Select value={postPtStatus} onValueChange={setPostPtStatus}>
+                            <Select value={postPtStatus} onValueChange={setPostPtStatus} disabled={isReview}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select Status" />
                                 </SelectTrigger>
@@ -206,7 +255,7 @@ function Stage6({ initialData, inspectionData }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="qcEngineer">QC Engineer:</Label>
-                            <Select value={qcEngineer} onValueChange={setQcEngineer}>
+                            <Select value={qcEngineer} onValueChange={setQcEngineer} disabled={isReview}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select QC Engineer" />
                                 </SelectTrigger>
@@ -221,9 +270,20 @@ function Stage6({ initialData, inspectionData }) {
                         </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-2">
-                        <Button onClick={handleSubmit} disabled={isSubmitting}>
-                            {isSubmitting ? "Saving..." : "Save & Complete Stage 6"}
-                        </Button>
+                        {!isReview ? (
+                            <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                {isSubmitting ? "Saving..." : "Save & Complete Stage 6"}
+                            </Button>
+                        ) : (
+                            <>
+                                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                                    {isSubmitting ? "Processing..." : "Reject"}
+                                </Button>
+                                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                                    {isSubmitting ? "Processing..." : "Approve"}
+                                </Button>
+                            </>
+                        )}
                     </div>
                 </CardContent>
             </Card>

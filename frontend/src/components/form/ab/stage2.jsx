@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 
 
-function Stage2({ backChip = false, stage = "stage2", initialData, inspectionData }) {
+function Stage2({ backChip = false, stage = "stage2", initialData, inspectionData, isReview = false }) {
   // Back chip section
   // Back chip section
   const [productionEngineerName, setProductionEngineerName] = useState("")
@@ -91,7 +91,24 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       }
       if (stage === 'stage3') {
         if (inspectionData.s3_qc_eng_id) setWeldVisualQcEngineer(inspectionData.s3_qc_eng_id);
-        if (inspectionData.s3_welder_no) setWelderNo(inspectionData.s3_welder_no);
+
+        // Check for welderNo in s3_data if not found in root properties
+        let loadedWelderNo = inspectionData.s3_welder_no || "";
+
+        if (!loadedWelderNo && inspectionData.s3_data) {
+          try {
+            const savedData = typeof inspectionData.s3_data === 'string'
+              ? JSON.parse(inspectionData.s3_data)
+              : inspectionData.s3_data;
+            if (savedData?.welderNo) {
+              loadedWelderNo = savedData.welderNo;
+            }
+          } catch (e) {
+            console.error("Error parsing s3_data", e);
+          }
+        }
+
+        if (loadedWelderNo) setWelderNo(loadedWelderNo);
       }
     }
   }, [inspectionData, stage]);
@@ -111,7 +128,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       const authData = localStorage.getItem("user_auth")
       let token = null
       let userId = null;
-      let role = 'PROD'; // Default to PROD for now as submitter. 
+      let role = 'PROD';
 
       if (authData) {
         const parsed = JSON.parse(authData)
@@ -122,15 +139,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       const payload = {
         jointId: initialData?.id,
         stage: currentStage,
-        status: "approved", // Initially approving directly as per simpler flow, or 'submitted' if approval needed separate
-        // The requirement says "QC Engineer/NDT Engineer - will approve stage". 
-        // For now, let's assume this form SUBMITS data. 
-        // If logged in user is QC, they might approve. 
-        // For simplicity in this step, we'll mark as 'approved' if all fields filled, simulating the flow.
-        // In strict flow: Status -> 'submitted' -> QC logs in -> sees pending -> approves.
-        // User prompt: "Select from dropdown of engineer like (NDT, QC)" implies Prod Eng selects QC? 
-        // "Production Engineer - logged in person (take name logged person and date of day)"
-        // Let's assume this action effectively moves it forward.
+        status: "pending",
         engineerId: userId,
         role: role,
         data: {}
@@ -167,8 +176,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       const data = await res.json();
       if (res.ok) {
         alert(`${currentStage} submitted successfully`);
-        // Close modal or refresh? Parent should handle refresh.
-        window.location.reload(); // Simple refresh for now to see status update
+        window.location.reload();
       } else {
         alert(data.message || "Submission failed");
       }
@@ -176,6 +184,55 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
     } catch (error) {
       console.error(error);
       alert("Error submitting form");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const handleReviewAction = async (status, currentStage) => {
+    setIsSubmitting(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      let userId = null;
+      const role = 'QC';
+
+      if (authData) {
+        const parsed = JSON.parse(authData)
+        token = parsed?.payload?.token || parsed?.token
+        userId = parsed?.payload?.user?.id || parsed?.user?.id
+      }
+
+      const payload = {
+        jointId: initialData?.id,
+        stage: currentStage,
+        status: status,
+        engineerId: userId,
+        role: role,
+        data: {}
+      }
+
+      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : ""
+        },
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(`${currentStage} ${status} successfully`);
+        window.location.reload();
+      } else {
+        alert(data.message || "Review action failed");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error processing review");
     } finally {
       setIsSubmitting(false);
     }
@@ -216,6 +273,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 <Select
                   value={backChipQcEngineer}
                   onValueChange={setBackChipQcEngineer}
+                  disabled={isReview}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select QC Engineer" />
@@ -231,9 +289,20 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <Button onClick={() => handleSubmit('stage2')} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save & Complete Stage 2"}
-              </Button>
+              {!isReview ? (
+                <Button onClick={() => handleSubmit('stage2')} disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save & Complete Stage 2"}
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => handleReviewAction('rejected', 'stage2')} variant="outline" disabled={isSubmitting}>
+                    {isSubmitting ? "Processing..." : "Reject"}
+                  </Button>
+                  <Button onClick={() => handleReviewAction('approved', 'stage2')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                    {isSubmitting ? "Processing..." : "Approve"}
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -272,6 +341,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 <Select
                   value={weldVisualQcEngineer}
                   onValueChange={setWeldVisualQcEngineer}
+                  disabled={isReview}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select QC Engineer" />
@@ -294,13 +364,26 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                   value={welderNo}
                   onChange={(e) => setWelderNo(e.target.value)}
                   placeholder="Enter Welder No."
+                  readOnly={isReview}
+                  className={isReview ? "bg-muted" : ""}
                 />
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
-              <Button onClick={() => handleSubmit('stage3')} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save & Complete Stage 3"}
-              </Button>
+              {!isReview ? (
+                <Button onClick={() => handleSubmit('stage3')} disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : "Save & Complete Stage 3"}
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => handleReviewAction('rejected', 'stage3')} variant="outline" disabled={isSubmitting}>
+                    {isSubmitting ? "Processing..." : "Reject"}
+                  </Button>
+                  <Button onClick={() => handleReviewAction('approved', 'stage3')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                    {isSubmitting ? "Processing..." : "Approve"}
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
