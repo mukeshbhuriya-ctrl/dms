@@ -438,4 +438,79 @@ async function updateStageStatus(req, res) {
     }
 }
 
-module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints, updateStageStatus }
+/**
+ * Get Assigned Weld Joints API - For QC/NDT Engineers
+ * Retrieves only joints that have a pending stage assigned to the authenticated user.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function getAssignedWeldJoints(req, res) {
+    try {
+        const company_id = req.user.company_id;
+        const user_id = req.user.id;
+
+        const joints = await prisma.weld_joint.findMany({
+            where: {
+                weld_joint_plan: {
+                    company_id: company_id
+                },
+                weld_joint_inspection: {
+                    OR: [
+                        { s1_status: 'pending', s1_qc_eng_id: user_id },
+                        { s2_status: 'pending', s2_qc_eng_id: user_id },
+                        { s3_status: 'pending', s3_qc_eng_id: user_id },
+                        { s4_status: 'pending', s4_ndt_eng_id: user_id }, // Stage 4 is RT (NDT)
+                        { s4_status: 'pending', s4_qc_eng_id: user_id },   // Fallback if generic QC field used
+                        { s5_status: 'pending', s5_ndt_eng_id: user_id }, // Stage 5 is PT (NDT)
+                        { s5_status: 'pending', s5_qc_eng_id: user_id },   // Fallback
+                        { s6_status: 'pending', s6_qc_eng_id: user_id }
+                    ]
+                }
+            },
+            include: {
+                weld_joint_plan: {
+                    include: {
+                        job: {
+                            select: {
+                                job_number: true,
+                                project_id: true,
+                                equipement_name: true,
+                                tag_number: true,
+                                code: true,
+                                customer: {
+                                    select: {
+                                        customer_name: true
+                                    }
+                                },
+                                po: {
+                                    select: {
+                                        po_number: true
+                                    }
+                                }
+                            }
+                        },
+                    }
+                },
+                weld_joint_inspection: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Assigned Weld Joints fetched successfully',
+            data: joints
+        });
+    } catch (error) {
+        console.error('Get assigned weld joints error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+    }
+}
+
+module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints, updateStageStatus, getAssignedWeldJoints }

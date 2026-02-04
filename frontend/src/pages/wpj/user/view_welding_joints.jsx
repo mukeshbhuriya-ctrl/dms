@@ -37,6 +37,7 @@ function ViewWeldingJoints() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const [userRoles, setUserRoles] = useState([])
+  const [userId, setUserId] = useState(null)
 
   useEffect(() => {
     // data fetching
@@ -47,6 +48,8 @@ function ViewWeldingJoints() {
         // Manual Auth retrieval
         const authData = localStorage.getItem("user_auth")
         let token = null
+        let isQC = false;
+
         if (authData) {
           try {
             const parsed = JSON.parse(authData)
@@ -56,10 +59,20 @@ function ViewWeldingJoints() {
             // Simplify role structure to array of names if it's array of objects
             const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
             setUserRoles(roleNames)
+
+            if (roleNames.includes('QC_ENGINEER') || roleNames.includes('NDT_ENGINEER')) {
+              isQC = true;
+            }
+
+            // Extract User ID
+            const uid = parsed?.payload?.user?.id || parsed?.user?.id;
+            setUserId(uid);
           } catch { }
         }
 
-        const res = await fetch(`${backendUrl}/api/wpj/get-all-weld-joints`, {
+        const endpoint = isQC ? '/api/wpj/get-assigned-weld-joints' : '/api/wpj/get-all-weld-joints';
+
+        const res = await fetch(`${backendUrl}${endpoint}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -189,13 +202,10 @@ function ViewWeldingJoints() {
 
   const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
 
-  const isStagePendingReview = (joint) => {
-    // Generic check if stage is pending review
-    // if (!isQCOrNDT) return false; // Removed to allow generic status check
-    const currentStage = joint.status; // e.g., 'stage1'
-    if (currentStage === 'completed') return false;
+  const getStageActionState = (joint) => {
+    const currentStage = joint.status;
+    if (currentStage === 'completed') return { isPending: false, isAssignedToMe: false };
 
-    // Map stage name to status key in inspectionData
     const statusKeyMap = {
       'stage1': 's1_status',
       'stage2': 's2_status',
@@ -206,11 +216,34 @@ function ViewWeldingJoints() {
       'stage7': 's7_status',
     };
 
-    const statusKey = statusKeyMap[currentStage];
-    if (!statusKey) return false;
+    // Map stage to QC Engineer ID field
+    // Note: For Stage 4/5/6 (NDT), it might be ndt_eng_id or qc_eng_id. 
+    // Based on user request "s1_qc_eng_id", "s2...", we assume a pattern but verify.
+    // If backend uses "assignedQcEngineerId" payload -> checks implementation.
+    // We will check multiple keys if unsure, or stick to the requested pattern.
+    // Given the previous code didn't explicitly use keys, I'll use the user's requested pattern + fallbacks if logical.
+    const qcIdKeyMap = {
+      'stage1': 's1_qc_eng_id',
+      'stage2': 's2_qc_eng_id',
+      'stage3': 's3_qc_eng_id',
+      'stage4': 's4_qc_eng_id', // Assuming pattern matches
+      'stage5': 's5_qc_eng_id',
+      'stage6': 's6_qc_eng_id',
+      'stage7': 's7_qc_eng_id',
+    };
 
-    // Check if that specific stage status is pending
-    return joint.inspectionData?.[statusKey] === 'pending';
+    const statusKey = statusKeyMap[currentStage];
+    if (!statusKey) return { isPending: false, isAssignedToMe: false };
+
+    const isPending = joint.inspectionData?.[statusKey] === 'pending';
+
+    // Check assignment
+    const idKey = qcIdKeyMap[currentStage];
+    const assignedId = joint.inspectionData?.[idKey];
+
+    const isAssignedToMe = userId && assignedId && String(assignedId) === String(userId);
+
+    return { isPending, isAssignedToMe };
   };
 
   return (
@@ -275,35 +308,47 @@ function ViewWeldingJoints() {
                               <TableCell>{getJointCategoryBadge(joint.jointCategory)}</TableCell>
                               <TableCell>{getStatusBadge(joint.status)}</TableCell>
                               <TableCell>
-                                <Button
-                                  onClick={() => handleOpenStage(joint)}
-                                  // Logic:
-                                  // 1. If QC/NDT & Pending -> "Review & Approve" (Black, Enabled)
-                                  // 2. If !QC/NDT & Pending -> "Submitted - Pending Review" (Muted, Disabled?)
-                                  // 3. Else -> "Open Stage X" (Outline, Enabled)
-                                  disabled={!isQCOrNDT && isStagePendingReview(joint) === true}
-                                  variant={
-                                    isQCOrNDT && isStagePendingReview(joint) ? "default" : "outline"
-                                  }
-                                  size="sm"
-                                  className={
-                                    isQCOrNDT && isStagePendingReview(joint) ? "bg-black hover:bg-gray-800" : ""
-                                  }
-                                >
-                                  {(() => {
-                                    const isPending = isStagePendingReview(joint);
-                                    if (isPending) {
-                                      return isQCOrNDT ? "Review & Approve" : "Approval Pending";
+                                {(() => {
+                                  const { isPending, isAssignedToMe } = getStageActionState(joint);
+
+                                  if (isQCOrNDT) {
+                                    if (isPending && isAssignedToMe) {
+                                      return (
+                                        <Button
+                                          onClick={() => handleOpenStage(joint)}
+                                          variant="default"
+                                          size="sm"
+                                          className="bg-black hover:bg-gray-800"
+                                        >
+                                          Review & Approve {
+                                            joint.status === "stage1" ? "Stage 1"
+                                              : joint.status === "stage2" ? "Stage 2"
+                                                : joint.status === "stage3" ? "Stage 3"
+                                                  : joint.status
+                                          }
+                                        </Button>
+                                      );
                                     }
-                                    return "Open";
-                                  })()} {
-                                    (isStagePendingReview(joint) && !isQCOrNDT) ? "" :
-                                      (joint.status === "stage1" ? "Stage 1"
-                                        : joint.status === "stage2" ? "Stage 2"
-                                          : joint.status === "stage3" ? "Stage 3"
-                                            : joint.status)
+                                    return <span className="text-muted-foreground">-</span>;
+                                  } else {
+                                    // Production Engineer
+                                    return (
+                                      <Button
+                                        onClick={() => handleOpenStage(joint)}
+                                        disabled={isPending}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        {isPending ? "Approval Pending" : "Open"} {
+                                          joint.status === "stage1" ? "Stage 1"
+                                            : joint.status === "stage2" ? "Stage 2"
+                                              : joint.status === "stage3" ? "Stage 3"
+                                                : joint.status
+                                        }
+                                      </Button>
+                                    );
                                   }
-                                </Button>
+                                })()}
                               </TableCell>
                             </TableRow>
                           ))
@@ -337,17 +382,8 @@ function ViewWeldingJoints() {
             // Determine if the *current open stage* is in review mode
             let isReviewMode = false;
             if (isQCOrNDT && selectedJoint && selectedStage) {
-              const statusKeyMap = {
-                'stage1': 's1_status',
-                'stage2': 's2_status',
-                'stage3': 's3_status',
-                'stage4': 's4_status',
-                'stage5': 's5_status',
-                'stage6': 's6_status',
-                'stage7': 's7_status',
-              };
-              const statusKey = statusKeyMap[selectedStage];
-              if (selectedJoint.inspectionData?.[statusKey] === 'pending') {
+              const { isPending, isAssignedToMe } = getStageActionState(selectedJoint);
+              if (isPending && isAssignedToMe) {
                 isReviewMode = true;
               }
             }
