@@ -190,7 +190,8 @@ function ViewWeldingJoints() {
   const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
 
   const isStagePendingReview = (joint) => {
-    if (!isQCOrNDT) return false;
+    // Generic check if stage is pending review
+    // if (!isQCOrNDT) return false; // Removed to allow generic status check
     const currentStage = joint.status; // e.g., 'stage1'
     if (currentStage === 'completed') return false;
 
@@ -276,17 +277,32 @@ function ViewWeldingJoints() {
                               <TableCell>
                                 <Button
                                   onClick={() => handleOpenStage(joint)}
-                                  variant={isStagePendingReview(joint) ? "default" : "outline"}
+                                  // Logic:
+                                  // 1. If QC/NDT & Pending -> "Review & Approve" (Black, Enabled)
+                                  // 2. If !QC/NDT & Pending -> "Submitted - Pending Review" (Muted, Disabled?)
+                                  // 3. Else -> "Open Stage X" (Outline, Enabled)
+                                  disabled={!isQCOrNDT && isStagePendingReview(joint) === true}
+                                  variant={
+                                    isQCOrNDT && isStagePendingReview(joint) ? "default" : "outline"
+                                  }
                                   size="sm"
-                                  className={isStagePendingReview(joint) ? "bg-black hover:bg-gray-800" : ""}
+                                  className={
+                                    isQCOrNDT && isStagePendingReview(joint) ? "bg-black hover:bg-gray-800" : ""
+                                  }
                                 >
-                                  {isStagePendingReview(joint) ? "Review & Approve" : "Open"} {joint.status === "stage1"
-                                    ? "Stage 1"
-                                    : joint.status === "stage2"
-                                      ? "Stage 2"
-                                      : joint.status === "stage3"
-                                        ? "Stage 3"
-                                        : joint.status}
+                                  {(() => {
+                                    const isPending = isStagePendingReview(joint);
+                                    if (isPending) {
+                                      return isQCOrNDT ? "Review & Approve" : "Approval Pending";
+                                    }
+                                    return "Open";
+                                  })()} {
+                                    (isStagePendingReview(joint) && !isQCOrNDT) ? "" :
+                                      (joint.status === "stage1" ? "Stage 1"
+                                        : joint.status === "stage2" ? "Stage 2"
+                                          : joint.status === "stage3" ? "Stage 3"
+                                            : joint.status)
+                                  }
                                 </Button>
                               </TableCell>
                             </TableRow>
