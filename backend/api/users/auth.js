@@ -89,7 +89,7 @@ async function login(req, res) {
     // Generate encrypted JWT token using JOSE
     const JWT_SECRET = process.env.JWT_SECRET;
     const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-    
+
     if (!JWT_SECRET) {
       return res.status(500).json({
         success: false,
@@ -126,6 +126,11 @@ async function login(req, res) {
       success: true,
       message: 'Login successful',
       roles: roles,
+      user: {
+        id: user.id,
+        name: user.name,
+        empid: user.empid
+      }
     });
   } catch (error) {
     console.error('User login error:', error);
@@ -144,14 +149,14 @@ async function login(req, res) {
  */
 async function me(req, res) {
   try {
-  const user = req.user;  // from authenticateUser middleware
-  if (!user) {
-    return res.status(401).json({
-      success: false,
-      message: 'Unauthorized. Please login first.',
-    });
-  }
-  res.status(200).json({
+    const user = req.user;  // from authenticateUser middleware
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized. Please login first.',
+      });
+    }
+    res.status(200).json({
       role: user.role,
     });
   }
@@ -169,4 +174,3 @@ module.exports = {
   login,
   me,
 };
- 

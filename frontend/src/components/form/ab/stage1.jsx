@@ -76,16 +76,62 @@ function Stage1({ initialData }) {
   ])
 
   // Third section
-  const [productionEngineerName] = useState("Production Engineer Name") // Static value
+  const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate] = useState(new Date().toLocaleDateString())
   const [qeEngineer, setQeEngineer] = useState("")
 
+  useEffect(() => {
+    const authData = localStorage.getItem("user_auth")
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData)
+        const user = parsed?.payload?.user || parsed?.user
+        if (user?.name) {
+          setProductionEngineerName(user.name)
+        }
+      } catch (e) {
+        console.error("Error parsing auth data", e)
+      }
+    }
+  }, [])
+
   // Mock QE Engineers data
-  const qeEngineers = [
-    { id: "1", name: "QE Engineer 1" },
-    { id: "2", name: "QE Engineer 2" },
-    { id: "3", name: "QE Engineer 3" },
-  ]
+  const [qeEngineers, setQeEngineers] = useState([])
+
+  useEffect(() => {
+    const fetchQeEngineers = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+        const authData = localStorage.getItem("user_auth")
+        let token = null
+        if (authData) {
+          try {
+            const parsed = JSON.parse(authData)
+            token = parsed?.payload?.token || parsed?.token
+          } catch { }
+        }
+
+        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : ""
+          },
+          credentials: "include",
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          setQeEngineers(data.data || [])
+        } else {
+          console.error("Failed to fetch QE Engineers:", data.message)
+        }
+      } catch (error) {
+        console.error("Error fetching QE Engineers:", error)
+      }
+    }
+
+    fetchQeEngineers()
+  }, [])
 
   // Handle input field changes
   const handleInputChange = (e) => {
@@ -114,8 +160,72 @@ function Stage1({ initialData }) {
     )
   }
 
+  // Handle submission
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true)
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      let userId = null;
+      let role = 'PROD';
+
+      if (authData) {
+        const parsed = JSON.parse(authData)
+        token = parsed?.payload?.token || parsed?.token
+        userId = parsed?.payload?.user?.id || parsed?.user?.id
+      }
+
+      if (!qeEngineer) {
+        alert("Please select QE Engineer");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const payload = {
+        jointId: initialData?.id,
+        stage: "stage1",
+        status: "pending",
+        engineerId: userId,
+        role: role,
+        data: {
+          inputFields,
+          inputFields,
+          inspectionRows,
+          assignedQcEngineerId: qeEngineer
+        }
+      }
+
+      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : ""
+        },
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Stage 1 submitted successfully");
+        window.location.reload();
+      } else {
+        alert(data.message || "Submission failed");
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("Error submitting form");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="w-full mx-auto p-6 space-y-6">
       {/* First Section */}
       <Card>
         <CardHeader>
@@ -355,6 +465,12 @@ function Stage1({ initialData }) {
               </Select>
             </div>
           </div>
+
+          <div className="mt-6 flex justify-end gap-2">
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -362,4 +478,3 @@ function Stage1({ initialData }) {
 }
 
 export default Stage1
-

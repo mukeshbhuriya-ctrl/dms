@@ -115,7 +115,14 @@ const weldAdminRoutes = [
   },
 ]
 
-const weldUserRoutes = [
+const weldProductionRoutes = [
+  {
+    path: "/view-weldingjoints",
+    element: <ViewWeldingJoints />,
+  },
+]
+
+const weldQCRoutes = [
   {
     path: "/view-weldingjoints",
     element: <ViewWeldingJoints />,
@@ -136,7 +143,8 @@ const appRoutes = [
   ...userRoutes,
   ...adminRoutes,
   ...weldAdminRoutes,
-  ...weldUserRoutes,
+  ...weldProductionRoutes,
+  ...weldQCRoutes,
   ...protectedDccRoutes,
 ]
 

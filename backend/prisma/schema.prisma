@@ -346,7 +346,62 @@ model weld_joint {
   remarks                 String?
   
   weld_joint_plan weld_joint_plan @relation(fields: [weld_joint_plan_id], references: [id], onDelete: Cascade)
+  weld_joint_inspection weld_joint_inspection?
   
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
+}
+
+model weld_joint_inspection {
+  id              String   @id @default(uuid())
+  weld_joint_id   String   @unique
+  weld_joint      weld_joint @relation(fields: [weld_joint_id], references: [id], onDelete: Cascade)
+
+  // --- Stage 1: Seam Inspection ---
+  s1_status       String   @default("pending") // pending, submitted, approved, rejected
+  s1_data         Json?    
+  s1_prod_eng_id  String?
+  s1_qc_eng_id    String?
+  s1_completed_at DateTime?
+
+  // --- Stage 2: Back Chip ---
+  s2_status       String   @default("pending")
+  s2_prod_eng_id  String?
+  s2_qc_eng_id    String?
+  s2_completed_at DateTime?
+
+  // --- Stage 3: Weld Visual ---
+  s3_status       String   @default("pending")
+  s3_welder_no    String?
+  s3_prod_eng_id  String?
+  s3_qc_eng_id    String?
+  s3_completed_at DateTime?
+
+  // --- Stage 4: RT ---
+  s4_status       String   @default("pending")
+  s4_prod_eng_id  String?
+  s4_ndt_eng_id   String?
+  s4_completed_at DateTime?
+
+  // --- Stage 5: PT ---
+  s5_status       String   @default("pending")
+  s5_prod_eng_id  String?
+  s5_ndt_eng_id   String?
+  s5_completed_at DateTime?
+
+  // --- Stage 6: PWHT ---
+  s6_status       String   @default("pending")
+  s6_prod_eng_id  String?
+  s6_qc_eng_id    String? 
+  s6_post_rt_status String? 
+  s6_post_pt_status String? 
+  s6_completed_at DateTime?
+
+  // --- Stage 7: Final ---
+  s7_status       String   @default("pending")
+  s7_data         Json?
+  s7_completed_at DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

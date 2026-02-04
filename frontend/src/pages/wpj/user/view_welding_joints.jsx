@@ -19,25 +19,43 @@ import {
 } from "@/components/ui/dialog"
 import Stage1 from "@/components/form/ab/stage1"
 import Stage2 from "@/components/form/ab/stage2"
+import Stage4 from "@/components/form/ab/stage4"
+import Stage5 from "@/components/form/ab/stage5"
+import Stage6 from "@/components/form/ab/stage6"
+import Stage7 from "@/components/form/ab/stage7"
+
+
 
 function ViewWeldingJoints() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedStage, setSelectedStage] = useState(null)
-  const [selectedJoint, setSelectedJoint] = useState(null)
   const [weldingJoints, setWeldingJoints] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [error, setError] = useState(null)
+
+  // Dialog State
+  const [selectedJoint, setSelectedJoint] = useState(null)
+  const [selectedStage, setSelectedStage] = useState(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  const [userRoles, setUserRoles] = useState([])
 
   useEffect(() => {
+    // data fetching
     const fetchJoints = async () => {
       try {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+
+        // Manual Auth retrieval
         const authData = localStorage.getItem("user_auth")
         let token = null
         if (authData) {
           try {
             const parsed = JSON.parse(authData)
             token = parsed?.payload?.token || parsed?.token
+            // Extract roles
+            const roles = parsed?.payload?.user?.roles || parsed?.user?.roles || []
+            // Simplify role structure to array of names if it's array of objects
+            const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
+            setUserRoles(roleNames)
           } catch { }
         }
 
@@ -68,8 +86,34 @@ function ViewWeldingJoints() {
 
             jointNo: joint.joint_no,
             jointCategory: joint.joint_type,
-            status: "stage1", // Defaulting to stage1 as confirmed
+            status: (() => {
+              const insp = joint.weld_joint_inspection || {};
+              if (insp.s1_status !== 'approved') return 'stage1';
+
+              if (joint.back_chip_req) { // Check if back chip is required
+                if (insp.s2_status !== 'approved') return 'stage2';
+              }
+
+              if (insp.s3_status !== 'approved') return 'stage3';
+
+              if (joint.rt) { // Check if RT is required
+                if (insp.s4_status !== 'approved') return 'stage4';
+              }
+
+              if (joint.pt) { // Check if PT is required
+                if (insp.s5_status !== 'approved') return 'stage5';
+              }
+
+              if (joint.pwht) { // Check if PWHT is required
+                if (insp.s6_status !== 'approved') return 'stage6';
+              }
+
+              if (insp.s7_status !== 'approved') return 'stage7';
+
+              return 'completed';
+            })(),
             backChip: joint.back_chip_req || false,
+            inspectionData: joint.weld_joint_inspection || {}, // Pass inspection data
             // Preserve other details if needed for stages
             ...joint
           }))
@@ -142,6 +186,8 @@ function ViewWeldingJoints() {
     setSelectedJoint(joint)
     setIsDialogOpen(true)
   }
+
+  const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
 
   return (
     <SidebarProvider>
@@ -238,25 +284,60 @@ function ViewWeldingJoints() {
         <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedStage === "stage1"
-                ? "Stage 1 Form"
-                : selectedStage === "stage2"
-                  ? "Stage 2 Form"
-                  : selectedStage === "stage3"
-                    ? "Stage 3 Form"
-                    : "Form"}
+              {selectedStage === "stage1" && "Stage 1 Form"}
+              {selectedStage === "stage2" && "Stage 2 Form"}
+              {selectedStage === "stage3" && "Stage 3 Form"}
+              {selectedStage === "stage4" && "Stage 4 Form"}
+              {selectedStage === "stage5" && "Stage 5 Form"}
+              {selectedStage === "stage6" && "Stage 6 Form"}
+              {selectedStage === "stage7" && "Stage 7 Form"}
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-4">
-            {selectedStage === "stage1" && <Stage1 key={selectedJoint?.id} initialData={selectedJoint} />}
-            {(selectedStage === "stage2" || selectedStage === "stage3") && (
-              <Stage2
-                key={selectedJoint?.id}
-                backChip={selectedJoint?.backChip || false}
-                stage={selectedStage}
-              />
-            )}
-          </div>
+
+          {selectedStage === "stage1" && (
+            <Stage1
+              key={selectedJoint?.id}
+              initialData={selectedJoint}
+            />
+          )}
+          {(selectedStage === "stage2" || selectedStage === "stage3") && (
+            <Stage2
+              key={selectedJoint?.id}
+              initialData={selectedJoint}
+              backChip={selectedJoint?.backChip || false}
+              stage={selectedStage}
+              inspectionData={selectedJoint?.inspectionData}
+            />
+          )}
+          {selectedStage === "stage4" && (
+            <Stage4
+              key={selectedJoint?.id}
+              initialData={selectedJoint}
+              inspectionData={selectedJoint?.inspectionData}
+            />
+          )}
+          {selectedStage === "stage5" && (
+            <Stage5
+              key={selectedJoint?.id}
+              initialData={selectedJoint}
+              inspectionData={selectedJoint?.inspectionData}
+            />
+          )}
+          {selectedStage === "stage6" && (
+            <Stage6
+              key={selectedJoint?.id}
+              initialData={selectedJoint}
+              inspectionData={selectedJoint?.inspectionData}
+            />
+          )}
+          {selectedStage === "stage7" && (
+            <Stage7
+              key={selectedJoint?.id}
+              initialData={selectedJoint}
+              inspectionData={selectedJoint?.inspectionData}
+            />
+          )}
+
         </DialogContent>
       </Dialog>
     </SidebarProvider>

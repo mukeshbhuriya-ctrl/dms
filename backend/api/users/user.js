@@ -289,8 +289,66 @@ async function getRoles(req, res) {
   }
 }
 
+/**
+ * Get Users By Role API - Get all users with a specific role for the company
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function getUsersByRole(req, res) {
+  try {
+    const { roleName } = req.params;
+    const company_id = req.user.company_id;
+
+    if (!roleName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Role name is required',
+      });
+    }
+
+    // Fetch users with the specified role for the company
+    const users = await prisma.user.findMany({
+      where: {
+        company_id: company_id,
+        user_roles: {
+          some: {
+            role: {
+              name: roleName,
+              company_id: company_id
+            }
+          }
+        }
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        empid: true,
+        designation: true
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `${roleName} users fetched successfully`,
+      data: users,
+    });
+  } catch (error) {
+    console.error('Get users by role error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+}
+
 module.exports = {
   getUsers,
   createUser,
-  getRoles
+  getRoles,
+  getUsersByRole
 };

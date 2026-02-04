@@ -139,9 +139,16 @@ const roleMenus = {
       path: "/welding-joints",
     },
   ],
-  WELD_PLAN_USER: [
+  PRODUCTION_ENGINEER: [
     {
       title: "View Welding Joints",
+      icon: Wrench,
+      path: "/view-weldingjoints",
+    },
+  ],
+  QC_ENGINEER: [
+    {
+      title: "Approve Welding Joints",
       icon: Wrench,
       path: "/view-weldingjoints",
     },

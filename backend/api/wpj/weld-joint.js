@@ -323,7 +323,8 @@ async function getWeldJoints(req, res) {
                             }
                         },
                     }
-                }
+                },
+                weld_joint_inspection: true
             },
             orderBy: {
                 createdAt: 'desc'
@@ -345,4 +346,96 @@ async function getWeldJoints(req, res) {
     }
 }
 
-module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints }
+/**
+ * Update Stage Status API
+ */
+async function updateStageStatus(req, res) {
+    try {
+        const { jointId, stage, status, data, engineerId, role } = req.body; // role: 'PROD', 'QC', 'NDT'
+
+        // Basic validation
+        if (!jointId || !stage || !status) {
+            return res.status(400).json({ success: false, message: 'Missing required fields' });
+        }
+
+        // Map stage to DB fields
+        const stagePrefix = {
+            'stage1': 's1',
+            'stage2': 's2',
+            'stage3': 's3',
+            'stage4': 's4',
+            'stage5': 's5',
+            'stage6': 's6',
+            'stage7': 's7'
+        }[stage];
+
+        if (!stagePrefix) {
+            return res.status(400).json({ success: false, message: 'Invalid stage' });
+        }
+
+        // Construct update data
+        const updateData = {
+            [`${stagePrefix}_status`]: status,
+        };
+
+        if (data) {
+            // For stages that have a data field (like s1_data, s7_data)
+            if (stage === 'stage1' || stage === 'stage7') {
+                updateData[`${stagePrefix}_data`] = data;
+            }
+            // Add other specific mappings if needed, e.g. welder_no for stage 3
+            if (stage === 'stage3' && data.welderNo) {
+                updateData[`${stagePrefix}_welder_no`] = data.welderNo;
+            }
+            // Stage 4 & 5 - Map assigned NDT Engineer
+            if ((stage === 'stage4' || stage === 'stage5') && data.assignedNdtEngineerId) {
+                updateData[`${stagePrefix}_ndt_eng_id`] = data.assignedNdtEngineerId;
+            }
+            // Map assigned QC Engineer for relevant stages
+            if (data.assignedQcEngineerId) {
+                updateData[`${stagePrefix}_qc_eng_id`] = data.assignedQcEngineerId;
+            }
+            // Stage 6 - Map Post RT/PT Status
+            if (stage === 'stage6') {
+                if (data.postRtStatus) updateData[`${stagePrefix}_post_rt_status`] = data.postRtStatus;
+                if (data.postPtStatus) updateData[`${stagePrefix}_post_pt_status`] = data.postPtStatus;
+            }
+        }
+
+        if (status === 'approved' || status === 'completed') {
+            updateData[`${stagePrefix}_completed_at`] = new Date();
+        }
+
+        // Handle Engineer IDs based on role/stage
+        // This is a simplified logic, can be expanded based on specific field names
+        if (role === 'PROD') {
+            updateData[`${stagePrefix}_prod_eng_id`] = engineerId;
+        } else if (role === 'QC') {
+            updateData[`${stagePrefix}_qc_eng_id`] = engineerId;
+        } else if (role === 'NDT') {
+            updateData[`${stagePrefix}_ndt_eng_id`] = engineerId;
+        }
+
+        // Use upsert to create if not exists
+        const inspection = await prisma.weld_joint_inspection.upsert({
+            where: { weld_joint_id: jointId },
+            update: updateData,
+            create: {
+                weld_joint_id: jointId,
+                ...updateData
+            }
+        });
+
+        res.status(200).json({ success: true, message: 'Stage status updated successfully', data: inspection });
+
+    } catch (error) {
+        console.error('Update stage status error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+    }
+}
+
+module.exports = { getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints, updateStageStatus }
