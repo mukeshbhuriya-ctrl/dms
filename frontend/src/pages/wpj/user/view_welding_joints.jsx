@@ -244,10 +244,15 @@ function ViewWeldingJoints() {
     const isAssignedToMe = userId && assignedId && String(assignedId) === String(userId);
     const hasAssignment = !!assignedId;
 
-    // Check submission status (sX_completed_at is set when Prod submits)
+    // Check submission status (Check Engineer ID or Completed Date as fallback)
     const prefix = currentStage.replace('stage', 's');
+    const prodKey = `${prefix}_prod_eng_id`;
+    const ndtKey = `${prefix}_ndt_eng_id`;
     const completedAtKey = `${prefix}_completed_at`;
-    const isSubmitted = !!joint.inspectionData?.[completedAtKey];
+
+    const isSubmitted = !!(joint.inspectionData?.[prodKey] ||
+      joint.inspectionData?.[ndtKey] ||
+      joint.inspectionData?.[completedAtKey]);
 
     return { isPending, isAssignedToMe, hasAssignment, isSubmitted };
   };
