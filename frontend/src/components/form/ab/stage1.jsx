@@ -55,6 +55,14 @@ function Stage1({ initialData, isReview = false }) {
         code: initialData.code || "",
       }))
 
+      let prodNameFound = false;
+
+      // Pre-fill from injected name (from ID lookup)
+      if (initialData.inspectionData?.s1_prod_eng_name) {
+        setProductionEngineerName(initialData.inspectionData.s1_prod_eng_name);
+        prodNameFound = true;
+      }
+
       // If Stage 1 data exists in inspectionData (e.g., from DB), override default fields
       if (initialData.inspectionData?.s1_data) {
         try {
@@ -71,9 +79,24 @@ function Stage1({ initialData, isReview = false }) {
           if (savedData?.inspectionRows) {
             setInspectionRows(savedData.inspectionRows);
           }
+          if (savedData?.productionEngineerName) {
+            setProductionEngineerName(savedData.productionEngineerName);
+          }
+          if (savedData?.submissionDate) {
+            setTodayDate(savedData.submissionDate);
+          }
+          if (savedData?.assignedQcEngineerId) {
+            setQeEngineer(savedData.assignedQcEngineerId);
+          } else if (initialData.inspectionData?.s1_qc_eng_id) {
+            // Fallback to column data if missing in JSON
+            setQeEngineer(initialData.inspectionData.s1_qc_eng_id);
+          }
         } catch (e) {
           console.error("Error parsing s1_data", e);
         }
+      } else if (initialData.inspectionData?.s1_qc_eng_id) {
+        // If s1_data string is missing but we have column data
+        setQeEngineer(initialData.inspectionData.s1_qc_eng_id);
       }
     }
   }, [initialData])
@@ -99,10 +122,11 @@ function Stage1({ initialData, isReview = false }) {
 
   // Third section
   const [productionEngineerName, setProductionEngineerName] = useState("")
-  const [todayDate] = useState(new Date().toLocaleDateString())
+  const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [qeEngineer, setQeEngineer] = useState("")
 
   useEffect(() => {
+    if (isReview) return; // Don't overwrite if reviewing
     const authData = localStorage.getItem("user_auth")
     if (authData) {
       try {
@@ -215,7 +239,9 @@ function Stage1({ initialData, isReview = false }) {
         data: {
           inputFields,
           inspectionRows,
-          assignedQcEngineerId: qeEngineer
+          assignedQcEngineerId: qeEngineer,
+          productionEngineerName: productionEngineerName, // Save for review mode
+          submissionDate: todayDate // Save for review mode
         }
       }
 

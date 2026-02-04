@@ -21,10 +21,11 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
   // Back chip section
   // Back chip section
   const [productionEngineerName, setProductionEngineerName] = useState("")
-  const [todayDate] = useState(new Date().toLocaleDateString())
+  const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
 
   useEffect(() => {
+    if (isReview) return;
     const authData = localStorage.getItem("user_auth")
     if (authData) {
       try {
@@ -86,22 +87,51 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
   useEffect(() => {
     // autofill data if available in inspectionData
     if (inspectionData) {
-      if (stage === 'stage2' && inspectionData.s2_qc_eng_id) {
-        setBackChipQcEngineer(inspectionData.s2_qc_eng_id);
+      if (stage === 'stage2') {
+        // Prioritize column data for QC, fallback to parsed data later if needed
+        if (inspectionData.s2_qc_eng_id) {
+          setBackChipQcEngineer(inspectionData.s2_qc_eng_id);
+        }
+        // Pre-fill Prod Name from injected data
+        if (inspectionData.s2_prod_eng_name) {
+          setProductionEngineerName(inspectionData.s2_prod_eng_name);
+        }
+
+        if (inspectionData.s2_data) {
+          try {
+            const s2Data = typeof inspectionData.s2_data === 'string' ? JSON.parse(inspectionData.s2_data) : inspectionData.s2_data;
+            if (s2Data?.productionEngineerName) setProductionEngineerName(s2Data.productionEngineerName);
+            if (s2Data?.submissionDate) setTodayDate(s2Data.submissionDate);
+            // Fallback for QC ID if column data was missing
+            if (!inspectionData.s2_qc_eng_id && s2Data?.assignedQcEngineerId) {
+              setBackChipQcEngineer(s2Data.assignedQcEngineerId);
+            }
+          } catch (e) { console.error("Error parsing s2_data", e) }
+        }
       }
+
       if (stage === 'stage3') {
         if (inspectionData.s3_qc_eng_id) setWeldVisualQcEngineer(inspectionData.s3_qc_eng_id);
+        // Pre-fill Prod Name from injected data
+        if (inspectionData.s3_prod_eng_name) {
+          setProductionEngineerName(inspectionData.s3_prod_eng_name);
+        }
 
-        // Check for welderNo in s3_data if not found in root properties
         let loadedWelderNo = inspectionData.s3_welder_no || "";
 
-        if (!loadedWelderNo && inspectionData.s3_data) {
+        if (inspectionData.s3_data) {
           try {
             const savedData = typeof inspectionData.s3_data === 'string'
               ? JSON.parse(inspectionData.s3_data)
               : inspectionData.s3_data;
             if (savedData?.welderNo) {
               loadedWelderNo = savedData.welderNo;
+            }
+            if (savedData?.productionEngineerName) setProductionEngineerName(savedData.productionEngineerName);
+            if (savedData?.submissionDate) setTodayDate(savedData.submissionDate);
+
+            if (!inspectionData.s3_qc_eng_id && savedData?.assignedQcEngineerId) {
+              setWeldVisualQcEngineer(savedData.assignedQcEngineerId);
             }
           } catch (e) {
             console.error("Error parsing s3_data", e);
@@ -152,14 +182,18 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
           return;
         }
         payload.data = {
-          assignedQcEngineerId: backChipQcEngineer
+          assignedQcEngineerId: backChipQcEngineer,
+          productionEngineerName: productionEngineerName,
+          submissionDate: todayDate
         };
       }
 
       if (currentStage === 'stage3') {
         payload.data = {
           welderNo,
-          assignedQcEngineerId: weldVisualQcEngineer
+          assignedQcEngineerId: weldVisualQcEngineer,
+          productionEngineerName: productionEngineerName,
+          submissionDate: todayDate
         };
       }
 

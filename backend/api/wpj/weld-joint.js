@@ -498,10 +498,47 @@ async function getAssignedWeldJoints(req, res) {
             }
         });
 
+        // Extract all User IDs to fetch names
+        const userIds = new Set();
+        joints.forEach(joint => {
+            const insp = joint.weld_joint_inspection;
+            if (insp) {
+                // Collect IDs from all stages
+                ['s1', 's2', 's3', 's4', 's5', 's6', 's7'].forEach(stage => {
+                    if (insp[`${stage}_prod_eng_id`]) userIds.add(insp[`${stage}_prod_eng_id`]);
+                    if (insp[`${stage}_qc_eng_id`]) userIds.add(insp[`${stage}_qc_eng_id`]);
+                    if (insp[`${stage}_ndt_eng_id`]) userIds.add(insp[`${stage}_ndt_eng_id`]);
+                });
+            }
+        });
+
+        // Fetch User Names
+        const users = await prisma.user.findMany({
+            where: { id: { in: Array.from(userIds) } },
+            select: { id: true, name: true }
+        });
+
+        const userMap = {};
+        users.forEach(u => userMap[u.id] = u.name);
+
+        // Inject Names into Joints
+        const assignedJoints = joints.map(joint => {
+            if (joint.weld_joint_inspection) {
+                const insp = { ...joint.weld_joint_inspection };
+                ['s1', 's2', 's3', 's4', 's5', 's6', 's7'].forEach(stage => {
+                    if (insp[`${stage}_prod_eng_id`]) insp[`${stage}_prod_eng_name`] = userMap[insp[`${stage}_prod_eng_id`]];
+                    if (insp[`${stage}_qc_eng_id`]) insp[`${stage}_qc_eng_name`] = userMap[insp[`${stage}_qc_eng_id`]];
+                    if (insp[`${stage}_ndt_eng_id`]) insp[`${stage}_ndt_eng_name`] = userMap[insp[`${stage}_ndt_eng_id`]];
+                });
+                return { ...joint, weld_joint_inspection: insp };
+            }
+            return joint;
+        });
+
         res.status(200).json({
             success: true,
             message: 'Assigned Weld Joints fetched successfully',
-            data: joints
+            data: assignedJoints
         });
     } catch (error) {
         console.error('Get assigned weld joints error:', error);
