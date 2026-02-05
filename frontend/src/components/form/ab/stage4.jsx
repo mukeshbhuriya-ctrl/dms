@@ -203,7 +203,7 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
                                 type="text"
                                 value={productionEngineerName}
                                 readOnly
-                                className="bg-muted"
+                                className="bg-muted uppercase"
                             />
                         </div>
 
@@ -226,7 +226,7 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
                                 <SelectContent>
                                     {ndtEngineers.map((engineer) => (
                                         <SelectItem key={engineer.id} value={engineer.id}>
-                                            {engineer.name}
+                                            {engineer.name?.toUpperCase()}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

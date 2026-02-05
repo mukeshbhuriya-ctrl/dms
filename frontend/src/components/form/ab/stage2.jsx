@@ -287,7 +287,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                   type="text"
                   value={productionEngineerName}
                   readOnly
-                  className="bg-muted"
+                  className="bg-muted uppercase"
                 />
               </div>
 
@@ -314,7 +314,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                   <SelectContent>
                     {qcEngineers.map((engineer) => (
                       <SelectItem key={engineer.id} value={engineer.id}>
-                        {engineer.name}
+                        {engineer.name?.toUpperCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -355,7 +355,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                   type="text"
                   value={productionEngineerName}
                   readOnly
-                  className="bg-muted"
+                  className="bg-muted uppercase"
                 />
               </div>
 
@@ -382,7 +382,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                   <SelectContent>
                     {qcEngineers.map((engineer) => (
                       <SelectItem key={engineer.id} value={engineer.id}>
-                        {engineer.name}
+                        {engineer.name?.toUpperCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>

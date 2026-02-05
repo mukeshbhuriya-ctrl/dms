@@ -556,7 +556,7 @@ function Stage1({ initialData, isReview = false }) {
                 type="text"
                 value={productionEngineerName}
                 readOnly
-                className="bg-muted"
+                className="bg-muted uppercase"
               />
             </div>
 
@@ -579,7 +579,7 @@ function Stage1({ initialData, isReview = false }) {
                 <SelectContent>
                   {qeEngineers.map((engineer) => (
                     <SelectItem key={engineer.id} value={engineer.id}>
-                      {engineer.name}
+                      {engineer.name?.toUpperCase()}
                     </SelectItem>
                   ))}
                 </SelectContent>
