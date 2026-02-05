@@ -399,9 +399,7 @@ model weld_joint_inspection {
   s6_completed_at DateTime?
 
   // --- Stage 7: Final ---
-  s7_status       String   @default("pending")
-  s7_data         Json?
-  s7_completed_at DateTime?
+
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

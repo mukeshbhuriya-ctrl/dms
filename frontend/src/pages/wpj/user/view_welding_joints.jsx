@@ -22,7 +22,7 @@ import Stage2 from "@/components/form/ab/stage2"
 import Stage4 from "@/components/form/ab/stage4"
 import Stage5 from "@/components/form/ab/stage5"
 import Stage6 from "@/components/form/ab/stage6"
-import Stage7 from "@/components/form/ab/stage7"
+
 
 
 
@@ -121,8 +121,6 @@ function ViewWeldingJoints() {
                 if (insp.s6_status !== 'approved') return 'stage6';
               }
 
-              if (insp.s7_status !== 'approved') return 'stage7';
-
               return 'completed';
             })(),
             backChip: joint.back_chip_req || false,
@@ -213,7 +211,7 @@ function ViewWeldingJoints() {
       'stage4': 's4_status',
       'stage5': 's5_status',
       'stage6': 's6_status',
-      'stage7': 's7_status',
+
     };
 
     // Map stage to QC Engineer ID field
@@ -229,7 +227,6 @@ function ViewWeldingJoints() {
       'stage4': 's4_ndt_eng_id',
       'stage5': 's5_ndt_eng_id',
       'stage6': 's6_qc_eng_id',
-      'stage7': 's7_qc_eng_id',
     };
 
     const statusKey = statusKeyMap[currentStage];
@@ -406,7 +403,7 @@ function ViewWeldingJoints() {
               {selectedStage === "stage4" && "Stage 4 Form"}
               {selectedStage === "stage5" && "Stage 5 Form"}
               {selectedStage === "stage6" && "Stage 6 Form"}
-              {selectedStage === "stage7" && "Stage 7 Form"}
+
             </DialogTitle>
           </DialogHeader>
 
@@ -463,14 +460,7 @@ function ViewWeldingJoints() {
                     isReview={isReviewMode}
                   />
                 )}
-                {selectedStage === "stage7" && (
-                  <Stage7
-                    key={selectedJoint?.id}
-                    initialData={selectedJoint}
-                    inspectionData={selectedJoint?.inspectionData}
-                    isReview={isReviewMode}
-                  />
-                )}
+
               </>
             );
           })()}

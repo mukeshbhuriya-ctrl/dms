@@ -365,8 +365,7 @@ async function updateStageStatus(req, res) {
             'stage3': 's3',
             'stage4': 's4',
             'stage5': 's5',
-            'stage6': 's6',
-            'stage7': 's7'
+            'stage6': 's6'
         }[stage];
 
         if (!stagePrefix) {
@@ -380,7 +379,7 @@ async function updateStageStatus(req, res) {
 
         if (data) {
             // For stages that have a data field (like s1_data, s7_data)
-            if (stage === 'stage1' || stage === 'stage7') {
+            if (stage === 'stage1') {
                 updateData[`${stagePrefix}_data`] = data;
             }
             // Add other specific mappings if needed, e.g. welder_no for stage 3
@@ -457,7 +456,7 @@ async function reviewStageStatus(req, res) {
 
         const stagePrefix = {
             'stage1': 's1', 'stage2': 's2', 'stage3': 's3',
-            'stage4': 's4', 'stage5': 's5', 'stage6': 's6', 'stage7': 's7'
+            'stage4': 's4', 'stage5': 's5', 'stage6': 's6'
         }[stage];
 
         if (!stagePrefix) return res.status(400).json({ success: false, message: 'Invalid stage' });
@@ -475,7 +474,7 @@ async function reviewStageStatus(req, res) {
         // Assuming linear progression:
         const nextStageMap = {
             'stage1': 'stage2', 'stage2': 'stage3', 'stage3': 'stage4',
-            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'stage7', 'stage7': 'completed'
+            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'completed'
         };
 
         let parentStatusUpdate = {};
