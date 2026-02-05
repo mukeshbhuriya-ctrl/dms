@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { FormAlert } from "@/components/ui/form-alert"
 
 
 function Stage2({ backChip = false, stage = "stage2", initialData, inspectionData, isReview = false }) {
@@ -23,6 +24,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
 
   useEffect(() => {
     if (isReview) return;
@@ -216,15 +219,15 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
       const data = await res.json();
       if (res.ok) {
-        alert(`${currentStage} submitted successfully`);
-        window.location.reload();
+        setSuccess(`${currentStage} submitted successfully`);
+        setTimeout(() => window.location.reload(), 1500);
       } else {
-        alert(data.message || "Submission failed");
+        setError(data.message || "Submission failed");
       }
 
     } catch (error) {
       console.error(error);
-      alert("Error submitting form");
+      setError("Error submitting form");
     } finally {
       setIsSubmitting(false);
     }
@@ -232,6 +235,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
   const handleReviewAction = async (status, currentStage) => {
     setIsSubmitting(true);
+    setError("");
+    setSuccess("");
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -265,14 +270,14 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
       const data = await res.json();
       if (res.ok) {
-        alert(`${currentStage} ${status} successfully`);
-        window.location.reload();
+        setSuccess(`${currentStage} ${status} successfully`);
+        setTimeout(() => window.location.reload(), 1500);
       } else {
-        alert(data.message || "Review action failed");
+        setError(data.message || "Review action failed");
       }
     } catch (error) {
       console.error(error);
-      alert("Error processing review");
+      setError("Error processing review");
     } finally {
       setIsSubmitting(false);
     }

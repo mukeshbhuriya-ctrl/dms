@@ -21,6 +21,8 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
     const [todayDate] = useState(new Date().toLocaleDateString())
     const [ndtEngineer, setNdtEngineer] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [error, setError] = useState("")
+    const [success, setSuccess] = useState("")
 
     useEffect(() => {
         const authData = localStorage.getItem("user_auth")
@@ -132,15 +134,15 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
 
             const data = await res.json();
             if (res.ok) {
-                alert("Stage 5 (PT) submitted successfully");
-                window.location.reload();
+                setSuccess("Stage 5 (PT) submitted successfully");
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert(data.message || "Submission failed");
+                setError(data.message || "Submission failed");
             }
 
         } catch (error) {
             console.error(error);
-            alert("Error submitting form");
+            setError("Error submitting form");
         } finally {
             setIsSubmitting(false);
         }
@@ -148,6 +150,8 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
 
     const handleReviewAction = async (status) => {
         setIsSubmitting(true);
+        setError("");
+        setSuccess("");
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
@@ -182,14 +186,14 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
 
             const data = await res.json();
             if (res.ok) {
-                alert(`Stage 5 ${status} successfully`);
-                window.location.reload();
+                setSuccess(`Stage 5 ${status} successfully`);
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert(data.message || "Review action failed");
+                setError(data.message || "Review action failed");
             }
         } catch (error) {
             console.error(error);
-            alert("Error processing review");
+            setError("Error processing review");
         } finally {
             setIsSubmitting(false);
         }
@@ -197,6 +201,8 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
 
     return (
         <div className="w-full mx-auto p-6 space-y-6">
+            <FormAlert type="error" message={error} />
+            <FormAlert type="success" message={success} />
             <Card>
                 <CardHeader>
                     <CardTitle>Penetrant Testing (PT)</CardTitle>

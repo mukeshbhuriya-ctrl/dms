@@ -15,6 +15,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
+import { FormAlert } from "@/components/ui/form-alert"
 
 function Stage6({ initialData, inspectionData, isReview = false }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
@@ -24,6 +25,8 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
     const [postRtStatus, setPostRtStatus] = useState("NA") // NA, Pending, Approved
     const [postPtStatus, setPostPtStatus] = useState("NA")
 
+    const [error, setError] = useState("")
+    const [success, setSuccess] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     useEffect(() => {
@@ -90,6 +93,8 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
 
     const handleSubmit = async () => {
         setIsSubmitting(true)
+        setError("")
+        setSuccess("")
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
@@ -104,7 +109,7 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
             }
 
             if (!qcEngineer) {
-                alert("Please select QC Engineer");
+                setError("Please select QC Engineer");
                 setIsSubmitting(false);
                 return;
             }
@@ -134,15 +139,15 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
 
             const data = await res.json();
             if (res.ok) {
-                alert("Stage 6 (PWHT) submitted successfully");
-                window.location.reload();
+                setSuccess("Stage 6 (PWHT) submitted successfully");
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert(data.message || "Submission failed");
+                setError(data.message || "Submission failed");
             }
 
         } catch (error) {
             console.error(error);
-            alert("Error submitting form");
+            setError("Error submitting form");
         } finally {
             setIsSubmitting(false);
         }
@@ -150,6 +155,8 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
 
     const handleReviewAction = async (status) => {
         setIsSubmitting(true);
+        setError("");
+        setSuccess("");
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
@@ -172,7 +179,7 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
                 data: {}
             }
 
-            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+            const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -184,14 +191,14 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
 
             const data = await res.json();
             if (res.ok) {
-                alert(`Stage 6 ${status} successfully`);
-                window.location.reload();
+                setSuccess(`Stage 6 ${status} successfully`);
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                alert(data.message || "Review action failed");
+                setError(data.message || "Review action failed");
             }
         } catch (error) {
             console.error(error);
-            alert("Error processing review");
+            setError("Error processing review");
         } finally {
             setIsSubmitting(false);
         }
@@ -199,6 +206,8 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
 
     return (
         <div className="w-full mx-auto p-6 space-y-6">
+            <FormAlert type="error" message={error} />
+            <FormAlert type="success" message={success} />
             <Card>
                 <CardHeader>
                     <CardTitle>Post Weld Heat Treatment (PWHT)</CardTitle>
