@@ -373,6 +373,7 @@ model weld_joint_inspection {
   // --- Stage 3: Weld Visual ---
   s3_status       String   @default("pending")
   s3_welder_no    String?
+  s3_welding_process    String?
   s3_prod_eng_id  String?
   s3_qc_eng_id    String?
   s3_completed_at DateTime?

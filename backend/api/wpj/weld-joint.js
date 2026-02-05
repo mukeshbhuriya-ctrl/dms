@@ -384,8 +384,9 @@ async function updateStageStatus(req, res) {
                 updateData[`${stagePrefix}_data`] = data;
             }
             // Add other specific mappings if needed, e.g. welder_no for stage 3
-            if (stage === 'stage3' && data.welderNo) {
-                updateData[`${stagePrefix}_welder_no`] = data.welderNo;
+            if (stage === 'stage3') {
+                if (data.welderNo) updateData[`${stagePrefix}_welder_no`] = data.welderNo;
+                if (data.weldingProcess) updateData[`${stagePrefix}_welding_process`] = data.weldingProcess;
             }
             // Stage 4 & 5 - Map assigned NDT Engineer
             if ((stage === 'stage4' || stage === 'stage5') && data.assignedNdtEngineerId) {

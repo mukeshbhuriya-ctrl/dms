@@ -43,6 +43,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
   // Weld Visual Inspection section
   const [weldVisualQcEngineer, setWeldVisualQcEngineer] = useState("")
   const [welderNo, setWelderNo] = useState("")
+  const [weldingProcess, setWeldingProcess] = useState("")
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -118,6 +119,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         }
 
         let loadedWelderNo = inspectionData.s3_welder_no || "";
+        let loadedWeldingProcess = inspectionData.s3_welding_process || "";
 
         if (inspectionData.s3_data) {
           try {
@@ -126,6 +128,9 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
               : inspectionData.s3_data;
             if (savedData?.welderNo) {
               loadedWelderNo = savedData.welderNo;
+            }
+            if (savedData?.weldingProcess) {
+              loadedWeldingProcess = savedData.weldingProcess;
             }
             if (savedData?.productionEngineerName) setProductionEngineerName(savedData.productionEngineerName);
             if (savedData?.submissionDate) setTodayDate(savedData.submissionDate);
@@ -139,6 +144,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         }
 
         if (loadedWelderNo) setWelderNo(loadedWelderNo);
+        if (loadedWeldingProcess) setWeldingProcess(loadedWeldingProcess);
       }
     }
   }, [inspectionData, stage]);
@@ -191,6 +197,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       if (currentStage === 'stage3') {
         payload.data = {
           welderNo,
+          weldingProcess,
           assignedQcEngineerId: weldVisualQcEngineer,
           productionEngineerName: productionEngineerName,
           submissionDate: todayDate
@@ -277,7 +284,12 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       {shouldShowBackChipSection && (
         <Card>
           <CardHeader>
-            <CardTitle>Back chip</CardTitle>
+            <CardTitle>
+              Back chip{" "}
+              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                Yes
+              </span>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -348,7 +360,36 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
             <CardTitle>Weld Visual Inspection by</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div className="space-y-2">
+                <Label htmlFor="welderNo">Welder No.:</Label>
+                <Input
+                  id="welderNo"
+                  type="text"
+                  value={welderNo}
+                  onChange={(e) => setWelderNo(e.target.value)}
+                  placeholder="Enter Welder No."
+                  readOnly={isReview}
+                  className={isReview ? "bg-muted" : ""}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="weldingProcess">Welding Process:</Label>
+                <Input
+                  id="weldingProcess"
+                  type="text"
+                  value={weldingProcess}
+                  onChange={(e) => setWeldingProcess(e.target.value)}
+                  placeholder="Enter Welding Process"
+                  readOnly={isReview}
+                  className={isReview ? "bg-muted" : ""}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Production Engineer Name:</Label>
                 <Input
@@ -387,19 +428,6 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="welderNo">Welder No.:</Label>
-                <Input
-                  id="welderNo"
-                  type="text"
-                  value={welderNo}
-                  onChange={(e) => setWelderNo(e.target.value)}
-                  placeholder="Enter Welder No."
-                  readOnly={isReview}
-                  className={isReview ? "bg-muted" : ""}
-                />
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">
