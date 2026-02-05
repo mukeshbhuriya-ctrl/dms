@@ -312,7 +312,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 <Label>Date:</Label>
                 <Input
                   type="text"
-                  value={todayDate}
+                  value={initialData?.inspectionData?.s2_submitted_at ? new Date(initialData.inspectionData.s2_submitted_at).toLocaleDateString() : todayDate}
                   readOnly
                   className="bg-muted"
                 />
@@ -338,13 +338,22 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 </Select>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex justify-end gap-2 items-center">
               {!isReview ? (
                 <Button onClick={() => handleSubmit('stage2')} disabled={isSubmitting}>
                   {isSubmitting ? "Saving..." : "Save & Complete Stage 2"}
                 </Button>
               ) : (
                 <>
+                  {(isReview || initialData?.inspectionData?.s2_approved_at) && (
+                    <Input
+                      type="text"
+                      value={`Approve Date: ${initialData?.inspectionData?.s2_approved_at ? new Date(initialData.inspectionData.s2_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                      readOnly
+                      className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
+                      placeholder="Approve Date"
+                    />
+                  )}
                   <Button onClick={() => handleReviewAction('rejected', 'stage2')} variant="outline" disabled={isSubmitting}>
                     {isSubmitting ? "Processing..." : "Reject"}
                   </Button>
@@ -409,7 +418,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 <Label>Date:</Label>
                 <Input
                   type="text"
-                  value={todayDate}
+                  value={initialData?.inspectionData?.s3_submitted_at ? new Date(initialData.inspectionData.s3_submitted_at).toLocaleDateString() : todayDate}
                   readOnly
                   className="bg-muted"
                 />
@@ -435,13 +444,22 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 </Select>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex justify-end gap-2 items-center">
               {!isReview ? (
                 <Button onClick={() => handleSubmit('stage3')} disabled={isSubmitting}>
                   {isSubmitting ? "Saving..." : "Save & Complete Stage 3"}
                 </Button>
               ) : (
                 <>
+                  {(isReview || initialData?.inspectionData?.s3_approved_at) && (
+                    <Input
+                      type="text"
+                      value={`Approve Date: ${initialData?.inspectionData?.s3_approved_at ? new Date(initialData.inspectionData.s3_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                      readOnly
+                      className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
+                      placeholder="Approve Date"
+                    />
+                  )}
                   <Button onClick={() => handleReviewAction('rejected', 'stage3')} variant="outline" disabled={isSubmitting}>
                     {isSubmitting ? "Processing..." : "Reject"}
                   </Button>

@@ -362,13 +362,15 @@ model weld_joint_inspection {
   s1_data         Json?    
   s1_prod_eng_id  String?
   s1_qc_eng_id    String?
-  s1_completed_at DateTime?
+  s1_submitted_at DateTime?
+  s1_approved_at  DateTime?
 
   // --- Stage 2: Back Chip ---
   s2_status       String   @default("pending")
   s2_prod_eng_id  String?
   s2_qc_eng_id    String?
-  s2_completed_at DateTime?
+  s2_submitted_at DateTime?
+  s2_approved_at  DateTime?
 
   // --- Stage 3: Weld Visual ---
   s3_status       String   @default("pending")
@@ -376,19 +378,22 @@ model weld_joint_inspection {
   s3_welding_process    String?
   s3_prod_eng_id  String?
   s3_qc_eng_id    String?
-  s3_completed_at DateTime?
+  s3_submitted_at DateTime?
+  s3_approved_at  DateTime?
 
   // --- Stage 4: RT ---
   s4_status       String   @default("pending")
   s4_prod_eng_id  String?
   s4_ndt_eng_id   String?
-  s4_completed_at DateTime?
+  s4_submitted_at DateTime?
+  s4_approved_at  DateTime?
 
   // --- Stage 5: PT ---
   s5_status       String   @default("pending")
   s5_prod_eng_id  String?
   s5_ndt_eng_id   String?
-  s5_completed_at DateTime?
+  s5_submitted_at DateTime?
+  s5_approved_at  DateTime?
 
   // --- Stage 6: PWHT ---
   s6_status       String   @default("pending")
@@ -396,10 +401,8 @@ model weld_joint_inspection {
   s6_qc_eng_id    String? 
   s6_post_rt_status String? 
   s6_post_pt_status String? 
-  s6_completed_at DateTime?
-
-  // --- Stage 7: Final ---
-
+  s6_submitted_at DateTime?
+  s6_approved_at  DateTime?
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

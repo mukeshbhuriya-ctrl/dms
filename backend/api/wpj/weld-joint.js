@@ -403,7 +403,11 @@ async function updateStageStatus(req, res) {
         }
 
         if (status === 'approved' || status === 'completed') {
-            updateData[`${stagePrefix}_completed_at`] = new Date();
+            updateData[`${stagePrefix}_approved_at`] = new Date();
+        }
+
+        if (status === 'pending') {
+            updateData[`${stagePrefix}_submitted_at`] = new Date();
         }
 
         // Handle Engineer IDs based on role/stage
@@ -466,7 +470,7 @@ async function reviewStageStatus(req, res) {
         };
 
         if (status === 'approved') {
-            updateData[`${stagePrefix}_completed_at`] = new Date();
+            updateData[`${stagePrefix}_approved_at`] = new Date();
         }
 
         // Handle Status Transition (e.g. Stage 1 Approved -> Move to Stage 2)

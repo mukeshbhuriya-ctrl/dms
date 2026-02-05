@@ -564,7 +564,7 @@ function Stage1({ initialData, isReview = false }) {
               <Label>Date:</Label>
               <Input
                 type="text"
-                value={todayDate}
+                value={initialData?.inspectionData?.s1_submitted_at ? new Date(initialData.inspectionData.s1_submitted_at).toLocaleDateString() : todayDate}
                 readOnly
                 className="bg-muted"
               />
@@ -587,13 +587,22 @@ function Stage1({ initialData, isReview = false }) {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="mt-6 flex justify-end gap-2 items-center">
             {!isReview ? (
               <Button onClick={handleSubmit} disabled={isSubmitting}>
                 {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
               </Button>
             ) : (
               <>
+                {(isReview || initialData?.inspectionData?.s1_approved_at) && (
+                  <Input
+                    type="text"
+                    value={`Approve Date: ${initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                    readOnly
+                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
+                    placeholder="Approve Date"
+                  />
+                )}
                 <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
                   {isSubmitting ? "Processing..." : "Reject"}
                 </Button>
@@ -605,7 +614,7 @@ function Stage1({ initialData, isReview = false }) {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div >
   )
 }
 

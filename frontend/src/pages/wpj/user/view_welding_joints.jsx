@@ -245,7 +245,7 @@ function ViewWeldingJoints() {
     const prefix = currentStage.replace('stage', 's');
     const prodKey = `${prefix}_prod_eng_id`;
     const ndtKey = `${prefix}_ndt_eng_id`;
-    const completedAtKey = `${prefix}_completed_at`;
+    const completedAtKey = `${prefix}_approved_at`;
 
     const isSubmitted = !!(joint.inspectionData?.[prodKey] ||
       joint.inspectionData?.[ndtKey] ||
