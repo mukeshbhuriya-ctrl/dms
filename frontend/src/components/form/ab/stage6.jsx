@@ -84,6 +84,7 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
             if (inspectionData.s6_qc_eng_id) setQcEngineer(inspectionData.s6_qc_eng_id);
             if (inspectionData.s6_post_rt_status) setPostRtStatus(inspectionData.s6_post_rt_status);
             if (inspectionData.s6_post_pt_status) setPostPtStatus(inspectionData.s6_post_pt_status);
+            if (inspectionData.s6_prod_eng_name) setProductionEngineerName(inspectionData.s6_prod_eng_name);
         }
     }, [inspectionData]);
 

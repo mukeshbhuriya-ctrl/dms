@@ -77,8 +77,14 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
     }, [])
 
     useEffect(() => {
-        if (inspectionData && inspectionData.s4_ndt_eng_id) {
-            setNdtEngineer(inspectionData.s4_ndt_eng_id);
+        if (inspectionData) {
+            // Pre-fill Prod Name from injected data
+            if (inspectionData.s4_prod_eng_name) {
+                setProductionEngineerName(inspectionData.s4_prod_eng_name);
+            }
+            if (inspectionData.s4_ndt_eng_id) {
+                setNdtEngineer(inspectionData.s4_ndt_eng_id);
+            }
         }
     }, [inspectionData]);
 

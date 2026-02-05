@@ -412,7 +412,12 @@ async function updateStageStatus(req, res) {
         if (role === 'PROD') {
             updateData[`${stagePrefix}_prod_eng_id`] = engineerId;
         } else if (role === 'QC') {
-            updateData[`${stagePrefix}_qc_eng_id`] = engineerId;
+            // Special handling for NDT stages (Stage 4 & 5) approved by QC Engineer
+            if (stage === 'stage4' || stage === 'stage5') {
+                updateData[`${stagePrefix}_ndt_eng_id`] = engineerId;
+            } else {
+                updateData[`${stagePrefix}_qc_eng_id`] = engineerId;
+            }
         } else if (role === 'NDT') {
             updateData[`${stagePrefix}_ndt_eng_id`] = engineerId;
         }

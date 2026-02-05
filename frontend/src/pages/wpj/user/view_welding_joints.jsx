@@ -226,8 +226,8 @@ function ViewWeldingJoints() {
       'stage1': 's1_qc_eng_id',
       'stage2': 's2_qc_eng_id',
       'stage3': 's3_qc_eng_id',
-      'stage4': 's4_qc_eng_id', // Assuming pattern matches
-      'stage5': 's5_qc_eng_id',
+      'stage4': 's4_ndt_eng_id',
+      'stage5': 's5_ndt_eng_id',
       'stage6': 's6_qc_eng_id',
       'stage7': 's7_qc_eng_id',
     };
