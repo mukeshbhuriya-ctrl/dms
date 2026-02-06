@@ -62,7 +62,7 @@ const Stage6D = ({ initialData, isReview }) => {
                             <SelectContent>
                                 <SelectItem value="OK">OK</SelectItem>
                                 <SelectItem value="Not OK">Not OK</SelectItem>
-                                <SelectItem value="N/A">N/A</SelectItem>
+                                <SelectItem value="Not Applicable">Not Applicable</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

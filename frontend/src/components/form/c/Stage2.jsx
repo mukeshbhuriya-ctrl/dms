@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const Stage3C = ({ initialData, isReview }) => {
     const [formData, setFormData] = useState({
         welderNumber: "W-123",
-        overlayPt: "N/A",
+        overlayPt: "Not Applicable",
         date: new Date().toLocaleDateString()
     })
 
