@@ -23,8 +23,12 @@ import Stage4 from "@/components/form/ab/stage4"
 import Stage5 from "@/components/form/ab/stage5"
 import Stage6 from "@/components/form/ab/stage6"
 
-
-
+import Stage1C from "@/components/form/c/Stage1"
+import Stage2C from "@/components/form/c/Stage2"
+import Stage3D from "@/components/form/d/Stage3"
+import Stage4D from "@/components/form/d/Stage4"
+import Stage5D from "@/components/form/d/Stage5"
+import Stage6D from "@/components/form/d/Stage6"
 
 function ViewWeldingJoints() {
   const [weldingJoints, setWeldingJoints] = useState([])
@@ -83,8 +87,9 @@ function ViewWeldingJoints() {
 
         const data = await res.json()
 
+        let mappedJoints = [];
         if (res.ok) {
-          const mappedJoints = (data.data || []).map(joint => ({
+          mappedJoints = (data.data || []).map(joint => ({
             id: joint.id,
             msnNumber: joint.weld_joint_plan?.job?.job_number || "-",
             // Basic Info for Stage 1
@@ -128,11 +133,28 @@ function ViewWeldingJoints() {
             // Preserve other details if needed for stages
             ...joint
           }))
-          setWeldingJoints(mappedJoints)
+
         } else {
           console.error("Failed to fetch joints", data)
           setError("Failed to load welding joints")
         }
+
+        // --- INJECT DUMMY JOINTS FOR C & D ---
+        mappedJoints.unshift(
+          { id: 'd-s6', msnNumber: '99906', jointNo: 'D-Joint-06', jointCategory: 'D', status: 'stage6', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+          { id: 'd-s5', msnNumber: '99905', jointNo: 'D-Joint-05', jointCategory: 'D', status: 'stage5', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+          { id: 'd-s4', msnNumber: '99904', jointNo: 'D-Joint-04', jointCategory: 'D', status: 'stage4', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+          { id: 'd-s3', msnNumber: '99903', jointNo: 'D-Joint-03', jointCategory: 'D', status: 'stage3', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+          { id: 'd-s2', msnNumber: '99902', jointNo: 'D-Joint-02', jointCategory: 'D', status: 'stage2', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+          { id: 'd-s1', msnNumber: '99901', jointNo: 'D-Joint-01', jointCategory: 'D', status: 'stage1', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+
+          { id: 'c-s2', msnNumber: '88802', jointNo: 'C-Joint-02', jointCategory: 'C', status: 'stage2', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+
+          { id: 'c-s1', msnNumber: '88801', jointNo: 'C-Joint-01', jointCategory: 'C', status: 'stage1', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
+        );
+
+        setWeldingJoints(mappedJoints);
+
       } catch (err) {
         console.error("Error fetching joints:", err)
         setError("Error fetching data")
@@ -182,6 +204,18 @@ function ViewWeldingJoints() {
       return (
         <span className="inline-flex items-center rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
           B
+        </span>
+      )
+    } else if (category === "C") {
+      return (
+        <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+          C
+        </span>
+      )
+    } else if (category === "D") {
+      return (
+        <span className="inline-flex items-center rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
+          D
         </span>
       )
     }
@@ -403,18 +437,49 @@ function ViewWeldingJoints() {
               {selectedStage === "stage4" && "Stage 4 Form"}
               {selectedStage === "stage5" && "Stage 5 Form"}
               {selectedStage === "stage6" && "Stage 6 Form"}
+              {selectedStage === "stage7" && "Stage 7 Form"}
 
             </DialogTitle>
           </DialogHeader>
 
+          {/* Dialog Content Logic */}
           {(() => {
-            // Determine if the *current open stage* is in review mode
             let isReviewMode = false;
             if (isQCOrNDT && selectedJoint && selectedStage) {
               const { isPending, isAssignedToMe } = getStageActionState(selectedJoint);
               if (isPending && isAssignedToMe) {
                 isReviewMode = true;
               }
+            }
+
+            if (selectedJoint?.jointCategory === 'C' || selectedJoint?.jointCategory === 'D') {
+              return (
+                <>
+                  {selectedStage === "stage1" && (
+                    <Stage1C initialData={selectedJoint} isReview={isReviewMode} />
+                  )}
+
+                  {selectedStage === "stage2" && (
+                    <Stage2C initialData={selectedJoint} isReview={isReviewMode} />
+                  )}
+                  {selectedJoint.jointCategory === 'D' && (
+                    <>
+                      {selectedStage === "stage3" && (
+                        <Stage3D initialData={selectedJoint} isReview={isReviewMode} />
+                      )}
+                      {selectedStage === "stage4" && (
+                        <Stage4D initialData={selectedJoint} isReview={isReviewMode} />
+                      )}
+                      {selectedStage === "stage5" && (
+                        <Stage5D initialData={selectedJoint} isReview={isReviewMode} />
+                      )}
+                      {selectedStage === "stage6" && (
+                        <Stage6D initialData={selectedJoint} isReview={isReviewMode} />
+                      )}
+                    </>
+                  )}
+                </>
+              )
             }
 
             return (
