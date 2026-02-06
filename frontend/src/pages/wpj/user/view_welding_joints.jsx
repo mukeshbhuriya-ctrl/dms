@@ -536,6 +536,15 @@ function ViewWeldingJoints() {
                       isReview={isReviewMode}
                     />
                   )}
+                  {selectedStage === "stage7" && (
+                    <Stage6
+                      key={selectedJoint?.id}
+                      initialData={selectedJoint}
+                      inspectionData={selectedJoint?.inspectionData}
+                      isReview={isReviewMode}
+                      stage="stage7"
+                    />
+                  )}
                 </>
               )
             }

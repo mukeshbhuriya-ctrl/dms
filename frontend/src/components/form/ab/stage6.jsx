@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function Stage6({ initialData, inspectionData, isReview = false }) {
+function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6", }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate] = useState(new Date().toLocaleDateString())
     const [qcEngineer, setQcEngineer] = useState("")
@@ -437,9 +437,17 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
                     )}</CardTitle>
                 </CardHeader>
                 <CardHeader>
-                    <CardTitle>Radiography Testing (RT) <span className="ml-2 text-xs text-muted-foreground">
-                        (After PWHT)
-                    </span></CardTitle>
+                    {initialData?.pwht && (
+                        <CardTitle>Radiography Testing (RT) <span className="ml-2 text-xs text-muted-foreground">
+                            (After PWHT)
+                        </span></CardTitle>
+                    )}
+
+                    {stage === "stage7" && initialData?.pwht && (
+                        <CardTitle>Penetrant Testing (PT) <span className="ml-2 text-xs text-muted-foreground">
+                            (Required / Not required - After PWHT)
+                        </span></CardTitle>
+                    )}
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
