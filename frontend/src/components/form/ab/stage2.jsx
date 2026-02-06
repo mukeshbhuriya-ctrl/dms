@@ -27,6 +27,24 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
+  // Basic Info State
+  const [displayFields, setDisplayFields] = useState({
+    msn: "",
+    client: "",
+    poNo: "",
+  })
+
+  const [inputFields, setInputFields] = useState({
+    reportNo: "",
+    tagNo: "",
+    equipment: "",
+    projectsId: "",
+    lindeDrgNo: "",
+    drgNo: "",
+    code: "",
+    inspAgency: "",
+  })
+
   useEffect(() => {
     if (isReview) return;
     const authData = localStorage.getItem("user_auth")
@@ -42,6 +60,43 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       }
     }
   }, [])
+
+  // Populate Basic Info
+  useEffect(() => {
+    if (initialData) {
+      setDisplayFields({
+        msn: initialData.msnNumber || "",
+        client: initialData.client || "",
+        poNo: initialData.poNo || "",
+      })
+
+      setInputFields((prev) => ({
+        ...prev,
+        tagNo: initialData.tagNo || "",
+        equipment: initialData.equipment || "",
+        projectsId: initialData.projectsId || "",
+        lindeDrgNo: initialData.lindeDrgNo || "",
+        drgNo: initialData.drgNo || "",
+        code: initialData.code || "",
+      }))
+    }
+  }, [initialData])
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setInputFields((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleDisplayFieldChange = (e) => {
+    const { name, value } = e.target
+    setDisplayFields((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
 
   // Weld Visual Inspection section
   const [weldVisualQcEngineer, setWeldVisualQcEngineer] = useState("")
@@ -181,7 +236,10 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         status: "pending",
         engineerId: userId,
         role: role,
-        data: {}
+        role: role,
+        data: {
+          inputFields
+        }
       }
 
       if (currentStage === 'stage2') {
@@ -285,6 +343,171 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
   return (
     <div className="w-full mx-auto p-6 space-y-6">
+      {/* Basic Information Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Display Fields (Read-only) */}
+            <div className="space-y-2">
+              <Label htmlFor="msn">MSN:</Label>
+              <Input
+                id="msn"
+                name="msn"
+                type="text"
+                value={displayFields.msn}
+                onChange={handleDisplayFieldChange}
+                placeholder="MSN"
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="client">CLIENT:</Label>
+              <Input
+                id="client"
+                name="client"
+                type="text"
+                value={displayFields.client}
+                onChange={handleDisplayFieldChange}
+                placeholder="CLIENT"
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="poNo">P.O. NO.:</Label>
+              <Input
+                id="poNo"
+                name="poNo"
+                type="text"
+                value={displayFields.poNo}
+                onChange={handleDisplayFieldChange}
+                placeholder="P.O. NO."
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            {/* Input Fields */}
+            <div className="space-y-2">
+              <Label htmlFor="reportNo">Report No:</Label>
+              <Input
+                id="reportNo"
+                name="reportNo"
+                type="text"
+                value={inputFields.reportNo}
+                onChange={handleInputChange}
+                placeholder="Enter Report No"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tagNo">TAG NO.:</Label>
+              <Input
+                id="tagNo"
+                name="tagNo"
+                type="text"
+                value={inputFields.tagNo}
+                onChange={handleInputChange}
+                placeholder="Enter TAG NO."
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="equipment">EQUIPMENT:</Label>
+              <Input
+                id="equipment"
+                name="equipment"
+                type="text"
+                value={inputFields.equipment}
+                onChange={handleInputChange}
+                placeholder="Enter EQUIPMENT"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="projectsId">Projects ID:</Label>
+              <Input
+                id="projectsId"
+                name="projectsId"
+                type="text"
+                value={inputFields.projectsId}
+                onChange={handleInputChange}
+                placeholder="Enter Projects ID"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lindeDrgNo">Linde DRG No:</Label>
+              <Input
+                id="lindeDrgNo"
+                name="lindeDrgNo"
+                type="text"
+                value={inputFields.lindeDrgNo}
+                onChange={handleInputChange}
+                placeholder="Enter Linde DRG No"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="drgNo">DRG. NO.:</Label>
+              <Input
+                id="drgNo"
+                name="drgNo"
+                type="text"
+                value={inputFields.drgNo}
+                onChange={handleInputChange}
+                placeholder="Enter DRG. NO."
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="code">CODE:</Label>
+              <Input
+                id="code"
+                name="code"
+                type="text"
+                value={inputFields.code}
+                onChange={handleInputChange}
+                placeholder="Enter CODE"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="inspAgency">INSP. AGENCY:</Label>
+              <Input
+                id="inspAgency"
+                name="inspAgency"
+                type="text"
+                value={inputFields.inspAgency}
+                onChange={handleInputChange}
+                placeholder="Enter INSP. AGENCY"
+                readOnly={isReview}
+                className={isReview ? "bg-muted" : ""}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       {/* Section 1: Back chip - Only show for stage2 with backChip = true */}
       {shouldShowBackChipSection && (
         <Card>
