@@ -482,52 +482,63 @@ function ViewWeldingJoints() {
               )
             }
 
-            return (
-              <>
-                {selectedStage === "stage1" && (
-                  <Stage1
-                    key={selectedJoint?.id}
-                    initialData={selectedJoint}
-                    isReview={isReviewMode}
-                  />
-                )}
-                {(selectedStage === "stage2" || selectedStage === "stage3") && (
-                  <Stage2
-                    key={selectedJoint?.id}
-                    initialData={selectedJoint}
-                    backChip={selectedJoint?.backChip || false}
-                    stage={selectedStage}
-                    inspectionData={selectedJoint?.inspectionData}
-                    isReview={isReviewMode}
-                  />
-                )}
-                {selectedStage === "stage4" && (
-                  <Stage4
-                    key={selectedJoint?.id}
-                    initialData={selectedJoint}
-                    inspectionData={selectedJoint?.inspectionData}
-                    isReview={isReviewMode}
-                  />
-                )}
-                {selectedStage === "stage5" && (
-                  <Stage5
-                    key={selectedJoint?.id}
-                    initialData={selectedJoint}
-                    inspectionData={selectedJoint?.inspectionData}
-                    isReview={isReviewMode}
-                  />
-                )}
-                {selectedStage === "stage6" && (
-                  <Stage6
-                    key={selectedJoint?.id}
-                    initialData={selectedJoint}
-                    inspectionData={selectedJoint?.inspectionData}
-                    isReview={isReviewMode}
-                  />
-                )}
-
-              </>
-            );
+            if (selectedJoint?.jointCategory === 'A' || selectedJoint?.jointCategory === 'B') {
+              return (
+                <>
+                  {selectedStage === "stage1" && (
+                    <Stage1
+                      key={selectedJoint?.id}
+                      initialData={selectedJoint}
+                      isReview={isReviewMode}
+                    />
+                  )}
+                  {selectedStage === "stage2" && (
+                    <Stage2
+                      key={selectedJoint?.id}
+                      initialData={selectedJoint}
+                      backChip={selectedJoint?.backChip || false}
+                      stage="stage2"
+                      inspectionData={selectedJoint?.inspectionData}
+                      isReview={isReviewMode}
+                    />
+                  )}
+                  {selectedStage === "stage3" && (
+                    <Stage2
+                      key={selectedJoint?.id}
+                      initialData={selectedJoint}
+                      backChip={selectedJoint?.backChip || false}
+                      stage="stage3"
+                      inspectionData={selectedJoint?.inspectionData}
+                      isReview={isReviewMode}
+                    />
+                  )}
+                  {selectedStage === "stage4" && (
+                    <Stage4
+                      key={selectedJoint?.id}
+                      initialData={selectedJoint}
+                      inspectionData={selectedJoint?.inspectionData}
+                      isReview={isReviewMode}
+                    />
+                  )}
+                  {selectedStage === "stage5" && (
+                    <Stage5
+                      key={selectedJoint?.id}
+                      initialData={selectedJoint}
+                      inspectionData={selectedJoint?.inspectionData}
+                      isReview={isReviewMode}
+                    />
+                  )}
+                  {selectedStage === "stage6" && (
+                    <Stage6
+                      key={selectedJoint?.id}
+                      initialData={selectedJoint}
+                      inspectionData={selectedJoint?.inspectionData}
+                      isReview={isReviewMode}
+                    />
+                  )}
+                </>
+              )
+            }
           })()}
 
         </DialogContent>
