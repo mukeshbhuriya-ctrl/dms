@@ -207,7 +207,7 @@ function UserSidebar() {
   const [userRoles, setUserRoles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [userName, setUserName] = useState("User")
-  const [activeRole, setActiveRole] = useState("")
+  const [activeRole, setActiveRole] = useState(() => localStorage.getItem("last_active_role") || "")
 
   useEffect(() => {
     const fetchUserRole = async () => {
@@ -215,7 +215,7 @@ function UserSidebar() {
         const backendUrl =
           import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
         const authData = localStorage.getItem("user_auth")
-        
+
         if (!authData) {
           setIsLoading(false)
           return
@@ -255,10 +255,10 @@ function UserSidebar() {
         }
 
         const payload = await res.json()
-        
+
         // Extract roles from various possible locations (supporting both single role and multiple roles)
         let roles = []
-        
+
         // Check for role field (can be array or string) - API returns {"role": ["OC", "Production", "Manager", "User"]}
         if (Array.isArray(payload?.role)) {
           roles = payload.role
@@ -330,7 +330,21 @@ function UserSidebar() {
 
         const uniqueRoles = Array.from(new Set(roles))
         setUserRoles(uniqueRoles)
-        setActiveRole((prev) => (uniqueRoles.includes(prev) ? prev : uniqueRoles[0] || ""))
+
+        // Determine effective role logic
+        const storedRole = localStorage.getItem("last_active_role")
+        let effectiveRole = ""
+
+        if (storedRole && uniqueRoles.includes(storedRole)) {
+          effectiveRole = storedRole
+        } else if (uniqueRoles.includes(activeRole)) {
+          effectiveRole = activeRole
+        } else {
+          effectiveRole = uniqueRoles[0] || ""
+        }
+
+        setActiveRole(effectiveRole)
+        localStorage.setItem("last_active_role", effectiveRole) // Ensure strict sync
         setUserName(name)
       } catch (err) {
         console.error("Error fetching user role:", err)
@@ -347,6 +361,7 @@ function UserSidebar() {
 
   const handleLogout = () => {
     localStorage.removeItem("user_auth")
+    localStorage.removeItem("last_active_role")
     navigate("/")
   }
 
@@ -387,7 +402,13 @@ function UserSidebar() {
             <span className="font-semibold">{userName}</span>
             {userRoles.length > 0 ? (
               <div className="mt-2">
-                <Select value={activeRole} onValueChange={setActiveRole}>
+                <Select
+                  value={activeRole}
+                  onValueChange={(val) => {
+                    setActiveRole(val)
+                    localStorage.setItem("last_active_role", val)
+                  }}
+                >
                   <SelectTrigger className="h-8 w-full">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
