@@ -430,38 +430,18 @@ function Stage6({ initialData, inspectionData, isReview = false }) {
             </Card>
             <Card>
                 <CardHeader>
-                    <CardTitle>Post Weld Heat Treatment (PWHT)</CardTitle>
+                    <CardTitle>Post Weld Heat Treatment (PWHT) {initialData?.pwht && (
+                        <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                            Yes
+                        </span>
+                    )}</CardTitle>
+                </CardHeader>
+                <CardHeader>
+                    <CardTitle>Radiography Testing (RT) <span className="ml-2 text-xs text-muted-foreground">
+                        (After PWHT)
+                    </span></CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="postRt">Post PWHT RT Status:</Label>
-                            <Select value={postRtStatus} onValueChange={setPostRtStatus} disabled={isReview}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="NA">Not Applicable</SelectItem>
-                                    <SelectItem value="Pending">Pending</SelectItem>
-                                    <SelectItem value="Approved">Approved</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="postPt">Post PWHT PT Status:</Label>
-                            <Select value={postPtStatus} onValueChange={setPostPtStatus} disabled={isReview}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="NA">Not Applicable</SelectItem>
-                                    <SelectItem value="Pending">Pending</SelectItem>
-                                    <SelectItem value="Approved">Approved</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label>Production Engineer Name:</Label>

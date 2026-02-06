@@ -514,9 +514,11 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
           <CardHeader>
             <CardTitle>
               Back chip{" "}
-              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                Yes
-              </span>
+              {backChip && (
+                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                  Yes
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
