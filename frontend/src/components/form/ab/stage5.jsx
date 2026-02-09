@@ -176,8 +176,8 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
                 } catch (e) { console.error("Error parsing data_json", e) }
             }
 
-            if (inspectionData.s5_ndt_eng_id) {
-                setNdtEngineer(inspectionData.s5_ndt_eng_id);
+            if (inspectionData.s5_qc_eng_id) {
+                setNdtEngineer(inspectionData.s5_qc_eng_id);
             }
             if (inspectionData.s5_prod_eng_name) {
                 setProductionEngineerName(inspectionData.s5_prod_eng_name);
@@ -191,9 +191,15 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
 
                     if (s5Data?.productionEngineerName) setProductionEngineerName(s5Data.productionEngineerName);
                     if (s5Data?.submissionDate) setTodayDate(s5Data.submissionDate);
-                    if (!inspectionData.s5_ndt_eng_id && s5Data?.assignedNdtEngineerId) {
+
+                    if (!inspectionData.s5_qc_eng_id && s5Data?.assignedQcEngineerId) {
+                        setNdtEngineer(s5Data.assignedQcEngineerId);
+                    }
+                    // Legacy fallback check for older NDT key
+                    if (!inspectionData.s5_qc_eng_id && !s5Data?.assignedQcEngineerId && s5Data?.assignedNdtEngineerId) {
                         setNdtEngineer(s5Data.assignedNdtEngineerId);
                     }
+
                     // Legacy fallback
                     if (s5Data?.inputFields && !inspectionData.data_json) {
                         setInputFields(prev => ({ ...prev, ...s5Data.inputFields }));
@@ -236,7 +242,7 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
             }
 
             const currentStageData = {
-                assignedNdtEngineerId: ndtEngineer,
+                assignedQcEngineerId: ndtEngineer, // Renamed
                 productionEngineerName,
                 submissionDate: todayDate,
                 // inputFields removed
@@ -314,7 +320,7 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
                         : initialData.inspectionData.s5_data;
                 }
                 const currentStageData = {
-                    assignedNdtEngineerId: ndtEngineer,
+                    assignedQcEngineerId: ndtEngineer, // Renamed
                     productionEngineerName,
                     submissionDate: todayDate,
                     // inputFields removed

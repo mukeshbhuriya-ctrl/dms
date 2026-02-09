@@ -368,6 +368,7 @@ model weld_joint_inspection {
   s1_qc_eng_id    String?
   s1_submitted_at DateTime?
   s1_approved_at  DateTime?
+  s1_rejected_at  DateTime?
 
   // --- Stage 2: Back Chip ---
   s2_status       String   @default("pending")
@@ -376,6 +377,7 @@ model weld_joint_inspection {
   s2_qc_eng_id    String?
   s2_submitted_at DateTime?
   s2_approved_at  DateTime?
+  s2_rejected_at  DateTime?
 
   // --- Stage 3: Weld Visual ---
   s3_status       String   @default("pending")
@@ -384,38 +386,52 @@ model weld_joint_inspection {
   s3_qc_eng_id    String?
   s3_submitted_at DateTime?
   s3_approved_at  DateTime?
+  s3_rejected_at  DateTime?
 
   // --- Stage 4: RT ---
   s4_status       String   @default("pending")
   s4_data         Json?
   s4_prod_eng_id  String?
-  s4_ndt_eng_id   String?
+  s4_qc_eng_id    String?
   s4_submitted_at DateTime?
   s4_approved_at  DateTime?
+  s4_rejected_at  DateTime?
 
   // --- Stage 5: PT ---
   s5_status       String   @default("pending")
   s5_data         Json?
   s5_prod_eng_id  String?
-  s5_ndt_eng_id   String?
+  s5_qc_eng_id    String?
   s5_submitted_at DateTime?
   s5_approved_at  DateTime?
+  s5_rejected_at  DateTime?
 
   // --- Stage 6: PWHT - Radiography Testing (RT) (After PWHT) ---
   s6_status       String   @default("pending")
   s6_data         Json?
   s6_prod_eng_id  String?
-  s6_ndt_eng_id   String?
+  s6_qc_eng_id    String?
   s6_submitted_at DateTime?
   s6_approved_at  DateTime?
+  s6_rejected_at  DateTime?
 
   // --- Stage 7: PWHT - Penetrant Testing (PT) (After PWHT) ---
   s7_status       String   @default("pending")
   s7_data         Json?
   s7_prod_eng_id  String?
-  s7_ndt_eng_id   String?
+  s7_qc_eng_id    String?
   s7_submitted_at DateTime?
   s7_approved_at  DateTime?
+  s7_rejected_at  DateTime?
+
+  // --- Stage 8: Final Inspection (CD) ---
+  s8_status       String   @default("pending")
+  s8_data         Json?
+  s8_prod_eng_id  String?
+  s8_qc_eng_id    String?
+  s8_submitted_at DateTime?
+  s8_approved_at  DateTime?
+  s8_rejected_at  DateTime?
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

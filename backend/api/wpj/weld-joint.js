@@ -366,7 +366,8 @@ async function updateStageStatus(req, res) {
             'stage4': 's4',
             'stage5': 's5',
             'stage6': 's6',
-            'stage7': 's7'
+            'stage7': 's7',
+            'stage8': 's8'
         }[stage];
 
         if (!stagePrefix) {
@@ -411,6 +412,10 @@ async function updateStageStatus(req, res) {
             updateData[`${stagePrefix}_approved_at`] = new Date();
         }
 
+        if (status === 'rejected') {
+            updateData[`${stagePrefix}_rejected_at`] = new Date();
+        }
+
         if (status === 'pending') {
             updateData[`${stagePrefix}_submitted_at`] = new Date();
         }
@@ -418,15 +423,10 @@ async function updateStageStatus(req, res) {
         // Handle Engineer IDs based on role/stage
         if (role === 'PROD') {
             updateData[`${stagePrefix}_prod_eng_id`] = engineerId;
-        } else if (role === 'QC') {
-            // Stages 4, 5, 6, 7 are NDT stages (RT, PT, PWHT+RT, PWHT+PT)
-            if (['stage4', 'stage5', 'stage6', 'stage7'].includes(stage)) {
-                updateData[`${stagePrefix}_ndt_eng_id`] = engineerId;
-            } else {
-                updateData[`${stagePrefix}_qc_eng_id`] = engineerId;
-            }
-        } else if (role === 'NDT') {
-            updateData[`${stagePrefix}_ndt_eng_id`] = engineerId;
+        } else if (role === 'QC' || role === 'NDT') {
+            // All non-PROD roles now write to qc_eng_id as per request
+            // "update schema x_ndt_eng_id to x_qc_eng_id"
+            updateData[`${stagePrefix}_qc_eng_id`] = engineerId;
         }
 
         // Map Assigned Engineers from data if present (for stages where PROD assigns NDT/QC)
@@ -454,12 +454,12 @@ async function updateStageStatus(req, res) {
             const assignedNdt = findAssignedId('assignedNdtEngineerId');
             const assignedQc = findAssignedId('assignedQcEngineerId');
 
-            // Stages 4, 5, 6, 7 use NDT Engineer
-            if (['stage4', 'stage5', 'stage6', 'stage7'].includes(stage) && assignedNdt) {
-                updateData[`${stagePrefix}_ndt_eng_id`] = assignedNdt;
-            }
-            if (!['stage4', 'stage5', 'stage6', 'stage7'].includes(stage) && assignedQc) {
-                updateData[`${stagePrefix}_qc_eng_id`] = assignedQc;
+            // Map both assignedNdt and assignedQc to qc_eng_id column
+            if (['stage4', 'stage5', 'stage6', 'stage7', 'stage8'].includes(stage)) {
+                if (assignedNdt) updateData[`${stagePrefix}_qc_eng_id`] = assignedNdt;
+                else if (assignedQc) updateData[`${stagePrefix}_qc_eng_id`] = assignedQc;
+            } else {
+                if (assignedQc) updateData[`${stagePrefix}_qc_eng_id`] = assignedQc;
             }
         }
 
@@ -498,7 +498,7 @@ async function reviewStageStatus(req, res) {
 
         const stagePrefix = {
             'stage1': 's1', 'stage2': 's2', 'stage3': 's3',
-            'stage4': 's4', 'stage5': 's5', 'stage6': 's6', 'stage7': 's7'
+            'stage4': 's4', 'stage5': 's5', 'stage6': 's6', 'stage7': 's7', 'stage8': 's8'
         }[stage];
 
         if (!stagePrefix) return res.status(400).json({ success: false, message: 'Invalid stage' });
@@ -510,49 +510,12 @@ async function reviewStageStatus(req, res) {
         if (status === 'approved') {
             updateData[`${stagePrefix}_approved_at`] = new Date();
         } else if (status === 'rejected') {
-            // Fallback Logic: Revert previous stage to 'pending' to force re-approval/re-work
-            // We need to fetch joint details to know which stage is "previous" (handling skips)
-            const joint = await prisma.weld_joint.findUnique({
-                where: { id: jointId }
-            });
-
-            if (joint) {
-                let fallbackStage = null;
-                switch (stage) {
-                    case 'stage2': // Back Chip
-                        fallbackStage = 's1';
-                        break;
-                    case 'stage3': // Visual
-                        fallbackStage = joint.back_chip_req ? 's2' : 's1';
-                        break;
-                    case 'stage4': // RT
-                        fallbackStage = 's3'; // Back to Visual/Weld
-                        break;
-                    case 'stage5': // PT
-                        fallbackStage = joint.rt ? 's4' : 's3';
-                        break;
-                    case 'stage6': // PWHT RT
-                        // If PWHT fail, maybe back to PT/RT or Visual?
-                        // Assuming back to Stage 5 (PT) or Stage 4 (RT) or Stage 3.
-                        // Let's go back to Stage 3 (Weld Visual) implies full repair?
-                        // Or just previous NDT?
-                        // User said "fallback to previous stage".
-                        // Linear reverse:
-                        fallbackStage = joint.pt ? 's5' : (joint.rt ? 's4' : 's3');
-                        break;
-                    case 'stage7': // PWHT PT
-                        fallbackStage = 's6'; // Back to PWHT RT (if exists? Stage 6 is PWHT RT, usually always there if Stage 7 is)
-                        // Actually Stage 6 is PWHT RT. Stage 7 is PWHT PT.
-                        break;
-                    default:
-                        break;
-                }
-
-                if (fallbackStage) {
-                    updateData[`${fallbackStage}_status`] = 'pending';
-                    updateData[`${fallbackStage}_approved_at`] = null; // Clear approval
-                }
-            }
+            // Simply mark as rejected. The frontend will show "Open Stage X" for Prod to resubmit.
+            // Do NOT rollback previous stages.
+            updateData[`${stagePrefix}_rejected_at`] = new Date();
+            // Optional: reset approved_at if it was approved before? safely yes.
+            updateData[`${stagePrefix}_approved_at`] = null;
+            // set status to 'rejected' which is passed in args.
         }
 
         // Handle Status Transition (e.g. Stage 1 Approved -> Move to Stage 2)
@@ -560,16 +523,9 @@ async function reviewStageStatus(req, res) {
         // Assuming linear progression:
         const nextStageMap = {
             'stage1': 'stage2', 'stage2': 'stage3', 'stage3': 'stage4',
-            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'stage7', 'stage7': 'completed'
+            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'stage7',
+            'stage7': 'stage8', 'stage8': 'completed'
         };
-
-        let parentStatusUpdate = {};
-        if (status === 'approved' && nextStageMap[stage]) {
-            parentStatusUpdate = { status: nextStageMap[stage] };
-        }
-        // If rejected, usually stays in current stage or moves back? 
-        // User didn't specify reject logic, but usually rejection keeps it in current stage or marks 'rejected'. 
-        // Existing logic likely keeps it 'stageX' but sX_status becomes 'rejected'.
 
         // Update Inspection Table
         await prisma.weld_joint_inspection.update({
@@ -608,14 +564,11 @@ async function getAssignedWeldJoints(req, res) {
                         { s1_status: 'pending', s1_qc_eng_id: user_id },
                         { s2_status: 'pending', s2_qc_eng_id: user_id },
                         { s3_status: 'pending', s3_qc_eng_id: user_id },
-                        { s4_status: 'pending', s4_ndt_eng_id: user_id }, // Stage 4 is RT (NDT)
-                        { s4_status: 'pending', s4_qc_eng_id: user_id },   // Fallback if generic QC field used
-                        { s5_status: 'pending', s5_ndt_eng_id: user_id }, // Stage 5 is PT (NDT)
-                        { s5_status: 'pending', s5_qc_eng_id: user_id },   // Fallback
-                        { s6_status: 'pending', s6_ndt_eng_id: user_id }, // Stage 6 (PWHT - RT) is NDT
-                        { s6_status: 'pending', s6_qc_eng_id: user_id },   // Fallback
-                        { s7_status: 'pending', s7_ndt_eng_id: user_id }, // Stage 7 (PWHT - PT) is NDT
-                        { s7_status: 'pending', s7_qc_eng_id: user_id }    // Fallback
+                        { s4_status: 'pending', s4_qc_eng_id: user_id }, // Stage 4 is RT (now QC column)
+                        { s5_status: 'pending', s5_qc_eng_id: user_id }, // Stage 5 is PT (now QC column)
+                        { s6_status: 'pending', s6_qc_eng_id: user_id }, // Stage 6 (PWHT - RT) (now QC column)
+                        { s7_status: 'pending', s7_qc_eng_id: user_id }, // Stage 7 (PWHT - PT) (now QC column)
+                        { s8_status: 'pending', s8_qc_eng_id: user_id }, // Stage 8 (PWHT PT CD) (now QC column)
                     ]
                 }
             },
@@ -656,10 +609,10 @@ async function getAssignedWeldJoints(req, res) {
             const insp = joint.weld_joint_inspection;
             if (insp) {
                 // Collect IDs from all stages
-                ['s1', 's2', 's3', 's4', 's5', 's6', 's7'].forEach(stage => {
+                ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(stage => {
                     if (insp[`${stage}_prod_eng_id`]) userIds.add(insp[`${stage}_prod_eng_id`]);
                     if (insp[`${stage}_qc_eng_id`]) userIds.add(insp[`${stage}_qc_eng_id`]);
-                    if (insp[`${stage}_ndt_eng_id`]) userIds.add(insp[`${stage}_ndt_eng_id`]);
+                    // No ndt_eng_id anymore
                 });
             }
         });
@@ -677,10 +630,9 @@ async function getAssignedWeldJoints(req, res) {
         const assignedJoints = joints.map(joint => {
             if (joint.weld_joint_inspection) {
                 const insp = { ...joint.weld_joint_inspection };
-                ['s1', 's2', 's3', 's4', 's5', 's6', 's7'].forEach(stage => {
+                ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(stage => {
                     if (insp[`${stage}_prod_eng_id`]) insp[`${stage}_prod_eng_name`] = userMap[insp[`${stage}_prod_eng_id`]];
                     if (insp[`${stage}_qc_eng_id`]) insp[`${stage}_qc_eng_name`] = userMap[insp[`${stage}_qc_eng_id`]];
-                    if (insp[`${stage}_ndt_eng_id`]) insp[`${stage}_ndt_eng_name`] = userMap[insp[`${stage}_ndt_eng_id`]];
                 });
                 return { ...joint, weld_joint_inspection: insp };
             }

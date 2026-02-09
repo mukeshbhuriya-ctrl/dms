@@ -176,8 +176,8 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
                 } catch (e) { console.error("Error parsing data_json", e) }
             }
 
-            if (inspectionData.s4_ndt_eng_id) {
-                setNdtEngineer(inspectionData.s4_ndt_eng_id);
+            if (inspectionData.s4_qc_eng_id) {
+                setNdtEngineer(inspectionData.s4_qc_eng_id);
             }
             if (inspectionData.s4_prod_eng_name) {
                 setProductionEngineerName(inspectionData.s4_prod_eng_name);
@@ -191,9 +191,14 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
 
                     if (s4Data?.productionEngineerName) setProductionEngineerName(s4Data.productionEngineerName);
                     if (s4Data?.submissionDate) setTodayDate(s4Data.submissionDate);
-                    if (!inspectionData.s4_ndt_eng_id && s4Data?.assignedNdtEngineerId) {
+                    if (!inspectionData.s4_qc_eng_id && s4Data?.assignedQcEngineerId) {
+                        setNdtEngineer(s4Data.assignedQcEngineerId);
+                    }
+                    // Legacy fallback check for older NDT key
+                    if (!inspectionData.s4_qc_eng_id && !s4Data?.assignedQcEngineerId && s4Data?.assignedNdtEngineerId) {
                         setNdtEngineer(s4Data.assignedNdtEngineerId);
                     }
+
                     // Legacy fallback
                     if (s4Data?.inputFields && !inspectionData.data_json) {
                         setInputFields(prev => ({ ...prev, ...s4Data.inputFields }));
@@ -236,7 +241,7 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
             }
 
             const currentStageData = {
-                assignedNdtEngineerId: ndtEngineer,
+                assignedQcEngineerId: ndtEngineer, // Renamed from assignedNdtEngineerId
                 productionEngineerName,
                 submissionDate: todayDate,
                 // inputFields removed
@@ -257,7 +262,7 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
                 stage: "stage4",
                 status: "pending", // Pending approval
                 engineerId: userId,
-                role: role,
+                role: role, // PROD
                 data: finalData
             }
 
@@ -314,7 +319,7 @@ function Stage4({ initialData, inspectionData, isReview = false }) {
                         : initialData.inspectionData.s4_data;
                 }
                 const currentStageData = {
-                    assignedNdtEngineerId: ndtEngineer,
+                    assignedQcEngineerId: ndtEngineer, // Renamed
                     productionEngineerName,
                     submissionDate: todayDate,
                     // inputFields removed

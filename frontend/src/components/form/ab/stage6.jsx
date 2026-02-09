@@ -160,7 +160,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
             const categoryKey = getCategoryKey();
             const stagePrefix = stage === 'stage7' ? 's7' : 's6';
             const dataKey = `${stagePrefix}_data`;
-            const ndtEngIdKey = `${stagePrefix}_ndt_eng_id`;
+            const ndtEngIdKey = `${stagePrefix}_qc_eng_id`;
             const prodEngNameKey = `${stagePrefix}_prod_eng_name`;
             // Note: s7 might not have post_rt_status fields in DB schema columns, 
             // but s6 has s6_post_rt_status. We should check if s7 has them or if they rely on JSON.
@@ -188,6 +188,12 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
             }
 
             if (inspectionData[ndtEngIdKey]) setNdtEngineer(inspectionData[ndtEngIdKey]);
+            // Check for QC Eng ID if NDT not found (new schema)
+            const qcEngIdKey = `${stagePrefix}_qc_eng_id`;
+            if (!inspectionData[ndtEngIdKey] && inspectionData[qcEngIdKey]) {
+                setNdtEngineer(inspectionData[qcEngIdKey]);
+            }
+
             if (inspectionData[prodEngNameKey]) setProductionEngineerName(inspectionData[prodEngNameKey]);
 
             // s6 specific columns (legacy) - s7 might not have these column equivalents
@@ -204,9 +210,12 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
 
                     if (stageData?.productionEngineerName) setProductionEngineerName(stageData.productionEngineerName);
                     if (stageData?.submissionDate) setTodayDate(stageData.submissionDate);
-                    if (!inspectionData[ndtEngIdKey] && stageData?.assignedNdtEngineerId) {
-                        setNdtEngineer(stageData.assignedNdtEngineerId);
+
+                    if (!inspectionData[ndtEngIdKey] && !inspectionData[qcEngIdKey]) {
+                        if (stageData?.assignedQcEngineerId) setNdtEngineer(stageData.assignedQcEngineerId);
+                        else if (stageData?.assignedNdtEngineerId) setNdtEngineer(stageData.assignedNdtEngineerId);
                     }
+
                     if (stageData?.postRtStatus) setPostRtStatus(stageData.postRtStatus);
                     if (stageData?.postPtStatus) setPostPtStatus(stageData.postPtStatus);
 
@@ -259,7 +268,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
             const currentStageData = {
                 postRtStatus,
                 postPtStatus,
-                assignedNdtEngineerId: ndtEngineer,
+                assignedQcEngineerId: ndtEngineer, // Renamed from assignedNdtEngineerId
                 productionEngineerName,
                 submissionDate: todayDate,
                 // inputFields removed
@@ -344,7 +353,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                 const currentStageData = {
                     postRtStatus,
                     postPtStatus,
-                    assignedNdtEngineerId: ndtEngineer,
+                    assignedQcEngineerId: ndtEngineer, // Renamed
                     productionEngineerName,
                     submissionDate: todayDate,
                     // inputFields removed

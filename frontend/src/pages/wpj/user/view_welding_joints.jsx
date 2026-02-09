@@ -124,7 +124,14 @@ function ViewWeldingJoints() {
 
               if (joint.pwht) { // Check if PWHT is required
                 if (insp.s6_status !== 'approved') return 'stage6';
-                if (insp.s7_status !== 'approved') return 'stage7';
+                if (joint.jointCategory === 'C' || joint.jointCategory === 'D') {
+                  // CD has 8 stages. S7 and S8 are PWHT stages.
+                  if (insp.s7_status !== 'approved') return 'stage7';
+                  if (insp.s8_status !== 'approved') return 'stage8';
+                } else {
+                  // AB has 7 stages.
+                  if (insp.s7_status !== 'approved') return 'stage7';
+                }
               }
 
               return 'completed';
@@ -142,6 +149,8 @@ function ViewWeldingJoints() {
 
         // --- INJECT DUMMY JOINTS FOR C & D ---
         mappedJoints.unshift(
+          { id: 'd-s8', msnNumber: '99908', jointNo: 'D-Joint-08', jointCategory: 'D', status: 'stage8', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: true },
+          { id: 'd-s7', msnNumber: '99907', jointNo: 'D-Joint-07', jointCategory: 'D', status: 'stage7', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: true },
           { id: 'd-s6', msnNumber: '99906', jointNo: 'D-Joint-06', jointCategory: 'D', status: 'stage6', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
           { id: 'd-s5', msnNumber: '99905', jointNo: 'D-Joint-05', jointCategory: 'D', status: 'stage5', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
           { id: 'd-s4', msnNumber: '99904', jointNo: 'D-Joint-04', jointCategory: 'D', status: 'stage4', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
@@ -247,23 +256,19 @@ function ViewWeldingJoints() {
       'stage5': 's5_status',
       'stage6': 's6_status',
       'stage7': 's7_status',
-
+      'stage8': 's8_status',
     };
 
     // Map stage to QC Engineer ID field
-    // Note: For Stage 4/5/6 (NDT), it might be ndt_eng_id or qc_eng_id. 
-    // Based on user request "s1_qc_eng_id", "s2...", we assume a pattern but verify.
-    // If backend uses "assignedQcEngineerId" payload -> checks implementation.
-    // We will check multiple keys if unsure, or stick to the requested pattern.
-    // Given the previous code didn't explicitly use keys, I'll use the user's requested pattern + fallbacks if logical.
     const qcIdKeyMap = {
       'stage1': 's1_qc_eng_id',
       'stage2': 's2_qc_eng_id',
       'stage3': 's3_qc_eng_id',
-      'stage4': 's4_ndt_eng_id',
-      'stage5': 's5_ndt_eng_id',
-      'stage6': 's6_ndt_eng_id', // PWHT RT
-      'stage7': 's7_ndt_eng_id', // PWHT PT
+      'stage4': 's4_qc_eng_id', // Was ndt
+      'stage5': 's5_qc_eng_id', // Was ndt
+      'stage6': 's6_qc_eng_id', // Was ndt
+      'stage7': 's7_qc_eng_id', // Was ndt
+      'stage8': 's8_qc_eng_id', // Was ndt
     };
 
     const statusKey = statusKeyMap[currentStage];
@@ -281,11 +286,11 @@ function ViewWeldingJoints() {
     // Check submission status (Check Engineer ID or Completed Date as fallback)
     const prefix = currentStage.replace('stage', 's');
     const prodKey = `${prefix}_prod_eng_id`;
-    const ndtKey = `${prefix}_ndt_eng_id`;
+    const qcKey = `${prefix}_qc_eng_id`; // Consolidated to qc_eng_id
     const completedAtKey = `${prefix}_approved_at`;
 
     const isSubmitted = !!(joint.inspectionData?.[prodKey] ||
-      joint.inspectionData?.[ndtKey] ||
+      joint.inspectionData?.[qcKey] ||
       joint.inspectionData?.[completedAtKey]);
 
     return { isPending, isAssignedToMe, hasAssignment, isSubmitted };
@@ -362,7 +367,8 @@ function ViewWeldingJoints() {
                                           : joint.status === "stage5" ? "Stage 5"
                                             : joint.status === "stage6" ? "Stage 6"
                                               : joint.status === "stage7" ? "Stage 7"
-                                                : joint.status;
+                                                : joint.status === "stage8" ? "Stage 8"
+                                                  : joint.status;
 
                                   if (isQCOrNDT) {
                                     if (isPending) {
@@ -399,18 +405,59 @@ function ViewWeldingJoints() {
                                         );
                                       }
                                     }
+                                    // Check if current stage is rejected
+                                    const currentStageKey = joint.status === "stage1" ? "s1_status"
+                                      : joint.status === "stage2" ? "s2_status"
+                                        : joint.status === "stage3" ? "s3_status"
+                                          : joint.status === "stage4" ? "s4_status"
+                                            : joint.status === "stage5" ? "s5_status"
+                                              : joint.status === "stage6" ? "s6_status"
+                                                : joint.status === "stage7" ? "s7_status"
+                                                  : joint.status === "stage8" ? "s8_status" : "";
+
+                                    const isRejected = joint.inspectionData?.[currentStageKey] === 'rejected';
+
+                                    if (isRejected) {
+                                      return (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          disabled
+                                          className="text-red-500 border-red-500 bg-red-50 opacity-100"
+                                        >
+                                          Rejected - {stageName}
+                                        </Button>
+                                      );
+                                    }
+
                                     return <span className="text-muted-foreground">-</span>;
                                   } else {
                                     // Production Engineer
                                     const showPending = isPending && isSubmitted;
+
+                                    // Check if current stage is rejected
+                                    const currentStageKey = joint.status === "stage1" ? "s1_status"
+                                      : joint.status === "stage2" ? "s2_status"
+                                        : joint.status === "stage3" ? "s3_status"
+                                          : joint.status === "stage4" ? "s4_status"
+                                            : joint.status === "stage5" ? "s5_status"
+                                              : joint.status === "stage6" ? "s6_status"
+                                                : joint.status === "stage7" ? "s7_status"
+                                                  : joint.status === "stage8" ? "s8_status" : "";
+
+                                    const isRejected = joint.inspectionData?.[currentStageKey] === 'rejected';
+
                                     return (
                                       <Button
                                         onClick={() => handleOpenStage(joint)}
                                         disabled={showPending || joint.status === 'completed'}
-                                        variant="outline"
+                                        variant={isRejected ? "destructive" : "outline"}
                                         size="sm"
                                       >
-                                        {showPending ? `Approval Pending ${stageName}` : (joint.status === 'completed' ? 'Completed' : `Open ${stageName}`)}
+                                        {showPending ? `Approval Pending ${stageName}` : (
+                                          joint.status === 'completed' ? 'Completed' :
+                                            (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`)
+                                        )}
                                       </Button>
                                     );
                                   }
@@ -441,7 +488,7 @@ function ViewWeldingJoints() {
               {selectedStage === "stage5" && "Stage 5 Form"}
               {selectedStage === "stage6" && "Stage 6 Form"}
               {selectedStage === "stage7" && "Stage 7 Form"}
-
+              {selectedStage === "stage8" && "Stage 8 Form"}
             </DialogTitle>
           </DialogHeader>
 
@@ -478,6 +525,12 @@ function ViewWeldingJoints() {
                       )}
                       {selectedStage === "stage6" && (
                         <Stage6D initialData={selectedJoint} isReview={isReviewMode} />
+                      )}
+                      {selectedStage === "stage7" && (
+                        <p>Stage 7 D Placeholder</p>/* TODO: Import and use Stage7D */
+                      )}
+                      {selectedStage === "stage8" && (
+                        <p>Stage 8 D Placeholder</p>/* TODO: Import and use Stage8D */
                       )}
                     </>
                   )}
