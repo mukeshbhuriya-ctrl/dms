@@ -19,8 +19,8 @@ import { FormAlert } from "@/components/ui/form-alert"
 
 function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6", }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
-    const [todayDate] = useState(new Date().toLocaleDateString())
-    const [qcEngineer, setQcEngineer] = useState("")
+    const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
+    const [ndtEngineer, setNdtEngineer] = useState("")
     // Extra fields for PWHT
     const [postRtStatus, setPostRtStatus] = useState("NA") // NA, Pending, Approved
     const [postPtStatus, setPostPtStatus] = useState("NA")
@@ -28,6 +28,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [userRole, setUserRole] = useState("")
 
     // Basic Info State
     const [displayFields, setDisplayFields] = useState({
@@ -54,13 +55,21 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                 const parsed = JSON.parse(authData)
                 const user = parsed?.payload?.user || parsed?.user
                 if (user?.name) {
-                    setProductionEngineerName(user.name)
+                    if (!isReview) setProductionEngineerName(user.name)
+                }
+                // Extract role for QC check
+                const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+                const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
+                if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
+                    setUserRole('QC')
+                } else {
+                    setUserRole('PROD')
                 }
             } catch (e) {
                 console.error("Error parsing auth data", e)
             }
         }
-    }, [])
+    }, [isReview])
 
     // Populate Basic Info
     useEffect(() => {
@@ -71,8 +80,11 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                 poNo: initialData.poNo || "",
             })
 
+            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/6`;
+
             setInputFields((prev) => ({
                 ...prev,
+                reportNo: prev.reportNo || generatedReportNo,
                 tagNo: initialData.tagNo || "",
                 equipment: initialData.equipment || "",
                 projectsId: initialData.projectsId || "",
@@ -99,11 +111,11 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
         }))
     }
 
-    // Mock QC Engineers
-    const [qcEngineers, setQcEngineers] = useState([])
+    // Mock NDT Engineers
+    const [ndtEngineers, setNdtEngineers] = useState([])
 
     useEffect(() => {
-        const fetchQcEngineers = async () => {
+        const fetchNdtEngineers = async () => {
             try {
                 const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
                 const authData = localStorage.getItem("user_auth")
@@ -125,26 +137,90 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                 })
                 const data = await res.json()
                 if (res.ok && data.success) {
-                    setQcEngineers(data.data || [])
+                    setNdtEngineers(data.data || [])
                 } else {
-                    console.error("Failed to fetch QC Engineers:", data.message)
+                    console.error("Failed to fetch NDT Engineers:", data.message)
                 }
             } catch (error) {
-                console.error("Error fetching QC Engineers:", error)
+                console.error("Error fetching NDT Engineers:", error)
             }
         }
 
-        fetchQcEngineers()
+        fetchNdtEngineers()
     }, [])
+
+    // Helper to determine category key
+    const getCategoryKey = () => {
+        if (initialData?.jointCategory === 'C' || initialData?.jointCategory === 'D') return 'cd';
+        return 'ab';
+    }
 
     useEffect(() => {
         if (inspectionData) {
-            if (inspectionData.s6_qc_eng_id) setQcEngineer(inspectionData.s6_qc_eng_id);
-            if (inspectionData.s6_post_rt_status) setPostRtStatus(inspectionData.s6_post_rt_status);
-            if (inspectionData.s6_post_pt_status) setPostPtStatus(inspectionData.s6_post_pt_status);
-            if (inspectionData.s6_prod_eng_name) setProductionEngineerName(inspectionData.s6_prod_eng_name);
+            const categoryKey = getCategoryKey();
+            const stagePrefix = stage === 'stage7' ? 's7' : 's6';
+            const dataKey = `${stagePrefix}_data`;
+            const ndtEngIdKey = `${stagePrefix}_ndt_eng_id`;
+            const prodEngNameKey = `${stagePrefix}_prod_eng_name`;
+            // Note: s7 might not have post_rt_status fields in DB schema columns, 
+            // but s6 has s6_post_rt_status. We should check if s7 has them or if they rely on JSON.
+            // Assuming s7 relies on JSON or reuses s6 columns (unlikely for different stages).
+            // For now, I will read from JSON primarily.
+
+            // 1. Load Basic Info (from data_json)
+            if (inspectionData.data_json) {
+                try {
+                    const rawBasic = typeof inspectionData.data_json === 'string' ? JSON.parse(inspectionData.data_json) : inspectionData.data_json;
+                    const basicInfo = rawBasic?.[categoryKey] || {};
+
+                    setInputFields(prev => ({
+                        ...prev,
+                        reportNo: basicInfo.reportNo || prev.reportNo,
+                        tagNo: basicInfo.tagNo || prev.tagNo,
+                        equipment: basicInfo.equipment || prev.equipment,
+                        projectsId: basicInfo.projectsId || prev.projectsId,
+                        lindeDrgNo: basicInfo.lindeDrgNo || prev.lindeDrgNo,
+                        drgNo: basicInfo.drgNo || prev.drgNo,
+                        code: basicInfo.code || prev.code,
+                        inspAgency: basicInfo.inspAgency || prev.inspAgency,
+                    }));
+                } catch (e) { console.error("Error parsing data_json", e) }
+            }
+
+            if (inspectionData[ndtEngIdKey]) setNdtEngineer(inspectionData[ndtEngIdKey]);
+            if (inspectionData[prodEngNameKey]) setProductionEngineerName(inspectionData[prodEngNameKey]);
+
+            // s6 specific columns (legacy) - s7 might not have these column equivalents
+            if (stage === 'stage6') {
+                if (inspectionData.s6_post_rt_status) setPostRtStatus(inspectionData.s6_post_rt_status);
+                if (inspectionData.s6_post_pt_status) setPostPtStatus(inspectionData.s6_post_pt_status);
+            }
+
+            if (inspectionData[dataKey]) {
+                try {
+                    const rawData = typeof inspectionData[dataKey] === 'string' ? JSON.parse(inspectionData[dataKey]) : inspectionData[dataKey];
+                    // Check nested key: { ab: { s6: ... } } or legacy
+                    const stageData = rawData?.[categoryKey]?.[stagePrefix] || rawData?.[categoryKey] || rawData || {};
+
+                    if (stageData?.productionEngineerName) setProductionEngineerName(stageData.productionEngineerName);
+                    if (stageData?.submissionDate) setTodayDate(stageData.submissionDate);
+                    if (!inspectionData[ndtEngIdKey] && stageData?.assignedNdtEngineerId) {
+                        setNdtEngineer(stageData.assignedNdtEngineerId);
+                    }
+                    if (stageData?.postRtStatus) setPostRtStatus(stageData.postRtStatus);
+                    if (stageData?.postPtStatus) setPostPtStatus(stageData.postPtStatus);
+
+                    // Legacy fallback
+                    if (stageData?.inputFields && !inspectionData.data_json) {
+                        setInputFields(prev => ({ ...prev, ...stageData.inputFields }));
+                    }
+                } catch (e) { console.error(`Error parsing ${dataKey}`, e) }
+            }
         }
-    }, [inspectionData]);
+    }, [inspectionData, initialData, stage]);
+
+    // ReadOnly Condition: Review mode AND not QC
+    const isReadOnly = isReview && userRole !== 'QC';
 
     const handleSubmit = async () => {
         setIsSubmitting(true)
@@ -163,24 +239,49 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            if (!qcEngineer) {
-                setError("Please select QC Engineer");
+            if (!ndtEngineer) {
+                setError("Please select NDT Engineer");
                 setIsSubmitting(false);
                 return;
             }
 
+            const categoryKey = getCategoryKey();
+            const stagePrefix = stage === 'stage7' ? 's7' : 's6';
+            const dataKey = `${stagePrefix}_data`;
+
+            let existingData = {};
+            if (initialData?.inspectionData?.[dataKey]) {
+                existingData = typeof initialData.inspectionData[dataKey] === 'string'
+                    ? JSON.parse(initialData.inspectionData[dataKey])
+                    : initialData.inspectionData[dataKey];
+            }
+
+            const currentStageData = {
+                postRtStatus,
+                postPtStatus,
+                assignedNdtEngineerId: ndtEngineer,
+                productionEngineerName,
+                submissionDate: todayDate,
+                // inputFields removed
+            };
+
+            const finalData = {
+                ...existingData,
+                [categoryKey]: {
+                    ...existingData[categoryKey],
+                    [stagePrefix]: currentStageData
+                }
+            };
+
+
+
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage6",
+                stage: stage, // Dynamic stage
                 status: "pending",
                 engineerId: userId,
                 role: role,
-                data: {
-                    postRtStatus,
-                    postPtStatus,
-                    assignedQcEngineerId: qcEngineer,
-                    inputFields
-                }
+                data: finalData
             }
 
             const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -195,7 +296,8 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
 
             const data = await res.json();
             if (res.ok) {
-                setSuccess("Stage 6 (PWHT) submitted successfully");
+                const stageName = stage === 'stage7' ? 'Stage 7 (Hardness)' : 'Stage 6 (PWHT)';
+                setSuccess(`${stageName} submitted successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setError(data.message || "Submission failed");
@@ -226,9 +328,56 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
+            if (userRole === 'QC' && status === 'approved') {
+                // Save data before approving if edits made
+                const categoryKey = getCategoryKey();
+                const stagePrefix = stage === 'stage7' ? 's7' : 's6';
+                const dataKey = `${stagePrefix}_data`;
+
+                let existingData = {};
+                if (initialData?.inspectionData?.[dataKey]) {
+                    existingData = typeof initialData.inspectionData[dataKey] === 'string'
+                        ? JSON.parse(initialData.inspectionData[dataKey])
+                        : initialData.inspectionData[dataKey];
+                }
+
+                const currentStageData = {
+                    postRtStatus,
+                    postPtStatus,
+                    assignedNdtEngineerId: ndtEngineer,
+                    productionEngineerName,
+                    submissionDate: todayDate,
+                    // inputFields removed
+                };
+
+                const finalData = {
+                    ...existingData,
+                    [categoryKey]: {
+                        ...existingData[categoryKey],
+                        [stagePrefix]: currentStageData
+                    }
+                };
+
+
+
+                await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+                    body: JSON.stringify({
+                        jointId: initialData?.id,
+                        stage: stage,
+                        status: initialData?.inspectionData?.[`${stagePrefix}_status`] || 'pending',
+                        engineerId: userId,
+                        role: 'QC',
+                        data: finalData
+                    }),
+                    credentials: "include",
+                });
+            }
+
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage6",
+                stage: stage, // Dynamic
                 status: status,
                 engineerId: userId,
                 role: role,
@@ -247,7 +396,8 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
 
             const data = await res.json();
             if (res.ok) {
-                setSuccess(`Stage 6 ${status} successfully`);
+                const stageName = stage === 'stage7' ? 'Stage 7' : 'Stage 6';
+                setSuccess(`${stageName} ${status} successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setError(data.message || "Review action failed");
@@ -323,8 +473,8 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                                 value={inputFields.reportNo}
                                 onChange={handleInputChange}
                                 placeholder="Enter Report No"
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
 
@@ -337,8 +487,8 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                                 value={inputFields.tagNo}
                                 onChange={handleInputChange}
                                 placeholder="Enter TAG NO."
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
 
@@ -351,8 +501,8 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                                 value={inputFields.equipment}
                                 onChange={handleInputChange}
                                 placeholder="Enter EQUIPMENT"
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
 
@@ -365,36 +515,36 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                                 value={inputFields.projectsId}
                                 onChange={handleInputChange}
                                 placeholder="Enter Projects ID"
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="lindeDrgNo">Linde DRG No:</Label>
+                            <Label htmlFor="lindeDrgNo">CLIENT DRG.:</Label>
                             <Input
                                 id="lindeDrgNo"
                                 name="lindeDrgNo"
                                 type="text"
                                 value={inputFields.lindeDrgNo}
                                 onChange={handleInputChange}
-                                placeholder="Enter Linde DRG No"
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                placeholder="Enter CLIENT DRG."
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="drgNo">DRG. NO.:</Label>
+                            <Label htmlFor="drgNo">SHRENO DRG NO.:</Label>
                             <Input
                                 id="drgNo"
                                 name="drgNo"
                                 type="text"
                                 value={inputFields.drgNo}
                                 onChange={handleInputChange}
-                                placeholder="Enter DRG. NO."
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                placeholder="Enter SHRENO DRG NO."
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
 
@@ -407,8 +557,8 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                                 value={inputFields.code}
                                 onChange={handleInputChange}
                                 placeholder="Enter CODE"
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
 
@@ -421,8 +571,8 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                                 value={inputFields.inspAgency}
                                 onChange={handleInputChange}
                                 placeholder="Enter INSP. AGENCY"
-                                readOnly={isReview}
-                                className={isReview ? "bg-muted" : ""}
+                                readOnly
+                                className="bg-muted"
                             />
                         </div>
                     </div>
@@ -437,7 +587,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                     )}</CardTitle>
                 </CardHeader>
                 <CardHeader>
-                    {initialData?.pwht && (
+                    {stage === "stage6" && initialData?.pwht && (
                         <CardTitle>Radiography Testing (RT) <span className="ml-2 text-xs text-muted-foreground">
                             (After PWHT)
                         </span></CardTitle>
@@ -445,7 +595,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
 
                     {stage === "stage7" && initialData?.pwht && (
                         <CardTitle>Penetrant Testing (PT) <span className="ml-2 text-xs text-muted-foreground">
-                            (Required / Not required - After PWHT)
+                            (After PWHT)
                         </span></CardTitle>
                     )}
                 </CardHeader>
@@ -465,20 +615,20 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                             <Label>Date:</Label>
                             <Input
                                 type="text"
-                                value={initialData?.inspectionData?.s6_submitted_at ? new Date(initialData.inspectionData.s6_submitted_at).toLocaleDateString() : todayDate}
+                                value={initialData?.inspectionData?.[`${stage === 'stage7' ? 's7' : 's6'}_submitted_at`] ? new Date(initialData.inspectionData[`${stage === 'stage7' ? 's7' : 's6'}_submitted_at`]).toLocaleDateString() : todayDate}
                                 readOnly
                                 className="bg-muted"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="qcEngineer">QC Engineer:</Label>
-                            <Select value={qcEngineer} onValueChange={setQcEngineer} disabled={isReview}>
+                            <Label htmlFor="ndtEngineer">NDT Engineer:</Label>
+                            <Select value={ndtEngineer} onValueChange={setNdtEngineer} disabled={isReview}>
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select QC Engineer" />
+                                    <SelectValue placeholder="Select NDT Engineer" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {qcEngineers.map((engineer) => (
+                                    {ndtEngineers.map((engineer) => (
                                         <SelectItem key={engineer.id} value={engineer.id}>
                                             {engineer.name?.toUpperCase()}
                                         </SelectItem>
@@ -488,29 +638,43 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                         </div>
                     </div>
                     <div className="mt-6 flex justify-end gap-2 items-center">
-                        {!isReview ? (
-                            <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                {isSubmitting ? "Saving..." : "Save & Complete Stage 6"}
-                            </Button>
-                        ) : (
-                            <>
-                                {(isReview || initialData?.inspectionData?.s6_approved_at) && (
-                                    <Input
-                                        type="text"
-                                        value={`Approve Date: ${initialData?.inspectionData?.s6_approved_at ? new Date(initialData.inspectionData.s6_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                                        readOnly
-                                        className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                                        placeholder="Approve Date"
-                                    />
-                                )}
-                                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : "Reject"}
-                                </Button>
-                                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : "Approve"}
-                                </Button>
-                            </>
-                        )}
+                        {(() => {
+                            const stagePrefix = stage === 'stage7' ? 's7' : 's6';
+                            const isStageApproved = initialData?.inspectionData?.[`${stagePrefix}_status`] === 'approved';
+
+                            if (!isReview) {
+                                if (isStageApproved) return null; // Hide save button if approved
+                                return (
+                                    <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                        {isSubmitting ? "Saving..." : `Save & Complete ${stage === 'stage7' ? 'Stage 7' : 'Stage 6'}`}
+                                    </Button>
+                                )
+                            } else {
+                                return (
+                                    <>
+                                        {(isReview || initialData?.inspectionData?.[`${stagePrefix}_approved_at`]) && (
+                                            <Input
+                                                type="text"
+                                                value={`Approve Date: ${initialData?.inspectionData?.[`${stagePrefix}_approved_at`] ? new Date(initialData.inspectionData[`${stagePrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                                readOnly
+                                                className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
+                                                placeholder="Approve Date"
+                                            />
+                                        )}
+                                        {!isStageApproved && (
+                                            <>
+                                                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                                                    {isSubmitting ? "Processing..." : "Reject"}
+                                                </Button>
+                                                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                                                    {isSubmitting ? "Processing..." : "Approve"}
+                                                </Button>
+                                            </>
+                                        )}
+                                    </>
+                                )
+                            }
+                        })()}
                     </div>
                 </CardContent>
             </Card>

@@ -124,6 +124,7 @@ function ViewWeldingJoints() {
 
               if (joint.pwht) { // Check if PWHT is required
                 if (insp.s6_status !== 'approved') return 'stage6';
+                if (insp.s7_status !== 'approved') return 'stage7';
               }
 
               return 'completed';
@@ -245,6 +246,7 @@ function ViewWeldingJoints() {
       'stage4': 's4_status',
       'stage5': 's5_status',
       'stage6': 's6_status',
+      'stage7': 's7_status',
 
     };
 
@@ -260,7 +262,8 @@ function ViewWeldingJoints() {
       'stage3': 's3_qc_eng_id',
       'stage4': 's4_ndt_eng_id',
       'stage5': 's5_ndt_eng_id',
-      'stage6': 's6_qc_eng_id',
+      'stage6': 's6_ndt_eng_id', // PWHT RT
+      'stage7': 's7_ndt_eng_id', // PWHT PT
     };
 
     const statusKey = statusKeyMap[currentStage];
@@ -403,11 +406,11 @@ function ViewWeldingJoints() {
                                     return (
                                       <Button
                                         onClick={() => handleOpenStage(joint)}
-                                        disabled={showPending}
+                                        disabled={showPending || joint.status === 'completed'}
                                         variant="outline"
                                         size="sm"
                                       >
-                                        {showPending ? `Approval Pending ${stageName}` : `Open ${stageName}`}
+                                        {showPending ? `Approval Pending ${stageName}` : (joint.status === 'completed' ? 'Completed' : `Open ${stageName}`)}
                                       </Button>
                                     );
                                   }
@@ -534,6 +537,7 @@ function ViewWeldingJoints() {
                       initialData={selectedJoint}
                       inspectionData={selectedJoint?.inspectionData}
                       isReview={isReviewMode}
+                      stage="stage6"
                     />
                   )}
                   {selectedStage === "stage7" && (

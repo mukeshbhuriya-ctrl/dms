@@ -20,12 +20,12 @@ import { FormAlert } from "@/components/ui/form-alert"
 
 function Stage2({ backChip = false, stage = "stage2", initialData, inspectionData, isReview = false }) {
   // Back chip section
-  // Back chip section
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [userRole, setUserRole] = useState("")
 
   // Basic Info State
   const [displayFields, setDisplayFields] = useState({
@@ -39,27 +39,34 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
     tagNo: "",
     equipment: "",
     projectsId: "",
-    lindeDrgNo: "",
-    drgNo: "",
+    lindeDrgNo: "", // storing CLIENT DRG here
+    drgNo: "",      // storing SHRENO DRG NO here
     code: "",
     inspAgency: "",
   })
 
   useEffect(() => {
-    if (isReview) return;
     const authData = localStorage.getItem("user_auth")
     if (authData) {
       try {
         const parsed = JSON.parse(authData)
         const user = parsed?.payload?.user || parsed?.user
         if (user?.name) {
-          setProductionEngineerName(user.name)
+          if (!isReview) setProductionEngineerName(user.name)
+        }
+        // Extract role for QC check
+        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
+        if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
+          setUserRole('QC')
+        } else {
+          setUserRole('PROD')
         }
       } catch (e) {
         console.error("Error parsing auth data", e)
       }
     }
-  }, [])
+  }, [isReview])
 
   // Populate Basic Info
   useEffect(() => {
@@ -70,17 +77,22 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         poNo: initialData.poNo || "",
       })
 
+      // Auto-generate Report No logic (Placeholder pattern)
+      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/${stage.replace('stage', '')}`;
+
       setInputFields((prev) => ({
         ...prev,
+        reportNo: prev.reportNo || generatedReportNo, // Only set if empty? Or overwrite? User said "auto generate and auto fill".
         tagNo: initialData.tagNo || "",
         equipment: initialData.equipment || "",
         projectsId: initialData.projectsId || "",
-        lindeDrgNo: initialData.lindeDrgNo || "",
-        drgNo: initialData.drgNo || "",
+        lindeDrgNo: initialData.lindeDrgNo || "", // Client DRG
+        drgNo: initialData.drgNo || "",       // Shreno DRG
         code: initialData.code || "",
+        // inspAgency not in initialData, leave empty or prev
       }))
     }
-  }, [initialData])
+  }, [initialData, stage])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -105,7 +117,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Mock QC Engineers data - In real app, fetch this or pass as prop
+  // Mock QC Engineers data
   const [qcEngineers, setQcEngineers] = useState([])
 
   useEffect(() => {
@@ -143,27 +155,59 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
     fetchQcEngineers()
   }, [])
 
+  // Helper to determine category key
+  const getCategoryKey = () => {
+    if (initialData?.jointCategory === 'C' || initialData?.jointCategory === 'D') return 'cd';
+    return 'ab';
+  }
+
   useEffect(() => {
     // autofill data if available in inspectionData
     if (inspectionData) {
+      const categoryKey = getCategoryKey();
+
+      // 1. Load Basic Info (from data_json)
+      if (inspectionData.data_json) {
+        try {
+          const rawBasic = typeof inspectionData.data_json === 'string' ? JSON.parse(inspectionData.data_json) : inspectionData.data_json;
+          const basicInfo = rawBasic?.[categoryKey] || {};
+
+          setInputFields(prev => ({
+            ...prev,
+            reportNo: basicInfo.reportNo || prev.reportNo,
+            tagNo: basicInfo.tagNo || prev.tagNo,
+            equipment: basicInfo.equipment || prev.equipment,
+            projectsId: basicInfo.projectsId || prev.projectsId,
+            lindeDrgNo: basicInfo.lindeDrgNo || prev.lindeDrgNo,
+            drgNo: basicInfo.drgNo || prev.drgNo,
+            code: basicInfo.code || prev.code,
+            inspAgency: basicInfo.inspAgency || prev.inspAgency,
+          }));
+        } catch (e) { console.error("Error parsing data_json", e) }
+      }
+
       if (stage === 'stage2') {
-        // Prioritize column data for QC, fallback to parsed data later if needed
         if (inspectionData.s2_qc_eng_id) {
           setBackChipQcEngineer(inspectionData.s2_qc_eng_id);
         }
-        // Pre-fill Prod Name from injected data
         if (inspectionData.s2_prod_eng_name) {
           setProductionEngineerName(inspectionData.s2_prod_eng_name);
         }
 
         if (inspectionData.s2_data) {
           try {
-            const s2Data = typeof inspectionData.s2_data === 'string' ? JSON.parse(inspectionData.s2_data) : inspectionData.s2_data;
+            const rawData = typeof inspectionData.s2_data === 'string' ? JSON.parse(inspectionData.s2_data) : inspectionData.s2_data;
+            // Check nested s2 key: { ab: { s2: ... } } or legacy
+            const s2Data = rawData?.[categoryKey]?.s2 || rawData?.[categoryKey] || rawData || {};
+
             if (s2Data?.productionEngineerName) setProductionEngineerName(s2Data.productionEngineerName);
             if (s2Data?.submissionDate) setTodayDate(s2Data.submissionDate);
-            // Fallback for QC ID if column data was missing
             if (!inspectionData.s2_qc_eng_id && s2Data?.assignedQcEngineerId) {
               setBackChipQcEngineer(s2Data.assignedQcEngineerId);
+            }
+            // Legacy fallback for inputFields if NOT in data_json
+            if (s2Data?.inputFields && !inspectionData.data_json) {
+              setInputFields(prev => ({ ...prev, ...s2Data.inputFields }));
             }
           } catch (e) { console.error("Error parsing s2_data", e) }
         }
@@ -171,7 +215,6 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
       if (stage === 'stage3') {
         if (inspectionData.s3_qc_eng_id) setWeldVisualQcEngineer(inspectionData.s3_qc_eng_id);
-        // Pre-fill Prod Name from injected data
         if (inspectionData.s3_prod_eng_name) {
           setProductionEngineerName(inspectionData.s3_prod_eng_name);
         }
@@ -181,20 +224,24 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
         if (inspectionData.s3_data) {
           try {
-            const savedData = typeof inspectionData.s3_data === 'string'
+            const rawData = typeof inspectionData.s3_data === 'string'
               ? JSON.parse(inspectionData.s3_data)
               : inspectionData.s3_data;
-            if (savedData?.welderNo) {
-              loadedWelderNo = savedData.welderNo;
-            }
-            if (savedData?.weldingProcess) {
-              loadedWeldingProcess = savedData.weldingProcess;
-            }
+
+            // Check nested s3 key: { ab: { s3: ... } } or legacy
+            const savedData = rawData?.[categoryKey]?.s3 || rawData?.[categoryKey] || rawData || {};
+
+            if (savedData?.welderNo) loadedWelderNo = savedData.welderNo;
+            if (savedData?.weldingProcess) loadedWeldingProcess = savedData.weldingProcess;
             if (savedData?.productionEngineerName) setProductionEngineerName(savedData.productionEngineerName);
             if (savedData?.submissionDate) setTodayDate(savedData.submissionDate);
 
             if (!inspectionData.s3_qc_eng_id && savedData?.assignedQcEngineerId) {
               setWeldVisualQcEngineer(savedData.assignedQcEngineerId);
+            }
+            // Legacy fallback
+            if (savedData?.inputFields && !inspectionData.data_json) {
+              setInputFields(prev => ({ ...prev, ...savedData.inputFields }));
             }
           } catch (e) {
             console.error("Error parsing s3_data", e);
@@ -205,10 +252,11 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         if (loadedWeldingProcess) setWeldingProcess(loadedWeldingProcess);
       }
     }
-  }, [inspectionData, stage]);
+  }, [inspectionData, stage, initialData]);
 
-  // For stage3 with backChip: true, show Weld Visual Inspection section only
-  // For stage2: backChip: true shows Back chip, backChip: false shows Weld Visual Inspection
+  // ReadOnly Condition: Review mode AND not QC
+  const isReadOnly = isReview && userRole !== 'QC';
+
   const shouldShowBackChipSection =
     stage === "stage2" && backChip === true
   const shouldShowWeldVisualSection =
@@ -230,17 +278,23 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
 
-      const payload = {
-        jointId: initialData?.id,
-        stage: currentStage,
-        status: "pending",
-        engineerId: userId,
-        role: role,
-        role: role,
-        data: {
-          inputFields
-        }
+      const categoryKey = getCategoryKey();
+      const stagePrefix = currentStage === 'stage2' ? 's2' : 's3';
+      const stageKey = `${stagePrefix}_data`;
+
+      // Get existing data to preserve other category
+      let existingData = {};
+      if (initialData?.inspectionData?.[stageKey]) {
+        existingData = typeof initialData.inspectionData[stageKey] === 'string'
+          ? JSON.parse(initialData.inspectionData[stageKey])
+          : initialData.inspectionData[stageKey];
       }
+
+      const currentStageData = {
+        // inputFields removed
+        productionEngineerName,
+        submissionDate: todayDate,
+      };
 
       if (currentStage === 'stage2') {
         if (!backChipQcEngineer) {
@@ -248,21 +302,34 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
           setIsSubmitting(false);
           return;
         }
-        payload.data = {
-          assignedQcEngineerId: backChipQcEngineer,
-          productionEngineerName: productionEngineerName,
-          submissionDate: todayDate
-        };
+        currentStageData.assignedQcEngineerId = backChipQcEngineer;
       }
 
       if (currentStage === 'stage3') {
-        payload.data = {
-          welderNo,
-          weldingProcess,
-          assignedQcEngineerId: weldVisualQcEngineer,
-          productionEngineerName: productionEngineerName,
-          submissionDate: todayDate
-        };
+        currentStageData.welderNo = welderNo;
+        currentStageData.weldingProcess = weldingProcess;
+        currentStageData.assignedQcEngineerId = weldVisualQcEngineer;
+      }
+
+      // Nest the data: { ab: { s2: ... } }
+      const finalData = {
+        ...existingData,
+        [categoryKey]: {
+          ...existingData[categoryKey],
+          [stagePrefix]: currentStageData
+        }
+      };
+
+      // Construct Basic Info
+
+
+      const payload = {
+        jointId: initialData?.id,
+        stage: currentStage,
+        status: "pending",
+        engineerId: userId,
+        role: role,
+        data: finalData
       }
 
       const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -306,6 +373,55 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         const parsed = JSON.parse(authData)
         token = parsed?.payload?.token || parsed?.token
         userId = parsed?.payload?.user?.id || parsed?.user?.id
+      }
+
+      if (userRole === 'QC' && status === 'approved') {
+        const categoryKey = getCategoryKey();
+        const stagePrefix = currentStage === 'stage2' ? 's2' : 's3';
+        const stageKey = `${stagePrefix}_data`;
+
+        let existingData = {};
+        if (initialData?.inspectionData?.[stageKey]) {
+          existingData = typeof initialData.inspectionData[stageKey] === 'string'
+            ? JSON.parse(initialData.inspectionData[stageKey])
+            : initialData.inspectionData[stageKey];
+        }
+
+        const currentStageData = {
+          // inputFields removed
+          productionEngineerName,
+          submissionDate: todayDate,
+        };
+        if (currentStage === 'stage2') currentStageData.assignedQcEngineerId = backChipQcEngineer;
+        if (currentStage === 'stage3') {
+          currentStageData.welderNo = welderNo;
+          currentStageData.weldingProcess = weldingProcess;
+          currentStageData.assignedQcEngineerId = weldVisualQcEngineer;
+        }
+
+        const finalData = {
+          ...existingData,
+          [categoryKey]: {
+            ...existingData[categoryKey],
+            [stagePrefix]: currentStageData
+          }
+        };
+
+
+
+        await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+          body: JSON.stringify({
+            jointId: initialData?.id,
+            stage: currentStage,
+            status: initialData?.inspectionData?.[`${stagePrefix}_status`] || 'pending',
+            engineerId: userId,
+            role: 'QC',
+            data: finalData
+          }),
+          credentials: "include",
+        });
       }
 
       const payload = {
@@ -403,8 +519,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 value={inputFields.reportNo}
                 onChange={handleInputChange}
                 placeholder="Enter Report No"
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                readOnly
+                className="bg-muted"
               />
             </div>
 
@@ -417,8 +533,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 value={inputFields.tagNo}
                 onChange={handleInputChange}
                 placeholder="Enter TAG NO."
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                readOnly
+                className="bg-muted"
               />
             </div>
 
@@ -431,8 +547,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 value={inputFields.equipment}
                 onChange={handleInputChange}
                 placeholder="Enter EQUIPMENT"
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                readOnly
+                className="bg-muted"
               />
             </div>
 
@@ -445,36 +561,36 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 value={inputFields.projectsId}
                 onChange={handleInputChange}
                 placeholder="Enter Projects ID"
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                readOnly
+                className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lindeDrgNo">Linde DRG No:</Label>
+              <Label htmlFor="lindeDrgNo">CLIENT DRG.:</Label>
               <Input
                 id="lindeDrgNo"
                 name="lindeDrgNo"
                 type="text"
                 value={inputFields.lindeDrgNo}
                 onChange={handleInputChange}
-                placeholder="Enter Linde DRG No"
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                placeholder="Enter CLIENT DRG."
+                readOnly
+                className="bg-muted"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="drgNo">DRG. NO.:</Label>
+              <Label htmlFor="drgNo">SHRENO DRG NO.:</Label>
               <Input
                 id="drgNo"
                 name="drgNo"
                 type="text"
                 value={inputFields.drgNo}
                 onChange={handleInputChange}
-                placeholder="Enter DRG. NO."
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                placeholder="Enter SHRENO DRG NO."
+                readOnly
+                className="bg-muted"
               />
             </div>
 
@@ -487,8 +603,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 value={inputFields.code}
                 onChange={handleInputChange}
                 placeholder="Enter CODE"
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                readOnly
+                className="bg-muted"
               />
             </div>
 
@@ -501,8 +617,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 value={inputFields.inspAgency}
                 onChange={handleInputChange}
                 placeholder="Enter INSP. AGENCY"
-                readOnly={isReview}
-                className={isReview ? "bg-muted" : ""}
+                readOnly
+                className="bg-muted"
               />
             </div>
           </div>
@@ -609,8 +725,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                   value={welderNo}
                   onChange={(e) => setWelderNo(e.target.value)}
                   placeholder="Enter Welder No."
-                  readOnly={isReview}
-                  className={isReview ? "bg-muted" : ""}
+                  readOnly={isReadOnly}
+                  className={isReadOnly ? "bg-muted" : ""}
                 />
               </div>
 
@@ -622,8 +738,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                   value={weldingProcess}
                   onChange={(e) => setWeldingProcess(e.target.value)}
                   placeholder="Enter Welding Process"
-                  readOnly={isReview}
-                  className={isReview ? "bg-muted" : ""}
+                  readOnly={isReadOnly}
+                  className={isReadOnly ? "bg-muted" : ""}
                 />
               </div>
             </div>

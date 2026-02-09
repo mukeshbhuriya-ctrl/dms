@@ -351,7 +351,7 @@ async function getWeldJoints(req, res) {
  */
 async function updateStageStatus(req, res) {
     try {
-        const { jointId, stage, status, data, engineerId, role } = req.body; // role: 'PROD', 'QC', 'NDT'
+        const { jointId, stage, status, data, engineerId, role, basicInfo } = req.body; // role: 'PROD', 'QC', 'NDT'
 
         // Basic validation
         if (!jointId || !stage || !status) {
@@ -365,7 +365,8 @@ async function updateStageStatus(req, res) {
             'stage3': 's3',
             'stage4': 's4',
             'stage5': 's5',
-            'stage6': 's6'
+            'stage6': 's6',
+            'stage7': 's7'
         }[stage];
 
         if (!stagePrefix) {
@@ -378,28 +379,32 @@ async function updateStageStatus(req, res) {
         };
 
         if (data) {
-            // For stages that have a data field (like s1_data, s7_data)
-            if (stage === 'stage1') {
-                updateData[`${stagePrefix}_data`] = data;
-            }
-            // Add other specific mappings if needed, e.g. welder_no for stage 3
-            if (stage === 'stage3') {
-                if (data.welderNo) updateData[`${stagePrefix}_welder_no`] = data.welderNo;
-                if (data.weldingProcess) updateData[`${stagePrefix}_welding_process`] = data.weldingProcess;
-            }
-            // Stage 4 & 5 - Map assigned NDT Engineer
-            if ((stage === 'stage4' || stage === 'stage5') && data.assignedNdtEngineerId) {
-                updateData[`${stagePrefix}_ndt_eng_id`] = data.assignedNdtEngineerId;
-            }
-            // Map assigned QC Engineer for relevant stages
-            if (data.assignedQcEngineerId) {
-                updateData[`${stagePrefix}_qc_eng_id`] = data.assignedQcEngineerId;
-            }
-            // Stage 6 - Map Post RT/PT Status
-            if (stage === 'stage6') {
-                if (data.postRtStatus) updateData[`${stagePrefix}_post_rt_status`] = data.postRtStatus;
-                if (data.postPtStatus) updateData[`${stagePrefix}_post_pt_status`] = data.postPtStatus;
-            }
+            // Save Stage Data (Nested JSON: { ab: { s1: ... }, cd: { s1: ... } })
+            updateData[`${stagePrefix}_data`] = data;
+        }
+
+        // Handle Basic Info for data_json
+        if (basicInfo) {
+            const currentInspection = await prisma.weld_joint_inspection.findUnique({
+                where: { weld_joint_id: jointId },
+                select: { data_json: true }
+            });
+
+            const existingDataJson = currentInspection?.data_json || {};
+            const newDataJson = { ...existingDataJson };
+
+            // Merge Basic Info ({ ab: { ... }, cd: { ... } })
+            // We assume basicInfo is structured as { ab: {...}, cd: {...} }
+            ['ab', 'cd'].forEach(category => {
+                if (basicInfo[category]) {
+                    newDataJson[category] = {
+                        ...(newDataJson[category] || {}),
+                        ...basicInfo[category]
+                    };
+                }
+            });
+
+            updateData.data_json = newDataJson;
         }
 
         if (status === 'approved' || status === 'completed') {
@@ -411,18 +416,51 @@ async function updateStageStatus(req, res) {
         }
 
         // Handle Engineer IDs based on role/stage
-        // This is a simplified logic, can be expanded based on specific field names
         if (role === 'PROD') {
             updateData[`${stagePrefix}_prod_eng_id`] = engineerId;
         } else if (role === 'QC') {
-            // Special handling for NDT stages (Stage 4 & 5) approved by QC Engineer
-            if (stage === 'stage4' || stage === 'stage5') {
+            // Stages 4, 5, 6, 7 are NDT stages (RT, PT, PWHT+RT, PWHT+PT)
+            if (['stage4', 'stage5', 'stage6', 'stage7'].includes(stage)) {
                 updateData[`${stagePrefix}_ndt_eng_id`] = engineerId;
             } else {
                 updateData[`${stagePrefix}_qc_eng_id`] = engineerId;
             }
         } else if (role === 'NDT') {
             updateData[`${stagePrefix}_ndt_eng_id`] = engineerId;
+        }
+
+        // Map Assigned Engineers from data if present (for stages where PROD assigns NDT/QC)
+        if (data) {
+            // We need to look inside the nested structure { ab: { ... } }
+            // This is a bit tricky as 'data' keys are dynamic ('ab', 'cd').
+            // Helper to find assigned IDs in any category
+            const findAssignedId = (key) => {
+                if (data.ab && data.ab[key]) return data.ab[key];
+                if (data.cd && data.cd[key]) return data.cd[key];
+                // Check deeper if nested? The user struct used "s1" inside "ab"?
+                // Previous user prompt: {ab: {s1: ...}}
+                // So we might need to look deeper.
+                // Let's check 'data.ab.s1' or 'data.ab' etc.
+                const checkObj = (obj) => {
+                    if (!obj) return null;
+                    if (obj[key]) return obj[key];
+                    // Check stage sub-key if exists
+                    if (obj[stagePrefix] && obj[stagePrefix][key]) return obj[stagePrefix][key];
+                    return null;
+                };
+                return checkObj(data.ab) || checkObj(data.cd);
+            };
+
+            const assignedNdt = findAssignedId('assignedNdtEngineerId');
+            const assignedQc = findAssignedId('assignedQcEngineerId');
+
+            // Stages 4, 5, 6, 7 use NDT Engineer
+            if (['stage4', 'stage5', 'stage6', 'stage7'].includes(stage) && assignedNdt) {
+                updateData[`${stagePrefix}_ndt_eng_id`] = assignedNdt;
+            }
+            if (!['stage4', 'stage5', 'stage6', 'stage7'].includes(stage) && assignedQc) {
+                updateData[`${stagePrefix}_qc_eng_id`] = assignedQc;
+            }
         }
 
         // Use upsert to create if not exists
@@ -460,7 +498,7 @@ async function reviewStageStatus(req, res) {
 
         const stagePrefix = {
             'stage1': 's1', 'stage2': 's2', 'stage3': 's3',
-            'stage4': 's4', 'stage5': 's5', 'stage6': 's6'
+            'stage4': 's4', 'stage5': 's5', 'stage6': 's6', 'stage7': 's7'
         }[stage];
 
         if (!stagePrefix) return res.status(400).json({ success: false, message: 'Invalid stage' });
@@ -478,7 +516,7 @@ async function reviewStageStatus(req, res) {
         // Assuming linear progression:
         const nextStageMap = {
             'stage1': 'stage2', 'stage2': 'stage3', 'stage3': 'stage4',
-            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'completed'
+            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'stage7', 'stage7': 'completed'
         };
 
         let parentStatusUpdate = {};
@@ -530,7 +568,10 @@ async function getAssignedWeldJoints(req, res) {
                         { s4_status: 'pending', s4_qc_eng_id: user_id },   // Fallback if generic QC field used
                         { s5_status: 'pending', s5_ndt_eng_id: user_id }, // Stage 5 is PT (NDT)
                         { s5_status: 'pending', s5_qc_eng_id: user_id },   // Fallback
-                        { s6_status: 'pending', s6_qc_eng_id: user_id }
+                        { s6_status: 'pending', s6_ndt_eng_id: user_id }, // Stage 6 (PWHT - RT) is NDT
+                        { s6_status: 'pending', s6_qc_eng_id: user_id },   // Fallback
+                        { s7_status: 'pending', s7_ndt_eng_id: user_id }, // Stage 7 (PWHT - PT) is NDT
+                        { s7_status: 'pending', s7_qc_eng_id: user_id }    // Fallback
                     ]
                 }
             },
