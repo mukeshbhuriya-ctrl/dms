@@ -349,40 +349,23 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
         <div className="w-full mx-auto p-6 space-y-6">
             <FormAlert type="error" message={error} />
             <FormAlert type="success" message={success} />
-            <Card>
-                <CardHeader>
-                    <CardTitle>Basic Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Display Fields */}
-                        <div className="space-y-2">
-                            <Label>MSN:</Label>
-                            <Input value={displayFields.msn} readOnly className="bg-muted" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>CLIENT:</Label>
-                            <Input value={displayFields.client} readOnly className="bg-muted" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>P.O. NO.:</Label>
-                            <Input value={displayFields.poNo} readOnly className="bg-muted" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Report No:</Label>
-                            <Input name="reportNo" value={inputFields.reportNo} onChange={handleInputChange} readOnly className="bg-muted" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Equipment:</Label>
-                            <Input name="equipment" value={inputFields.equipment} onChange={handleInputChange} readOnly className="bg-muted" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Drawing No:</Label>
-                            <Input name="drgNo" value={inputFields.drgNo} onChange={handleInputChange} readOnly className="bg-muted" />
-                        </div>
+            <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold text-lg">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                        <Label>Shreno Manufacturer sr. no.:</Label>
+                        <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="space-y-2">
+                        <Label>Equipment Name & Tag Number:</Label>
+                        <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Drawing no. :</Label>
+                        <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
+                    </div>
+                </div>
+            </div>
 
             <Card className="w-full">
                 <CardHeader>
@@ -495,7 +478,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                     </div>
                 </CardContent>
             </Card>
-        </div>
+        </div >
     )
 }
 

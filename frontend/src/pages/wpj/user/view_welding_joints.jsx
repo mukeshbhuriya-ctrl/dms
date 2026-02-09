@@ -29,6 +29,7 @@ import Stage3D from "@/components/form/d/Stage3"
 import Stage4D from "@/components/form/d/Stage4"
 import Stage5D from "@/components/form/d/Stage5"
 import Stage6D from "@/components/form/d/Stage6"
+import Stage7D from "@/components/form/d/Stage7"
 
 function ViewWeldingJoints() {
   const [weldingJoints, setWeldingJoints] = useState([])
@@ -108,30 +109,39 @@ function ViewWeldingJoints() {
               const insp = joint.weld_joint_inspection || {};
               if (insp.s1_status !== 'approved') return 'stage1';
 
-              if (joint.back_chip_req) { // Check if back chip is required
+              if (joint.joint_type === 'C') {
+                if (insp.s2_status !== 'approved') return 'stage2';
+                return 'completed';
+              }
+
+              if (joint.joint_type === 'D') {
+                if (insp.s2_status !== 'approved') return 'stage2';
+                if (insp.s3_status !== 'approved') return 'stage3';
+                if (insp.s4_status !== 'approved') return 'stage4';
+                if (insp.s5_status !== 'approved') return 'stage5';
+                if (insp.s6_status !== 'approved') return 'stage6';
+                // If S7/S8 needed later, add here
+                return 'completed';
+              }
+
+              // Category A & B (Existing Logic)
+              if (joint.back_chip_req) {
                 if (insp.s2_status !== 'approved') return 'stage2';
               }
 
               if (insp.s3_status !== 'approved') return 'stage3';
 
-              if (joint.rt) { // Check if RT is required
+              if (joint.rt) {
                 if (insp.s4_status !== 'approved') return 'stage4';
               }
 
-              if (joint.pt) { // Check if PT is required
+              if (joint.pt) {
                 if (insp.s5_status !== 'approved') return 'stage5';
               }
 
-              if (joint.pwht) { // Check if PWHT is required
+              if (joint.pwht) {
                 if (insp.s6_status !== 'approved') return 'stage6';
-                if (joint.jointCategory === 'C' || joint.jointCategory === 'D') {
-                  // CD has 8 stages. S7 and S8 are PWHT stages.
-                  if (insp.s7_status !== 'approved') return 'stage7';
-                  if (insp.s8_status !== 'approved') return 'stage8';
-                } else {
-                  // AB has 7 stages.
-                  if (insp.s7_status !== 'approved') return 'stage7';
-                }
+                if (insp.s7_status !== 'approved') return 'stage7';
               }
 
               return 'completed';
@@ -146,22 +156,6 @@ function ViewWeldingJoints() {
           console.error("Failed to fetch joints", data)
           setError("Failed to load welding joints")
         }
-
-        // --- INJECT DUMMY JOINTS FOR C & D ---
-        mappedJoints.unshift(
-          { id: 'd-s8', msnNumber: '99908', jointNo: 'D-Joint-08', jointCategory: 'D', status: 'stage8', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: true },
-          { id: 'd-s7', msnNumber: '99907', jointNo: 'D-Joint-07', jointCategory: 'D', status: 'stage7', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: true },
-          { id: 'd-s6', msnNumber: '99906', jointNo: 'D-Joint-06', jointCategory: 'D', status: 'stage6', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-          { id: 'd-s5', msnNumber: '99905', jointNo: 'D-Joint-05', jointCategory: 'D', status: 'stage5', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-          { id: 'd-s4', msnNumber: '99904', jointNo: 'D-Joint-04', jointCategory: 'D', status: 'stage4', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-          { id: 'd-s3', msnNumber: '99903', jointNo: 'D-Joint-03', jointCategory: 'D', status: 'stage3', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-          { id: 'd-s2', msnNumber: '99902', jointNo: 'D-Joint-02', jointCategory: 'D', status: 'stage2', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-          { id: 'd-s1', msnNumber: '99901', jointNo: 'D-Joint-01', jointCategory: 'D', status: 'stage1', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-
-          { id: 'c-s2', msnNumber: '88802', jointNo: 'C-Joint-02', jointCategory: 'C', status: 'stage2', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-
-          { id: 'c-s1', msnNumber: '88801', jointNo: 'C-Joint-01', jointCategory: 'C', status: 'stage1', client: 'Dummy', inspectionData: {}, backChip: false, rt: false, pt: false, pwht: false },
-        );
 
         setWeldingJoints(mappedJoints);
 
@@ -527,10 +521,10 @@ function ViewWeldingJoints() {
                         <Stage6D initialData={selectedJoint} isReview={isReviewMode} />
                       )}
                       {selectedStage === "stage7" && (
-                        <p>Stage 7 D Placeholder</p>/* TODO: Import and use Stage7D */
+                        <Stage7D initialData={selectedJoint} isReview={isReviewMode} stage="stage7" />
                       )}
                       {selectedStage === "stage8" && (
-                        <p>Stage 8 D Placeholder</p>/* TODO: Import and use Stage8D */
+                        <Stage7D initialData={selectedJoint} isReview={isReviewMode} stage="stage8" />
                       )}
                     </>
                   )}
