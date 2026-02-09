@@ -509,6 +509,50 @@ async function reviewStageStatus(req, res) {
 
         if (status === 'approved') {
             updateData[`${stagePrefix}_approved_at`] = new Date();
+        } else if (status === 'rejected') {
+            // Fallback Logic: Revert previous stage to 'pending' to force re-approval/re-work
+            // We need to fetch joint details to know which stage is "previous" (handling skips)
+            const joint = await prisma.weld_joint.findUnique({
+                where: { id: jointId }
+            });
+
+            if (joint) {
+                let fallbackStage = null;
+                switch (stage) {
+                    case 'stage2': // Back Chip
+                        fallbackStage = 's1';
+                        break;
+                    case 'stage3': // Visual
+                        fallbackStage = joint.back_chip_req ? 's2' : 's1';
+                        break;
+                    case 'stage4': // RT
+                        fallbackStage = 's3'; // Back to Visual/Weld
+                        break;
+                    case 'stage5': // PT
+                        fallbackStage = joint.rt ? 's4' : 's3';
+                        break;
+                    case 'stage6': // PWHT RT
+                        // If PWHT fail, maybe back to PT/RT or Visual?
+                        // Assuming back to Stage 5 (PT) or Stage 4 (RT) or Stage 3.
+                        // Let's go back to Stage 3 (Weld Visual) implies full repair?
+                        // Or just previous NDT?
+                        // User said "fallback to previous stage".
+                        // Linear reverse:
+                        fallbackStage = joint.pt ? 's5' : (joint.rt ? 's4' : 's3');
+                        break;
+                    case 'stage7': // PWHT PT
+                        fallbackStage = 's6'; // Back to PWHT RT (if exists? Stage 6 is PWHT RT, usually always there if Stage 7 is)
+                        // Actually Stage 6 is PWHT RT. Stage 7 is PWHT PT.
+                        break;
+                    default:
+                        break;
+                }
+
+                if (fallbackStage) {
+                    updateData[`${fallbackStage}_status`] = 'pending';
+                    updateData[`${fallbackStage}_approved_at`] = null; // Clear approval
+                }
+            }
         }
 
         // Handle Status Transition (e.g. Stage 1 Approved -> Move to Stage 2)
