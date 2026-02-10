@@ -111,6 +111,9 @@ function ViewWeldingJoints() {
 
               if (joint.joint_type === 'C') {
                 if (insp.s2_status !== 'approved') return 'stage2';
+                // Jump to Stage 7
+                if (insp.s7_status !== 'approved') return 'stage7';
+                if (insp.s8_status !== 'approved') return 'stage8';
                 return 'completed';
               }
 
@@ -120,7 +123,8 @@ function ViewWeldingJoints() {
                 if (insp.s4_status !== 'approved') return 'stage4';
                 if (insp.s5_status !== 'approved') return 'stage5';
                 if (insp.s6_status !== 'approved') return 'stage6';
-                // If S7/S8 needed later, add here
+                if (insp.s7_status !== 'approved') return 'stage7';
+                if (insp.s8_status !== 'approved') return 'stage8';
                 return 'completed';
               }
 
@@ -500,33 +504,33 @@ function ViewWeldingJoints() {
               return (
                 <>
                   {selectedStage === "stage1" && (
-                    <Stage1C initialData={selectedJoint} isReview={isReviewMode} />
+                    <Stage1C initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} />
                   )}
 
                   {selectedStage === "stage2" && (
-                    <Stage2C initialData={selectedJoint} isReview={isReviewMode} />
+                    <Stage2C initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} />
                   )}
                   {selectedJoint.jointCategory === 'D' && (
                     <>
                       {selectedStage === "stage3" && (
-                        <Stage3D initialData={selectedJoint} isReview={isReviewMode} />
+                        <Stage3D initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} />
                       )}
                       {selectedStage === "stage4" && (
-                        <Stage4D initialData={selectedJoint} isReview={isReviewMode} />
+                        <Stage4D initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} />
                       )}
                       {selectedStage === "stage5" && (
-                        <Stage5D initialData={selectedJoint} isReview={isReviewMode} />
+                        <Stage5D initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} />
                       )}
                       {selectedStage === "stage6" && (
-                        <Stage6D initialData={selectedJoint} isReview={isReviewMode} />
-                      )}
-                      {selectedStage === "stage7" && (
-                        <Stage7D initialData={selectedJoint} isReview={isReviewMode} stage="stage7" />
-                      )}
-                      {selectedStage === "stage8" && (
-                        <Stage7D initialData={selectedJoint} isReview={isReviewMode} stage="stage8" />
+                        <Stage6D initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} />
                       )}
                     </>
+                  )}
+                  {selectedStage === "stage7" && (
+                    <Stage7D initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} stage="stage7" />
+                  )}
+                  {selectedStage === "stage8" && (
+                    <Stage7D initialData={selectedJoint} inspectionData={selectedJoint?.inspectionData} isReview={isReviewMode} stage="stage8" />
                   )}
                 </>
               )

@@ -807,6 +807,7 @@ function WeldingJoints() {
                                         <SelectItem value="B">B</SelectItem>
                                         <SelectItem value="C">C</SelectItem>
                                         <SelectItem value="D">D</SelectItem>
+                                        <SelectItem value="F">F</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </TableCell>
@@ -970,7 +971,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "pwht", value)
                                       }
-                                      disabled={isLoading || (row.jointType !== "A" && row.jointType !== "B")}
+                                      disabled={isLoading}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -987,7 +988,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "rt", value)
                                       }
-                                      disabled={isLoading || (row.jointType !== "A" && row.jointType !== "B")}
+                                      disabled={isLoading}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -1004,7 +1005,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "pt", value)
                                       }
-                                      disabled={isLoading || (row.jointType !== "A" && row.jointType !== "B")}
+                                      disabled={isLoading}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
