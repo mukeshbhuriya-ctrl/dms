@@ -437,10 +437,8 @@ async function updateStageStatus(req, res) {
             const findAssignedId = (key) => {
                 if (data.ab && data.ab[key]) return data.ab[key];
                 if (data.cd && data.cd[key]) return data.cd[key];
-                // Check deeper if nested? The user struct used "s1" inside "ab"?
-                // Previous user prompt: {ab: {s1: ...}}
-                // So we might need to look deeper.
-                // Let's check 'data.ab.s1' or 'data.ab' etc.
+                if (data.f && data.f[key]) return data.f[key]; // Added support for Category F
+
                 const checkObj = (obj) => {
                     if (!obj) return null;
                     if (obj[key]) return obj[key];
@@ -448,7 +446,7 @@ async function updateStageStatus(req, res) {
                     if (obj[stagePrefix] && obj[stagePrefix][key]) return obj[stagePrefix][key];
                     return null;
                 };
-                return checkObj(data.ab) || checkObj(data.cd);
+                return checkObj(data.ab) || checkObj(data.cd) || checkObj(data.f); // Added check for f
             };
 
             const assignedNdt = findAssignedId('assignedNdtEngineerId');
