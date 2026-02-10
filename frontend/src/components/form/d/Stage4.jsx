@@ -70,34 +70,38 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
         }
     }, [isReview])
 
-    // Fetch QC Engineers
-    useEffect(() => {
-        const fetchQcEngineers = async () => {
-            try {
-                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-                const authData = localStorage.getItem("user_auth")
-                let token = null
-                if (authData) {
-                    try {
-                        const parsed = JSON.parse(authData)
-                        token = parsed?.payload?.token || parsed?.token
-                    } catch { }
-                }
-
-                const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": token ? `Bearer ${token}` : ""
-                    }
-                })
-                const data = await res.json()
-                if (res.ok && data.success) {
-                    setQcEngineers(data.data || [])
-                }
-            } catch (error) { console.error("Error fetching QC Engineers:", error) }
+  // Fetch QC Engineers
+  useEffect(() => {
+    const fetchQeEngineers = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+        const authData = localStorage.getItem("user_auth")
+        let token = null
+        if (authData) {
+          try {
+            const parsed = JSON.parse(authData)
+            token = parsed?.payload?.token || parsed?.token
+          } catch { }
         }
-        fetchQcEngineers()
-    }, [])
+
+        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : ""
+          },
+          credentials: "include",
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          setQcEngineers(data.data || [])
+        }
+      } catch (error) {
+        console.error("Error fetching QE Engineers:", error)
+      }
+    }
+    fetchQeEngineers()
+  }, [])
 
     // Load Data
     useEffect(() => {
@@ -521,7 +525,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {qcEngineers.map(eng => (
-                                            <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
+                                            <SelectItem key={eng.id} value={eng.id}>{eng.name?.toUpperCase()}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

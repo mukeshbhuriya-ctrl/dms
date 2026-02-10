@@ -67,7 +67,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
     // Fetch QC Engineers
     useEffect(() => {
-        const fetchQcEngineers = async () => {
+        const fetchQeEngineers = async () => {
             try {
                 const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
                 const authData = localStorage.getItem("user_auth")
@@ -80,18 +80,22 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                 }
 
                 const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
+                    method: "GET",
                     headers: {
                         "Content-Type": "application/json",
                         "Authorization": token ? `Bearer ${token}` : ""
-                    }
+                    },
+                    credentials: "include",
                 })
                 const data = await res.json()
                 if (res.ok && data.success) {
                     setQcEngineers(data.data || [])
                 }
-            } catch (error) { console.error("Error fetching QC Engineers:", error) }
+            } catch (error) {
+                console.error("Error fetching QE Engineers:", error)
+            }
         }
-        fetchQcEngineers()
+        fetchQeEngineers()
     }, [])
 
     // Load Data
@@ -359,13 +363,9 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
             <Card className="w-full">
                 <CardHeader>
-                    <CardTitle>Stage 5: Inspection after full Welding</CardTitle>
+                    <CardTitle>Inspection after full Welding</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="border rounded-lg p-4 space-y-4">
-                        {/* Additional Info Section if any */}
-                    </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label>Visual Inspection</Label>
@@ -456,7 +456,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                                     </SelectTrigger>
                                     <SelectContent>
                                         {qcEngineers.map(eng => (
-                                            <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
+                                            <SelectItem key={eng.id} value={eng.id}>{eng.name?.toUpperCase()}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
