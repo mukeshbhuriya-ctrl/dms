@@ -1,6 +1,6 @@
 const express = require('express');
 const { getjobInfo, createWeldJointPlan, getWeldJointPlanDetails, getAssignedWeldJoints, updateStageStatus, reviewStageStatus } = require('#api/wpj/weld-joint.js');
-const { getWeldJoints, getWeldJointPlans } = require('../../controllers/weldJoint.controller.js');
+const { getWeldJoints, getWeldJointPlans, generateStageReport } = require('../../controllers/weldJoint.controller.js');
 const { authenticateUser } = require('#api/middleware/user.middleware.js');
 
 const router = express.Router();
@@ -17,5 +17,6 @@ router.get('/get-all-weld-joints', getWeldJoints);
 router.get('/get-assigned-weld-joints', getAssignedWeldJoints);
 router.post('/update-stage-status', updateStageStatus);
 router.post('/review-stage', reviewStageStatus);
+router.get('/generate-report/:jointId/:stage', generateStageReport);
 
 module.exports = router;
