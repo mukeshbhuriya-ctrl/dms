@@ -1,14 +1,7 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,6 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { DataTable } from "@/components/shared/DataTable"
+import { StatusBadge } from "@/components/shared/StatusBadge"
+
 import Stage1 from "@/components/form/ab/stage1"
 import Stage2 from "@/components/form/ab/stage2"
 import Stage4 from "@/components/form/ab/stage4"
@@ -35,177 +31,38 @@ import Stage2F from "@/components/form/f/Stage2"
 import Stage3F from "@/components/form/f/Stage3"
 
 function ViewWeldingJoints() {
-  const [weldingJoints, setWeldingJoints] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [userRoles, setUserRoles] = useState([])
+  const [userId, setUserId] = useState(null)
 
   // Dialog State
   const [selectedJoint, setSelectedJoint] = useState(null)
   const [selectedStage, setSelectedStage] = useState(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const [userRoles, setUserRoles] = useState([])
-  const [userId, setUserId] = useState(null)
-
+  // Auth & Role logic
   useEffect(() => {
-    // data fetching
-    const fetchJoints = async () => {
+    const authData = localStorage.getItem("user_auth")
+    if (authData) {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
-        // Manual Auth retrieval
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        let isQC = false;
-
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-            // Extract roles
-            const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
-            // Simplify role structure to array of names if it's array of objects
-            const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
-            setUserRoles(roleNames)
-
-            if (roleNames.includes('QC_ENGINEER') || roleNames.includes('NDT_ENGINEER')) {
-              isQC = true;
-            }
-
-            // Extract User ID
-            const uid = parsed?.payload?.user?.id || parsed?.user?.id;
-            setUserId(uid);
-          } catch { }
-        }
-
-        const endpoint = isQC ? '/api/wpj/get-assigned-weld-joints' : '/api/wpj/get-all-weld-joints';
-
-        const res = await fetch(`${backendUrl}${endpoint}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-
-        const data = await res.json()
-
-        let mappedJoints = [];
-        if (res.ok) {
-          mappedJoints = (data.data || []).map(joint => ({
-            id: joint.id,
-            msnNumber: joint.weld_joint_plan?.job?.job_number || "-",
-            // Basic Info for Stage 1
-            client: joint.weld_joint_plan?.job?.customer?.customer_name || "",
-            poNo: joint.weld_joint_plan?.job?.po?.po_number || "",
-            tagNo: joint.weld_joint_plan?.job?.tag_number || "",
-            equipment: joint.weld_joint_plan?.job?.equipement_name || "",
-            projectsId: joint.weld_joint_plan?.job?.project_id || "",
-            lindeDrgNo: joint.weld_joint_plan?.shreno_drg_no || "",
-            drgNo: joint.weld_joint_plan?.customer_drg_no || "",
-            code: joint.weld_joint_plan?.job?.code || "",
-
-            jointNo: joint.joint_no,
-            jointCategory: joint.joint_type,
-            status: (() => {
-              const insp = joint.weld_joint_inspection || {};
-              if (insp.s1_status !== 'approved') return 'stage1';
-
-              if (joint.joint_type === 'C') {
-                if (insp.s2_status !== 'approved') return 'stage2';
-                return 'completed';
-              }
-
-              if (joint.joint_type === 'D') {
-                if (insp.s2_status !== 'approved') return 'stage2';
-                if (insp.s3_status !== 'approved') return 'stage3';
-                if (insp.s4_status !== 'approved') return 'stage4';
-                if (insp.s5_status !== 'approved') return 'stage5';
-                if (insp.s6_status !== 'approved') return 'stage6';
-                // If S7/S8 needed later, add here
-                return 'completed';
-              }
-
-              // Category A & B (Existing Logic)
-              if (joint.joint_type === 'F') {
-                if (insp.s2_status !== 'approved') return 'stage2';
-                if (insp.s3_status !== 'approved') return 'stage3';
-                if (insp.s4_status !== 'approved') return 'stage4';
-                return 'completed';
-              }
-
-              if (joint.back_chip_req) {
-                if (insp.s2_status !== 'approved') return 'stage2';
-              }
-
-              if (insp.s3_status !== 'approved') return 'stage3';
-
-              if (joint.rt) {
-                if (insp.s4_status !== 'approved') return 'stage4';
-              }
-
-              if (joint.pt) {
-                if (insp.s5_status !== 'approved') return 'stage5';
-              }
-
-              if (joint.pwht) {
-                if (insp.s6_status !== 'approved') return 'stage6';
-                if (insp.s7_status !== 'approved') return 'stage7';
-              }
-
-              return 'completed';
-            })(),
-            backChip: joint.back_chip_req || false,
-            inspectionData: joint.weld_joint_inspection || {}, // Pass inspection data
-            // Preserve other details if needed for stages
-            ...joint
-          }))
-
-        } else {
-          console.error("Failed to fetch joints", data)
-          setError("Failed to load welding joints")
-        }
-
-        setWeldingJoints(mappedJoints);
-
-      } catch (err) {
-        console.error("Error fetching joints:", err)
-        setError("Error fetching data")
-      } finally {
-        setIsLoading(false)
-      }
+        const parsed = JSON.parse(authData)
+        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
+        setUserRoles(roleNames)
+        const uid = parsed?.payload?.user?.id || parsed?.user?.id;
+        setUserId(uid);
+      } catch { }
     }
-
-    fetchJoints()
   }, [])
 
-  const getStatusBadge = (status) => {
-    if (status === "stage1") {
-      return (
-        <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
-          Stage 1
-        </span>
-      )
-    } else if (status === "stage2") {
-      return (
-        <span className="inline-flex items-center rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
-          Stage 2
-        </span>
-      )
-    } else if (status === "stage3") {
-      return (
-        <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-          Stage 3
-        </span>
-      )
-    }
-    return (
-      <span className="inline-flex items-center rounded-full bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">
-        {status}
-      </span>
-    )
+  const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
+
+  const handleOpenStage = (joint) => {
+    setSelectedStage(joint.status)
+    setSelectedJoint(joint)
+    setIsDialogOpen(true)
   }
+
+
 
   const getJointCategoryBadge = (category) => {
     if (category === "A") {
@@ -240,15 +97,7 @@ function ViewWeldingJoints() {
     )
   }
 
-  const handleOpenStage = (joint) => {
-    setSelectedStage(joint.status)
-    setSelectedJoint(joint)
-    setIsDialogOpen(true)
-  }
-
-  const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
-
-  const getStageActionState = (joint) => {
+  const getStageActionState = useCallback((joint) => {
     const currentStage = joint.status;
     if (currentStage === 'completed') return { isPending: false, isAssignedToMe: false };
 
@@ -263,16 +112,15 @@ function ViewWeldingJoints() {
       'stage8': 's8_status',
     };
 
-    // Map stage to QC Engineer ID field
     const qcIdKeyMap = {
       'stage1': 's1_qc_eng_id',
       'stage2': 's2_qc_eng_id',
       'stage3': 's3_qc_eng_id',
-      'stage4': 's4_qc_eng_id', // Was ndt
-      'stage5': 's5_qc_eng_id', // Was ndt
-      'stage6': 's6_qc_eng_id', // Was ndt
-      'stage7': 's7_qc_eng_id', // Was ndt
-      'stage8': 's8_qc_eng_id', // Was ndt
+      'stage4': 's4_qc_eng_id',
+      'stage5': 's5_qc_eng_id',
+      'stage6': 's6_qc_eng_id',
+      'stage7': 's7_qc_eng_id',
+      'stage8': 's8_qc_eng_id',
     };
 
     const statusKey = statusKeyMap[currentStage];
@@ -280,11 +128,9 @@ function ViewWeldingJoints() {
 
     const isPending = joint.inspectionData?.[statusKey] === 'pending';
 
-    // Check assignment
     const idKey = qcIdKeyMap[currentStage];
     let assignedId = joint.inspectionData?.[idKey];
 
-    // Fallback: Check inside JSON data if column is empty
     if (!assignedId) {
       const stagePrefix = currentStage.replace('stage', 's');
       const dataKey = `${stagePrefix}_data`;
@@ -292,24 +138,19 @@ function ViewWeldingJoints() {
       if (rawData) {
         try {
           const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-          const catKey = joint.jointCategory?.toLowerCase() || 'f'; // Default to f/check other keys if needed
-
-          // Check nested structure: data.f.s1.assignedQcEngineerId
+          const catKey = joint.jointCategory?.toLowerCase() || 'f';
           const stageData = parsed?.[catKey]?.[stagePrefix] || parsed?.[catKey] || parsed;
           assignedId = stageData?.assignedQcEngineerId || stageData?.ndtEngineerId;
-        } catch (e) {
-          // Ignore parse errors
-        }
+        } catch (e) { }
       }
     }
 
     const isAssignedToMe = userId && assignedId && String(assignedId) === String(userId);
     const hasAssignment = !!assignedId;
 
-    // Check submission status (Check Engineer ID or Completed Date as fallback)
     const prefix = currentStage.replace('stage', 's');
     const prodKey = `${prefix}_prod_eng_id`;
-    const qcKey = `${prefix}_qc_eng_id`; // Consolidated to qc_eng_id
+    const qcKey = `${prefix}_qc_eng_id`;
     const completedAtKey = `${prefix}_approved_at`;
 
     const isSubmitted = !!(joint.inspectionData?.[prodKey] ||
@@ -317,7 +158,196 @@ function ViewWeldingJoints() {
       joint.inspectionData?.[completedAtKey]);
 
     return { isPending, isAssignedToMe, hasAssignment, isSubmitted };
-  };
+  }, [userId]);
+
+
+  const fetchJointsData = useCallback(async ({ page, limit, search }) => {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+    const authData = localStorage.getItem("user_auth")
+    let token = null
+    let isQC = false
+
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData)
+        token = parsed?.payload?.token || parsed?.token
+        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
+        if (roleNames.includes('QC_ENGINEER') || roleNames.includes('NDT_ENGINEER')) {
+          isQC = true;
+        }
+      } catch { }
+    }
+
+    const endpoint = isQC ? '/api/wpj/get-assigned-weld-joints' : '/api/wpj/get-all-weld-joints';
+    // If QC, we might strictly use get-assigned-weld-joints which might not support pagination yet?
+    // We will pass params anyway, if backend mocks it fine.
+    // NOTE: We updated getWeldJoints to support pagination properly. 
+    // getAssignedWeldJoints calls prisma.findMany without skip/take in current code. 
+    // For now we will assume it returns all and let DataTable filter client side if backend ignores, 
+    // OR we should fix backend. For now, we will perform GET.
+
+    const queryInfo = { page, limit, search };
+    const queryString = new URLSearchParams(queryInfo).toString();
+    const url = `${backendUrl}${endpoint}?${queryString}`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : ""
+      },
+      credentials: "include",
+    })
+
+    const data = await res.json()
+
+    function getStatus(joint) {
+      const insp = joint.weld_joint_inspection || {};
+      if (insp.s1_status !== 'approved') return 'stage1';
+
+      if (joint.joint_type === 'C') {
+        if (insp.s2_status !== 'approved') return 'stage2';
+        if (insp.s7_status !== 'approved') return 'stage7';
+        if (insp.s8_status !== 'approved') return 'stage8';
+        return 'completed';
+      }
+
+      if (joint.joint_type === 'D') {
+        if (insp.s2_status !== 'approved') return 'stage2';
+        if (insp.s3_status !== 'approved') return 'stage3';
+        if (insp.s4_status !== 'approved') return 'stage4';
+        if (insp.s5_status !== 'approved') return 'stage5';
+        if (insp.s6_status !== 'approved') return 'stage6';
+        if (insp.s7_status !== 'approved') return 'stage7';
+        if (insp.s8_status !== 'approved') return 'stage8';
+        return 'completed';
+      }
+
+      if (joint.joint_type === 'F') {
+        if (insp.s2_status !== 'approved') return 'stage2';
+        if (insp.s3_status !== 'approved') return 'stage3';
+        if (insp.s4_status !== 'approved') return 'stage4';
+        return 'completed';
+      }
+
+      if (joint.joint_type === 'A' || joint.joint_type === 'B') {
+        if (joint.back_chip_req) {
+          if (insp.s2_status !== 'approved') return 'stage2';
+        }
+        if (insp.s3_status !== 'approved') return 'stage3';
+        if (joint.rt) {
+          if (insp.s4_status !== 'approved') return 'stage4';
+        }
+        if (joint.pt) {
+          if (insp.s5_status !== 'approved') return 'stage5';
+        }
+        if (joint.pwht) {
+          if (insp.s6_status !== 'approved') return 'stage6';
+          if (insp.s7_status !== 'approved') return 'stage7';
+        }
+      }
+      return 'completed';
+    }
+
+    const mapData = (item) => ({
+      id: item.id,
+      msnNumber: item.weld_joint_plan?.job?.job_number || "-",
+      client: item.weld_joint_plan?.job?.customer?.customer_name || "",
+      poNo: item.weld_joint_plan?.job?.po?.po_number || "",
+      tagNo: item.weld_joint_plan?.job?.tag_number || "",
+      equipment: item.weld_joint_plan?.job?.equipement_name || "",
+      projectsId: item.weld_joint_plan?.job?.project_id || "",
+      lindeDrgNo: item.weld_joint_plan?.shreno_drg_no || "",
+      drgNo: item.weld_joint_plan?.customer_drg_no || "",
+      code: item.weld_joint_plan?.job?.code || "",
+      jointNo: item.joint_no,
+      jointCategory: item.joint_type,
+      status: getStatus(item),
+      backChip: item.back_chip_req || false,
+      inspectionData: item.weld_joint_inspection || {},
+      fullItem: item
+    })
+
+    return {
+      data: (data.data || []).map(mapData),
+      meta: data.meta || { total: (data.data || []).length, page: 1, limit: 1000, totalPages: 1 }
+    }
+  }, [])
+
+  const columns = [
+    { header: "MSN No", accessorKey: "msnNumber" },
+    { header: "Client", accessorKey: "client" },
+    { header: "Joint No", accessorKey: "jointNo" },
+    {
+      header: "Category",
+      accessorKey: "jointCategory",
+      cell: (row) => getJointCategoryBadge(row.jointCategory)
+    },
+    {
+      header: "Status",
+      accessorKey: "status",
+      cell: (row) => <StatusBadge status={row.status} />
+    },
+    {
+      header: "Action",
+      cell: (row) => {
+        const joint = row.fullItem;
+        // We can access getStageActionState since it is in scope.
+        // Merge fullItem (raw backend data) with row (flattened table data) to ensure Stage forms get everything they need.
+        const mergedJoint = { ...row.fullItem, ...row };
+        const { isPending, isAssignedToMe, hasAssignment, isSubmitted } = getStageActionState(mergedJoint);
+
+        const stageName = row.status === "stage1" ? "Stage 1"
+          : row.status === "stage2" ? "Stage 2"
+            : row.status === "stage3" ? "Stage 3"
+              : row.status === "stage4" ? "Stage 4"
+                : row.status === "stage5" ? "Stage 5"
+                  : row.status === "stage6" ? "Stage 6"
+                    : row.status === "stage7" ? "Stage 7"
+                      : row.status === "stage8" ? "Stage 8"
+                        : row.status;
+
+        if (isQCOrNDT) {
+          if (isPending) {
+            if (isAssignedToMe) {
+              return <Button size="sm" onClick={() => handleOpenStage(mergedJoint)} className="bg-black text-white">Review & Approve {stageName}</Button>
+            }
+            if (hasAssignment) {
+              return <Button size="sm" variant="outline" disabled>Assigned to Other {stageName}</Button>
+            }
+            return <Button size="sm" variant="outline" disabled>Approval Pending {stageName}</Button>
+          }
+          const currentStageKey = row.status.replace('stage', 's') + '_status';
+          const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
+          if (isRejected) return <Button size="sm" variant="destructive" disabled>Rejected - {stageName}</Button>
+
+          if (row.status === 'completed') {
+            return <Button size="sm" variant="outline" disabled>Completed</Button>
+          }
+
+          return <span className="text-muted-foreground">-</span>
+        } else {
+          // Prod Engineer
+          const showPending = isPending && isSubmitted;
+          const currentStageKey = row.status.replace('stage', 's') + '_status';
+          const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
+
+          return (
+            <Button
+              size="sm"
+              onClick={() => handleOpenStage(mergedJoint)}
+              variant={isRejected ? "destructive" : "outline"}
+              disabled={showPending || row.status === 'completed'}
+            >
+              {showPending ? `Approval Pending ${stageName}` :
+                (row.status === 'completed' ? 'Completed' : (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`))}
+            </Button>
+          )
+        }
+      }
+    }
+  ]
 
   return (
     <SidebarProvider>
@@ -326,180 +356,25 @@ function ViewWeldingJoints() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">View Welding Joints</h1>
-              <p className="text-muted-foreground">
-                View all welding joints information and their status.
-              </p>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Welding Joints</CardTitle>
-                <CardDescription>
-                  List of all welding joints with their details and status.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="text-center py-4">Loading...</div>
-                ) : error ? (
-                  <div className="text-destructive text-center py-4">{error}</div>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[100px]">S.No</TableHead>
-                          <TableHead>MSN Number</TableHead>
-                          <TableHead>Joint No</TableHead>
-                          <TableHead>Joint Category</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {weldingJoints.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={6}
-                              className="h-24 text-center"
-                            >
-                              No welding joints found.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          weldingJoints.map((joint, index) => (
-                            <TableRow key={joint.id}>
-                              <TableCell className="font-medium">
-                                {index + 1}
-                              </TableCell>
-                              <TableCell>{joint.msnNumber}</TableCell>
-                              <TableCell>{joint.jointNo}</TableCell>
-                              <TableCell>{getJointCategoryBadge(joint.jointCategory)}</TableCell>
-                              <TableCell>{getStatusBadge(joint.status)}</TableCell>
-                              <TableCell>
-                                {(() => {
-                                  const { isPending, isAssignedToMe, hasAssignment, isSubmitted } = getStageActionState(joint);
-                                  const stageName = joint.status === "stage1" ? "Stage 1"
-                                    : joint.status === "stage2" ? "Stage 2"
-                                      : joint.status === "stage3" ? "Stage 3"
-                                        : joint.status === "stage4" ? "Stage 4"
-                                          : joint.status === "stage5" ? "Stage 5"
-                                            : joint.status === "stage6" ? "Stage 6"
-                                              : joint.status === "stage7" ? "Stage 7"
-                                                : joint.status === "stage8" ? "Stage 8"
-                                                  : joint.status;
-
-                                  if (isQCOrNDT) {
-                                    if (isPending) {
-                                      if (isAssignedToMe) {
-                                        return (
-                                          <Button
-                                            onClick={() => handleOpenStage(joint)}
-                                            variant="default"
-                                            size="sm"
-                                            className="bg-black hover:bg-gray-800"
-                                          >
-                                            Review & Approve {stageName}
-                                          </Button>
-                                        );
-                                      } else if (hasAssignment) {
-                                        return (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled
-                                          >
-                                            Assigned to Other {stageName}
-                                          </Button>
-                                        );
-                                      } else {
-                                        return (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled
-                                          >
-                                            Approval Pending {stageName}
-                                          </Button>
-                                        );
-                                      }
-                                    }
-                                    // Check if current stage is rejected
-                                    const currentStageKey = joint.status === "stage1" ? "s1_status"
-                                      : joint.status === "stage2" ? "s2_status"
-                                        : joint.status === "stage3" ? "s3_status"
-                                          : joint.status === "stage4" ? "s4_status"
-                                            : joint.status === "stage5" ? "s5_status"
-                                              : joint.status === "stage6" ? "s6_status"
-                                                : joint.status === "stage7" ? "s7_status"
-                                                  : joint.status === "stage8" ? "s8_status" : "";
-
-                                    const isRejected = joint.inspectionData?.[currentStageKey] === 'rejected';
-
-                                    if (isRejected) {
-                                      return (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          disabled
-                                          className="text-red-500 border-red-500 bg-red-50 opacity-100"
-                                        >
-                                          Rejected - {stageName}
-                                        </Button>
-                                      );
-                                    }
-
-                                    return <span className="text-muted-foreground">-</span>;
-                                  } else {
-                                    // Production Engineer
-                                    const showPending = isPending && isSubmitted;
-
-                                    // Check if current stage is rejected
-                                    const currentStageKey = joint.status === "stage1" ? "s1_status"
-                                      : joint.status === "stage2" ? "s2_status"
-                                        : joint.status === "stage3" ? "s3_status"
-                                          : joint.status === "stage4" ? "s4_status"
-                                            : joint.status === "stage5" ? "s5_status"
-                                              : joint.status === "stage6" ? "s6_status"
-                                                : joint.status === "stage7" ? "s7_status"
-                                                  : joint.status === "stage8" ? "s8_status" : "";
-
-                                    const isRejected = joint.inspectionData?.[currentStageKey] === 'rejected';
-
-                                    return (
-                                      <Button
-                                        onClick={() => handleOpenStage(joint)}
-                                        disabled={showPending || joint.status === 'completed'}
-                                        variant={isRejected ? "destructive" : "outline"}
-                                        size="sm"
-                                      >
-                                        {showPending ? `Approval Pending ${stageName}` : (
-                                          joint.status === 'completed' ? 'Completed' :
-                                            (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`)
-                                        )}
-                                      </Button>
-                                    );
-                                  }
-                                })()}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </main>
+        <div className="p-4">
+          <h1 className="text-2xl font-bold mb-4">Welding Joints</h1>
+          <Card>
+            <CardHeader>
+              <CardTitle>Welding Joints</CardTitle>
+              <CardDescription>
+                List of all welding joints with their details and status.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DataTable
+                columns={columns}
+                fetchData={fetchJointsData}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </SidebarInset>
 
-      {/* Stage Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -515,11 +390,13 @@ function ViewWeldingJoints() {
             </DialogTitle>
           </DialogHeader>
 
-          {/* Dialog Content Logic */}
           {(() => {
             let isReviewMode = false;
             if (isQCOrNDT && selectedJoint && selectedStage) {
-              const { isPending, isAssignedToMe } = getStageActionState(selectedJoint);
+              const { isPending, isAssignedToMe } = getStageActionState({
+                ...selectedJoint,
+                status: selectedStage
+              });
               if (isPending && isAssignedToMe) {
                 isReviewMode = true;
               }
@@ -549,11 +426,25 @@ function ViewWeldingJoints() {
                       {selectedStage === "stage6" && (
                         <Stage6D initialData={selectedJoint} isReview={isReviewMode} />
                       )}
+                    </>
+                  )}
+                  {(selectedJoint.jointCategory === 'C' || selectedJoint.jointCategory === 'D') && (
+                    <>
                       {selectedStage === "stage7" && (
-                        <Stage7D initialData={selectedJoint} isReview={isReviewMode} stage="stage7" />
+                        <Stage7D
+                          initialData={selectedJoint}
+                          inspectionData={selectedJoint.inspectionData}
+                          isReview={isReviewMode}
+                          stage="stage7"
+                        />
                       )}
                       {selectedStage === "stage8" && (
-                        <Stage7D initialData={selectedJoint} isReview={isReviewMode} stage="stage8" />
+                        <Stage7D
+                          initialData={selectedJoint}
+                          inspectionData={selectedJoint.inspectionData}
+                          isReview={isReviewMode}
+                          stage="stage8"
+                        />
                       )}
                     </>
                   )}

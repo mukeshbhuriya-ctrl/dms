@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -18,19 +18,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable } from "@/components/shared/DataTable"
 import { Upload, X, Plus, Mail, ArrowLeft, FileText } from "lucide-react"
 
 function CreatePO() {
   const [view, setView] = useState("list") // 'list' or 'create'
-  const [pos, setPos] = useState([]) // List of POs
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -46,6 +38,7 @@ function CreatePO() {
   const [customers, setCustomers] = useState([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const [shrenoCommunication, setShrenoCommunication] = useState([
     { name: "", email: "" },
@@ -54,8 +47,47 @@ function CreatePO() {
     { name: "", email: "" },
   ])
 
-  // Fetch POs for List View
-  const fetchPos = async () => {
+  const columns = useMemo(() => [
+    {
+      accessorKey: "customer.customer_name",
+      header: "Customer",
+    },
+    {
+      accessorKey: "customer_location.location_name",
+      header: "Location",
+    },
+    {
+      accessorKey: "po_number",
+      header: "PO Number",
+    },
+    {
+      accessorKey: "po_date",
+      header: "PO Date",
+      cell: (row) => new Date(row.po_date).toLocaleDateString(),
+    },
+    {
+      accessorKey: "po_doc_url",
+      header: "Document",
+      cell: (row) => row.po_doc_url ? (
+        <a
+          href={row.po_doc_url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-blue-600 hover:underline flex items-center gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <FileText className="h-3 w-3" /> View
+        </a>
+      ) : "-",
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created Date",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+  ], [])
+
+  const fetchPos = useCallback(async ({ page, limit, search, sorting }) => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -72,22 +104,37 @@ function CreatePO() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-pos`, {
+      const params = new URLSearchParams()
+      params.append("page", page)
+      params.append("limit", limit)
+      if (search) params.append("search", search)
+      if (sorting && sorting.length > 0) {
+        params.append("sortBy", sorting[0].id)
+        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
+
+      const res = await fetch(`${backendUrl}/api/dcc/get-pos?${params.toString()}`, {
         method: "GET",
         headers,
         credentials: "include",
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setPos(data.data || [])
+      const responseData = await res.json()
+
+      if (res.ok && responseData.success) {
+        return {
+          data: responseData.data || [],
+          meta: responseData.meta || {}
+        }
       } else {
-        console.error("Failed to fetch POs", data)
+        console.error("Failed to fetch POs", responseData)
+        return { data: [], meta: {} }
       }
     } catch (err) {
       console.error("Error fetching POs:", err)
+      return { data: [], meta: {} }
     }
-  }
+  }, [])
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -107,17 +154,17 @@ function CreatePO() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers`, {
+      const res = await fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, {
         method: "GET",
         headers,
         credentials: "include",
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setCustomers(data.data || [])
+      const responseData = await res.json()
+      if (res.ok && responseData.success) {
+        setCustomers(responseData.data || [])
       } else {
-        console.error("Failed to fetch customers", data)
+        console.error("Failed to fetch customers", responseData)
       }
     } catch (err) {
       console.error("Error fetching customers:", err)
@@ -128,9 +175,10 @@ function CreatePO() {
   }
 
   useEffect(() => {
-    fetchPos()
-    fetchCustomers()
-  }, [])
+    if (view === "create") {
+      fetchCustomers()
+    }
+  }, [view])
 
   const getLocationsForCustomer = (customerId) => {
     const customer = customers.find((c) => c.id === customerId)
@@ -302,7 +350,7 @@ function CreatePO() {
       if (fileInput) fileInput.value = ""
 
       // Refresh list and switch view
-      fetchPos()
+      setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
         setView("list")
@@ -359,53 +407,11 @@ function CreatePO() {
                   <CardDescription>View and manage purchase orders.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[80px]">S.No</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>PO Date</TableHead>
-                        <TableHead>Document</TableHead>
-                        <TableHead className="text-right">Created Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {pos.length > 0 ? (
-                        pos.map((po, index) => (
-                          <TableRow key={po.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{po.customer?.customer_name}</TableCell>
-                            <TableCell>{po.customer_location?.location_name}</TableCell>
-                            <TableCell>{po.po_number}</TableCell>
-                            <TableCell>{new Date(po.po_date).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                              {po.po_doc_url ? (
-                                <a
-                                  href={po.po_doc_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-blue-600 hover:underline flex items-center gap-1"
-                                >
-                                  <FileText className="h-3 w-3" /> View
-                                </a>
-                              ) : "-"}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {new Date(po.createdAt).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={7} className="h-24 text-center">
-                            No purchase orders found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchPos}
+                    key={refreshKey}
+                  />
                 </CardContent>
               </Card>
             ) : (

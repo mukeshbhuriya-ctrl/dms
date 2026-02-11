@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -18,14 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable } from "@/components/shared/DataTable"
 import { Plus, ArrowLeft } from "lucide-react"
 
 function DocumentMaster() {
@@ -41,20 +34,42 @@ function DocumentMaster() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingType, setIsLoadingType] = useState(false)
-  const [isLoadingData, setIsLoadingData] = useState(true)
-  const [documents, setDocuments] = useState([])
   const [documentTypes, setDocumentTypes] = useState([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [typeError, setTypeError] = useState("")
   const [typeSuccess, setTypeSuccess] = useState("")
   const [showTypeForm, setShowTypeForm] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  // Fetch documents and document types from API
-  const fetchData = async () => {
+  const columns = useMemo(() => [
+    {
+      accessorKey: "document_number",
+      header: "Document Number",
+    },
+    {
+      accessorKey: "document_name",
+      header: "Document Name",
+    },
+    {
+      accessorKey: "document_type.name",
+      header: "Document Type",
+      cell: (row) => (
+        <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+          {row.document_type?.name || "N/A"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created Date",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+  ], [])
+
+  const fetchDocuments = useCallback(async ({ page, limit, search, sorting }) => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
       const authData = localStorage.getItem("user_auth")
       let token = null
       if (authData) {
@@ -69,46 +84,78 @@ function DocumentMaster() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      // Fetch documents and document types in parallel
-      const [documentsRes, typesRes] = await Promise.all([
-        fetch(`${backendUrl}/api/dcc/document`, {
-          method: "GET",
-          headers,
-          credentials: "include",
-        }),
-        fetch(`${backendUrl}/api/dcc/document-type`, {
-          method: "GET",
-          headers,
-          credentials: "include",
-        }),
-      ])
+      const params = new URLSearchParams()
+      params.append("page", page)
+      params.append("limit", limit)
+      if (search) params.append("search", search)
+      if (sorting && sorting.length > 0) {
+        params.append("sortBy", sorting[0].id)
+        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
 
-      const documentsContentType = documentsRes.headers.get("content-type") || ""
-      const documentsPayload = documentsContentType.includes("application/json")
-        ? await documentsRes.json()
-        : await documentsRes.text()
+      const res = await fetch(`${backendUrl}/api/dcc/document?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      })
 
-      const typesContentType = typesRes.headers.get("content-type") || ""
-      const typesPayload = typesContentType.includes("application/json")
-        ? await typesRes.json()
-        : await typesRes.text()
+      const responseData = await res.json()
 
-      if (!documentsRes.ok) throw new Error(documentsPayload?.message || "Failed to fetch documents")
-      if (!typesRes.ok) throw new Error(typesPayload?.message || "Failed to fetch document types")
-
-      setDocuments(documentsPayload?.data || documentsPayload?.documents || [])
-      setDocumentTypes(typesPayload?.data || typesPayload?.documentTypes || [])
+      if (res.ok && responseData.success) {
+        return {
+          data: responseData.data || [],
+          meta: responseData.meta || {}
+        }
+      } else {
+        console.error("Failed to fetch documents", responseData)
+        return { data: [], meta: {} }
+      }
     } catch (err) {
-      console.error("Error fetching data:", err)
-      setError(err?.message || "Failed to load data")
-    } finally {
-      setIsLoadingData(false)
+      console.error("Error fetching documents:", err)
+      return { data: [], meta: {} }
+    }
+  }, [])
+
+  // Fetch document types
+  const fetchDocumentTypes = async () => {
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
+      }
+
+      const headers = {
+        "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : ""
+      }
+
+      const res = await fetch(`${backendUrl}/api/dcc/document-type`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      })
+
+      const responseData = await res.json()
+      if (res.ok) {
+        setDocumentTypes(responseData.data || responseData.documentTypes || [])
+      } else {
+        console.error("Failed to fetch document types", responseData)
+      }
+    } catch (err) {
+      console.error("Error fetching document types:", err)
     }
   }
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (view === "create") {
+      fetchDocumentTypes()
+    }
+  }, [view])
 
   const handleDocumentInputChange = (e) => {
     const { name, value } = e.target
@@ -164,16 +211,7 @@ function DocumentMaster() {
       setDocumentTypeFormData({ name: "" })
       setShowTypeForm(false)
 
-      // Refresh types
-      const typesRes = await fetch(`${backendUrl}/api/dcc/document-type`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-      const typesData = await typesRes.json()
-      if (typesRes.ok) {
-        setDocumentTypes(typesData.data || typesData.documentTypes || [])
-      }
+      fetchDocumentTypes() // Refresh types
 
       setTimeout(() => setTypeSuccess(""), 3000)
     } catch (err) {
@@ -227,8 +265,7 @@ function DocumentMaster() {
         document_type_id: "",
       })
 
-      fetchData() // Refresh list
-
+      setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
         setView("list")
@@ -280,38 +317,11 @@ function DocumentMaster() {
                   <CardDescription>View all documents in the system.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[80px]">S.No</TableHead>
-                        <TableHead>Document Number</TableHead>
-                        <TableHead>Document Name</TableHead>
-                        <TableHead>Document Type</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {documents.length > 0 ? (
-                        documents.map((document, index) => (
-                          <TableRow key={document.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>{document.document_number || document.documentNumber}</TableCell>
-                            <TableCell>{document.document_name || document.documentName}</TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                {document.document_type?.name || document.documentType || "N/A"}
-                              </span>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center">
-                            No documents found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchDocuments}
+                    key={refreshKey}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -454,7 +464,7 @@ function DocumentMaster() {
                           <SelectContent>
                             {documentTypes.length > 0 ? (
                               documentTypes.map((type) => (
-                                <SelectItem key={type.id} value={type.id}>
+                                <SelectItem key={type.id} value={String(type.id)}>
                                   {type.name}
                                 </SelectItem>
                               ))

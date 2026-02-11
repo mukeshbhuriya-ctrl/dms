@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -18,19 +18,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable } from "@/components/shared/DataTable"
 import { Plus, Trash2, ArrowLeft } from "lucide-react"
 
 function CreateLocation() {
   const [view, setView] = useState("list") // 'list' or 'create'
-  const [customerLocations, setCustomerLocations] = useState([])
 
   const [selectedCustomer, setSelectedCustomer] = useState("")
   const [locations, setLocations] = useState([
@@ -46,9 +38,34 @@ function CreateLocation() {
   const [customers, setCustomers] = useState([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  // Fetch Customer Locations for List View
-  const fetchCustomerLocations = async () => {
+  const columns = useMemo(() => [
+    {
+      accessorKey: "customer.customer_name",
+      header: "Customer",
+    },
+    {
+      accessorKey: "location_name",
+      header: "Location Name",
+    },
+    {
+      accessorKey: "customer_number_as_per_sap",
+      header: "SAP Number",
+    },
+    {
+      accessorKey: "gst_number",
+      header: "GST Number",
+      cell: (row) => row.gst_number || "-",
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created Date",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+  ], [])
+
+  const fetchCustomerLocations = useCallback(async ({ page, limit, search, sorting }) => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -65,22 +82,37 @@ function CreateLocation() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-customer-locations`, {
+      const params = new URLSearchParams()
+      params.append("page", page)
+      params.append("limit", limit)
+      if (search) params.append("search", search)
+      if (sorting && sorting.length > 0) {
+        params.append("sortBy", sorting[0].id)
+        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
+
+      const res = await fetch(`${backendUrl}/api/dcc/get-customer-locations?${params.toString()}`, {
         method: "GET",
         headers,
         credentials: "include",
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setCustomerLocations(data.data || [])
+      const responseData = await res.json()
+
+      if (res.ok && responseData.success) {
+        return {
+          data: responseData.data || [],
+          meta: responseData.meta || {}
+        }
       } else {
-        console.error("Failed to fetch locations", data)
+        console.error("Failed to fetch locations", responseData)
+        return { data: [], meta: {} }
       }
     } catch (err) {
       console.error("Error fetching locations:", err)
+      return { data: [], meta: {} }
     }
-  }
+  }, [])
 
   // Fetch customers for Dropdown
   const fetchCustomers = async () => {
@@ -101,17 +133,17 @@ function CreateLocation() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers`, {
+      const res = await fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, { // Fetch all for dropdown
         method: "GET",
         headers,
         credentials: "include",
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setCustomers(data.data || [])
+      const responseData = await res.json()
+      if (res.ok && responseData.success) {
+        setCustomers(responseData.data || [])
       } else {
-        console.error("Failed to fetch customers", data)
+        console.error("Failed to fetch customers", responseData)
       }
     } catch (err) {
       console.error("Error fetching customers:", err)
@@ -121,9 +153,10 @@ function CreateLocation() {
   }
 
   useEffect(() => {
-    fetchCustomerLocations()
-    fetchCustomers() // Pre-fetch customers logic or fetch on view switch
-  }, [])
+    if (view === "create") {
+      fetchCustomers()
+    }
+  }, [view])
 
   const handleLocationChange = (id, field, value) => {
     setLocations((prev) =>
@@ -212,7 +245,7 @@ function CreateLocation() {
       ])
 
       // Refresh list and switch view
-      fetchCustomerLocations()
+      setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
         setView("list")
@@ -265,40 +298,11 @@ function CreateLocation() {
                   <CardDescription>View and manage locations.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[80px]">S.No</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Location Name</TableHead>
-                        <TableHead>SAP Number</TableHead>
-                        <TableHead>GST Number</TableHead>
-                        <TableHead className="text-right">Created Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {customerLocations.length > 0 ? (
-                        customerLocations.map((loc, index) => (
-                          <TableRow key={loc.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{loc.customer?.customer_name}</TableCell>
-                            <TableCell>{loc.location_name}</TableCell>
-                            <TableCell>{loc.customer_number_as_per_sap}</TableCell>
-                            <TableCell>{loc.gst_number}</TableCell>
-                            <TableCell className="text-right">
-                              {new Date(loc.createdAt).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            No locations found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchCustomerLocations}
+                    key={refreshKey}
+                  />
                 </CardContent>
               </Card>
             ) : (

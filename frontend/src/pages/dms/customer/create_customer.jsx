@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
@@ -12,20 +12,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable } from "@/components/shared/DataTable"
 import { Plus, ArrowLeft } from "lucide-react"
 
 function CreateCustomer() {
   const navigate = useNavigate()
   const [view, setView] = useState("list") // 'list' or 'create'
-  const [customers, setCustomers] = useState([])
 
   const [formData, setFormData] = useState({
     customerName: "",
@@ -36,9 +28,34 @@ function CreateCustomer() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  // Fetch Customers
-  const fetchCustomers = async () => {
+  const columns = useMemo(() => [
+    {
+      accessorKey: "customer_name",
+      header: "Customer Name",
+    },
+    {
+      accessorKey: "customer_short_name",
+      header: "Short Name",
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+    },
+    {
+      accessorKey: "mobile",
+      header: "Mobile",
+      cell: (row) => row.mobile || "-",
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created Date",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+  ], [])
+
+  const fetchCustomers = useCallback(async ({ page, limit, search, sorting }) => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -55,25 +72,36 @@ function CreateCustomer() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers`, {
+      const params = new URLSearchParams()
+      params.append("page", page)
+      params.append("limit", limit)
+      if (search) params.append("search", search)
+      if (sorting && sorting.length > 0) {
+        params.append("sortBy", sorting[0].id)
+        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
+
+      const res = await fetch(`${backendUrl}/api/dcc/get-customers?${params.toString()}`, {
         method: "GET",
         headers,
         credentials: "include",
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setCustomers(data.data || [])
+      const responseData = await res.json()
+
+      if (res.ok && responseData.success) {
+        return {
+          data: responseData.data || [],
+          meta: responseData.meta || {}
+        }
       } else {
-        console.error("Failed to fetch customers", data)
+        console.error("Failed to fetch customers", responseData)
+        return { data: [], meta: {} }
       }
     } catch (err) {
       console.error("Error fetching customers:", err)
+      return { data: [], meta: {} }
     }
-  }
-
-  useEffect(() => {
-    fetchCustomers()
   }, [])
 
   const handleInputChange = (e) => {
@@ -136,7 +164,7 @@ function CreateCustomer() {
       })
 
       // Refresh list and switch to list view
-      fetchCustomers()
+      setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
         setView("list")
@@ -201,40 +229,11 @@ function CreateCustomer() {
                   <CardDescription>View and manage customers.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[80px]">S.No</TableHead>
-                        <TableHead>Customer Name</TableHead>
-                        <TableHead>Short Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Mobile</TableHead>
-                        <TableHead className="text-right">Created Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {customers.length > 0 ? (
-                        customers.map((customer, index) => (
-                          <TableRow key={customer.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{customer.customer_name}</TableCell>
-                            <TableCell>{customer.customer_short_name}</TableCell>
-                            <TableCell>{customer.email}</TableCell>
-                            <TableCell>{customer.mobile || "-"}</TableCell>
-                            <TableCell className="text-right">
-                              {new Date(customer.createdAt).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            No customers found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchCustomers}
+                    key={refreshKey}
+                  />
                 </CardContent>
               </Card>
             ) : (

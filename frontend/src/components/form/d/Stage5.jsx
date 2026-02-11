@@ -19,7 +19,6 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
     const [formData, setFormData] = useState({
         visualInspection: "OK",
-        rt: "Not Applicable",
         welderNo: "W-888",
         weldingProcess: "GTAW",
         filletSize: "5mm",
@@ -158,7 +157,6 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                     setFormData(prev => ({
                         ...prev,
                         visualInspection: s5Data.visualInspection || "OK",
-                        rt: s5Data.rt || "Not Applicable",
                         welderNo: s5Data.welderNo || "W-888",
                         weldingProcess: s5Data.weldingProcess || "GTAW",
                         filletSize: s5Data.filletSize || "5mm",
@@ -384,23 +382,6 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                             </Select>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>R.T. (if applicable)</Label>
-                            <Select
-                                value={formData.rt}
-                                onValueChange={(val) => handleFormChange('rt', val)}
-                                disabled={isReview}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="Not OK">Not OK</SelectItem>
-                                    <SelectItem value="Not Applicable">Not Applicable</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                         <div className="space-y-2">
                             <Label>Welder No.</Label>
                             <Input

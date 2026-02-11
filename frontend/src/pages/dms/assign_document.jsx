@@ -53,7 +53,7 @@ function AssignDocument() {
     const fetchData = async () => {
       try {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        
+
         // Get auth token
         const authData = localStorage.getItem("user_auth")
         let token = null
@@ -75,12 +75,12 @@ function AssignDocument() {
 
         // Fetch customers and documents in parallel
         const [customersRes, documentsRes] = await Promise.all([
-          fetch(`${backendUrl}/api/dcc/get-customers`, {
+          fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, {
             method: "GET",
             headers,
             credentials: "include",
           }),
-          fetch(`${backendUrl}/api/dcc/document`, {
+          fetch(`${backendUrl}/api/dcc/document?limit=1000`, {
             method: "GET",
             headers,
             credentials: "include",
@@ -214,7 +214,7 @@ function AssignDocument() {
     if (!formData.customerId || !locationId) return []
     const customer = customers.find((c) => c.id === formData.customerId)
     if (!customer) return []
-    
+
     const location = customer.customer_locations?.find((loc) => loc.id === locationId)
     return location?.pos || []
   }
@@ -224,10 +224,10 @@ function AssignDocument() {
     if (!formData.locationId || !poId) return []
     const customer = customers.find((c) => c.id === formData.customerId)
     if (!customer) return []
-    
+
     const location = customer.customer_locations?.find((loc) => loc.id === formData.locationId)
     if (!location) return []
-    
+
     const po = location.pos?.find((p) => p.id === poId)
     return po?.jobs || []
   }
@@ -251,7 +251,7 @@ function AssignDocument() {
   const documentTypes = [
     "all",
     ...new Set(
-      allDocuments.map((doc) => 
+      allDocuments.map((doc) =>
         doc.document_type?.name || doc.documentType || "Unknown"
       )
     ),
@@ -363,7 +363,7 @@ function AssignDocument() {
     setFormData((prev) => {
       const currentJobIds = prev.jobIds || []
       const isSelected = currentJobIds.includes(jobId)
-      
+
       if (isSelected) {
         return {
           ...prev,
@@ -399,7 +399,7 @@ function AssignDocument() {
 
     // Create variable with all selected job IDs
     const jobIds = formData.jobIds || []
-    
+
     console.log("Selected Job IDs:", jobIds)
     console.log("Total jobs selected:", jobIds.length)
     console.log("Assign document data:", formData)
@@ -1008,7 +1008,7 @@ function AssignDocument() {
                       onClick={async () => {
                         // Create variable with all selected job IDs (always an array)
                         const jobIds = formData.jobIds || []
-                        
+
                         // Prepare documents array with all document details
                         const documents = selectedDocuments.map((doc) => {
                           const details = documentDetails[doc.id] || {}
@@ -1023,7 +1023,7 @@ function AssignDocument() {
                             response_due_days: details.responseDueDays ? parseInt(details.responseDueDays) : null,
                           }
                         })
-                        
+
                         // Request body structure (same for single or multiple jobs)
                         const requestBody = {
                           customer_id: formData.customerId,
@@ -1032,16 +1032,16 @@ function AssignDocument() {
                           job_ids: jobIds, // Array - will contain 1 or more job IDs
                           documents: documents,
                         }
-                        
+
                         console.log("Request Body:", JSON.stringify(requestBody, null, 2))
                         console.log("Selected Job IDs:", jobIds)
                         console.log("Total jobs selected:", jobIds.length)
-                        
+
                         setIsLoading(true)
-                        
+
                         try {
                           const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-                          
+
                           // Get auth token
                           const authData = localStorage.getItem("user_auth")
                           let token = null
@@ -1084,7 +1084,7 @@ function AssignDocument() {
 
                           // Success - reset form or show success message
                           console.log("Documents assigned successfully:", payload)
-                          
+
                           // Reset form
                           setFormData({
                             customerId: "",
@@ -1098,7 +1098,7 @@ function AssignDocument() {
                           setUserSearchQueries({})
                           setSearchQuery("")
                           setDocumentTypeFilter("all")
-                          
+
                         } catch (err) {
                           console.error("Error assigning documents:", err)
                           setError(err?.message || "Something went wrong")

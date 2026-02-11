@@ -444,10 +444,10 @@ function Stage3F({ initialData, inspectionData, isReview = false, stage = "stage
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="ndtEngineer">QC Engineer:</Label>
+                                <Label htmlFor="ndtEngineer">NDT Engineer:</Label>
                                 <Select value={ndtEngineer} onValueChange={setNdtEngineer} disabled={isReview}>
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select QC Engineer" />
+                                        <SelectValue placeholder="Select NDT Engineer" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {ndtEngineers.map((engineer) => (

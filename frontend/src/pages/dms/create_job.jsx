@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -18,19 +18,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable } from "@/components/shared/DataTable"
 import { Plus, Trash2, ArrowLeft } from "lucide-react"
 
 function CreateJob() {
   const [view, setView] = useState("list") // 'list' or 'create'
-  const [jobList, setJobList] = useState([]) // List of created jobs
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -54,9 +46,43 @@ function CreateJob() {
   const [customers, setCustomers] = useState([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  // Fetch Jobs for List View
-  const fetchJobs = async () => {
+  const columns = useMemo(() => [
+    {
+      accessorKey: "job_number",
+      header: "Job Number",
+    },
+    {
+      accessorKey: "customer.customer_name",
+      header: "Customer",
+    },
+    {
+      accessorKey: "customer_location.location_name",
+      header: "Location",
+    },
+    {
+      accessorKey: "po.po_number",
+      header: "PO Number",
+    },
+    {
+      accessorKey: "project_id",
+      header: "Project ID",
+      cell: (row) => row.project_id || "-",
+    },
+    {
+      accessorKey: "equipement_name",
+      header: "Equipment",
+      cell: (row) => row.equipement_name || "-",
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created Date",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+  ], [])
+
+  const fetchJobs = useCallback(async ({ page, limit, search, sorting }) => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -73,22 +99,37 @@ function CreateJob() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-jobs`, {
+      const params = new URLSearchParams()
+      params.append("page", page)
+      params.append("limit", limit)
+      if (search) params.append("search", search)
+      if (sorting && sorting.length > 0) {
+        params.append("sortBy", sorting[0].id)
+        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
+
+      const res = await fetch(`${backendUrl}/api/dcc/get-jobs?${params.toString()}`, {
         method: "GET",
         headers,
         credentials: "include",
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setJobList(data.data || [])
+      const responseData = await res.json()
+
+      if (res.ok && responseData.success) {
+        return {
+          data: responseData.data || [],
+          meta: responseData.meta || {}
+        }
       } else {
-        console.error("Failed to fetch jobs", data)
+        console.error("Failed to fetch jobs", responseData)
+        return { data: [], meta: {} }
       }
     } catch (err) {
       console.error("Error fetching jobs:", err)
+      return { data: [], meta: {} }
     }
-  }
+  }, [])
 
   // Fetch customers
   const fetchCustomers = async () => {
@@ -108,17 +149,17 @@ function CreateJob() {
         "Authorization": token ? `Bearer ${token}` : ""
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers`, {
+      const res = await fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, {
         method: "GET",
         headers,
         credentials: "include",
       })
 
-      const data = await res.json()
-      if (res.ok) {
-        setCustomers(data.data || [])
+      const responseData = await res.json()
+      if (res.ok && responseData.success) {
+        setCustomers(responseData.data || [])
       } else {
-        console.error("Failed to fetch customers", data)
+        console.error("Failed to fetch customers", responseData)
       }
     } catch (err) {
       console.error("Error fetching customers:", err)
@@ -129,9 +170,10 @@ function CreateJob() {
   }
 
   useEffect(() => {
-    fetchJobs()
-    fetchCustomers()
-  }, [])
+    if (view === "create") {
+      fetchCustomers()
+    }
+  }, [view])
 
   const getLocationsForCustomer = (customerId) => {
     const customer = customers.find((c) => c.id === customerId)
@@ -312,7 +354,7 @@ function CreateJob() {
       ])
 
       // Refresh list and switch view
-      fetchJobs()
+      setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
         setView("list")
@@ -324,10 +366,6 @@ function CreateJob() {
       setIsLoading(false)
     }
   }
-
-  const selectedPO = formData.poId
-    ? allPOs.find((po) => po.id === formData.poId) || availablePOs.find((po) => po.id === formData.poId)
-    : null
 
   return (
     <SidebarProvider>
@@ -369,44 +407,11 @@ function CreateJob() {
                   <CardDescription>View and manage jobs.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[60px]">S.No</TableHead>
-                        <TableHead>Job Number</TableHead>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>PO Number</TableHead>
-                        <TableHead>Project ID</TableHead>
-                        <TableHead>Equipment</TableHead>
-                        <TableHead className="text-right">Created Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {jobList.length > 0 ? (
-                        jobList.map((job, index) => (
-                          <TableRow key={job.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{job.job_number}</TableCell>
-                            <TableCell>{job.customer?.customer_name}</TableCell>
-                            <TableCell>{job.customer_location?.location_name}</TableCell>
-                            <TableCell>{job.po?.po_number}</TableCell>
-                            <TableCell>{job.project_id || "-"}</TableCell>
-                            <TableCell>{job.equipement_name || "-"}</TableCell>
-                            <TableCell className="text-right">
-                              {new Date(job.createdAt).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={8} className="h-24 text-center">
-                            No jobs found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchJobs}
+                    key={refreshKey}
+                  />
                 </CardContent>
               </Card>
             ) : (
@@ -437,7 +442,7 @@ function CreateJob() {
                           </SelectTrigger>
                           <SelectContent>
                             {customers.map((customer) => (
-                              <SelectItem key={customer.id} value={customer.id}>
+                              <SelectItem key={customer.id} value={String(customer.id)}>
                                 {customer.customer_name || customer.name}
                               </SelectItem>
                             ))}
@@ -463,7 +468,7 @@ function CreateJob() {
                             <SelectContent>
                               {availableLocations.length > 0 ? (
                                 availableLocations.map((location) => (
-                                  <SelectItem key={location.id} value={location.id}>
+                                  <SelectItem key={location.id} value={String(location.id)}>
                                     {location.location_name}
                                   </SelectItem>
                                 ))
@@ -490,7 +495,7 @@ function CreateJob() {
                           </SelectTrigger>
                           <SelectContent>
                             {allPOs.map((po) => (
-                              <SelectItem key={po.id} value={po.id}>
+                              <SelectItem key={po.id} value={String(po.id)}>
                                 {po.po_number} ({po.customer_name})
                               </SelectItem>
                             ))}
@@ -504,11 +509,11 @@ function CreateJob() {
                   {formData.poId && (
                     <Card>
                       <CardHeader>
-                      <CardTitle>Job Details</CardTitle>
-                      <CardDescription>
-                        Enter the job details for this purchase order
-                      </CardDescription>
-                    </CardHeader>
+                        <CardTitle>Job Details</CardTitle>
+                        <CardDescription>
+                          Enter the job details for this purchase order
+                        </CardDescription>
+                      </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
                           {jobs.map((job) => (

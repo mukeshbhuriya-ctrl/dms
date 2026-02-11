@@ -547,59 +547,111 @@ async function reviewStageStatus(req, res) {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
+/**
+ * Get Assigned Weld Joints API - For QC/NDT Engineers
+ * Retrieves only joints that have a pending stage assigned to the authenticated user.
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
 async function getAssignedWeldJoints(req, res) {
     try {
         const company_id = req.user.company_id;
         const user_id = req.user.id;
+        const { page = 1, limit = 50, search = '' } = req.query;
 
-        const joints = await prisma.weld_joint.findMany({
-            where: {
-                weld_joint_plan: {
-                    company_id: company_id
-                },
-                weld_joint_inspection: {
-                    OR: [
-                        { s1_status: 'pending', s1_qc_eng_id: user_id },
-                        { s2_status: 'pending', s2_qc_eng_id: user_id },
-                        { s3_status: 'pending', s3_qc_eng_id: user_id },
-                        { s4_status: 'pending', s4_qc_eng_id: user_id }, // Stage 4 is RT (now QC column)
-                        { s5_status: 'pending', s5_qc_eng_id: user_id }, // Stage 5 is PT (now QC column)
-                        { s6_status: 'pending', s6_qc_eng_id: user_id }, // Stage 6 (PWHT - RT) (now QC column)
-                        { s7_status: 'pending', s7_qc_eng_id: user_id }, // Stage 7 (PWHT - PT) (now QC column)
-                        { s8_status: 'pending', s8_qc_eng_id: user_id }, // Stage 8 (PWHT PT CD) (now QC column)
-                    ]
-                }
+        const skip = (page - 1) * limit;
+        const take = parseInt(limit);
+
+        // Base Where Clause
+        const where = {
+            weld_joint_plan: {
+                company_id: company_id
             },
-            include: {
-                weld_joint_plan: {
-                    include: {
-                        job: {
-                            select: {
-                                job_number: true,
-                                project_id: true,
-                                equipement_name: true,
-                                tag_number: true,
-                                code: true,
-                                customer: {
-                                    select: {
-                                        customer_name: true
-                                    }
-                                },
-                                po: {
-                                    select: {
-                                        po_number: true
+            weld_joint_inspection: {
+                OR: [
+                    { s1_status: 'pending', s1_qc_eng_id: user_id },
+                    { s2_status: 'pending', s2_qc_eng_id: user_id },
+                    { s3_status: 'pending', s3_qc_eng_id: user_id },
+                    { s4_status: 'pending', s4_qc_eng_id: user_id }, // Stage 4 is RT (now QC column)
+                    { s5_status: 'pending', s5_qc_eng_id: user_id }, // Stage 5 is PT (now QC column)
+                    { s6_status: 'pending', s6_qc_eng_id: user_id }, // Stage 6 (PWHT - RT) (now QC column)
+                    { s7_status: 'pending', s7_qc_eng_id: user_id }, // Stage 7 (PWHT - PT) (now QC column)
+                    { s8_status: 'pending', s8_qc_eng_id: user_id }, // Stage 8 (PWHT PT CD) (now QC column)
+                ]
+            }
+        };
+
+        // Add Search Logic
+        if (search) {
+            where.AND = {
+                OR: [
+                    { joint_no: { contains: search, mode: 'insensitive' } },
+                    {
+                        weld_joint_plan: {
+                            OR: [
+                                { weld_plan_no: { contains: search, mode: 'insensitive' } },
+                                {
+                                    job: {
+                                        OR: [
+                                            { job_number: { contains: search, mode: 'insensitive' } },
+                                            { equipement_name: { contains: search, mode: 'insensitive' } },
+                                            {
+                                                customer: {
+                                                    customer_name: { contains: search, mode: 'insensitive' }
+                                                }
+                                            },
+                                            {
+                                                po: {
+                                                    po_number: { contains: search, mode: 'insensitive' }
+                                                }
+                                            }
+                                        ]
                                     }
                                 }
-                            }
-                        },
+                            ]
+                        }
                     }
+                ]
+            };
+        }
+
+        const [total, joints] = await prisma.$transaction([
+            prisma.weld_joint.count({ where }),
+            prisma.weld_joint.findMany({
+                where,
+                include: {
+                    weld_joint_plan: {
+                        include: {
+                            job: {
+                                select: {
+                                    job_number: true,
+                                    project_id: true,
+                                    equipement_name: true,
+                                    tag_number: true,
+                                    code: true,
+                                    customer: {
+                                        select: {
+                                            customer_name: true
+                                        }
+                                    },
+                                    po: {
+                                        select: {
+                                            po_number: true
+                                        }
+                                    }
+                                }
+                            },
+                        }
+                    },
+                    weld_joint_inspection: true
                 },
-                weld_joint_inspection: true
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
-        });
+                orderBy: {
+                    createdAt: 'desc'
+                },
+                skip,
+                take
+            })
+        ]);
 
         // Extract all User IDs to fetch names
         const userIds = new Set();
@@ -616,13 +668,14 @@ async function getAssignedWeldJoints(req, res) {
         });
 
         // Fetch User Names
-        const users = await prisma.user.findMany({
-            where: { id: { in: Array.from(userIds) } },
-            select: { id: true, name: true }
-        });
-
-        const userMap = {};
-        users.forEach(u => userMap[u.id] = u.name);
+        let userMap = {};
+        if (userIds.size > 0) {
+            const users = await prisma.user.findMany({
+                where: { id: { in: Array.from(userIds) } },
+                select: { id: true, name: true }
+            });
+            users.forEach(u => userMap[u.id] = u.name);
+        }
 
         // Inject Names into Joints
         const assignedJoints = joints.map(joint => {
@@ -640,7 +693,13 @@ async function getAssignedWeldJoints(req, res) {
         res.status(200).json({
             success: true,
             message: 'Assigned Weld Joints fetched successfully',
-            data: assignedJoints
+            data: assignedJoints,
+            meta: {
+                total,
+                page: parseInt(page),
+                limit: take,
+                totalPages: Math.ceil(total / take)
+            }
         });
     } catch (error) {
         console.error('Get assigned weld joints error:', error);

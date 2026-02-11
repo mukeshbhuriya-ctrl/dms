@@ -354,28 +354,35 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
 
             <Card className="w-full">
                 <CardHeader>
-                    <CardTitle>RF Pad setup as applicable</CardTitle>
+                    <CardTitle>RF Pad setup as applicable {initialData?.s5_data?.rfPad !== 'Applicable' && (
+                        <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                            Yes
+                        </span>
+                    )}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>R.F. Pad Pneumatic. (Applicable / Not Applicable)</Label>
-                            <Select
-                                value={formData.rfPadPneumatic}
-                                onValueChange={(val) => handleFormChange('rfPadPneumatic', val)}
-                                disabled={isReview}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="Not OK">Not OK</SelectItem>
-                                    <SelectItem value="Not Applicable">Not Applicable</SelectItem>
-                                </SelectContent>
-                            </Select>
+                    {!initialData?.s5_data?.rfPad !== 'Applicable' && (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>R.F. Pad Pneumatic. (Applicable / Not Applicable)</Label>
+                                <Select
+                                    value={formData.rfPadPneumatic}
+                                    onValueChange={(val) => handleFormChange('rfPadPneumatic', val)}
+                                    disabled={isReview}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="OK">OK</SelectItem>
+                                        <SelectItem value="Not OK">Not OK</SelectItem>
+                                        <SelectItem value="Not Applicable">Not Applicable</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                    </div>
+                    )}
+
 
                     <div className="space-y-4 pt-4 border-t">
                         <h3 className="font-semibold text-lg">Set Up Inspection by</h3>

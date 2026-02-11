@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
@@ -20,14 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable } from "@/components/shared/DataTable"
 
 function CreateUser() {
   const navigate = useNavigate()
@@ -43,11 +36,22 @@ function CreateUser() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [roles, setRoles] = useState([])
-  const [users, setUsers] = useState([])
   const [view, setView] = useState("list") // 'list' or 'create'
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+
+  // DataTable State
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [pageCount, setPageCount] = useState(0)
+  const [totalItems, setTotalItems] = useState(0)
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  })
+  const [sorting, setSorting] = useState([])
+  const [globalFilter, setGlobalFilter] = useState("")
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -59,78 +63,132 @@ function CreateUser() {
     if (error) setError("")
   }
 
-  // Fetch roles and users from API
+  // Fetch roles
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchRoles = async () => {
       try {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
-        // Get auth token
         const authData = localStorage.getItem("user_auth")
         let token = null
         if (authData) {
           try {
             const parsed = JSON.parse(authData)
             token = parsed?.payload?.token || parsed?.token
-          } catch {
-            // If parsing fails, continue without token
-          }
+          } catch { }
         }
 
-        const headers = {
-          "Content-Type": "application/json",
-        }
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`
-        }
+        const headers = { "Content-Type": "application/json" }
+        if (token) headers["Authorization"] = `Bearer ${token}`
 
-        // Fetch Roles
         const rolesRes = await fetch(`${backendUrl}/api/users/get-roles`, {
           method: "GET",
-          headers, // Reuse headers
+          headers,
           credentials: "include",
         })
 
-        const rolesContent = rolesRes.headers.get("content-type") || ""
-        const rolesPayload = rolesContent.includes("application/json")
-          ? await rolesRes.json()
-          : await rolesRes.text()
+        const rolesPayload = await rolesRes.json()
 
         if (rolesRes.ok) {
           setRoles(rolesPayload?.data || [])
-        } else {
-          console.error("Failed to fetch roles", rolesPayload)
         }
-
-        // Fetch Users
-        const usersRes = await fetch(`${backendUrl}/api/users/get-users`, {
-          method: "GET",
-          headers, // Reuse headers
-          credentials: "include",
-        })
-
-        const usersContent = usersRes.headers.get("content-type") || ""
-        const usersPayload = usersContent.includes("application/json")
-          ? await usersRes.json()
-          : await usersRes.text()
-
-        if (usersRes.ok) {
-          setUsers(usersPayload?.data || [])
-        } else {
-          console.error("Failed to fetch users", usersPayload)
-        }
-
       } catch (err) {
-        console.error("Error fetching data:", err)
-        setError(err?.message || "Failed to load data")
+        console.error("Error fetching roles:", err)
       }
     }
+    fetchRoles()
+  }, [])
 
-    fetchData()
-  }, []) // Fetch on mount
+  // Fetch Users for DataTable
+  const fetchUsers = useCallback(async ({ page, limit, search, sorting }) => {
+    try {
+      setLoading(true)
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
+      }
 
-  // Function to refresh users list
-  const refreshUsers = async () => {
+      const headers = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      // Build Query Params
+      const params = new URLSearchParams()
+      params.append("page", page) // DataTable passes 1-based index
+      params.append("limit", limit) // DataTable passes 'limit'
+      if (search) params.append("search", search)
+      if (sorting && sorting.length > 0) {
+        params.append("sortBy", sorting[0].id)
+        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+      }
+
+      const res = await fetch(`${backendUrl}/api/users/get-users?${params.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      })
+
+      const responseData = await res.json()
+
+      if (res.ok && responseData.success) {
+        // Return data for DataTable to handle
+        return {
+          data: responseData.data || [],
+          meta: responseData.meta || {}
+        }
+      } else {
+        console.error("Failed to fetch users", responseData)
+        return { data: [], meta: {} }
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err)
+      return { data: [], meta: {} }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Initial fetch handled by DataTable or manually?
+  // DataTable calls fetchData on mount or change.
+
+  const columns = useMemo(() => [
+    {
+      accessorKey: "empid",
+      header: "Employee ID",
+      cell: (row) => row.empid || "-",
+    },
+    {
+      accessorKey: "name",
+      header: "Full Name",
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+    },
+    {
+      accessorKey: "department",
+      header: "Department",
+      cell: (row) => row.department || "-",
+    },
+    {
+      accessorKey: "roles",
+      header: "Role",
+      cell: (row) => {
+        return row.user_roles?.map((ur) => ur.role?.name).join(", ") || "No Role"
+      },
+      enableSorting: false,
+    },
+  ], [])
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError("")
+    setSuccess("")
+    setIsLoading(true)
+
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -141,43 +199,7 @@ function CreateUser() {
           token = parsed?.payload?.token || parsed?.token
         } catch { }
       }
-      const headers = { "Content-Type": "application/json" }
-      if (token) headers["Authorization"] = `Bearer ${token}`
 
-      const res = await fetch(`${backendUrl}/api/users/get-users`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-      const data = await res.json()
-      if (res.ok) setUsers(data?.data || [])
-    } catch (err) {
-      console.error("Error refreshing users:", err)
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError("")
-    setSuccess("")
-    setIsLoading(true)
-
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
-      // Get auth token
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch {
-          // If parsing fails, continue without token
-        }
-      }
-
-      // Map form data to backend expected format
       const requestBody = {
         name: formData.fullName,
         email: formData.email,
@@ -196,34 +218,26 @@ function CreateUser() {
         headers["Authorization"] = `Bearer ${token}`
       }
 
-      // Updated endpoint to create-user (was create-customer)
       const res = await fetch(`${backendUrl}/api/users/create-user`, {
         method: "POST",
         headers,
-        credentials: "include", // Include cookies for authentication
+        credentials: "include",
         body: JSON.stringify(requestBody),
       })
 
-      const contentType = res.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await res.json()
-        : await res.text()
+      const payload = await res.json()
 
       if (!res.ok) {
-        const message =
-          typeof payload === "string"
-            ? payload
-            : payload?.message || "Failed to create user"
+        const message = payload?.message || "Failed to create user"
         throw new Error(message)
       }
 
       setSuccess("User created successfully!")
 
       // Refresh list and switch view
-      await refreshUsers()
       setTimeout(() => {
         setSuccess("")
-        setView("list") // Switch back to list view
+        setView("list")
         setFormData({
           fullName: "",
           email: "",
@@ -234,6 +248,12 @@ function CreateUser() {
           role: "",
           password: "",
         })
+        // Trigger generic refresh? DataTable handles it via state change or refetch?
+        // We can force a refresh by resetting pagination or similar, but simpler to just let it re-fetch when mounted/updated
+        // Ideally, we can expose a refresh method from DataTable or just depend on pagination state.
+        // For now, switching view to 'list' will re-render DataTable which might re-fetch if we reset something,
+        // but `fetchData` is called by `useEffect` inside table.
+        // To be safe, we can manually call fetchUsers if needed, but switching tabs might re-mount it.
       }, 1500)
 
     } catch (err) {
@@ -285,42 +305,15 @@ function CreateUser() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[100px]">S.No</TableHead>
-                          <TableHead>Employee ID</TableHead>
-                          <TableHead>Full Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Department</TableHead>
-                          <TableHead>Role</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {users.length > 0 ? (
-                          users.map((user, index) => (
-                            <TableRow key={user.id}>
-                              <TableCell className="font-medium">{index + 1}</TableCell>
-                              <TableCell>{user.empid || "-"}</TableCell>
-                              <TableCell>{user.name}</TableCell>
-                              <TableCell>{user.email}</TableCell>
-                              <TableCell>{user.department || "-"}</TableCell>
-                              <TableCell>
-                                {user.user_roles?.map((ur) => ur.role?.name).join(", ") || "No Role"}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                              No users found.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchUsers}
+                    initialData={data}
+                    initialMeta={{
+                      pageCount: pageCount,
+                      totalItems: totalItems,
+                    }}
+                  />
                 </CardContent>
               </Card>
             ) : (

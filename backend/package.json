@@ -31,13 +31,17 @@
     "#api/*": "./api/*",
     "#routes/*": "./routes/*",
     "#utils/*": "./utils/*",
+    "#controllers/*": "./controllers/*",
+    "#services/*": "./services/*",
     "#prismaclint": "./generated/prisma/client.ts",
     "#prisma": "./utils/prisma.js"
   },
   "_moduleAliases": {
     "#api": "./api",
     "#routes": "./routes",
-    "#utils": "./utils"
+    "#utils": "./utils",
+    "#controllers": "./controllers",
+    "#services": "./services"
   },
   "devDependencies": {
     "tsx": "^4.21.0"

@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { DataTable } from "@/components/shared/DataTable"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -71,7 +72,6 @@ function WeldingJoints() {
   const [isLoading, setIsLoading] = useState(false)
 
   const [jobs, setJobs] = useState([])
-  const [plans, setPlans] = useState([]) // List of created plans
   const [view, setView] = useState("list") // 'list' or 'create'
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -81,7 +81,44 @@ function WeldingJoints() {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isViewLoading, setIsViewLoading] = useState(false)
 
-  const fetchPlans = async () => {
+  const columns = useMemo(() => [
+    {
+      accessorKey: "weld_plan_no",
+      header: "Weld Plan No",
+    },
+    {
+      accessorKey: "job.job_number",
+      header: "Job No",
+    },
+    {
+      accessorKey: "job.project_id",
+      header: "Project ID",
+    },
+    {
+      accessorKey: "job.equipement_name",
+      header: "Equipment Name",
+    },
+    {
+      accessorKey: "job.customer.customer_name",
+      header: "Customer",
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created Date",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <Button variant="ghost" size="icon" onClick={() => handleViewClick(row.id)}>
+          <Eye className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ], [])
+
+  const fetchPlans = useCallback(async ({ page, limit, search, sorting }) => {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -93,27 +130,40 @@ function WeldingJoints() {
         } catch { }
       }
 
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
+      const headers = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      const params = new URLSearchParams()
+      params.append("page", page)
+      params.append("limit", limit)
+      if (search) params.append("search", search)
+      if (sorting && sorting.length > 0) {
+        params.append("sortBy", sorting[0].id)
+        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
       }
 
-      const res = await fetch(`${backendUrl}/api/wpj/get-weld-joint-plans`, {
+      const res = await fetch(`${backendUrl}/api/wpj/get-weld-joint-plans?${params.toString()}`, {
         method: "GET",
         headers,
         credentials: "include",
       })
+      const responseData = await res.json()
 
-      const data = await res.json()
-      if (res.ok) {
-        setPlans(data.data || [])
+      if (res.ok && responseData.success) {
+        return {
+          data: responseData.data || [],
+          meta: responseData.meta || {}
+        }
       } else {
-        console.error("Failed to fetch plans", data)
+        return { data: [], meta: {} }
       }
-    } catch (err) {
-      console.error("Error fetching plans:", err)
+    } catch (error) {
+      console.error("Error fetching plans:", error)
+      return { data: [], meta: {} }
     }
-  }
+  }, [])
+
+
 
   // Fetch jobs and plans from API
   useEffect(() => {
@@ -164,7 +214,6 @@ function WeldingJoints() {
     }
 
     fetchJobs()
-    fetchPlans()
   }, [])
 
   const handleInputChange = (e) => {
@@ -442,52 +491,10 @@ function WeldingJoints() {
                   <CardDescription>View and manage welding joint plans.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[80px]">S.No</TableHead>
-                        <TableHead>Weld Plan No</TableHead>
-                        <TableHead>Job No</TableHead>
-                        <TableHead>Project ID</TableHead>
-                        <TableHead>Client</TableHead>
-                        <TableHead>Equipment</TableHead>
-                        <TableHead className="text-right">Created Date</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {plans.length > 0 ? (
-                        plans.map((plan, index) => (
-                          <TableRow key={plan.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{plan.weld_plan_no}</TableCell>
-                            <TableCell>{plan.job?.job_number}</TableCell>
-                            <TableCell>{plan.job?.project_id}</TableCell>
-                            <TableCell>{plan.job?.customer?.customer_name}</TableCell>
-                            <TableCell>{plan.job?.equipement_name}</TableCell>
-                            <TableCell className="text-right">
-                              {new Date(plan.createdAt).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleViewClick(plan.id)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={8} className="h-24 text-center">
-                            No welding plans found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchPlans}
+                  />
                 </CardContent>
               </Card>
             ) : (
