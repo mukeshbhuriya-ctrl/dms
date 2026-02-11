@@ -12,6 +12,9 @@ async function getWeldJoints(req, res) {
             status,
             sortBy,
             sortOrder
+        }, {
+            userId: req.user.userid || req.user.id,
+            roles: req.user.role
         });
 
         res.status(200).json({

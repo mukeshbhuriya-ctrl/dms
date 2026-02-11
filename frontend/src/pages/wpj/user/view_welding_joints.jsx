@@ -179,7 +179,7 @@ function ViewWeldingJoints() {
       } catch { }
     }
 
-    const endpoint = isQC ? '/api/wpj/get-assigned-weld-joints' : '/api/wpj/get-all-weld-joints';
+    const endpoint = '/api/wpj/get-all-weld-joints';
     // If QC, we might strictly use get-assigned-weld-joints which might not support pagination yet?
     // We will pass params anyway, if backend mocks it fine.
     // NOTE: We updated getWeldJoints to support pagination properly. 

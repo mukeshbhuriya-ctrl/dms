@@ -7,7 +7,7 @@ class WeldJointService {
      * @param {Object} params 
      * @returns {Object} { data, meta }
      */
-    async findAll(company_id, params = {}) {
+    async findAll(company_id, params = {}, userContext = {}) {
         const {
             page = 1,
             limit = 50,
@@ -16,6 +16,7 @@ class WeldJointService {
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = params;
+        const { userId, roles = [] } = userContext;
 
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
@@ -27,55 +28,69 @@ class WeldJointService {
             }
         };
 
+        // Role-based Access Control
+        const isAdminOrProd = roles.includes('ADMIN') || roles.includes('PRODUCTION_ENGINEER') || roles.includes('WELD_PLAN_ADMIN');
+        const isQC = roles.includes('QC_ENGINEER') || roles.includes('NDT_ENGINEER');
+
+        if (!isAdminOrProd && isQC) {
+            // Filter for joints where the user is assigned as QC in ANY stage
+            where.weld_joint_inspection = {
+                OR: [
+                    { s1_qc_eng_id: userId },
+                    { s2_qc_eng_id: userId },
+                    { s3_qc_eng_id: userId },
+                    { s4_qc_eng_id: userId },
+                    { s5_qc_eng_id: userId },
+                    { s6_qc_eng_id: userId },
+                    { s7_qc_eng_id: userId },
+                    { s8_qc_eng_id: userId },
+                ]
+            };
+        }
+
         if (search) {
-            where.OR = [
-                { joint_no: { contains: search, mode: 'insensitive' } },
-                {
-                    weld_joint_plan: {
-                        OR: [
-                            { weld_plan_no: { contains: search, mode: 'insensitive' } },
-                            {
-                                job: {
-                                    OR: [
-                                        { job_number: { contains: search, mode: 'insensitive' } },
-                                        { equipement_name: { contains: search, mode: 'insensitive' } },
-                                        {
-                                            customer: {
-                                                customer_name: { contains: search, mode: 'insensitive' }
+            where.AND = {
+                OR: [
+                    { joint_no: { contains: search, mode: 'insensitive' } },
+                    {
+                        weld_joint_plan: {
+                            OR: [
+                                { weld_plan_no: { contains: search, mode: 'insensitive' } },
+                                {
+                                    job: {
+                                        OR: [
+                                            { job_number: { contains: search, mode: 'insensitive' } },
+                                            { equipement_name: { contains: search, mode: 'insensitive' } },
+                                            {
+                                                customer: {
+                                                    customer_name: { contains: search, mode: 'insensitive' }
+                                                }
+                                            },
+                                            {
+                                                po: {
+                                                    po_number: { contains: search, mode: 'insensitive' }
+                                                }
                                             }
-                                        },
-                                        {
-                                            po: {
-                                                po_number: { contains: search, mode: 'insensitive' }
-                                            }
-                                        }
-                                    ]
+                                        ]
+                                    }
                                 }
-                            }
-                        ]
+                            ]
+                        }
                     }
-                }
-            ];
+                ]
+            };
         }
 
         if (status) {
-            // Status filter logic (complex due to multiple stages)
-            // If status is 'completed', check s8_status (or last stage)
-            // If status is 'pending', check if any stage is pending? 
-            // Simplified: Filter by specific stage status if provided like 's1_status:pending'?
-            // For now, let's assume status is a general search term or handle specific logic later.
-            // A robust implementation might filter based on the 'current stage' concept.
-
-            // For basic "Pending" vs "Completed"
             if (status === 'completed') {
                 where.weld_joint_inspection = {
-                    s8_status: 'approved' // Example for full completion
+                    ...where.weld_joint_inspection,
+                    s8_status: 'approved'
                 };
             } else if (status === 'pending') {
                 where.weld_joint_inspection = {
-                    NOT: {
-                        s8_status: 'approved'
-                    }
+                    ...where.weld_joint_inspection,
+                    NOT: { s8_status: 'approved' }
                 };
             }
         }
@@ -119,8 +134,52 @@ class WeldJointService {
             prisma.weld_joint.count({ where })
         ]);
 
+        // Inject Names Logic (Reused from getAssignedWeldJoints logic if needed, but existing findAll didn't do it)
+        // Existing findAll returned raw data. The user might expect names if they were used to getAssignedWeldJoints.
+        // However, the original getWeldJoints (Admin view) didn't seem to inject names in the controller.
+        // Let's check view_welding_joints.jsx to see if it relies on injected names.
+        // Step 1774 showing getAssignedWeldJoints DID inject names.
+        // If I use this service for QC, I should probably inject names too, or frontend will show IDs?
+        // Let's check the frontend.
+
+        // ... (I will return data as is for now, if names are missing I might need to add injection logic here too)
+        // Actually, for consistency, I should probably inject names if the frontend uses them.
+        // Let's add name injection from getAssignedWeldJoints logic here.
+
+        const userIds = new Set();
+        joints.forEach(joint => {
+            const insp = joint.weld_joint_inspection;
+            if (insp) {
+                ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(stage => {
+                    if (insp[`${stage}_prod_eng_id`]) userIds.add(insp[`${stage}_prod_eng_id`]);
+                    if (insp[`${stage}_qc_eng_id`]) userIds.add(insp[`${stage}_qc_eng_id`]);
+                });
+            }
+        });
+
+        let userMap = {};
+        if (userIds.size > 0) {
+            const users = await prisma.user.findMany({
+                where: { id: { in: Array.from(userIds) } },
+                select: { id: true, name: true }
+            });
+            users.forEach(u => userMap[u.id] = u.name);
+        }
+
+        const enrichedJoints = joints.map(joint => {
+            if (joint.weld_joint_inspection) {
+                const insp = { ...joint.weld_joint_inspection };
+                ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(stage => {
+                    if (insp[`${stage}_prod_eng_id`]) insp[`${stage}_prod_eng_name`] = userMap[insp[`${stage}_prod_eng_id`]];
+                    if (insp[`${stage}_qc_eng_id`]) insp[`${stage}_qc_eng_name`] = userMap[insp[`${stage}_qc_eng_id`]];
+                });
+                return { ...joint, weld_joint_inspection: insp };
+            }
+            return joint;
+        });
+
         return {
-            data: joints,
+            data: enrichedJoints,
             meta: {
                 total,
                 page: parseInt(page),
