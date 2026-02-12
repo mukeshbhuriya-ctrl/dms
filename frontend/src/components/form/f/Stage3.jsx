@@ -330,7 +330,7 @@ function Stage3F({ initialData, inspectionData, isReview = false, stage = "stage
                     body: JSON.stringify({
                         jointId: initialData?.id,
                         stage: stage,
-                        status: initialData?.inspectionData?.[`${stagePrefix}_status`] || 'pending',
+                        status: status,
                         engineerId: userId,
                         role: 'QC',
                         data: finalData

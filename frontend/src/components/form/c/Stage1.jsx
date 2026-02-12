@@ -174,6 +174,14 @@ const Stage1C = ({ initialData, isReview }) => {
                 }
             };
 
+            const basicInfo = {
+                [categoryKey]: {
+                    msnNumber: initialData?.msnNumber,
+                    equipment: initialData?.equipment,
+                    drgNo: initialData?.drgNo,
+                }
+            };
+
             const payload = {
                 jointId: initialData?.id,
                 stage: "stage1",
@@ -181,6 +189,7 @@ const Stage1C = ({ initialData, isReview }) => {
                 engineerId: userId,
                 role: role,
                 data: stageData,
+                basicInfo: basicInfo
             }
 
             const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -256,7 +265,7 @@ const Stage1C = ({ initialData, isReview }) => {
                     body: JSON.stringify({
                         jointId: initialData?.id,
                         stage: "stage1",
-                        status: initialData?.inspectionData?.s1_status || 'pending',
+                        status: status,
                         engineerId: userId,
                         role: 'QC',
                         data: stageData

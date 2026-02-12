@@ -341,7 +341,7 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
                     body: JSON.stringify({
                         jointId: initialData?.id,
                         stage: "stage5",
-                        status: initialData?.inspectionData?.s5_status || 'pending',
+                        status: status,
                         engineerId: userId,
                         role: 'QC',
                         data: finalData
@@ -359,7 +359,7 @@ function Stage5({ initialData, inspectionData, isReview = false }) {
                 data: {}
             }
 
-            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+            const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

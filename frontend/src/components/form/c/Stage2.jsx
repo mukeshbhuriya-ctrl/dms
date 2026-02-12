@@ -246,7 +246,7 @@ const Stage2C = ({ initialData, isReview }) => {
                     body: JSON.stringify({
                         jointId: initialData?.id,
                         stage: "stage2",
-                        status: initialData?.inspectionData?.s2_status || 'pending',
+                        status: status,
                         engineerId: userId,
                         role: 'QC',
                         data: stageData

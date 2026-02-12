@@ -375,7 +375,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                     body: JSON.stringify({
                         jointId: initialData?.id,
                         stage: stage,
-                        status: initialData?.inspectionData?.[`${stagePrefix}_status`] || 'pending',
+                        status: status,
                         engineerId: userId,
                         role: 'QC',
                         data: finalData

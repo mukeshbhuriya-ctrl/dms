@@ -415,7 +415,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
           body: JSON.stringify({
             jointId: initialData?.id,
             stage: currentStage,
-            status: initialData?.inspectionData?.[`${stagePrefix}_status`] || 'pending',
+            status: status,
             engineerId: userId,
             role: 'QC',
             data: finalData

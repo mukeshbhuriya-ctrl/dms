@@ -396,7 +396,7 @@ async function updateStageStatus(req, res) {
 
             // Merge Basic Info ({ ab: { ... }, cd: { ... } })
             // We assume basicInfo is structured as { ab: {...}, cd: {...} }
-            ['ab', 'cd'].forEach(category => {
+            ['ab', 'cd', 'f'].forEach(category => {
                 if (basicInfo[category]) {
                     newDataJson[category] = {
                         ...(newDataJson[category] || {}),
@@ -414,6 +414,7 @@ async function updateStageStatus(req, res) {
 
         if (status === 'rejected') {
             updateData[`${stagePrefix}_rejected_at`] = new Date();
+            updateData[`${stagePrefix}_approved_at`] = null;
         }
 
         if (status === 'pending') {
@@ -488,7 +489,7 @@ async function updateStageStatus(req, res) {
  */
 async function reviewStageStatus(req, res) {
     try {
-        const { jointId, stage, status, engineerId, role } = req.body;
+        const { jointId, stage, status } = req.body;
 
         if (!jointId || !stage || !status) {
             return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -516,23 +517,11 @@ async function reviewStageStatus(req, res) {
             // set status to 'rejected' which is passed in args.
         }
 
-        // Handle Status Transition (e.g. Stage 1 Approved -> Move to Stage 2)
-        // I need to update the parent weld_joint status.
-        // Assuming linear progression:
-        const nextStageMap = {
-            'stage1': 'stage2', 'stage2': 'stage3', 'stage3': 'stage4',
-            'stage4': 'stage5', 'stage5': 'stage6', 'stage6': 'stage7',
-            'stage7': 'stage8', 'stage8': 'completed'
-        };
-
         // Update Inspection Table
         await prisma.weld_joint_inspection.update({
             where: { weld_joint_id: jointId },
             data: updateData
         });
-
-        // NOT updating parent table as 'status' column does not exist on weld_joint.
-        // The frontend and other logic seem to infer stage from weld_joint_inspection status.
 
         res.status(200).json({ success: true, message: `Stage ${status} successfully` });
     } catch (error) {

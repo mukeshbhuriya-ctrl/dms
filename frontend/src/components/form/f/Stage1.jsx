@@ -77,7 +77,11 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
         fetchQeEngineers()
     }, [])
 
-    const getCategoryKey = () => 'f'; // Assuming 'f' key for F category or reuse 'ab'/'cd' if instructed? C/D uses 'cd'. F should likely use 'f' or share logic. Let's assume 'f' based on pattern.
+
+    const getCategoryKey = () => {
+        if (initialData?.jointCategory === 'F') return 'f';
+        return 'f';
+    }
 
     useEffect(() => {
         if (inspectionData) {
@@ -160,6 +164,14 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
                 }
             };
 
+            const basicInfo = {
+                [categoryKey]: {
+                    msnNumber: initialData?.msnNumber,
+                    equipment: initialData?.equipment,
+                    drgNo: initialData?.drgNo,
+                }
+            };
+
             const payload = {
                 jointId: initialData?.id,
                 stage: "stage1",
@@ -167,6 +179,7 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
                 engineerId: userId,
                 role: role,
                 data: stageData,
+                basicInfo: basicInfo
             }
 
             const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -242,7 +255,7 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
                     body: JSON.stringify({
                         jointId: initialData?.id,
                         stage: "stage1",
-                        status: inspectionData?.s1_status || 'pending',
+                        status: status,
                         engineerId: userId,
                         role: 'QC',
                         data: stageData

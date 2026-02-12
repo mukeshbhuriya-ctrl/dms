@@ -359,7 +359,7 @@ function Stage1({ initialData, isReview = false }) {
           body: JSON.stringify({
             jointId: initialData?.id,
             stage: "stage1",
-            status: initialData?.inspectionData?.s1_status || 'pending',
+            status: status,
             engineerId: userId,
             role: 'QC',
             data: stageData,
