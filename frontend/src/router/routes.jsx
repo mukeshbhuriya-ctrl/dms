@@ -21,6 +21,7 @@ import {
 } from "@/pages/dms"
 
 import {
+  AdminDashboard,
   CreateUser,
 } from "@/pages/admin"
 import { WeldingJoints } from "@/pages/wpj/admin"
@@ -102,6 +103,10 @@ const dccRoutes = [
 ]
 
 const adminRoutes = [
+  {
+    path: "/admin/dashboard",
+    element: <AdminDashboard />,
+  },
   {
     path: "/users",
     element: <CreateUser />,

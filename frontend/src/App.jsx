@@ -25,7 +25,7 @@ function App() {
     e.preventDefault()
     setError("")
     setIsLoading(true)
-    
+
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const res = await fetch(`${backendUrl}/api/users/auth/login`, {
@@ -56,8 +56,16 @@ function App() {
         JSON.stringify({ payload, loggedInAt: Date.now() }),
       )
 
-      // Navigate to user dashboard or appropriate page
-      navigate("/user/dashboard")
+      const role = payload?.roles?.[0]?.name
+
+      if (role === "ADMIN") {
+        navigate("/admin/dashboard")
+      } else if (role === "DCC") {
+        navigate("/user/dashboard")
+      } else {
+        // ✅ fallback
+        navigate("/user/dashboard")
+      }
     } catch (err) {
       setError(err?.message || "Something went wrong")
     } finally {

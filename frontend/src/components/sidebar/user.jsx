@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useLocation } from "react-router-dom"
+import { useNavigate, useLocation, Link } from "react-router-dom"
 import {
   LayoutDashboard,
   Upload,
@@ -13,7 +13,12 @@ import {
   LogOut,
   User as UserIcon,
   Users as UsersIcon,
-  Wrench
+  Wrench,
+  Briefcase,
+  Folder,
+  UserPlus,
+  ChartBar,
+  ChevronRight
 } from "lucide-react"
 import {
   Sidebar,
@@ -26,6 +31,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import {
   Select,
@@ -34,56 +42,61 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 // Role-based menu configuration
 const roleMenus = {
   DCC: [
     {
-      title: "Create Customer",
-      icon: Building2,
-      path: "/dcc/create-customer",
+      title: "Customer Management",
+      icon: Users,
+      items: [
+        {
+          title: "Customer",
+          path: "/dcc/create-customer",
+        },
+        {
+          title: "Location",
+          path: "/dcc/create-location",
+        },
+      ],
     },
     {
-      title: "Create Location",
-      icon: Building2,
-      path: "/dcc/create-location",
-    },
-    {
-      title: "Create PO",
+      title: "Purchase Orders",
       icon: FileText,
       path: "/dcc/create-po",
     },
     {
-      title: "Create Job",
+      title: "Jobs",
       icon: ClipboardCheck,
       path: "/dcc/create-job",
     },
     {
-      title: "Document Master",
-      icon: FileText,
-      path: "/dcc/document-master",
+      title: "DMS",
+      icon: Folder,
+      items: [
+        {
+          title: "Document Master",
+          path: "/dcc/document-master",
+        },
+        {
+          title: "Assign Document",
+          path: "/dcc/assign-document",
+        },
+        {
+          title: "Transmission",
+          path: "/dcc/create-transmission",
+        },
+        {
+          title: "Document Approver",
+          path: "/dcc/document-approver",
+        },
+        {
+          title: "Send to Client",
+          path: "/dcc/send-document-to-client",
+        },
+      ],
     },
-    {
-      title: "Assign Document",
-      icon: FileText,
-      path: "/dcc/assign-document",
-    },
-    {
-      title: "Create Transmission",
-      icon: Upload,
-      path: "/dcc/create-transmission",
-    },
-    {
-      title: "Document Approver",
-      icon: CheckCircle,
-      path: "/dcc/document-approver",
-    },
-    {
-      title: "Send to Client",
-      icon: Upload,
-      path: "/dcc/send-document-to-client",
-    },
-
   ],
   OC: [
     {
@@ -127,9 +140,132 @@ const roleMenus = {
   ],
   ADMIN: [
     {
-      title: "Users",
-      icon: UsersIcon,
+      title: "Customer Management",
+      icon: Users,
+      items: [
+        {
+          title: "Customer",
+          path: "/dcc/create-customer",
+        },
+        {
+          title: "Location",
+          path: "/dcc/create-location",
+        },
+      ],
+    },
+    {
+      title: "User Management",
+      icon: UserPlus,
       path: "/users",
+    },
+    {
+      title: "Purchase Orders",
+      icon: Briefcase,
+      path: "/dcc/create-po",
+    },
+    {
+      title: "Jobs",
+      icon: FileText,
+      path: "/dcc/create-job",
+    },
+    {
+      title: "DMS",
+      icon: Folder,
+      items: [
+        {
+          title: "Document Master",
+          path: "/dcc/document-master",
+        },
+        {
+          title: "Assign Document",
+          path: "/dcc/assign-document",
+        },
+        {
+          title: "Document Approver",
+          path: "/dcc/document-approver",
+        },
+        {
+          title: "Create Transmission",
+          path: "/dcc/create-transmission",
+        },
+        {
+          title: "Send Document to Client",
+          path: "/dcc/send-document-to-client",
+        },
+      ],
+    },
+    {
+      title: "DCR",
+      icon: Folder,
+      items: [
+        {
+          title: "Create DCR",
+          path: "/admin/create-dcr",
+        },
+        {
+          title: "View DCR",
+          path: "/admin/view-dcr",
+        }
+      ]
+    },
+    {
+      title: "NCR",
+      icon: Folder,
+      items: [
+        {
+          title: "Create NCR",
+          path: "/admin/create-ncr",
+        },
+        {
+          title: "View NCR",
+          path: "/admin/view-ncr",
+        }
+      ]
+    },
+    {
+      title: "Welding Joints",
+      icon: Wrench,
+      items: [
+        {
+          title: "Welding Joints",
+          path: "/admin/create-weldingjoints",
+        }
+      ]
+    },
+    {
+      title: "MATERIAL HEAT CHART",
+      icon: ChartBar,
+      items: [
+        {
+          title: "Material Heat Chart",
+          path: "/admin/create-material-heat-chart",
+        }
+      ]
+    },
+    {
+      title: "Hydrostatic Pressure Test",
+      icon: FileText,
+      items: [
+        {
+          title: "Hydro Pres Test",
+          path: "/admin/hydrostatic-pressure-test",
+        },
+      ],
+    },
+    {
+      title: "Dish End Inspection",
+      icon: ClipboardCheck,
+      path: "/admin/hydro-assign",
+    },
+    {
+      title: "Final Inspection Reports",
+      icon: FileText,
+      path: "/admin/final-inspection-reports",
+    },
+    {
+      title: "Quality Assurance Plan",
+      icon: ClipboardCheck,
+      path: "/admin/create-qarp",
     },
   ],
   WELD_PLAN_ADMIN: [
@@ -141,14 +277,14 @@ const roleMenus = {
   ],
   PRODUCTION_ENGINEER: [
     {
-      title: "View Welding Joints",
+      title: "Welding Joints",
       icon: Wrench,
       path: "/view-weldingjoints",
     },
   ],
   QC_ENGINEER: [
     {
-      title: "Approve Welding Joints",
+      title: "Welding Joints",
       icon: Wrench,
       path: "/view-weldingjoints",
     },
@@ -209,6 +345,9 @@ function UserSidebar() {
   const [userName, setUserName] = useState("User")
   const [activeRole, setActiveRole] = useState(() => localStorage.getItem("last_active_role") || "")
 
+  // Collapsible state management
+  const [openItems, setOpenItems] = useState({})
+
   useEffect(() => {
     const fetchUserRole = async () => {
       try {
@@ -256,17 +395,14 @@ function UserSidebar() {
 
         const payload = await res.json()
 
-        // Extract roles from various possible locations (supporting both single role and multiple roles)
+        // Extract roles from various possible locations
         let roles = []
 
-        // Check for role field (can be array or string) - API returns {"role": ["OC", "Production", "Manager", "User"]}
         if (Array.isArray(payload?.role)) {
           roles = payload.role
         } else if (typeof payload?.role === "string") {
           roles = [payload.role]
-        }
-        // Check for roles field (array)
-        else if (Array.isArray(payload?.roles)) {
+        } else if (Array.isArray(payload?.roles)) {
           roles = payload.roles
         } else if (Array.isArray(payload?.user?.roles)) {
           roles = payload.user.roles
@@ -280,9 +416,7 @@ function UserSidebar() {
           roles = payload.payload.roles
         } else if (Array.isArray(payload?.payload?.role)) {
           roles = payload.payload.role
-        }
-        // Check for single role string (convert to array)
-        else {
+        } else {
           const singleRole =
             payload?.user?.role ||
             payload?.data?.role ||
@@ -291,8 +425,6 @@ function UserSidebar() {
           roles = [singleRole]
         }
 
-        // Keep roles in original case to match roleMenus keys (OC, Production, Manager, User, Marketing)
-        // API returns: ["OC", "Production", "Manager", "User", "Marketing"] - keep as is
         const expandedRoles = []
         roles.forEach((role) => {
           const extracted = extractRoleName(role)
@@ -311,16 +443,10 @@ function UserSidebar() {
 
         roles = expandedRoles.filter(Boolean)
 
-        // If no roles found, default to 'User'
         if (roles.length === 0) {
           roles = ["User"]
         }
 
-        // Debug: Log extracted roles
-        // console.log("Extracted roles:", roles)
-        // console.log("Available roleMenus keys:", Object.keys(roleMenus))
-
-        // Extract user name
         const name =
           payload?.name ||
           payload?.user?.name ||
@@ -331,7 +457,6 @@ function UserSidebar() {
         const uniqueRoles = Array.from(new Set(roles))
         setUserRoles(uniqueRoles)
 
-        // Determine effective role logic
         const storedRole = localStorage.getItem("last_active_role")
         let effectiveRole = ""
 
@@ -344,11 +469,10 @@ function UserSidebar() {
         }
 
         setActiveRole(effectiveRole)
-        localStorage.setItem("last_active_role", effectiveRole) // Ensure strict sync
+        localStorage.setItem("last_active_role", effectiveRole)
         setUserName(name)
       } catch (err) {
         console.error("Error fetching user role:", err)
-        // Default to 'User' role if API fails
         setUserRoles(["User"])
         setActiveRole("User")
       } finally {
@@ -358,6 +482,33 @@ function UserSidebar() {
 
     fetchUserRole()
   }, [])
+
+  // Initialize open state based on active route
+  useEffect(() => {
+    if (!activeRole) return
+
+    const menuItems = getMenuItemsForRole(activeRole)
+    const newOpenItems = {}
+
+    const checkActive = (items) => {
+      return items.some(item => {
+        if ((item.url || item.path) === location.pathname) return true;
+        if (item.items) return checkActive(item.items);
+        return false;
+      })
+    }
+
+    menuItems.forEach((item) => {
+      if (item.items) {
+        if (checkActive(item.items)) {
+          newOpenItems[item.title] = true
+        }
+      }
+    })
+
+    setOpenItems(prev => ({ ...prev, ...newOpenItems }))
+  }, [location.pathname, activeRole])
+
 
   const handleLogout = () => {
     localStorage.removeItem("user_auth")
@@ -379,6 +530,13 @@ function UserSidebar() {
   }
 
   const menuItems = getMenuItemsForRole(activeRole)
+
+  const toggleOpen = (title) => {
+    setOpenItems(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }))
+  }
 
   if (isLoading) {
     return (
@@ -432,26 +590,66 @@ function UserSidebar() {
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.path}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.path}
-                    tooltip={item.title}
-                  >
-                    <a
-                      href={item.path}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        navigate(item.path)
-                      }}
+              {menuItems.map((item) => {
+                // Check if item has submenu (items array) or is a simple link (path/url)
+                const hasSubMenu = item.items && item.items.length > 0
+                const itemPath = item.url || item.path
+
+                if (hasSubMenu) {
+                  return (
+                    <Collapsible
+                      key={item.title}
+                      open={openItems[item.title]}
+                      onOpenChange={() => toggleOpen(item.title)}
+                      className="group/collapsible"
                     >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            tooltip={item.title}
+                            isActive={item.items.some(
+                              (subItem) => (subItem.url || subItem.path) === location.pathname
+                            )}
+                          >
+                            {item.icon && <item.icon />}
+                            <span>{item.title}</span>
+                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {item.items.map((subItem) => (
+                              <SidebarMenuSubItem key={subItem.title}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={(subItem.url || subItem.path) === location.pathname}
+                                >
+                                  <Link to={subItem.url || subItem.path}>{subItem.title}</Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  )
+                } else {
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={location.pathname === itemPath}
+                        tooltip={item.title}
+                      >
+                        <Link to={itemPath || "#"}>
+                          {item.icon && <item.icon />}
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                }
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
