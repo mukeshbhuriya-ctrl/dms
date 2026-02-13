@@ -393,7 +393,18 @@ function CreateJob() {
                     <Plus className="mr-2 h-4 w-4" /> Create Job
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={() => setView("list")}>
+                  <Button variant="outline" onClick={() => {
+                    setView("list")
+                    setFormData({ customerId: "", locationId: "", poId: "" })
+                    setJobs([{
+                      id: 1,
+                      job_number: "",
+                      project_id: "",
+                      equipement_name: "",
+                      tag_number: "",
+                      code: "",
+                    }])
+                  }}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
                 )}
@@ -468,8 +479,17 @@ function CreateJob() {
                             <SelectContent>
                               {availableLocations.length > 0 ? (
                                 availableLocations.map((location) => (
-                                  <SelectItem key={location.id} value={String(location.id)}>
-                                    {location.location_name}
+                                  <SelectItem
+                                    key={location.id}
+                                    value={String(location.id)}
+                                    className="items-start"
+                                  >
+                                    <div className="flex flex-col text-left">
+                                      <span className="font-medium">{location.location_name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        GST: {location.gst_number || "N/A"}
+                                      </span>
+                                    </div>
                                   </SelectItem>
                                 ))
                               ) : (

@@ -470,8 +470,17 @@ function CreatePO() {
                             </SelectTrigger>
                             <SelectContent>
                               {availableLocations.map((location) => (
-                                <SelectItem key={location.id} value={String(location.id)}>
-                                  {location.location_name}
+                                <SelectItem
+                                  key={location.id}
+                                  value={String(location.id)}
+                                  className="items-start"
+                                >
+                                  <div className="flex flex-col text-left">
+                                    <span className="font-medium">{location.location_name}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      GST: {location.gst_number || "N/A"}
+                                    </span>
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
