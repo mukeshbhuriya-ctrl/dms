@@ -68,6 +68,16 @@ export const dccService = {
         return handleResponse(response);
     },
 
+    getTransmissionDocuments: async (params = {}) => {
+        const query = new URLSearchParams(params).toString();
+        const response = await fetch(`${BACKEND_URL}/api/dcc/get-transmission-documents?${query}`, {
+            method: 'GET',
+            headers: getHeaders(),
+            credentials: "include"
+        });
+        return handleResponse(response);
+    },
+
     reviewDocument: async (data) => {
         const response = await fetch(`${BACKEND_URL}/api/dcc/review-document`, {
             method: 'POST', // Changed from PUT to match controller/route if needed, but route says POST

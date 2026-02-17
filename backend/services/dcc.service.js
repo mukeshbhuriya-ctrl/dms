@@ -833,7 +833,7 @@ class DccService {
         const skip = (pageNum - 1) * limitNum;
 
         const where = { company_id };
-        if (po_id) where.po_id = parseInt(po_id);
+        if (po_id) where.po_id = po_id;
 
         if (search) {
             where.OR = [
@@ -878,18 +878,34 @@ class DccService {
         return await prisma.transmission_document.findMany({
             where: {
                 transmission: {
-                    id: parseInt(transmission_id),
+                    id: transmission_id,
                     company_id
                 }
             },
             include: {
-                single_document: {
+                group_document: {
                     include: {
-                        document: true,
-                        user: { select: { first_name: true, last_name: true } }
+                        document: {
+                            include: { document_type: true }
+                        },
+                        group: {
+                            include: {
+                                job_group: {
+                                    include: { job: true }
+                                }
+                            }
+                        },
+                        user: true,
+                        customer: true,
+                        customer_location: true,
+                        po: true
                     }
                 },
-                version: true
+                version: {
+                    include: {
+                        uploader: true
+                    }
+                }
             }
         });
     }
@@ -899,7 +915,7 @@ class DccService {
 
         // 1. Fetch transmission details
         const transmission = await prisma.transmission.findFirst({
-            where: { id: parseInt(transmission_id), company_id },
+            where: { id: transmission_id, company_id },
             include: {
                 po: true,
                 customer: true,

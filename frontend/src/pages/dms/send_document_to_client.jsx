@@ -37,6 +37,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Mail, Send } from "lucide-react"
 import { toast } from 'react-toastify';
+import { dccService } from "../../services/dcc.service"
 
 function SendDocumentToClient() {
   const location = useLocation()
@@ -73,36 +74,28 @@ function SendDocumentToClient() {
     }
   }, [location.state])
 
-  // Initial Fetch of Customers
+  // Initial Fetch of Customers with nested locations and POs
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
-        }
+        console.log("Fetching customers...");
+        const response = await dccService.getCustomers({ limit: 1000 });
+        console.log("Customers response:", response);
 
-        const headers = { "Content-Type": "application/json" }
-        if (token) headers["Authorization"] = `Bearer ${token}`
-
-        const res = await fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, { method: "GET", headers })
-        const data = await res.json()
-        if (res.ok) {
-          setCustomers(data.data || [])
+        if (response.success && response.data) {
+          console.log("Setting customers:", response.data);
+          setCustomers(response.data || []);
+        } else {
+          console.error("Failed to fetch customers:", response);
         }
       } catch (err) {
-        console.error("Error fetching customers:", err)
+        console.error("Error fetching customers:", err);
       }
     }
     fetchCustomers()
   }, [])
 
-  // Find helpers
+  // Helper functions to get filtered data
   const getLocationsForCustomer = (customerId) => {
     const customer = customers.find(c => c.id === customerId)
     return customer?.customer_locations || []
@@ -116,6 +109,31 @@ function SendDocumentToClient() {
     return location?.pos || []
   }
 
+  // Get available data based on selections
+  const availableLocations = formData.customerId ? getLocationsForCustomer(formData.customerId) : []
+  const availablePOs = formData.locationId ? getPOsForLocation(formData.locationId) : []
+  const availableJobs = transmissions || []
+
+  // Get communication matrix for selected PO
+  const getCommunicationMatrix = () => {
+    if (!formData.poId || !formData.customerId) return { shreno: [], client: [] }
+
+    const customer = customers.find(c => c.id === formData.customerId)
+    if (!customer) return { shreno: [], client: [] }
+
+    const location = customer.customer_locations?.find(l => l.id === formData.locationId)
+    if (!location) return { shreno: [], client: [] }
+
+    const po = location.pos?.find(p => p.id === formData.poId)
+    if (!po || !po.po_communication_matrix) return { shreno: [], client: [] }
+
+    const matrix = Array.isArray(po.po_communication_matrix) ? po.po_communication_matrix : []
+    const shreno = matrix.filter(m => m.type === 'shreno' || m.type === 'Internal')
+    const client = matrix.filter(m => m.type === 'client' || m.type === 'External')
+
+    return { shreno, client }
+  }
+
   // Fetch Transmissions when PO is selected
   useEffect(() => {
     if (!formData.poId) {
@@ -126,15 +144,18 @@ function SendDocumentToClient() {
     const fetchTransmissions = async () => {
       setIsLoading(true);
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
-        const token = JSON.parse(localStorage.getItem("user_auth"))?.payload?.token;
+        console.log("Fetching transmissions for PO:", formData.poId);
+        const response = await dccService.getTransmissions({ po_id: formData.poId });
+        console.log("Transmissions response:", response);
 
-        const res = await fetch(`${backendUrl}/api/dcc/get-transmissions?po_id=${formData.poId}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) {
-          setTransmissions(data.data || []);
+        if (response.success && response.data) {
+          // Backend returns { success: true, data: { data: [...], meta: {...} } }
+          const transmissionsData = response.data.data || response.data;
+          console.log("Setting transmissions:", transmissionsData);
+          setTransmissions(transmissionsData);
+        } else {
+          console.error("Failed to fetch transmissions:", response);
+          setTransmissions([]);
         }
       } catch (error) {
         console.error("Error fetching transmissions", error);
@@ -151,49 +172,57 @@ function SendDocumentToClient() {
   useEffect(() => {
     if (!formData.jobId) {
       setDocuments([]);
+      setCommunicationMatrix({ shreno: [], client: [] });
       return;
     }
 
     const fetchTransmissionDetails = async () => {
       setIsLoading(true);
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
-        const token = JSON.parse(localStorage.getItem("user_auth"))?.payload?.token;
+        console.log("Fetching transmission documents for:", formData.jobId);
 
-        // Get Transmission Documents
-        const resDocs = await fetch(`${backendUrl}/api/dcc/get-transmission-documents?transmission_id=${formData.jobId}`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        const docsData = await resDocs.json();
-        if (resDocs.ok) {
+        // Get Transmission Documents using service
+        const resDocs = await dccService.getTransmissionDocuments({ transmission_id: formData.jobId });
+        console.log("Transmission documents response:", resDocs);
+
+        if (resDocs.success) {
           // Map backend data to frontend structure
-          const mappedDocs = (docsData.data || []).map(item => ({
-            id: item.single_document.id,
-            documentCode: item.single_document.document.document_number,
-            documentName: item.single_document.document.document_name,
-            documentType: item.single_document.document.document_type || 'Document', // adjust based on schema
-            uploadedBy: `${item.single_document.user?.first_name || ''} ${item.single_document.user?.last_name || ''}`.trim(),
-            uploadedDate: new Date(item.single_document.createdAt).toLocaleDateString(),
-            status: 'Approved' // Transmissions only contain approved documents
-          }));
+          // Map backend data to frontend structure
+          const mappedDocs = (resDocs.data || []).map(item => {
+            const docSource = item.group_document;
+            if (!docSource) return null;
+
+            console.log("Processing item:", item);
+            console.log("Version:", item.version);
+            console.log("Uploader:", item.version?.uploader);
+
+            const uploaderName = item.version?.uploader?.name || docSource.user?.name || '';
+
+            return {
+              id: docSource.id,
+              documentCode: docSource.document?.document_number,
+              documentName: docSource.document?.document_name,
+              documentType: docSource.document?.document_type?.name || 'Document',
+              uploadedBy: uploaderName,
+              uploadedDate: new Date(docSource.createdAt).toLocaleDateString(),
+              status: item.version?.status || 'Approved'
+            };
+          }).filter(Boolean);
+
+          console.log("Mapped Documents:", mappedDocs);
           setDocuments(mappedDocs);
+        } else {
+          console.error("Failed to fetch transmission documents:", resDocs);
+          setDocuments([]);
         }
 
         // Get Communication Matrix from PO
-        const customer = customers.find(c => c.id === formData.customerId);
-        const location = customer?.customer_locations?.find(l => l.id === formData.locationId);
-        const po = location?.pos?.find(p => p.id === formData.poId);
-
-        if (po && po.po_communication_matrix) {
-          // Ensure it's an array and filter properly
-          const matrix = Array.isArray(po.po_communication_matrix) ? po.po_communication_matrix : [];
-          const shreno = matrix.filter(m => m.type === 'shreno' || m.type === 'Internal');
-          const client = matrix.filter(m => m.type === 'client' || m.type === 'External');
-          setCommunicationMatrix({ shreno, client });
-        }
+        const matrix = getCommunicationMatrix()
+        setCommunicationMatrix(matrix);
 
       } catch (error) {
         console.error("Error fetching transmission details", error);
+        setDocuments([]);
       } finally {
         setIsLoading(false);
       }
@@ -205,34 +234,36 @@ function SendDocumentToClient() {
   // Initialize selected emails when dialog opens
   useEffect(() => {
     if (isDialogOpen && formData.poId) {
+      const matrix = getCommunicationMatrix()
       const initialSelection = {}
-      communicationMatrix.shreno.forEach((contact) => {
+      matrix.shreno.forEach((contact) => {
         initialSelection[contact.id] = true
       })
-      communicationMatrix.client.forEach((contact) => {
+      matrix.client.forEach((contact) => {
         initialSelection[contact.id] = true
       })
       setSelectedEmails(initialSelection)
     } else if (!isDialogOpen) {
       setSelectedEmails({})
     }
-  }, [isDialogOpen, formData.poId, communicationMatrix])
-
-  // Get available locations and POs
-  const availableLocations = formData.customerId ? getLocationsForCustomer(formData.customerId) : []
-  const availablePOs = formData.locationId ? getPOsForLocation(formData.locationId) : []
+  }, [isDialogOpen, formData.poId])
 
   // Handle inputs
   const handleCustomerChange = (customerId) => {
     setFormData({ customerId, locationId: "", poId: "", jobId: "" })
+    setTransmissions([])
+    setDocuments([])
   }
 
   const handleLocationChange = (locationId) => {
     setFormData((prev) => ({ ...prev, locationId, poId: "", jobId: "" }))
+    setTransmissions([])
+    setDocuments([])
   }
 
   const handlePOChange = (poId) => {
     setFormData((prev) => ({ ...prev, poId, jobId: "" }))
+    setDocuments([])
   }
 
   const handleJobChange = (jobId) => {
@@ -250,11 +281,12 @@ function SendDocumentToClient() {
     setIsLoading(true)
 
     // Get selected email addresses
-    const shrenoEmails = communicationMatrix.shreno
+    const matrix = getCommunicationMatrix()
+    const shrenoEmails = matrix.shreno
       .filter((contact) => selectedEmails[contact.id])
       .map((contact) => contact.email)
 
-    const clientEmails = communicationMatrix.client
+    const clientEmails = matrix.client
       .filter((contact) => selectedEmails[contact.id])
       .map((contact) => contact.email)
 
@@ -311,7 +343,7 @@ function SendDocumentToClient() {
               <CardHeader>
                 <CardTitle>Select Transmission</CardTitle>
                 <CardDescription>
-                  Choose the customer, location, PO, and transmission
+                  Choose the customer, location, PO, and transmission to view approved documents
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -338,71 +370,77 @@ function SendDocumentToClient() {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="locationId">
-                      Location <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={formData.locationId}
-                      onValueChange={handleLocationChange}
-                      disabled={isLoading || !formData.customerId}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a location" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getLocationsForCustomer(formData.customerId).map((location) => (
-                          <SelectItem key={location.id} value={location.id}>
-                            {location.location_name || location.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {formData.customerId && (
+                    <div className="space-y-2">
+                      <Label htmlFor="locationId">
+                        Location <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.locationId}
+                        onValueChange={handleLocationChange}
+                        disabled={isLoading || !formData.customerId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a location" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableLocations.map((location) => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.location_name || location.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="poId">
-                      PO Number <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={formData.poId}
-                      onValueChange={handlePOChange}
-                      disabled={isLoading || !formData.locationId}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a PO" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getPOsForLocation(formData.locationId).map((po) => (
-                          <SelectItem key={po.id} value={po.id}>
-                            {po.po_number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {formData.locationId && (
+                    <div className="space-y-2">
+                      <Label htmlFor="poId">
+                        PO Number <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.poId}
+                        onValueChange={handlePOChange}
+                        disabled={isLoading || !formData.locationId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a PO" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availablePOs.map((po) => (
+                            <SelectItem key={po.id} value={po.id}>
+                              {po.po_number}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="jobId">
-                      Transmission Number <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={formData.jobId}
-                      onValueChange={handleJobChange}
-                      disabled={isLoading || !formData.poId}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a transmission" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {transmissions.map((job) => (
-                          <SelectItem key={job.id} value={job.id}>
-                            {job.transmission_number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {formData.poId && (
+                    <div className="space-y-2">
+                      <Label htmlFor="jobId">
+                        Transmission Number <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={formData.jobId}
+                        onValueChange={handleJobChange}
+                        disabled={isLoading || !formData.poId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a transmission" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableJobs.map((job) => (
+                            <SelectItem key={job.id} value={job.id}>
+                              {job.transmission_number}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -610,4 +648,3 @@ function SendDocumentToClient() {
 }
 
 export default SendDocumentToClient
-
