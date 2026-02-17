@@ -767,7 +767,7 @@ class DccService {
         // Generate UUID first.
         const transmissionId = require('crypto').randomUUID();
         // Use PUBLIC route
-        const zipDownloadLink = `${backendUrl}/api/files/download/${transmissionId}`;
+        const zipDownloadLink = `${backendUrl}/api/secure/download/${transmissionId}`;
 
         return await prisma.$transaction(async (tx) => {
             const transmission = await tx.transmission.create({

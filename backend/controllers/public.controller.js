@@ -31,7 +31,7 @@ class PublicController {
             Invalid password or link expired. Please try again.
         </div>
 
-        <form action="/api/files/verify" method="POST">
+        <form action="/api/secure/verify" method="POST">
             <input type="hidden" name="transmissionId" value="${transmissionId}">
             <input type="password" name="password" placeholder="Enter Password" required autofocus>
             <button type="submit">Download Files</button>
@@ -67,7 +67,7 @@ class PublicController {
                 // We need to know the original download URL. Ideally constructing it from ID.
                 // For now, redirect to previous page or reconstruct URL
                 // Better UX: Show error on same page.
-                res.redirect(`/api/files/download/${transmissionId}?error=invalid`);
+                res.redirect(`/api/secure/download/${transmissionId}?error=invalid`);
             }
         } catch (error) {
             console.error('Verify ZIP error:', error);

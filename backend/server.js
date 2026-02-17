@@ -47,7 +47,7 @@ const wpjRoutes = require('#routes/wpj/wpj.routes.js');
 app.use('/api/wpj', wpjRoutes);
 
 const publicRoutes = require('./routes/public.routes.js');
-app.use('/api/files', publicRoutes);
+app.use('/api/secure', publicRoutes);
 
 
 
