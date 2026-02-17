@@ -752,52 +752,27 @@ class DccService {
         }
 
         // Generate Transmission Number
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        // Format: SHRENO-TR-0000001
         const count = await prisma.transmission.count({ where: { company_id } });
-        const transNum = `TR-${dateStr}-${(count + 1).toString().padStart(3, '0')}`;
+        const transNum = `SHRENO-TR-${(count + 1).toString().padStart(7, '0')}`;
         const password = Math.random().toString(36).slice(-8).toUpperCase();
 
         // 2. Generate ZIP File
-        const fs = require('fs');
-        const path = require('path');
-        const archiver = require('archiver');
-        const uploadsDir = path.join(__dirname, '../../uploads'); // Adjust based on actual structure
         const transmissionZipName = `${transNum}.zip`;
-        const transmissionZipPath = path.join(uploadsDir, transmissionZipName);
-
-        // Ensure uploads dir exists (it should)
-        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
-        const output = fs.createWriteStream(transmissionZipPath);
-        const archive = archiver('zip', { zlib: { level: 9 } });
-
-        // Promise to handle ZIP generation
-        await new Promise((resolve, reject) => {
-            output.on('close', resolve);
-            archive.on('error', reject);
-            archive.pipe(output);
-
-            docs.forEach(doc => {
-                const version = doc.versions[0];
-                if (version && version.file_url) {
-                    // Extract filename from URL: http://localhost:3000/uploads/filename.ext
-                    const filename = version.file_url.split('/').pop();
-                    const filePath = path.join(uploadsDir, filename);
-                    if (fs.existsSync(filePath)) {
-                        archive.file(filePath, { name: `${doc.document.document_number}-${doc.document.document_name}${path.extname(filename)}` });
-                    }
-                }
-            });
-
-            archive.finalize();
-        });
+        const ZipUtils = require('../utils/zip.utils');
+        await ZipUtils.createTransmissionZip(transmissionZipName, docs);
 
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-        const zipUrl = `${backendUrl}/uploads/${transmissionZipName}`;
+
+        // Generate UUID first.
+        const transmissionId = require('crypto').randomUUID();
+        // Use PUBLIC route
+        const zipDownloadLink = `${backendUrl}/api/files/download/${transmissionId}`;
 
         return await prisma.$transaction(async (tx) => {
             const transmission = await tx.transmission.create({
                 data: {
+                    id: transmissionId, // Use pre-generated UUID
                     company_id,
                     transmission_number: transNum,
                     customer_id,
@@ -805,7 +780,7 @@ class DccService {
                     po_id,
                     password: password,
                     created_by: user_id,
-                    zip_url: zipUrl
+                    zip_url: zipDownloadLink // Use secure public link
                 },
                 include: { po: true }
             });
@@ -945,6 +920,33 @@ class DccService {
 
         return { success: true, message: 'Email sent successfully via EmailService' };
     }
+
+    async verifyZipPassword(transmissionId, password) {
+        if (!transmissionId || !password) return { isValid: false };
+
+        const transmission = await prisma.transmission.findUnique({
+            where: { id: transmissionId }
+        });
+
+        if (!transmission) return { isValid: false };
+
+        // Simple string comparison
+        if (transmission.password === password || transmission.password === password.trim()) {
+            const ZipUtils = require('../utils/zip.utils');
+            const path = require('path');
+
+            // Reconstruct filename from transmission number
+            const filename = `${transmission.transmission_number}.zip`;
+            const filePath = ZipUtils.getZipPath(filename);
+
+            if (filePath) {
+                return { isValid: true, filePath, fileName: filename };
+            }
+        }
+
+        return { isValid: false };
+    }
+
 
     /**
      * Assign Document to Job/User
