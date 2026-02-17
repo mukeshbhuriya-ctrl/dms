@@ -35,6 +35,7 @@ model company{
   group_document group_document[]
   document_type document_type[]
   weld_joint_plans weld_joint_plan[]
+  transmissions transmission[]
 }
 
 model role{
@@ -68,6 +69,8 @@ model user{
   single_document single_document[]
   group_document group_document[]
   weld_joint_plans_created weld_joint_plan[]
+  uploaded_versions document_version[]
+  created_transmissions transmission[]
 }
 
 model user_roles{
@@ -108,6 +111,7 @@ model customer{
   jobs job[]
   group_document group_document[]
   single_document single_document[]
+  transmissions transmission[]
 }
 
 
@@ -127,6 +131,7 @@ model customer_location{
   jobs job[]
   group_document group_document[]
   single_document single_document[]
+  transmissions transmission[]
 }
 
 model po{
@@ -148,6 +153,7 @@ model po{
   jobs job[]
   group_document group_document[]
   single_document single_document[]
+  transmissions transmission[]
 }
 
 model po_communication_matrix{
@@ -228,8 +234,8 @@ model single_document{
   client_doc_no String?
   client_reference_no String?
   upload_due_days Int?
-  reponce_due_days Int?
-  user_id String
+  response_due_days Int?
+  user_id String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -239,7 +245,11 @@ model single_document{
   customer_location customer_location @relation(fields: [customer_location_id], references: [id])
   po po @relation(fields: [po_id], references: [id])
   job job @relation(fields: [job_id], references: [id])
-  user user @relation(fields: [user_id], references: [id])
+  user user? @relation(fields: [user_id], references: [id])
+  
+  status String @default("Pending") // Pending, Uploaded, Approved, Rejected
+  versions document_version[]
+  transmission_items transmission_document[]
 }
 
 model group{
@@ -280,8 +290,9 @@ model group_document{
   client_doc_no String?
   client_reference_no String?
   upload_due_days Int?
-  reponce_due_days Int?
+  response_due_days Int?
   user_id String
+  status String @default("Pending") // Pending, Uploaded, Approved, Rejected
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -292,6 +303,8 @@ model group_document{
   customer customer @relation(fields: [customer_id], references: [id])
   customer_location customer_location @relation(fields: [customer_location_id], references: [id])
   po po @relation(fields: [po_id], references: [id])
+  versions document_version[]
+  transmission_items transmission_document[]
 }
 
 
@@ -436,3 +449,57 @@ model weld_joint_inspection {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
+model document_version {
+  id                 String   @id @default(uuid())
+  single_document_id String?
+  group_document_id  String?
+  version_no         Int
+  file_url           String
+  remarks            String?
+  status             String   @default("Uploaded") // Uploaded, Approved, Rejected
+  uploaded_by        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  single_document single_document? @relation(fields: [single_document_id], references: [id])
+  group_document  group_document?  @relation(fields: [group_document_id], references: [id])
+  uploader        user             @relation(fields: [uploaded_by], references: [id])
+  transmission_items transmission_document[]
+}
+
+model transmission {
+  id                   String   @id @default(uuid())
+  company_id           String
+  transmission_number  String   @unique
+  customer_id          String
+  customer_location_id String
+  po_id                String
+  zip_url              String?
+  password             String
+  created_by           String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  company   company           @relation(fields: [company_id], references: [id])
+  customer  customer          @relation(fields: [customer_id], references: [id])
+  location  customer_location @relation(fields: [customer_location_id], references: [id])
+  po        po                @relation(fields: [po_id], references: [id])
+  creator   user              @relation(fields: [created_by], references: [id])
+  documents transmission_document[]
+}
+
+model transmission_document {
+  id                 String @id @default(uuid())
+  transmission_id    String
+  single_document_id String?
+  group_document_id  String?
+  version_id         String
+
+  transmission    transmission     @relation(fields: [transmission_id], references: [id])
+  single_document single_document? @relation(fields: [single_document_id], references: [id])
+  group_document  group_document?  @relation(fields: [group_document_id], references: [id])
+  version         document_version @relation(fields: [version_id], references: [id])
+}
+
+

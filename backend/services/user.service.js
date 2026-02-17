@@ -156,6 +156,7 @@ class UserService {
             select: {
                 id: true,
                 name: true,
+                email: true,
                 // Add other fields as needed
             },
         });

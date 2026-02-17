@@ -21,7 +21,7 @@ function authenticateUser(requiredRoles, options = {}) {
       // If not in cookie, try Authorization header
       else {
         const authHeader = req.headers.authorization;
-        
+
         if (!authHeader) {
           return res.status(401).json({
             success: false,
@@ -50,7 +50,7 @@ function authenticateUser(requiredRoles, options = {}) {
 
       // Get JWT secret from environment
       const JWT_SECRET = process.env.JWT_SECRET;
-      
+
       if (!JWT_SECRET) {
         return res.status(500).json({
           success: false,
@@ -62,14 +62,15 @@ function authenticateUser(requiredRoles, options = {}) {
       const decoded = await decryptToken(token, JWT_SECRET);
 
       // Extract user roles from token (should be an array)
-      const userRoles = Array.isArray(decoded.role) ? decoded.role : [];
+      // Extract user roles from token (should be an array)
+      const userRoles = Array.isArray(decoded.role) ? decoded.role : (decoded.role ? [decoded.role] : []);
 
       // Normalize required roles to array
       const rolesToCheck = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles];
 
       // Check if user has required role(s)
       let hasRequiredRole = false;
-      
+
       if (requireAll) {
         // User must have ALL required roles
         hasRequiredRole = rolesToCheck.every((role) => userRoles.includes(role));
@@ -79,10 +80,10 @@ function authenticateUser(requiredRoles, options = {}) {
       }
 
       if (!hasRequiredRole) {
-        const roleText = requireAll 
+        const roleText = requireAll
           ? `all of the following roles: ${rolesToCheck.join(', ')}`
           : `one of the following roles: ${rolesToCheck.join(', ')}`;
-        
+
         return res.status(403).json({
           success: false,
           message: `Access denied. You must have ${roleText}`,
@@ -143,7 +144,7 @@ async function authenticateUserOnly(req, res, next) {
     // If not in cookie, try Authorization header
     else {
       const authHeader = req.headers.authorization;
-      
+
       if (!authHeader) {
         return res.status(401).json({
           success: false,
@@ -169,7 +170,7 @@ async function authenticateUserOnly(req, res, next) {
     }
 
     const JWT_SECRET = process.env.JWT_SECRET;
-    
+
     if (!JWT_SECRET) {
       return res.status(500).json({
         success: false,
@@ -184,7 +185,7 @@ async function authenticateUserOnly(req, res, next) {
     req.user = {
       userid: decoded.userid,
       company_id: decoded.company_id,
-      role: Array.isArray(decoded.role) ? decoded.role : [],
+      role: Array.isArray(decoded.role) ? decoded.role : (decoded.role ? [decoded.role] : []),
     };
 
     next();

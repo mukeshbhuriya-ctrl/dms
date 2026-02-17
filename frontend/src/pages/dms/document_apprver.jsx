@@ -1,15 +1,8 @@
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Card,
   CardContent,
@@ -17,262 +10,207 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Download, CheckCircle, XCircle } from "lucide-react"
+import { toast } from 'react-toastify';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { dccService } from "../../services/dcc.service";
+import { DataTable } from "@/components/shared/DataTable"
 
 function DocumentApprover() {
-  const [formData, setFormData] = useState({
-    customerId: "",
-    locationId: "",
-    poId: "",
-    jobId: "",
-  })
-  const [isLoading, setIsLoading] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Mock customer data - replace with actual API call
-  const customers = [
-    { id: "1", name: "Customer 1" },
-    { id: "2", name: "Customer 2" },
-    { id: "3", name: "Customer 3" },
-  ]
+  // Review Dialog State
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [selectedDocForReview, setSelectedDocForReview] = useState(null);
+  const [reviewStatus, setReviewStatus] = useState(''); // 'Approved' or 'Rejected'
+  const [reviewRemarks, setReviewRemarks] = useState('');
+  const [isReviewing, setIsReviewing] = useState(false);
 
-  // Mock location data - replace with actual API call based on customer
-  const locations = {
-    "1": [
-      { id: "1", name: "Location A", gstNumber: "GST001" },
-      { id: "2", name: "Location B", gstNumber: "GST002" },
-    ],
-    "2": [
-      { id: "3", name: "Location C", gstNumber: "GST003" },
-      { id: "4", name: "Location D", gstNumber: "GST004" },
-    ],
-    "3": [
-      { id: "5", name: "Location E", gstNumber: "GST005" },
-    ],
-  }
+  // Filters
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [approverStatusFilter, setApproverStatusFilter] = useState("all");
 
-  // Mock PO data - replace with actual API call based on location
-  const purchaseOrders = {
-    "1": [
-      { id: "1", poNumber: "PO-001" },
-      { id: "2", poNumber: "PO-002" },
-    ],
-    "2": [
-      { id: "3", poNumber: "PO-003" },
-      { id: "4", poNumber: "PO-004" },
-    ],
-    "3": [
-      { id: "5", poNumber: "PO-005" },
-    ],
-    "4": [
-      { id: "6", poNumber: "PO-006" },
-    ],
-    "5": [
-      { id: "7", poNumber: "PO-007" },
-    ],
-  }
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-  // Mock Job data - replace with actual API call based on PO
-  const jobs = {
-    "1": [
-      { id: "1", jobNumber: "JOB-001" },
-      { id: "2", jobNumber: "JOB-002" },
-    ],
-    "2": [
-      { id: "3", jobNumber: "JOB-003" },
-    ],
-    "3": [
-      { id: "4", jobNumber: "JOB-004" },
-      { id: "5", jobNumber: "JOB-005" },
-    ],
-    "4": [
-      { id: "6", jobNumber: "JOB-006" },
-    ],
-    "5": [
-      { id: "7", jobNumber: "JOB-007" },
-    ],
-    "6": [
-      { id: "8", jobNumber: "JOB-008" },
-    ],
-    "7": [
-      { id: "9", jobNumber: "JOB-009" },
-    ],
-  }
+  const handleReviewClick = (doc, status) => {
+    setSelectedDocForReview(doc);
+    setReviewStatus(status);
+    setReviewRemarks('');
+    setReviewDialogOpen(true);
+  };
 
-  // Dummy document list - replace with actual API call based on job
-  const documents = formData.jobId
-    ? [
-        {
-          id: 1,
-          documentCode: "DOC-001",
-          documentName: "Sales Invoice",
-          documentType: "Invoice",
-          status: "pending",
-          uploadedBy: "John Doe",
-          uploadedDate: "2024-01-15",
-          fileUrl: "#",
-        },
-        {
-          id: 2,
-          documentCode: "DOC-002",
-          documentName: "Purchase Receipt",
-          documentType: "Receipt",
-          status: "approved",
-          uploadedBy: "Jane Smith",
-          uploadedDate: "2024-01-16",
-          fileUrl: "#",
-        },
-        {
-          id: 3,
-          documentCode: "DOC-003",
-          documentName: "Service Agreement",
-          documentType: "Agreement",
-          status: "rejected",
-          uploadedBy: "Bob Johnson",
-          uploadedDate: "2024-01-17",
-          fileUrl: "#",
-        },
-        {
-          id: 4,
-          documentCode: "DOC-004",
-          documentName: "Quality Certificate",
-          documentType: "Certificate",
-          status: "pending for approval",
-          uploadedBy: "Alice Williams",
-          uploadedDate: "2024-01-18",
-          fileUrl: "#",
-        },
-        {
-          id: 5,
-          documentCode: "DOC-005",
-          documentName: "Business License",
-          documentType: "License",
-          status: "approved",
-          uploadedBy: "Charlie Brown",
-          uploadedDate: "2024-01-19",
-          fileUrl: "#",
-        },
-      ]
-    : []
+  const submitReview = async () => {
+    if (!selectedDocForReview) return;
 
-  // Get available locations based on selected customer
-  const availableLocations = formData.customerId
-    ? locations[formData.customerId] || []
-    : []
+    if (reviewStatus === 'Rejected' && !reviewRemarks.trim()) {
+      toast.error("Remarks are required for rejection.");
+      return;
+    }
 
-  // Get available POs based on selected location
-  const availablePOs = formData.locationId
-    ? purchaseOrders[formData.locationId] || []
-    : []
+    setIsReviewing(true);
+    console.log("Submitting review for:", selectedDocForReview);
+    try {
+      // API call to review document
+      const result = await dccService.reviewDocument({
+        document_id: selectedDocForReview.id,
+        status: reviewStatus,
+        remarks: reviewRemarks
+      });
 
-  // Get available jobs based on selected PO
-  const availableJobs = formData.poId ? jobs[formData.poId] || [] : []
+      if (result.success || result.data) {
+        toast.success(`Document ${reviewStatus} successfully`);
+        setReviewDialogOpen(false);
+        setRefreshTrigger(prev => prev + 1); // Refresh table
+      } else {
+        toast.error(result.message || "Failed to submit review");
+      }
+    } catch (error) {
+      console.error("Review error:", error);
+      toast.error(error.message || "Failed to submit review");
+    } finally {
+      setIsReviewing(false);
+    }
+  };
 
-  // Handle customer change
-  const handleCustomerChange = (customerId) => {
-    setFormData({
-      customerId,
-      locationId: "",
-      poId: "",
-      jobId: "",
-    })
-  }
-
-  // Handle location change
-  const handleLocationChange = (locationId) => {
-    setFormData((prev) => ({
-      ...prev,
-      locationId,
-      poId: "",
-      jobId: "",
-    }))
-  }
-
-  // Handle PO change
-  const handlePOChange = (poId) => {
-    setFormData((prev) => ({
-      ...prev,
-      poId,
-      jobId: "",
-    }))
-  }
-
-  // Handle job change
-  const handleJobChange = (jobId) => {
-    setFormData((prev) => ({
-      ...prev,
-      jobId,
-    }))
-  }
-
-  // Handle download
-  const handleDownload = (documentId, fileUrl) => {
-    // Simulate download
-    console.log("Downloading document:", documentId, fileUrl)
-    // Add your download logic here
-    // Example: window.open(fileUrl, '_blank')
-  }
-
-  // Handle approve
-  const handleApprove = async (documentId) => {
-    setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Approving document:", documentId)
-      setIsLoading(false)
-      // Add your API call here
-      // Example: await fetch(`/api/documents/${documentId}/approve`, { method: 'POST' })
-    }, 1000)
-  }
-
-  // Handle reject
-  const handleReject = async (documentId) => {
-    setIsLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Rejecting document:", documentId)
-      setIsLoading(false)
-      // Add your API call here
-      // Example: await fetch(`/api/documents/${documentId}/reject`, { method: 'POST' })
-    }, 1000)
-  }
-
-  // Get status badge
   const getStatusBadge = (status) => {
     switch (status) {
-      case "approved":
-        return (
-          <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-            Approved
-          </span>
-        )
-      case "rejected":
-        return (
-          <span className="inline-flex items-center rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">
-            Rejected
-          </span>
-        )
-      case "pending for approval":
-        return (
-          <span className="inline-flex items-center rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
-            Pending for Approval
-          </span>
-        )
+      case "Approved":
+        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Approved</span>
+      case "Rejected":
+        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">Rejected</span>
+      case "Uploaded":
+      case "Pending":
+      case "Pending for Approval":
+        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Pending for Approval</span>
       default:
-        return (
-          <span className="inline-flex items-center rounded-full bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:text-gray-400">
-            {status}
-          </span>
-        )
+        return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">{status}</span>
     }
   }
+
+  const columns = useMemo(() => [
+    {
+      header: "S.No",
+      accessorKey: "s_no",
+      cell: (row) => row.s_no,
+      className: "w-[50px]"
+    },
+    {
+      header: "Document Code",
+      accessorKey: "documentNumber"
+    },
+    {
+      header: "Document Name",
+      accessorKey: "documentName"
+    },
+    {
+      header: "Document Type",
+      accessorKey: "documentType"
+    },
+    {
+      header: "Uploaded By",
+      accessorKey: "uploadedBy"
+    },
+    {
+      header: "Uploaded Date",
+      accessorKey: "uploadedDate"
+    },
+    {
+      header: "Status",
+      accessorKey: "statusDisplay",
+      cell: (row) => getStatusBadge(row.status)
+    },
+    {
+      header: "Action",
+      accessorKey: "id",
+      cell: (row) => (
+        <div className="flex gap-2">
+
+          <Button variant="outline" size="sm" onClick={() => window.open(row.fileUrl, '_blank')} disabled={!row.fileUrl}>
+            <Download className="w-4 h-4 mr-1" /> Download
+          </Button>
+
+          <Button
+            size="sm"
+            className="bg-green-600 hover:bg-green-700"
+            onClick={() => handleReviewClick(row.originalDoc, 'Approved')}
+            disabled={row.status === 'Approved'}
+          >
+            <CheckCircle className="w-4 h-4 mr-1" /> Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => handleReviewClick(row.originalDoc, 'Rejected')}
+            disabled={row.status === 'Rejected'}
+          >
+            <XCircle className="w-4 h-4 mr-1" /> Reject
+          </Button>
+        </div>
+      ),
+      className: "w-[250px]"
+    }
+  ], []);
+
+  const fetchDocuments = useCallback(async ({ page, limit, search }) => {
+    try {
+      const response = await dccService.getDocumentsForApproval({
+        page,
+        limit,
+        search,
+        status_filter: statusFilter,
+        approver_status_filter: approverStatusFilter
+      });
+
+      if (response.data) {
+        const mappedData = response.data.map((doc, index) => {
+          const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+          const assignedUser = doc.user;
+          const uploaderName = assignedUser
+            ? assignedUser.name
+            : 'N/A';
+
+
+
+          return {
+            id: doc.id,
+            s_no: (page - 1) * limit + index + 1,
+            documentNumber: doc.document.document_number,
+            documentName: doc.document.document_name,
+            documentType: doc.document.document_type?.name || 'N/A',
+            uploadedBy: uploaderName,
+            uploadedDate: new Date(doc.updatedAt).toLocaleDateString(),
+            status: doc.status, // Keep original status for badge display
+            statusDisplay: doc.status,
+            fileUrl: latestVersion?.file_url,
+            originalDoc: doc
+          };
+        });
+
+        return {
+          data: mappedData,
+          meta: response.meta
+        };
+      }
+      return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+    }
+  }, [statusFilter, approverStatusFilter]);
+
+  // Wrap fetchDocuments to include refreshTrigger
+  const fetchDocumentsWrapper = useCallback((params) => {
+    return fetchDocuments(params);
+  }, [fetchDocuments, refreshTrigger]);
 
   return (
     <SidebarProvider>
@@ -285,226 +223,101 @@ function DocumentApprover() {
           <div className="max-w-7xl mx-auto">
             <div className="mb-6">
               <h1 className="text-3xl font-bold mb-2">Document Approver</h1>
-              <p className="text-muted-foreground">
-                Select customer, location, PO, and job to view and approve documents.
-              </p>
+              <p className="text-muted-foreground">View and approve documents uploaded by users.</p>
             </div>
 
-            {/* Selection Section */}
-            <Card className="mb-6">
+            <Card>
               <CardHeader>
-                <CardTitle>Select Job</CardTitle>
+                <CardTitle>Documents</CardTitle>
                 <CardDescription>
-                  Choose the customer, location, PO, and job to view documents
+                  Approve or Reject uploaded documents.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="customerId">
-                      Customer <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={formData.customerId}
-                      onValueChange={handleCustomerChange}
-                      disabled={isLoading}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.name}
+                <div className="rounded-md border p-2">
+                  {/* Filters */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 px-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="statusFilter">Filter by Status</Label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="done">Done</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="approverStatusFilter">
+                        Filter by Approver Status
+                      </Label>
+                      <Select
+                        value={approverStatusFilter}
+                        onValueChange={setApproverStatusFilter}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="All Approver Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Approver Statuses</SelectItem>
+                          <SelectItem value="NA">NA</SelectItem>
+                          <SelectItem value="pending">
+                            Pending for Approval
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          <SelectItem value="rejected">Rejected</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  {formData.customerId && (
-                    <div className="space-y-2">
-                      <Label htmlFor="locationId">
-                        Location <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.locationId}
-                        onValueChange={handleLocationChange}
-                        disabled={isLoading || !formData.customerId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a location" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableLocations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {location.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {formData.locationId && (
-                    <div className="space-y-2">
-                      <Label htmlFor="poId">
-                        PO Number <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.poId}
-                        onValueChange={handlePOChange}
-                        disabled={isLoading || !formData.locationId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a PO" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availablePOs.map((po) => (
-                            <SelectItem key={po.id} value={po.id}>
-                              {po.poNumber}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {formData.poId && (
-                    <div className="space-y-2">
-                      <Label htmlFor="jobId">
-                        Job Number <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.jobId}
-                        onValueChange={handleJobChange}
-                        disabled={isLoading || !formData.poId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a job" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableJobs.map((job) => (
-                            <SelectItem key={job.id} value={job.id}>
-                              {job.jobNumber}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                  <DataTable
+                    columns={columns}
+                    fetchData={fetchDocumentsWrapper}
+                  />
                 </div>
               </CardContent>
             </Card>
-
-            {/* Documents Table */}
-            {formData.jobId && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Documents</CardTitle>
-                  <CardDescription>
-                    Review and approve/reject documents for the selected job
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[50px]">S.No</TableHead>
-                          <TableHead>Document Code</TableHead>
-                          <TableHead>Document Name</TableHead>
-                          <TableHead>Document Type</TableHead>
-                          <TableHead>Uploaded By</TableHead>
-                          <TableHead>Uploaded Date</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="w-[250px]">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {documents.length > 0 ? (
-                          documents.map((document, index) => (
-                            <TableRow key={document.id}>
-                              <TableCell className="font-medium">
-                                {index + 1}
-                              </TableCell>
-                              <TableCell>{document.documentCode}</TableCell>
-                              <TableCell>{document.documentName}</TableCell>
-                              <TableCell>
-                                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                  {document.documentType}
-                                </span>
-                              </TableCell>
-                              <TableCell>{document.uploadedBy}</TableCell>
-                              <TableCell>{document.uploadedDate}</TableCell>
-                              <TableCell>
-                                {getStatusBadge(document.status)}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleDownload(document.id, document.fileUrl)
-                                    }
-                                    disabled={isLoading}
-                                  >
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => handleApprove(document.id)}
-                                    disabled={
-                                      isLoading || document.status === "approved"
-                                    }
-                                    className="bg-green-600 hover:bg-green-700"
-                                  >
-                                    <CheckCircle className="h-4 w-4 mr-2" />
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => handleReject(document.id)}
-                                    disabled={
-                                      isLoading || document.status === "rejected"
-                                    }
-                                  >
-                                    <XCircle className="h-4 w-4 mr-2" />
-                                    Reject
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={8}
-                              className="h-24 text-center"
-                            >
-                              No documents found for the selected job.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </main>
       </SidebarInset>
+
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="rounded-[33px]">
+          <DialogHeader>
+            <DialogTitle>{reviewStatus} Document</DialogTitle>
+            <DialogDescription>
+              {selectedDocForReview && `${selectedDocForReview.document.document_number} - ${selectedDocForReview.document.document_name}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="remarks">Remarks {reviewStatus === 'Rejected' && <span className="text-destructive">*</span>}</Label>
+              <Input
+                id="remarks"
+                value={reviewRemarks}
+                onChange={(e) => setReviewRemarks(e.target.value)}
+                placeholder="Enter remarks..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={submitReview}
+              disabled={isReviewing || (reviewStatus === 'Rejected' && !reviewRemarks.trim())}
+              variant={reviewStatus === 'Rejected' ? "destructive" : "default"}
+            >
+              Confirm {reviewStatus}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
 }
 
 export default DocumentApprover
-

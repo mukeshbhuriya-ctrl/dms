@@ -107,6 +107,114 @@ class DccController {
             res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    async getMyAssignedDocuments(req, res) {
+        try {
+            // Middleware attaches userid, not id
+            const userId = req.user.userid || req.user.id;
+            const result = await DccService.getMyAssignedDocuments(req.user.company_id, userId, req.query);
+            res.status(200).json({ success: true, data: result.data, meta: result.meta });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async getAllAssignedDocuments(req, res) {
+        try {
+            const userRoles = req.user.role || [];
+            // Check if user has DCC or ADMIN role
+            if (userRoles.includes('DCC') || userRoles.includes('ADMIN')) {
+                const result = await DccService.getAllAssignedDocuments(req.user.company_id, req.query);
+                return res.status(200).json({ success: true, data: result.data, meta: result.meta });
+            } else {
+                // For other users, only show documents assigned to them
+                // Using req.user.userid as per middleware definition
+                const userId = req.user.userid || req.user.id;
+                const result = await DccService.getMyAssignedDocuments(req.user.company_id, userId, req.query);
+                return res.status(200).json({ success: true, data: result.data, meta: result.meta });
+            }
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+
+    async uploadDocumentVersion(req, res) {
+        try {
+            // Middleware attaches userid
+            const userId = req.user.userid || req.user.id;
+            const result = await DccService.uploadDocumentVersion(req.user.company_id, userId, req.body.document_id, req.file, req.body.remarks);
+            res.status(201).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async getDocumentsForApproval(req, res) {
+        try {
+            const result = await DccService.getDocumentsForApproval(req.user.company_id, req.query);
+            res.status(200).json({ success: true, data: result.data, meta: result.meta });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async reviewDocument(req, res) {
+        try {
+            const userId = req.user.userid || req.user.id;
+            const result = await DccService.reviewDocument(req.user.company_id, userId, req.body.document_id, req.body.status, req.body.remarks);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async createTransmission(req, res) {
+        try {
+            const userId = req.user.userid || req.user.id;
+            const result = await DccService.createTransmission(req.user.company_id, userId, req.body);
+            res.status(201).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async assignDocument(req, res) {
+        try {
+            const result = await DccService.assignDocument(req.user.company_id, req.body);
+            res.status(201).json({ success: true, data: result });
+        } catch (error) {
+            console.error('Assign document error:', error);
+            res.status(400).json({ success: false, message: 'Failed to assign document. Please check your inputs.' });
+        }
+    }
+
+    async getTransmissionDocuments(req, res) {
+        try {
+            const result = await DccService.getTransmissionDocuments(req.user.company_id, req.query.transmission_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async getTransmissions(req, res) {
+        try {
+            const result = await DccService.getTransmissions(req.user.company_id, req.query);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async sendTransmissionEmail(req, res) {
+        try {
+            const result = await DccService.sendTransmissionEmail(req.user.company_id, req.body);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = new DccController();

@@ -84,15 +84,15 @@ const roleMenus = {
           path: "/dcc/assign-document",
         },
         {
-          title: "Transmission",
-          path: "/dcc/create-transmission",
-        },
-        {
           title: "Document Approver",
           path: "/dcc/document-approver",
         },
         {
-          title: "Send to Client",
+          title: "Create Transmission",
+          path: "/dcc/create-transmission",
+        },
+        {
+          title: "Send Document to Client",
           path: "/dcc/send-document-to-client",
         },
       ],
@@ -119,11 +119,16 @@ const roleMenus = {
       path: "/management/dashboard",
     }
   ],
-  User: [
+  USER: [
     {
-      title: "User Dashboard",
+      title: "Dashboard",
       icon: LayoutDashboard,
       path: "/user/dashboard",
+    },
+    {
+      title: "Upload Documents",
+      icon: FileText,
+      path: "/dcc/upload-documents",
     }
   ],
   Marketing: [

@@ -49,7 +49,7 @@ export function DataTable({
 
     useEffect(() => {
         loadData()
-    }, [page])
+    }, [loadData])
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value)

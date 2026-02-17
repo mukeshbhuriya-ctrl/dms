@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Search, Plus, ArrowLeft, Mail } from "lucide-react"
+import { toast } from 'react-toastify';
+import { dccService } from "../../services/dcc.service";
+import { useNavigate } from "react-router-dom";
+import { DataTable } from "@/components/shared/DataTable";
 import {
   Table,
   TableBody,
@@ -26,353 +32,427 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Search } from "lucide-react"
 
 function CreateTransmission() {
+  const navigate = useNavigate();
+  const [view, setView] = useState("list") // 'list' | 'create'
+
+  // --- List View State ---
+  const [transmissions, setTransmissions] = useState([])
+  const [loadingList, setLoadingList] = useState(false)
+
+  // --- Create View State ---
   const [formData, setFormData] = useState({
     customerId: "",
     locationId: "",
     poId: "",
   })
-  const [selectedJobs, setSelectedJobs] = useState([])
+  const [autoFilled, setAutoFilled] = useState({
+    customerId: false,
+    locationId: false
+  })
+  const [customers, setCustomers] = useState([])
+  const [allDocuments, setAllDocuments] = useState([]) // Documents for selected PO
   const [selectedDocuments, setSelectedDocuments] = useState([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [documentTypeFilter, setDocumentTypeFilter] = useState("all")
-  const [isLoading, setIsLoading] = useState(false)
+  const [loadingDocs, setLoadingDocs] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [successData, setSuccessData] = useState(null) // { zip_url, password }
 
-  // Mock customer data - replace with actual API call
-  const customers = [
-    { id: "1", name: "Customer 1" },
-    { id: "2", name: "Customer 2" },
-    { id: "3", name: "Customer 3" },
-  ]
+  // --- Job Selection Logic ---
+  const [selectedJobs, setSelectedJobs] = useState([]);
+  const [jobs, setJobs] = useState([]);
 
-  // Mock location data - replace with actual API call based on customer
-  const locations = {
-    "1": [
-      { id: "1", name: "Location A", gstNumber: "GST001" },
-      { id: "2", name: "Location B", gstNumber: "GST002" },
-    ],
-    "2": [
-      { id: "3", name: "Location C", gstNumber: "GST003" },
-      { id: "4", name: "Location D", gstNumber: "GST004" },
-    ],
-    "3": [
-      { id: "5", name: "Location E", gstNumber: "GST005" },
-    ],
+  // --- Initial Data Fetch (Customers for Create View) ---
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const res = await dccService.getCustomers({ limit: 1000 });
+      if (res.success) {
+        setCustomers(res.data || []);
+      } else {
+        console.error("Failed to fetch customers:", res.message);
+        toast.error("Failed to load customers");
+      }
+    } catch (err) {
+      console.error("Error fetching customers:", err);
+      toast.error("Failed to load customers");
+    }
   }
 
-  // Mock PO data - replace with actual API call based on location
-  const purchaseOrders = {
-    "1": [
-      { id: "1", poNumber: "PO-001" },
-      { id: "2", poNumber: "PO-002" },
-    ],
-    "2": [
-      { id: "3", poNumber: "PO-003" },
-      { id: "4", poNumber: "PO-004" },
-    ],
-    "3": [
-      { id: "5", poNumber: "PO-005" },
-    ],
-    "4": [
-      { id: "6", poNumber: "PO-006" },
-    ],
-    "5": [
-      { id: "7", poNumber: "PO-007" },
-    ],
+  // --- Helpers for Dropdowns ---
+  const getLocationsForCustomer = (customerId) => {
+    const customer = customers.find(c => c.id === customerId)
+    return customer?.customer_locations || []
   }
 
-  // Mock Job data - replace with actual API call based on PO
-  const jobs = {
-    "1": [
-      { id: "1", jobNumber: "JOB-001" },
-      { id: "2", jobNumber: "JOB-002" },
-    ],
-    "2": [
-      { id: "3", jobNumber: "JOB-003" },
-    ],
-    "3": [
-      { id: "4", jobNumber: "JOB-004" },
-      { id: "5", jobNumber: "JOB-005" },
-    ],
-    "4": [
-      { id: "6", jobNumber: "JOB-006" },
-    ],
-    "5": [
-      { id: "7", jobNumber: "JOB-007" },
-    ],
-    "6": [
-      { id: "8", jobNumber: "JOB-008" },
-    ],
-    "7": [
-      { id: "9", jobNumber: "JOB-009" },
-    ],
+  const getPOsForLocation = (locationId) => {
+    if (!formData.customerId || !locationId) return []
+    const customer = customers.find(c => c.id === formData.customerId)
+    if (!customer) return []
+    const location = customer.customer_locations?.find(loc => loc.id === locationId)
+    return location?.pos || []
   }
 
-  // Mock documents - replace with actual API call based on selected jobs
-  // Documents are associated with jobs
-  const allJobDocuments = {
-    "1": [
-      {
-        id: 1,
-        documentCode: "DOC-001",
-        documentName: "Sales Invoice",
-        documentType: "Invoice",
-        jobId: "1",
-        jobNumber: "JOB-001",
-      },
-      {
-        id: 2,
-        documentCode: "DOC-002",
-        documentName: "Purchase Receipt",
-        documentType: "Receipt",
-        jobId: "1",
-        jobNumber: "JOB-001",
-      },
-    ],
-    "2": [
-      {
-        id: 3,
-        documentCode: "DOC-003",
-        documentName: "Service Agreement",
-        documentType: "Agreement",
-        jobId: "2",
-        jobNumber: "JOB-002",
-      },
-      {
-        id: 4,
-        documentCode: "DOC-004",
-        documentName: "Quality Certificate",
-        documentType: "Certificate",
-        jobId: "2",
-        jobNumber: "JOB-002",
-      },
-    ],
-    "3": [
-      {
-        id: 5,
-        documentCode: "DOC-005",
-        documentName: "Business License",
-        documentType: "License",
-        jobId: "3",
-        jobNumber: "JOB-003",
-      },
-    ],
-    "4": [
-      {
-        id: 6,
-        documentCode: "DOC-006",
-        documentName: "Tax Invoice",
-        documentType: "Invoice",
-        jobId: "4",
-        jobNumber: "JOB-004",
-      },
-      {
-        id: 7,
-        documentCode: "DOC-007",
-        documentName: "Delivery Receipt",
-        documentType: "Receipt",
-        jobId: "4",
-        jobNumber: "JOB-004",
-      },
-    ],
-    "5": [
-      {
-        id: 8,
-        documentCode: "DOC-008",
-        documentName: "Employment Contract",
-        documentType: "Contract",
-        jobId: "5",
-        jobNumber: "JOB-005",
-      },
-    ],
-    "6": [
-      {
-        id: 9,
-        documentCode: "DOC-009",
-        documentName: "ISO Certificate",
-        documentType: "Certificate",
-        jobId: "6",
-        jobNumber: "JOB-006",
-      },
-    ],
-    "7": [
-      {
-        id: 10,
-        documentCode: "DOC-010",
-        documentName: "Export License",
-        documentType: "License",
-        jobId: "7",
-        jobNumber: "JOB-007",
-      },
-    ],
-    "8": [
-      {
-        id: 11,
-        documentCode: "DOC-011",
-        documentName: "Import Permit",
-        documentType: "Permit",
-        jobId: "8",
-        jobNumber: "JOB-008",
-      },
-    ],
-    "9": [
-      {
-        id: 12,
-        documentCode: "DOC-012",
-        documentName: "Shipping Bill",
-        documentType: "Bill",
-        jobId: "9",
-        jobNumber: "JOB-009",
-      },
-    ],
+  // Get all POs from all customers/locations
+  const getAllPOs = () => {
+    const allPOs = [];
+    customers.forEach(customer => {
+      customer.customer_locations?.forEach(location => {
+        location.pos?.forEach(po => {
+          allPOs.push({
+            ...po,
+            customerName: customer.customer_name,
+            locationName: location.location_name
+          });
+        });
+      });
+    });
+    return allPOs;
   }
 
-  // Get available locations based on selected customer
-  const availableLocations = formData.customerId
-    ? locations[formData.customerId] || []
-    : []
+  const fetchDocumentsForPO = async (poId, jobIds = []) => {
+    setLoadingDocs(true);
+    try {
+      // Fetch approved documents for this PO
+      const params = {
+        status_filter: 'done', // Filter by 'Done' status which includes Approved/Uploaded
+        approver_status_filter: 'approved', // Ensure strictly approved
+        limit: 1000,
+        po_id: poId, // Important: Filter by PO
+        job_ids: jobIds // Filter by selected job IDs!
+      };
 
-  // Get available POs based on selected location
-  const availablePOs = formData.locationId
-    ? purchaseOrders[formData.locationId] || []
-    : []
+      const data = await dccService.getDocumentsForApproval(params);
+      if (data.success) {
+        setAllDocuments(data.data);
+      } else {
+        toast.error(data.message || "Failed to load documents");
+      }
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      toast.error("Failed to load documents");
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
 
-  // Get available jobs based on selected PO
-  const availableJobs = formData.poId ? jobs[formData.poId] || [] : []
+  const fetchJobsForPO = async (poId) => {
+    try {
+      const res = await dccService.getJobs({ po_id: poId, limit: 1000 });
+      if (res.success) {
+        setJobs(res.data || []);
+      } else {
+        toast.error("Failed to load jobs");
+      }
+    } catch (err) {
+      console.error("Error fetching jobs:", err);
+    }
+  }
 
-  // Get all documents for selected jobs
-  const allDocuments = selectedJobs.flatMap((jobId) => {
-    return allJobDocuments[jobId] || []
-  })
-
-  // Get unique document types for filter
-  const documentTypes = [
-    "all",
-    ...new Set(allDocuments.map((doc) => doc.documentType)),
-  ]
-
-  // Filter documents based on search and document type
-  const filteredDocuments = allDocuments.filter((doc) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      doc.documentCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.documentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.jobNumber.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesType =
-      documentTypeFilter === "all" || doc.documentType === documentTypeFilter
-
-    return matchesSearch && matchesType
-  })
-
-  // Handle customer change
+  // --- Handlers for Create/Form ---
   const handleCustomerChange = (customerId) => {
-    setFormData({
-      customerId,
-      locationId: "",
-      poId: "",
-    })
-    setSelectedJobs([])
+    setFormData({ customerId, locationId: "", poId: "" })
+    setAutoFilled({ customerId: false, locationId: false })
+    setAllDocuments([])
+    setJobs([])
     setSelectedDocuments([])
+    setSelectedJobs([])
   }
 
-  // Handle location change
   const handleLocationChange = (locationId) => {
-    setFormData((prev) => ({
-      ...prev,
-      locationId,
-      poId: "",
-    }))
-    setSelectedJobs([])
+    setFormData((prev) => ({ ...prev, locationId, poId: "" }))
+    setAutoFilled((prev) => ({ ...prev, locationId: false }))
+    setAllDocuments([])
+    setJobs([])
     setSelectedDocuments([])
+    setSelectedJobs([])
   }
 
-  // Handle PO change
   const handlePOChange = (poId) => {
-    setFormData((prev) => ({
-      ...prev,
-      poId,
-    }))
-    setSelectedJobs([])
-    setSelectedDocuments([])
+    if (poId) {
+      // Find the PO in the customer data to auto-fill customer and location
+      let foundCustomer = null;
+      let foundLocation = null;
+      let foundPO = null;
+
+      for (const customer of customers) {
+        for (const location of customer.customer_locations || []) {
+          const po = location.pos?.find(p => p.id === poId);
+          if (po) {
+            foundCustomer = customer;
+            foundLocation = location;
+            foundPO = po;
+            break;
+          }
+        }
+        if (foundPO) break;
+      }
+
+      if (foundCustomer && foundLocation) {
+        // Auto-fill customer and location
+        setFormData({
+          customerId: foundCustomer.id,
+          locationId: foundLocation.id,
+          poId: poId
+        });
+        setAutoFilled({
+          customerId: true,
+          locationId: true
+        });
+      } else {
+        // Just set the PO if not found (shouldn't happen)
+        setFormData((prev) => ({ ...prev, poId }));
+      }
+
+      fetchJobsForPO(poId);
+    } else {
+      setFormData((prev) => ({ ...prev, poId: "" }));
+      setAllDocuments([]);
+      setJobs([]);
+      setSelectedJobs([]);
+    }
+    setSelectedDocuments([]);
   }
 
-  // Handle job selection toggle
+  // --- Job Selection Logic ---
+  // Use API fetched jobs
+  const uniqueJobs = useMemo(() => jobs, [jobs]);
+
+
+  // Refetch documents when selectedJobs change
+  useEffect(() => {
+    if (formData.poId && selectedJobs.length > 0) {
+      fetchDocumentsForPO(formData.poId, selectedJobs);
+    } else if (formData.poId && selectedJobs.length === 0) {
+      setAllDocuments([]);
+    }
+  }, [selectedJobs, formData.poId]);
+
+  // Use allDocuments directly since they are now server-filtered
+  const filteredDocuments = allDocuments;
+
+  const itemsWithSNo = useMemo(() => filteredDocuments.map((doc, index) => ({ ...doc, s_no: index + 1 })), [filteredDocuments]);
+
   const handleJobToggle = (jobId) => {
-    setSelectedJobs((prev) => {
-      const isSelected = prev.includes(jobId)
-      if (isSelected) {
-        // Remove job and its documents from selection
-        const updatedJobs = prev.filter((id) => id !== jobId)
-        setSelectedDocuments((docs) =>
-          docs.filter((doc) => doc.jobId !== jobId)
-        )
-        return updatedJobs
+    setSelectedJobs(prev => {
+      if (prev.includes(jobId)) {
+        return prev.filter(j => j !== jobId);
       } else {
-        return [...prev, jobId]
+        return [...prev, jobId];
       }
-    })
-  }
+    });
+  };
 
-  // Handle select all jobs
   const handleSelectAllJobs = () => {
-    if (selectedJobs.length === availableJobs.length) {
-      setSelectedJobs([])
-      setSelectedDocuments([])
+    if (selectedJobs.length === uniqueJobs.length) {
+      setSelectedJobs([]);
     } else {
-      setSelectedJobs(availableJobs.map((job) => job.id))
+      setSelectedJobs(uniqueJobs.map(j => j.id));
     }
   }
 
-  // Handle document selection toggle
-  const handleDocumentToggle = (document) => {
-    setSelectedDocuments((prev) => {
-      const isSelected = prev.some((doc) => doc.id === document.id)
-      if (isSelected) {
-        return prev.filter((doc) => doc.id !== document.id)
+  // --- Document Selection Logic ---
+  const handleSelectAllDocs = (checked) => {
+    if (checked) {
+      // Select visible documents only or all filtered?
+      // Usually all filtered.
+      setSelectedDocuments(filteredDocuments.map(d => d.id));
+    } else {
+      setSelectedDocuments([]);
+    }
+  };
+
+  const handleSelectOneDoc = (docId, checked) => {
+    if (checked) {
+      setSelectedDocuments(prev => [...prev, docId]);
+    } else {
+      setSelectedDocuments(prev => prev.filter(id => id !== docId));
+    }
+  };
+
+  const handleSubmitTransmission = async () => {
+    if (selectedDocuments.length === 0) {
+      toast.error("Please select at least one document");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        customer_id: formData.customerId,
+        customer_location_id: formData.locationId,
+        po_id: formData.poId,
+        document_ids: selectedDocuments
+      };
+
+      const result = await dccService.createTransmission(payload);
+      console.log("Create Transmission Result:", result);
+      if (result.success) {
+        toast.success(`Transmission created successfully!`);
+        setView("list");
+        setSuccessData(null);
+        setFormData({ customerId: "", locationId: "", poId: "" });
+        setAllDocuments([]);
+        setSelectedDocuments([]);
+        setSelectedJobs([]);
       } else {
-        return [...prev, document]
+        const errorMsg = result.message || result.error || "Failed to create transmission";
+        console.error("Backend error:", errorMsg);
+        toast.error(errorMsg);
       }
-    })
-  }
-
-  // Handle select all documents
-  const handleSelectAllDocuments = () => {
-    if (selectedDocuments.length === filteredDocuments.length) {
-      setSelectedDocuments([])
-    } else {
-      setSelectedDocuments([...filteredDocuments])
+    } catch (error) {
+      console.error("Submission error:", error);
+      const errorMsg = error.response?.data?.message || error.message || "Failed to create transmission";
+      toast.error(errorMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  // Handle create transmission
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const handleReset = () => {
+    setFormData({ customerId: "", locationId: "", poId: "" });
+    setAllDocuments([]);
+    setSelectedDocuments([]);
+    setSelectedJobs([]);
+    setView("list"); // Optional: go back to list, or stay in create mode? User implies stay.
+    // Actually typically reset clears the form so they can start over.
+  };
 
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Creating transmission:", {
-        customerId: formData.customerId,
-        locationId: formData.locationId,
-        poId: formData.poId,
-        selectedJobs: selectedJobs,
-        selectedDocuments: selectedDocuments.map((doc) => ({
-          id: doc.id,
-          documentCode: doc.documentCode,
-          documentName: doc.documentName,
-          jobId: doc.jobId,
-          jobNumber: doc.jobNumber,
-        })),
-      })
-      setIsLoading(false)
-      // Add your API call here
-      // Example: await fetch('/api/transmissions', { method: 'POST', body: JSON.stringify({...}) })
-    }, 1000)
-  }
+
+  // --- List View Data Fetching ---
+  const fetchTransmissions = useCallback(async ({ page, limit, search, sorting }) => {
+    try {
+      const params = {
+        page,
+        limit,
+        search,
+      };
+
+      const res = await dccService.getTransmissions(params);
+
+      if (res.success && res.data) {
+        console.log("Transmissions data:", res.data.data);
+        return {
+          data: res.data.data || [],
+          meta: res.data.meta || {}
+        }
+      }
+      return { data: [], meta: {} };
+    } catch (error) {
+      console.error("Error fetching transmissions:", error);
+      return { data: [], meta: {} };
+    }
+  }, []);
+
+  // --- Columns Definition ---
+
+  // List View Columns
+  const listColumns = useMemo(() => [
+    {
+      header: "Transmission No",
+      accessorKey: "transmission_number",
+      cell: (row) => row?.transmission_number || '-'
+    },
+    {
+      header: "PO Number",
+      accessorKey: "po.po_number",
+      cell: (row) => row?.po?.po_number || '-'
+    },
+    {
+      header: "Customer",
+      accessorKey: "customer.customer_name",
+      cell: (row) => row?.customer?.customer_name || '-'
+    },
+    {
+      header: "Document Count",
+      id: "document_count",
+      cell: (row) => row?.documents?.length || 0
+    },
+    {
+      header: "Password",
+      accessorKey: "password",
+      cell: (row) => {
+        const password = row?.password;
+        if (!password) return '-';
+        return (
+          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+            {password}
+          </span>
+        );
+      }
+    },
+    {
+      header: "Created Date",
+      accessorKey: "createdAt",
+      cell: (row) => {
+        const date = row?.createdAt;
+        if (!date) return '-';
+        return new Date(date).toISOString().split('T')[0]
+      }
+    },
+    {
+      header: "Actions",
+      id: "actions",
+      cell: (row) => {
+        if (!row) return null;
+        return (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => {
+              if (row.password) {
+                navigator.clipboard.writeText(row.password);
+                toast.success("Password copied to clipboard");
+              }
+            }}>
+              Copy Password
+            </Button>
+          </div>
+        );
+      }
+    }
+  ], [navigate]);
+
+  // Create View Document Columns
+  const documentColumns = useMemo(() => [
+    {
+      header: ({ table }) => (
+        <Checkbox
+          checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
+          onCheckedChange={(value) => handleSelectAllDocs(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      accessorKey: "select",
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedDocuments.includes(row.original.id)}
+          onCheckedChange={(checked) => handleSelectOneDoc(row.original.id, checked)}
+          aria-label={`Select ${row.original.document.document_number}`}
+        />
+      ),
+      className: "w-[50px]"
+    },
+    { header: "S.No", accessorKey: "s_no" },
+    { header: "Document Code", accessorKey: "document.document_number" },
+    { header: "Document Name", accessorKey: "document.document_name" },
+    {
+      header: "Document Type",
+      accessorKey: "document.document_type.name",
+      cell: ({ row }) => row.original.document?.document_type?.name || '-'
+    },
+    {
+      header: "Job Number",
+      accessorKey: "group.job_group.0.job.job_number",
+      cell: ({ row }) => {
+        const jobs = row.original.group?.job_group;
+        return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
+      }
+    },
+    { header: "Status", accessorKey: "status" }
+  ], [selectedDocuments, filteredDocuments]);
+
 
   return (
     <SidebarProvider>
@@ -383,332 +463,226 @@ function CreateTransmission() {
         </header>
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">Create Transmission</h1>
-              <p className="text-muted-foreground">
-                Select customer, location, PO, jobs, and documents to create a new
-                transmission.
-              </p>
+
+            {/* Header Section */}
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">
+                  {view === 'list' ? 'Transmissions' : 'Create Transmission'}
+                </h1>
+                <p className="text-muted-foreground">
+                  {view === 'list' ? 'Manage and view existing transmissions.' : 'Select approved documents to create a new transmission.'}
+                </p>
+              </div>
+              <div>
+                {view === 'list' ? (
+                  <Button onClick={() => setView('create')}>
+                    <Plus className="mr-2 h-4 w-4" /> Create Transmission
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={() => setView('list')}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            {/* Content Section */}
+            {view === 'list' ? (
+              <Card>
+                <CardHeader><CardTitle>Transmission List</CardTitle></CardHeader>
+                <CardContent>
+                  <DataTable
+                    columns={listColumns}
+                    fetchData={fetchTransmissions}
+                    pageCount={0}
+                  />
+                </CardContent>
+              </Card>
+            ) : (
               <div className="grid gap-6">
-                {/* Selection Section */}
+                {/* Selection Context */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Select Customer, Location & PO</CardTitle>
-                    <CardDescription>
-                      Choose the customer, location, and PO to proceed
-                    </CardDescription>
+                    <CardTitle>Selection</CardTitle>
+                    <CardDescription>Select customer, location, PO, and job in sequence</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="customerId">
-                          Customer <span className="text-destructive">*</span>
+                        <Label>
+                          Customer Name <span className="text-red-500">*</span>
+                          {autoFilled.customerId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
                         </Label>
-                        <Select
-                          value={formData.customerId}
-                          onValueChange={handleCustomerChange}
-                          disabled={isLoading}
-                          required
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a customer" />
-                          </SelectTrigger>
+                        <Select value={formData.customerId} onValueChange={handleCustomerChange}>
+                          <SelectTrigger className="w-full"><SelectValue placeholder="Select Customer" /></SelectTrigger>
                           <SelectContent>
-                            {customers.map((customer) => (
-                              <SelectItem key={customer.id} value={customer.id}>
-                                {customer.name}
+                            {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.customer_name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>
+                          Location <span className="text-red-500">*</span>
+                          {autoFilled.locationId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
+                        </Label>
+                        <Select value={formData.locationId} onValueChange={handleLocationChange} disabled={!formData.customerId}>
+                          <SelectTrigger className="w-full h-auto py-2"><SelectValue placeholder="Select Location" /></SelectTrigger>
+                          <SelectContent>
+                            {getLocationsForCustomer(formData.customerId).map(l => (
+                              <SelectItem key={l.id} value={l.id} className="py-2">
+                                <div className="flex flex-col items-start text-left">
+                                  <span className="font-medium">{l.location_name}</span>
+                                  {l.gst_number && <span className="text-xs text-muted-foreground">GST: {l.gst_number}</span>}
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
 
-                      {formData.customerId && (
-                        <div className="space-y-2">
-                          <Label htmlFor="locationId">
-                            Location <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={formData.locationId}
-                            onValueChange={handleLocationChange}
-                            disabled={isLoading || !formData.customerId}
-                            required
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select a location" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableLocations.map((location) => (
-                                <SelectItem key={location.id} value={location.id}>
-                                  {location.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {formData.locationId && (
-                        <div className="space-y-2">
-                          <Label htmlFor="poId">
-                            PO Number <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={formData.poId}
-                            onValueChange={handlePOChange}
-                            disabled={isLoading || !formData.locationId}
-                            required
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select a PO" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availablePOs.map((po) => (
-                                <SelectItem key={po.id} value={po.id}>
-                                  {po.poNumber}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+                      <div className="space-y-2">
+                        <Label>PO Number <span className="text-red-500">*</span></Label>
+                        <Select value={formData.poId} onValueChange={handlePOChange}>
+                          <SelectTrigger className="w-full"><SelectValue placeholder="Select a PO" /></SelectTrigger>
+                          <SelectContent>
+                            {getAllPOs().map(p => (
+                              <SelectItem key={p.id} value={p.id}>
+                                <div className="flex flex-col items-start text-left">
+                                  <span className="font-medium">{p.po_number}</span>
+                                  <span className="text-xs text-muted-foreground">{p.customerName} - {p.locationName}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Job Selection */}
+                {formData.poId && uniqueJobs.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex justify-between items-center">
+                        <div className="space-y-1">
+                          <CardTitle>Select Jobs</CardTitle>
+                          <CardDescription>Select one or more jobs to include in the transmission</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={handleSelectAllJobs}>
+                          {selectedJobs.length === uniqueJobs.length ? "Deselect All" : "Select All"}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {uniqueJobs.map(job => (
+                          <div key={job.id} className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 transition-colors">
+                            <Checkbox
+                              id={`job-${job.id}`}
+                              checked={selectedJobs.includes(job.id)}
+                              onCheckedChange={() => handleJobToggle(job.id)}
+                            />
+                            <Label htmlFor={`job-${job.id}`} className="cursor-pointer font-medium flex-1">
+                              {job.job_number}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Document List */}
                 {formData.poId && (
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Select Jobs</CardTitle>
-                          <CardDescription>
-                            Select one or more jobs to include in the transmission
-                          </CardDescription>
-                        </div>
-                        {availableJobs.length > 0 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleSelectAllJobs}
-                          >
-                            {selectedJobs.length === availableJobs.length
-                              ? "Deselect All"
-                              : "Select All"}
-                          </Button>
-                        )}
+                      <div className="space-y-1">
+                        <CardTitle>Select Approved Documents</CardTitle>
+                        <CardDescription>Select documents from the selected jobs to include</CardDescription>
                       </div>
+
                     </CardHeader>
                     <CardContent>
-                      {availableJobs.length > 0 ? (
-                        <div className="space-y-3">
-                          {availableJobs.map((job) => (
-                            <div
-                              key={job.id}
-                              className="flex items-center space-x-3 p-3 border rounded-lg"
-                            >
-                              <Checkbox
-                                id={`job-${job.id}`}
-                                checked={selectedJobs.includes(job.id)}
-                                onCheckedChange={() => handleJobToggle(job.id)}
-                              />
-                              <Label
-                                htmlFor={`job-${job.id}`}
-                                className="flex-1 cursor-pointer font-medium"
-                              >
-                                {job.jobNumber}
-                              </Label>
-                            </div>
-                          ))}
-                        </div>
+                      {loadingDocs ? (
+                        <div className="text-center py-4">Loading documents...</div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No jobs found for the selected PO.
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Document Selection */}
-                {selectedJobs.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Select Documents</CardTitle>
-                          <CardDescription>
-                            Select documents from the selected jobs to include in the
-                            transmission
-                          </CardDescription>
-                        </div>
-                        {filteredDocuments.length > 0 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleSelectAllDocuments}
-                          >
-                            {selectedDocuments.length === filteredDocuments.length
-                              ? "Deselect All"
-                              : "Select All"}
-                          </Button>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Search and Filter */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="search">Search Documents</Label>
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              id="search"
-                              type="text"
-                              placeholder="Search by code, name, or job number..."
-                              value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
-                              className="pl-10"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="documentTypeFilter">Filter by Document Type</Label>
-                          <Select
-                            value={documentTypeFilter}
-                            onValueChange={setDocumentTypeFilter}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Types" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {documentTypes.map((type) => (
-                                <SelectItem key={type} value={type}>
-                                  {type === "all" ? "All Types" : type}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* Documents Table */}
-                      {filteredDocuments.length > 0 ? (
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-[50px]">
-                                  <Checkbox
-                                    checked={
-                                      filteredDocuments.length > 0 &&
-                                      selectedDocuments.length ===
-                                        filteredDocuments.length
-                                    }
-                                    onCheckedChange={handleSelectAllDocuments}
-                                  />
-                                </TableHead>
-                                <TableHead className="w-[50px]">S.No</TableHead>
-                                <TableHead>Document Code</TableHead>
-                                <TableHead>Document Name</TableHead>
-                                <TableHead>Document Type</TableHead>
-                                <TableHead>Job Number</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {filteredDocuments.map((document, index) => {
-                                const isSelected = selectedDocuments.some(
-                                  (doc) => doc.id === document.id
-                                )
-                                return (
-                                  <TableRow key={document.id}>
+                        itemsWithSNo.length > 0 ? (
+                          <div className="rounded-md border">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-[50px]">
+                                    <Checkbox
+                                      checked={itemsWithSNo.length > 0 && selectedDocuments.length === itemsWithSNo.length}
+                                      onCheckedChange={(value) => handleSelectAllDocs(!!value)}
+                                      aria-label="Select all"
+                                    />
+                                  </TableHead>
+                                  <TableHead>S.No</TableHead>
+                                  <TableHead>Document Code</TableHead>
+                                  <TableHead>Document Name</TableHead>
+                                  <TableHead>Document Type</TableHead>
+                                  <TableHead>Job Number</TableHead>
+                                  <TableHead>Status</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {itemsWithSNo.map((doc) => (
+                                  <TableRow key={doc.id}>
                                     <TableCell>
                                       <Checkbox
-                                        checked={isSelected}
-                                        onCheckedChange={() =>
-                                          handleDocumentToggle(document)
-                                        }
+                                        checked={selectedDocuments.includes(doc.id)}
+                                        onCheckedChange={(checked) => handleSelectOneDoc(doc.id, checked)}
+                                        aria-label={`Select ${doc.document.document_number}`}
                                       />
                                     </TableCell>
-                                    <TableCell className="font-medium">
-                                      {index + 1}
-                                    </TableCell>
-                                    <TableCell>{document.documentCode}</TableCell>
-                                    <TableCell>{document.documentName}</TableCell>
+                                    <TableCell>{doc.s_no}</TableCell>
+                                    <TableCell>{doc.document.document_number}</TableCell>
+                                    <TableCell>{doc.document.document_name}</TableCell>
+                                    <TableCell>{doc.document?.document_type?.name || '-'}</TableCell>
                                     <TableCell>
-                                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                        {document.documentType}
-                                      </span>
+                                      {(() => {
+                                        const jobs = doc.group?.job_group;
+                                        return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
+                                      })()}
                                     </TableCell>
-                                    <TableCell>{document.jobNumber}</TableCell>
+                                    <TableCell>{doc.status}</TableCell>
                                   </TableRow>
-                                )
-                              })}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          {allDocuments.length === 0
-                            ? "No documents found for the selected jobs."
-                            : "No documents match your search criteria."}
-                        </div>
-                      )}
-
-                      {/* Selection Summary */}
-                      {selectedDocuments.length > 0 && (
-                        <div className="mt-4 p-4 bg-muted rounded-lg">
-                          <p className="text-sm font-medium">
-                            {selectedDocuments.length} document(s) selected from{" "}
-                            {new Set(selectedDocuments.map((doc) => doc.jobId)).size}{" "}
-                            job(s)
-                          </p>
-                        </div>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            {uniqueJobs.length > 0 && selectedJobs.length === 0 ?
+                              "Please select at least one job to view documents." :
+                              "No approved documents found for this PO."}
+                          </div>
+                        )
                       )}
                     </CardContent>
                   </Card>
                 )}
 
-                {/* Submit Buttons */}
-                {selectedDocuments.length > 0 && (
-                  <div className="flex justify-end gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setFormData({
-                          customerId: "",
-                          locationId: "",
-                          poId: "",
-                        })
-                        setSelectedJobs([])
-                        setSelectedDocuments([])
-                        setSearchQuery("")
-                        setDocumentTypeFilter("all")
-                      }}
-                      disabled={isLoading}
-                    >
-                      Reset
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Creating..." : "Create Transmission"}
-                    </Button>
-                  </div>
-                )}
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-4 mt-4">
+                  <Button variant="outline" onClick={handleReset}>
+                    Reset
+                  </Button>
+                  <Button onClick={handleSubmitTransmission} disabled={isSubmitting || selectedDocuments.length === 0}>
+                    {isSubmitting ? "Creating..." : "Create Transmission"}
+                  </Button>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </main>
       </SidebarInset>
-    </SidebarProvider>
+    </SidebarProvider >
   )
 }
 
 export default CreateTransmission
-

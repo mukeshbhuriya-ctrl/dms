@@ -750,8 +750,16 @@ async function getPos(req, res) {
 async function getJobs(req, res) {
   try {
     const company_id = req.user.company_id;
+    const { po_id, customer_id, customer_location_id } = req.query;
+
+    const where = { company_id };
+
+    if (po_id) where.po_id = typeof po_id === 'string' ? po_id.trim() : String(po_id);
+    if (customer_id) where.customer_id = typeof customer_id === 'string' ? customer_id.trim() : String(customer_id);
+    if (customer_location_id) where.customer_location_id = typeof customer_location_id === 'string' ? customer_location_id.trim() : String(customer_location_id);
+
     const jobs = await prisma.job.findMany({
-      where: { company_id },
+      where,
       include: {
         customer: { select: { customer_name: true } },
         customer_location: { select: { location_name: true } },

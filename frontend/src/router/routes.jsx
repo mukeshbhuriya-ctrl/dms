@@ -6,7 +6,7 @@ import {
   SiteAdminDashboard,
   SiteAdminCreateCompany,
 } from "@/pages/siteadmin"
-import { UserDashboard } from "@/pages/user"
+import { UserDashboard, UploadDocument } from "@/pages/user"
 
 import {
   AssignDocument,
@@ -99,6 +99,10 @@ const dccRoutes = [
   {
     path: "/dcc/create-location",
     element: <CreateLocation />,
+  },
+  {
+    path: "/dcc/upload-documents",
+    element: <UploadDocument />,
   },
 ]
 
