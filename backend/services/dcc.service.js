@@ -894,20 +894,19 @@ class DccService {
             include: {
                 po: true,
                 customer: true,
-                location: true
+                documents: true // To get count
             }
         });
 
         if (!transmission) throw new Error('Transmission not found');
 
-        // 2. Generate ZIP (Placeholder for now)
-        // const zipUrl = await generateZipForTransmission(transmission_id);
-
         // 3. Send Email using EmailService
         // Client -> To, Shreno -> CC
         await EmailService.sendTransmissionEmail(client_emails, shreno_emails, {
             transmission_number: transmission.transmission_number,
-            po_number: transmission.po.po_number,
+            po_number: transmission.po?.po_number || 'N/A',
+            customer_name: transmission.customer?.customer_name || 'N/A',
+            document_count: transmission.documents?.length || 0,
             password: transmission.password,
             zip_url: transmission.zip_url || '#'
         });

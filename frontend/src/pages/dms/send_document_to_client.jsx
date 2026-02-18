@@ -278,49 +278,72 @@ function SendDocumentToClient() {
   }
 
   const handleSendMail = async () => {
-    setIsLoading(true)
+    // 1. Get selected emails
+    const selectedIds = Object.keys(selectedEmails).filter(id => selectedEmails[id]);
 
-    // Get selected email addresses
-    const matrix = getCommunicationMatrix()
-    const shrenoEmails = matrix.shreno
-      .filter((contact) => selectedEmails[contact.id])
-      .map((contact) => contact.email)
+    if (selectedIds.length === 0) {
+      toast.error("Please select at least one recipient");
+      return;
+    }
 
-    const clientEmails = matrix.client
-      .filter((contact) => selectedEmails[contact.id])
-      .map((contact) => contact.email)
+    setIsLoading(true);
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
-      const token = JSON.parse(localStorage.getItem("user_auth"))?.payload?.token;
+      // 2. Separate emails into To (Client) and CC (Shreno)
+      const clientEmails = [];
+      const shrenoEmails = [];
 
-      const response = await fetch(`${backendUrl}/api/dcc/send-transmission-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          transmission_id: formData.jobId,
-          shreno_emails: shrenoEmails,
-          client_emails: clientEmails
-        })
+      selectedIds.forEach(id => {
+        // Handle both string and number IDs (though keys are strings)
+        const contactIdStr = id;
+        const contactIdNum = parseInt(id);
+
+        // Try matching number ID first if available
+        let clientContact = communicationMatrix.client.find(c => c.id === contactIdNum);
+        if (!clientContact) clientContact = communicationMatrix.client.find(c => c.id == contactIdStr);
+
+        if (clientContact) {
+          clientEmails.push(clientContact.email);
+          return;
+        }
+
+        let shrenoContact = communicationMatrix.shreno.find(c => c.id === contactIdNum);
+        if (!shrenoContact) shrenoContact = communicationMatrix.shreno.find(c => c.id == contactIdStr);
+
+        if (shrenoContact) {
+          shrenoEmails.push(shrenoContact.email);
+          return;
+        }
       });
 
-      const result = await response.json();
-      if (result.success) {
+      console.log("Sending email payload:", {
+        transmission_id: formData.jobId,
+        client_emails: clientEmails,
+        shreno_emails: shrenoEmails
+      });
+
+      // 3. Call Service
+      const response = await dccService.sendTransmissionEmail({
+        transmission_id: formData.jobId,
+        client_emails: clientEmails,
+        shreno_emails: shrenoEmails
+      });
+
+      if (response && response.success) {
         toast.success("Email sent successfully!");
         setIsDialogOpen(false);
+        // Clean selection not required as per basic requirement but good UX
       } else {
-        toast.error("Failed to send email: " + result.message);
+        const msg = response?.message || "Failed to send email";
+        toast.error(msg);
       }
     } catch (error) {
-      console.error("Send mail error", error);
-      toast.error("Error sending email");
+      console.error("Email send error:", error);
+      toast.error(error.message || "Failed to send email");
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   return (
     <SidebarProvider>

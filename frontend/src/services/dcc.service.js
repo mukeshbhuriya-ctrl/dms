@@ -119,5 +119,15 @@ export const dccService = {
             body: formData
         });
         return handleResponse(response);
+    },
+
+    sendTransmissionEmail: async (data) => {
+        const response = await fetch(`${BACKEND_URL}/api/dcc/send-transmission-email`, {
+            method: 'POST',
+            headers: getHeaders(),
+            credentials: "include",
+            body: JSON.stringify(data)
+        });
+        return handleResponse(response);
     }
 };

@@ -34,18 +34,11 @@ class EmailService {
 
     // Template for Transmission
     async sendTransmissionEmail(to, cc, transmissionDetails) {
-        const subject = `New Document Transmission: ${transmissionDetails.transmission_number}`;
-        const html = `
-            <h2>Document Transmission</h2>
-            <p>A new transmission has been created for PO: <strong>${transmissionDetails.po_number}</strong></p>
-            <p><strong>Transmission Number:</strong> ${transmissionDetails.transmission_number}</p>
-            <p><strong>Password:</strong> ${transmissionDetails.password}</p>
-            <br/>
-            <p>Please click the link below to download the documents:</p>
-            <a href="${transmissionDetails.zip_url}" style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Download ZIP</a>
-            <br/><br/>
-            <p>Regards,<br/>DCC Team</p>
-        `;
+        const { getTransmissionEmailTemplate } = require('../utils/email-templates/transmission.template');
+
+        const subject = `Document Transmission: ${transmissionDetails.transmission_number} - PO: ${transmissionDetails.po_number}`;
+        const html = getTransmissionEmailTemplate(transmissionDetails);
+
         return this.sendEmail({ to, cc, subject, html });
     }
 }
