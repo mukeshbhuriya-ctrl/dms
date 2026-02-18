@@ -17,7 +17,7 @@ class EmailService {
         try {
             const info = await this.transporter.sendMail({
                 from: process.env.SMTP_USER || '"DMS System" <no-reply@dms.com>',
-                to: 'mb707428@gmail.com', // list of receivers
+                to, // list of receivers
                 cc, // list of cc receivers
                 subject,
                 text,
