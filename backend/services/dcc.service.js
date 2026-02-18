@@ -439,10 +439,26 @@ class DccService {
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                where.status = 'Rejected';
+                // Filter by version history: Check if ANY version has been rejected.
+                where.versions = {
+                    some: {
+                        status: { in: ['Rejected', 'rejected'] }
+                    }
+                };
             } else if (filterVal === 'na') {
                 where.status = { notIn: ['Uploaded', 'Pending', 'Approved', 'Rejected'] }; // Likely just 'Pending'
             }
+        }
+
+        // Dynamic Version Include
+        let versionsInclude = {
+            orderBy: { version_no: 'desc' },
+            take: 1,
+            include: { uploader: true }
+        };
+
+        if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
+            versionsInclude.where = { status: { in: ['Rejected', 'rejected'] } };
         }
 
         const [total, data] = await prisma.$transaction([
@@ -464,17 +480,54 @@ class DccService {
                     customer: true,
                     customer_location: true,
                     po: true,
-                    versions: {
-                        orderBy: { version_no: 'desc' },
-                        take: 1,
-                        include: { uploader: true }
-                    }
+                    versions: versionsInclude
                 },
                 orderBy: { updatedAt: 'desc' }
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        // Calculate Dynamic Status (Upload Due / Response Due)
+        const EnhancedData = data.map(doc => {
+            // If filtering by rejected, expose the rejected version details
+            if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
+                const rejectedVersion = doc.versions[0];
+                if (rejectedVersion) {
+                    doc.status = rejectedVersion.status;
+                    doc.updatedAt = rejectedVersion.createdAt; // Use version date
+                }
+            }
+
+            const now = new Date();
+            const created = new Date(doc.createdAt);
+
+            // Logic for "Upload Due"
+            // If status is "Pending" (not uploaded) and time since creation > upload_due_days
+            if (doc.status === 'Pending' && doc.upload_due_days) {
+                const uploadDeadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
+                if (now > uploadDeadline) {
+                    doc.status = 'Upload Due';
+                    // Optional: doc.isOverdue = true;
+                }
+            }
+
+            // Logic for "Response Due"
+            // If status is "Uploaded" (waiting for approval) and time since upload > response_due_days
+            // We need the date of the last upload (version creation date)
+            if (doc.status === 'Uploaded' && doc.response_due_days) {
+                const lastVersion = doc.versions[0];
+                if (lastVersion) {
+                    const uploadedAt = new Date(lastVersion.createdAt);
+                    const responseDeadline = new Date(uploadedAt.getTime() + (doc.response_due_days * 24 * 60 * 60 * 1000));
+                    if (now > responseDeadline) {
+                        doc.status = 'Response Due';
+                    }
+                }
+            }
+
+            return doc;
+        });
+
+        return { data: EnhancedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
     /**
      * Get all assigned documents (Admin View)
@@ -605,6 +658,12 @@ class DccService {
             } else if (status_filter === 'done') {
                 where.status = { in: ['Approved', 'Uploaded', 'Pending'] };
             }
+        } else {
+            // Default: Show Uploaded, Approved, and Rejected.
+            // Explicitly exclude 'Pending' (not uploaded) to declutter.
+            if (!where.status) {
+                where.status = { in: ['Uploaded', 'Approved', 'Rejected'] };
+            }
         }
 
         if (approver_status_filter && approver_status_filter !== 'all') {
@@ -614,7 +673,13 @@ class DccService {
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                where.status = 'Rejected';
+                // Filter by version history: Check if ANY version has been rejected.
+                // This allows retrieving documents that were rejected and then re-uploaded (currently 'Uploaded').
+                where.versions = {
+                    some: {
+                        status: { in: ['Rejected', 'rejected'] }
+                    }
+                };
             } else if (filterVal === 'na') {
                 where.status = { notIn: ['Uploaded', 'Pending', 'Approved', 'Rejected'] }; // Likely just 'Pending'
             }
@@ -658,6 +723,20 @@ class DccService {
             ];
         }
 
+        // Dynamic Version Include
+        let versionsInclude = {
+            orderBy: { version_no: 'desc' },
+            take: 1,
+            include: {
+                uploader: true,
+                transmission_items: true // needed to check if already transmitted
+            }
+        };
+
+        if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
+            versionsInclude.where = { status: { in: ['Rejected', 'rejected'] } };
+        }
+
         const [total, data] = await prisma.$transaction([
             prisma.group_document.count({ where }),
             prisma.group_document.findMany({
@@ -677,17 +756,71 @@ class DccService {
                     customer: true,
                     customer_location: true,
                     po: true,
-                    versions: {
-                        orderBy: { version_no: 'desc' },
-                        take: 1,
-                        include: { uploader: true }
-                    }
+                    versions: versionsInclude
                 },
                 orderBy: { updatedAt: 'desc' }
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        // Filter out transmitted documents if requested
+        let processingData = data;
+        const { exclude_transmitted } = params;
+        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
+            processingData = data.filter(doc => {
+                const latestVersion = doc.versions[0];
+                // If latest version has transmission items, it's already transmitted.
+                if (latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0) {
+                    return false; // Exclude
+                }
+                return true;
+            });
+        }
+
+        // Calculate Dynamic Status (Upload Due / Response Due)
+        const EnhancedData = processingData.map(doc => {
+            // If filtering by rejected, expose the rejected version details
+            if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
+                const rejectedVersion = doc.versions[0];
+                if (rejectedVersion) {
+                    doc.status = rejectedVersion.status;
+                    doc.updatedAt = rejectedVersion.createdAt; // Use version date
+                    // Note: Remarks are already pulled from versions[0] in frontend
+                }
+            }
+
+            const now = new Date();
+            const created = new Date(doc.createdAt); // Assignment date
+
+            // Logic for "Upload Due"
+            if (doc.status === 'Pending' && doc.upload_due_days) {
+                const uploadDeadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
+                if (now > uploadDeadline) {
+                    doc.status = 'Upload Due';
+                }
+            }
+
+            // Logic for "Response Due"
+            if (doc.status === 'Uploaded' && doc.response_due_days) {
+                const lastVersion = doc.versions[0];
+                if (lastVersion) {
+                    const uploadedAt = new Date(lastVersion.createdAt);
+                    const responseDeadline = new Date(uploadedAt.getTime() + (doc.response_due_days * 24 * 60 * 60 * 1000));
+                    if (now > responseDeadline) {
+                        doc.status = 'Response Due';
+                    }
+                }
+            }
+
+            return doc;
+        });
+
+        // Note: total might optionally be adjusted if we want precise pagination metadata, 
+        // but since this is usually limited to 1000/one-page for creation, keeping original count is acceptable or we accept slight mismatch.
+        // For correctness in list view, let's update total if filtered? 
+        // Actually total is DB count. We can't easily adjust typical pagination.
+        // But for 'Create Transmission' we generally pull all.
+
+        return { data: EnhancedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
     /**
@@ -740,7 +873,17 @@ class DccService {
             include: {
                 // Use versions relation to get the latest version
                 versions: { orderBy: { version_no: 'desc' }, take: 1 },
-                document: true
+                document: true,
+                // Fetch related jobs via group -> job_group -> job
+                group: {
+                    include: {
+                        job_group: {
+                            include: {
+                                job: true
+                            }
+                        }
+                    }
+                }
             }
         });
 

@@ -121,6 +121,15 @@ function UploadDocument() {
                 );
             },
             className: "w-[150px]"
+        },
+        {
+            header: "Remarks",
+            accessorKey: "remarks",
+            cell: (row) => (
+                <div className="max-w-[200px] truncate" title={row.remarks || '-'}>
+                    {row.remarks || '-'}
+                </div>
+            )
         }
     ], [uploadingIds]) // Re-render columns when uploading state changes
 
@@ -153,6 +162,8 @@ function UploadDocument() {
                     else if (doc.status === 'Approved') approverStatus = 'approved';
                     else if (doc.status === 'Rejected') approverStatus = 'rejected';
 
+                    const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+
                     return {
                         id: doc.id,
                         s_no: (page - 1) * limit + index + 1,
@@ -162,7 +173,8 @@ function UploadDocument() {
                         status: status,
                         approverStatus: approverStatus,
                         originalStatus: doc.status,
-                        doc: doc
+                        doc: doc,
+                        remarks: latestVersion?.remarks || '-'
                     }
                 });
 
@@ -256,10 +268,10 @@ function UploadDocument() {
                                         <Label htmlFor="statusFilter">Filter by Status</Label>
                                         <Select value={statusFilter} onValueChange={setStatusFilter}>
                                             <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Statuses" />
+                                                <SelectValue placeholder="All Status" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All Statuses</SelectItem>
+                                                <SelectItem value="all">All Status</SelectItem>
                                                 <SelectItem value="pending">Pending</SelectItem>
                                                 <SelectItem value="done">Done</SelectItem>
                                             </SelectContent>
@@ -274,10 +286,10 @@ function UploadDocument() {
                                             onValueChange={setApproverStatusFilter}
                                         >
                                             <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Approver Statuses" />
+                                                <SelectValue placeholder="All Approver Status" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All Approver Statuses</SelectItem>
+                                                <SelectItem value="all">All Approver Status</SelectItem>
                                                 <SelectItem value="NA">NA</SelectItem>
                                                 <SelectItem value="pending">
                                                     Pending for Approval

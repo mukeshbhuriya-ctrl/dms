@@ -142,7 +142,7 @@ function DocumentApprover() {
             size="sm"
             className="bg-green-600 hover:bg-green-700"
             onClick={() => handleReviewClick(row.originalDoc, 'Approved')}
-            disabled={row.status === 'Approved'}
+            disabled={row.status === 'Approved' || row.status === 'Rejected'}
           >
             <CheckCircle className="w-4 h-4 mr-1" /> Approve
           </Button>
@@ -150,13 +150,22 @@ function DocumentApprover() {
             size="sm"
             variant="destructive"
             onClick={() => handleReviewClick(row.originalDoc, 'Rejected')}
-            disabled={row.status === 'Rejected'}
+            disabled={row.status === 'Rejected' || row.status === 'Approved'}
           >
             <XCircle className="w-4 h-4 mr-1" /> Reject
           </Button>
         </div>
       ),
       className: "w-[250px]"
+    },
+    {
+      header: "Remarks",
+      accessorKey: "remarks",
+      cell: (row) => (
+        <div className="max-w-[200px] truncate" title={row.remarks || '-'}>
+          {row.remarks || '-'}
+        </div>
+      )
     }
   ], []);
 
@@ -188,9 +197,11 @@ function DocumentApprover() {
             documentType: doc.document.document_type?.name || 'N/A',
             uploadedBy: uploaderName,
             uploadedDate: new Date(doc.updatedAt).toLocaleDateString(),
+
             status: doc.status, // Keep original status for badge display
             statusDisplay: doc.status,
             fileUrl: latestVersion?.file_url,
+            remarks: latestVersion?.remarks || '-',
             originalDoc: doc
           };
         });
@@ -241,10 +252,10 @@ function DocumentApprover() {
                       <Label htmlFor="statusFilter">Filter by Status</Label>
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Statuses" />
+                          <SelectValue placeholder="All Status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Statuses</SelectItem>
+                          <SelectItem value="all">All Status</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="done">Done</SelectItem>
                         </SelectContent>
@@ -259,10 +270,10 @@ function DocumentApprover() {
                         onValueChange={setApproverStatusFilter}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Approver Statuses" />
+                          <SelectValue placeholder="All Approver Status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Approver Statuses</SelectItem>
+                          <SelectItem value="all">All Approver Status</SelectItem>
                           <SelectItem value="NA">NA</SelectItem>
                           <SelectItem value="pending">
                             Pending for Approval

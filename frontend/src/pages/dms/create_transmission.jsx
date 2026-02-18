@@ -122,7 +122,8 @@ function CreateTransmission() {
         approver_status_filter: 'approved', // Ensure strictly approved
         limit: 1000,
         po_id: poId, // Important: Filter by PO
-        job_ids: jobIds // Filter by selected job IDs!
+        job_ids: jobIds, // Filter by selected job IDs!
+        exclude_transmitted: true // Exclude documents already part of a transmission
       };
 
       const data = await dccService.getDocumentsForApproval(params);

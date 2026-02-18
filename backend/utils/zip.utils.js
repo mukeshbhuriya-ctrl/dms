@@ -33,10 +33,24 @@ const createTransmissionZip = (zipName, docs) => {
                 const filePath = path.join(uploadsDir, filename);
 
                 if (fs.existsSync(filePath)) {
-                    // Structure inside ZIP: DocumentNumber-DocumentName.ext
                     const ext = path.extname(filename);
-                    const docNameInZip = `${doc.document.document_number}-${doc.document.document_name}${ext}`;
-                    archive.file(filePath, { name: docNameInZip });
+                    const docName = `${doc.document.document_number}-${doc.document.document_name}${ext}`;
+
+                    // Check for associated jobs
+                    const jobs = doc.group?.job_group?.map(jg => jg.job) || [];
+
+                    if (jobs.length > 0) {
+                        // Add to each job folder
+                        jobs.forEach(job => {
+                            const jobFolder = job.job_number ? `JOB-${job.job_number}` : 'Unknown-Job';
+                            // Structure: JobNumber/DocumentNumber-DocumentName.ext
+                            const docNameInZip = `${jobFolder}/${docName}`;
+                            archive.file(filePath, { name: docNameInZip });
+                        });
+                    } else {
+                        // No job associated, place in root
+                        archive.file(filePath, { name: docName });
+                    }
                 }
             }
         });
