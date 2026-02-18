@@ -840,15 +840,39 @@ class DccService {
         if (!latestVersion) throw new Error('No version to review');
 
         return await prisma.$transaction(async (tx) => {
+            // 1. Update Version Status
             await tx.document_version.update({
                 where: { id: latestVersion.id },
                 data: { status, remarks }
             });
 
+            // 2. Update Group Document Status
             await tx.group_document.update({
                 where: { id: document_id },
                 data: { status }
             });
+
+            // 3. Handle Re-entry on Rejection
+            if (status === 'Rejected') {
+                await tx.group_document.create({
+                    data: {
+                        company_id: groupDoc.company_id,
+                        customer_id: groupDoc.customer_id,
+                        customer_location_id: groupDoc.customer_location_id,
+                        po_id: groupDoc.po_id,
+                        group_id: groupDoc.group_id,
+                        document_id: groupDoc.document_id,
+                        shreno_doc_no: groupDoc.shreno_doc_no,
+                        shreno_reference_no: groupDoc.shreno_reference_no,
+                        client_doc_no: groupDoc.client_doc_no,
+                        client_reference_no: groupDoc.client_reference_no,
+                        upload_due_days: groupDoc.upload_due_days,
+                        response_due_days: groupDoc.response_due_days,
+                        user_id: groupDoc.user_id,
+                        status: 'Pending' // Reset for re-upload
+                    }
+                });
+            }
 
             return { id: document_id, status };
         });
@@ -945,13 +969,14 @@ class DccService {
     }
 
     async getTransmissions(company_id, params = {}) {
-        const { po_id, page = 1, limit = 10, search } = params;
+        const { po_id, page = 1, limit = 10, search, status } = params;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
 
         const where = { company_id };
         if (po_id) where.po_id = po_id;
+        if (status) where.status = status;
 
         if (search) {
             where.OR = [
@@ -1045,6 +1070,8 @@ class DccService {
 
         // 3. Send Email using EmailService
         // Client -> To, Shreno -> CC
+        // 3. Send Email using EmailService
+        // Client -> To, Shreno -> CC
         await EmailService.sendTransmissionEmail(client_emails, shreno_emails, {
             transmission_number: transmission.transmission_number,
             po_number: transmission.po?.po_number || 'N/A',
@@ -1054,13 +1081,95 @@ class DccService {
             zip_url: transmission.zip_url || '#'
         });
 
+        // Update status to 'Sent'
+        await prisma.transmission.update({
+            where: { id: transmission_id },
+            data: { status: 'Sent' }
+        });
+
         // Log locally as well
         console.log(`Email sent for transmission: ${transmission.transmission_number}`);
 
-        // Note: Transmission table doesn't have a status field
-        // Email delivery status is tracked via the email service
-
         return { success: true, message: 'Email sent successfully via EmailService' };
+    }
+
+    async updateTransmissionClientStatus(company_id, transmission_id, status, remarks) {
+        if (!['Approved', 'Rejected'].includes(status)) throw new Error('Invalid status');
+
+        const result = await prisma.transmission.update({
+            where: { id: transmission_id, company_id },
+            data: {
+                client_status: status,
+                client_remarks: remarks
+            }
+        });
+
+        // 3. Cascade Rejection to Documents
+        if (status === 'Rejected') {
+            const transmissionDocs = await prisma.transmission_document.findMany({
+                where: { transmission_id }
+            });
+
+            const groupDocIds = transmissionDocs
+                .map(td => td.group_document_id)
+                .filter(id => id); // Filter out nulls
+
+            if (groupDocIds.length > 0) {
+                // 3a. Update Old Group Documents to Rejected
+                await prisma.group_document.updateMany({
+                    where: { id: { in: groupDocIds } },
+                    data: { status: 'Rejected' }
+                });
+
+                // 3b. Update Old Document Versions to Rejected
+                const versionIds = transmissionDocs
+                    .map(td => td.version_id)
+                    .filter(id => id);
+
+                if (versionIds.length > 0) {
+                    await prisma.document_version.updateMany({
+                        where: { id: { in: versionIds } },
+                        data: {
+                            status: 'Rejected',
+                            remarks: remarks || 'Rejected by Client'
+                        }
+                    });
+                }
+
+                // 3c. Create NEW Group Documents (Re-entry)
+                // Fetch full details of the rejected group documents to clone them
+                const rejectedGroupDocs = await prisma.group_document.findMany({
+                    where: { id: { in: groupDocIds } }
+                });
+
+                const newGroupDocsData = rejectedGroupDocs.map(doc => ({
+                    company_id: doc.company_id,
+                    customer_id: doc.customer_id,
+                    customer_location_id: doc.customer_location_id,
+                    po_id: doc.po_id,
+                    group_id: doc.group_id,
+                    document_id: doc.document_id,
+                    shreno_doc_no: doc.shreno_doc_no,
+                    shreno_reference_no: doc.shreno_reference_no,
+                    client_doc_no: doc.client_doc_no,
+                    client_reference_no: doc.client_reference_no,
+                    upload_due_days: doc.upload_due_days,
+                    response_due_days: doc.response_due_days,
+                    user_id: doc.user_id,
+                    status: 'Pending' // Reset status for re-upload
+                }));
+
+                if (newGroupDocsData.length > 0) {
+                    await prisma.group_document.createMany({
+                        data: newGroupDocsData
+                    });
+                }
+
+                console.log(`Cascaded rejection: Updated ${groupDocIds.length} docs, ${versionIds.length} versions, and created ${newGroupDocsData.length} new pending entries.`);
+            }
+        }
+
+        return result;
     }
 
     async verifyZipPassword(transmissionId, password) {

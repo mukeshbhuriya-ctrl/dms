@@ -18,6 +18,7 @@ import {
   SendDocumentToClient,
   CreateCustomer,
   CreateLocation,
+  ClientApprovalStatus,
 } from "@/pages/dms"
 
 import {
@@ -61,6 +62,10 @@ const userRoutes = [
     path: "/user/dashboard",
     element: wrapProtected(<UserDashboard />, userAuthProps),
   },
+  {
+    path: "/user/upload-documents",
+    element: <UploadDocument />,
+  },
 ]
 
 const dccRoutes = [
@@ -101,8 +106,8 @@ const dccRoutes = [
     element: <CreateLocation />,
   },
   {
-    path: "/dcc/upload-documents",
-    element: <UploadDocument />,
+    path: "/dcc/client-approval-status",
+    element: <ClientApprovalStatus />,
   },
 ]
 

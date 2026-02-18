@@ -6,6 +6,7 @@ export { default as CreateTransmission } from "./create_transmission"
 export { default as DocumentApprover } from "./document_apprver"
 export { default as DocumentMaster } from "./document_master"
 export { default as SendDocumentToClient } from "./send_document_to_client"
+export { default as ClientApprovalStatus } from "./client_approval_status"
 
 
 // Export customer pages

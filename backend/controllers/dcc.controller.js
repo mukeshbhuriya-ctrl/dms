@@ -215,6 +215,15 @@ class DccController {
             res.status(400).json({ success: false, message: error.message });
         }
     }
+    async updateTransmissionClientStatus(req, res) {
+        try {
+            const { transmission_id, status, remarks } = req.body;
+            const result = await DccService.updateTransmissionClientStatus(req.user.company_id, transmission_id, status, remarks);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = new DccController();

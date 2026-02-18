@@ -348,6 +348,19 @@ function CreateTransmission() {
     }
   }, []);
 
+  // --- Helper for Status Badge ---
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'Approved':
+        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Approved</span>
+      case 'Rejected':
+        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">Rejected</span>
+      case 'Pending':
+      default:
+        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Pending</span>
+    }
+  };
+
   // --- Columns Definition ---
 
   // List View Columns
@@ -393,6 +406,11 @@ function CreateTransmission() {
         if (!date) return '-';
         return new Date(date).toISOString().split('T')[0]
       }
+    },
+    {
+      header: "Client Status",
+      accessorKey: "client_status",
+      cell: (row) => getStatusBadge(row.client_status)
     },
     {
       header: "Actions",

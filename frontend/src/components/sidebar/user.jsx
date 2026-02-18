@@ -84,7 +84,7 @@ const roleMenus = {
           path: "/dcc/assign-document",
         },
         {
-          title: "Document Approver",
+          title: "Document Approval",
           path: "/dcc/document-approver",
         },
         {
@@ -94,6 +94,10 @@ const roleMenus = {
         {
           title: "Send Document to Client",
           path: "/dcc/send-document-to-client",
+        },
+        {
+          title: "Client Approval Status",
+          path: "/dcc/client-approval-status",
         },
       ],
     },
@@ -128,7 +132,7 @@ const roleMenus = {
     {
       title: "Upload Documents",
       icon: FileText,
-      path: "/dcc/upload-documents",
+      path: "/user/upload-documents",
     }
   ],
   Marketing: [
@@ -233,7 +237,7 @@ const roleMenus = {
       items: [
         {
           title: "Welding Joints",
-          path: "/admin/create-weldingjoints",
+          path: "/view-weldingjoints",
         }
       ]
     },

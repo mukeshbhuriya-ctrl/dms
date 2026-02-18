@@ -477,6 +477,9 @@ model transmission {
   po_id                String
   zip_url              String?
   password             String
+  status               String @default("Pending") // Pending, Sent
+  client_status        String @default("Pending") // Pending, Approved, Rejected
+  client_remarks       String?
   created_by           String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

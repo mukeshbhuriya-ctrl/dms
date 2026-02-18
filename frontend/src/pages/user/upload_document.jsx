@@ -89,7 +89,7 @@ function UploadDocument() {
             cell: (row) => {
                 const isUploading = uploadingIds[row.id];
                 // Disable if already approved or pending approval (uploaded)
-                const isDisabled = row.approverStatus === "approved" || row.approverStatus === "pending for approval";
+                const isDisabled = row.approverStatus === "approved" || row.approverStatus === "rejected" || row.approverStatus === "pending for approval";
 
                 return (
                     <div className="flex items-center gap-2">
@@ -115,7 +115,7 @@ function UploadDocument() {
                             ) : (
                                 <Upload className="h-4 w-4 mr-2" />
                             )}
-                            {isUploading ? 'Uploading...' : (row.approverStatus === "rejected" ? 'Re-upload' : 'Upload')}
+                            {isUploading ? 'Uploading...' : (row.approverStatus === "rejected" ? 'Upload' : 'Upload')}
                         </Label>
                     </div>
                 );

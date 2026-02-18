@@ -47,5 +47,7 @@ router.get('/get-transmissions', DccController.getTransmissions);
 router.get('/get-transmission-documents', DccController.getTransmissionDocuments);
 router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
+// Client Approval Status
+router.post('/transmission/client-status', DccController.updateTransmissionClientStatus);
 
 module.exports = router;

@@ -129,5 +129,15 @@ export const dccService = {
             body: JSON.stringify(data)
         });
         return handleResponse(response);
+    },
+
+    updateTransmissionClientStatus: async ({ transmission_id, status, remarks }) => {
+        const response = await fetch(`${BACKEND_URL}/api/dcc/transmission/client-status`, {
+            method: 'POST',
+            headers: getHeaders(),
+            credentials: "include",
+            body: JSON.stringify({ transmission_id, status, remarks })
+        });
+        return handleResponse(response);
     }
 };
