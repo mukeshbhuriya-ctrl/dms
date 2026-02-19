@@ -77,44 +77,39 @@ class PDFGeneratorCD {
     }
 
     drawInfoGrid(doc, x, y, width, data) {
-        const rowH = 22;
-        const col1W = width * 0.15;
-        const col2W = width * 0.35;
-        const col3W = width * 0.15;
-        const col4W = width * 0.35;
+        const rowH = 25;
+        const col1W = width * 0.40; // Label column
+        const col2W = width * 0.60; // Value column
 
         const rows = [
-            { l1: 'MSN:', v1: data.msn, l2: 'TAG NO.:', v2: data.tagNo },
-            { l1: 'CLIENT:', v1: data.client, l2: 'EQUIPMENT:', v2: data.equipment },
-            { l1: 'Projects ID', v1: data.projectsId, l2: 'Linde DRG No:', v2: data.lindeDrgNo },
-            { l1: 'P.O. NO.:', v1: data.poNo, l2: 'DRG. NO.:', v2: data.drgNo },
-            { l1: 'CODE:', v1: data.code, l2: 'INSP. AGENCY:', v2: data.inspAgency },
+            { label: 'Shreno Manufacturer sr. no.:', value: data.msn },
+            { label: 'Equipment Name & Tag Number:', value: `${data.equipment || ''} ${data.tagNo || ''}` },
+            { label: 'Drawing no. :', value: data.drgNo }
         ];
 
         let curY = y;
-        doc.fontSize(9);
+        doc.fontSize(10);
 
         rows.forEach(row => {
+            // Draw borders
             doc.rect(x, curY, col1W, rowH).stroke();
             doc.rect(x + col1W, curY, col2W, rowH).stroke();
-            doc.rect(x + col1W + col2W, curY, col3W, rowH).stroke();
-            doc.rect(x + col1W + col2W + col3W, curY, col4W, rowH).stroke();
 
-            const textY = curY + 7;
-            const pad = 4;
+            const textY = curY + 8;
+            const pad = 5;
 
+            // Label (Red, Bold)
             doc.font(this.fonts.bold).fillColor(this.colors.red);
-            doc.text(row.l1, x + pad, textY, { width: col1W - pad * 2 });
-            doc.text(row.l2, x + col1W + col2W + pad, textY, { width: col3W - pad * 2 });
+            doc.text(row.label, x + pad, textY, { width: col1W - pad * 2 });
 
+            // Value (Black, Regular)
             doc.font(this.fonts.regular).fillColor(this.colors.black);
-            doc.text(row.v1, x + col1W + pad, textY, { width: col2W - pad * 2 });
-            doc.text(row.v2, x + col1W + col2W + col3W + pad, textY, { width: col4W - pad * 2 });
+            doc.text(row.value || '-', x + col1W + pad, textY, { width: col2W - pad * 2 });
 
             curY += rowH;
         });
 
-        return curY + 5;
+        return curY + 10; // Add some spacing after grid
     }
 
     drawFooter(doc, x, y, width, data, title) {
