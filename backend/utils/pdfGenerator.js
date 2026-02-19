@@ -367,7 +367,8 @@ class PDFGenerator {
 
         // YES - Black Bold
         doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text('YES', x + 2 * colW + pad, tY);
+        const rtText = (data.rt) ? 'YES' : 'NO';
+        doc.text(rtText, x + 2 * colW + pad, tY);
     }
 
     drawStage5Content(doc, x, y, width, data, bottomY) {
@@ -397,7 +398,8 @@ class PDFGenerator {
 
         // YES - Black Bold
         doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text('YES', x + 2 * colW + pad, tY);
+        const ptText = (data.pt) ? 'YES' : 'NO';
+        doc.text(ptText, x + 2 * colW + pad, tY);
     }
 
     drawStage6Content(doc, x, y, width, data, bottomY) {
@@ -427,7 +429,8 @@ class PDFGenerator {
 
         // YES - Black Bold
         doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text('YES', x + 2 * colW + pad, tY);
+        const pwhtText = (data.pwht) ? 'YES' : 'NO';
+        doc.text(pwhtText, x + 2 * colW + pad, tY);
 
         // SECOND TABLE: Radiography Testing Requirement (After PWHT)
         curY += rowH + 15; // Gap
@@ -454,7 +457,9 @@ class PDFGenerator {
 
         // Value
         doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text('YES', x + 2 * colW + pad, tY2);
+        // User requested static YES if pwht is true for now
+        const rtText = (data.pwht) ? 'YES' : 'NO';
+        doc.text(rtText, x + 2 * colW + pad, tY2);
     }
 
     drawStage7Content(doc, x, y, width, data, bottomY) {
@@ -485,7 +490,8 @@ class PDFGenerator {
 
         // YES - Black Bold
         doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text('YES', x + 2 * colW + pad, tY);
+        const pwhtText = (data.pwht) ? 'YES' : 'NO';
+        doc.text(pwhtText, x + 2 * colW + pad, tY);
 
         // SECOND TABLE: Liquid Penetrant Testing (Required / Not required) - After PWHT
         curY += rowH + 15; // Gap
@@ -512,7 +518,8 @@ class PDFGenerator {
 
         // Value
         doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text('YES', x + 2 * colW + pad, tY2);
+        const lpText = (data.pwht) ? 'YES' : 'NO';
+        doc.text(lpText, x + 2 * colW + pad, tY2);
     }
 
     // ==========================================

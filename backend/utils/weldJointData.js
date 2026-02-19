@@ -131,6 +131,13 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
 
         // Stage 4 Specifics
         ndtEngineerId: stageData.assignedNdtEngineerId || stageData.assignedQcEngineerId || '',
+
+        // Stage 6/7 Specifics
+        pwht: joint.pwht || false, // Boolean or truthy value from joint table
+
+        // Stage 4/5 Specifics
+        rt: joint.rt || false,
+        pt: joint.pt || false,
     };
 };
 
