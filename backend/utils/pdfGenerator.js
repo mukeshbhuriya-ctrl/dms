@@ -275,12 +275,49 @@ class PDFGenerator {
         // Dynamic Content Area
         if (stageKey === 'stage3') {
             this.drawStage3Content(doc, innerX, currentY, innerW, data, footerStartY);
+        } else if (stageKey === 'stage2') {
+            this.drawStage2Content(doc, innerX, currentY, innerW, data, footerStartY);
         } else {
             this.drawGeneralStatusContent(doc, innerX, currentY, innerW, data, footerStartY, stageKey);
         }
 
         const footerTitle = stageKey === 'stage4' || stageKey === 'stage5' ? 'NDT Inspection by' : 'Inspection by';
         this.drawFooter(doc, innerX, footerStartY, innerW, data, footerTitle);
+    }
+
+    drawStage2Content(doc, x, y, width, data, bottomY) {
+        const headerH = 25;
+        // Title: Back chip – Required / not required
+        const title = 'Back chip – Required / not required';
+        doc.rect(x, y, width, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+            .text(title, x, y + 8, { width: width, align: 'center' });
+
+        let curY = y + headerH;
+        const rowH = 30;
+
+        // Columns: 3 equal width for now
+        const colW = width / 3;
+
+        doc.rect(x, curY, colW, rowH).stroke();
+        doc.rect(x + colW, curY, colW, rowH).stroke();
+        doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+        const tY = curY + 10;
+        const pad = 5;
+
+        // Back Chip PT - Red Bold
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('Back Chip PT', x + pad, tY);
+
+        // YES / No - Red Bold
+        doc.text('YES / No', x + colW + pad, tY);
+
+        // YES - Black Regular (Static as per request "keep like this")
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text('YES', x + 2 * colW + pad, tY);
+
+        // Vertical lines helper for visual clarity (already drawn by rects but good to be sure)
     }
 
     // ==========================================
@@ -519,9 +556,11 @@ class PDFGenerator {
 
         // Text
         const titles = ['Production Engineer', 'QC Engineer', 'AI / CLIENT / TPIA'];
-        const names = [data.prodEngName, data.qcEngName, data.aiName];
-        const dates = [data.prodEngDate, data.qcEngDate, data.aiDate];
-        const signs = ['', data.qcEngStatus, data.aiSign]; // Status as sign for now
+        const names = [data.productionEngineerName, data.qcEngineerName, data.aiName];
+        const dates = [data.submissionDate, data.qcDate, data.aiDate];
+        // Use 'Approve' if status is approved, otherwise show status or empty
+        const qcSign = (data.qcStatus === 'approved' || data.qcStatus === 'submitted') ? 'Approve' : '';
+        const signs = ['', qcSign, data.aiSign];
 
         const pad = 4;
         const tY = 6;
@@ -534,21 +573,24 @@ class PDFGenerator {
         doc.text(titles[1], x + colW + pad, curY + tY, { width: colW - pad * 2, align: 'left' });
         doc.text(titles[2], x + 2 * colW + pad, curY + tY, { width: colW - pad * 2, align: 'left' });
 
-        // Row 2: Names (Black)
-        doc.font(this.fonts.regular).fillColor(this.colors.black);
+        // For Values, SS2 shows them in Red Bold as well (or at least distinctive). 
+        // Let's use Red Bold for Names/Dates/Sign to match the visual "structure" requested.
+
+        // Row 2: Names (Red Bold)
+        doc.font(this.fonts.bold).fillColor(this.colors.red);
         doc.text(names[0] || '', x + pad, curY + rowH + tY);
         doc.text(names[1] || '', x + colW + pad, curY + rowH + tY);
         doc.text(names[2] || '', x + 2 * colW + pad, curY + rowH + tY);
 
-        // Row 3: Dates (Black)
+        // Row 3: Dates (Red Bold)
         doc.text(dates[0] || '', x + pad, curY + 2 * rowH + tY);
         doc.text(dates[1] || '', x + colW + pad, curY + 2 * rowH + tY);
         doc.text(dates[2] || '', x + 2 * colW + pad, curY + 2 * rowH + tY);
 
-        // Row 4: Sign/Status (Black/Red)
+        // Row 4: Sign (Red Bold)
         doc.text('', x + pad, curY + 3 * rowH + tY);
-        doc.fillColor(this.colors.red).font(this.fonts.bold).text(signs[1] || '', x + colW + pad, curY + 3 * rowH + tY);
-        doc.fillColor(this.colors.black).font(this.fonts.regular).text(signs[2] || '', x + 2 * colW + pad, curY + 3 * rowH + tY);
+        doc.text(signs[1] || '', x + colW + pad, curY + 3 * rowH + tY);
+        doc.text(signs[2] || '', x + 2 * colW + pad, curY + 3 * rowH + tY);
     }
 
     drawLogo(doc, x, y, w, h) {
