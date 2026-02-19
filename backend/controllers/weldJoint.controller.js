@@ -59,8 +59,9 @@ async function generateStageReport(req, res) {
                 }
             }));
 
+            const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${joint.joint_no}.pdf`);
+            res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${joint.joint_no}_${dateTime}.pdf`);
 
             if (categoryKey === 'cd') {
                 pdfGeneratorCD.generateReport(allStagesData, res);
@@ -75,8 +76,9 @@ async function generateStageReport(req, res) {
         // Single Stage Report
         const reportData = await extractStageData(insp, plan, job, joint, stage, categoryKey);
 
+        const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${stage}_${joint.joint_no}.pdf`);
+        res.setHeader('Content-Disposition', `attachment; filename=${stage}_${joint.joint_no}_${dateTime}.pdf`);
 
         if (stage === 'stage1') {
             pdfGenerator.generateStage1Report(reportData, res);

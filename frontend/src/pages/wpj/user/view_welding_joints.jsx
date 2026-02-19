@@ -316,7 +316,25 @@ function ViewWeldingJoints() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${stage}_${joint.jointNo}.pdf`;
+
+        // Use backend filename if possible, otherwise generate one
+        const contentDisposition = res.headers.get('Content-Disposition');
+        let filename = `${stage === 'all' ? 'Complete_Report' : stage}_${joint.jointNo}.pdf`;
+
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+          if (filenameMatch && filenameMatch[1]) {
+            filename = filenameMatch[1];
+          }
+        }
+
+        // If backend header didn't work (CORS?), fallback to generating it here with timestamp
+        if (!contentDisposition || !filename.includes('_20')) {
+          const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+          filename = `${stage === 'all' ? 'Complete_Report' : stage}_${joint.jointNo}_${dateTime}.pdf`;
+        }
+
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         a.remove();
