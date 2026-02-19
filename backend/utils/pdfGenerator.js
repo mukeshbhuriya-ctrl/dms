@@ -277,11 +277,15 @@ class PDFGenerator {
             this.drawStage3Content(doc, innerX, currentY, innerW, data, footerStartY);
         } else if (stageKey === 'stage2') {
             this.drawStage2Content(doc, innerX, currentY, innerW, data, footerStartY);
+        } else if (stageKey === 'stage4') {
+            this.drawStage4Content(doc, innerX, currentY, innerW, data, footerStartY);
+        } else if (stageKey === 'stage5') {
+            this.drawStage5Content(doc, innerX, currentY, innerW, data, footerStartY);
         } else {
             this.drawGeneralStatusContent(doc, innerX, currentY, innerW, data, footerStartY, stageKey);
         }
 
-        const footerTitle = stageKey === 'stage4' || stageKey === 'stage5' ? 'NDT Inspection by' : 'Inspection by';
+        const footerTitle = 'Set Up Inspection by';
         this.drawFooter(doc, innerX, footerStartY, innerW, data, footerTitle);
     }
 
@@ -318,6 +322,67 @@ class PDFGenerator {
         doc.text('YES', x + 2 * colW + pad, tY);
 
         // Vertical lines helper for visual clarity (already drawn by rects but good to be sure)
+    }
+
+    drawStage4Content(doc, x, y, width, data, bottomY) {
+        const headerH = 25;
+        const title = 'Radiography Testing Requirement';
+        doc.rect(x, y, width, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red) // Header title stays Red as per pattern
+            .text(title, x, y + 8, { width: width, align: 'center' });
+
+        let curY = y + headerH;
+        const rowH = 30;
+        const colW = width / 3;
+
+        doc.rect(x, curY, colW, rowH).stroke();
+        doc.rect(x + colW, curY, colW, rowH).stroke();
+        doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+        const tY = curY + 10;
+        const pad = 5;
+
+        // Radiography Testing Requirement - Red Bold (implied to match Back Chip style)
+        // User said "do same for this", showing SS2. SS2 has Red bold text.
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('Radiography Testing Requirement', x + pad, tY);
+
+        // YES / No - Red Bold
+        doc.text('YES / No', x + colW + pad, tY);
+
+        // YES - Black Bold
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text('YES', x + 2 * colW + pad, tY);
+    }
+
+    drawStage5Content(doc, x, y, width, data, bottomY) {
+        const headerH = 25;
+        const title = 'Liquid Penetrant Testing (Required / Not required)';
+        doc.rect(x, y, width, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+            .text(title, x, y + 8, { width: width, align: 'center' });
+
+        let curY = y + headerH;
+        const rowH = 30;
+        const colW = width / 3;
+
+        doc.rect(x, curY, colW, rowH).stroke();
+        doc.rect(x + colW, curY, colW, rowH).stroke();
+        doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+        const tY = curY + 10;
+        const pad = 5;
+
+        // Liquid Penetrant Testing - Red Bold
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('Liquid Penetrant Testing', x + pad, tY);
+
+        // YES / No - Red Bold
+        doc.text('YES / No', x + colW + pad, tY);
+
+        // YES - Black Bold
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text('YES', x + 2 * colW + pad, tY);
     }
 
     // ==========================================
@@ -555,7 +620,10 @@ class PDFGenerator {
         }
 
         // Text
-        const titles = ['Production Engineer', 'QC Engineer', 'AI / CLIENT / TPIA'];
+        const isNdtStage = ['stage4', 'stage5', 'stage6', 'stage7'].includes(data.stageKey);
+        const secondTitle = isNdtStage ? 'NDT Engineer' : 'QC Engineer';
+
+        const titles = ['Production Engineer', secondTitle, 'AI / CLIENT / TPIA'];
         const names = [data.productionEngineerName, data.qcEngineerName, data.aiName];
         const dates = [data.submissionDate, data.qcDate, data.aiDate];
         // Use 'Approve' if status is approved, otherwise show status or empty
@@ -576,18 +644,18 @@ class PDFGenerator {
         // For Values, SS2 shows them in Red Bold as well (or at least distinctive). 
         // Let's use Red Bold for Names/Dates/Sign to match the visual "structure" requested.
 
-        // Row 2: Names (Red Bold)
-        doc.font(this.fonts.bold).fillColor(this.colors.red);
+        // Row 2: Names (Black Bold) - CHANGED TO BLACK
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
         doc.text(names[0] || '', x + pad, curY + rowH + tY);
         doc.text(names[1] || '', x + colW + pad, curY + rowH + tY);
         doc.text(names[2] || '', x + 2 * colW + pad, curY + rowH + tY);
 
-        // Row 3: Dates (Red Bold)
+        // Row 3: Dates (Black Bold) - CHANGED TO BLACK
         doc.text(dates[0] || '', x + pad, curY + 2 * rowH + tY);
         doc.text(dates[1] || '', x + colW + pad, curY + 2 * rowH + tY);
         doc.text(dates[2] || '', x + 2 * colW + pad, curY + 2 * rowH + tY);
 
-        // Row 4: Sign (Red Bold)
+        // Row 4: Sign (Black Bold) - CHANGED TO BLACK
         doc.text('', x + pad, curY + 3 * rowH + tY);
         doc.text(signs[1] || '', x + colW + pad, curY + 3 * rowH + tY);
         doc.text(signs[2] || '', x + 2 * colW + pad, curY + 3 * rowH + tY);
