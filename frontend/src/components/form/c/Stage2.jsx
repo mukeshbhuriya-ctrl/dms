@@ -8,8 +8,8 @@ import { FormAlert } from "@/components/ui/form-alert"
 
 const Stage2C = ({ initialData, isReview }) => {
     const [formData, setFormData] = useState({
-        welderNumber: "W-123",
-        overlayPt: "Not Applicable",
+        welderNumber: "",
+        overlayPt: "",
         date: new Date().toLocaleDateString()
     })
 
@@ -322,16 +322,18 @@ const Stage2C = ({ initialData, isReview }) => {
                             <Label>Welder Number</Label>
                             <Input
                                 value={formData.welderNumber}
+                                placeholder='Enter Welder Number'
                                 onChange={(e) => handleChange('welderNumber', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Overlay PT (If applicable)</Label>
                             <Input
                                 value={formData.overlayPt}
+                                placeholder='Enter Overlay PT (If applicable)'
                                 onChange={(e) => handleChange('overlayPt', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                     </div>

@@ -8,13 +8,13 @@ import { FormAlert } from "@/components/ui/form-alert"
 
 const Stage1C = ({ initialData, isReview }) => {
     const [formData, setFormData] = useState({
-        materialIdMarks: "Available",
-        nozzleNumber: "N1",
-        tackWelder: "TW-001",
-        visualInspection: "OK",
-        lSeamRt: "OK",
-        nozzleSize: "100mm",
-        totalLength: "500mm",
+        materialIdMarks: "",
+        nozzleNumber: "",
+        tackWelder: "",
+        visualInspection: "",
+        lSeamRt: "",
+        nozzleSize: "",
+        totalLength: "",
         date: new Date().toLocaleDateString()
     })
 
@@ -347,8 +347,9 @@ const Stage1C = ({ initialData, isReview }) => {
                             <Label>Nozzle Number</Label>
                             <Input
                                 value={formData.nozzleNumber}
+                                placeholder='Enter Nozzle Number'
                                 onChange={(e) => handleChange('nozzleNumber', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
@@ -356,7 +357,7 @@ const Stage1C = ({ initialData, isReview }) => {
                             <Select
                                 value={formData.materialIdMarks}
                                 onValueChange={(val) => handleChange('materialIdMarks', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -378,8 +379,9 @@ const Stage1C = ({ initialData, isReview }) => {
                             <Label>Tack Welder</Label>
                             <Input
                                 value={formData.tackWelder}
+                                placeholder='Enter Tack Welder'
                                 onChange={(e) => handleChange('tackWelder', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
 
@@ -388,7 +390,7 @@ const Stage1C = ({ initialData, isReview }) => {
                             <Select
                                 value={formData.visualInspection}
                                 onValueChange={(val) => handleChange('visualInspection', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -405,7 +407,7 @@ const Stage1C = ({ initialData, isReview }) => {
                             <Select
                                 value={formData.lSeamRt}
                                 onValueChange={(val) => handleChange('lSeamRt', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -426,16 +428,18 @@ const Stage1C = ({ initialData, isReview }) => {
                                 <Label>Nozzle Size</Label>
                                 <Input
                                     value={formData.nozzleSize}
+                                    placeholder='Enter Nozzle Size'
                                     onChange={(e) => handleChange('nozzleSize', e.target.value)}
-                                    disabled={isReview}
+                                    disabled={isReview && userRole !== 'QC'}
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label>Total Length</Label>
                                 <Input
                                     value={formData.totalLength}
+                                    placeholder='Enter Total Length'
                                     onChange={(e) => handleChange('totalLength', e.target.value)}
-                                    disabled={isReview}
+                                    disabled={isReview && userRole !== 'QC'}
                                 />
                             </div>
                         </div>

@@ -18,16 +18,16 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
     const [qcEngineers, setQcEngineers] = useState([])
 
     const [formData, setFormData] = useState({
-        tackWelder: "TW-001",
+        tackWelder: "",
         materialId: "",
-        lSeamNdt: "Not Applicable",
-        cleaning: "OK",
-        grooveAngle: "35°",
-        rootFace: "2mm",
-        rootGap: "3mm",
-        projection: "10mm",
-        pcdHole: "ON center",
-        rfPad: "Not Applicable",
+        lSeamNdt: "",
+        cleaning: "",
+        grooveAngle: "",
+        rootFace: "",
+        rootGap: "",
+        projection: "",
+        pcdHole: "",
+        rfPad: "",
         date: new Date().toLocaleDateString()
     })
 
@@ -70,38 +70,38 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
         }
     }, [isReview])
 
-  // Fetch QC Engineers
-  useEffect(() => {
-    const fetchQeEngineers = async () => {
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
-        }
+    // Fetch QC Engineers
+    useEffect(() => {
+        const fetchQeEngineers = async () => {
+            try {
+                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+                const authData = localStorage.getItem("user_auth")
+                let token = null
+                if (authData) {
+                    try {
+                        const parsed = JSON.parse(authData)
+                        token = parsed?.payload?.token || parsed?.token
+                    } catch { }
+                }
 
-        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          setQcEngineers(data.data || [])
+                const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": token ? `Bearer ${token}` : ""
+                    },
+                    credentials: "include",
+                })
+                const data = await res.json()
+                if (res.ok && data.success) {
+                    setQcEngineers(data.data || [])
+                }
+            } catch (error) {
+                console.error("Error fetching QE Engineers:", error)
+            }
         }
-      } catch (error) {
-        console.error("Error fetching QE Engineers:", error)
-      }
-    }
-    fetchQeEngineers()
-  }, [])
+        fetchQeEngineers()
+    }, [])
 
     // Load Data
     useEffect(() => {
@@ -380,8 +380,9 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <Label>Tack Welder</Label>
                             <Input
                                 value={formData.tackWelder}
+                                placeholder='Enter Tack Welder'
                                 onChange={(e) => handleFormChange('tackWelder', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
@@ -389,7 +390,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <Select
                                 value={formData.materialId}
                                 onValueChange={(val) => handleFormChange('materialId', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -406,7 +407,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <Select
                                 value={formData.lSeamNdt}
                                 onValueChange={(val) => handleFormChange('lSeamNdt', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -423,7 +424,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <Select
                                 value={formData.cleaning}
                                 onValueChange={(val) => handleFormChange('cleaning', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -438,32 +439,36 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <Label>Groove Angle</Label>
                             <Input
                                 value={formData.grooveAngle}
+                                placeholder='Enter Groove Angle'
                                 onChange={(e) => handleFormChange('grooveAngle', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Root face</Label>
                             <Input
                                 value={formData.rootFace}
+                                placeholder='Enter Root Face'
                                 onChange={(e) => handleFormChange('rootFace', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Root Gap</Label>
                             <Input
                                 value={formData.rootGap}
+                                placeholder='Enter Root Gap'
                                 onChange={(e) => handleFormChange('rootGap', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Projection from Reference line to Flange face</Label>
                             <Input
                                 value={formData.projection}
+                                placeholder='Enter Projection'
                                 onChange={(e) => handleFormChange('projection', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
@@ -471,7 +476,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <Select
                                 value={formData.pcdHole}
                                 onValueChange={(val) => handleFormChange('pcdHole', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -485,7 +490,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <Select
                                 value={formData.rfPad}
                                 onValueChange={(val) => handleFormChange('rfPad', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                                 <SelectContent>

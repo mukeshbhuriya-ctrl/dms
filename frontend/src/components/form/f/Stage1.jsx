@@ -382,7 +382,7 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
 
                         <div className="space-y-2">
                             <Label>QC Engineer:</Label>
-                            <Select value={qeEngineer} onValueChange={setQeEngineer} disabled={isReview && userRole !== 'QC'}>
+                            <Select value={qeEngineer} onValueChange={setQeEngineer} disabled={isReview}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select QC Engineer" />
                                 </SelectTrigger>

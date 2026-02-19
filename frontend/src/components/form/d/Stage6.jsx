@@ -18,7 +18,7 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
     const [qcEngineers, setQcEngineers] = useState([])
 
     const [formData, setFormData] = useState({
-        rfPadPneumatic: "Not Applicable",
+        rfPadPneumatic: "",
         date: new Date().toLocaleDateString()
     })
 
@@ -368,7 +368,7 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
                                 <Select
                                     value={formData.rfPadPneumatic}
                                     onValueChange={(val) => handleFormChange('rfPadPneumatic', val)}
-                                    disabled={isReview}
+                                    disabled={isReview && userRole !== 'QC'}
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select Status" />

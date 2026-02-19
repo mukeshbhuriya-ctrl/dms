@@ -18,10 +18,10 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
     const [qcEngineers, setQcEngineers] = useState([])
 
     const [formData, setFormData] = useState({
-        visualInspection: "OK",
-        welderNo: "W-888",
-        weldingProcess: "GTAW",
-        filletSize: "5mm",
+        visualInspection: "",
+        welderNo: "",
+        weldingProcess: "",
+        filletSize: "",
         date: new Date().toLocaleDateString()
     })
 
@@ -370,7 +370,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                             <Select
                                 value={formData.visualInspection}
                                 onValueChange={(val) => handleFormChange('visualInspection', val)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -386,24 +386,27 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                             <Label>Welder No.</Label>
                             <Input
                                 value={formData.welderNo}
+                                placeholder='Enter Welder No.'
                                 onChange={(e) => handleFormChange('welderNo', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Welding process</Label>
                             <Input
                                 value={formData.weldingProcess}
+                                placeholder='Enter Welding Process'
                                 onChange={(e) => handleFormChange('weldingProcess', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Fillet size</Label>
                             <Input
                                 value={formData.filletSize}
+                                placeholder='Enter Fillet Size'
                                 onChange={(e) => handleFormChange('filletSize', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                     </div>

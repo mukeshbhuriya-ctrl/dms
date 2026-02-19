@@ -18,11 +18,11 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
     const [qcEngineers, setQcEngineers] = useState([])
 
     const [formData, setFormData] = useState({
-        nozzleNumber: "N1",
-        openingSize: "100mm",
-        orientation: "0",
-        elevation: "1500mm",
-        edgePreparation: "V-Groove",
+        nozzleNumber: "",
+        openingSize: "",
+        orientation: "",
+        elevation: "",
+        edgePreparation: "",
         date: new Date().toLocaleDateString()
     })
 
@@ -65,38 +65,38 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
         }
     }, [isReview])
 
-  // Fetch QC Engineers
-  useEffect(() => {
-    const fetchQeEngineers = async () => {
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
-        }
+    // Fetch QC Engineers
+    useEffect(() => {
+        const fetchQeEngineers = async () => {
+            try {
+                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+                const authData = localStorage.getItem("user_auth")
+                let token = null
+                if (authData) {
+                    try {
+                        const parsed = JSON.parse(authData)
+                        token = parsed?.payload?.token || parsed?.token
+                    } catch { }
+                }
 
-        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          setQcEngineers(data.data || [])
+                const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": token ? `Bearer ${token}` : ""
+                    },
+                    credentials: "include",
+                })
+                const data = await res.json()
+                if (res.ok && data.success) {
+                    setQcEngineers(data.data || [])
+                }
+            } catch (error) {
+                console.error("Error fetching QE Engineers:", error)
+            }
         }
-      } catch (error) {
-        console.error("Error fetching QE Engineers:", error)
-      }
-    }
-    fetchQeEngineers()
-  }, [])
+        fetchQeEngineers()
+    }, [])
 
     // Load Data
     useEffect(() => {
@@ -381,40 +381,45 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                             <Label>Nozzle Number</Label>
                             <Input
                                 value={formData.nozzleNumber}
+                                placeholder='Enter Nozzle Number'
                                 onChange={(e) => handleFormChange('nozzleNumber', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Opening size</Label>
                             <Input
                                 value={formData.openingSize}
+                                placeholder='Opening size'
                                 onChange={(e) => handleFormChange('openingSize', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Orientation (°)</Label>
                             <Input
                                 value={formData.orientation}
+                                placeholder='Enter Orientation'
                                 onChange={(e) => handleFormChange('orientation', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Elevation</Label>
                             <Input
                                 value={formData.elevation}
+                                placeholder='Enter Elevation'
                                 onChange={(e) => handleFormChange('elevation', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Edge preparation</Label>
                             <Input
                                 value={formData.edgePreparation}
+                                placeholder='Enter Edge preparation'
                                 onChange={(e) => handleFormChange('edgePreparation', e.target.value)}
-                                disabled={isReview}
+                                disabled={isReview && userRole !== 'QC'}
                             />
                         </div>
                     </div>
