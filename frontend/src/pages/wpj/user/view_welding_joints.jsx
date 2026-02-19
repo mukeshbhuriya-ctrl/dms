@@ -384,6 +384,20 @@ function ViewWeldingJoints() {
                         : row.status;
 
         const actionButton = (() => {
+          if (row.status === 'completed') {
+            return (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleDownloadReport(mergedJoint, 'all')}
+                className="flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+                Download
+              </Button>
+            )
+          }
+
           if (isQCOrNDT) {
             if (isPending) {
               if (isAssignedToMe) {
@@ -398,10 +412,6 @@ function ViewWeldingJoints() {
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
             if (isRejected) return <Button size="sm" variant="destructive" disabled>Rejected - {stageName}</Button>
 
-            if (row.status === 'completed') {
-              return <Button size="sm" variant="outline" disabled>Completed</Button>
-            }
-
             return <span className="text-muted-foreground">-</span>
           } else {
             // Prod Engineer
@@ -414,33 +424,18 @@ function ViewWeldingJoints() {
                 size="sm"
                 onClick={() => handleOpenStage(mergedJoint)}
                 variant={isRejected ? "destructive" : "outline"}
-                disabled={showPending || row.status === 'completed'}
+                disabled={showPending}
               >
                 {showPending ? `Approval Pending ${stageName}` :
-                  (row.status === 'completed' ? 'Completed' : (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`))}
+                  (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`)}
               </Button>
             )
           }
         })();
 
-        // Check availability for PDF Download (Stage 1 for A/B)
-        // FOR TESTING: Always allow if Category A or B
-        const canDownloadPDF = (row.jointCategory === 'A' || row.jointCategory === 'B');
-        const isCompleted = row.status === 'completed';
-
         return (
           <div className="flex items-center gap-2">
             {actionButton}
-            {isCompleted && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => handleDownloadReport(mergedJoint, 'all')}
-                title="Download Complete Form"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
-              </Button>
-            )}
           </div>
         );
       }
