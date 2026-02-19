@@ -25,7 +25,18 @@ class PDFGenerator {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
-        const stages = Object.keys(allStagesData).sort();
+        let stages = Object.keys(allStagesData).sort();
+
+        // Filter out Stage 8 for Category A/B (Default)
+        // Check Category from Stage 1 data
+        const s1Data = allStagesData['stage1'] || {};
+        const isCatCD = s1Data.categoryKey === 'cd' || (s1Data.jointType && ['C', 'D'].includes(s1Data.jointType));
+        const isCatF = s1Data.categoryKey === 'f' || (s1Data.jointType && ['F'].includes(s1Data.jointType));
+        const isCatAB = !isCatCD && !isCatF;
+
+        if (isCatAB) {
+            stages = stages.filter(s => s !== 'stage8');
+        }
 
         stages.forEach((stage, index) => {
             if (index > 0) doc.addPage();
@@ -281,6 +292,10 @@ class PDFGenerator {
             this.drawStage4Content(doc, innerX, currentY, innerW, data, footerStartY);
         } else if (stageKey === 'stage5') {
             this.drawStage5Content(doc, innerX, currentY, innerW, data, footerStartY);
+        } else if (stageKey === 'stage6') {
+            this.drawStage6Content(doc, innerX, currentY, innerW, data, footerStartY);
+        } else if (stageKey === 'stage7') {
+            this.drawStage7Content(doc, innerX, currentY, innerW, data, footerStartY);
         } else {
             this.drawGeneralStatusContent(doc, innerX, currentY, innerW, data, footerStartY, stageKey);
         }
@@ -383,6 +398,121 @@ class PDFGenerator {
         // YES - Black Bold
         doc.font(this.fonts.bold).fillColor(this.colors.black);
         doc.text('YES', x + 2 * colW + pad, tY);
+    }
+
+    drawStage6Content(doc, x, y, width, data, bottomY) {
+        const headerH = 25;
+        const title = 'PWHT (Required / Not required)';
+        doc.rect(x, y, width, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+            .text(title, x, y + 8, { width: width, align: 'center' });
+
+        let curY = y + headerH;
+        const rowH = 30;
+        const colW = width / 3;
+
+        doc.rect(x, curY, colW, rowH).stroke();
+        doc.rect(x + colW, curY, colW, rowH).stroke();
+        doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+        const tY = curY + 10;
+        const pad = 5;
+
+        // PWHT - Red Bold
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('PWHT', x + pad, tY);
+
+        // YES / No - Red Bold
+        doc.text('YES / No', x + colW + pad, tY);
+
+        // YES - Black Bold
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text('YES', x + 2 * colW + pad, tY);
+
+        // SECOND TABLE: Radiography Testing Requirement (After PWHT)
+        curY += rowH + 15; // Gap
+
+        const title2 = 'Radiography Testing Requirement (After PWHT)';
+        doc.rect(x, curY, width, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+            .text(title2, x, curY + 8, { width: width, align: 'center' });
+
+        curY += headerH;
+
+        doc.rect(x, curY, colW, rowH).stroke();
+        doc.rect(x + colW, curY, colW, rowH).stroke();
+        doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+        const tY2 = curY + 10;
+
+        // Label
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('Radiography Testing Requirement', x + pad, tY2);
+
+        // Options
+        doc.text('YES / No', x + colW + pad, tY2);
+
+        // Value
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text('YES', x + 2 * colW + pad, tY2);
+    }
+
+    drawStage7Content(doc, x, y, width, data, bottomY) {
+        const headerH = 25;
+        // CHANGED: Title is now PWHT (same as Stage 6)
+        const title = 'PWHT (Required / Not required)';
+        doc.rect(x, y, width, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+            .text(title, x, y + 8, { width: width, align: 'center' });
+
+        let curY = y + headerH;
+        const rowH = 30;
+        const colW = width / 3;
+
+        doc.rect(x, curY, colW, rowH).stroke();
+        doc.rect(x + colW, curY, colW, rowH).stroke();
+        doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+        const tY = curY + 10;
+        const pad = 5;
+
+        // CHANGED: Label is now PWHT
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('PWHT', x + pad, tY);
+
+        // YES / No - Red Bold
+        doc.text('YES / No', x + colW + pad, tY);
+
+        // YES - Black Bold
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text('YES', x + 2 * colW + pad, tY);
+
+        // SECOND TABLE: Liquid Penetrant Testing (Required / Not required) - After PWHT
+        curY += rowH + 15; // Gap
+
+        const title2 = 'Liquid Penetrant Testing (Required / Not required) - After PWHT';
+        doc.rect(x, curY, width, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+            .text(title2, x, curY + 8, { width: width, align: 'center' });
+
+        curY += headerH;
+
+        doc.rect(x, curY, colW, rowH).stroke();
+        doc.rect(x + colW, curY, colW, rowH).stroke();
+        doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+        const tY2 = curY + 10;
+
+        // Label
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('Liquid Penetrant Testing', x + pad, tY2);
+
+        // Options
+        doc.text('YES / No', x + colW + pad, tY2);
+
+        // Value
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text('YES', x + 2 * colW + pad, tY2);
     }
 
     // ==========================================
