@@ -1,6 +1,7 @@
 const weldJointService = require('../services/weldJoint.service.js');
 const pdfGenerator = require('#utils/pdfGenerator');
 const pdfGeneratorCD = require('#utils/pdfGeneratorCD');
+const pdfGeneratorF = require('#utils/pdfGeneratorF');
 const prisma = require('#prisma');
 const { extractStageData } = require('../utils/weldJointData');
 
@@ -41,14 +42,14 @@ async function generateStageReport(req, res) {
         const insp = joint.weld_joint_inspection || {};
         const plan = joint.weld_joint_plan || {};
         const job = plan.job || {};
-        const categoryKey = (joint.joint_type === 'C' || joint.joint_type === 'D') ? 'cd' : 'ab';
+        const categoryKey = (joint.joint_type === 'C' || joint.joint_type === 'D') ? 'cd' :
+            (joint.joint_type === 'F') ? 'f' : 'ab';
 
         if (stage === 'all') {
             const allStagesData = {};
-            // Determine relevant stages based on category? 
-            // User requested "complete joint category" so typically A/B has 1-6, C/D has 1-8 etc.
-            // We'll iterate 1-8 and check if data exists or status is not null.
-            const stages = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'];
+            const stages = categoryKey === 'f'
+                ? ['stage1', 'stage2', 'stage3', 'stage4']
+                : ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'];
 
             await Promise.all(stages.map(async (sKey) => {
                 const sPrefix = sKey.replace('stage', 's');
@@ -63,6 +64,8 @@ async function generateStageReport(req, res) {
 
             if (categoryKey === 'cd') {
                 pdfGeneratorCD.generateReport(allStagesData, res);
+            } else if (categoryKey === 'f') {
+                pdfGeneratorF.generateReport(allStagesData, res);
             } else {
                 pdfGenerator.generateCompleteReport(allStagesData, res);
             }
