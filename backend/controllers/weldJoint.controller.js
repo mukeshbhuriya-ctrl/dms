@@ -1,5 +1,6 @@
 const weldJointService = require('../services/weldJoint.service.js');
 const pdfGenerator = require('#utils/pdfGenerator');
+const pdfGeneratorCD = require('#utils/pdfGeneratorCD');
 const prisma = require('#prisma');
 const { extractStageData } = require('../utils/weldJointData');
 
@@ -60,7 +61,11 @@ async function generateStageReport(req, res) {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${joint.joint_no}.pdf`);
 
-            pdfGenerator.generateCompleteReport(allStagesData, res);
+            if (categoryKey === 'cd') {
+                pdfGeneratorCD.generateReport(allStagesData, res);
+            } else {
+                pdfGenerator.generateCompleteReport(allStagesData, res);
+            }
             return;
         }
 

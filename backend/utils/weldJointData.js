@@ -125,6 +125,43 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         totalLength: stageData.totalLength || '',
         date: stageData.date || '', // Date in C/D form
 
+        // Stage 2 - C/D Specifics
+        welderNumber: stageData.welderNumber || '',
+        overlayPt: stageData.overlayPt || '',
+
+        // Stage 3 - C/D (Nozzle Opening)
+        nozzleNumber: stageData.nozzleNumber || '',
+        openingSize: stageData.openingSize || '',
+        orientation: stageData.orientation || '',
+        elevation: stageData.elevation || '',
+        edgePreparation: stageData.edgePreparation || '',
+
+        // Stage 4 - C/D (Nozzle Set-Up)
+        tackWelder: stageData.tackWelder || 'TW-001',
+        materialId: stageData.materialId || '',
+        lSeamNdt: stageData.lSeamNdt || 'Not Applicable',
+        cleaning: stageData.cleaning || 'OK',
+        grooveAngle: stageData.grooveAngle || '35°',
+        rootFace: stageData.rootFace || '2mm',
+        rootGap: stageData.rootGap || '3mm',
+        projection: stageData.projection || '10mm',
+        pcdHole: stageData.pcdHole || 'ON center',
+        rfPad: stageData.rfPad || 'Not Applicable',
+
+        // Stage 5 - C/D (Inspection after full Welding)
+        visualInspection: stageData.visualInspection || 'OK',
+        filletSize: stageData.filletSize || '5mm',
+        weldingProcess: stageData.weldingProcess || 'GTAW',
+        // welderNo reused from Stage 3 if name conflict? Stage 3 uses welderNo? No, Stage 2 has welderNumber. Stage 5 has welderNo.
+        welderNo: stageData.welderNo || 'W-888',
+
+        // Stage 6 - C/D (RF Pad)
+        rfPadPneumatic: stageData.rfPadPneumatic || 'Not Applicable',
+
+        // Stage 7/8 - C/D (PWHT/NDT)
+        postRtStatus: stageData.postRtStatus || 'NA',
+        postPtStatus: stageData.postPtStatus || 'NA',
+
         // Stage 3 Specifics
         welderNo: stageData.welderNo || '',
         weldingProcess: stageData.weldingProcess || '',
