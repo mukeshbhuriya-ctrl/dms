@@ -126,7 +126,7 @@ async function createCompany(req, res) {
 
     // Default roles to create for the company (from environment variable or fallback)
     // Format: "OC,Production" or "OC,Production,Manager" (comma-separated)
-    const defaultRolesEnv = process.env.DEFAULT_COMPANY_ROLES || 'OC,Producation';
+    const defaultRolesEnv = process.env.DEFAULT_COMPANY_ROLES || 'ADMIN,DCC';
     const defaultRoles = defaultRolesEnv.split(',').map((role) => role.trim()).filter((role) => role.length > 0);
 
     // Use transaction to ensure all operations succeed or fail together
@@ -213,7 +213,7 @@ async function createCompany(req, res) {
     });
   } catch (error) {
     console.error('Create company error:', error);
-    
+
     // Handle multer errors
     if (error.message === 'Only image files are allowed') {
       return res.status(400).json({

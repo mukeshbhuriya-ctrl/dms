@@ -5,7 +5,8 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, Plus, ArrowLeft } from "lucide-react"
+import { Eye, EyeOff, Plus, ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -14,6 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Card,
   CardContent,
   CardDescription,
@@ -21,6 +28,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 function CreateUser() {
   const navigate = useNavigate()
@@ -31,15 +46,22 @@ function CreateUser() {
     department: "",
     designation: "",
     mobileNumber: "",
-    role: "",
+    roles: [],
     password: "",
   })
   const [showPassword, setShowPassword] = useState(false)
   const [roles, setRoles] = useState([])
+  const [departments, setDepartments] = useState([])
+  const [departmentMap, setDepartmentMap] = useState({}) // ID -> Name map
   const [view, setView] = useState("list") // 'list' or 'create'
+  const [editingId, setEditingId] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+
+  // Delete Dialog State
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState(null)
 
   // DataTable State
   const [data, setData] = useState([])
@@ -51,7 +73,6 @@ function CreateUser() {
     pageSize: 10,
   })
   const [sorting, setSorting] = useState([])
-  const [globalFilter, setGlobalFilter] = useState("")
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -63,9 +84,9 @@ function CreateUser() {
     if (error) setError("")
   }
 
-  // Fetch roles
+  // Fetch roles and departments
   useEffect(() => {
-    const fetchRoles = async () => {
+    const fetchData = async () => {
       try {
         const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
         const authData = localStorage.getItem("user_auth")
@@ -80,22 +101,51 @@ function CreateUser() {
         const headers = { "Content-Type": "application/json" }
         if (token) headers["Authorization"] = `Bearer ${token}`
 
+        // Fetch Roles
         const rolesRes = await fetch(`${backendUrl}/api/users/get-roles`, {
           method: "GET",
           headers,
           credentials: "include",
         })
-
         const rolesPayload = await rolesRes.json()
-
         if (rolesRes.ok) {
           setRoles(rolesPayload?.data || [])
         }
+
+        // Fetch Departments
+        const deptsRes = await fetch(`${backendUrl}/api/departments`, {
+          method: "GET",
+          headers,
+          credentials: "include",
+        })
+        const deptsPayload = await deptsRes.json()
+        if (deptsRes.ok) {
+          const fetchedDepts = deptsPayload?.data || []
+          setDepartments(fetchedDepts)
+          // Create ID -> Name Map
+          const map = {}
+          fetchedDepts.forEach(d => map[d.name] = d.name) // If API returns ID but user stored name? 
+          // Wait, backend stores 'department' as string currently? or ID? 
+          // The CreateDepartment creates with Name. User table has String department.
+          // BUT - if the user table actually stores the ID (from a value select previously?), we need to map ID to Name.
+          // Let's assume the user table stores what is sent. 
+          // In previous code `setFormData(... department: value)` where value was `dept.name`.
+          // So it stores Name. 
+          // However, user report says "Department IDs". Maybe I changed it to store Name but existing data has IDs?
+          // Or `dept.name` was actually `dept.id` in previous iteration?
+          // Let's make a robust map: ID -> Name AND Name -> Name
+          fetchedDepts.forEach(d => {
+            map[d.id] = d.name
+            map[d.name] = d.name
+          })
+          setDepartmentMap(map)
+        }
+
       } catch (err) {
-        console.error("Error fetching roles:", err)
+        console.error("Error fetching data:", err)
       }
     }
-    fetchRoles()
+    fetchData()
   }, [])
 
   // Fetch Users for DataTable
@@ -151,8 +201,69 @@ function CreateUser() {
     }
   }, [])
 
-  // Initial fetch handled by DataTable or manually?
-  // DataTable calls fetchData on mount or change.
+  const handleEdit = (user) => {
+    setEditingId(user.id)
+    // user.department might be ID or Name. The Select expects Name.
+    // Use departmentMap to ensure we get the Name if it's an ID.
+    // If it's already a name, the map (ID->Name AND Name->Name) handles it or we fallback to user.department
+    const deptName = departmentMap[user.department] || user.department || "";
+
+    setFormData({
+      fullName: user.name || "",
+      email: user.email || "",
+      employeeId: user.empid || "",
+      department: deptName,
+      designation: user.designation || "",
+      mobileNumber: user.mobile || "",
+      roles: user.user_roles?.map(ur => ur.role_id) || [], // Map to Role IDs
+      password: "", // Leave blank usually
+    })
+    setView("create")
+    setError("")
+    setSuccess("")
+  }
+
+  const handleDeleteClick = (user) => {
+    setUserToDelete(user)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData)
+          token = parsed?.payload?.token || parsed?.token
+        } catch { }
+      }
+
+      const headers = { "Content-Type": "application/json" }
+      if (token) headers["Authorization"] = `Bearer ${token}`
+
+      const res = await fetch(`${backendUrl}/api/users/delete-user/${userToDelete.id}`, {
+        method: "DELETE",
+        headers,
+      })
+
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const payload = await res.json()
+        alert(payload.message || "Failed to delete user")
+      }
+    } catch (error) {
+      console.error("Delete user error", error)
+      alert("Failed to delete user")
+    } finally {
+      setDeleteDialogOpen(false)
+      setUserToDelete(null)
+    }
+  }
 
   const columns = useMemo(() => [
     {
@@ -171,7 +282,10 @@ function CreateUser() {
     {
       accessorKey: "department",
       header: "Department",
-      cell: (row) => row.department || "-",
+      cell: (row) => {
+        // Try to map ID to Name if possible, else show value
+        return departmentMap[row.department] || row.department || "-";
+      },
     },
     {
       accessorKey: "roles",
@@ -181,7 +295,33 @@ function CreateUser() {
       },
       enableSorting: false,
     },
-  ], [])
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleEdit(row)}
+            title="Edit"
+          >
+            <Pencil className="mr-2 h-4 w-4" /> Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+            onClick={() => handleDeleteClick(row)}
+            title="Delete"
+          >
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </Button>
+        </div>
+      ),
+      enableSorting: false,
+    }
+  ], [departmentMap])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -206,7 +346,7 @@ function CreateUser() {
         empid: formData.employeeId,
         mobile: formData.mobileNumber,
         password: formData.password,
-        role_ids: formData.role ? [formData.role] : [],
+        role_ids: formData.roles || [],
         department: formData.department,
         designation: formData.designation,
       }
@@ -218,8 +358,14 @@ function CreateUser() {
         headers["Authorization"] = `Bearer ${token}`
       }
 
-      const res = await fetch(`${backendUrl}/api/users/create-user`, {
-        method: "POST",
+      const url = editingId
+        ? `${backendUrl}/api/users/update-user/${editingId}`
+        : `${backendUrl}/api/users/create-user`
+
+      const method = editingId ? "PUT" : "POST"
+
+      const res = await fetch(url, {
+        method,
         headers,
         credentials: "include",
         body: JSON.stringify(requestBody),
@@ -228,11 +374,11 @@ function CreateUser() {
       const payload = await res.json()
 
       if (!res.ok) {
-        const message = payload?.message || "Failed to create user"
+        const message = payload?.message || "Failed to save user"
         throw new Error(message)
       }
 
-      setSuccess("User created successfully!")
+      setSuccess(editingId ? "User updated successfully!" : "User created successfully!")
 
       // Refresh list and switch view
       setTimeout(() => {
@@ -245,16 +391,12 @@ function CreateUser() {
           department: "",
           designation: "",
           mobileNumber: "",
-          role: "",
+          roles: [],
           password: "",
         })
-        // Trigger generic refresh? DataTable handles it via state change or refetch?
-        // We can force a refresh by resetting pagination or similar, but simpler to just let it re-fetch when mounted/updated
-        // Ideally, we can expose a refresh method from DataTable or just depend on pagination state.
-        // For now, switching view to 'list' will re-render DataTable which might re-fetch if we reset something,
-        // but `fetchData` is called by `useEffect` inside table.
-        // To be safe, we can manually call fetchUsers if needed, but switching tabs might re-mount it.
-      }, 1500)
+        setEditingId(null)
+        window.location.reload();
+      }, 1000)
 
     } catch (err) {
       setError(err?.message || "Something went wrong")
@@ -275,17 +417,30 @@ function CreateUser() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Users List" : "Create User"}
+                  {view === "list" ? "Users List" : (editingId ? "Edit User" : "Create User")}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
                     ? "List of all users in the system"
-                    : "Fill in the user information below to create a new user account."}
+                    : "Fill in the user information below."}
                 </p>
               </div>
               <div>
                 {view === "list" ? (
-                  <Button onClick={() => setView("create")}>
+                  <Button onClick={() => {
+                    setFormData({
+                      fullName: "",
+                      email: "",
+                      employeeId: "",
+                      department: "",
+                      designation: "",
+                      mobileNumber: "",
+                      roles: [],
+                      password: "",
+                    })
+                    setEditingId(null)
+                    setView("create")
+                  }}>
                     <Plus className="mr-2 h-4 w-4" /> Create User
                   </Button>
                 ) : (
@@ -321,9 +476,9 @@ function CreateUser() {
                 <form onSubmit={handleSubmit}>
                   <Card>
                     <CardHeader>
-                      <CardTitle>User Information</CardTitle>
+                      <CardTitle>{editingId ? "Edit User" : "User Information"}</CardTitle>
                       <CardDescription>
-                        Enter the details for the new user account
+                        {editingId ? "Update user details" : "Enter the details for the new user account"}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -396,16 +551,32 @@ function CreateUser() {
                           <Label htmlFor="department">
                             Department <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            id="department"
-                            name="department"
-                            type="text"
-                            placeholder="e.g., IT, HR, Operations"
+                          {/* Use Select for single department selection */}
+                          <Select
                             value={formData.department}
-                            onChange={handleInputChange}
-                            required
+                            onValueChange={(value) =>
+                              setFormData((prev) => ({ ...prev, department: value }))
+                            }
                             disabled={isLoading}
-                          />
+                            required
+                          >
+                            <SelectTrigger id="department" className="w-full">
+                              <SelectValue placeholder="Select a department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {departments.length > 0 ? (
+                                departments.map((dept) => (
+                                  <SelectItem key={dept.id} value={dept.name}>
+                                    {dept.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <SelectItem value="no-dept" disabled>
+                                  No departments found
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="designation">
@@ -443,34 +614,46 @@ function CreateUser() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="role">
-                            Role <span className="text-destructive">*</span>
+                            Roles <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={formData.role}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({ ...prev, role: value }))
-                            }
-                            disabled={isLoading}
-                            required
-                          >
-                            <SelectTrigger id="role" className="w-full">
-                              <SelectValue placeholder="Select a role" />
-                            </SelectTrigger>
-                            <SelectContent>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" className="w-full justify-between" disabled={isLoading}>
+                                {formData.roles && formData.roles.length > 0
+                                  ? `${formData.roles.length} role(s) selected`
+                                  : "Select roles"}
+                                <ChevronDownIcon className="ml-2 h-4 w-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent className="w-56">
                               {roles.map((role) => (
-                                <SelectItem key={role.id} value={role.id}>
+                                <DropdownMenuCheckboxItem
+                                  key={role.id}
+                                  checked={formData.roles?.includes(role.id)}
+                                  onCheckedChange={(checked) => {
+                                    setFormData(prev => {
+                                      const currentRoles = prev.roles || [];
+                                      return {
+                                        ...prev,
+                                        roles: checked
+                                          ? [...currentRoles, role.id]
+                                          : currentRoles.filter(id => id !== role.id)
+                                      };
+                                    });
+                                  }}
+                                >
                                   {role.name}
-                                </SelectItem>
+                                </DropdownMenuCheckboxItem>
                               ))}
-                            </SelectContent>
-                          </Select>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
 
                       {/* Password */}
                       <div className="space-y-2">
                         <Label htmlFor="password">
-                          Password <span className="text-destructive">*</span>
+                          Password {editingId ? "(Leave blank to keep current)" : <span className="text-destructive">*</span>}
                         </Label>
                         <div className="relative">
                           <Input
@@ -480,7 +663,7 @@ function CreateUser() {
                             placeholder="........"
                             value={formData.password}
                             onChange={handleInputChange}
-                            required
+                            required={!editingId}
                             disabled={isLoading}
                           />
                           <Button
@@ -517,21 +700,40 @@ function CreateUser() {
                           department: "",
                           designation: "",
                           mobileNumber: "",
-                          role: "",
+                          roles: [],
                           password: "",
                         })
+                        setView("list")
+                        setEditingId(null)
                       }}
                       disabled={isLoading}
                     >
-                      Reset
+                      Cancel
                     </Button>
                     <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Creating..." : "Create User"}
+                      {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
                     </Button>
                   </div>
                 </form>
               </div>
             )}
+
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete User</DialogTitle>
+                  <DialogDescription>
+                    Are you sure you want to delete <strong>{userToDelete?.name}</strong>?
+                    This action cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+                  <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
           </div>
         </main>
       </SidebarInset>

@@ -88,6 +88,45 @@ class UserController {
             });
         }
     }
+    async updateUser(req, res) {
+        try {
+            const { id } = req.params;
+            const updateData = req.body;
+            console.log("Updating user:", id, updateData);
+
+            await userService.updateUser(id, updateData, req.user.company_id);
+
+            res.status(200).json({
+                success: true,
+                message: 'User updated successfully',
+            });
+        } catch (error) {
+            console.error('Update user error:', error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to update user',
+            });
+        }
+    }
+
+    async deleteUser(req, res) {
+        try {
+            const { id } = req.params;
+
+            await userService.deleteUser(id, req.user.company_id);
+
+            res.status(200).json({
+                success: true,
+                message: 'User deleted successfully',
+            });
+        } catch (error) {
+            console.error('Delete user error:', error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to delete user',
+            });
+        }
+    }
 }
 
 module.exports = new UserController();

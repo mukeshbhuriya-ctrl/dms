@@ -24,6 +24,7 @@ import {
 import {
   AdminDashboard,
   CreateUser,
+  DepartmentManagement
 } from "@/pages/admin"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
@@ -119,6 +120,10 @@ const adminRoutes = [
   {
     path: "/users",
     element: <CreateUser />,
+  },
+  {
+    path: "/departments",
+    element: <DepartmentManagement />,
   },
 ]
 

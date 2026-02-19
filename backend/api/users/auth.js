@@ -149,15 +149,45 @@ async function login(req, res) {
  */
 async function me(req, res) {
   try {
-    const user = req.user;  // from authenticateUser middleware
-    if (!user) {
+    const currentUser = req.user;  // from authenticateUser middleware
+    if (!currentUser) {
       return res.status(401).json({
         success: false,
         message: 'Unauthorized. Please login first.',
       });
     }
+
+    // Fetch full user details from DB
+    const user = await prisma.user.findUnique({
+      where: { id: currentUser.userid },
+      include: {
+        user_roles: {
+          include: {
+            role: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    // Return more user details
     res.status(200).json({
-      role: user.role,
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        empid: user.empid,
+        role: user.user_roles.map(ur => ur.role.name), // Array of role names
+      },
+      role: user.user_roles.map(ur => ur.role.name), // Keep for backward compatibility
+      name: user.name
     });
   }
   catch (error) {

@@ -36,6 +36,20 @@ model company{
   document_type document_type[]
   weld_joint_plans weld_joint_plan[]
   transmissions transmission[]
+  departments department[]
+}
+
+model department {
+  id        String   @id @default(uuid())
+  company_id String
+  name      String
+  
+  company   company  @relation(fields: [company_id], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([company_id, name]) // Ensure department names are unique per company
 }
 
 model role{

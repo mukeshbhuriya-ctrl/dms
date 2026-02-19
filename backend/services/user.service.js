@@ -117,7 +117,7 @@ class UserService {
                     throw new Error('One or more invalid role IDs provided');
                 }
 
-                await tx.userRole.createMany({
+                await tx.user_roles.createMany({
                     data: role_ids.map((roleId) => ({
                         user_id: newUser.id,
                         role_id: roleId,
@@ -159,6 +159,92 @@ class UserService {
                 email: true,
                 // Add other fields as needed
             },
+        });
+    }
+    /**
+     * Update user details
+     */
+    async updateUser(id, updateData, company_id) {
+        const { name, email, empid, password, mobile, role_ids, department, designation } = updateData;
+
+        // Verify user exists and belongs to company
+        const existingUser = await prisma.user.findFirst({
+            where: { id, company_id },
+        });
+
+        if (!existingUser) {
+            throw new Error('User not found');
+        }
+
+        // Check for unique constraints if email/empid changed
+        if (email && email !== existingUser.email) {
+            const emailExists = await prisma.user.findFirst({ where: { email } });
+            if (emailExists) throw new Error('Email already exists');
+        }
+        if (empid && empid !== existingUser.empid) {
+            const empidExists = await prisma.user.findFirst({ where: { empid } });
+            if (empidExists) throw new Error('Employee ID already exists');
+        }
+
+        let hashedPassword = undefined;
+        if (password && password.trim() !== '') {
+            hashedPassword = await hashPassword(password);
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            // Update User
+            const updatedUser = await tx.user.update({
+                where: { id },
+                data: {
+                    name,
+                    email,
+                    empid,
+                    mobile,
+                    department,
+                    designation,
+                    ...(hashedPassword && { password: hashedPassword }),
+                },
+            });
+
+            // Update Roles if provided
+            if (role_ids) {
+                // Remove existing roles
+                await tx.user_roles.deleteMany({ where: { user_id: id } });
+
+                // Add new roles
+                if (role_ids.length > 0) {
+                    await tx.user_roles.createMany({
+                        data: role_ids.map((roleId) => ({
+                            user_id: id,
+                            role_id: roleId,
+                        })),
+                    });
+                }
+            }
+
+            return updatedUser;
+        });
+    }
+
+    /**
+     * Delete user
+     */
+    async deleteUser(id, company_id) {
+        const existingUser = await prisma.user.findFirst({
+            where: { id, company_id },
+        });
+
+        if (!existingUser) {
+            throw new Error('User not found');
+        }
+
+        // Delete user (cascade removes roles usually, but explicit check implies we just delete user)
+        // Prisma schema should handle cascade delete for UserRole if defined, otherwise we might need to delete roles first.
+        // Assuming cascade or manual cleanup:
+        await prisma.user_roles.deleteMany({ where: { user_id: id } });
+
+        return await prisma.user.delete({
+            where: { id },
         });
     }
 }

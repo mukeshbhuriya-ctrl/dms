@@ -1,0 +1,17 @@
+const express = require('express');
+const router = express.Router();
+const departmentController = require('#controllers/department.controller.js');
+const { authenticateUser } = require('#api/middleware/user.middleware.js');
+
+// All routes require authentication and likely ADMIN role (or at least user role for reading)
+// For management, restrict to ADMIN. For reading (in dropdown), restrict to authenticated users.
+
+// Get departments (Open to all authenticated users for dropdowns)
+router.get('/', authenticateUser(['USER', 'ADMIN'], { requireAll: false }), departmentController.getDepartments);
+
+// Create, Update, Delete (Restrict to ADMIN)
+router.post('/', authenticateUser('ADMIN', { requireAll: false }), departmentController.createDepartment);
+router.put('/:id', authenticateUser('ADMIN', { requireAll: false }), departmentController.updateDepartment);
+router.delete('/:id', authenticateUser('ADMIN', { requireAll: false }), departmentController.deleteDepartment);
+
+module.exports = router;

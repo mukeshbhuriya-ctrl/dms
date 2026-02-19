@@ -35,13 +35,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 // Role-based menu configuration
@@ -164,8 +158,13 @@ const roleMenus = {
     },
     {
       title: "User Management",
-      icon: UserPlus,
+      icon: Users,
       path: "/users",
+    },
+    {
+      title: "Department Management",
+      icon: Building2,
+      path: "/departments",
     },
     {
       title: "Purchase Orders",
@@ -200,6 +199,10 @@ const roleMenus = {
         {
           title: "Send Document to Client",
           path: "/dcc/send-document-to-client",
+        },
+        {
+          title: "Client Approval Status",
+          path: "/dcc/client-approval-status",
         },
       ],
     },
@@ -352,7 +355,6 @@ function UserSidebar() {
   const [userRoles, setUserRoles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [userName, setUserName] = useState("User")
-  const [activeRole, setActiveRole] = useState(() => localStorage.getItem("last_active_role") || "")
 
   // Collapsible state management
   const [openItems, setOpenItems] = useState({})
@@ -465,25 +467,10 @@ function UserSidebar() {
 
         const uniqueRoles = Array.from(new Set(roles))
         setUserRoles(uniqueRoles)
-
-        const storedRole = localStorage.getItem("last_active_role")
-        let effectiveRole = ""
-
-        if (storedRole && uniqueRoles.includes(storedRole)) {
-          effectiveRole = storedRole
-        } else if (uniqueRoles.includes(activeRole)) {
-          effectiveRole = activeRole
-        } else {
-          effectiveRole = uniqueRoles[0] || ""
-        }
-
-        setActiveRole(effectiveRole)
-        localStorage.setItem("last_active_role", effectiveRole)
         setUserName(name)
       } catch (err) {
         console.error("Error fetching user role:", err)
         setUserRoles(["User"])
-        setActiveRole("User")
       } finally {
         setIsLoading(false)
       }
@@ -493,10 +480,11 @@ function UserSidebar() {
   }, [])
 
   // Initialize open state based on active route
+  // Initialize open state based on active route
   useEffect(() => {
-    if (!activeRole) return
+    // Re-calculating menus here to ensure open state is correct
+    // Ideally, getMergedMenuItems should be a useMemo
 
-    const menuItems = getMenuItemsForRole(activeRole)
     const newOpenItems = {}
 
     const checkActive = (items) => {
@@ -516,12 +504,11 @@ function UserSidebar() {
     })
 
     setOpenItems(prev => ({ ...prev, ...newOpenItems }))
-  }, [location.pathname, activeRole])
+  }, [location.pathname, userRoles])
 
 
   const handleLogout = () => {
     localStorage.removeItem("user_auth")
-    localStorage.removeItem("last_active_role")
     navigate("/")
   }
 
@@ -538,7 +525,59 @@ function UserSidebar() {
     return roleMenus["User"] || []
   }
 
-  const menuItems = getMenuItemsForRole(activeRole)
+  // Merge menus from all assigned roles
+  const getMergedMenuItems = () => {
+    // If no roles, return User menu
+    if (!userRoles || userRoles.length === 0) {
+      return roleMenus["User"] || [];
+    }
+
+    // Collect all menus from all roles
+    let allMenus = [];
+    userRoles.forEach(role => {
+      const roleMenu = roleMenus[role] || [];
+      if (Array.isArray(roleMenu)) {
+        allMenus = [...allMenus, ...roleMenu];
+      }
+    });
+
+    // If still empty, fallback to User
+    if (allMenus.length === 0) {
+      return roleMenus["User"] || [];
+    }
+
+    // Deduplicate based on title
+    // Strategy: Keep the first occurrence, but if it has sub-items, try to merge?
+    // For simplicity: unique by title. If same title exists, we assume it points to same path or has same subitems.
+    // A better merge strategy might be needed if roles have overlapping "DMS" menus with different subitems.
+
+    const uniqueMenus = [];
+    const titleMap = new Map();
+
+    allMenus.forEach(item => {
+      if (!titleMap.has(item.title)) {
+        titleMap.set(item.title, { ...item }); // Clone to avoid mutation issues
+        uniqueMenus.push(titleMap.get(item.title));
+      } else {
+        // Attempt to merge sub-items if both have them
+        const existing = titleMap.get(item.title);
+        if (existing.items && item.items) {
+          // Merge sub-items
+          const existingSubTitles = new Set(existing.items.map(si => si.title));
+          item.items.forEach(subItem => {
+            if (!existingSubTitles.has(subItem.title)) {
+              existing.items.push(subItem);
+              existingSubTitles.add(subItem.title);
+            }
+          });
+        }
+      }
+    });
+
+    return uniqueMenus;
+  };
+
+  const menuItems = getMergedMenuItems();
 
   const toggleOpen = (title) => {
     setOpenItems(prev => ({
@@ -563,36 +602,32 @@ function UserSidebar() {
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-4">
-          <UserIcon className="h-6 w-6" />
-          <div className="flex flex-col">
-            <span className="font-semibold">{userName}</span>
-            {userRoles.length > 0 ? (
-              <div className="mt-2">
-                <Select
-                  value={activeRole}
-                  onValueChange={(val) => {
-                    setActiveRole(val)
-                    localStorage.setItem("last_active_role", val)
-                  }}
-                >
-                  <SelectTrigger className="h-8 w-full">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {userRoles.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <span className="text-xs text-muted-foreground">User</span>
-            )}
+        <div className="flex items-center gap-2 px-2 py-4 border-b">
+          {/* Company Logo / Initials */}
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <Building2 className="h-6 w-6" />
+          </div>
+          <div className="flex flex-col overflow-hidden">
+            <span className="truncate font-semibold text-sm">Tech Fab</span>
+            <span className="truncate text-xs text-muted-foreground">Engineering</span>
           </div>
         </div>
+
+        {/* User Info Section (Optional, below company info) */}
+        <div className="px-2 py-2 mb-2">
+          <div className="flex items-center gap-2 p-2 rounded-md bg-sidebar-accent/10">
+            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+              <UserIcon className="h-4 w-4" />
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <span className="truncate text-sm font-medium">{userName}</span>
+              <span className="truncate text-xs text-muted-foreground" title={userRoles.join(", ")}>
+                {userRoles.slice(0, 2).join(", ")}{userRoles.length > 2 ? "..." : ""}
+              </span>
+            </div>
+          </div>
+        </div>
+
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
