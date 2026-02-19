@@ -1,6 +1,7 @@
 const weldJointService = require('../services/weldJoint.service.js');
 const pdfGenerator = require('#utils/pdfGenerator');
 const prisma = require('#prisma');
+const { extractStageData } = require('../utils/weldJointData');
 
 /**
  * Generate Stage Report PDF API
@@ -42,115 +43,19 @@ async function generateStageReport(req, res) {
         const categoryKey = (joint.joint_type === 'C' || joint.joint_type === 'D') ? 'cd' : 'ab';
 
         if (stage === 'all') {
-            // Generate Complete Report for all stages
             const allStagesData = {};
-            const inspData = insp;
-
-            // Define stages based on category (Example: A/B has 6, C/D has fewer? User said "whatever joints cateogry all stage form complete")
-            // We will Try to fetch data for stages 1 to 8. If data exists, include it.
+            // Determine relevant stages based on category? 
+            // User requested "complete joint category" so typically A/B has 1-6, C/D has 1-8 etc.
+            // We'll iterate 1-8 and check if data exists or status is not null.
             const stages = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'];
 
-            stages.forEach(stageKey => {
-                const sPrefix = stageKey.replace('stage', 's');
-                const dataKey = `${sPrefix}_data`;
-                const rawData = inspData[dataKey];
-
-                if (rawData) {
-                    let stageData = {};
-                    try {
-                        const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-                        if (parsed[categoryKey] && parsed[categoryKey][sPrefix]) {
-                            stageData = parsed[categoryKey][sPrefix];
-                        } else if (parsed[categoryKey]) {
-                            stageData = parsed[categoryKey];
-                        } else {
-                            stageData = parsed;
-                        }
-                    } catch (e) { }
-
-                    // Aggregate Report Data for this stage
-                    // Use helper or extract logic? For now, simplistic mapping similar to S1
-                    // We need basic info for every page? Yes.
-
-                    let basicInfo = {
-                        msn: plan.serial_no?.toString() || '-',
-                        client: job.customer?.customer_name || '-',
-                        poNo: (job.po && job.po.po_number) ? job.po.po_number : (job.po_number || '-'),
-                        tagNo: job.tag_number || '-',
-                        equipment: job.equipement_name || '-',
-                        projectsId: job.project_id || '-',
-                        lindeDrgNo: plan.shreno_drg_no || '-',
-                        drgNo: plan.customer_drg_no || '-',
-                        code: job.code || '-',
-                        inspAgency: 'TPIA',
-                        reportNo: `R/${plan.serial_no || '000'}/${joint.joint_no}/${sPrefix.replace('s', '')}`,
-                        jointNo: joint.joint_no
-                    };
-
-                    // Basic Info Override from stored json if available
-                    if (insp.data_json) {
-                        try {
-                            const rawBasic = typeof insp.data_json === 'string' ? JSON.parse(insp.data_json) : insp.data_json;
-                            const savedBasic = rawBasic?.[categoryKey] || {};
-                            if (savedBasic.msn) basicInfo.msn = savedBasic.msn;
-                            if (savedBasic.client) basicInfo.client = savedBasic.client;
-                            if (savedBasic.poNo) basicInfo.poNo = savedBasic.poNo;
-                            if (savedBasic.tagNo) basicInfo.tagNo = savedBasic.tagNo;
-                            if (savedBasic.equipment) basicInfo.equipment = savedBasic.equipment;
-                            if (savedBasic.projectsId) basicInfo.projectsId = savedBasic.projectsId;
-                            if (savedBasic.lindeDrgNo) basicInfo.lindeDrgNo = savedBasic.lindeDrgNo;
-                            if (savedBasic.drgNo) basicInfo.drgNo = savedBasic.drgNo;
-                            if (savedBasic.code) basicInfo.code = savedBasic.code;
-                            if (savedBasic.inspAgency) basicInfo.inspAgency = savedBasic.inspAgency;
-                        } catch (e) { }
-                    }
-
-                    // Signatures
-                    let prodEngName = stageData.productionEngineerName || '';
-                    let subDate = stageData.submissionDate || '';
-                    let qcName = '';
-                    let qcDate = '';
-                    let qcStatus = inspData[`${sPrefix}_status`] || '';
-
-                    if (inspData[`${sPrefix}_qc_eng_id`]) {
-                        // We might need to fetch user name if not stored? 
-                        // Check if we can get it from joint include? 
-                        // The current include is just 'weld_joint_inspection'. 
-                        // We should arguably fetch users. But to save complexity in this block:
-                        // We'll leave it empty or assume it's stored in stageData if available. 
-                        // Or we can do a quick lookup if we had the user map.
-                        // For now let's use what is in stageData or leave blank.
-                    }
-                    if (inspData[`${sPrefix}_approved_at`]) {
-                        qcDate = new Date(inspData[`${sPrefix}_approved_at`]).toLocaleDateString();
-                    }
-
-                    allStagesData[stageKey] = {
-                        ...basicInfo,
-                        jointRows: stageData.inspectionRows || [], // Map rows
-                        prodEngName,
-                        prodEngDate: subDate, // Using submission date as Date
-                        qcEngName: qcName, // We need to fix this fetch ideally
-                        qcEngDate: qcDate,
-                        qcEngStatus: qcStatus,
-                        aiName: stageData.ndtEngineerId ? 'NDT Eng' : '', // Placeholder
-                        aiDate: '',
-                        aiSign: ''
-                    };
+            await Promise.all(stages.map(async (sKey) => {
+                const sPrefix = sKey.replace('stage', 's');
+                // Only include if status exists (meaning started) or if it's stage 1 (always)
+                if (insp[`${sPrefix}_status`] || sKey === 'stage1') {
+                    allStagesData[sKey] = await extractStageData(insp, plan, job, joint, sKey, categoryKey);
                 }
-            });
-
-            // If no data found (e.g. legacy or empty), maybe just do Stage 1?
-            // Or if they want ALL stages even empty?
-            // User: "dummy data filling till ab complete stage form cover"
-            // So if data is missing, we should probably generate dummy stages?
-            // Let's generate S1 and S2 at least if missing.
-
-            if (Object.keys(allStagesData).length === 0) {
-                // Fallback to S1 & S2 dummy
-                allStagesData['stage1'] = { jointNo: joint.joint_no }; // helper will fill dummy
-                allStagesData['stage2'] = { jointNo: joint.joint_no };
-            }
+            }));
 
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${joint.joint_no}.pdf`);
@@ -159,93 +64,18 @@ async function generateStageReport(req, res) {
             return;
         }
 
-        // Variables declared at top
-
-        let inspectionRows = [];
-        let productionEngineerName = '';
-        let submissionDate = '';
-        let qcEngineerName = '';
-        let qcDate = '';
-        let qcStatus = '';
-
-        // categoryKey declared at top
-
-        let stageData = {};
-        // Mapping stage to data field e.g. s1_data
-
-        if (insp.s1_data) {
-            try {
-                const raw = typeof insp.s1_data === 'string' ? JSON.parse(insp.s1_data) : insp.s1_data;
-                // Support nested { ab: { s1: ... } }
-                if (raw[categoryKey] && raw[categoryKey].s1) {
-                    stageData = raw[categoryKey].s1;
-                } else if (raw[categoryKey]) {
-                    stageData = raw[categoryKey]; // Legacy
-                } else {
-                    stageData = raw; // Legacy flat
-                }
-            } catch (e) { console.error("Parse s1_data error", e); }
-        }
-
-        if (stageData.inspectionRows) inspectionRows = stageData.inspectionRows;
-        if (stageData.productionEngineerName) productionEngineerName = stageData.productionEngineerName;
-        if (stageData.submissionDate) submissionDate = stageData.submissionDate;
-
-        if (insp.s1_qc_eng_id) {
-            const qcUser = await prisma.user.findUnique({ where: { id: insp.s1_qc_eng_id }, select: { name: true } });
-            if (qcUser) qcEngineerName = qcUser.name;
-        }
-
-        if (insp.s1_approved_at) qcDate = new Date(insp.s1_approved_at).toLocaleDateString();
-        qcStatus = insp.s1_status;
-
-        let basicInfo = {
-            msn: plan.serial_no?.toString() || '-',
-            client: job.customer?.customer_name || '-',
-            poNo: (job.po && job.po.po_number) ? job.po.po_number : (job.po_number || '-'),
-            tagNo: job.tag_number || '-',
-            equipment: job.equipement_name || '-',
-            projectsId: job.project_id || '-',
-            lindeDrgNo: plan.shreno_drg_no || '-',
-            drgNo: plan.customer_drg_no || '-',
-            code: job.code || '-',
-            inspAgency: 'TPIA', // Default or fetch if available
-            reportNo: `R/${plan.serial_no || '000'}/${joint.joint_no}/1`,
-            jointNo: joint.joint_no
-        };
-
-        if (insp.data_json) {
-            try {
-                const rawBasic = typeof insp.data_json === 'string' ? JSON.parse(insp.data_json) : insp.data_json;
-                const savedBasic = rawBasic?.[categoryKey] || {};
-                // Override with saved data if available
-                if (savedBasic.msn) basicInfo.msn = savedBasic.msn;
-                if (savedBasic.client) basicInfo.client = savedBasic.client;
-                if (savedBasic.poNo) basicInfo.poNo = savedBasic.poNo;
-                if (savedBasic.tagNo) basicInfo.tagNo = savedBasic.tagNo;
-                if (savedBasic.equipment) basicInfo.equipment = savedBasic.equipment;
-                if (savedBasic.projectsId) basicInfo.projectsId = savedBasic.projectsId;
-                if (savedBasic.lindeDrgNo) basicInfo.lindeDrgNo = savedBasic.lindeDrgNo;
-                if (savedBasic.drgNo) basicInfo.drgNo = savedBasic.drgNo;
-                if (savedBasic.code) basicInfo.code = savedBasic.code;
-                if (savedBasic.inspAgency) basicInfo.inspAgency = savedBasic.inspAgency;
-            } catch (e) { }
-        }
-
-        const reportData = {
-            ...basicInfo,
-            inspectionRows,
-            productionEngineerName,
-            submissionDate,
-            qcEngineerName,
-            qcDate,
-            qcStatus
-        };
+        // Single Stage Report
+        const reportData = await extractStageData(insp, plan, job, joint, stage, categoryKey);
 
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=Stage1_${joint.joint_no}.pdf`);
+        res.setHeader('Content-Disposition', `attachment; filename=${stage}_${joint.joint_no}.pdf`);
 
-        pdfGenerator.generateStage1Report(reportData, res);
+        if (stage === 'stage1') {
+            pdfGenerator.generateStage1Report(reportData, res);
+        } else {
+            // Fallback or generic for single download if needed
+            pdfGenerator.generateCompleteReport({ [stage]: reportData }, res);
+        }
 
     } catch (error) {
         console.error('Generate Stage Report Error:', error);
