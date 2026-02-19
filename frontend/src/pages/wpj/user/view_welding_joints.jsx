@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog"
 import { DataTable } from "@/components/shared/DataTable"
 import { StatusBadge } from "@/components/shared/StatusBadge"
+import { FormAlert } from "@/components/ui/form-alert"
 
 import Stage1 from "@/components/form/ab/stage1"
 import Stage2 from "@/components/form/ab/stage2"
@@ -38,6 +39,7 @@ function ViewWeldingJoints() {
   const [selectedJoint, setSelectedJoint] = useState(null)
   const [selectedStage, setSelectedStage] = useState(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [downloadError, setDownloadError] = useState("")
 
   // Auth & Role logic
   useEffect(() => {
@@ -275,6 +277,61 @@ function ViewWeldingJoints() {
     }
   }, [])
 
+  const handleDownloadReport = async (joint, stage) => {
+    setDownloadError("");
+    try {
+      let backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+      if (backendUrl.endsWith("/")) backendUrl = backendUrl.slice(0, -1);
+
+      const authData = localStorage.getItem("user_auth");
+      let token = null;
+      if (authData) {
+        try {
+          const parsed = JSON.parse(authData);
+          token = parsed?.payload?.token || parsed?.token;
+        } catch (e) {
+          console.error("Auth parse error in handleDownloadReport:", e);
+        }
+      }
+
+      if (!token) {
+        console.warn("Token not found in localStorage, attempting validation via Cookies...");
+      }
+
+      const url = `${backendUrl}/api/wpj/generate-report/${joint.id}/${stage}`;
+      console.log(`Downloading from: ${url}`);
+      console.log(`Headers: Authorization: Bearer ${token ? token.substring(0, 10) + '...' : 'NONE'}`);
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : ""
+        },
+        credentials: "include"
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${stage}_${joint.jointNo}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.message || res.statusText || "Failed to download report";
+        console.error("Download fail:", res.status, msg);
+        setDownloadError(`Download failed (${res.status}): ${msg}`);
+      }
+    } catch (e) {
+      console.error("Error downloading report", e);
+      setDownloadError("Error downloading report: Network or Server Error");
+    }
+  }
+
   const columns = [
     { header: "MSN No", accessorKey: "msnNumber" },
     { header: "Client", accessorKey: "client" },
@@ -308,43 +365,66 @@ function ViewWeldingJoints() {
                       : row.status === "stage8" ? "Stage 8"
                         : row.status;
 
-        if (isQCOrNDT) {
-          if (isPending) {
-            if (isAssignedToMe) {
-              return <Button size="sm" onClick={() => handleOpenStage(mergedJoint)} className="bg-black text-white">Review & Approve {stageName}</Button>
+        const actionButton = (() => {
+          if (isQCOrNDT) {
+            if (isPending) {
+              if (isAssignedToMe) {
+                return <Button size="sm" onClick={() => handleOpenStage(mergedJoint)} className="bg-black text-white">Review & Approve {stageName}</Button>
+              }
+              if (hasAssignment) {
+                return <Button size="sm" variant="outline" disabled>Assigned to Other {stageName}</Button>
+              }
+              return <Button size="sm" variant="outline" disabled>Approval Pending {stageName}</Button>
             }
-            if (hasAssignment) {
-              return <Button size="sm" variant="outline" disabled>Assigned to Other {stageName}</Button>
+            const currentStageKey = row.status.replace('stage', 's') + '_status';
+            const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
+            if (isRejected) return <Button size="sm" variant="destructive" disabled>Rejected - {stageName}</Button>
+
+            if (row.status === 'completed') {
+              return <Button size="sm" variant="outline" disabled>Completed</Button>
             }
-            return <Button size="sm" variant="outline" disabled>Approval Pending {stageName}</Button>
+
+            return <span className="text-muted-foreground">-</span>
+          } else {
+            // Prod Engineer
+            const showPending = isPending && isSubmitted;
+            const currentStageKey = row.status.replace('stage', 's') + '_status';
+            const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
+
+            return (
+              <Button
+                size="sm"
+                onClick={() => handleOpenStage(mergedJoint)}
+                variant={isRejected ? "destructive" : "outline"}
+                disabled={showPending || row.status === 'completed'}
+              >
+                {showPending ? `Approval Pending ${stageName}` :
+                  (row.status === 'completed' ? 'Completed' : (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`))}
+              </Button>
+            )
           }
-          const currentStageKey = row.status.replace('stage', 's') + '_status';
-          const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
-          if (isRejected) return <Button size="sm" variant="destructive" disabled>Rejected - {stageName}</Button>
+        })();
 
-          if (row.status === 'completed') {
-            return <Button size="sm" variant="outline" disabled>Completed</Button>
-          }
+        // Check availability for PDF Download (Stage 1 for A/B)
+        // FOR TESTING: Always allow if Category A or B
+        const canDownloadPDF = (row.jointCategory === 'A' || row.jointCategory === 'B');
+        const isCompleted = row.status === 'completed';
 
-          return <span className="text-muted-foreground">-</span>
-        } else {
-          // Prod Engineer
-          const showPending = isPending && isSubmitted;
-          const currentStageKey = row.status.replace('stage', 's') + '_status';
-          const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
-
-          return (
-            <Button
-              size="sm"
-              onClick={() => handleOpenStage(mergedJoint)}
-              variant={isRejected ? "destructive" : "outline"}
-              disabled={showPending || row.status === 'completed'}
-            >
-              {showPending ? `Approval Pending ${stageName}` :
-                (row.status === 'completed' ? 'Completed' : (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`))}
-            </Button>
-          )
-        }
+        return (
+          <div className="flex items-center gap-2">
+            {actionButton}
+            {isCompleted && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleDownloadReport(mergedJoint, 'all')}
+                title="Download Complete Form"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
+              </Button>
+            )}
+          </div>
+        );
       }
     }
   ]
@@ -366,6 +446,7 @@ function ViewWeldingJoints() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <FormAlert type="error" message={downloadError} />
               <DataTable
                 columns={columns}
                 fetchData={fetchJointsData}
