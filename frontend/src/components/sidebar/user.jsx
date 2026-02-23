@@ -235,6 +235,11 @@ const roleMenus = {
       ]
     },
     {
+      title: "Weld Plan",
+      icon: Wrench,
+      path: "/welding-joints",
+    },
+    {
       title: "Welding Joints",
       icon: Wrench,
       items: [
@@ -282,7 +287,7 @@ const roleMenus = {
   ],
   WELD_PLAN_ADMIN: [
     {
-      title: "Welding Joints",
+      title: "Weld Plan",
       icon: Wrench,
       path: "/welding-joints",
     },
