@@ -372,25 +372,35 @@ class DccService {
             ];
         }
 
-        // Exclude documents whose group_documents are already linked to a transmission
         if (exclude_transmitted === 'true' || exclude_transmitted === true) {
-            // Find all group_document_ids that are part of any transmission_document
+            const excludedDocumentMasterIds = new Set();
+
+            // 1. Exclude documents already linked to a transmission
             const transmittedGroupDocIds = await prisma.transmission_document.findMany({
                 where: { group_document_id: { not: null } },
                 select: { group_document_id: true },
                 distinct: ['group_document_id']
             });
 
-            const transmittedDocumentMasterIds = transmittedGroupDocIds.length > 0
-                ? await prisma.group_document.findMany({
+            if (transmittedGroupDocIds.length > 0) {
+                const docs = await prisma.group_document.findMany({
                     where: { id: { in: transmittedGroupDocIds.map(t => t.group_document_id) } },
                     select: { document_id: true },
                     distinct: ['document_id']
-                }).then(docs => docs.map(d => d.document_id))
-                : [];
+                });
+                docs.forEach(d => excludedDocumentMasterIds.add(d.document_id));
+            }
 
-            if (transmittedDocumentMasterIds.length > 0) {
-                where.id = { notIn: transmittedDocumentMasterIds };
+            // 2. Exclude documents already approved by the Document Approver
+            const approvedDocs = await prisma.group_document.findMany({
+                where: { company_id, status: 'Approved' },
+                select: { document_id: true },
+                distinct: ['document_id']
+            });
+            approvedDocs.forEach(d => excludedDocumentMasterIds.add(d.document_id));
+
+            if (excludedDocumentMasterIds.size > 0) {
+                where.id = { notIn: [...excludedDocumentMasterIds] };
             }
         }
 
