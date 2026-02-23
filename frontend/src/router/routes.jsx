@@ -28,6 +28,7 @@ import {
 } from "@/pages/admin"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
+import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 
 const userAuthProps = {
   authKey: "user_auth",
@@ -124,6 +125,11 @@ const adminRoutes = [
   {
     path: "/departments",
     element: <DepartmentManagement />,
+  },
+  {
+    path: "/material-heat-chart",
+    element: <MaterialHeatChart />,
+    
   },
 ]
 

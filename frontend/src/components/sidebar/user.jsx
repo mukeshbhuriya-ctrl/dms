@@ -250,7 +250,7 @@ const roleMenus = {
       items: [
         {
           title: "Material Heat Chart",
-          path: "/admin/create-material-heat-chart",
+          path: "/material-heat-chart",
         }
       ]
     },

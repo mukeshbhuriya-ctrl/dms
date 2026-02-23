@@ -49,6 +49,9 @@ app.use('/api/users', userRoutes);
 const wpjRoutes = require('#routes/wpj/wpj.routes.js');
 app.use('/api/wpj', wpjRoutes);
 
+const mhcRoutes = require('#routes/mhc/mhc.routes.js');
+app.use('/api/mhc', mhcRoutes);
+
 const publicRoutes = require('./routes/public.routes.js');
 app.use('/api/secure', publicRoutes);
 

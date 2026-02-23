@@ -37,6 +37,7 @@ model company{
   weld_joint_plans weld_joint_plan[]
   transmissions transmission[]
   departments department[]
+  material_heat_charts material_heat_chart[]
 }
 
 model department {
@@ -207,6 +208,7 @@ model job{
   single_document single_document[]
   job_group job_group[]
   weld_joint_plans weld_joint_plan[]
+  material_heat_charts material_heat_chart[]
 }
 
 model document_type{
@@ -520,3 +522,55 @@ model transmission_document {
 }
 
 
+model material_heat_chart {
+  id               String   @id @default(uuid())
+  company_id       String
+  job_id           String
+
+  // Auto-filled from job on create
+  msn              String
+  client           String
+  po_no            String
+  project_id       String?
+  equipment_name   String?
+  tag_no           String?
+  code             String?
+
+  // User-editable
+  shreno_drg_no    String?
+  customer_drg_no  String?
+  inspection_by    String?
+
+  status           String   @default("draft")
+
+  company  company  @relation(fields: [company_id], references: [id])
+  job      job      @relation(fields: [job_id], references: [id])
+  items    material_heat_chart_item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model material_heat_chart_item {
+  id                String  @id @default(uuid())
+  mhc_id            String
+  sort_order        Int
+  is_heading        Boolean @default(false)
+  heading_text      String?
+  parent_heading_id String?
+
+  item_no           String?
+  description       String?
+  size              String?
+  material_spec     String?
+  quantity_unit     String?
+  heat_no           String?
+  mtr_no            String?
+  manufacturer      String?
+  remarks           String?
+
+  mhc material_heat_chart @relation(fields: [mhc_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

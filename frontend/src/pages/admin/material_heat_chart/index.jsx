@@ -1,0 +1,1 @@
+export { default as MaterialHeatChart } from "./material_heat_chart"

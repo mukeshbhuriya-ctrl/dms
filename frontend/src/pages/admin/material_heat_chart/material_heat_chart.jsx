@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -17,189 +17,469 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Plus, Trash2, Type } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText } from "lucide-react"
+import { DataTable } from "@/components/shared/DataTable"
 
-function MaterialHeatChart() {
-  // First section - Dropdowns
-  const [client, setClient] = useState("")
-  const [msn, setMsn] = useState("")
-  const [projectId, setProjectId] = useState("")
-  const [equipmentName, setEquipmentName] = useState("")
-  const [tagNo, setTagNo] = useState("")
-  const [code, setCode] = useState("")
+// ─── helpers ────────────────────────────────────────────────────────────────
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000"
 
-  // Second section - User input fields
-  const [formData, setFormData] = useState({
-    shrDrgNo: "",
-    customerDrgNo: "",
-    poNo: "",
-    inspectionBy: "",
+async function apiFetch(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
   })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.message || "Request failed")
+  return json
+}
 
-  // Third section - Table rows
-  const [tableRows, setTableRows] = useState([
-    {
-      id: 1,
-      itemNo: "",
-      description: "",
-      size: "",
-      materialSpecification: "",
-      quantityUnit: "",
-      heatNo: "",
-      mtrNo: "",
-      manufacturerName: "",
-      remarks: "",
-      isHeading: false,
-      headingText: "",
-    },
-  ])
+function emptyRow(id) {
+  return {
+    id,
+    itemNo: "",
+    description: "",
+    size: "",
+    materialSpecification: "",
+    quantityUnit: "",
+    heatNo: "",
+    mtrNo: "",
+    manufacturerName: "",
+    remarks: "",
+    isHeading: false,
+    headingText: "",
+    parentHeadingId: null,
+  }
+}
 
-  // Mock data for dropdowns
-  const msnOptions = [
+// ─── List View ───────────────────────────────────────────────────────────────
+function ListView({ onCreateClick }) {
+  const columns = [
+    { header: "MSN", accessorKey: "msn" },
+    { header: "Client", accessorKey: "client" },
+    { header: "PO No.", accessorKey: "po_no" },
+    { header: "Project ID", accessorKey: "project_id" },
+    { header: "Equipment", accessorKey: "equipment_name" },
     {
-      id: "1",
-      value: "9924282053",
-      clientName: "AIR PRODUCTS",
-      poNo: "PO-001",
-      projectId: "PROJ-001",
-      equipmentName: "Equipment A",
-      tagNo: "TAG-001",
-      code: "CODE-001",
-    },
-    {
-      id: "2",
-      value: "9924282054",
-      clientName: "Client 2",
-      poNo: "PO-002",
-      projectId: "PROJ-002",
-      equipmentName: "Equipment B",
-      tagNo: "TAG-002",
-      code: "CODE-002",
-    },
-    {
-      id: "3",
-      value: "9924282055",
-      clientName: "Client 3",
-      poNo: "PO-003",
-      projectId: "PROJ-003",
-      equipmentName: "Equipment C",
-      tagNo: "TAG-003",
-      code: "CODE-003",
+      header: "Created",
+      accessorKey: "createdAt",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
   ]
 
-  // Handle input field changes
-  const handleInputChange = (e) => {
+  const fetchData = useCallback(async ({ page, limit, search }) => {
+    const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
+    const res = await apiFetch(`/api/mhc/list?${params}`)
+    return { data: res.data, meta: res.meta }
+  }, [])
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Material Heat Charts</h1>
+          <p className="text-muted-foreground">View and manage all material heat charts.</p>
+        </div>
+        <Button onClick={onCreateClick}>
+          <Plus className="h-4 w-4 mr-2" />
+          Create Material Heat Chart
+        </Button>
+      </div>
+      <DataTable columns={columns} fetchData={fetchData} />
+    </div>
+  )
+}
+
+// ─── Create View ─────────────────────────────────────────────────────────────
+function CreateView({ onBack, onSuccess }) {
+  // Jobs list for MSN dropdown
+  const [jobs, setJobs] = useState([])
+  const [jobsLoading, setJobsLoading] = useState(true)
+
+  // Basic Info (auto-filled from selected job)
+  const [selectedJobId, setSelectedJobId] = useState("")
+  const [autoFill, setAutoFill] = useState({
+    client: "",
+    poNo: "",
+    projectId: "",
+    equipmentName: "",
+    tagNo: "",
+    code: "",
+  })
+
+  // Equipment Details
+  const [formData, setFormData] = useState({
+    shrenoDrgNo: "",
+    customerDrgNo: "",
+    inspectionBy: "",
+  })
+
+  // Table rows
+  const [tableRows, setTableRows] = useState([emptyRow(1)])
+
+  // Submit state
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState("")
+
+  // Fetch jobs on mount
+  useEffect(() => {
+    apiFetch("/api/dcc/get-jobs?limit=200")
+      .then((res) => setJobs(res.data || []))
+      .catch(() => setJobs([]))
+      .finally(() => setJobsLoading(false))
+  }, [])
+
+  // Handle MSN selection → auto-fill
+  const handleJobSelect = (jobId) => {
+    setSelectedJobId(jobId)
+    const job = jobs.find((j) => j.id === jobId)
+    if (!job) return
+    setAutoFill({
+      client: job.customer?.customer_name || "",
+      poNo: job.po?.po_number || "",
+      projectId: job.project_id || "",
+      equipmentName: job.equipement_name || "",
+      tagNo: job.tag_number || "",
+      code: job.code || "",
+    })
+  }
+
+  // Form field change
+  const handleFormChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  // Handle MSN change to populate static fields
-  const handleMsnChange = (value) => {
-    setMsn(value)
-    const selectedMsn = msnOptions.find((option) => option.id === value)
+  // Row helpers
+  const handleRowChange = (id, field, value) =>
+    setTableRows((rows) => rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
 
-    setClient(selectedMsn?.clientName || "")
-    setProjectId(selectedMsn?.projectId || "")
-    setEquipmentName(selectedMsn?.equipmentName || "")
-    setTagNo(selectedMsn?.tagNo || "")
-    setCode(selectedMsn?.code || "")
-    setFormData((prev) => ({
-      ...prev,
-      poNo: selectedMsn?.poNo || "",
-    }))
-  }
+  const nextId = () => Math.max(...tableRows.map((r) => r.id), 0) + 1
 
-  // Handle table row changes
-  const handleRowChange = (id, field, value) => {
-    setTableRows(
-      tableRows.map((row) =>
-        row.id === id ? { ...row, [field]: value } : row
-      )
-    )
-  }
+  const addRow = () => setTableRows((rows) => [...rows, emptyRow(nextId())])
 
-  // Add new row at the end
-  const addRow = () => {
-    const newId = Math.max(...tableRows.map((row) => row.id), 0) + 1
-    setTableRows([
-      ...tableRows,
-      {
-        id: newId,
-        itemNo: "",
-        description: "",
-        size: "",
-        materialSpecification: "",
-        quantityUnit: "",
-        heatNo: "",
-        mtrNo: "",
-        manufacturerName: "",
-        remarks: "",
-        isHeading: false,
-        headingText: "",
-      },
-    ])
-  }
-
-  // Add row after a specific heading
   const addRowAfterHeading = (headingId) => {
-    const newId = Math.max(...tableRows.map((row) => row.id), 0) + 1
-    const headingIndex = tableRows.findIndex((row) => row.id === headingId)
-    
-    if (headingIndex !== -1) {
-      const newRow = {
-        id: newId,
-        itemNo: "",
-        description: "",
-        size: "",
-        materialSpecification: "",
-        quantityUnit: "",
-        heatNo: "",
-        mtrNo: "",
-        manufacturerName: "",
-        remarks: "",
-        isHeading: false,
-        headingText: "",
-      }
-      
-      // Find the last row that belongs to this heading (before next heading or end)
-      let insertIndex = headingIndex + 1
-      for (let i = headingIndex + 1; i < tableRows.length; i++) {
-        if (tableRows[i].isHeading) {
-          break
-        }
-        insertIndex = i + 1
-      }
-      
-      const newRows = [...tableRows]
-      newRows.splice(insertIndex, 0, newRow)
-      setTableRows(newRows)
+    const newRow = { ...emptyRow(nextId()), parentHeadingId: headingId }
+    const idx = tableRows.findIndex((r) => r.id === headingId)
+    let insertAt = idx + 1
+    for (let i = idx + 1; i < tableRows.length; i++) {
+      if (tableRows[i].isHeading) break
+      insertAt = i + 1
     }
+    const updated = [...tableRows]
+    updated.splice(insertAt, 0, newRow)
+    setTableRows(updated)
   }
 
-  // Toggle row to heading
-  const toggleHeading = (id) => {
-    setTableRows(
-      tableRows.map((row) =>
-        row.id === id
-          ? {
-              ...row,
-              isHeading: !row.isHeading,
-              headingText: row.isHeading ? "" : row.headingText,
-            }
-          : row
+  const toggleHeading = (id) =>
+    setTableRows((rows) =>
+      rows.map((r) =>
+        r.id === id
+          ? { ...r, isHeading: !r.isHeading, headingText: r.isHeading ? "" : r.headingText }
+          : r
       )
     )
+
+  const removeRow = (id) => {
+    if (tableRows.length <= 1) return
+    setTableRows((rows) => rows.filter((r) => r.id !== id))
   }
 
-  // Remove row
-  const removeRow = (id) => {
-    if (tableRows.length > 1) {
-      setTableRows(tableRows.filter((row) => row.id !== id))
+  // Submit
+  const handleSubmit = async () => {
+    setError("")
+    if (!selectedJobId) { setError("Please select a Job / MSN."); return }
+
+    const items = tableRows.map((row, idx) => ({
+      sort_order: idx,
+      is_heading: row.isHeading,
+      heading_text: row.isHeading ? row.headingText : null,
+      parent_heading_id: row.parentHeadingId || null,
+      item_no: row.itemNo || null,
+      description: row.description || null,
+      size: row.size || null,
+      material_spec: row.materialSpecification || null,
+      quantity_unit: row.quantityUnit || null,
+      heat_no: row.heatNo || null,
+      mtr_no: row.mtrNo || null,
+      manufacturer: row.manufacturerName || null,
+      remarks: row.remarks || null,
+    }))
+
+    const payload = {
+      job_id: selectedJobId,
+      shreno_drg_no: formData.shrenoDrgNo || null,
+      customer_drg_no: formData.customerDrgNo || null,
+      inspection_by: formData.inspectionBy || null,
+      items,
     }
+
+    try {
+      setSubmitting(true)
+      await apiFetch("/api/mhc/create", { method: "POST", body: JSON.stringify(payload) })
+      onSuccess()
+    } catch (err) {
+      setError(err.message || "Failed to create Material Heat Chart.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Create Material Heat Chart</h1>
+          <p className="text-muted-foreground">Fill in the details and add material rows.</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {/* ── Section 1: Basic Information ── */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* MSN / Job Number */}
+            <div className="space-y-2">
+              <Label>MSN / JOB NO.:</Label>
+              <Select value={selectedJobId} onValueChange={handleJobSelect} disabled={jobsLoading}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={jobsLoading ? "Loading jobs…" : "Select MSN"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {jobs.map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.job_number}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Auto-filled fields */}
+            {[
+              { label: "CLIENT:", value: autoFill.client },
+              { label: "PO. NO.:", value: autoFill.poNo },
+              { label: "PROJECT ID:", value: autoFill.projectId },
+              { label: "EQUIPMENT NAME:", value: autoFill.equipmentName },
+              { label: "TAG NO.:", value: autoFill.tagNo },
+              { label: "CODE:", value: autoFill.code },
+            ].map(({ label, value }) => (
+              <div key={label} className="space-y-2">
+                <Label>{label}</Label>
+                <Input value={value} readOnly className="bg-muted" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Section 2: Equipment Details ── */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Equipment Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="shrenoDrgNo">SHRENO DRG. NO.:</Label>
+              <Input
+                id="shrenoDrgNo"
+                name="shrenoDrgNo"
+                value={formData.shrenoDrgNo}
+                onChange={handleFormChange}
+                placeholder="Enter SHRENO DRG. No."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerDrgNo">CUSTOMER DRG. NO.:</Label>
+              <Input
+                id="customerDrgNo"
+                name="customerDrgNo"
+                value={formData.customerDrgNo}
+                onChange={handleFormChange}
+                placeholder="Enter Customer DRG No."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="inspectionBy">INSPECTION BY:</Label>
+              <Input
+                id="inspectionBy"
+                name="inspectionBy"
+                value={formData.inspectionBy}
+                onChange={handleFormChange}
+                placeholder="Enter Inspection By"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Section 3: Material Heat Chart Details ── */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Material Heat Chart Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    {[
+                      "ITEM NO./PART NO.",
+                      "DESCRIPTION",
+                      "SIZE",
+                      "MATERIAL SPECIFICATION",
+                      "QUANTITY / UNIT",
+                      "HEAT NO. / CAST NO. / PLATE NO.",
+                      "MTR NO.",
+                      "MANUFACTURER NAME",
+                      "REMARKS NCR/DCR",
+                      "Action",
+                    ].map((h) => (
+                      <th key={h} className="text-left p-2 font-medium text-xs whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row) =>
+                    row.isHeading ? (
+                      // ── Heading Row ──
+                      <tr key={row.id} className="border-b bg-muted/30">
+                        <td colSpan={9} className="p-2">
+                          <Input
+                            type="text"
+                            value={row.headingText}
+                            onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
+                            placeholder="Enter heading text…"
+                            className="font-semibold"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Add row under this heading"
+                              onClick={() => addRowAfterHeading(row.id)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => removeRow(row.id)}
+                              disabled={tableRows.length === 1}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      // ── Data Row ──
+                      <tr key={row.id} className="border-b">
+                        {[
+                          { field: "itemNo", placeholder: "Item No." },
+                          { field: "description", placeholder: "Description" },
+                          { field: "size", placeholder: "Size" },
+                          { field: "materialSpecification", placeholder: "Material Spec" },
+                          { field: "quantityUnit", placeholder: "Qty / Unit" },
+                          { field: "heatNo", placeholder: "Heat No." },
+                          { field: "mtrNo", placeholder: "MTR No." },
+                          { field: "manufacturerName", placeholder: "Manufacturer" },
+                          { field: "remarks", placeholder: "Remarks" },
+                        ].map(({ field, placeholder }) => (
+                          <td key={field} className="p-2">
+                            <Input
+                              type="text"
+                              value={row[field]}
+                              onChange={(e) => handleRowChange(row.id, field, e.target.value)}
+                              placeholder={placeholder}
+                              className="text-xs min-w-[80px]"
+                            />
+                          </td>
+                        ))}
+                        <td className="p-2">
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Convert to heading"
+                              onClick={() => toggleHeading(row.id)}
+                            >
+                              <Type className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => removeRow(row.id)}
+                              disabled={tableRows.length === 1}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <Button type="button" variant="outline" onClick={addRow} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Row
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Footer Buttons ── */}
+      <div className="flex gap-3 justify-end">
+        <Button variant="outline" onClick={onBack} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "Saving…" : "Submit"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Page ───────────────────────────────────────────────────────────────
+function MaterialHeatChart() {
+  const [view, setView] = useState("list") // "list" | "create"
+  const [successMsg, setSuccessMsg] = useState("")
+
+  const handleSuccess = () => {
+    setSuccessMsg("Material Heat Chart created successfully!")
+    setView("list")
+    setTimeout(() => setSuccessMsg(""), 4000)
   }
 
   return (
@@ -211,401 +491,18 @@ function MaterialHeatChart() {
         </header>
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">Material Heat Chart</h1>
-              <p className="text-muted-foreground">
-                Create and manage material heat chart information.
-              </p>
-            </div>
+            {successMsg && (
+              <div className="mb-4 rounded-md border border-green-500 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                {successMsg}
+              </div>
+            )}
 
-            {/* First Section - Dropdowns */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Basic Information</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="msn">MSN:</Label>
-                    <Select value={msn} onValueChange={handleMsnChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select MSN" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {msnOptions.map((msnOption) => (
-                          <SelectItem key={msnOption.id} value={msnOption.id}>
-                            {msnOption.value}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="client">CLIENT:</Label>
-                    <Input
-                      id="client"
-                      type="text"
-                      value={client}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="poNo">PO. NO.:</Label>
-                    <Input
-                      id="poNo"
-                      type="text"
-                      value={formData.poNo}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="projectId">PROJECT ID:</Label>
-                    <Input
-                      id="projectId"
-                      type="text"
-                      value={projectId}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="equipmentName">EQUIPMENT NAME:</Label>
-                    <Input
-                      id="equipmentName"
-                      type="text"
-                      value={equipmentName}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="tagNo">TAG NO.:</Label>
-                    <Input
-                      id="tagNo"
-                      type="text"
-                      value={tagNo}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="code">CODE:</Label>
-                    <Input
-                      id="code"
-                      type="text"
-                      value={code}
-                      readOnly
-                      className="bg-muted"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Second Section - User Input Fields */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Equipment Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="shrDrgNo">SHRENO DRG. NO.:</Label>
-                    <Input
-                      id="shrDrgNo"
-                      name="shrDrgNo"
-                      type="text"
-                      value={formData.shrDrgNo}
-                      onChange={handleInputChange}
-                      placeholder="Enter SHRENO DRG. No."
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="customerDrgNo">Customer DRG No:</Label>
-                    <Input
-                      id="customerDrgNo"
-                      name="customerDrgNo"
-                      type="text"
-                      value={formData.customerDrgNo}
-                      onChange={handleInputChange}
-                      placeholder="Enter Customer DRG No"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="inspectionBy">INSPECTION BY:</Label>
-                    <Input
-                      id="inspectionBy"
-                      name="inspectionBy"
-                      type="text"
-                      value={formData.inspectionBy}
-                      onChange={handleInputChange}
-                      placeholder="Enter INSPECTION BY"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Third Section - Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Material Heat Chart Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="text-left p-2 font-medium text-xs">
-                            ITEM NO./PART NO.
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            DESCRIPTION
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            SIZE
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            MATERIAL SPECIFICATION
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            QUANTITY / UNIT
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            HEAT NO. / CAST NO./PLATE NO.
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            MTR NO.
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            MANUFACTURER NAME
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs">
-                            REMARKS NCR/DCR
-                          </th>
-                          <th className="text-left p-2 font-medium text-xs w-20">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tableRows.map((row) =>
-                          row.isHeading ? (
-                            <tr key={row.id} className="border-b bg-muted/30">
-                              <td colSpan={8} className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.headingText}
-                                  onChange={(e) =>
-                                    handleRowChange(
-                                      row.id,
-                                      "headingText",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Enter heading text"
-                                  className="w-full font-semibold"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <div className="flex gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => addRowAfterHeading(row.id)}
-                                    className="h-8 w-8"
-                                    title="Add row after this heading"
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => removeRow(row.id)}
-                                    disabled={tableRows.length === 1}
-                                    className="h-8 w-8"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          ) : (
-                            <tr key={row.id} className="border-b">
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.itemNo}
-                                  onChange={(e) =>
-                                    handleRowChange(row.id, "itemNo", e.target.value)
-                                  }
-                                  placeholder="Item No."
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.description}
-                                  onChange={(e) =>
-                                    handleRowChange(
-                                      row.id,
-                                      "description",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Description"
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.size}
-                                  onChange={(e) =>
-                                    handleRowChange(row.id, "size", e.target.value)
-                                  }
-                                  placeholder="Size"
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.materialSpecification}
-                                  onChange={(e) =>
-                                    handleRowChange(
-                                      row.id,
-                                      "materialSpecification",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Material Spec"
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.quantityUnit}
-                                  onChange={(e) =>
-                                    handleRowChange(
-                                      row.id,
-                                      "quantityUnit",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Quantity/Unit"
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.heatNo}
-                                  onChange={(e) =>
-                                    handleRowChange(row.id, "heatNo", e.target.value)
-                                  }
-                                  placeholder="Heat No."
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.mtrNo}
-                                  onChange={(e) =>
-                                    handleRowChange(row.id, "mtrNo", e.target.value)
-                                  }
-                                  placeholder="MTR No."
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.manufacturerName}
-                                  onChange={(e) =>
-                                    handleRowChange(
-                                      row.id,
-                                      "manufacturerName",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Manufacturer"
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <Input
-                                  type="text"
-                                  value={row.remarks}
-                                  onChange={(e) =>
-                                    handleRowChange(
-                                      row.id,
-                                      "remarks",
-                                      e.target.value
-                                    )
-                                  }
-                                  placeholder="Remarks"
-                                  className="w-full text-xs"
-                                />
-                              </td>
-                              <td className="p-2">
-                                <div className="flex gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => toggleHeading(row.id)}
-                                    className="h-8 w-8"
-                                    title="Convert to heading"
-                                  >
-                                    <Type className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => removeRow(row.id)}
-                                    disabled={tableRows.length === 1}
-                                    className="h-8 w-8"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addRow}
-                    className="w-full sm:w-auto"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Row
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            {view === "list" ? (
+              <ListView onCreateClick={() => setView("create")} />
+            ) : (
+              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} />
+            )}
           </div>
         </main>
       </SidebarInset>
