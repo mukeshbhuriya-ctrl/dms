@@ -33,17 +33,17 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
 
             // --- Header Title ---
             doc.fillColor(primaryColor)
-               .fontSize(20)
-               .font('Helvetica-Bold')
-               .text('Document Transmittal', { align: 'center', underline: true });
+                .fontSize(20)
+                .font('Helvetica-Bold')
+                .text('Document Transmittal', { align: 'center', underline: true });
             doc.moveDown(1.5);
 
             // --- Top Right Details ---
             doc.fontSize(10)
-               .font('Helvetica')
-               .text(`Transmittal No.: ${transmission?.transmission_number || 'N/A'}`, { align: 'right' });
+                .font('Helvetica')
+                .text(`Transmittal No.: ${transmission?.transmission_number || 'N/A'}`, { align: 'right' });
             doc.moveDown(0.5);
-            
+
             // Format date correctly
             const dateStr = transmission?.createdAt ? new Date(transmission.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-') : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
             doc.text(`Date: ${dateStr}`, { align: 'right' });
@@ -70,7 +70,7 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             // --- Subject ---
             const subjectLineY = doc.y + 20;
             doc.text(`Subject: PO No. ${po?.po_number || '___________'} document submission for review/approval.`, 50, subjectLineY, { align: 'center' });
-            
+
             doc.moveDown(2);
 
             // --- Salutation ---
@@ -85,11 +85,11 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             let currentY = startTableY;
 
             // Table Columns setup (A4 width is 595, margins 50 each => 495 usable width)
-            const colWidths = [45, 150, 45, 255]; // Total = 495
+            const colWidths = [50, 140, 50, 255]; // Total = 495
             const colX = [
-                50, 
-                50 + colWidths[0], 
-                50 + colWidths[0] + colWidths[1], 
+                50,
+                50 + colWidths[0],
+                50 + colWidths[0] + colWidths[1],
                 50 + colWidths[0] + colWidths[1] + colWidths[2]
             ];
 
@@ -97,42 +97,47 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             const drawRow = (y, texts, isHeader = false) => {
                 doc.font(isHeader ? 'Helvetica-Bold' : 'Helvetica');
                 doc.fillColor(primaryColor);
-                
+
                 // Draw cells
                 for (let i = 0; i < texts.length; i++) {
                     doc.rect(colX[i], y, colWidths[i], rowHeight).stroke();
-                    // Center the text vertically and center Sr.No and Rev horizontally
-                    const verticalOffset = (rowHeight - doc.currentLineHeight()) / 2;
-                    let align = 'center';
-                    if(i === 1 || i === 3) align = 'left'; // Align Document Number and Title left
-                    
-                    // Add slight horizontal padding for left-aligned text
-                    const xOffset = (align === 'left') ? colX[i] + 5 : colX[i];
-                    const textWidth = (align === 'left') ? colWidths[i] - 10 : colWidths[i];
 
-                    // For headers, center everything
-                    if(isHeader) align = 'center';
-                    
-                    doc.text(texts[i], isHeader && (i===1 || i===3) ? colX[i] : xOffset, y + verticalOffset, { width: isHeader? colWidths[i] : textWidth, align: align });
+                    let align = 'center';
+                    if (i === 1 || i === 3) align = 'left'; // Align Document Number and Title left
+                    if (isHeader) align = 'center'; // For headers, center everything
+
+                    // Add safe horizontal padding (5pt on each side) to prevent border overlap
+                    const padX = 5;
+                    const textWidth = colWidths[i] - (padX * 2);
+                    const textX = colX[i] + padX;
+
+                    // Compute actual text height to center it vertically within the cell
+                    const totalTextHeight = doc.heightOfString(texts[i], { width: textWidth, align: align });
+                    const verticalOffset = (rowHeight - totalTextHeight) / 2;
+
+                    doc.text(texts[i], textX, y + verticalOffset, {
+                        width: textWidth,
+                        align: align
+                    });
                 }
             };
 
             // Draw Header
-            drawRow(currentY, ['Sr.\nNo.', 'Doc Number', 'Re\nv', 'Title'], true);
+            drawRow(currentY, ['Sr. No.', 'Doc Number', 'Rev', 'Title'], true);
             currentY += rowHeight;
 
             // Determine versions to list
             let docsToList = documents || [];
-            
+
             // Add minimum rows if empty
             if (docsToList.length === 0) {
                 docsToList = [{}, {}, {}, {}];
             } else if (docsToList.length < 4) {
-               // Pad with empty rows to match screenshot aesthetic
-               const toAdd = 4 - docsToList.length;
-               for(let i=0; i<toAdd; i++) {
-                  docsToList.push({});
-               }
+                // Pad with empty rows to match screenshot aesthetic
+                const toAdd = 4 - docsToList.length;
+                for (let i = 0; i < toAdd; i++) {
+                    docsToList.push({});
+                }
             }
 
             // Draw Data Rows
@@ -142,7 +147,7 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
                     doc.addPage();
                     currentY = 50; // Reset Y for new page
                     // Redraw header on new page
-                    drawRow(currentY, ['Sr.\nNo.', 'Doc Number', 'Re\nv', 'Title'], true);
+                    drawRow(currentY, ['Sr. No.', 'Doc Number', 'Rev', 'Title'], true);
                     currentY += rowHeight;
                 }
 
@@ -150,7 +155,7 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
                 // Extract relevant doc fields.
                 // Assuming docItem maps to group_document -> document_version -> document_master logic
                 // For 'Rev', use 'version_no'
-                
+
                 let docNumber = '';
                 let rev = '';
                 let title = '';
@@ -159,9 +164,9 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
                     docNumber = docItem.group_document.document?.document_number || '';
                     title = docItem.group_document.document?.document_name || '';
                 }
-                
+
                 if (docItem.version) {
-                     rev = docItem.version.version_no !== undefined ? docItem.version.version_no.toString() : '';
+                    rev = docItem.version.version_no !== undefined ? docItem.version.version_no.toString() : '';
                 }
 
                 drawRow(currentY, [srNo, docNumber, rev, title]);
@@ -173,9 +178,9 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             // --- Footer / Signatory ---
             // If we ran out of space for footer, add new page
             if (doc.y + 100 > doc.page.height - 50) {
-                 doc.addPage();
+                doc.addPage();
             } else {
-                 doc.y = currentY + 40;
+                doc.y = currentY + 40;
             }
 
             doc.font('Helvetica');
@@ -183,7 +188,7 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             doc.moveDown(0.5);
             doc.text(creator?.name || '________________', 50, doc.y);
             doc.text(`${creator?.designation || 'Sr.Executive'},`, 50, doc.y);
-            doc.text(`${creator?.department || 'Project Planning Document Controller'},`, 50, doc.y);
+            doc.text('Project Planning Document Controller', 50, doc.y);
             doc.text('Shreno Engineering Limited.', 50, doc.y);
 
             // Finalize PDF
