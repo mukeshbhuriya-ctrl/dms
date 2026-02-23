@@ -189,6 +189,11 @@ const roleMenus = {
           path: "/dcc/assign-document",
         },
         {
+          title: "Upload Documents",
+          icon: FileText,
+          path: "/user/upload-documents",
+        },
+        {
           title: "Document Approver",
           path: "/dcc/document-approver",
         },
