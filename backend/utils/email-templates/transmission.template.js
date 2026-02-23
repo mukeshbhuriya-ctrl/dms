@@ -70,7 +70,7 @@ const getTransmissionEmailTemplate = (details) => {
             </div>
 
             <div class="button-container">
-                <a href="${details.zip_url}" class="btn">Download Documents</a>
+                <a href="${details.zip_url}" class="btn">Download Secure ZIP</a>
             </div>
             
             <p class="note">Note: This link is secure. You will be prompted to enter the password shown above when you access the download page.</p>

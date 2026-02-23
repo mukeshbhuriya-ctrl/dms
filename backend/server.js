@@ -53,22 +53,6 @@ const publicRoutes = require('./routes/public.routes.js');
 app.use('/api/secure', publicRoutes);
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
