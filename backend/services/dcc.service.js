@@ -360,7 +360,7 @@ class DccService {
     }
 
     async getDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
+        const { page = 1, limit = 50, search = '', exclude_transmitted } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
         const where = { company_id };
@@ -370,6 +370,28 @@ class DccService {
                 { document_number: { contains: search, mode: 'insensitive' } },
                 { document_name: { contains: search, mode: 'insensitive' } }
             ];
+        }
+
+        // Exclude documents whose group_documents are already linked to a transmission
+        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
+            // Find all group_document_ids that are part of any transmission_document
+            const transmittedGroupDocIds = await prisma.transmission_document.findMany({
+                where: { group_document_id: { not: null } },
+                select: { group_document_id: true },
+                distinct: ['group_document_id']
+            });
+
+            const transmittedDocumentMasterIds = transmittedGroupDocIds.length > 0
+                ? await prisma.group_document.findMany({
+                    where: { id: { in: transmittedGroupDocIds.map(t => t.group_document_id) } },
+                    select: { document_id: true },
+                    distinct: ['document_id']
+                }).then(docs => docs.map(d => d.document_id))
+                : [];
+
+            if (transmittedDocumentMasterIds.length > 0) {
+                where.id = { notIn: transmittedDocumentMasterIds };
+            }
         }
 
         const [total, data] = await prisma.$transaction([
