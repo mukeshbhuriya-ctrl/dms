@@ -33,13 +33,13 @@ class EmailService {
     }
 
     // Template for Transmission
-    async sendTransmissionEmail(to, cc, transmissionDetails) {
+    async sendTransmissionEmail(to, cc, transmissionDetails, attachments = []) {
         const { getTransmissionEmailTemplate } = require('../utils/email-templates/transmission.template');
 
         const subject = `Document Transmission: ${transmissionDetails.transmission_number} - PO: ${transmissionDetails.po_number}`;
         const html = getTransmissionEmailTemplate(transmissionDetails);
 
-        return this.sendEmail({ to, cc, subject, html });
+        return this.sendEmail({ to, cc, subject, html, attachments });
     }
 }
 
