@@ -1,5 +1,6 @@
 const prisma = require('#prisma');
 const EmailService = require('./email.service');
+const { generateTransmittalPDF } = require('../utils/pdfGeneratorTransmittal');
 
 class DccService {
     /**
@@ -360,7 +361,7 @@ class DccService {
     }
 
     async getDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
+        const { page = 1, limit = 50, search = '', exclude_transmitted } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
         const where = { company_id };
@@ -370,6 +371,38 @@ class DccService {
                 { document_number: { contains: search, mode: 'insensitive' } },
                 { document_name: { contains: search, mode: 'insensitive' } }
             ];
+        }
+
+        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
+            const excludedDocumentMasterIds = new Set();
+
+            // 1. Exclude documents already linked to a transmission
+            const transmittedGroupDocIds = await prisma.transmission_document.findMany({
+                where: { group_document_id: { not: null } },
+                select: { group_document_id: true },
+                distinct: ['group_document_id']
+            });
+
+            if (transmittedGroupDocIds.length > 0) {
+                const docs = await prisma.group_document.findMany({
+                    where: { id: { in: transmittedGroupDocIds.map(t => t.group_document_id) } },
+                    select: { document_id: true },
+                    distinct: ['document_id']
+                });
+                docs.forEach(d => excludedDocumentMasterIds.add(d.document_id));
+            }
+
+            // 2. Exclude documents already approved by the Document Approver
+            const approvedDocs = await prisma.group_document.findMany({
+                where: { company_id, status: 'Approved' },
+                select: { document_id: true },
+                distinct: ['document_id']
+            });
+            approvedDocs.forEach(d => excludedDocumentMasterIds.add(d.document_id));
+
+            if (excludedDocumentMasterIds.size > 0) {
+                where.id = { notIn: [...excludedDocumentMasterIds] };
+            }
         }
 
         const [total, data] = await prisma.$transaction([
@@ -1056,21 +1089,43 @@ class DccService {
     async sendTransmissionEmail(company_id, data) {
         const { transmission_id, shreno_emails, client_emails } = data;
 
-        // 1. Fetch transmission details
+        // 1. Fetch transmission details with required relations for the PDF
         const transmission = await prisma.transmission.findFirst({
             where: { id: transmission_id, company_id },
             include: {
                 po: true,
                 customer: true,
-                documents: true // To get count
+                location: true,
+                creator: true,
+                documents: true // To get simple count
             }
         });
 
         if (!transmission) throw new Error('Transmission not found');
 
-        // 3. Send Email using EmailService
-        // Client -> To, Shreno -> CC
-        // 3. Send Email using EmailService
+        // 2. Fetch full document details using the existing service method
+        const fullDocsResponse = await this.getTransmissionDocuments(company_id, transmission_id);
+        const documentsData = fullDocsResponse || [];
+
+        // 3. Generate the PDF Buffer
+        const pdfBuffer = await generateTransmittalPDF(
+            transmission,
+            transmission.customer,
+            transmission.location,
+            transmission.po,
+            documentsData,
+            transmission.creator
+        );
+
+        const attachments = [
+            {
+                filename: `Document_Transmittal_${transmission.transmission_number}.pdf`,
+                content: pdfBuffer,
+                contentType: 'application/pdf'
+            }
+        ];
+
+        // 4. Send Email using EmailService and attach the PDF
         // Client -> To, Shreno -> CC
         await EmailService.sendTransmissionEmail(client_emails, shreno_emails, {
             transmission_number: transmission.transmission_number,
@@ -1079,7 +1134,7 @@ class DccService {
             document_count: transmission.documents?.length || 0,
             password: transmission.password,
             zip_url: transmission.zip_url || '#'
-        });
+        }, attachments);
 
         // Update status to 'Sent'
         await prisma.transmission.update({

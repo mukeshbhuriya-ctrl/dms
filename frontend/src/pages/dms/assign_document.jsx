@@ -175,7 +175,7 @@ function AssignDocument() {
             headers,
             credentials: "include",
           }),
-          fetch(`${backendUrl}/api/dcc/document?limit=1000`, {
+          fetch(`${backendUrl}/api/dcc/document?limit=1000&exclude_transmitted=true`, {
             method: "GET",
             headers,
             credentials: "include",

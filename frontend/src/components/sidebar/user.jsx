@@ -189,6 +189,11 @@ const roleMenus = {
           path: "/dcc/assign-document",
         },
         {
+          title: "Upload Documents",
+          icon: FileText,
+          path: "/user/upload-documents",
+        },
+        {
           title: "Document Approver",
           path: "/dcc/document-approver",
         },
@@ -233,6 +238,11 @@ const roleMenus = {
           path: "/admin/view-ncr",
         }
       ]
+    },
+    {
+      title: "Weld Plan",
+      icon: Wrench,
+      path: "/welding-joints",
     },
     {
       title: "Welding Joints",
@@ -282,7 +292,7 @@ const roleMenus = {
   ],
   WELD_PLAN_ADMIN: [
     {
-      title: "Welding Joints",
+      title: "Weld Plan",
       icon: Wrench,
       path: "/welding-joints",
     },
