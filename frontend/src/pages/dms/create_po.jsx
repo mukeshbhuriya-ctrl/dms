@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
 import { Upload, X, Plus, Mail, ArrowLeft, FileText } from "lucide-react"
+import { poApi } from "@/api/po.api"
+import { commonApi } from "@/api/common.api"
 
 function CreatePO() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -35,7 +37,9 @@ function CreatePO() {
   const [poDocument, setPoDocument] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true)
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false)
   const [customers, setCustomers] = useState([])
+  const [locations, setLocations] = useState([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
@@ -89,39 +93,16 @@ function CreatePO() {
 
   const fetchPos = useCallback(async ({ page, limit, search, sorting }) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const params = new URLSearchParams()
-      params.append("page", page)
-      params.append("limit", limit)
-      if (search) params.append("search", search)
+      const params = { page, limit }
+      if (search) params.search = search
       if (sorting && sorting.length > 0) {
-        params.append("sortBy", sorting[0].id)
-        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+        params.sortBy = sorting[0].id
+        params.sortOrder = sorting[0].desc ? "desc" : "asc"
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-pos?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
+      const responseData = await poApi.getPos(params)
 
-      const responseData = await res.json()
-
-      if (res.ok && responseData.success) {
+      if (responseData.success) {
         return {
           data: responseData.data || [],
           meta: responseData.meta || {}
@@ -138,30 +119,10 @@ function CreatePO() {
 
   // Fetch customers
   const fetchCustomers = async () => {
+    setIsLoadingCustomers(true)
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-
-      const responseData = await res.json()
-      if (res.ok && responseData.success) {
+      const responseData = await commonApi.getCustomers({ limit: 1000 })
+      if (responseData.success) {
         setCustomers(responseData.data || [])
       } else {
         console.error("Failed to fetch customers", responseData)
@@ -174,16 +135,34 @@ function CreatePO() {
     }
   }
 
+  const fetchLocations = async (customerId) => {
+    if (!customerId) {
+      setLocations([])
+      return
+    }
+    setIsLoadingLocations(true)
+    try {
+      const responseData = await commonApi.getLocations({ limit: 1000, customer_id: customerId })
+      if (responseData.success) {
+        setLocations(responseData.data || [])
+      } else {
+        setLocations([])
+        console.error("Failed to fetch locations", responseData)
+      }
+    } catch (err) {
+      console.error("Error fetching locations:", err)
+      setError(err?.message || "Failed to load locations")
+      setLocations([])
+    } finally {
+      setIsLoadingLocations(false)
+    }
+  }
+
   useEffect(() => {
     if (view === "create") {
       fetchCustomers()
     }
   }, [view])
-
-  const getLocationsForCustomer = (customerId) => {
-    const customer = customers.find((c) => c.id === customerId)
-    return customer?.customer_locations || []
-  }
 
   const handleCustomerChange = (customerId) => {
     setFormData((prev) => ({
@@ -193,11 +172,11 @@ function CreatePO() {
     }))
     setSelectedLocation(null)
     setError("")
+    fetchLocations(customerId)
   }
 
   const handleLocationChange = (locationId) => {
-    const customerLocations = getLocationsForCustomer(formData.customerId)
-    const location = customerLocations.find((loc) => loc.id === locationId)
+    const location = locations.find((loc) => loc.id === locationId)
     setFormData((prev) => ({
       ...prev,
       locationId,
@@ -269,16 +248,6 @@ function CreatePO() {
     setIsLoading(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
       const communicationMatrix = {
         shreno: shrenoCommunication
           .filter((contact) => contact.name && contact.email)
@@ -314,23 +283,7 @@ function CreatePO() {
         formDataToSend.append("po_document", poDocument)
       }
 
-      const headers = {}
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/create-po`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: formDataToSend,
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to create PO")
-      }
+      await poApi.createPo(formDataToSend)
 
       setSuccess("PO created successfully!")
 
@@ -363,9 +316,7 @@ function CreatePO() {
     }
   }
 
-  const availableLocations = formData.customerId
-    ? getLocationsForCustomer(formData.customerId)
-    : []
+  const availableLocations = locations
 
   return (
     <SidebarProvider>
@@ -462,7 +413,7 @@ function CreatePO() {
                           <Select
                             value={formData.locationId}
                             onValueChange={handleLocationChange}
-                            disabled={isLoading || !formData.customerId}
+                            disabled={isLoading || isLoadingLocations || !formData.customerId}
                             required
                           >
                             <SelectTrigger className="w-full">

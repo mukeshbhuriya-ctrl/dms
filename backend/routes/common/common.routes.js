@@ -1,0 +1,11 @@
+const express = require('express');
+const router = express.Router();
+const CommonController = require('../../controllers/common.controller');
+const { authenticateUserOnly } = require('#api/middleware/user.middleware.js');
+
+router.get('/customers', authenticateUserOnly, CommonController.getCustomers);
+router.get('/locations', authenticateUserOnly, CommonController.getLocations);
+router.get('/pos', authenticateUserOnly, CommonController.getPos);
+router.get('/jobs', authenticateUserOnly, CommonController.getJobs);
+
+module.exports = router;

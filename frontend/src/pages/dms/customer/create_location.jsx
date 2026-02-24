@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
 import { Plus, Trash2, ArrowLeft } from "lucide-react"
+import { commonApi } from "@/api/common.api"
+import apiClient from "@/api/api.client"
 
 function CreateLocation() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -67,39 +69,16 @@ function CreateLocation() {
 
   const fetchCustomerLocations = useCallback(async ({ page, limit, search, sorting }) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const params = new URLSearchParams()
-      params.append("page", page)
-      params.append("limit", limit)
-      if (search) params.append("search", search)
+      const params = { page, limit }
+      if (search) params.search = search
       if (sorting && sorting.length > 0) {
-        params.append("sortBy", sorting[0].id)
-        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+        params.sortBy = sorting[0].id
+        params.sortOrder = sorting[0].desc ? "desc" : "asc"
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-customer-locations?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
+      const responseData = await apiClient.get('/api/dcc/get-customer-locations', params)
 
-      const responseData = await res.json()
-
-      if (res.ok && responseData.success) {
+      if (responseData.success) {
         return {
           data: responseData.data || [],
           meta: responseData.meta || {}
@@ -118,29 +97,8 @@ function CreateLocation() {
   const fetchCustomers = async () => {
     setIsLoadingCustomers(true)
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, { // Fetch all for dropdown
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-
-      const responseData = await res.json()
-      if (res.ok && responseData.success) {
+      const responseData = await commonApi.getCustomers({ limit: 1000 })
+      if (responseData.success) {
         setCustomers(responseData.data || [])
       } else {
         console.error("Failed to fetch customers", responseData)
@@ -192,21 +150,6 @@ function CreateLocation() {
     setIsLoading(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
       const locationsArray = locations.map((location) => ({
         location_name: location.location,
         customer_number_as_per_sap: location.customerNumber,
@@ -218,18 +161,7 @@ function CreateLocation() {
         locations: locationsArray,
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/create-customer-location`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to create locations")
-      }
+      await apiClient.post('/api/dcc/create-customer-location', requestBody)
 
       setSuccess(`Successfully created ${locations.length} location(s)!`)
 
