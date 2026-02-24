@@ -73,11 +73,24 @@ class MhcService {
         if (!job) throw new Error('Job not found');
 
         const mhc = await prisma.$transaction(async (tx) => {
+            // Calculate next serial_no for this job
+            const lastMhc = await tx.material_heat_chart.findFirst({
+                where: { job_id, company_id },
+                orderBy: { serial_no: 'desc' },
+                select: { serial_no: true }
+            });
+
+            const nextSerialNo = lastMhc ? lastMhc.serial_no + 1 : 1;
+            const paddedSerial = String(nextSerialNo).padStart(4, '0');
+            const reportNo = `SHR/${job.job_number}/MHC/${paddedSerial}`;
+
             // Create header record
             const header = await tx.material_heat_chart.create({
                 data: {
                     company_id,
                     job_id,
+                    serial_no: nextSerialNo,
+                    report_no: reportNo,
                     msn: job.job_number,
                     client: job.customer?.customer_name || '',
                     po_no: job.po?.po_number || '',
@@ -139,6 +152,31 @@ class MhcService {
 
         if (!mhc) throw new Error('Material Heat Chart not found');
         return mhc;
+    }
+
+    /**
+     * Get the next report number for a specific job
+     */
+    async getNextReportNo(company_id, job_id) {
+        if (!job_id) throw new Error('job_id is required');
+
+        const job = await prisma.job.findFirst({
+            where: { id: job_id, company_id },
+        });
+
+        if (!job) throw new Error('Job not found');
+
+        const lastMhc = await prisma.material_heat_chart.findFirst({
+            where: { job_id, company_id },
+            orderBy: { serial_no: 'desc' },
+            select: { serial_no: true }
+        });
+
+        const nextSerialNo = lastMhc ? lastMhc.serial_no + 1 : 1;
+        const paddedSerial = String(nextSerialNo).padStart(4, '0');
+        const reportNo = `SHR/${job.job_number}/MHC/${paddedSerial}`;
+
+        return { next_report_no: reportNo, next_serial_no: nextSerialNo };
     }
 }
 

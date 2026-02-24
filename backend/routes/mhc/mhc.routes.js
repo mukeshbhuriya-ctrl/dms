@@ -8,6 +8,7 @@ router.use(authenticateUser(['DCC', 'ADMIN', 'PRODUCTION_ENGINEER']));
 
 router.get('/list', MhcController.list);
 router.post('/create', MhcController.create);
+router.get('/next-report-no/:job_id', MhcController.getNextReportNo);
 router.get('/:id', MhcController.getById);
 
 module.exports = router;

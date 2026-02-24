@@ -529,6 +529,8 @@ model material_heat_chart {
 
   // Auto-filled from job on create
   msn              String
+  serial_no        Int
+  report_no        String
   client           String
   po_no            String
   project_id       String?
