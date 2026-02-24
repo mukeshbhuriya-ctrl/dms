@@ -75,7 +75,7 @@ class MhcService {
         const mhc = await prisma.$transaction(async (tx) => {
             // Calculate next serial_no for this job
             const lastMhc = await tx.material_heat_chart.findFirst({
-                where: { job_id, company_id },
+                where: { company_id },
                 orderBy: { serial_no: 'desc' },
                 select: { serial_no: true }
             });
@@ -167,7 +167,7 @@ class MhcService {
         if (!job) throw new Error('Job not found');
 
         const lastMhc = await prisma.material_heat_chart.findFirst({
-            where: { job_id, company_id },
+            where: { company_id },
             orderBy: { serial_no: 'desc' },
             select: { serial_no: true }
         });
