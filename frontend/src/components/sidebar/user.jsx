@@ -240,6 +240,16 @@ const roleMenus = {
       ]
     },
     {
+      title: "MHC",
+      icon: Folder,
+      items: [
+        {
+          title: "Material Heat Chart",
+          path: "/material-heat-chart",
+        }
+      ]
+    },
+    {
       title: "Weld Plan",
       icon: Wrench,
       path: "/welding-joints",
@@ -255,16 +265,6 @@ const roleMenus = {
       ]
     },
     {
-      title: "MATERIAL HEAT CHART",
-      icon: ChartBar,
-      items: [
-        {
-          title: "Material Heat Chart",
-          path: "/material-heat-chart",
-        }
-      ]
-    },
-    {
       title: "Hydrostatic Pressure Test",
       icon: FileText,
       items: [
@@ -275,14 +275,18 @@ const roleMenus = {
       ],
     },
     {
-      title: "Dish End Inspection",
-      icon: ClipboardCheck,
-      path: "/hydro-assign",
-    },
-    {
-      title: "Final Inspection Reports",
-      icon: FileText,
-      path: "/final-inspection-reports",
+      title: "Inspection",
+      icon: Folder,
+      items: [
+        {
+          title: "Dish End Inspection",
+          path: "/hydro-assign",
+        },
+        {
+          title: "Final Inspection Reports",
+          path: "/final-inspection-reports",
+        },
+      ]
     },
     {
       title: "Quality Assurance Plan",

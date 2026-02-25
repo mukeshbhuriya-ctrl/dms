@@ -49,6 +49,22 @@ class CommonController {
             res.status(500).json({ success: false, message: "Failed to fetch jobs", error: error.message });
         }
     }
+    async getJobDetails(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+            const data = await CommonService.getJobDetails(company_id, id);
+
+            if (!data) {
+                return res.status(404).json({ success: false, message: "Job not found" });
+            }
+
+            res.status(200).json({ success: true, message: "Job details fetched successfully", data });
+        } catch (error) {
+            console.error("CommonController.getJobDetails Error:", error);
+            res.status(500).json({ success: false, message: "Failed to fetch job details", error: error.message });
+        }
+    }
 }
 
 module.exports = new CommonController();

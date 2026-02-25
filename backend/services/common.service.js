@@ -79,6 +79,25 @@ class CommonService {
             orderBy: { job_number: 'asc' }
         });
     }
+
+    /**
+     * Get details of a single Job/MSN
+     */
+    async getJobDetails(company_id, id) {
+        return await prisma.job.findFirst({
+            where: { id, company_id },
+            select: {
+                id: true,
+                job_number: true,
+                equipement_name: true,
+                project_id: true,
+                tag_number: true,
+                code: true,
+                customer: { select: { customer_name: true } },
+                po: { select: { po_number: true } }
+            }
+        });
+    }
 }
 
 module.exports = new CommonService();

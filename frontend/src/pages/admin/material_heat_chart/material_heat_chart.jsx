@@ -27,46 +27,7 @@ import {
 import { Plus, Trash2, Type, ArrowLeft, FileText, Eye } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-const API_BASE = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
-async function apiFetch(path, options = {}) {
-  let token = null;
-  const authData = localStorage.getItem("user_auth");
-  if (authData) {
-    try {
-      const parsed = JSON.parse(authData);
-      token = parsed?.payload?.token || parsed?.token;
-    } catch (e) { }
-  }
-
-  if (!token) {
-    token = sessionStorage.getItem("sessionToken");
-  }
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-    ...options,
-  });
-
-  const text = await res.text();
-  let json = {};
-  if (text) {
-    try {
-      json = JSON.parse(text);
-    } catch (e) {
-      json = { message: text };
-    }
-  }
-
-  if (!res.ok) throw new Error(json.message || "Request failed");
-  return json;
-}
+import apiClient from "@/api/api.client"
 
 function emptyRow(id) {
   return {
@@ -97,7 +58,7 @@ function ListView({ onCreateClick }) {
     setIsViewLoading(true)
     setError("")
     try {
-      const res = await apiFetch(`/api/mhc/${id}`)
+      const res = await apiClient.get(`/api/mhc/${id}`)
       if (res.success) {
         setSelectedRecord(res.data)
         setIsViewOpen(true)
@@ -141,7 +102,7 @@ function ListView({ onCreateClick }) {
 
   const fetchData = useCallback(async ({ page, limit, search }) => {
     const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
-    const res = await apiFetch(`/api/mhc/list?${params}`)
+    const res = await apiClient.get(`/api/mhc/list`, Object.fromEntries(params))
     return { data: res.data, meta: res.meta }
   }, [])
 
@@ -325,25 +286,21 @@ function CreateView({ onBack, onSuccess }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  // Fetch jobs on mount
   useEffect(() => {
-    apiFetch("/api/dcc/get-jobs?limit=200")
+    apiClient.get("/api/common/jobs?limit=200")
       .then((res) => setJobs(res.data || []))
       .catch(() => setJobs([]))
       .finally(() => setJobsLoading(false))
   }, [])
 
-  // Handle MSN selection → auto-fill
+  // Handle MSN selection → auto-fill from job details API
   const handleJobSelect = async (jobId) => {
     setSelectedJobId(jobId)
-    const job = jobs.find((j) => j.id === jobId)
-    if (!job) return
-
-    setAutoFill((prev) => ({ ...prev, reportNo: "Loading..." }))
+    setAutoFill((prev) => ({ ...prev, reportNo: "Loading...", client: "Loading..." }))
 
     let nextReportNo = ""
     try {
-      const res = await apiFetch(`/api/mhc/next-report-no/${jobId}`)
+      const res = await apiClient.get(`/api/mhc/next-report-no/${jobId}`)
       if (res.success && res.data?.next_report_no) {
         nextReportNo = res.data.next_report_no
       }
@@ -352,15 +309,32 @@ function CreateView({ onBack, onSuccess }) {
       nextReportNo = "Auto-generated on Submit"
     }
 
-    setAutoFill({
-      reportNo: nextReportNo,
-      client: job.customer?.customer_name || "",
-      poNo: job.po?.po_number || "",
-      projectId: job.project_id || "",
-      equipmentName: job.equipement_name || "",
-      tagNo: job.tag_number || "",
-      code: job.code || "",
-    })
+    try {
+      const jobRes = await apiClient.get(`/api/common/jobs/${jobId}`)
+      if (jobRes.success && jobRes.data) {
+        const job = jobRes.data
+        setAutoFill({
+          reportNo: nextReportNo,
+          client: job.customer?.customer_name || "",
+          poNo: job.po?.po_number || "",
+          projectId: job.project_id || "",
+          equipmentName: job.equipement_name || "",
+          tagNo: job.tag_number || "",
+          code: job.code || "",
+        })
+      }
+    } catch (err) {
+      console.error("Failed to fetch job details:", err)
+      setAutoFill({
+        reportNo: nextReportNo,
+        client: "",
+        poNo: "",
+        projectId: "",
+        equipmentName: "",
+        tagNo: "",
+        code: "",
+      })
+    }
   }
 
   // Form field change
@@ -433,7 +407,7 @@ function CreateView({ onBack, onSuccess }) {
 
     try {
       setSubmitting(true)
-      await apiFetch("/api/mhc/create", { method: "POST", body: JSON.stringify(payload) })
+      await apiClient.post("/api/mhc/create", payload)
       onSuccess()
     } catch (err) {
       setError(err.message || "Failed to create Material Heat Chart.")
