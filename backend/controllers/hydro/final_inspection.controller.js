@@ -1,0 +1,107 @@
+const FinalInspectionService = require('../../services/hydro/final_inspection.service');
+
+class FinalInspectionController {
+    /**
+     * Get paginated list of reports
+     */
+    async getList(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { page = 1, limit = 10, search = '' } = req.query;
+
+            const result = await FinalInspectionService.getList(company_id, {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                search
+            });
+
+            res.status(200).json({ success: true, ...result });
+        } catch (error) {
+            console.error("FinalInspectionController.getList Error:", error);
+            res.status(500).json({ success: false, message: "Failed to fetch reports", error: error.message });
+        }
+    }
+
+    /**
+     * Get report by ID
+     */
+    async getById(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+
+            if (id === 'next-report-no') return; // Skip if it's the next-report-no route
+            if (id === 'list') return; // Skip if it's the list route
+
+            const data = await FinalInspectionService.getById(company_id, id);
+            if (!data) {
+                return res.status(404).json({ success: false, message: "Report not found" });
+            }
+
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error("FinalInspectionController.getById Error:", error);
+            res.status(500).json({ success: false, message: "Failed to fetch report", error: error.message });
+        }
+    }
+
+    /**
+     * Get Next Report No
+     */
+    async getNextReportNo(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { jobId } = req.params;
+            const next_report_no = await FinalInspectionService.getNextReportNo(company_id, jobId);
+            res.status(200).json({ success: true, data: { next_report_no } });
+        } catch (error) {
+            console.error("FinalInspectionController.getNextReportNo Error:", error);
+            res.status(500).json({ success: false, message: "Failed to generate next report no", error: error.message });
+        }
+    }
+
+    /**
+     * Create Report
+     */
+    async createReport(req, res) {
+        try {
+            const { company_id } = req.user;
+            const data = req.body;
+
+            const report = await FinalInspectionService.createReport(company_id, data);
+
+            res.status(201).json({
+                success: true,
+                message: "Final Inspection Report created successfully",
+                data: report
+            });
+        } catch (error) {
+            console.error("FinalInspectionController.createReport Error:", error);
+            res.status(500).json({ success: false, message: "Failed to create report", error: error.message });
+        }
+    }
+
+    /**
+     * Update Report
+     */
+    async updateReport(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+            const data = req.body;
+
+            const report = await FinalInspectionService.updateReport(company_id, id, data);
+
+            res.status(200).json({
+                success: true,
+                message: "Final Inspection Report updated successfully",
+                data: report
+            });
+        } catch (error) {
+            console.error("FinalInspectionController.updateReport Error:", error);
+            res.status(500).json({ success: false, message: "Failed to update report", error: error.message });
+        }
+    }
+}
+
+module.exports = new FinalInspectionController();
