@@ -270,24 +270,24 @@ const roleMenus = {
       items: [
         {
           title: "Hydro Pres Test",
-          path: "/admin/hydrostatic-pressure-test",
+          path: "/hydrostatic-pressure-test",
         },
       ],
     },
     {
       title: "Dish End Inspection",
       icon: ClipboardCheck,
-      path: "/admin/hydro-assign",
+      path: "/hydro-assign",
     },
     {
       title: "Final Inspection Reports",
       icon: FileText,
-      path: "/admin/final-inspection-reports",
+      path: "/final-inspection-reports",
     },
     {
       title: "Quality Assurance Plan",
       icon: ClipboardCheck,
-      path: "/admin/create-qarp",
+      path: "/create-qarp",
     },
   ],
   WELD_PLAN_ADMIN: [

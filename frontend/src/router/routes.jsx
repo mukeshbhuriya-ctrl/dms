@@ -24,11 +24,14 @@ import {
 import {
   AdminDashboard,
   CreateUser,
-  DepartmentManagement
+  DepartmentManagement,
+  FinalInspectionReports
 } from "@/pages/admin"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
+import { HydroAssign, HydroPresText } from "@/pages/admin/hydro"
+import { CreateQARP } from "@/pages/admin/qap"
 
 const userAuthProps = {
   authKey: "user_auth",
@@ -129,7 +132,30 @@ const adminRoutes = [
   {
     path: "/material-heat-chart",
     element: <MaterialHeatChart />,
-    
+  },
+  {
+    path: "/hydrostatic-pressure-test",
+    element: <HydroPresText />,
+  },
+  {
+    path: "/hydrostatic-pressure-test",
+    element: <HydroPresText />,
+  },
+  {
+    path: "/hydro-assign",
+    element: <HydroAssign />,
+  },
+  {
+    path: "/final-inspection-reports",
+    element: <FinalInspectionReports />,
+  },
+  {
+    path: "/final-inspection-reports",
+    element: <FinalInspectionReports />,
+  },
+  {
+    path: "/create-qarp",
+    element: <CreateQARP />,
   },
 ]
 
