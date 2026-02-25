@@ -7,5 +7,6 @@ router.get('/list', authenticateUserOnly, InspectionReportController.getList);
 router.get('/:id', authenticateUserOnly, InspectionReportController.getById);
 router.get('/next-report-no/:jobId', authenticateUserOnly, InspectionReportController.getNextReportNo);
 router.post('/create', authenticateUserOnly, InspectionReportController.createReport);
+router.put('/update/:id', authenticateUserOnly, InspectionReportController.updateReport);
 
 module.exports = router;

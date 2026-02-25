@@ -162,6 +162,77 @@ class InspectionReportService {
             return report;
         });
     }
+
+    /**
+     * Update an existing Dish End Inspection Report
+     */
+    async updateReport(company_id, id, payload) {
+        const {
+            job_id,
+            msn,
+            client,
+            po_no,
+            project_id,
+            equipment_name,
+            tag_no,
+            code,
+            drg_no,
+            insp_agency,
+            quality_engineer_id,
+            vendor_dish_end_number,
+            items, // array of { sr_no, description, as_per_drg, actual, remarks }
+            instruments // array of { name, id_no, due_date }
+        } = payload;
+
+        // Verify report exists and belongs to company
+        const existing = await prisma.dish_end_inspection_report.findFirst({
+            where: { id, company_id }
+        });
+        if (!existing) throw new Error("Report not found");
+
+        return await prisma.$transaction(async (tx) => {
+            // Delete existing items and instruments
+            await tx.dish_end_inspection_item.deleteMany({ where: { report_id: id } });
+            await tx.dish_end_inspection_instrument.deleteMany({ where: { report_id: id } });
+
+            // Update report and create new items/instruments
+            const report = await tx.dish_end_inspection_report.update({
+                where: { id },
+                data: {
+                    job_id,
+                    msn,
+                    client,
+                    po_no,
+                    project_id,
+                    equipment_name,
+                    tag_no,
+                    code,
+                    drg_no,
+                    insp_agency,
+                    quality_engineer_id: quality_engineer_id || null,
+                    vendor_dish_end_number: vendor_dish_end_number || null,
+                    items: {
+                        create: items.map(item => ({
+                            sr_no: item.sr_no,
+                            description: item.description,
+                            as_per_drg: item.as_per_drg,
+                            actual: item.actual,
+                            remarks: item.remarks
+                        }))
+                    },
+                    instruments: {
+                        create: instruments.map(inst => ({
+                            name: inst.name,
+                            id_no: inst.id_no,
+                            due_date: inst.due_date
+                        }))
+                    }
+                }
+            });
+
+            return report;
+        });
+    }
 }
 
 module.exports = new InspectionReportService();

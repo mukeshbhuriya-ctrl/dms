@@ -33,12 +33,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, FileText, Eye } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, FileText, Eye, Edit } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import { toast } from 'react-toastify'
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick }) {
+function ListView({ onCreateClick, onEditClick }) {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
@@ -79,13 +79,22 @@ function ListView({ onCreateClick }) {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleViewClick(row.id)}
-          title="View">
-          <Eye className="h-4 w-4 mr-2" /> View
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewClick(row.id)}
+            title="View">
+            <Eye className="h-4 w-4 mr-2" /> View
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEditClick(row.id)}
+            title="Edit">
+            <Edit className="h-4 w-4 mr-2" /> Edit
+          </Button>
+        </div>
       ),
     },
   ]
@@ -252,8 +261,8 @@ function ListView({ onCreateClick }) {
   )
 }
 
-// ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess }) {
+// ─── Create / Edit View ──────────────────────────────────────────────────────
+function CreateView({ onBack, onSuccess, editId = null }) {
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: '2-digit', year: 'numeric'
   })
@@ -334,9 +343,63 @@ function CreateView({ onBack, onSuccess }) {
       .catch((err) => console.error("Failed to fetch QC engineers:", err))
   }, [])
 
+  useEffect(() => {
+    // If we have an editId, fetch the existing report details
+    if (editId && msnOptions.length > 0) {
+      apiClient.get(`/api/inspection-report/${editId}`)
+        .then((res) => {
+          if (res.success && res.data) {
+            const data = res.data
+            // Match MSN option by job_id
+            setMsn(data.job_id || "")
+            setReportNo(data.report_no || "")
+            setEquipment(data.equipment_name || "")
+            setCode(data.code || "")
+            setClient(data.client || "")
+            setPoNo(data.po_no || "")
+            setVendorDishEndNo(data.vendor_dish_end_number || "")
+
+            setFormData({
+              tagNo: data.tag_no || "",
+              drgNo: data.drg_no || "",
+              inspAgency: data.insp_agency || "",
+            })
+
+            setQualityEngineer(data.quality_engineer_id || "")
+
+            if (data.items && data.items.length > 0) {
+              setTableRows(data.items.map((item, i) => ({
+                id: i + 1,
+                srNo: item.sr_no || (i + 1),
+                description: item.description || "",
+                asPerDrg: item.as_per_drg || "",
+                actual: item.actual || "",
+                remarks: item.remarks || ""
+              })))
+            }
+
+            if (data.instruments && data.instruments.length > 0) {
+              setInstrumentRows(data.instruments.map((inst, i) => ({
+                id: i + 1,
+                name: inst.name || "",
+                idNo: inst.id_no || "",
+                dueDate: inst.due_date || ""
+              })))
+            }
+          }
+        })
+        .catch((err) => console.error("Failed to fetch report details:", err))
+    }
+  }, [editId, msnOptions])
+
   const handleMsnChange = async (value) => {
     setMsn(value)
-    setReportNo("Loading...")
+
+    // Only auto-fetch if we are not editing, or if editing and we change the MSN
+    if (!editId) {
+      setReportNo("Loading...")
+    }
+
     const selectedMsn = msnOptions.find((option) => option.id === value)
 
     setEquipment(selectedMsn?.equipement_name || "")
@@ -344,16 +407,18 @@ function CreateView({ onBack, onSuccess }) {
     setClient(selectedMsn?.customer?.customer_name || "")
     setPoNo(selectedMsn?.po?.po_number || "")
 
-    try {
-      const res = await apiClient.get(`/api/inspection-report/next-report-no/${value}`)
-      if (res.success && res.data?.next_report_no) {
-        setReportNo(res.data.next_report_no)
-      } else {
+    if (!editId) {
+      try {
+        const res = await apiClient.get(`/api/inspection-report/next-report-no/${value}`)
+        if (res.success && res.data?.next_report_no) {
+          setReportNo(res.data.next_report_no)
+        } else {
+          setReportNo("Auto-generated on Submit")
+        }
+      } catch (err) {
+        console.error("Failed to fetch next report number:", err)
         setReportNo("Auto-generated on Submit")
       }
-    } catch (err) {
-      console.error("Failed to fetch next report number:", err)
-      setReportNo("Auto-generated on Submit")
     }
   }
 
@@ -419,14 +484,20 @@ function CreateView({ onBack, onSuccess }) {
 
     try {
       setSubmitting(true)
-      const res = await apiClient.post("/api/inspection-report/create", payload)
+      let res;
+      if (editId) {
+        res = await apiClient.put(`/api/inspection-report/update/${editId}`, payload)
+      } else {
+        res = await apiClient.post("/api/inspection-report/create", payload)
+      }
+
       if (res.success) {
-        toast.success("Dish End Inspection Report created successfully!")
+        toast.success(editId ? "Dish End Inspection Report updated successfully!" : "Dish End Inspection Report created successfully!")
         onSuccess()
       }
     } catch (err) {
       console.error(err)
-      toast.error(err.message || "Failed to create report")
+      toast.error(err.message || "Failed to save report")
     } finally {
       setSubmitting(false)
     }
@@ -436,8 +507,8 @@ function CreateView({ onBack, onSuccess }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Create Dish End Inspection Report</h1>
-          <p className="text-muted-foreground">Fill in the details for a new dish end inspection.</p>
+          <h1 className="text-3xl font-bold mb-1">{editId ? "Edit" : "Create"} Dish End Inspection Report</h1>
+          <p className="text-muted-foreground">{editId ? "Update the details for this dish end inspection." : "Fill in the details for a new dish end inspection."}</p>
         </div>
         <Button variant="outline" onClick={onBack} className="h-9">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -777,11 +848,17 @@ function CreateView({ onBack, onSuccess }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function InspectionReport() {
-  const [view, setView] = useState("list") // "list" | "create"
-  const [successMsg, setSuccessMsg] = useState("")
+  const [view, setView] = useState("list") // "list" | "create" | "edit"
+  const [editId, setEditId] = useState(null)
 
   const handleSuccess = () => {
     setView("list")
+    setEditId(null)
+  }
+
+  const handleEdit = (id) => {
+    setEditId(id)
+    setView("edit")
   }
 
   return (
@@ -794,9 +871,22 @@ function InspectionReport() {
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-7xl mx-auto">
             {view === "list" ? (
-              <ListView onCreateClick={() => setView("create")} />
+              <ListView
+                onCreateClick={() => {
+                  setEditId(null)
+                  setView("create")
+                }}
+                onEditClick={handleEdit}
+              />
             ) : (
-              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} />
+              <CreateView
+                onBack={() => {
+                  setView("list")
+                  setEditId(null)
+                }}
+                onSuccess={handleSuccess}
+                editId={editId}
+              />
             )}
           </div>
         </main>
