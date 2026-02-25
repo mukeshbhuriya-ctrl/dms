@@ -30,7 +30,7 @@ import {
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
-import { HydroAssign, HydroPresText } from "@/pages/admin/hydro"
+import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP } from "@/pages/admin/qap"
 
 const userAuthProps = {
@@ -138,19 +138,11 @@ const adminRoutes = [
     element: <HydroPresText />,
   },
   {
-    path: "/hydrostatic-pressure-test",
-    element: <HydroPresText />,
+    path: "/inspections/dish-end",
+    element: <InspectionReport />,
   },
   {
-    path: "/hydro-assign",
-    element: <HydroAssign />,
-  },
-  {
-    path: "/final-inspection-reports",
-    element: <FinalInspectionReports />,
-  },
-  {
-    path: "/final-inspection-reports",
+    path: "/inspections/final",
     element: <FinalInspectionReports />,
   },
   {

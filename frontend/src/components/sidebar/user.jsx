@@ -280,11 +280,11 @@ const roleMenus = {
       items: [
         {
           title: "Dish End Inspection",
-          path: "/hydro-assign",
+          path: "/inspections/dish-end",
         },
         {
           title: "Final Inspection Reports",
-          path: "/final-inspection-reports",
+          path: "/inspections/final",
         },
       ]
     },

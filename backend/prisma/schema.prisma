@@ -38,6 +38,7 @@ model company{
   transmissions transmission[]
   departments department[]
   material_heat_charts material_heat_chart[]
+  dish_end_inspection_reports dish_end_inspection_report[]
 }
 
 model department {
@@ -86,6 +87,7 @@ model user{
   weld_joint_plans_created weld_joint_plan[]
   uploaded_versions document_version[]
   created_transmissions transmission[]
+  assigned_dish_end_reports dish_end_inspection_report[]
 }
 
 model user_roles{
@@ -209,6 +211,7 @@ model job{
   job_group job_group[]
   weld_joint_plans weld_joint_plan[]
   material_heat_charts material_heat_chart[]
+  dish_end_inspection_reports dish_end_inspection_report[]
 }
 
 model document_type{
@@ -572,6 +575,66 @@ model material_heat_chart_item {
   remarks           String?
 
   mhc material_heat_chart @relation(fields: [mhc_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model dish_end_inspection_report {
+  id              String   @id @default(uuid())
+  company_id      String
+  job_id          String
+
+  msn             String
+  report_no       String
+  client          String
+  po_no           String
+  project_id      String?
+  equipment_name  String?
+  tag_no          String?
+  code            String?
+
+  drg_no          String?
+  insp_agency     String?
+  quality_engineer_id String?
+  vendor_dish_end_number String?
+
+  status          String   @default("draft")
+
+  company   company  @relation(fields: [company_id], references: [id])
+  job       job      @relation(fields: [job_id], references: [id])
+  quality_engineer user? @relation(fields: [quality_engineer_id], references: [id])
+
+  items       dish_end_inspection_item[]
+  instruments dish_end_inspection_instrument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model dish_end_inspection_item {
+  id          String   @id @default(uuid())
+  report_id   String
+  sr_no       Int
+  description String
+  as_per_drg  String?
+  actual      String?
+  remarks     String?
+
+  report      dish_end_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model dish_end_inspection_instrument {
+  id          String   @id @default(uuid())
+  report_id   String
+  name        String?
+  id_no       String?
+  due_date    String?
+
+  report      dish_end_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

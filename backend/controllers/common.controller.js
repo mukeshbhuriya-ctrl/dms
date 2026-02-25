@@ -65,6 +65,17 @@ class CommonController {
             res.status(500).json({ success: false, message: "Failed to fetch job details", error: error.message });
         }
     }
+
+    async getQcEngineers(req, res) {
+        try {
+            const { company_id } = req.user;
+            const data = await CommonService.getQcEngineers(company_id);
+            res.status(200).json({ success: true, message: "QC Engineers fetched successfully", data });
+        } catch (error) {
+            console.error("CommonController.getQcEngineers Error:", error);
+            res.status(500).json({ success: false, message: "Failed to fetch QC Engineers", error: error.message });
+        }
+    }
 }
 
 module.exports = new CommonController();

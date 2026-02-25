@@ -8,5 +8,6 @@ router.get('/locations', authenticateUserOnly, CommonController.getLocations);
 router.get('/pos', authenticateUserOnly, CommonController.getPos);
 router.get('/jobs', authenticateUserOnly, CommonController.getJobs);
 router.get('/jobs/:id', authenticateUserOnly, CommonController.getJobDetails);
+router.get('/qc-engineers', authenticateUserOnly, CommonController.getQcEngineers);
 
 module.exports = router;

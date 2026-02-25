@@ -98,6 +98,19 @@ class CommonService {
             }
         });
     }
+
+    /**
+     * Get a standardized list of QC Engineers (Users)
+     */
+    async getQcEngineers(company_id) {
+        // Here we could filter by roles if 'QC Engineer' is a specific role
+        // For now, returning all users for the company or those resembling engineers
+        return await prisma.user.findMany({
+            where: { company_id },
+            select: { id: true, name: true, email: true },
+            orderBy: { name: 'asc' }
+        });
+    }
 }
 
 module.exports = new CommonService();
