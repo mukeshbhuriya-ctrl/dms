@@ -492,7 +492,11 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     const selectedMsn = msnOptions.find((option) => option.id === value)
     setClient(selectedMsn?.customer?.customer_name || "")
     setPoNo(selectedMsn?.po?.po_number || "")
-    setFormData((prev) => ({ ...prev, tagNo: selectedMsn?.tagNo || "" }))
+    setFormData((prev) => ({
+      ...prev,
+      tagNo: selectedMsn?.tag_number || "",
+      project_id: selectedMsn?.project_id || "",
+    }))
     setEquipment(selectedMsn?.equipement_name || "")
     setCode(selectedMsn?.code || "")
 
