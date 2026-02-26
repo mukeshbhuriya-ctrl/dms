@@ -111,7 +111,7 @@ function WeldingJoints() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        
+
         <Button
           variant="outline"
           size="sm"
@@ -451,8 +451,8 @@ function WeldingJoints() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto w-full overflow-x-hidden">
+        <main className="flex-1 overflow-auto p-6 flex flex-col">
+          <div className="flex-1 flex flex-col w-full overflow-x-hidden">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">

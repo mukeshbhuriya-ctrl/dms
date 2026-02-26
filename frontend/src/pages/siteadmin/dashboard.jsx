@@ -15,7 +15,7 @@ function SiteAdminDashboard() {
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">
-          <div className="mx-auto w-full max-w-7xl">
+          <div className="flex-1 flex flex-col w-full">
             <div className="mb-6">
               <h2 className="text-2xl font-bold">Site Admin Dashboard</h2>
               <p className="text-muted-foreground">Welcome to the site admin panel</p>

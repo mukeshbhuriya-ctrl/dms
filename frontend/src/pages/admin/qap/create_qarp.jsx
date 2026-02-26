@@ -75,7 +75,7 @@ function CreateQARP() {
   const getSerialNumbers = () => {
     let headerCounter = 0
     const result = []
-    
+
     tableRows.forEach((row, index) => {
       if (row.isHeading) {
         headerCounter++
@@ -88,7 +88,7 @@ function CreateQARP() {
         // Find the most recent header before this row
         let currentHeaderCounter = 0
         let subCounter = 0
-        
+
         for (let i = 0; i < index; i++) {
           if (tableRows[i].isHeading) {
             currentHeaderCounter++
@@ -97,7 +97,7 @@ function CreateQARP() {
             subCounter++
           }
         }
-        
+
         if (currentHeaderCounter > 0) {
           subCounter++
           result.push({
@@ -114,7 +114,7 @@ function CreateQARP() {
         }
       }
     })
-    
+
     return result
   }
 
@@ -237,7 +237,7 @@ function CreateQARP() {
   const addRowAfterHeading = (headingId) => {
     const newId = Math.max(...tableRows.map((row) => row.id), 0) + 1
     const headingIndex = tableRows.findIndex((row) => row.id === headingId)
-    
+
     if (headingIndex !== -1) {
       const newRow = {
         id: newId,
@@ -255,7 +255,7 @@ function CreateQARP() {
         headingText: "",
         parentHeaderId: headingId,
       }
-      
+
       // Find the last row that belongs to this heading (before next heading or end)
       let insertIndex = headingIndex + 1
       for (let i = headingIndex + 1; i < tableRows.length; i++) {
@@ -264,7 +264,7 @@ function CreateQARP() {
         }
         insertIndex = i + 1
       }
-      
+
       const newRows = [...tableRows]
       newRows.splice(insertIndex, 0, newRow)
       setTableRows(newRows)
@@ -277,11 +277,11 @@ function CreateQARP() {
       tableRows.map((row) =>
         row.id === id
           ? {
-              ...row,
-              isHeading: !row.isHeading,
-              headingText: row.isHeading ? "" : row.headingText,
-              parentHeaderId: null,
-            }
+            ...row,
+            isHeading: !row.isHeading,
+            headingText: row.isHeading ? "" : row.headingText,
+            parentHeaderId: null,
+          }
           : row
       )
     )
@@ -301,8 +301,8 @@ function CreateQARP() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-auto p-6 flex flex-col">
+          <div className="flex-1 flex flex-col w-full">
             <div className="mb-6">
               <h1 className="text-3xl font-bold mb-2">Quality Assurance Plan</h1>
               <p className="text-muted-foreground">
@@ -426,31 +426,31 @@ function CreateQARP() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="drgNo">SHRENO DRG No.:</Label>
-                      <Input
-                        id="drgNo"
-                        name="drgNo"
-                        type="text"
-                        value={formData.drgNo}
-                        onChange={handleInputChange}
-                        placeholder="Enter SHRENO DRG No."
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="drgNo">SHRENO DRG No.:</Label>
+                    <Input
+                      id="drgNo"
+                      name="drgNo"
+                      type="text"
+                      value={formData.drgNo}
+                      onChange={handleInputChange}
+                      placeholder="Enter SHRENO DRG No."
+                    />
+                  </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="customerDrgNo">Customer DRG No:</Label>
-                      <Input
-                        id="customerDrgNo"
-                        name="customerDrgNo"
-                        type="text"
-                        value={formData.customerDrgNo}
-                        onChange={handleInputChange}
-                        placeholder="Enter Customer DRG No"
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerDrgNo">Customer DRG No:</Label>
+                    <Input
+                      id="customerDrgNo"
+                      name="customerDrgNo"
+                      type="text"
+                      value={formData.customerDrgNo}
+                      onChange={handleInputChange}
+                      placeholder="Enter Customer DRG No"
+                    />
+                  </div>
 
-                  
+
                 </div>
               </CardContent>
             </Card>

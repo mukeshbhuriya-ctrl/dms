@@ -449,7 +449,7 @@ function ViewWeldingJoints() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <div className="p-4">
+        <main className="flex-1 overflow-auto p-6 flex flex-col">
           <h1 className="text-2xl font-bold mb-4">Welding Joints</h1>
           <Card>
             <CardHeader>
@@ -466,7 +466,7 @@ function ViewWeldingJoints() {
               />
             </CardContent>
           </Card>
-        </div>
+        </main>
       </SidebarInset>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
