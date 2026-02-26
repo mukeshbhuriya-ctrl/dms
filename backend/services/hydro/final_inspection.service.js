@@ -105,6 +105,7 @@ class FinalInspectionService {
             code,
             drg_no,
             quality_engineer_id,
+            status,      // Optional status field
             details,     // array
             nozzles,     // array
             parts,       // array 
@@ -140,6 +141,7 @@ class FinalInspectionService {
                     code,
                     drg_no,
                     quality_engineer_id: quality_engineer_id || null,
+                    status: status || "draft",
                     details: {
                         create: details?.map(item => ({
                             sr_no: item.sr_no,
@@ -209,6 +211,7 @@ class FinalInspectionService {
             code,
             drg_no,
             quality_engineer_id,
+            status,
             details,
             nozzles,
             parts,
@@ -244,6 +247,7 @@ class FinalInspectionService {
                     code,
                     drg_no,
                     quality_engineer_id: quality_engineer_id || null,
+                    status: status || "draft",
                     details: {
                         create: details?.map(item => ({
                             sr_no: item.sr_no,

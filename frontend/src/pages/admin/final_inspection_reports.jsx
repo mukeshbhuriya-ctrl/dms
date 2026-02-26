@@ -75,7 +75,7 @@ function ListView({ onCreateClick, onEditClick }) {
       header: "Status",
       accessorKey: "status",
       cell: (row) => (
-        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${row.status === 'draft' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${row.status === 'draft' ? 'bg-amber-100 text-amber-800' : row.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
           {row.status}
         </span>
       ),
@@ -572,7 +572,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
 
   // Form Submission
-  const handleSubmit = async () => {
+  const handleSubmit = async (newStatus = "draft") => {
     if (!msn) return toast.error("Please select an MSN")
 
     const payload = {
@@ -586,6 +586,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       tag_no: formData.tagNo,
       drg_no: formData.drgNo,
       quality_engineer_id: qualityEngineer,
+      status: newStatus,
       details: table1Rows.filter(r => r.description || r.required || r.actual).map(r => ({
         sr_no: parseInt(r.srNo, 10), description: r.description, required: r.required, actual: r.actual, remarks: r.remarks
       })),
@@ -1407,9 +1408,20 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       </Card>
       <div className="flex justify-end gap-4 mt-8 mb-4">
         <Button variant="outline" onClick={onBack}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "Saving..." : (editId ? "Update Report" : "Save Report")}
-        </Button>
+        {userRole === 'QC' && editId ? (
+          <>
+            <Button variant="destructive" onClick={() => handleSubmit("rejected")} disabled={submitting}>
+              {submitting ? "Processing..." : "Reject"}
+            </Button>
+            <Button onClick={() => handleSubmit("approved")} className="bg-green-600 hover:bg-green-700 text-white" disabled={submitting}>
+              {submitting ? "Processing..." : "Approve & Save Report"}
+            </Button>
+          </>
+        ) : (
+          <Button onClick={() => handleSubmit("draft")} disabled={submitting}>
+            {submitting ? "Saving..." : (editId ? "Update Report" : "Save & Submit Report")}
+          </Button>
+        )}
       </div>
 
     </div>
