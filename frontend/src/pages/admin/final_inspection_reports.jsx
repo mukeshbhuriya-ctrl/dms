@@ -397,6 +397,26 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   const [msnOptions, setMsnOptions] = useState([])
   const [qualityEngineers, setQualityEngineers] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const [userRole, setUserRole] = useState("")
+
+  // Detect user role from local storage
+  useEffect(() => {
+    const authData = localStorage.getItem("user_auth")
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData)
+        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r)
+        if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER', 'ADMIN'].includes(r))) {
+          setUserRole('QC')
+        } else {
+          setUserRole('PROD')
+        }
+      } catch (e) {
+        console.error("Error parsing auth data", e)
+      }
+    }
+  }, [])
 
   // Load API data
   useEffect(() => {
@@ -992,7 +1012,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "elevationActual", e.target.value)
                           }
                           placeholder="Elevation"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          disabled={userRole === 'PROD'}
+                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
                         />
                       </TableCell>
                       <TableCell>
@@ -1003,7 +1024,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "projectionActual", e.target.value)
                           }
                           placeholder="Projection"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          disabled={userRole === 'PROD'}
+                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
                         />
                       </TableCell>
                       <TableCell>
@@ -1162,7 +1184,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "elevationActual", e.target.value)
                           }
                           placeholder="Elevation"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          disabled={userRole === 'PROD'}
+                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
                         />
                       </TableCell>
                       <TableCell>
@@ -1173,7 +1196,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "projectionActual", e.target.value)
                           }
                           placeholder="Projection"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          disabled={userRole === 'PROD'}
+                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
                         />
                       </TableCell>
                       <TableCell>
