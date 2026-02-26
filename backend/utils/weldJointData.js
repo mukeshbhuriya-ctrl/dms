@@ -54,7 +54,7 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         try {
             const rawBasic = typeof insp.data_json === 'string' ? JSON.parse(insp.data_json) : insp.data_json;
             const savedBasic = rawBasic?.[categoryKey] || {};
-            if (savedBasic.msn) basicInfo.msn = savedBasic.msn;
+            if (savedBasic.msn || savedBasic.msnNumber) basicInfo.msn = savedBasic.msn || savedBasic.msnNumber;
             if (savedBasic.client) basicInfo.client = savedBasic.client;
             if (savedBasic.poNo) basicInfo.poNo = savedBasic.poNo;
             if (savedBasic.tagNo) basicInfo.tagNo = savedBasic.tagNo;
