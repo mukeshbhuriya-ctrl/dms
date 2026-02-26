@@ -384,7 +384,6 @@ function CreateLocation() {
                                       e.target.value
                                     )
                                   }
-                                  required
                                   disabled={isLoading}
                                 />
                               </div>

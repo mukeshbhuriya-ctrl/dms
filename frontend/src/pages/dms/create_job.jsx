@@ -552,6 +552,7 @@ function CreateJob() {
                                   <Input
                                     value={job.project_id}
                                     onChange={(e) => handleJobChange(job.id, "project_id", e.target.value)}
+                                    required
                                   />
                                 </div>
                                 <div className="space-y-2">
@@ -559,6 +560,7 @@ function CreateJob() {
                                   <Input
                                     value={job.equipement_name}
                                     onChange={(e) => handleJobChange(job.id, "equipement_name", e.target.value)}
+                                    required
                                   />
                                 </div>
                                 <div className="space-y-2">
@@ -566,6 +568,7 @@ function CreateJob() {
                                   <Input
                                     value={job.tag_number}
                                     onChange={(e) => handleJobChange(job.id, "tag_number", e.target.value)}
+                                    required
                                   />
                                 </div>
                                 <div className="space-y-2">
@@ -573,6 +576,7 @@ function CreateJob() {
                                   <Input
                                     value={job.code}
                                     onChange={(e) => handleJobChange(job.id, "code", e.target.value)}
+                                    required
                                   />
                                 </div>
                               </div>

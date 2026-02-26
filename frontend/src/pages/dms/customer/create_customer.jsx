@@ -306,7 +306,6 @@ function CreateCustomer() {
                         placeholder="+1 (555) 000-0000"
                         value={formData.mobileNumber}
                         onChange={handleInputChange}
-                        required
                         disabled={isLoading}
                       />
                     </div>
