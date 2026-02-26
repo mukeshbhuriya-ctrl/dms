@@ -770,7 +770,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                       </TableCell>
                       <TableCell>
                         <Input
-                          type="text"
+                          type="date"
                           value={row.dueDate}
                           onChange={(e) => handleInstrumentRowChange(row.id, "dueDate", e.target.value)}
                           placeholder="Due Date"
@@ -805,6 +805,34 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             <Plus className="h-4 w-4 mr-2" />
             Add Row
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Quality Engineer Assignment</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="qualityEngineer">Quality Engineer:</Label>
+              <Select value={qualityEngineer} onValueChange={setQualityEngineer}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Quality Engineer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {qualityEngineers.map((engineer) => (
+                    <SelectItem key={engineer.id} value={engineer.id}>
+                      <div className="flex flex-col">
+                        <span>{engineer.name}</span>
+                        <span className="text-xs text-muted-foreground">{engineer.email}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
