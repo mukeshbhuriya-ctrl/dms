@@ -153,10 +153,6 @@ function ListView({ onCreateClick, onEditClick }) {
                   <span className="font-medium">{selectedRecord.po_no || "-"}</span>
                 </div>
                 <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PROJECT ID:</span>
-                  <span className="font-medium">{selectedRecord.project_id || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
                   <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">EQUIPMENT:</span>
                   <span className="font-medium">{selectedRecord.equipment_name || "-"}</span>
                 </div>
