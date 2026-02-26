@@ -297,7 +297,7 @@ function CreateCustomer() {
 
                     <div className="space-y-2">
                       <Label htmlFor="mobileNumber">
-                        Mobile Number <span className="text-destructive">*</span>
+                        Mobile Number
                       </Label>
                       <Input
                         id="mobileNumber"

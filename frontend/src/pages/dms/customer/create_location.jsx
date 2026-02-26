@@ -372,7 +372,6 @@ function CreateLocation() {
                               <div className="space-y-2">
                                 <Label htmlFor={`customerNumber-${location.id}`}>
                                   Customer Number (as per SAP){" "}
-                                  <span className="text-destructive">*</span>
                                 </Label>
                                 <Input
                                   id={`customerNumber-${location.id}`}
