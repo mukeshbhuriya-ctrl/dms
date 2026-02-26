@@ -808,34 +808,6 @@ function CreateView({ onBack, onSuccess, editId = null }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Quality Engineer Assignment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="qualityEngineer">Quality Engineer:</Label>
-              <Select value={qualityEngineer} onValueChange={setQualityEngineer}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Quality Engineer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {qualityEngineers.map((engineer) => (
-                    <SelectItem key={engineer.id} value={engineer.id}>
-                      <div className="flex flex-col">
-                        <span>{engineer.name}</span>
-                        <span className="text-xs text-muted-foreground">{engineer.email}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       <div className="flex justify-end gap-4 mt-6">
         <Button onClick={onBack} variant="outline" disabled={submitting}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={submitting}>

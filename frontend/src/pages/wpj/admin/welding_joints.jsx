@@ -111,8 +111,13 @@ function WeldingJoints() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button variant="ghost" size="icon" onClick={() => handleViewClick(row.id)}>
-          <Eye className="h-4 w-4" />
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleViewClick(row.id)}
+          title="View">
+          <Eye className="h-4 w-4" /> View
         </Button>
       ),
     },

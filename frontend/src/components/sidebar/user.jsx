@@ -307,12 +307,40 @@ const roleMenus = {
       icon: Wrench,
       path: "/view-weldingjoints",
     },
+    {
+      title: "Inspection",
+      icon: Folder,
+      items: [
+        {
+          title: "Dish End Inspection",
+          path: "/inspections/dish-end",
+        },
+        {
+          title: "Final Inspection Reports",
+          path: "/inspections/final",
+        },
+      ]
+    },
   ],
   QC_ENGINEER: [
     {
       title: "Welding Joints",
       icon: Wrench,
       path: "/view-weldingjoints",
+    },
+    {
+      title: "Inspection",
+      icon: Folder,
+      items: [
+        {
+          title: "Dish End Inspection",
+          path: "/inspections/dish-end",
+        },
+        {
+          title: "Final Inspection Reports",
+          path: "/inspections/final",
+        },
+      ]
     },
   ],
 }

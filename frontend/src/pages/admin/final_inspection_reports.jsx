@@ -742,23 +742,6 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 placeholder="Enter DRG. NO."
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="qualityEngineer">QUALITY ENGINEER:</Label>
-              <Select value={qualityEngineer} onValueChange={setQualityEngineer}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Quality Engineer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {qualityEngineers.map((engineer) => (
-                    <SelectItem key={engineer.id} value={engineer.id}>
-                      {engineer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -1371,6 +1354,33 @@ function CreateView({ onBack, onSuccess, editId = null }) {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Quality Engineer Assignment</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="qualityEngineer">Quality Engineer:</Label>
+              <Select value={qualityEngineer} onValueChange={setQualityEngineer}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Quality Engineer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {qualityEngineers.map((engineer) => (
+                    <SelectItem key={engineer.id} value={engineer.id}>
+                      <div className="flex flex-col">
+                        <span>{engineer.name}</span>
+                        <span className="text-xs text-muted-foreground">{engineer.email}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       <div className="flex justify-end gap-4 mt-8 mb-4">
         <Button variant="outline" onClick={onBack}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={submitting}>
