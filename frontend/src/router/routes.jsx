@@ -31,7 +31,7 @@ import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
-import { CreateQARP } from "@/pages/admin/qap"
+import { QapReports } from "@/pages/admin/qap"
 
 const userAuthProps = {
   authKey: "user_auth",
@@ -146,8 +146,8 @@ const adminRoutes = [
     element: <FinalInspectionReports />,
   },
   {
-    path: "/create-qarp",
-    element: <CreateQARP />,
+    path: "/qap-reports",
+    element: <QapReports />,
   },
 ]
 

@@ -291,7 +291,7 @@ const roleMenus = {
     {
       title: "Quality Assurance Plan",
       icon: ClipboardCheck,
-      path: "/create-qarp",
+      path: "/qap-reports",
     },
   ],
   WELD_PLAN_ADMIN: [

@@ -40,6 +40,7 @@ model company{
   material_heat_charts material_heat_chart[]
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  qaps qap[]
 }
 
 model department {
@@ -90,6 +91,7 @@ model user{
   created_transmissions transmission[]
   assigned_dish_end_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  assigned_qap_details qap_detail[]
 }
 
 model user_roles{
@@ -215,6 +217,7 @@ model job{
   material_heat_charts material_heat_chart[]
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  qaps qap[]
 }
 
 model document_type{
@@ -751,6 +754,62 @@ model final_inspection_remark {
   text        String?
 
   report      final_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// Quality Assurance Plan (QARP) Models
+// -------------------------------------------------------------
+
+model qap {
+  id              String   @id @default(uuid())
+  company_id      String
+  job_id          String
+
+  msn             String
+  client          String
+  po_no           String
+  po_date         String?
+  document_no     String
+  equipment_name  String?
+  tag_no          String?
+  code            String?
+  
+  shreno_drg_no   String?
+  customer_drg_no String?
+
+  status          String   @default("draft")
+
+  company   company  @relation(fields: [company_id], references: [id])
+  job       job      @relation(fields: [job_id], references: [id])
+  
+  details   qap_detail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model qap_detail {
+  id                 String   @id @default(uuid())
+  qap_id             String
+  
+  sort_order         Int
+  is_heading         Boolean  @default(false)
+  heading_text       String?
+  
+  activity           String?
+  type_method_check  String?
+  acceptance_criteria String?
+  verifying_document  String?
+  shreno             String?
+  assigned_user_id   String?
+  client_tpia        String?
+  remark             String?
+
+  qap          qap    @relation(fields: [qap_id], references: [id], onDelete: Cascade)
+  assigned_user user?  @relation(fields: [assigned_user_id], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

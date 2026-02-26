@@ -57,6 +57,9 @@ app.use('/api/mhc', mhcRoutes);
 const inspectionReportRoutes = require('./routes/hydro/inspection_report.routes.js');
 app.use('/api/inspection-report', inspectionReportRoutes);
 
+const qapRoutes = require('./routes/qap/qap.routes.js');
+app.use('/api/qap', qapRoutes);
+
 const publicRoutes = require('./routes/public.routes.js');
 app.use('/api/secure', publicRoutes);
 
