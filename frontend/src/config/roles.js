@@ -165,7 +165,7 @@ export const MENU_CONFIG = [
         icon: Folder,
         items: [
             { title: "Dashboard", path: "/inspections/dish-end", roles: [ROLES.MARKETING] },
-            { title: "Marketing", path: "/inspections/dish-end", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+            { title: "RFQ Register", path: "/marketing/rfq-register", roles: [ROLES.ADMIN, ROLES.MARKETING] },
         ],
     },
 

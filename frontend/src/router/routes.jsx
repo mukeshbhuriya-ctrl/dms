@@ -34,6 +34,7 @@ import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP } from "@/pages/admin/qap"
 import { CreateDCR, DesignEngineerDCRApproval, QualityEngineerDCRApproval } from "@/pages/dcr"
+import { RfqRegister } from "@/pages/marketing"
 
 // ─── Helper: wrap element with ProtectedRoute + role guard ─────
 const protect = (element, allowedRoles = null) => (
@@ -206,6 +207,14 @@ const dcrRoutes = [
   },
 ]
 
+// ─── Marketing Routes ──────────────────────────────────────────
+const marketingRoutes = [
+  {
+    path: "/marketing/rfq-register",
+    element: protect(<RfqRegister />, [ROLES.ADMIN, ROLES.MARKETING]),
+  },
+]
+
 // ─── All Routes ────────────────────────────────────────────────
 const appRoutes = [
   {
@@ -218,6 +227,7 @@ const appRoutes = [
   ...adminRoutes,
   ...weldRoutes,
   ...dcrRoutes,
+  ...marketingRoutes,
 ]
 
 export default appRoutes
