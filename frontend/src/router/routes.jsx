@@ -33,6 +33,7 @@ import { ViewWeldingJoints } from "@/pages/wpj/user"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP } from "@/pages/admin/qap"
+import { CreateDCR, DesignEngineerDCRApproval, QualityEngineerDCRApproval } from "@/pages/dcr"
 
 // ─── Helper: wrap element with ProtectedRoute + role guard ─────
 const protect = (element, allowedRoles = null) => (
@@ -189,6 +190,22 @@ const weldRoutes = [
   },
 ]
 
+// ─── DCR Routes ────────────────────────────────────────────
+const dcrRoutes = [
+  {
+    path: "/dcr/dcr-request",
+    element: protect(<CreateDCR />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
+  },
+  {
+    path: "/dcr/design-engineer-approval",
+    element: protect(<DesignEngineerDCRApproval />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
+  },
+  {
+    path: "/dcr/quality-engineer-approval",
+    element: protect(<QualityEngineerDCRApproval />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
+  },
+]
+
 // ─── All Routes ────────────────────────────────────────────────
 const appRoutes = [
   {
@@ -200,6 +217,7 @@ const appRoutes = [
   ...dccRoutes,
   ...adminRoutes,
   ...weldRoutes,
+  ...dcrRoutes,
 ]
 
 export default appRoutes

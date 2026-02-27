@@ -60,6 +60,11 @@ app.use('/api/inspection-report', inspectionReportRoutes);
 const publicRoutes = require('./routes/public.routes.js');
 app.use('/api/secure', publicRoutes);
 
+const dcrRoutes = require('#routes/dcr/dcr.routes.js');
+app.use('/api/dcr', dcrRoutes);
+
+const approvalRoutes = require('#routes/dcr/approval.routes.js');
+app.use('/api/dcr/approval', approvalRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

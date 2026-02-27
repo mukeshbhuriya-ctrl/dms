@@ -18,16 +18,14 @@ export const ROLES = {
     QC_ENGINEER: "QC_ENGINEER",
     NDT_ENGINEER: "NDT_ENGINEER",
     WELD_PLAN_ADMIN: "WELD_PLAN_ADMIN",
-    PRODUCTION: "Production",
-    MANAGER: "Manager",
-    MARKETING: "Marketing",
+    DCR: "DCR",
+    DESIGN_ENGINEER: "DESIGN_ENGINEER",
+    MARKETING: "MARKETING",
 }
 
 // ─── Menu Configuration ────────────────────────────────────────────
 // Each item defines `roles` — the set of roles that can SEE this item.
 // For groups with `items[]`, the group itself is shown if ANY sub-item is visible.
-// The group-level `roles` is optional (auto-derived from sub-items if omitted).
-//
 // IMPORTANT: Each path appears EXACTLY ONCE. No duplication across roles.
 
 export const MENU_CONFIG = [
@@ -103,8 +101,9 @@ export const MENU_CONFIG = [
         title: "DCR",
         icon: Folder,
         items: [
-            { title: "Create DCR", path: "/admin/create-dcr", roles: [ROLES.ADMIN] },
-            { title: "View DCR", path: "/admin/view-dcr", roles: [ROLES.ADMIN] },
+            { title: "DCR Request", path: "/dcr/dcr-request", roles: [ROLES.ADMIN, ROLES.QC_ENGINEER, ROLES.DCR, ROLES.DESIGN_ENGINEER] },
+            { title: "Approve DCR Request", path: "/dcr/design-engineer-approval", roles: [ROLES.ADMIN, ROLES.DCR, ROLES.DESIGN_ENGINEER] },
+            { title: "Approve DCR Request", path: "/dcr/quality-engineer-approval", roles: [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER] },
         ],
     },
 
@@ -157,6 +156,16 @@ export const MENU_CONFIG = [
         items: [
             { title: "Dish End Inspection", path: "/inspections/dish-end", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
             { title: "Final Inspection Reports", path: "/inspections/final", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
+        ],
+    },
+
+    // ── Marketing ──
+    {
+        title: "Marketing",
+        icon: Folder,
+        items: [
+            { title: "Dashboard", path: "/inspections/dish-end", roles: [ROLES.MARKETING] },
+            { title: "Marketing", path: "/inspections/dish-end", roles: [ROLES.ADMIN, ROLES.MARKETING] },
         ],
     },
 

@@ -40,6 +40,8 @@ model company{
   material_heat_charts material_heat_chart[]
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  dcr dcr[]
+  dcr_change_request dcr_change_request[]
 }
 
 model department {
@@ -90,6 +92,8 @@ model user{
   created_transmissions transmission[]
   assigned_dish_end_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
+  dcr_quality_engineer dcr[] @relation("DcrQualityEngineer")
 }
 
 model user_roles{
@@ -215,6 +219,8 @@ model job{
   material_heat_charts material_heat_chart[]
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  dcr dcr[]
+  dcr_change_request dcr_change_request[]
 }
 
 model document_type{
@@ -754,4 +760,58 @@ model final_inspection_remark {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// DCR Models
+
+model dcr{
+  id String @id @default(uuid())
+  company_id String
+  job_id String
+  dcr_no String
+  drg_no String
+  equ_no String
+  inspect_by String
+  design_engineer_id String
+  quality_engineer_id String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  job job @relation(fields: [job_id], references: [id])
+  design_engineer user @relation("DcrDesignEngineer", fields: [design_engineer_id], references: [id])
+  quality_engineer user @relation("DcrQualityEngineer", fields: [quality_engineer_id], references: [id])
+  dcr_change_request dcr_change_request[]
+  dcr_status dcr_status[]
+}
+
+model dcr_change_request{
+  id String @id @default(uuid())
+  company_id String
+  job_id String
+  dcr_id String
+  item_part_no String
+  chnage_from String
+  chnage_to String
+  reason String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  job job @relation(fields: [job_id], references: [id])
+  dcr dcr @relation(fields: [dcr_id], references: [id])
+}
+
+model dcr_status{
+  id String @id @default(uuid())
+  dcr_id String
+  design_engineer_status String @default("pending")
+  design_engineer_remarks String?
+  quality_engineer_status String @default("pending")
+  quality_engineer_remarks String?
+  status String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dcr dcr @relation(fields: [dcr_id], references: [id])
 }

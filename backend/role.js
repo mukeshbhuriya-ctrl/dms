@@ -5,7 +5,7 @@ const prisma = require('#prisma');
 
 const COMPANY_ID = 'ca930e8d-91be-435a-98fd-7595d72e50a0';
 const USER_ID = 'd03c5c3a-3ed5-4bc5-92c7-c7682df08032';
-const ROLE_NAME = 'USER';
+const ROLE_NAME = 'MARKETING';
 
 async function createRoleAndAssign() {
   try {
