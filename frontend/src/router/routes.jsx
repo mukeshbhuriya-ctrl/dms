@@ -1,5 +1,6 @@
 import App from "@/App"
 import ProtectedRoute from "@/components/ProtectedRoute"
+import { ROLES } from "@/config/roles"
 
 import {
   SiteAdminLogin,
@@ -25,7 +26,7 @@ import {
   AdminDashboard,
   CreateUser,
   DepartmentManagement,
-  FinalInspectionReports
+  FinalInspectionReports,
 } from "@/pages/admin"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
@@ -33,150 +34,162 @@ import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP } from "@/pages/admin/qap"
 
-const userAuthProps = {
-  authKey: "user_auth",
-  loginPath: "/",
-  apiEndpoint: "/api/users/auth/me",
-}
+// ─── Helper: wrap element with ProtectedRoute + role guard ─────
+const protect = (element, allowedRoles = null) => (
+  <ProtectedRoute allowedRoles={allowedRoles}>
+    {element}
+  </ProtectedRoute>
+)
 
-const wrapProtected = (element, props) => {
-  if (!props) {
-    return <ProtectedRoute>{element}</ProtectedRoute>
-  }
-
-  return <ProtectedRoute {...props}>{element}</ProtectedRoute>
-}
-
+// ─── Site Admin (separate auth system) ─────────────────────────
 const siteAdminRoutes = [
-  {
-    path: "/siteadmin/login",
-    element: <SiteAdminLogin />,
-  },
+  { path: "/siteadmin/login", element: <SiteAdminLogin /> },
   {
     path: "/siteadmin/dashboard",
-    element: wrapProtected(<SiteAdminDashboard />),
+    element: (
+      <ProtectedRoute
+        authKey="siteadmin_auth"
+        apiEndpoint="/api/siteadmin/auth/me"
+        loginPath="/siteadmin/login"
+      >
+        <SiteAdminDashboard />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/siteadmin/create-company",
-    element: wrapProtected(<SiteAdminCreateCompany />),
+    element: (
+      <ProtectedRoute
+        authKey="siteadmin_auth"
+        apiEndpoint="/api/siteadmin/auth/me"
+        loginPath="/siteadmin/login"
+      >
+        <SiteAdminCreateCompany />
+      </ProtectedRoute>
+    ),
   },
 ]
 
+// ─── User Routes ───────────────────────────────────────────────
 const userRoutes = [
   {
     path: "/user/dashboard",
-    element: wrapProtected(<UserDashboard />, userAuthProps),
+    element: protect(
+      <UserDashboard />,
+      [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.PRODUCTION, ROLES.MANAGER]
+    ),
   },
   {
     path: "/user/upload-documents",
-    element: <UploadDocument />,
+    element: protect(
+      <UploadDocument />,
+      [ROLES.ADMIN, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
+    ),
   },
 ]
 
+// ─── DCC Routes ────────────────────────────────────────────────
 const dccRoutes = [
   {
-    path: "/dcc/assign-document",
-    element: <AssignDocument />,
-  },
-  {
-    path: "/dcc/create-job",
-    element: <CreateJob />,
-  },
-  {
-    path: "/dcc/create-po",
-    element: <CreatePO />,
-  },
-  {
-    path: "/dcc/create-transmission",
-    element: <CreateTransmission />,
-  },
-  {
-    path: "/dcc/document-approver",
-    element: <DocumentApprover />,
-  },
-  {
-    path: "/dcc/document-master",
-    element: <DocumentMaster />,
-  },
-  {
-    path: "/dcc/send-document-to-client",
-    element: <SendDocumentToClient />,
-  },
-  {
     path: "/dcc/create-customer",
-    element: <CreateCustomer />,
+    element: protect(<CreateCustomer />, [ROLES.ADMIN, ROLES.DCC]),
   },
   {
     path: "/dcc/create-location",
-    element: <CreateLocation />,
+    element: protect(<CreateLocation />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dcc/create-po",
+    element: protect(<CreatePO />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dcc/create-job",
+    element: protect(<CreateJob />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dcc/document-master",
+    element: protect(<DocumentMaster />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dcc/assign-document",
+    element: protect(<AssignDocument />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dcc/document-approver",
+    element: protect(<DocumentApprover />, [ROLES.ADMIN, ROLES.DCC, ROLES.QC_ENGINEER]),
+  },
+  {
+    path: "/dcc/create-transmission",
+    element: protect(<CreateTransmission />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dcc/send-document-to-client",
+    element: protect(<SendDocumentToClient />, [ROLES.ADMIN, ROLES.DCC]),
   },
   {
     path: "/dcc/client-approval-status",
-    element: <ClientApprovalStatus />,
+    element: protect(<ClientApprovalStatus />, [ROLES.ADMIN, ROLES.DCC]),
   },
 ]
 
+// ─── Admin Routes ──────────────────────────────────────────────
 const adminRoutes = [
   {
     path: "/admin/dashboard",
-    element: <AdminDashboard />,
+    element: protect(<AdminDashboard />, [ROLES.ADMIN, ROLES.PRODUCTION]),
   },
   {
     path: "/users",
-    element: <CreateUser />,
+    element: protect(<CreateUser />, [ROLES.ADMIN]),
   },
   {
     path: "/departments",
-    element: <DepartmentManagement />,
+    element: protect(<DepartmentManagement />, [ROLES.ADMIN]),
   },
   {
     path: "/material-heat-chart",
-    element: <MaterialHeatChart />,
+    element: protect(<MaterialHeatChart />, [ROLES.ADMIN]),
   },
   {
     path: "/hydrostatic-pressure-test",
-    element: <HydroPresText />,
+    element: protect(<HydroPresText />, [ROLES.ADMIN]),
   },
   {
     path: "/inspections/dish-end",
-    element: <InspectionReport />,
+    element: protect(
+      <InspectionReport />,
+      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
+    ),
   },
   {
     path: "/inspections/final",
-    element: <FinalInspectionReports />,
+    element: protect(
+      <FinalInspectionReports />,
+      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
+    ),
   },
   {
     path: "/create-qarp",
-    element: <CreateQARP />,
+    element: protect(<CreateQARP />, [ROLES.ADMIN]),
   },
 ]
 
-const weldAdminRoutes = [
+// ─── Welding Routes ────────────────────────────────────────────
+const weldRoutes = [
   {
     path: "/welding-joints",
-    element: <WeldingJoints />,
+    element: protect(<WeldingJoints />, [ROLES.ADMIN, ROLES.WELD_PLAN_ADMIN]),
   },
-]
-
-const weldProductionRoutes = [
   {
     path: "/view-weldingjoints",
-    element: <ViewWeldingJoints />,
+    element: protect(
+      <ViewWeldingJoints />,
+      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER]
+    ),
   },
 ]
 
-const weldQCRoutes = [
-  {
-    path: "/view-weldingjoints",
-    element: <ViewWeldingJoints />,
-  },
-]
-
-const protectedDccRoutes = dccRoutes.map((route) => ({
-  ...route,
-  element: wrapProtected(route.element, userAuthProps),
-}))
-
+// ─── All Routes ────────────────────────────────────────────────
 const appRoutes = [
   {
     path: "/",
@@ -184,11 +197,9 @@ const appRoutes = [
   },
   ...siteAdminRoutes,
   ...userRoutes,
+  ...dccRoutes,
   ...adminRoutes,
-  ...weldAdminRoutes,
-  ...weldProductionRoutes,
-  ...weldQCRoutes,
-  ...protectedDccRoutes,
+  ...weldRoutes,
 ]
 
 export default appRoutes

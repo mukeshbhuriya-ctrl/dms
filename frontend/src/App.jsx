@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useAuth } from "@/context/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +16,7 @@ import { Eye, EyeOff } from "lucide-react"
 
 function App() {
   const navigate = useNavigate()
+  const { refetch } = useAuth()
   const [employeeId, setEmployeeId] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -55,6 +57,9 @@ function App() {
         "user_auth",
         JSON.stringify({ payload, loggedInAt: Date.now() }),
       )
+
+      // Refresh AuthContext so ProtectedRoute knows we're authenticated
+      await refetch()
 
       const role = payload?.roles?.[0]?.name
 

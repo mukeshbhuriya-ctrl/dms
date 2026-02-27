@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import {
     Table,
     TableBody,
@@ -24,32 +24,43 @@ export function DataTable({
     const [page, setPage] = useState(1)
     const [pageSize, setPageSize] = useState(10)
     const [search, setSearch] = useState("")
+    const [debouncedSearch, setDebouncedSearch] = useState("")
+    const isFirstRender = useRef(true)
 
-    const loadData = useCallback(async () => {
-        setLoading(true)
-        try {
-            const result = await fetchData({ page, limit: pageSize, search })
-            setData(result.data || [])
-            setMeta(result.meta || {})
-        } catch (error) {
-            console.error("Failed to load data", error)
-        } finally {
-            setLoading(false)
-        }
-    }, [fetchData, page, pageSize, search])
-
-    // Debounce search
+    // Debounce the search input — only update debouncedSearch after 500ms
     useEffect(() => {
+        // Skip debounce on first render (initial empty value)
+        if (isFirstRender.current) {
+            isFirstRender.current = false
+            return
+        }
         const timer = setTimeout(() => {
+            setDebouncedSearch(search)
             setPage(1) // Reset to page 1 on search
-            loadData()
         }, 500)
         return () => clearTimeout(timer)
-    }, [search, pageSize])
+    }, [search])
 
+    // Single effect for all data loading — fires once on mount and when deps change
     useEffect(() => {
+        let cancelled = false
+        const loadData = async () => {
+            setLoading(true)
+            try {
+                const result = await fetchData({ page, limit: pageSize, search: debouncedSearch })
+                if (!cancelled) {
+                    setData(result.data || [])
+                    setMeta(result.meta || {})
+                }
+            } catch (error) {
+                console.error("Failed to load data", error)
+            } finally {
+                if (!cancelled) setLoading(false)
+            }
+        }
         loadData()
-    }, [loadData])
+        return () => { cancelled = true }
+    }, [fetchData, page, pageSize, debouncedSearch])
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value)
