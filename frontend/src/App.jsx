@@ -67,6 +67,8 @@ function App() {
         navigate("/admin/dashboard")
       } else if (role === "DCC") {
         navigate("/user/dashboard")
+      } else if (role === "MARKETING") {
+        navigate("/marketing/dashboard")
       } else {
         // ✅ fallback
         navigate("/user/dashboard")

@@ -210,7 +210,7 @@ const dcrRoutes = [
 // ─── Marketing Routes ──────────────────────────────────────────
 const marketingRoutes = [
   {
-    path: "/marketing/rfq-dashboard",
+    path: "/marketing/dashboard",
     element: protect(<RfqDashboard />, [ROLES.ADMIN, ROLES.MARKETING]),
   },
   {

@@ -164,7 +164,7 @@ export const MENU_CONFIG = [
         title: "Marketing",
         icon: Folder,
         items: [
-            { title: "Dashboard", path: "/marketing/rfq-dashboard", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+            { title: "Dashboard", path: "/marketing/dashboard", roles: [ROLES.ADMIN, ROLES.MARKETING] },
             { title: "RFQ Register", path: "/marketing/rfq-register", roles: [ROLES.ADMIN, ROLES.MARKETING] },
             { title: "RFQ Types", path: "/marketing/lookups/rfq_type", roles: [ROLES.ADMIN, ROLES.MARKETING] },
             { title: "Mode of Enquiry", path: "/marketing/lookups/mode_of_enquiry", roles: [ROLES.ADMIN, ROLES.MARKETING] },
