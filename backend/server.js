@@ -66,6 +66,9 @@ app.use('/api/dcr', dcrRoutes);
 const approvalRoutes = require('#routes/dcr/approval.routes.js');
 app.use('/api/dcr/approval', approvalRoutes);
 
+const rfqRoutes = require('#routes/rfq/rfq.routes.js');
+app.use('/api/rfq', rfqRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

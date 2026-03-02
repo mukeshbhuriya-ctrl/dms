@@ -34,7 +34,7 @@ import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP } from "@/pages/admin/qap"
 import { CreateDCR, DesignEngineerDCRApproval, QualityEngineerDCRApproval } from "@/pages/dcr"
-import { RfqRegister } from "@/pages/marketing"
+import { RfqRegister, RfqLookupManager } from "@/pages/marketing"
 
 // ─── Helper: wrap element with ProtectedRoute + role guard ─────
 const protect = (element, allowedRoles = null) => (
@@ -212,6 +212,10 @@ const marketingRoutes = [
   {
     path: "/marketing/rfq-register",
     element: protect(<RfqRegister />, [ROLES.ADMIN, ROLES.MARKETING]),
+  },
+  {
+    path: "/marketing/lookups/:type",
+    element: protect(<RfqLookupManager />, [ROLES.ADMIN, ROLES.MARKETING]),
   },
 ]
 

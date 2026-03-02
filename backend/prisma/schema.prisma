@@ -42,6 +42,8 @@ model company{
   final_inspection_reports final_inspection_report[]
   dcr dcr[]
   dcr_change_request dcr_change_request[]
+  rfq_registers rfq_register[]
+  rfq_lookups rfq_lookup[]
 }
 
 model department {
@@ -94,6 +96,7 @@ model user{
   final_inspection_reports final_inspection_report[]
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
   dcr_quality_engineer dcr[] @relation("DcrQualityEngineer")
+  rfq_registers rfq_register[]
 }
 
 model user_roles{
@@ -814,4 +817,75 @@ model dcr_status{
   updatedAt DateTime @updatedAt
 
   dcr dcr @relation(fields: [dcr_id], references: [id])
+}
+
+// -------------------------------------------------------------
+// RFQ Register Models
+// -------------------------------------------------------------
+
+model rfq_register {
+  id                     String    @id @default(uuid())
+  company_id             String
+  serial_no              Int
+  quotation_no           String
+  client_ref             String?
+  rfq_type               String?
+  client_name            String?
+  consultancy            String?
+  contact_person         String?
+  mode_of_enquiry        String?
+  enq_date               DateTime?
+  target_date            DateTime?
+  actual_submission_date DateTime?
+  time_taken             String?
+  mediator               String?
+  estimator              String?
+  shreno_status          String    @default("Pending")
+  remark                 String?
+  made_by                String?
+  created_by             String?
+
+  company  company @relation(fields: [company_id], references: [id])
+  creator  user?   @relation(fields: [created_by], references: [id])
+  items    rfq_register_item[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model rfq_register_item {
+  id               String    @id @default(uuid())
+  rfq_id           String
+  sr_no            Int
+  enq_description  String?
+  equip_qty        Int?
+  rev              String?
+  total_value      Float?
+  po_no            String?
+  po_date          DateTime?
+  po_value         Float?
+  remarks          String?
+
+  rfq rfq_register @relation(fields: [rfq_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// RFQ Lookup Table (dynamic dropdown options)
+// -------------------------------------------------------------
+
+model rfq_lookup {
+  id         String   @id @default(uuid())
+  company_id String
+  type       String   // "rfq_type" | "mode_of_enquiry" | "remark"
+  name       String
+
+  company    company  @relation(fields: [company_id], references: [id])
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([company_id, type, name])
 }

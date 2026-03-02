@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -34,139 +34,11 @@ import {
 } from "@/components/ui/dialog"
 import { Plus, Trash2, ArrowLeft, Eye, Edit } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
+import apiClient from "@/api/api.client"
+import { toast } from "react-toastify"
 
-// ─── Dummy Data ──────────────────────────────────────────────────────────────
-// ─── Dropdown Options ────────────────────────────────────────────────────────
-const RFQ_TYPE_OPTIONS = ["Dish End", "Cone", "Hemispherical Head", "Flat Cover", "Reducer", "Flange", "Shell", "Other"]
-const CLIENT_NAME_OPTIONS = ["Reliance Industries Ltd.", "IOCL Paradip", "BPCL Mumbai Refinery", "L&T Hydrocarbon", "Thermax Ltd.", "HPCL", "GAIL", "ONGC", "Tata Projects", "Godrej & Boyce"]
-const MODE_OF_ENQUIRY_OPTIONS = ["Email", "Phone", "Tender", "Portal", "Walk-in", "Reference"]
-const MEDIATOR_OPTIONS = ["Mr. Patel", "Mr. Joshi", "Mr. Mehta", "Mr. Deshmukh", "Mr. Iyer", "Mrs. Kulkarni"]
-const ESTIMATOR_OPTIONS = ["Mr. Gupta", "Mr. Singh", "Mr. Rao", "Mr. Kumar", "Mr. Nair", "Ms. Shah"]
+// ─── Only Shreno Status stays hardcoded (it's a workflow status, not user-managed) ──
 const SHRENO_STATUS_OPTIONS = ["Pending", "In Progress", "Quoted", "Won", "Lost"]
-const REMARK_OPTIONS = ["Urgent requirement", "Follow-up required", "Need drawings from client", "Waiting for approval", "Price negotiation", "Repeat order", "New client", "Budget enquiry", "Other"]
-
-const DUMMY_RFQ_LIST = [
-    {
-        id: "1",
-        quotation_no: "TFE/QTN/2026/001",
-        client_ref: "RIL/ENQ/2026/045",
-        rfq_type: "Dish End",
-        client_name: "Reliance Industries Ltd.",
-        project_name: "Jamnagar Refinery Expansion",
-        consultancy: "Toyo Engineering",
-        contact_person: "Mr. Sharma",
-        mode_of_enquiry: "Email",
-        enq_date: "2026-01-15",
-        target_date: "2026-01-22",
-        actual_submission_date: "2026-01-20",
-        time_taken: "5 Days",
-        mediator: "Mr. Patel",
-        estimator: "Mr. Gupta",
-        shreno_status: "Quoted",
-        remark: "Urgent requirement",
-        made_by: "Admin",
-        items: [
-            { id: 1, sr_no: 1, enq_description: "Dish End 2500mm OD x 16mm Thk SA516 Gr.70", equip_qty: 4, rev: "R0", total_value: 520000, po_no: "PO-2026-1001", po_date: "2026-02-01", po_value: 510000, remarks: "Confirmed" },
-            { id: 2, sr_no: 2, enq_description: "Dish End 1800mm OD x 12mm Thk SA240 TP304", equip_qty: 2, rev: "R0", total_value: 380000, po_no: "PO-2026-1002", po_date: "2026-02-05", po_value: 375000, remarks: "Pending" },
-            { id: 3, sr_no: 3, enq_description: "Cone Section 1500mm OD x 10mm Thk CS", equip_qty: 6, rev: "R1", total_value: 290000, po_no: "", po_date: "", po_value: 0, remarks: "Revision pending" },
-        ],
-    },
-    {
-        id: "2",
-        quotation_no: "TFE/QTN/2026/002",
-        client_ref: "IOCL/PP/ENQ/112",
-        rfq_type: "Hemispherical Head",
-        client_name: "IOCL Paradip",
-        project_name: "Paradip Petrochemical Complex",
-        consultancy: "EIL",
-        contact_person: "Mr. Verma",
-        mode_of_enquiry: "Phone",
-        enq_date: "2026-01-20",
-        target_date: "2026-01-27",
-        actual_submission_date: "2026-01-26",
-        time_taken: "6 Days",
-        mediator: "Mr. Joshi",
-        estimator: "Mr. Singh",
-        shreno_status: "In Progress",
-        remark: "",
-        made_by: "Admin",
-        items: [
-            { id: 1, sr_no: 1, enq_description: "Hemispherical Head 3000mm OD x 20mm Thk SA516 Gr.70", equip_qty: 2, rev: "R0", total_value: 750000, po_no: "", po_date: "", po_value: 0, remarks: "" },
-        ],
-    },
-    {
-        id: "3",
-        quotation_no: "TFE/QTN/2026/003",
-        client_ref: "BPCL/IREP/RFQ/078",
-        rfq_type: "Dish End",
-        client_name: "BPCL Mumbai Refinery",
-        project_name: "BPCL IREP Project",
-        consultancy: "Jacobs",
-        contact_person: "Mr. Desai",
-        mode_of_enquiry: "Tender",
-        enq_date: "2026-02-01",
-        target_date: "2026-02-08",
-        actual_submission_date: "",
-        time_taken: "-",
-        mediator: "Mr. Mehta",
-        estimator: "Mr. Rao",
-        shreno_status: "Pending",
-        remark: "Need drawings from client",
-        made_by: "Marketing",
-        items: [
-            { id: 1, sr_no: 1, enq_description: "Dish End 2000mm OD x 14mm Thk SA387 Gr.11", equip_qty: 8, rev: "R0", total_value: 960000, po_no: "", po_date: "", po_value: 0, remarks: "" },
-            { id: 2, sr_no: 2, enq_description: "Flat Cover 1200mm OD x 25mm Thk SA516 Gr.70", equip_qty: 4, rev: "R0", total_value: 340000, po_no: "", po_date: "", po_value: 0, remarks: "" },
-        ],
-    },
-    {
-        id: "4",
-        quotation_no: "TFE/QTN/2026/004",
-        client_ref: "LT/HC/ENQ/2026/034",
-        rfq_type: "Dish End",
-        client_name: "L&T Hydrocarbon",
-        project_name: "HPCL Rajasthan Refinery",
-        consultancy: "L&T",
-        contact_person: "Mr. Kulkarni",
-        mode_of_enquiry: "Email",
-        enq_date: "2026-02-10",
-        target_date: "2026-02-17",
-        actual_submission_date: "2026-02-15",
-        time_taken: "5 Days",
-        mediator: "Mr. Patel",
-        estimator: "Mr. Gupta",
-        shreno_status: "Quoted",
-        remark: "Follow-up required",
-        made_by: "Admin",
-        items: [
-            { id: 1, sr_no: 1, enq_description: "Dish End 1600mm OD x 10mm Thk SA240 TP316L", equip_qty: 10, rev: "R0", total_value: 450000, po_no: "PO-2026-2001", po_date: "2026-02-25", po_value: 440000, remarks: "Confirmed" },
-        ],
-    },
-    {
-        id: "5",
-        quotation_no: "TFE/QTN/2026/005",
-        client_ref: "TMX/BOILER/RFQ/009",
-        rfq_type: "Cone",
-        client_name: "Thermax Ltd.",
-        project_name: "Boiler Components",
-        consultancy: "In-house",
-        contact_person: "Mrs. Patil",
-        mode_of_enquiry: "Portal",
-        enq_date: "2026-02-18",
-        target_date: "2026-02-25",
-        actual_submission_date: "",
-        time_taken: "-",
-        mediator: "Mr. Joshi",
-        estimator: "Mr. Singh",
-        shreno_status: "Pending",
-        remark: "",
-        made_by: "Marketing",
-        items: [
-            { id: 1, sr_no: 1, enq_description: "Ellipsoidal Head 900mm OD x 8mm Thk SA516 Gr.60", equip_qty: 20, rev: "R0", total_value: 600000, po_no: "", po_date: "", po_value: 0, remarks: "" },
-            { id: 2, sr_no: 2, enq_description: "Dish End 1100mm OD x 6mm Thk SA516 Gr.60", equip_qty: 15, rev: "R0", total_value: 375000, po_no: "", po_date: "", po_value: 0, remarks: "" },
-            { id: 3, sr_no: 3, enq_description: "Reducer Section 800-600mm x 6mm Thk CS", equip_qty: 10, rev: "R0", total_value: 220000, po_no: "", po_date: "", po_value: 0, remarks: "" },
-        ],
-    },
-]
 
 // ─── Status badge helper ─────────────────────────────────────────────────────
 function StatusBadge({ status }) {
@@ -188,19 +60,41 @@ function StatusBadge({ status }) {
 function ListView({ onCreateClick, onEditClick }) {
     const [isViewOpen, setIsViewOpen] = useState(false)
     const [selectedRecord, setSelectedRecord] = useState(null)
+    const [viewLoading, setViewLoading] = useState(false)
 
-    const handleViewClick = (id) => {
-        const record = DUMMY_RFQ_LIST.find((r) => r.id === id)
-        if (record) {
-            setSelectedRecord(record)
-            setIsViewOpen(true)
+    const handleViewClick = async (id) => {
+        try {
+            setViewLoading(true)
+            const res = await apiClient.get(`/api/rfq/${id}`)
+            if (res.success) {
+                setSelectedRecord(res.data)
+                setIsViewOpen(true)
+            }
+        } catch (error) {
+            toast.error(error.message || "Failed to fetch record")
+        } finally {
+            setViewLoading(false)
+        }
+    }
+
+    const handleDeleteClick = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this RFQ entry?")) return
+        try {
+            const res = await apiClient.delete(`/api/rfq/${id}`)
+            if (res.success) {
+                toast.success("RFQ entry deleted successfully")
+                // Force DataTable to refetch by triggering a re-render
+                window.location.reload()
+            }
+        } catch (error) {
+            toast.error(error.message || "Failed to delete record")
         }
     }
 
     const columns = [
         { header: "Quotation No.", accessorKey: "quotation_no" },
         { header: "Client Name", accessorKey: "client_name" },
-        { header: "Project Name", accessorKey: "project_name" },
+        { header: "RFQ Type", accessorKey: "rfq_type" },
         { header: "Consultancy", accessorKey: "consultancy" },
         { header: "Mode", accessorKey: "mode_of_enquiry" },
         {
@@ -233,28 +127,22 @@ function ListView({ onCreateClick, onEditClick }) {
                         title="Edit">
                         <Edit className="h-4 w-4 mr-2" /> Edit
                     </Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(row.id)}
+                        title="Delete">
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
             ),
         },
     ]
 
-    // Dummy fetch returning our static data
+    // Real API fetch for DataTable
     const fetchData = useCallback(async ({ page, limit, search }) => {
-        let filtered = DUMMY_RFQ_LIST
-        if (search) {
-            const q = search.toLowerCase()
-            filtered = DUMMY_RFQ_LIST.filter(
-                (r) =>
-                    r.quotation_no.toLowerCase().includes(q) ||
-                    r.client_name.toLowerCase().includes(q) ||
-                    r.project_name.toLowerCase().includes(q) ||
-                    r.estimator.toLowerCase().includes(q)
-            )
-        }
-        return {
-            data: filtered.slice((page - 1) * limit, page * limit),
-            meta: { total: filtered.length, page, limit },
-        }
+        const res = await apiClient.get("/api/rfq/list", { page, limit, search })
+        return { data: res.data || [], meta: res.meta || {} }
     }, [])
 
     return (
@@ -272,123 +160,87 @@ function ListView({ onCreateClick, onEditClick }) {
 
             <DataTable columns={columns} fetchData={fetchData} />
 
-            {/* View Details Modal */}
+            {/* View Dialog */}
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-                    <DialogHeader className="mb-4">
+                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-center">RFQ Register Details</DialogTitle>
                         <DialogDescription className="text-center">
                             Complete details of the selected RFQ record.
                         </DialogDescription>
                     </DialogHeader>
-
                     {selectedRecord && (
-                        <div className="space-y-6">
-                            {/* Basic Info */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-y-6 gap-x-4 text-sm border border-border p-6 bg-white rounded-xl shadow-sm">
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">QUOTATION NO.:</span>
-                                    <span className="font-medium">{selectedRecord.quotation_no || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CLIENT NAME:</span>
-                                    <span className="font-medium">{selectedRecord.client_name || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PROJECT NAME:</span>
-                                    <span className="font-medium">{selectedRecord.project_name || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CONSULTANCY:</span>
-                                    <span className="font-medium">{selectedRecord.consultancy || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CONTACT PERSON:</span>
-                                    <span className="font-medium">{selectedRecord.contact_person || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">MODE OF ENQUIRY:</span>
-                                    <span className="font-medium">{selectedRecord.mode_of_enquiry || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">ENQ. DATE:</span>
-                                    <span className="font-medium">{selectedRecord.enq_date ? new Date(selectedRecord.enq_date).toLocaleDateString("en-GB") : "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">TARGET DATE:</span>
-                                    <span className="font-medium">{selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">ACTUAL SUBMISSION:</span>
-                                    <span className="font-medium">{selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">TIME TAKEN:</span>
-                                    <span className="font-medium">{selectedRecord.time_taken || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">MEDIATOR:</span>
-                                    <span className="font-medium">{selectedRecord.mediator || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">ESTIMATOR:</span>
-                                    <span className="font-medium">{selectedRecord.estimator || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">SHRENO STATUS:</span>
-                                    <StatusBadge status={selectedRecord.shreno_status} />
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">MADE BY:</span>
-                                    <span className="font-medium">{selectedRecord.made_by || "-"}</span>
-                                </div>
-                                <div className="flex flex-col space-y-1">
-                                    <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">REMARK:</span>
-                                    <span className="font-medium">{selectedRecord.remark || "-"}</span>
-                                </div>
+                        <div className="space-y-6 mt-4">
+                            {/* Basic Details Table */}
+                            <div className="rounded-md border overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <tbody>
+                                        {[
+                                            ["Quotation No.", selectedRecord.quotation_no],
+                                            ["Client Ref.", selectedRecord.client_ref],
+                                            ["RFQ Type", selectedRecord.rfq_type],
+                                            ["Client Name", selectedRecord.client_name],
+                                            ["Consultancy", selectedRecord.consultancy],
+                                            ["Contact Person", selectedRecord.contact_person],
+                                            ["Mode of Enquiry", selectedRecord.mode_of_enquiry],
+                                            ["Enq. Date", selectedRecord.enq_date ? new Date(selectedRecord.enq_date).toLocaleDateString("en-GB") : "-"],
+                                            ["Target Date", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
+                                            ["Actual Submission Date", selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"],
+                                            ["Time Taken", selectedRecord.time_taken],
+                                            ["Mediator", selectedRecord.mediator],
+                                            ["Estimator", selectedRecord.estimator],
+                                            ["Shreno Status", selectedRecord.shreno_status],
+                                            ["Remark", selectedRecord.remark],
+                                            ["Made By", selectedRecord.made_by],
+                                        ].map(([label, value], idx) => (
+                                            <tr key={idx} className="border-b border-border last:border-0">
+                                                <td className="p-3 font-medium bg-muted/50 w-48 border-r border-border">{label}</td>
+                                                <td className="p-3">{value || "-"}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
 
                             {/* Enquiry Items Table */}
-                            <div className="overflow-x-auto rounded-md border border-border">
-                                <h3 className="p-3 font-bold text-sm bg-muted/40 border-b border-border">Enquiry Details</h3>
-                                <table className="w-full border-collapse text-xs text-left">
-                                    <thead>
-                                        <tr className="bg-blue-100 border-b border-border">
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">SR NO.</th>
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">ENQ. DESCRIPTION</th>
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">EQUIP. QTY</th>
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">REV.</th>
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">TOTAL VALUE</th>
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">PO NO.</th>
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">PO DATE</th>
-                                            <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">PO VALUE</th>
-                                            <th className="p-3 font-bold text-[11px] uppercase tracking-wider text-red-600">REMARKS</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {(!selectedRecord.items || selectedRecord.items.length === 0) ? (
-                                            <tr>
-                                                <td colSpan={9} className="border border-border p-4 text-center">
-                                                    No enquiry items added.
-                                                </td>
+                            <div>
+                                <h3 className="font-semibold mb-2">Enquiry Details</h3>
+                                <div className="border rounded-md overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-blue-100">
+                                                {["Sr.", "Enq. Description", "Equip. Qty", "Rev.", "Total Value", "PO No.", "PO Date", "PO Value", "Remarks"].map((h) => (
+                                                    <th key={h} className="p-3 text-left text-red-600 font-semibold border-r border-border last:border-0 whitespace-nowrap">
+                                                        {h}
+                                                    </th>
+                                                ))}
                                             </tr>
-                                        ) : (
-                                            selectedRecord.items.map((row) => (
-                                                <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                                                    <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.enq_description || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-center">{row.equip_qty || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-center">{row.rev || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.total_value?.toLocaleString("en-IN") || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.po_no || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.po_date ? new Date(row.po_date).toLocaleDateString("en-GB") : "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.po_value?.toLocaleString("en-IN") || "-"}</td>
-                                                    <td className="p-3 align-top">{row.remarks || "-"}</td>
+                                        </thead>
+                                        <tbody>
+                                            {!selectedRecord.items?.length ? (
+                                                <tr>
+                                                    <td colSpan={9} className="border border-border p-4 text-center">
+                                                        No enquiry items added.
+                                                    </td>
                                                 </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                                            ) : (
+                                                selectedRecord.items.map((row) => (
+                                                    <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
+                                                        <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
+                                                        <td className="border-r border-border p-3 align-top">{row.enq_description || "-"}</td>
+                                                        <td className="border-r border-border p-3 align-top text-center">{row.equip_qty || "-"}</td>
+                                                        <td className="border-r border-border p-3 align-top text-center">{row.rev || "-"}</td>
+                                                        <td className="border-r border-border p-3 align-top text-right">₹{row.total_value?.toLocaleString("en-IN") || "-"}</td>
+                                                        <td className="border-r border-border p-3 align-top">{row.po_no || "-"}</td>
+                                                        <td className="border-r border-border p-3 align-top">{row.po_date ? new Date(row.po_date).toLocaleDateString("en-GB") : "-"}</td>
+                                                        <td className="border-r border-border p-3 align-top text-right">₹{row.po_value?.toLocaleString("en-IN") || "-"}</td>
+                                                        <td className="p-3 align-top">{row.remarks || "-"}</td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -404,45 +256,136 @@ function CreateView({ onBack, editId = null }) {
         day: "2-digit", month: "2-digit", year: "numeric",
     })
 
-    // Pre-fill for edit mode or use empty for create
-    const editRecord = editId ? DUMMY_RFQ_LIST.find((r) => r.id === editId) : null
+    const [loading, setLoading] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
 
-    const [formData, setFormData] = useState({
-        quotationNo: editRecord?.quotation_no || "",
-        clientRef: editRecord?.client_ref || "",
-        rfqType: editRecord?.rfq_type || "",
-        clientName: editRecord?.client_name || "",
-        projectName: editRecord?.project_name || "",
-        consultancy: editRecord?.consultancy || "",
-        contactPerson: editRecord?.contact_person || "",
-        modeOfEnquiry: editRecord?.mode_of_enquiry || "",
-        enqDate: editRecord?.enq_date || "",
-        targetDate: editRecord?.target_date || "",
-        actualSubmissionDate: editRecord?.actual_submission_date || "",
-        timeTaken: editRecord?.time_taken || "",
-        mediator: editRecord?.mediator || "",
-        estimator: editRecord?.estimator || "",
-        shrenoStatus: editRecord?.shreno_status || "",
-        remark: editRecord?.remark || "",
-        madeBy: editRecord?.made_by || "",
+    // ─── Dynamic dropdown options fetched from backend ──────────────────
+    const [dropdownOptions, setDropdownOptions] = useState({
+        rfqTypes: [],
+        clientNames: [],
+        modesOfEnquiry: [],
+        mediators: [],
+        estimators: [],
+        remarks: [],
     })
 
-    const [tableRows, setTableRows] = useState(
-        editRecord?.items?.map((item, i) => ({
-            id: i + 1,
-            srNo: item.sr_no,
-            enqDescription: item.enq_description,
-            equipQty: item.equip_qty,
-            rev: item.rev,
-            totalValue: item.total_value,
-            poNo: item.po_no,
-            poDate: item.po_date,
-            poValue: item.po_value,
-            remarks: item.remarks,
-        })) || [
-            { id: 1, srNo: 1, enqDescription: "", equipQty: "", rev: "", totalValue: "", poNo: "", poDate: "", poValue: "", remarks: "" },
-        ]
-    )
+    useEffect(() => {
+        const fetchOptions = async () => {
+            try {
+                const [rfqTypesRes, moeRes, remarkRes, usersRes, customersRes] = await Promise.all([
+                    apiClient.get("/api/rfq/lookups/rfq_type"),
+                    apiClient.get("/api/rfq/lookups/mode_of_enquiry"),
+                    apiClient.get("/api/rfq/lookups/remark"),
+                    apiClient.get("/api/rfq/users"),
+                    apiClient.get("/api/common/customers"),
+                ])
+                setDropdownOptions({
+                    rfqTypes: (rfqTypesRes.data || []).map((d) => d.name),
+                    clientNames: (customersRes.data || []).map((c) => c.customer_name),
+                    modesOfEnquiry: (moeRes.data || []).map((d) => d.name),
+                    mediators: (usersRes.data || []).map((u) => u.name),
+                    estimators: (usersRes.data || []).map((u) => u.name),
+                    remarks: (remarkRes.data || []).map((d) => d.name),
+                })
+            } catch (error) {
+                console.error("Failed to load dropdown options:", error)
+            }
+        }
+        fetchOptions()
+    }, [])
+
+    const [formData, setFormData] = useState({
+        quotationNo: "",
+        clientRef: "",
+        rfqType: "",
+        clientName: "",
+        consultancy: "",
+        contactPerson: "",
+        modeOfEnquiry: "",
+        enqDate: "",
+        targetDate: "",
+        actualSubmissionDate: "",
+        timeTaken: "",
+        mediator: "",
+        estimator: "",
+        shrenoStatus: "",
+        remark: "",
+        madeBy: "",
+    })
+
+    const [tableRows, setTableRows] = useState([
+        { id: 1, srNo: 1, enqDescription: "", equipQty: "", rev: "", totalValue: "", poNo: "", poDate: "", poValue: "", remarks: "" },
+    ])
+
+    // Fetch next quotation number when creating (not editing)
+    useEffect(() => {
+        if (editId) return
+
+        const fetchNextNo = async () => {
+            try {
+                const res = await apiClient.get("/api/rfq/next-quotation-no")
+                if (res.success && res.data) {
+                    setFormData((prev) => ({ ...prev, quotationNo: res.data.next_quotation_no }))
+                }
+            } catch (error) {
+                console.error("Failed to fetch next quotation no:", error)
+            }
+        }
+        fetchNextNo()
+    }, [editId])
+
+    // Fetch record data when editing
+    useEffect(() => {
+        if (!editId) return
+
+        const fetchRecord = async () => {
+            try {
+                setLoading(true)
+                const res = await apiClient.get(`/api/rfq/${editId}`)
+                if (res.success && res.data) {
+                    const r = res.data
+                    setFormData({
+                        quotationNo: r.quotation_no || "",
+                        clientRef: r.client_ref || "",
+                        rfqType: r.rfq_type || "",
+                        clientName: r.client_name || "",
+                        consultancy: r.consultancy || "",
+                        contactPerson: r.contact_person || "",
+                        modeOfEnquiry: r.mode_of_enquiry || "",
+                        enqDate: r.enq_date ? r.enq_date.split("T")[0] : "",
+                        targetDate: r.target_date ? r.target_date.split("T")[0] : "",
+                        actualSubmissionDate: r.actual_submission_date ? r.actual_submission_date.split("T")[0] : "",
+                        timeTaken: r.time_taken || "",
+                        mediator: r.mediator || "",
+                        estimator: r.estimator || "",
+                        shrenoStatus: r.shreno_status || "",
+                        remark: r.remark || "",
+                        madeBy: r.made_by || "",
+                    })
+                    if (r.items?.length) {
+                        setTableRows(r.items.map((item, i) => ({
+                            id: i + 1,
+                            srNo: item.sr_no,
+                            enqDescription: item.enq_description || "",
+                            equipQty: item.equip_qty || "",
+                            rev: item.rev || "",
+                            totalValue: item.total_value || "",
+                            poNo: item.po_no || "",
+                            poDate: item.po_date ? item.po_date.split("T")[0] : "",
+                            poValue: item.po_value || "",
+                            remarks: item.remarks || "",
+                        })))
+                    }
+                }
+            } catch (error) {
+                toast.error(error.message || "Failed to load record")
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchRecord()
+    }, [editId])
 
     const handleInputChange = (e) => {
         const { name, value } = e.target
@@ -499,8 +442,63 @@ function CreateView({ onBack, editId = null }) {
         }
     }
 
-    const handleSubmit = () => {
-        alert("Wireframe — Submit clicked!\n\nForm Data:\n" + JSON.stringify(formData, null, 2) + "\n\nItems:\n" + JSON.stringify(tableRows, null, 2))
+    const handleSubmit = async () => {
+        try {
+            setSubmitting(true)
+
+            const payload = {
+                client_ref: formData.clientRef,
+                rfq_type: formData.rfqType,
+                client_name: formData.clientName,
+                consultancy: formData.consultancy,
+                contact_person: formData.contactPerson,
+                mode_of_enquiry: formData.modeOfEnquiry,
+                enq_date: formData.enqDate || null,
+                target_date: formData.targetDate || null,
+                actual_submission_date: formData.actualSubmissionDate || null,
+                time_taken: formData.timeTaken,
+                mediator: formData.mediator,
+                estimator: formData.estimator,
+                shreno_status: formData.shrenoStatus || "Pending",
+                remark: formData.remark,
+                made_by: formData.madeBy,
+                items: tableRows.map((row) => ({
+                    sr_no: row.srNo,
+                    enq_description: row.enqDescription,
+                    equip_qty: row.equipQty,
+                    rev: row.rev,
+                    total_value: row.totalValue,
+                    po_no: row.poNo,
+                    po_date: row.poDate || null,
+                    po_value: row.poValue,
+                    remarks: row.remarks,
+                })),
+            }
+
+            let res
+            if (editId) {
+                res = await apiClient.put(`/api/rfq/update/${editId}`, payload)
+            } else {
+                res = await apiClient.post("/api/rfq/create", payload)
+            }
+
+            if (res.success) {
+                toast.success(editId ? "RFQ entry updated successfully!" : "RFQ entry created successfully!")
+                onBack()
+            }
+        } catch (error) {
+            toast.error(error.message || "Failed to save RFQ entry")
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <p className="text-muted-foreground text-lg">Loading...</p>
+            </div>
+        )
     }
 
     return (
@@ -530,8 +528,9 @@ function CreateView({ onBack, editId = null }) {
                                 name="quotationNo"
                                 type="text"
                                 value={formData.quotationNo}
-                                onChange={handleInputChange}
-                                placeholder="TFE/QTN/2026/___"
+                                disabled={true}
+                                placeholder="Auto-generated"
+                                className="bg-muted"
                             />
                         </div>
 
@@ -554,7 +553,7 @@ function CreateView({ onBack, editId = null }) {
                                     <SelectValue placeholder="Select RFQ Type" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {RFQ_TYPE_OPTIONS.map((opt) => (
+                                    {dropdownOptions.rfqTypes.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -568,7 +567,7 @@ function CreateView({ onBack, editId = null }) {
                                     <SelectValue placeholder="Select Client" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {CLIENT_NAME_OPTIONS.map((opt) => (
+                                    {dropdownOptions.clientNames.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -606,7 +605,7 @@ function CreateView({ onBack, editId = null }) {
                                     <SelectValue placeholder="Select Mode" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {MODE_OF_ENQUIRY_OPTIONS.map((opt) => (
+                                    {dropdownOptions.modesOfEnquiry.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -698,7 +697,7 @@ function CreateView({ onBack, editId = null }) {
                                     <SelectValue placeholder="Select Mediator" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {MEDIATOR_OPTIONS.map((opt) => (
+                                    {dropdownOptions.mediators.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -712,7 +711,7 @@ function CreateView({ onBack, editId = null }) {
                                     <SelectValue placeholder="Select Estimator" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {ESTIMATOR_OPTIONS.map((opt) => (
+                                    {dropdownOptions.estimators.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -754,7 +753,7 @@ function CreateView({ onBack, editId = null }) {
                                     <SelectValue placeholder="Select Remark" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {REMARK_OPTIONS.map((opt) => (
+                                    {dropdownOptions.remarks.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -765,63 +764,48 @@ function CreateView({ onBack, editId = null }) {
             </Card>
 
             {/* Card 4: Enquiry Details Table */}
-            <Card className="mb-6 w-full overflow-hidden">
+            <Card className="mb-6">
                 <CardHeader>
                     <CardTitle>Enquiry Details</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 flex flex-col gap-4 w-full">
-                    <div className="rounded-md border overflow-x-auto">
-                        <Table className="min-w-[1400px]">
+                <CardContent>
+                    <div className="overflow-x-auto rounded-md border">
+                        <Table>
                             <TableHeader>
                                 <TableRow className="bg-blue-100">
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-16 text-center">
-                                        SR NO.
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 min-w-[280px]">
-                                        ENQ. DESCRIPTION
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-24 text-center">
-                                        EQUIP. QTY
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-20 text-center">
-                                        REV.
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-32 text-right">
-                                        TOTAL VALUE
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-32">
-                                        PO NO.
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-32">
-                                        PO DATE
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-32 text-right">
-                                        PO VALUE
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300">
-                                        REMARKS
-                                    </TableHead>
-                                    <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-[80px] text-center">
-                                        ACTIONS
-                                    </TableHead>
+                                    {["Sr. No.", "Enq. Description", "Equip. Qty", "Rev.", "Total Value", "PO No.", "PO Date", "PO Value", "Remarks", ""].map(
+                                        (h, idx) => (
+                                            <TableHead
+                                                key={idx}
+                                                className="text-red-600 font-semibold border border-gray-300 whitespace-nowrap"
+                                            >
+                                                {h}
+                                            </TableHead>
+                                        )
+                                    )}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {tableRows.map((row) => (
                                     <TableRow key={row.id}>
-                                        <TableCell className="p-2 border border-gray-300 text-center">
-                                            <div className="text-sm font-medium">{row.srNo}</div>
+                                        <TableCell className="p-2 border border-gray-300 text-center w-16">
+                                            <Input
+                                                type="number"
+                                                value={row.srNo}
+                                                onChange={(e) => handleRowChange(row.id, "srNo", e.target.value)}
+                                                className="w-full text-xs border-0 focus-visible:ring-0 text-center"
+                                            />
                                         </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
+                                        <TableCell className="p-2 border border-gray-300 min-w-[200px]">
                                             <Input
                                                 type="text"
                                                 value={row.enqDescription}
                                                 onChange={(e) => handleRowChange(row.id, "enqDescription", e.target.value)}
-                                                placeholder="Enquiry Description"
+                                                placeholder="Description"
                                                 className="w-full text-xs border-0 focus-visible:ring-0"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
+                                        <TableCell className="p-2 border border-gray-300 w-24">
                                             <Input
                                                 type="number"
                                                 value={row.equipQty}
@@ -830,16 +814,16 @@ function CreateView({ onBack, editId = null }) {
                                                 className="w-full text-xs border-0 focus-visible:ring-0 text-center"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
+                                        <TableCell className="p-2 border border-gray-300 w-20">
                                             <Input
                                                 type="text"
                                                 value={row.rev}
                                                 onChange={(e) => handleRowChange(row.id, "rev", e.target.value)}
-                                                placeholder="Rev"
+                                                placeholder="Rev."
                                                 className="w-full text-xs border-0 focus-visible:ring-0 text-center"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
+                                        <TableCell className="p-2 border border-gray-300 w-28">
                                             <Input
                                                 type="number"
                                                 value={row.totalValue}
@@ -848,7 +832,7 @@ function CreateView({ onBack, editId = null }) {
                                                 className="w-full text-xs border-0 focus-visible:ring-0 text-right"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
+                                        <TableCell className="p-2 border border-gray-300 w-28">
                                             <Input
                                                 type="text"
                                                 value={row.poNo}
@@ -857,7 +841,7 @@ function CreateView({ onBack, editId = null }) {
                                                 className="w-full text-xs border-0 focus-visible:ring-0"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
+                                        <TableCell className="p-2 border border-gray-300 w-32">
                                             <Input
                                                 type="date"
                                                 value={row.poDate}
@@ -865,7 +849,7 @@ function CreateView({ onBack, editId = null }) {
                                                 className="w-full text-xs border-0 focus-visible:ring-0"
                                             />
                                         </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
+                                        <TableCell className="p-2 border border-gray-300 w-28">
                                             <Input
                                                 type="number"
                                                 value={row.poValue}
@@ -910,8 +894,8 @@ function CreateView({ onBack, editId = null }) {
             {/* Submit / Cancel */}
             <div className="flex justify-end gap-4 mt-6">
                 <Button onClick={onBack} variant="outline">Cancel</Button>
-                <Button onClick={handleSubmit}>
-                    {editId ? "Update Entry" : "Submit Entry"}
+                <Button onClick={handleSubmit} disabled={submitting}>
+                    {submitting ? "Saving..." : editId ? "Update Entry" : "Submit Entry"}
                 </Button>
             </div>
         </div>
