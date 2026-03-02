@@ -840,7 +840,8 @@ model rfq_register {
   time_taken             String?
   mediator               String?
   estimator              String?
-  shreno_status          String    @default("Pending")
+  shreno_status          String    @default("Quoted")
+  client_status          String?   @default("Under Review")
   remark                 String?
   made_by                String?
   created_by             String?

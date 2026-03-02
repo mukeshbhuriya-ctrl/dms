@@ -8,6 +8,7 @@ router.use(authenticateUser(['ADMIN', 'MARKETING']));
 
 // ─── RFQ Register CRUD ──────────────────────────────────────────────────────
 router.get('/list', RfqController.list);
+router.get('/dashboard', RfqController.getDashboardStats);
 router.get('/next-quotation-no', RfqController.getNextQuotationNo);
 router.post('/create', RfqController.create);
 router.put('/update/:id', RfqController.update);

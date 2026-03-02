@@ -26,6 +26,16 @@ class RfqController {
         }
     }
 
+    async getDashboardStats(req, res) {
+        try {
+            const data = await RfqService.getDashboardStats(req.user.company_id);
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('RFQ getDashboardStats error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
     async create(req, res) {
         try {
             const result = await RfqService.create(req.user.company_id, req.user.id, req.body);

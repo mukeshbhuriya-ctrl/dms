@@ -87,6 +87,7 @@ class RfqService {
             mediator,
             estimator,
             shreno_status,
+            client_status,
             remark,
             made_by,
             items = [],
@@ -122,7 +123,8 @@ class RfqService {
                     time_taken: time_taken || null,
                     mediator: mediator || null,
                     estimator: estimator || null,
-                    shreno_status: shreno_status || 'Pending',
+                    shreno_status: shreno_status || 'Quoted',
+                    client_status: client_status || 'Under Review',
                     remark: remark || null,
                     made_by: made_by || null,
                     created_by: userId || null,
@@ -183,6 +185,7 @@ class RfqService {
             mediator,
             estimator,
             shreno_status,
+            client_status,
             remark,
             made_by,
             items = [],
@@ -205,7 +208,8 @@ class RfqService {
                     time_taken: time_taken || null,
                     mediator: mediator || null,
                     estimator: estimator || null,
-                    shreno_status: shreno_status || 'Pending',
+                    shreno_status: shreno_status || 'Quoted',
+                    client_status: client_status || 'Under Review',
                     remark: remark || null,
                     made_by: made_by || null,
                 },
@@ -333,6 +337,91 @@ class RfqService {
 
         await prisma.rfq_lookup.delete({ where: { id } });
         return { deleted: true };
+    }
+
+    // ─── Dashboard Aggregation ───────────────────────────────────────────────
+
+    /**
+     * Get RFQ Dashboard Statistics
+     */
+    async getDashboardStats(company_id) {
+        // Fetch all RFQs and sum up items for financials
+        const rfqs = await prisma.rfq_register.findMany({
+            where: { company_id },
+            include: { items: true },
+        });
+
+        // Initialize Shreno Status Totals
+        const shrenoStats = {
+            Cancel: 0,
+            "Duplicate entry": 0,
+            "Technical Submitted": 0,
+            "Under Review": 0, // Maps to Pending or In Progress internally
+            "Price Submitted": 0,
+            "Regret / Not Attempted": 0,
+            Hold: 0,
+            Total: rfqs.length
+        };
+
+        // Initialize Client End Status Totals
+        const clientStats = {
+            "Regret / Not Attempted": 0,
+            "Lost by Delivery": 0,
+            "Lost by Price": 0, // Using Lost internally
+            "Lost by Technical": 0,
+            "Ongoing": 0,
+            "Order Received": 0, // Using Won internally
+            "Under Review": 0,
+            "Cancel": 0,
+            Total: rfqs.length
+        };
+
+        // Initialize Financial Totals
+        let totalQuoted = 0;
+        let orderReceivedValue = 0;
+
+        // Populate counts
+        for (const rfq of rfqs) {
+            const shrenoStatus = rfq.shreno_status || 'Quoted';
+            const clientStatus = rfq.client_status || 'Under Review';
+
+            // Financials: Sum items
+            const rfqValue = rfq.items.reduce((sum, item) => sum + (item.total_value || 0), 0);
+            totalQuoted += rfqValue;
+
+            if (clientStatus === 'Order Received') {
+                orderReceivedValue += rfqValue;
+            }
+
+            // Map internal shreno_status to Shreno Stats Dashboard Columns
+            // We map "Quoted" directly to "Price Submitted" as requested by the UI terminology
+            const shrenoKey = shrenoStatus === "Quoted" ? "Price Submitted" : shrenoStatus;
+
+            if (shrenoStats[shrenoKey] !== undefined) {
+                shrenoStats[shrenoKey] += 1;
+            } else {
+                shrenoStats["Hold"] += 1; // Catch-all for shreno missing keys
+            }
+
+            // Map Client End Status
+            if (clientStats[clientStatus] !== undefined) {
+                clientStats[clientStatus] += 1;
+            } else {
+                clientStats["Ongoing"] += 1; // Catch-all
+            }
+        }
+
+        const winPercentage = totalQuoted > 0 ? ((orderReceivedValue / totalQuoted) * 100).toFixed(2) : "0.00";
+
+        return {
+            shrenoStats,
+            clientStats,
+            financials: {
+                totalQuoted,
+                orderReceivedValue,
+                winPercentage
+            }
+        };
     }
 }
 

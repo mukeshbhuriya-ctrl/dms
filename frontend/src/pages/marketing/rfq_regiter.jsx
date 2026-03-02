@@ -37,20 +37,45 @@ import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
 import { toast } from "react-toastify"
 
-// ─── Only Shreno Status stays hardcoded (it's a workflow status, not user-managed) ──
-const SHRENO_STATUS_OPTIONS = ["Pending", "In Progress", "Quoted", "Won", "Lost"]
+// ─── Status Options ────────────────────────────────────────────────────────────
+const SHRENO_STATUS_OPTIONS = [
+    "Quoted",
+    "Cancel",
+    "Duplicate entry",
+    "Technical Submitted",
+    "Under Review",
+    "Regret / Not Attempted",
+    "Hold"
+]
+
+const CLIENT_STATUS_OPTIONS = [
+    "Ongoing",
+    "Regret / Not Attempted",
+    "Lost by Delivery",
+    "Lost by Price",
+    "Lost by Technical",
+    "Order Received",
+    "Under Review",
+    "Cancel"
+]
 
 // ─── Status badge helper ─────────────────────────────────────────────────────
 function StatusBadge({ status }) {
     const colors = {
-        "Quoted": "bg-green-100 text-green-700 border-green-300",
-        "In Progress": "bg-yellow-100 text-yellow-700 border-yellow-300",
-        "Pending": "bg-orange-100 text-orange-700 border-orange-300",
-        "Lost": "bg-red-100 text-red-700 border-red-300",
-        "Won": "bg-blue-100 text-blue-700 border-blue-300",
+        "Quoted": "bg-blue-100 text-blue-700 border-blue-300",
+        "Technical Submitted": "bg-indigo-100 text-indigo-700 border-indigo-300",
+        "Under Review": "bg-yellow-100 text-yellow-700 border-yellow-300",
+        "Ongoing": "bg-yellow-100 text-yellow-700 border-yellow-300",
+        "Cancel": "bg-red-100 text-red-700 border-red-300",
+        "Lost by Price": "bg-red-100 text-red-700 border-red-300",
+        "Lost by Delivery": "bg-red-100 text-red-700 border-red-300",
+        "Lost by Technical": "bg-red-100 text-red-700 border-red-300",
+        "Regret / Not Attempted": "bg-gray-200 text-gray-700 border-gray-400",
+        "Order Received": "bg-green-100 text-green-700 border-green-300",
+        "Hold": "bg-orange-100 text-orange-700 border-orange-300",
     }
     return (
-        <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${colors[status] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
+        <span className={`px-2 flex-shrink-0 w-max py-0.5 rounded-full text-[10px] font-medium border ${colors[status] || "bg-gray-100 text-gray-700 border-gray-300"}`}>
             {status}
         </span>
     )
@@ -104,9 +129,14 @@ function ListView({ onCreateClick, onEditClick }) {
         },
         { header: "Estimator", accessorKey: "estimator" },
         {
-            header: "Status",
+            header: "Shreno Status",
             accessorKey: "shreno_status",
             cell: (row) => <StatusBadge status={row.shreno_status} />,
+        },
+        {
+            header: "Client Status",
+            accessorKey: "client_status",
+            cell: (row) => <StatusBadge status={row.client_status} />,
         },
         {
             id: "actions",
@@ -162,7 +192,7 @@ function ListView({ onCreateClick, onEditClick }) {
 
             {/* View Dialog */}
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold text-center">RFQ Register Details</DialogTitle>
                         <DialogDescription className="text-center">
@@ -171,76 +201,109 @@ function ListView({ onCreateClick, onEditClick }) {
                     </DialogHeader>
                     {selectedRecord && (
                         <div className="space-y-6 mt-4">
-                            {/* Basic Details Table */}
-                            <div className="rounded-md border overflow-hidden">
-                                <table className="w-full text-sm">
-                                    <tbody>
-                                        {[
-                                            ["Quotation No.", selectedRecord.quotation_no],
-                                            ["Client Ref.", selectedRecord.client_ref],
-                                            ["RFQ Type", selectedRecord.rfq_type],
-                                            ["Client Name", selectedRecord.client_name],
-                                            ["Consultancy", selectedRecord.consultancy],
-                                            ["Contact Person", selectedRecord.contact_person],
-                                            ["Mode of Enquiry", selectedRecord.mode_of_enquiry],
-                                            ["Enq. Date", selectedRecord.enq_date ? new Date(selectedRecord.enq_date).toLocaleDateString("en-GB") : "-"],
-                                            ["Target Date", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
-                                            ["Actual Submission Date", selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"],
-                                            ["Time Taken", selectedRecord.time_taken],
-                                            ["Mediator", selectedRecord.mediator],
-                                            ["Estimator", selectedRecord.estimator],
-                                            ["Shreno Status", selectedRecord.shreno_status],
-                                            ["Remark", selectedRecord.remark],
-                                            ["Made By", selectedRecord.made_by],
-                                        ].map(([label, value], idx) => (
-                                            <tr key={idx} className="border-b border-border last:border-0">
-                                                <td className="p-3 font-medium bg-muted/50 w-48 border-r border-border">{label}</td>
-                                                <td className="p-3">{value || "-"}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            {/* Section 1: Enquiry Information */}
+                            <div className="border border-border rounded-xl shadow-sm bg-white">
+                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
+                                    <h3 className="font-bold text-sm">Enquiry Information</h3>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-5 gap-x-4 p-6 text-sm">
+                                    {[
+                                        ["QUOTATION NO.", selectedRecord.quotation_no],
+                                        ["CLIENT REF.", selectedRecord.client_ref],
+                                        ["RFQ TYPE", selectedRecord.rfq_type],
+                                        ["CLIENT NAME", selectedRecord.client_name],
+                                        ["CONSULTANCY", selectedRecord.consultancy],
+                                        ["CONTACT PERSON", selectedRecord.contact_person],
+                                        ["MODE OF ENQUIRY", selectedRecord.mode_of_enquiry],
+                                        ["ENQ. DATE", selectedRecord.enq_date ? new Date(selectedRecord.enq_date).toLocaleDateString("en-GB") : "-"],
+                                        ["DATE", new Date(selectedRecord.createdAt).toLocaleDateString("en-GB")],
+                                    ].map(([label, value], idx) => (
+                                        <div key={idx} className="flex flex-col space-y-1">
+                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
+                                            <span className="font-medium">{value || "-"}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
-                            {/* Enquiry Items Table */}
-                            <div>
-                                <h3 className="font-semibold mb-2">Enquiry Details</h3>
-                                <div className="border rounded-md overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="bg-blue-100">
-                                                {["Sr.", "Enq. Description", "Equip. Qty", "Rev.", "Total Value", "PO No.", "PO Date", "PO Value", "Remarks"].map((h) => (
-                                                    <th key={h} className="p-3 text-left text-red-600 font-semibold border-r border-border last:border-0 whitespace-nowrap">
-                                                        {h}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {!selectedRecord.items?.length ? (
-                                                <tr>
-                                                    <td colSpan={9} className="border border-border p-4 text-center">
-                                                        No enquiry items added.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                selectedRecord.items.map((row) => (
-                                                    <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                                                        <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
-                                                        <td className="border-r border-border p-3 align-top">{row.enq_description || "-"}</td>
-                                                        <td className="border-r border-border p-3 align-top text-center">{row.equip_qty || "-"}</td>
-                                                        <td className="border-r border-border p-3 align-top text-center">{row.rev || "-"}</td>
-                                                        <td className="border-r border-border p-3 align-top text-right">₹{row.total_value?.toLocaleString("en-IN") || "-"}</td>
-                                                        <td className="border-r border-border p-3 align-top">{row.po_no || "-"}</td>
-                                                        <td className="border-r border-border p-3 align-top">{row.po_date ? new Date(row.po_date).toLocaleDateString("en-GB") : "-"}</td>
-                                                        <td className="border-r border-border p-3 align-top text-right">₹{row.po_value?.toLocaleString("en-IN") || "-"}</td>
-                                                        <td className="p-3 align-top">{row.remarks || "-"}</td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
+                            {/* Section 2: Submission Details */}
+                            <div className="border border-border rounded-xl shadow-sm bg-white">
+                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
+                                    <h3 className="font-bold text-sm">Submission Details</h3>
                                 </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-4 p-6 text-sm">
+                                    {[
+                                        ["TARGET DATE (+5 WORKING DAYS)", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
+                                        ["ACTUAL SUBMISSION DATE", selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"],
+                                        ["TIME TAKEN FOR SUBMISSION", selectedRecord.time_taken],
+                                    ].map(([label, value], idx) => (
+                                        <div key={idx} className="flex flex-col space-y-1">
+                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
+                                            <span className="font-medium">{value || "-"}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Section 3: Assignment & Status */}
+                            <div className="border border-border rounded-xl shadow-sm bg-white">
+                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
+                                    <h3 className="font-bold text-sm">Assignment & Status</h3>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-5 gap-x-4 p-6 text-sm">
+                                    {[
+                                        ["MEDIATOR", selectedRecord.mediator],
+                                        ["ESTIMATOR", selectedRecord.estimator],
+                                        ["SHRENO STATUS", selectedRecord.shreno_status],
+                                        ["CLIENT STATUS", selectedRecord.client_status],
+                                        ["MADE BY", selectedRecord.made_by],
+                                        ["REMARK", selectedRecord.remark],
+                                    ].map(([label, value], idx) => (
+                                        <div key={idx} className="flex flex-col space-y-1">
+                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
+                                            <span className="font-medium">{(label === "SHRENO STATUS" || label === "CLIENT STATUS") ? <StatusBadge status={value} /> : (value || "-")}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Section 4: Enquiry Details Table */}
+                            <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+                                <h3 className="px-6 py-3 font-bold text-sm bg-muted/40 border-b border-border">Enquiry Details</h3>
+                                <table className="w-full border-collapse text-xs text-left">
+                                    <thead>
+                                        <tr className="bg-[#f4f4f5] border-b border-border">
+                                            {["SR NO.", "ENQ. DESCRIPTION", "EQUIP. QTY", "REV.", "TOTAL VALUE", "PO NO.", "PO DATE", "PO VALUE", "REMARKS"].map((h) => (
+                                                <th key={h} className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider last:border-r-0">
+                                                    {h}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {!selectedRecord.items?.length ? (
+                                            <tr>
+                                                <td colSpan={9} className="p-4 text-center text-muted-foreground">
+                                                    No enquiry items added.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            selectedRecord.items.map((row) => (
+                                                <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
+                                                    <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
+                                                    <td className="border-r border-border p-3 align-top">{row.enq_description || "-"}</td>
+                                                    <td className="border-r border-border p-3 align-top text-center">{row.equip_qty || "-"}</td>
+                                                    <td className="border-r border-border p-3 align-top text-center">{row.rev || "-"}</td>
+                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.total_value?.toLocaleString("en-IN") || "-"}</td>
+                                                    <td className="border-r border-border p-3 align-top">{row.po_no || "-"}</td>
+                                                    <td className="border-r border-border p-3 align-top">{row.po_date ? new Date(row.po_date).toLocaleDateString("en-GB") : "-"}</td>
+                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.po_value?.toLocaleString("en-IN") || "-"}</td>
+                                                    <td className="p-3 align-top">{row.remarks || "-"}</td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     )}
@@ -308,7 +371,8 @@ function CreateView({ onBack, editId = null }) {
         timeTaken: "",
         mediator: "",
         estimator: "",
-        shrenoStatus: "",
+        shrenoStatus: "Quoted",
+        clientStatus: "Under Review",
         remark: "",
         madeBy: "",
     })
@@ -358,7 +422,8 @@ function CreateView({ onBack, editId = null }) {
                         timeTaken: r.time_taken || "",
                         mediator: r.mediator || "",
                         estimator: r.estimator || "",
-                        shrenoStatus: r.shreno_status || "",
+                        shrenoStatus: r.shreno_status || "Quoted",
+                        clientStatus: r.client_status || "Under Review",
                         remark: r.remark || "",
                         madeBy: r.made_by || "",
                     })
@@ -459,7 +524,8 @@ function CreateView({ onBack, editId = null }) {
                 time_taken: formData.timeTaken,
                 mediator: formData.mediator,
                 estimator: formData.estimator,
-                shreno_status: formData.shrenoStatus || "Pending",
+                shreno_status: formData.shrenoStatus || "Quoted",
+                client_status: formData.clientStatus || "Under Review",
                 remark: formData.remark,
                 made_by: formData.madeBy,
                 items: tableRows.map((row) => ({
@@ -726,6 +792,20 @@ function CreateView({ onBack, editId = null }) {
                                 </SelectTrigger>
                                 <SelectContent>
                                     {SHRENO_STATUS_OPTIONS.map((opt) => (
+                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="clientStatus">Status at Client End</Label>
+                            <Select value={formData.clientStatus} onValueChange={(v) => handleSelectChange("clientStatus", v)}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Client Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {CLIENT_STATUS_OPTIONS.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
                                 </SelectContent>
