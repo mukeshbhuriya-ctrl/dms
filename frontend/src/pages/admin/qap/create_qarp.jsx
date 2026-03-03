@@ -51,59 +51,109 @@ function CreateQARP() {
     code: "",
   })
 
+  // Dynamic Columns
+  const [dynamicColumns, setDynamicColumns] = useState([])
+
   // Table rows
   const [tableRows, setTableRows] = useState([
     {
       id: 1,
-      activity: "",
-      typeMethodCheck: "",
+      activity: "Pre-Inspection Meeting",
+      typeMethodCheck: "----",
       extent: "",
-      acceptanceCriteria: "",
+      acceptanceCriteria: "----",
       referenceDocuments: "",
-      verifyingDocument: "",
-      shreno: "",
-      assignedUser: "",
-      clientTpia: "",
+      verifyingDocument: "MOM",
+      shreno: "H",
+      clientTpia: "O+P",
       remark: "",
-      isHeading: true,
+      isHeading: false,
+      isRoot: true,
       headingText: "",
       parentHeaderId: null,
+      dynamicValues: {}
+    },
+    {
+      id: 2,
+      activity: "QAP",
+      typeMethodCheck: "--",
+      extent: "",
+      acceptanceCriteria: "Drawings, QCM Para. 10.2",
+      referenceDocuments: "",
+      verifyingDocument: "QAP",
+      shreno: "H",
+      clientTpia: "H",
+      remark: "",
+      isHeading: false,
+      isRoot: true,
+      headingText: "",
+      parentHeaderId: null,
+      dynamicValues: {}
+    },
+    {
+      id: 3,
+      activity: "Design Calculation",
+      typeMethodCheck: "Design Documents",
+      extent: "",
+      acceptanceCriteria: "ASME Sec VIII Div. 1",
+      referenceDocuments: "",
+      verifyingDocument: "Design Calculation",
+      shreno: "R",
+      clientTpia: "H",
+      remark: "",
+      isHeading: false,
+      isRoot: true,
+      headingText: "",
+      parentHeaderId: null,
+      dynamicValues: {}
+    },
+    {
+      id: 4,
+      activity: "Drawing",
+      typeMethodCheck: "Relevant Drawings",
+      extent: "",
+      acceptanceCriteria: "Design Calculation, QCM Para. 8.12",
+      referenceDocuments: "",
+      verifyingDocument: "Drawings",
+      shreno: "R",
+      clientTpia: "H",
+      remark: "",
+      isHeading: false,
+      isRoot: true,
+      headingText: "",
+      parentHeaderId: null,
+      dynamicValues: {}
     },
   ])
 
-  // Calculate serial numbers - headers get 1, 2, 3... and sub-items get 1.1, 1.2, 1.3...
+  // Calculate serial numbers
   const getSerialNumbers = () => {
-    let headerCounter = 0
+    let mainCounter = 0
+    let subCounter = 0
     const result = []
 
-    tableRows.forEach((row, index) => {
-      if (row.isHeading) {
-        headerCounter++
+    tableRows.forEach((row) => {
+      if (row.activity === "Pre-Inspection Meeting") {
         result.push({
           ...row,
-          serialNo: headerCounter.toString(),
+          serialNo: "---",
+          subSerialNo: null,
+        })
+      } else if (row.isHeading || row.isRoot) {
+        mainCounter++
+        subCounter = 0
+        result.push({
+          ...row,
+          serialNo: mainCounter.toString(),
           subSerialNo: null,
         })
       } else {
-        // Find the most recent header before this row
-        let currentHeaderCounter = 0
-        let subCounter = 0
-
-        for (let i = 0; i < index; i++) {
-          if (tableRows[i].isHeading) {
-            currentHeaderCounter++
-            subCounter = 0
-          } else if (currentHeaderCounter > 0) {
-            subCounter++
-          }
-        }
-
-        if (currentHeaderCounter > 0) {
+        if (mainCounter > 0) {
           subCounter++
           result.push({
             ...row,
-            serialNo: currentHeaderCounter.toString(),
-            subSerialNo: `${currentHeaderCounter}.${subCounter}`,
+            serialNo: mainCounter.toString(),
+            subSerialNo: `${mainCounter}.${subCounter}`,
           })
         } else {
           result.push({
@@ -180,12 +230,27 @@ function CreateQARP() {
     }
   }
 
-  const users = [
-    { id: "1", name: "John Doe", email: "john@example.com" },
-    { id: "2", name: "Jane Smith", email: "jane@example.com" },
-    { id: "3", name: "Bob Johnson", email: "bob@example.com" },
-    { id: "4", name: "Alice Williams", email: "alice@example.com" },
-    { id: "5", name: "Charlie Brown", email: "charlie@example.com" },
+  const headingOptions = [
+    "Welding",
+    "NDE & QC Procedures",
+    "Material Identification",
+    "Dish End Fabrication",
+    "Main Shell and Skirt Fabrication",
+    "Nozzle Fabrication",
+    "Final Assembly",
+    "Final Dimension and Visual",
+    "PWHT AND NDE AFTER PWHT",
+    "Pressure Test",
+    "Surface Preparation and Painting",
+    "Final Stamping & Documentation"
+  ]
+
+  const shrenoOptions = [
+    { value: "H", label: "H: HOLD" },
+    { value: "W", label: "W: Witness" },
+    { value: "R", label: "R: Review of record" },
+    { value: "RW", label: "RW: 10 % Witness" },
+    { value: "SW", label: "SW: Spot Witness" },
   ]
 
 
@@ -209,6 +274,39 @@ function CreateQARP() {
     )
   }
 
+  const handleAddColumn = () => {
+    const newColId = `col_${Date.now()}`
+    const newCol = { id: newColId, name: `Column ${dynamicColumns.length + 1}`, isEditing: true }
+    setDynamicColumns([...dynamicColumns, newCol])
+  }
+
+  const handleColumnNameChange = (id, newName) => {
+    setDynamicColumns(dynamicColumns.map(col => col.id === id ? { ...col, name: newName } : col))
+  }
+
+  const toggleColumnEdit = (id) => {
+    setDynamicColumns(dynamicColumns.map(col => col.id === id ? { ...col, isEditing: !col.isEditing } : col))
+  }
+
+  const removeColumn = (id) => {
+    setDynamicColumns(dynamicColumns.filter(col => col.id !== id))
+  }
+
+  const handleDynamicColumnChange = (rowId, colId, value) => {
+    setTableRows(tableRows.map(row => {
+      if (row.id === rowId) {
+        return {
+          ...row,
+          dynamicValues: {
+            ...(row.dynamicValues || {}),
+            [colId]: value
+          }
+        }
+      }
+      return row
+    }))
+  }
+
   // Add new heading at the end
   const addRow = () => {
     const newId = Math.max(...tableRows.map((row) => row.id), 0) + 1
@@ -222,13 +320,14 @@ function CreateQARP() {
         acceptanceCriteria: "",
         referenceDocuments: "",
         verifyingDocument: "",
-        shreno: "",
-        assignedUser: "",
+        shreno: "H",
         clientTpia: "",
-        ai: "",
+        remark: "",
         isHeading: true,
+        isRoot: true,
         headingText: "",
         parentHeaderId: null,
+        dynamicValues: {},
       },
     ])
   }
@@ -247,19 +346,20 @@ function CreateQARP() {
         acceptanceCriteria: "",
         referenceDocuments: "",
         verifyingDocument: "",
-        shreno: "",
-        assignedUser: "",
+        shreno: "H",
         clientTpia: "",
-        ai: "",
+        remark: "",
         isHeading: false,
+        isRoot: false,
         headingText: "",
         parentHeaderId: headingId,
+        dynamicValues: {},
       }
 
       // Find the last row that belongs to this heading (before next heading or end)
       let insertIndex = headingIndex + 1
       for (let i = headingIndex + 1; i < tableRows.length; i++) {
-        if (tableRows[i].isHeading) {
+        if (tableRows[i].isHeading || tableRows[i].isRoot) {
           break
         }
         insertIndex = i + 1
@@ -279,6 +379,7 @@ function CreateQARP() {
           ? {
             ...row,
             isHeading: !row.isHeading,
+            isRoot: !row.isHeading,
             headingText: row.isHeading ? "" : row.headingText,
             parentHeaderId: null,
           }
@@ -484,11 +585,34 @@ function CreateQARP() {
                           Shreno
                         </TableHead>
                         <TableHead className="p-2 text-xs font-bold uppercase">
-                          Assigned User
+                          <div className="flex items-center gap-2 justify-between">
+                            <span>Client /<br />TPIA</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={handleAddColumn}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableHead>
-                        <TableHead className="p-2 text-xs font-bold uppercase">
-                          Client /<br />TPIA
-                        </TableHead>
+                        {dynamicColumns.map(col => (
+                          <TableHead key={col.id} className="p-2 text-xs font-bold uppercase min-w-[120px]">
+                            <div className="flex items-center justify-between">
+                              {col.isEditing ? (
+                                <Input
+                                  value={col.name}
+                                  onChange={(e) => handleColumnNameChange(col.id, e.target.value)}
+                                  onBlur={() => toggleColumnEdit(col.id)}
+                                  onKeyDown={(e) => e.key === 'Enter' && toggleColumnEdit(col.id)}
+                                  autoFocus
+                                  className="h-6 text-xs p-1"
+                                />
+                              ) : (
+                                <span onDoubleClick={() => toggleColumnEdit(col.id)} className="cursor-pointer" title="Double click to edit">{col.name}</span>
+                              )}
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0" onClick={() => removeColumn(col.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableHead>
+                        ))}
                         <TableHead className="p-2 text-xs font-bold uppercase">
                           Remark
                         </TableHead>
@@ -504,20 +628,26 @@ function CreateQARP() {
                             <TableCell className="p-2 font-medium">
                               {row.serialNo}
                             </TableCell>
-                            <TableCell colSpan={8} className="p-2">
-                              <Input
-                                type="text"
+                            <TableCell colSpan={7 + dynamicColumns.length} className="p-2">
+                              <Select
                                 value={row.headingText}
-                                onChange={(e) =>
-                                  handleRowChange(
-                                    row.id,
-                                    "headingText",
-                                    e.target.value
-                                  )
+                                onValueChange={(value) =>
+                                  handleRowChange(row.id, "headingText", value)
                                 }
-                                placeholder="Enter heading text"
-                                className="w-full font-semibold"
-                              />
+                              >
+                                <SelectTrigger className="w-[300px] md:w-[400px] lg:w-[500px] font-semibold border-0 focus-visible:ring-0">
+                                  <div className="truncate text-left w-full">
+                                    <SelectValue placeholder="Select heading" />
+                                  </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {headingOptions.map((option, idx) => (
+                                    <SelectItem key={idx} value={option}>
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             </TableCell>
                             <TableCell className="p-2">
                               <div className="flex gap-2">
@@ -605,30 +735,6 @@ function CreateQARP() {
                               />
                             </TableCell>
                             <TableCell>
-                              <Select
-                                value={row.assignedUser}
-                                onValueChange={(value) =>
-                                  handleRowChange(row.id, "assignedUser", value)
-                                }
-                              >
-                                <SelectTrigger className="w-full text-xs h-8">
-                                  <SelectValue placeholder="Select user" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {users.map((user) => (
-                                    <SelectItem key={user.id} value={user.id}>
-                                      <div className="flex flex-col">
-                                        <span>{user.name}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {user.email}
-                                        </span>
-                                      </div>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </TableCell>
-                            <TableCell>
                               <Input
                                 type="text"
                                 value={row.clientTpia}
@@ -639,6 +745,19 @@ function CreateQARP() {
                                 className="w-full text-xs border-0 focus-visible:ring-0"
                               />
                             </TableCell>
+                            {dynamicColumns.map(col => (
+                              <TableCell key={col.id}>
+                                <Input
+                                  type="text"
+                                  value={row.dynamicValues?.[col.id] || ""}
+                                  onChange={(e) =>
+                                    handleDynamicColumnChange(row.id, col.id, e.target.value)
+                                  }
+                                  placeholder={col.name}
+                                  className="w-full text-xs border-0 focus-visible:ring-0"
+                                />
+                              </TableCell>
+                            ))}
                             <TableCell>
                               <Input
                                 type="text"
