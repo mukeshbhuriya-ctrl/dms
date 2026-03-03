@@ -112,7 +112,7 @@ export const MENU_CONFIG = [
         title: "NCR",
         icon: Folder,
         items: [
-            { title: "NCR", path: "/ncr/create-ncr", roles: [ROLES.ADMIN] }
+            { title: "NCR", path: "/ncr/create-ncr", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER] }
         ],
     },
 

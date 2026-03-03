@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { AdminSidebar } from "@/components"
 import {
     SidebarProvider,
@@ -33,7 +33,14 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/shared/StatusBadge"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, Plus, CheckCircle, XCircle } from "lucide-react"
+
+const ROLES = {
+    INITIATOR: "production_engineer",
+    HEAD_DESIGN: "head_design",
+    HEAD_WELDING: "head_welding",
+    HEAD_QUALITY: "head_quality"
+}
 
 const defaultFormData = {
     msmNumber: "",
@@ -65,13 +72,18 @@ const defaultFormData = {
     aiComments: "",
     acceptanceDate: new Date().toISOString().split("T")[0],
 
+    // Status tracking for reviews
+    designReviewStatus: "", // PENDING, APPROVED, REJECTED
+    weldingReviewStatus: "",
+    qualityReviewStatus: "",
+
     correctiveActionVerifiedBy: "",
     correctiveActionDate: new Date().toISOString().split("T")[0],
-    verifiedByQce: "",
+    verifiedByQce: "u2", // Auto-selected Head Quality (u2)
     verifiedByAi: "",
 
     disposition: "",
-    verifiedByHeadQuality: "",
+    verifiedByHeadQuality: "u2",
     dispositionDate: new Date().toISOString().split("T")[0]
 }
 
@@ -94,11 +106,16 @@ function CreateNCR() {
     const [formData, setFormData] = useState(defaultFormData)
     const [isSubmitting, setIsSubmitting] = useState(false)
 
+    // Wireframe Workflow State
+    const [currentUserRole, setCurrentUserRole] = useState(ROLES.INITIATOR);
+    const [currentStage, setCurrentStage] = useState(1);
+    const [subStage, setSubStage] = useState(""); // "" | "DESIGN" | "WELDING" | "QUALITY"
+    const [ncrStatus, setNcrStatus] = useState("draft");
+
     // Dummy data fetch functions
     useEffect(() => {
         if (view === "list") {
             setIsLoadingList(true)
-            // Simulate API call for list
             setTimeout(() => {
                 setNcrList([
                     { id: "1", ncr_no: "NCR-2023-001", client: "Client A", msm_no: "MSN-1001", status: "pending" },
@@ -111,7 +128,6 @@ function CreateNCR() {
 
     useEffect(() => {
         if (view === "create") {
-            // Load dummy jobs and users
             setJobs([
                 { id: "job1", job_number: "MSN-1001", client: "Acme Corp", poNo: "PO-9912", tagNo: "TAG-A1", drgNo: "DRG-001", revNo: "A", next_ncr_no: "NCR-2023-003" },
                 { id: "job2", job_number: "MSN-1002", client: "Globex", poNo: "PO-8823", tagNo: "TAG-B2", drgNo: "DRG-002", revNo: "B", next_ncr_no: "NCR-2023-004" }
@@ -122,6 +138,7 @@ function CreateNCR() {
                 { id: "u3", name: "Jane Smith (Design)" },
                 { id: "u4", name: "Mike Johnson (Welding)" },
                 { id: "u5", name: "AI Inspector" },
+                { id: "u6", name: "Production Engineer" },
             ].map(normalizeUser))
         }
     }, [view])
@@ -143,7 +160,6 @@ function CreateNCR() {
 
     const handleJobChange = (jobId) => {
         const selectedJob = jobs.find((job) => job.id === jobId)
-
         setFormData((prev) => ({
             ...prev,
             msmNumber: jobId,
@@ -158,28 +174,159 @@ function CreateNCR() {
 
     const handleReset = () => {
         setFormData(defaultFormData)
+        setCurrentStage(1)
+        setSubStage("")
+        setNcrStatus("draft")
     }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault()
-        setIsSubmitting(true)
-
-        // Simulate submission
-        setTimeout(() => {
-            alert("NCR Created Successfully! (Dummy)")
-            setIsSubmitting(false)
-            handleReset()
-            setView("list")
-        }, 1000)
+    const handleCreateNew = () => {
+        handleReset()
+        setView("create")
     }
 
+    // Workflow Actions
+    const handleNextStage = () => {
+        if (currentStage === 1) {
+            setCurrentStage(2)
+        } else if (currentStage === 2) {
+            setCurrentStage(3)
+        } else if (currentStage === 3) {
+            setNcrStatus("in_review")
+            setSubStage("DESIGN")
+            alert("Sent for reviews. Switch to Head Design role to continue testing.")
+        } else if (currentStage === 4 && ncrStatus === "approved_resolution") {
+            setNcrStatus("pending_verification")
+            alert("Verification details submitted. Switch to Head Quality role to continue.")
+        } else if (currentStage === 4 && ncrStatus === "pending_verification") {
+            setCurrentStage(5)
+            alert("Verification complete. Move to Disposition.")
+        } else if (currentStage === 5) {
+            setNcrStatus("closed")
+            alert("NCR successfully CLOSED.")
+        }
+    }
+
+    const handleReviewSubmit = (reviewType, action) => {
+        const isApproved = action === 'APPROVE'
+        const statusField = `${reviewType.toLowerCase()}ReviewStatus`
+
+        // Update the status for the specific reviewer
+        setFormData(prev => ({ ...prev, [statusField]: isApproved ? "APPROVED" : "REJECTED" }))
+
+        if (reviewType === 'DESIGN') {
+            setSubStage('WELDING')
+        }
+        else if (reviewType === 'WELDING') {
+            setSubStage('QUALITY')
+        }
+        else if (reviewType === 'QUALITY') {
+            // Check if ANY of the reviewers rejected
+            const isAnyRejected = formData.designReviewStatus === "REJECTED" ||
+                formData.weldingReviewStatus === "REJECTED" ||
+                !isApproved; // Include current Quality action
+
+            if (isAnyRejected) {
+                setNcrStatus("rejected")
+                setCurrentStage(5) // End form flow
+                alert("NCR has been rejected by one or more reviewers and is now CLOSED.")
+            } else {
+                setCurrentStage(4)
+                setNcrStatus("approved_resolution")
+                alert("All reviews approved. Stage 3 complete. Switch back to Initiator Role.")
+            }
+        }
+    }
+
+    const handleViewItem = (ncrRecord) => {
+        // Load the dummy record into form data and set to view mode
+        setFormData((prev) => ({
+            ...prev,
+            ncrNo: ncrRecord.ncr_no,
+            msmNumber: ncrRecord.msm_no,
+            client: ncrRecord.client,
+        }))
+
+        // For demonstration, set to closed stage if status is closed/rejected
+        if (ncrRecord.status === "closed" || ncrRecord.status === "rejected") {
+            setCurrentStage(5);
+            setNcrStatus(ncrRecord.status);
+        } else {
+            setCurrentStage(1);
+            setNcrStatus("draft");
+        }
+
+        setView("view")
+    }
+
+    const renderBasicInfo = (isDisabled, idPrefix) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 pb-4 border-b border-muted/50">
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}msmNumber`}>MSN. <span className="text-destructive">*</span></Label>
+                <Select value={formData.msmNumber} onValueChange={handleJobChange} disabled={isDisabled}>
+                    <SelectTrigger id={`${idPrefix}msmNumber`} className="w-full bg-background [&>span]:truncate text-left">
+                        <SelectValue placeholder="Select MSN Number" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {jobs.map((job) => (
+                            <SelectItem key={job.id} value={job.id}>{job.job_number}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}ncrNo`}>NCR NO. <span className="text-destructive">*</span></Label>
+                <Input id={`${idPrefix}ncrNo`} name="ncrNo" value={formData.ncrNo} readOnly disabled className="bg-muted" required />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}date`}>DATE <span className="text-destructive">*</span></Label>
+                <Input id={`${idPrefix}date`} name="date" type="date" value={formData.date} onChange={handleInputChange} disabled={isDisabled} required />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}client`}>CLIENT <span className="text-destructive">*</span></Label>
+                <Input id={`${idPrefix}client`} name="client" placeholder="Enter client name" value={formData.client} onChange={handleInputChange} disabled={isDisabled} required />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}poNo`}>P.O. NO. <span className="text-destructive">*</span></Label>
+                <Input id={`${idPrefix}poNo`} name="poNo" placeholder="Enter P.O. Number" value={formData.poNo} onChange={handleInputChange} disabled={isDisabled} required />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}tagNo`}>TAG NO. <span className="text-destructive">*</span></Label>
+                <Input id={`${idPrefix}tagNo`} name="tagNo" placeholder="Enter Tag Number" value={formData.tagNo} onChange={handleInputChange} disabled={isDisabled} />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}drgNo`}>DRG. NO. <span className="text-destructive">*</span></Label>
+                <Input id={`${idPrefix}drgNo`} name="drgNo" placeholder="Enter Drawing Number" value={formData.drgNo} onChange={handleInputChange} disabled={isDisabled} required />
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor={`${idPrefix}revNo`}>REV. NO. <span className="text-destructive">*</span></Label>
+                <Input id={`${idPrefix}revNo`} name="revNo" placeholder="Enter Revision Number" value={formData.revNo} onChange={handleInputChange} disabled={isDisabled} required />
+            </div>
+        </div>
+    );
+
+    // Logic for Disabling Sections dynamically
     const isViewMode = view === "view"
-    const isCreateMode = view === "create"
-    const isFormDisabled = isSubmitting || isViewMode
 
-    const handleCheckboxChange = (field, checked) => {
-        setFormData(prev => ({ ...prev, [field]: checked }))
-    }
+    // Stage logic calculation
+    const isStage1Active = currentStage === 1 && currentUserRole === ROLES.INITIATOR
+    const isStage2Active = currentStage === 2 && currentUserRole === ROLES.INITIATOR
+    const isStage3InitActive = currentStage === 3 && ncrStatus !== "in_review" && currentUserRole === ROLES.INITIATOR
+
+    const isDesignActive = currentStage === 3 && subStage === "DESIGN" && currentUserRole === ROLES.HEAD_DESIGN
+    const isWeldingActive = currentStage === 3 && subStage === "WELDING" && currentUserRole === ROLES.HEAD_WELDING
+    const isQualityActive = currentStage === 3 && subStage === "QUALITY" && currentUserRole === ROLES.HEAD_QUALITY
+
+    const isStage4InitActive = currentStage === 4 && ncrStatus === "approved_resolution" && currentUserRole === ROLES.INITIATOR
+    const isStage4QualityActive = currentStage === 4 && ncrStatus === "pending_verification" && currentUserRole === ROLES.HEAD_QUALITY
+
+    const isStage5QualityActive = currentStage === 5 && ncrStatus !== "closed" && ncrStatus !== "rejected" && currentUserRole === ROLES.HEAD_QUALITY
 
     return (
         <SidebarProvider>
@@ -191,6 +338,48 @@ function CreateNCR() {
 
                 <main className="flex-1 overflow-auto p-6">
                     <div className="max-w-6xl mx-auto w-full">
+
+                        {/* Simulation Bar */}
+                        {view === "create" && (
+                            <div className="flex items-center gap-4 bg-primary/5 p-4 rounded-lg mb-6 border border-primary/20 shadow-sm transition-all">
+                                <div>
+                                    <Label className="text-primary font-bold flex items-center gap-2">
+                                        SIMULATE ROLE
+                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground mt-1">Change roles to test workflow stages</p>
+                                </div>
+                                <Select value={currentUserRole} onValueChange={setCurrentUserRole}>
+                                    <SelectTrigger className="w-[280px] bg-background font-medium">
+                                        <SelectValue placeholder="Select Role" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value={ROLES.INITIATOR}>Production Engineer (Initiator)</SelectItem>
+                                        <SelectItem value={ROLES.HEAD_DESIGN}>Head of Design</SelectItem>
+                                        <SelectItem value={ROLES.HEAD_WELDING}>Head of Welding</SelectItem>
+                                        <SelectItem value={ROLES.HEAD_QUALITY}>Head of Quality (QCE)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                <div className="ml-auto flex items-center gap-8 text-sm bg-background border rounded-md px-4 py-2">
+                                    <div className="flex flex-col">
+                                        <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">Stage</span>
+                                        <span className="font-bold text-lg">{currentStage} <span className="text-muted-foreground text-sm">/ 5</span></span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">NCR Status</span>
+                                        <span className="font-bold mt-1 max-w-[150px]"><StatusBadge status={ncrStatus.replace('_', ' ')} /></span>
+                                    </div>
+                                    {subStage && (
+                                        <div className="flex flex-col border-l pl-4">
+                                            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">Pending Review</span>
+                                            <span className="font-bold text-amber-600 dark:text-amber-400">{subStage}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex items-center justify-between mb-6">
                             <div>
                                 <h1 className="text-3xl font-bold mb-2">
@@ -199,13 +388,13 @@ function CreateNCR() {
                                 <p className="text-muted-foreground">
                                     {view === "list"
                                         ? "Manage Non-Conformance Reports"
-                                        : "Fill in the NCR details based on the selected job."}
+                                        : "Fill in the NCR details following the automated workflow."}
                                 </p>
                             </div>
 
                             <div className="flex items-center gap-2">
                                 {view === "list" ? (
-                                    <Button onClick={() => setView("create")}>
+                                    <Button onClick={() => handleCreateNew()}>
                                         <Plus className="mr-2 h-4 w-4" />
                                         Create NCR
                                     </Button>
@@ -262,7 +451,7 @@ function CreateNCR() {
                                                                     type="button"
                                                                     variant="outline"
                                                                     size="sm"
-                                                                    disabled
+                                                                    onClick={() => handleViewItem(record)}
                                                                 >
                                                                     View
                                                                 </Button>
@@ -276,356 +465,392 @@ function CreateNCR() {
                                 </CardContent>
                             </Card>
                         ) : (
-                            <form onSubmit={handleSubmit}>
+                            <form onSubmit={(e) => e.preventDefault()}>
                                 <div className="grid gap-6">
 
-                                    {/* 1. Basic Information */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle>Basic Information</CardTitle>
-                                            <CardDescription>Select MSN to auto-fill</CardDescription>
+                                    {/* 1. Basic Information (Combined Card 1 & 2 for Workflow UI) */}
+                                    <Card className={isStage1Active ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                        <CardHeader className="bg-muted/30">
+                                            <CardTitle className="flex justify-between items-center text-lg">
+                                                <span>STAGE 1: DESCRIPTION OF NON-CONFORMANCE</span>
+                                                {currentStage > 1 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
+                                            </CardTitle>
                                         </CardHeader>
-                                        <CardContent>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="msmNumber">MSN. <span className="text-destructive">*</span></Label>
-                                                    <Select
-                                                        value={formData.msmNumber}
-                                                        onValueChange={handleJobChange}
-                                                        disabled={isFormDisabled}
-                                                    >
-                                                        <SelectTrigger id="msmNumber" className="w-full">
-                                                            <SelectValue placeholder="Select MSN Number" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {jobs.map((job) => (
-                                                                <SelectItem key={job.id} value={job.id}>
-                                                                    {job.job_number}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                        <CardContent className="pt-6 space-y-6">
+                                            <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
+                                                <div className="text-sm text-muted-foreground bg-amber-50 rounded-md p-3 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/50 w-full md:w-2/3">
+                                                    <strong>Initiator Note:</strong> Please fill the detailed findings of the non-conformance ensuring the MSN number matches strictly.
                                                 </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="ncrNo">NCR NO. <span className="text-destructive">*</span></Label>
-                                                    <Input id="ncrNo" name="ncrNo" value={formData.ncrNo} readOnly disabled className="bg-muted" required />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="date">DATE <span className="text-destructive">*</span></Label>
-                                                    <Input id="date" name="date" type="date" value={formData.date} onChange={handleInputChange} disabled={isFormDisabled} required />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="client">CLIENT <span className="text-destructive">*</span></Label>
-                                                    <Input id="client" name="client" placeholder="Enter client name" value={formData.client} onChange={handleInputChange} disabled={isFormDisabled} required />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="poNo">P.O. NO. <span className="text-destructive">*</span></Label>
-                                                    <Input id="poNo" name="poNo" placeholder="Enter P.O. Number" value={formData.poNo} onChange={handleInputChange} disabled={isFormDisabled} required />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="tagNo">TAG NO. <span className="text-destructive">*</span></Label>
-                                                    <Input id="tagNo" name="tagNo" placeholder="Enter Tag Number" value={formData.tagNo} onChange={handleInputChange} disabled={isFormDisabled} />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="drgNo">DRG. NO. <span className="text-destructive">*</span></Label>
-                                                    <Input id="drgNo" name="drgNo" placeholder="Enter Drawing Number" value={formData.drgNo} onChange={handleInputChange} disabled={isFormDisabled} required />
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="revNo">REV. NO. <span className="text-destructive">*</span></Label>
-                                                    <Input id="revNo" name="revNo" placeholder="Enter Revision Number" value={formData.revNo} onChange={handleInputChange} disabled={isFormDisabled} required />
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* 2. Description of Non-Conformance */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="uppercase">DESCRIPTION OF NON-CONFORMANCE:</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <Textarea
-                                                name="descriptionNonConformance"
-                                                rows={4}
-                                                placeholder="Provide a detailed description of the non-conformance..."
-                                                value={formData.descriptionNonConformance}
-                                                onChange={handleInputChange}
-                                                disabled={isFormDisabled}
-                                                required
-                                            />
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="ncrRaisedAt" className="uppercase">NCR Raised At:</Label>
-                                                    <Select
-                                                        value={formData.ncrRaisedAt}
-                                                        onValueChange={(val) => handleSelectChange("ncrRaisedAt", val)}
-                                                        disabled={isFormDisabled}
-                                                    >
-                                                        <SelectTrigger id="ncrRaisedAt" className="w-full">
-                                                            <SelectValue placeholder="Select Team member" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {users.map((user) => (
-                                                                <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="ncrRaisedBy" className="uppercase">NCR Raised By:</Label>
-                                                    <Select
-                                                        value={formData.ncrRaisedBy}
-                                                        onValueChange={(val) => handleSelectChange("ncrRaisedBy", val)}
-                                                        disabled={isFormDisabled}
-                                                    >
-                                                        <SelectTrigger id="ncrRaisedBy" className="w-full">
-                                                            <SelectValue placeholder="Select team member" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {users.map((user) => (
-                                                                <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="ncrDate" className="uppercase">DATE:</Label>
-                                                    <Input id="ncrDate" name="ncrDate" type="date" value={formData.ncrDate} onChange={handleInputChange} disabled={isFormDisabled} />
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* 3. Proposed Resolution */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="uppercase">PROPOSED RESOLUTION WITH JUSTIFICATION:</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <Textarea
-                                                name="proposedResolution"
-                                                rows={4}
-                                                placeholder="Provide the proposed resolution and its justification..."
-                                                value={formData.proposedResolution}
-                                                onChange={handleInputChange}
-                                                disabled={isFormDisabled}
-                                                required
-                                            />
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="resolutionBy" className="uppercase">BY:</Label>
-                                                    <Select
-                                                        value={formData.resolutionBy}
-                                                        onValueChange={(val) => handleSelectChange("resolutionBy", val)}
-                                                        disabled={isFormDisabled}
-                                                    >
-                                                        <SelectTrigger id="resolutionBy" className="w-full">
-                                                            <SelectValue placeholder="Select team member" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {users.map((user) => (
-                                                                <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="resolutionDate" className="uppercase">DATE:</Label>
-                                                    <Input id="resolutionDate" name="resolutionDate" type="date" value={formData.resolutionDate} onChange={handleInputChange} disabled={isFormDisabled} />
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* 4. Acceptance of Proposal */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="uppercase">ACCEPTANCE OF PROPOSAL FOR RESOLUTION:</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-6">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="font-medium text-base">Customer approval required.</Label>
-                                                <div className="w-1/4 space-y-2 text-right">
-                                                    <div className="flex items-center space-x-2 justify-end">
-                                                        <Label htmlFor="acceptanceDate" className="uppercase whitespace-nowrap">DATE:</Label>
-                                                        <Input id="acceptanceDate" className="w-40" name="acceptanceDate" type="date" value={formData.acceptanceDate} onChange={handleInputChange} disabled={isFormDisabled} />
+                                                {isStage1Active && (
+                                                    <div className="flex items-center">
+                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap">Submit Description (Stage 1)</Button>
                                                     </div>
-                                                </div>
+                                                )}
                                             </div>
 
-                                            <div className="space-y-3 border p-4 rounded-md">
-                                                <Label className="uppercase block mb-2">RESOLUTION APPROVAL</Label>
-                                                <div className="flex flex-wrap justify-between items-center w-full">
-                                                    {["USE AS IS", "REPAIR", "REWORK", "REJECTED"].map((option) => (
-                                                        <div key={option} className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`res-${option}`}
-                                                                checked={formData.resolutionApproval === option}
-                                                                onCheckedChange={(checked) => {
-                                                                    if (checked) handleSelectChange("resolutionApproval", option)
-                                                                }}
-                                                                disabled={isFormDisabled}
-                                                            />
-                                                            <Label htmlFor={`res-${option}`} className="uppercase">{option}</Label>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
+                                            {renderBasicInfo(!isStage1Active || isViewMode, "stage1-")}
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
+                                            <div className="space-y-4 pt-2">
                                                 <div className="space-y-2">
-                                                    <Label className="uppercase">HEAD DESIGN:</Label>
-                                                    <Select value={formData.headDesign} onValueChange={(val) => handleSelectChange("headDesign", val)} disabled={isFormDisabled}>
-                                                        <SelectTrigger className="w-full"><SelectValue placeholder="Select Head of Design" /></SelectTrigger>
-                                                        <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                                                    </Select>
-                                                    <Textarea name="headDesignComments" placeholder="Add comments or approval notes..." value={formData.headDesignComments} onChange={handleInputChange} className="mt-2 h-20" disabled={isFormDisabled} />
+                                                    <Label className="uppercase text-md">Description of Non-Conformance:</Label>
+                                                    <Textarea
+                                                        name="descriptionNonConformance"
+                                                        rows={4}
+                                                        placeholder="Provide a detailed description of the non-conformance..."
+                                                        value={formData.descriptionNonConformance}
+                                                        onChange={handleInputChange}
+                                                        disabled={!isStage1Active || isViewMode}
+                                                        required
+                                                    />
                                                 </div>
-                                                <div className="space-y-2">
-                                                    <Label className="uppercase">HEAD WELDING:</Label>
-                                                    <Select value={formData.headWelding} onValueChange={(val) => handleSelectChange("headWelding", val)} disabled={isFormDisabled}>
-                                                        <SelectTrigger className="w-full"><SelectValue placeholder="Select Head of Welding" /></SelectTrigger>
-                                                        <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                                                    </Select>
-                                                    <Textarea name="headWeldingComments" placeholder="Add comments or approval notes..." value={formData.headWeldingComments} onChange={handleInputChange} className="mt-2 h-20" disabled={isFormDisabled} />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="uppercase">HEAD QUALITY:</Label>
-                                                    <Select value={formData.headQuality} onValueChange={(val) => handleSelectChange("headQuality", val)} disabled={isFormDisabled}>
-                                                        <SelectTrigger className="w-full"><SelectValue placeholder="Select Head of Quality" /></SelectTrigger>
-                                                        <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                                                    </Select>
-                                                    <Textarea name="headQualityComments" placeholder="Add comments or approval notes..." value={formData.headQualityComments} onChange={handleInputChange} className="mt-2 h-20" disabled={isFormDisabled} />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label className="uppercase">AI:</Label>
-                                                    <div className="h-[128px] border rounded-md flex items-center justify-center text-muted-foreground font-semibold">
-                                                        AI
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ncrRaisedAt" className="uppercase">NCR Raised At:</Label>
+                                                        <Select value={formData.ncrRaisedAt} onValueChange={(val) => handleSelectChange("ncrRaisedAt", val)} disabled={!isStage1Active || isViewMode}>
+                                                            <SelectTrigger id="ncrRaisedAt" className="w-full">
+                                                                <SelectValue placeholder="Select Team member" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {users.map((user) => (
+                                                                    <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ncrRaisedBy" className="uppercase">NCR Raised By:</Label>
+                                                        <Select value={formData.ncrRaisedBy} onValueChange={(val) => handleSelectChange("ncrRaisedBy", val)} disabled={!isStage1Active || isViewMode}>
+                                                            <SelectTrigger id="ncrRaisedBy" className="w-full">
+                                                                <SelectValue placeholder="Select team member" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {users.map((user) => (
+                                                                    <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ncrDate" className="uppercase">Date:</Label>
+                                                        <Input id="ncrDate" name="ncrDate" type="date" value={formData.ncrDate} onChange={handleInputChange} disabled={!isStage1Active || isViewMode} />
                                                     </div>
                                                 </div>
                                             </div>
                                         </CardContent>
                                     </Card>
 
-                                    {/* 5. Corrective Action Verification */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="uppercase">CORRECTIVE ACTION VERIFICATION CARRIED OUT BY:</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <div className="flex justify-between items-start gap-4">
+                                    {/* 2. Proposed Resolution */}
+                                    {currentStage >= 2 && (
+                                        <Card className={isStage2Active ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                            <CardHeader className="bg-muted/30">
+                                                <CardTitle className="flex justify-between items-center text-lg">
+                                                    <span className="uppercase">STAGE 2: Proposed Resolution with Justification</span>
+                                                    {currentStage > 2 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-6 space-y-4">
+                                                {renderBasicInfo(true, "stage2-")}
                                                 <Textarea
-                                                    name="correctiveActionVerifiedBy"
-                                                    rows={3}
-                                                    placeholder="Provide details about the corrective action verification process..."
-                                                    value={formData.correctiveActionVerifiedBy}
+                                                    name="proposedResolution"
+                                                    rows={4}
+                                                    placeholder="Provide the proposed resolution and its justification..."
+                                                    value={formData.proposedResolution}
                                                     onChange={handleInputChange}
-                                                    disabled={isFormDisabled}
-                                                    className="flex-1"
+                                                    disabled={!isStage2Active || isViewMode}
+                                                    required
                                                 />
-                                                <div className="w-1/4 space-y-2 min-w-[200px]">
-                                                    <div className="flex flex-col space-y-2">
-                                                        <Label htmlFor="correctiveActionDate" className="uppercase">DATE:</Label>
-                                                        <Input id="correctiveActionDate" name="correctiveActionDate" type="date" value={formData.correctiveActionDate} onChange={handleInputChange} disabled={isFormDisabled} />
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="resolutionBy" className="uppercase">By:</Label>
+                                                        <Select value={formData.resolutionBy} onValueChange={(val) => handleSelectChange("resolutionBy", val)} disabled={!isStage2Active || isViewMode}>
+                                                            <SelectTrigger id="resolutionBy" className="w-full">
+                                                                <SelectValue placeholder="Select team member" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {users.map((user) => (
+                                                                    <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="resolutionDate" className="uppercase">Date:</Label>
+                                                        <Input id="resolutionDate" name="resolutionDate" type="date" value={formData.resolutionDate} onChange={handleInputChange} disabled={!isStage2Active || isViewMode} />
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="verifiedByQce" className="uppercase">VERIFIED BY QCE:</Label>
-                                                    <Select
-                                                        value={formData.verifiedByQce}
-                                                        onValueChange={(val) => handleSelectChange("verifiedByQce", val)}
-                                                        disabled={isFormDisabled}
-                                                    >
-                                                        <SelectTrigger id="verifiedByQce" className="w-full">
-                                                            <SelectValue placeholder="Select quality control engineer" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {users.map((user) => (
-                                                                <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="verifiedByAi" className="uppercase">VERIFIED BY AI:</Label>
-                                                    <div className="h-10 border rounded-md flex items-center justify-center text-muted-foreground font-semibold">
-                                                        AI
+                                                {isStage2Active && (
+                                                    <div className="pt-4 flex justify-end">
+                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700">Submit Resolution (Stage 2)</Button>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
+
+                                    {/* 3. Acceptance of Proposal */}
+                                    {currentStage >= 3 && (
+                                        <Card className={isStage3InitActive || isDesignActive || isWeldingActive || isQualityActive ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                            <CardHeader className="bg-muted/30">
+                                                <CardTitle className="flex justify-between items-center text-lg">
+                                                    <span className="uppercase">STAGE 3: Acceptance of Proposal for Resolution</span>
+                                                    {currentStage > 3 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-6 space-y-6">
+                                                {renderBasicInfo(true, "stage3-")}
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <Label className="font-medium text-base">Customer approval required.</Label>
+                                                    <div className="w-full md:w-1/4 space-y-2 text-right">
+                                                        <div className="flex items-center space-x-2 md:justify-end">
+                                                            <Label htmlFor="acceptanceDate" className="uppercase whitespace-nowrap">DATE:</Label>
+                                                            <Input id="acceptanceDate" className="w-40" name="acceptanceDate" type="date" value={formData.acceptanceDate} onChange={handleInputChange} disabled={!isStage3InitActive || isViewMode} />
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+
+                                                <div className={`space-y-3 border p-4 rounded-md ${isStage3InitActive ? 'bg-primary/5 border-primary/20' : ''}`}>
+                                                    <Label className="uppercase block mb-2">Resolution Approval Selection</Label>
+                                                    <div className="flex flex-wrap justify-between items-center w-full">
+                                                        {["USE AS IS", "REPAIR", "REWORK", "REJECTED"].map((option) => (
+                                                            <div key={option} className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`res-${option}`}
+                                                                    checked={formData.resolutionApproval === option}
+                                                                    onCheckedChange={(checked) => {
+                                                                        if (checked) handleSelectChange("resolutionApproval", option)
+                                                                    }}
+                                                                    disabled={!isStage3InitActive || isViewMode}
+                                                                />
+                                                                <Label htmlFor={`res-${option}`} className="uppercase">{option}</Label>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* Reviewers Grid */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
+
+                                                    {/* Design Review */}
+                                                    <div className={`space-y-3 p-3 rounded-md border flex flex-col ${isDesignActive ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                                                        <Label className="uppercase font-bold flex items-center gap-2">
+                                                            HEAD DESIGN:
+                                                            {formData.designReviewStatus === 'APPROVED' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                                            {formData.designReviewStatus === 'REJECTED' && <XCircle className="w-4 h-4 text-red-500" />}
+                                                        </Label>
+                                                        <Select value={formData.headDesign} onValueChange={(val) => handleSelectChange("headDesign", val)} disabled={!isStage3InitActive || isViewMode}>
+                                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Head of Design" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                        <Textarea name="headDesignComments" placeholder="Add comments or approval notes..." value={formData.headDesignComments} onChange={handleInputChange} className="mt-2 flex-grow min-h-[5rem] bg-background" disabled={!isDesignActive || isViewMode} />
+
+                                                        {isDesignActive && (
+                                                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
+                                                                <Button size="sm" type="button" className="w-full bg-green-600 hover:bg-green-700 px-1" onClick={() => handleReviewSubmit('DESIGN', 'APPROVE')}>Approve</Button>
+                                                                <Button size="sm" type="button" variant="destructive" className="w-full px-1" onClick={() => handleReviewSubmit('DESIGN', 'REJECT')}>Reject</Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Welding Review */}
+                                                    <div className={`space-y-3 p-3 rounded-md border flex flex-col ${isWeldingActive ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                                                        <Label className="uppercase font-bold flex items-center gap-2">
+                                                            HEAD WELDING:
+                                                            {formData.weldingReviewStatus === 'APPROVED' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                                            {formData.weldingReviewStatus === 'REJECTED' && <XCircle className="w-4 h-4 text-red-500" />}
+                                                        </Label>
+                                                        <Select value={formData.headWelding} onValueChange={(val) => handleSelectChange("headWelding", val)} disabled={!isStage3InitActive || isViewMode}>
+                                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Head of Welding" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                        <Textarea name="headWeldingComments" placeholder="Add comments or approval notes..." value={formData.headWeldingComments} onChange={handleInputChange} className="mt-2 flex-grow min-h-[5rem] bg-background" disabled={!isWeldingActive || isViewMode} />
+
+                                                        {isWeldingActive && (
+                                                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
+                                                                <Button size="sm" type="button" className="w-full bg-green-600 hover:bg-green-700 px-1" onClick={() => handleReviewSubmit('WELDING', 'APPROVE')}>Approve</Button>
+                                                                <Button size="sm" type="button" variant="destructive" className="w-full px-1" onClick={() => handleReviewSubmit('WELDING', 'REJECT')}>Reject</Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Quality Review */}
+                                                    <div className={`space-y-3 p-3 rounded-md border flex flex-col ${isQualityActive ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                                                        <Label className="uppercase font-bold flex items-center gap-2">
+                                                            HEAD QUALITY:
+                                                            {formData.qualityReviewStatus === 'APPROVED' && <CheckCircle className="w-4 h-4 text-green-500" />}
+                                                            {formData.qualityReviewStatus === 'REJECTED' && <XCircle className="w-4 h-4 text-red-500" />}
+                                                        </Label>
+                                                        <Select value={formData.headQuality} onValueChange={(val) => handleSelectChange("headQuality", val)} disabled={!isStage3InitActive || isViewMode}>
+                                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Head of Quality" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                        <Textarea name="headQualityComments" placeholder="Add comments or approval notes..." value={formData.headQualityComments} onChange={handleInputChange} className="mt-2 flex-grow min-h-[5rem] bg-background" disabled={!isQualityActive || isViewMode} />
+
+                                                        {isQualityActive && (
+                                                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
+                                                                <Button size="sm" type="button" className="w-full bg-green-600 hover:bg-green-700 px-1" onClick={() => handleReviewSubmit('QUALITY', 'APPROVE')}>Approve</Button>
+                                                                <Button size="sm" type="button" variant="destructive" className="w-full px-1" onClick={() => handleReviewSubmit('QUALITY', 'REJECT')}>Reject</Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* AI Display */}
+                                                    <div className="space-y-2 p-3 opacity-60">
+                                                        <Label className="uppercase font-bold">AI:</Label>
+                                                        <div className="h-[128px] border rounded-md flex items-center justify-center text-muted-foreground font-semibold bg-muted/50">
+                                                            AI
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {isStage3InitActive && (
+                                                    <div className="pt-4 flex justify-end">
+                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700">Send for Sequential Reviews (Stage 3)</Button>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
+
+                                    {/* 4. Corrective Action Verification */}
+                                    {currentStage >= 4 && ncrStatus !== "rejected" && (
+                                        <Card className={(isStage4InitActive || isStage4QualityActive) ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                            <CardHeader className="bg-muted/30">
+                                                <CardTitle className="uppercase flex justify-between items-center text-lg">
+                                                    <span>STAGE 4: Corrective Action Verification Carried Out By</span>
+                                                    {currentStage > 4 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-6 space-y-4">
+                                                {renderBasicInfo(true, "stage4-")}
+                                                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                                                    <div className="flex-1 w-full space-y-2">
+                                                        <Textarea
+                                                            name="correctiveActionVerifiedBy"
+                                                            rows={3}
+                                                            placeholder="Initiator: Provide details about the corrective action verification process..."
+                                                            value={formData.correctiveActionVerifiedBy}
+                                                            onChange={handleInputChange}
+                                                            disabled={!isStage4InitActive || isViewMode}
+                                                            className={isStage4InitActive ? "bg-blue-50/30" : ""}
+                                                        />
+                                                    </div>
+                                                    <div className="w-full md:w-1/4 space-y-2 min-w-[200px]">
+                                                        <div className="flex flex-col space-y-2">
+                                                            <Label htmlFor="correctiveActionDate" className="uppercase">Date:</Label>
+                                                            <Input id="correctiveActionDate" name="correctiveActionDate" type="date" value={formData.correctiveActionDate} onChange={handleInputChange} disabled={!isStage4InitActive || isViewMode} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
+                                                    <div className={`space-y-2 p-3 rounded border ${isStage4QualityActive ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''}`}>
+                                                        <Label htmlFor="verifiedByQce" className="uppercase font-bold">VERIFIED BY QCE:</Label>
+                                                        <Select
+                                                            value={formData.verifiedByQce} // Pre-set to "u2" default
+                                                            onValueChange={(val) => handleSelectChange("verifiedByQce", val)}
+                                                            disabled={!isStage4InitActive || isViewMode} // Initiator selects, QCE verifies
+                                                        >
+                                                            <SelectTrigger id="verifiedByQce" className="w-full bg-background">
+                                                                <SelectValue placeholder="Select quality control engineer" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {users.map((user) => (
+                                                                    <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+
+                                                        {isStage4QualityActive && (
+                                                            <div className="pt-4 flex">
+                                                                <Button type="button" onClick={handleNextStage} className="w-full bg-green-600 hover:bg-green-700">Verify & Approve Action</Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="space-y-2 p-3 opacity-60 rounded border">
+                                                        <Label htmlFor="verifiedByAi" className="uppercase font-bold">VERIFIED BY AI:</Label>
+                                                        <div className="h-10 border rounded-md flex items-center justify-center text-muted-foreground font-semibold bg-muted/50">
+                                                            AI
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {isStage4InitActive && (
+                                                    <div className="pt-4 flex justify-end">
+                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700">Send for QCE Verification (Stage 4)</Button>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
 
                                     {/* 6. Disposition */}
-                                    <Card>
-                                        <CardHeader>
-                                            <CardTitle className="uppercase">DISPOSITION:</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                            <div className="flex justify-between items-start gap-4">
-                                                <Textarea
-                                                    name="disposition"
-                                                    rows={3}
-                                                    placeholder="Provide final disposition notes or required actions..."
-                                                    value={formData.disposition}
-                                                    onChange={handleInputChange}
-                                                    disabled={isFormDisabled}
-                                                    className="flex-1"
-                                                />
-                                                <div className="w-1/4 space-y-2 min-w-[200px]">
-                                                    <div className="flex flex-col space-y-2">
-                                                        <Label htmlFor="dispositionDate" className="uppercase">DATE:</Label>
-                                                        <Input id="dispositionDate" name="dispositionDate" type="date" value={formData.dispositionDate} onChange={handleInputChange} disabled={isFormDisabled} />
+                                    {currentStage >= 5 && ncrStatus !== "rejected" && (
+                                        <Card className={isStage5QualityActive ? "border-green-500 shadow-md ring-1 ring-green-500/20" : "opacity-80"}>
+                                            <CardHeader className="bg-muted/30">
+                                                <CardTitle className="uppercase flex justify-between items-center text-lg">
+                                                    <span className="text-green-700 dark:text-green-500">STAGE 5: FINAL DISPOSITION</span>
+                                                    {ncrStatus === "closed" && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Closed</span>}
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="pt-6 space-y-4">
+                                                {renderBasicInfo(true, "stage5-")}
+                                                <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                                                    <div className="flex-1 w-full space-y-2">
+                                                        <Textarea
+                                                            name="disposition"
+                                                            rows={3}
+                                                            placeholder="Head Quality: Provide final disposition notes or required actions..."
+                                                            value={formData.disposition}
+                                                            onChange={handleInputChange}
+                                                            disabled={!isStage5QualityActive || isViewMode}
+                                                            className={isStage5QualityActive ? "bg-green-50/30" : ""}
+                                                        />
+                                                    </div>
+                                                    <div className="w-full md:w-1/4 space-y-2 min-w-[200px]">
+                                                        <div className="flex flex-col space-y-2">
+                                                            <Label htmlFor="dispositionDate" className="uppercase">DATE:</Label>
+                                                            <Input id="dispositionDate" name="dispositionDate" type="date" value={formData.dispositionDate} onChange={handleInputChange} disabled={!isStage5QualityActive || isViewMode} />
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="w-full md:w-1/2 space-y-2 border-t pt-4">
-                                                <Label htmlFor="verifiedByHeadQuality" className="uppercase">VERIFIED BY HEAD QUALITY:</Label>
-                                                <Select
-                                                    value={formData.verifiedByHeadQuality}
-                                                    onValueChange={(val) => handleSelectChange("verifiedByHeadQuality", val)}
-                                                    disabled={isFormDisabled}
-                                                    defaultValue="u2" // Assuming u2 as default Head Quality
-                                                >
-                                                    <SelectTrigger id="verifiedByHeadQuality" className="w-full">
-                                                        <SelectValue placeholder="Select Head of Quality" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {users.map((user) => (
-                                                            <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                                <div className="w-full md:w-1/2 space-y-2 border-t pt-4">
+                                                    <Label htmlFor="verifiedByHeadQuality" className="uppercase font-bold">VERIFIED BY HEAD QUALITY:</Label>
+                                                    <Select
+                                                        value={formData.verifiedByHeadQuality}
+                                                        onValueChange={(val) => handleSelectChange("verifiedByHeadQuality", val)}
+                                                        disabled={!isStage5QualityActive || isViewMode}
+                                                    >
+                                                        <SelectTrigger id="verifiedByHeadQuality" className="w-full">
+                                                            <SelectValue placeholder="Select Head of Quality" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {users.map((user) => (
+                                                                <SelectItem key={user.id} value={user.id}>{user.displayName}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
 
-                                    {isCreateMode && (
-                                        <div className="flex justify-end gap-4">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={handleReset}
-                                                disabled={isSubmitting}
-                                            >
-                                                Reset
-                                            </Button>
-                                            <Button type="submit" disabled={isSubmitting}>
-                                                {isSubmitting ? "Creating..." : "Create NCR"}
-                                            </Button>
+                                                {isStage5QualityActive && (
+                                                    <div className="pt-4 flex justify-end">
+                                                        <Button type="button" onClick={handleNextStage} className="w-full bg-green-600 hover:bg-green-700 font-bold tracking-wide">CLOSE NCR</Button>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )}
+
+                                    {/* Rejected Indicator */}
+                                    {ncrStatus === "rejected" && (
+                                        <div className="p-6 bg-red-50 text-red-900 border border-red-200 rounded-md shadow flex flex-col items-center justify-center text-center">
+                                            <XCircle className="w-12 h-12 text-red-500 mb-2" />
+                                            <h2 className="text-2xl font-bold uppercase tracking-widest">NCR Rejected & Closed</h2>
+                                            <p className="opacity-80 mt-1">This NCR formulation has been rejected by reviewers and is therefore permanently closed.</p>
                                         </div>
                                     )}
+
                                 </div>
                             </form>
                         )}
