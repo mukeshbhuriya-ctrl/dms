@@ -41,6 +41,7 @@ model company{
   hydrostatic_test_reports hydrostatic_test_report[]
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  quality_assurance_plans quality_assurance_plan[]
   dcr dcr[]
   dcr_change_request dcr_change_request[]
   rfq_registers rfq_register[]
@@ -224,6 +225,7 @@ model job{
   hydrostatic_test_reports hydrostatic_test_report[]
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  quality_assurance_plans quality_assurance_plan[]
   dcr dcr[]
   dcr_change_request dcr_change_request[]
 }
@@ -815,7 +817,7 @@ model dcr_status{
   quality_engineer_remarks String?
   status String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @updatedAt  
 
   dcr dcr @relation(fields: [dcr_id], references: [id])
 }
@@ -965,6 +967,70 @@ model hydrostatic_test_remark {
   text             String?
 
   hydro_report hydrostatic_test_report @relation(fields: [hydro_report_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// Quality Assurance Plan (QARP) Models
+// -------------------------------------------------------------
+
+model quality_assurance_plan {
+  id               String   @id @default(uuid())
+  company_id       String
+  job_id           String
+
+  msn              String
+  report_no        String
+  client           String?
+  po_no            String?
+  po_date          String?
+  project_id       String?
+  equipment_name   String?
+  tag_no           String?
+  code             String?
+
+  shreno_drg_no    String?
+  customer_drg_no  String?
+  
+  status           String   @default("draft")
+
+  company  company  @relation(fields: [company_id], references: [id])
+  job      job      @relation(fields: [job_id], references: [id])
+  
+  items    quality_assurance_plan_item[]
+  
+  // Store dynamic columns as JSON, e.g., [{id: "col_1", name: "AI"}]
+  dynamic_columns  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model quality_assurance_plan_item {
+  id                String  @id @default(uuid())
+  qap_id            String
+  sort_order        Int
+  is_heading        Boolean @default(false)
+  is_root           Boolean @default(false)
+  heading_text      String?
+  parent_header_id  String?
+  
+  activity          String?
+  type_method_check String?
+  extent            String?
+  acceptance_criteria String?
+  reference_documents String?
+  verifying_document  String?
+  shreno              String?
+  client_tpia         String?
+  remark              String?
+  
+  // Store the values for the dynamic columns as JSON: {"col_1": "H"}
+  dynamic_values      Json?
+
+  qap quality_assurance_plan @relation(fields: [qap_id], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
