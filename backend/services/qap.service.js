@@ -1,5 +1,28 @@
 const prisma = require('#prisma');
 
+const computeSerialNumbers = (items) => {
+    if (!items || items.length === 0) return items;
+    let mainCounter = 0;
+    let subCounter = 0;
+
+    return items.map((item) => {
+        let sr_no = null;
+        if (item.activity === "Pre-Inspection Meeting") {
+            sr_no = "---";
+        } else if (item.is_heading || item.is_root) {
+            mainCounter++;
+            subCounter = 0;
+            sr_no = mainCounter.toString();
+        } else {
+            if (mainCounter > 0) {
+                subCounter++;
+                sr_no = `${mainCounter}.${subCounter}`;
+            }
+        }
+        return { ...item, sr_no };
+    });
+};
+
 class QapService {
     async create(company_id, payload) {
         const {
@@ -23,8 +46,9 @@ class QapService {
                 tag_no, code, shreno_drg_no, customer_drg_no,
                 dynamic_columns: dynamic_columns || [],
                 items: {
-                    create: (items || []).map((item, index) => ({
+                    create: computeSerialNumbers(items || []).map((item, index) => ({
                         sort_order: index,
+                        sr_no: item.sr_no || null,
                         is_heading: item.is_heading || false,
                         is_root: item.is_root || false,
                         heading_text: item.heading_text || null,
@@ -65,8 +89,9 @@ class QapService {
                 tag_no, code, shreno_drg_no, customer_drg_no,
                 dynamic_columns: dynamic_columns || [],
                 items: {
-                    create: (items || []).map((item, index) => ({
+                    create: computeSerialNumbers(items || []).map((item, index) => ({
                         sort_order: index,
+                        sr_no: item.sr_no || null,
                         is_heading: item.is_heading || false,
                         is_root: item.is_root || false,
                         heading_text: item.heading_text || null,
@@ -133,7 +158,7 @@ class QapService {
         const job = await prisma.job.findFirst({ where: { id: jobId, company_id } });
         if (!job) throw new Error("Job not found");
 
-        const count = await prisma.quality_assurance_plan.count({ where: { job_id: jobId, company_id } });
+        const count = await prisma.quality_assurance_plan.count({ where: { company_id } });
         return { next_report_no: `SHR/${job.job_number}/QAP/${count + 1}` };
     }
 }

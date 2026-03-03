@@ -1012,6 +1012,7 @@ model quality_assurance_plan_item {
   id                String  @id @default(uuid())
   qap_id            String
   sort_order        Int
+  sr_no             String?
   is_heading        Boolean @default(false)
   is_root           Boolean @default(false)
   heading_text      String?

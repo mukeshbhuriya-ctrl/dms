@@ -74,7 +74,7 @@ class CommonService {
                 tag_number: true,
                 code: true,
                 customer: { select: { customer_name: true } },
-                po: { select: { po_number: true } }
+                po: { select: { po_number: true, po_date: true } }
             },
             orderBy: { job_number: 'asc' }
         });
@@ -94,7 +94,7 @@ class CommonService {
                 tag_number: true,
                 code: true,
                 customer: { select: { customer_name: true } },
-                po: { select: { po_number: true } }
+                po: { select: { po_number: true, po_date: true } }
             }
         });
     }

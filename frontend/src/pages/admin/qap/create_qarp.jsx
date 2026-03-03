@@ -219,9 +219,8 @@ function ListView({ onCreateClick, onEditClick }) {
                         if (row.is_heading) {
                           return (
                             <tr key={row.id} className="bg-muted/30 border-b border-border last:border-0 font-semibold">
-                              <td className="border-r border-border p-3 align-top">
-                                {/* Need to recalculate main index numbering if backend doesn't store display index. 
-                                     Backend stores sort_order which is pure index. Just mapping for now. */}
+                              <td className="border-r border-border p-3 align-top text-center">
+                                {row.sr_no || "-"}
                               </td>
                               <td colSpan={7 + (selectedRecord.dynamic_columns?.length || 0)} className="border-r border-border p-3 align-top">
                                 {row.heading_text || "-"}
@@ -233,7 +232,7 @@ function ListView({ onCreateClick, onEditClick }) {
                         // Standard Row
                         return (
                           <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                            <td className="border-r border-border p-3 align-top font-medium text-center">-</td>
+                            <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.activity || "-"}</td>
                             <td className="border-r border-border p-3 align-top">
                               {row.type_method_check || ""} <br /> {row.extent || ""}
