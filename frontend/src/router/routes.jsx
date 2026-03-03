@@ -35,6 +35,7 @@ import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP } from "@/pages/admin/qap"
 import { CreateDCR, DesignEngineerDCRApproval, QualityEngineerDCRApproval } from "@/pages/dcr"
 import { RfqRegister, RfqLookupManager, RfqDashboard } from "@/pages/marketing"
+import { CreateNCR } from "@/pages/ncr"
 
 // ─── Helper: wrap element with ProtectedRoute + role guard ─────
 const protect = (element, allowedRoles = null) => (
@@ -223,6 +224,14 @@ const marketingRoutes = [
   },
 ]
 
+// ─── NCR Routes ────────────────────────────────────────────
+const ncrRoutes = [
+  {
+    path: "/ncr/create-ncr",
+    element: protect(<CreateNCR />, [ROLES.ADMIN]),
+  },
+]
+
 // ─── All Routes ────────────────────────────────────────────────
 const appRoutes = [
   {
@@ -236,6 +245,7 @@ const appRoutes = [
   ...weldRoutes,
   ...dcrRoutes,
   ...marketingRoutes,
+  ...ncrRoutes,
 ]
 
 export default appRoutes
