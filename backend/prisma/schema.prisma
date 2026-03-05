@@ -46,6 +46,7 @@ model company{
   dcr_change_request dcr_change_request[]
   rfq_registers rfq_register[]
   rfq_lookups rfq_lookup[]
+  ncr ncr[]
 }
 
 model department {
@@ -99,6 +100,17 @@ model user{
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
   dcr_quality_engineer dcr[] @relation("DcrQualityEngineer")
   rfq_registers rfq_register[]
+
+  // NCR relations
+  ncr_raised_by ncr[] @relation("NcrRaisedBy")
+  ncr_resolution_by ncr[] @relation("NcrResolutionBy")
+  ncr_target_engineer ncr[] @relation("NcrTargetEngineer")
+  ncr_target_head_design ncr[] @relation("NcrTargetHeadDesign")
+  ncr_target_head_welding ncr[] @relation("NcrTargetHeadWelding")
+  ncr_target_head_quality ncr[] @relation("NcrTargetHeadQuality")
+  ncr_corrective_action_verified_by ncr[] @relation("NcrCorrectiveActionVerifiedBy")
+  ncr_verified_by_qce ncr[] @relation("NcrVerifiedByQce")
+  ncr_verified_by_head_quality ncr[] @relation("NcrVerifiedByHeadQuality")
 }
 
 model user_roles{
@@ -228,6 +240,8 @@ model job{
   quality_assurance_plans quality_assurance_plan[]
   dcr dcr[]
   dcr_change_request dcr_change_request[]
+
+  ncr ncr[]
 }
 
 model document_type{
@@ -1032,6 +1046,88 @@ model quality_assurance_plan_item {
   dynamic_values      Json?
 
   qap quality_assurance_plan @relation(fields: [qap_id], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// NCR Models
+// -------------------------------------------------------------
+
+model ncr {
+  id              String   @id @default(uuid())
+  company_id      String
+  job_id          String
+
+  // Basic Details
+  msn             String
+  ncr_no          String
+  date            DateTime?
+  client          String?
+  po_no           String?
+  project_id      String?
+  tag_no          String?
+  drg_no          String?
+  rev_no          String?
+
+  // Stage 1
+  description_non_conformance String?
+  ncr_raised_at   String?
+  ncr_raised_by   String?
+  ncr_date        DateTime?
+
+  // Stage 2
+  proposed_resolution String?
+  resolution_by   String?
+  resolution_date DateTime?
+  
+  target_engineer_id      String?
+  target_head_design_id   String?
+  target_head_welding_id  String?
+  target_head_quality_id  String?
+
+  // Stage 3
+  resolution_approval Json?
+  acceptance_date     DateTime?
+
+  design_review_status String? @default("PENDING")
+  head_design_comments String?
+
+  welding_review_status String? @default("PENDING")
+  head_welding_comments String?
+
+  quality_review_status String? @default("PENDING")
+  head_quality_comments String?
+
+  // Stage 4
+  corrective_action_verified_by String?
+  corrective_action_date        DateTime?
+  verified_by_qce_id            String?
+
+  // Stage 5
+  disposition                   String?
+  verified_by_head_quality_id   String?
+  disposition_date              DateTime?
+
+  // Workflow tracking
+  status          String   @default("OPEN") 
+  current_stage   Int      @default(1)
+  ncr_status      String   @default("draft")
+
+  // Relations
+  company  company  @relation(fields: [company_id], references: [id])
+  job      job      @relation(fields: [job_id], references: [id])
+
+  initiator           user? @relation("NcrRaisedBy", fields: [ncr_raised_by], references: [id])
+  resolution_user     user? @relation("NcrResolutionBy", fields: [resolution_by], references: [id])
+  target_engineer     user? @relation("NcrTargetEngineer", fields: [target_engineer_id], references: [id])
+  target_head_design  user? @relation("NcrTargetHeadDesign", fields: [target_head_design_id], references: [id])
+  target_head_welding user? @relation("NcrTargetHeadWelding", fields: [target_head_welding_id], references: [id])
+  target_head_quality user? @relation("NcrTargetHeadQuality", fields: [target_head_quality_id], references: [id])
+  corrective_action_verifier user? @relation("NcrCorrectiveActionVerifiedBy", fields: [corrective_action_verified_by], references: [id])
+  qce_verifier        user? @relation("NcrVerifiedByQce", fields: [verified_by_qce_id], references: [id])
+  head_quality_verifier user? @relation("NcrVerifiedByHeadQuality", fields: [verified_by_head_quality_id], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
