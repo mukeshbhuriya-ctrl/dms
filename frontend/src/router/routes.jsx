@@ -228,7 +228,7 @@ const marketingRoutes = [
 const ncrRoutes = [
   {
     path: "/ncr/create-ncr",
-    element: protect(<CreateNCR />, [ROLES.ADMIN]),
+    element: protect(<CreateNCR />, [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]),
   },
 ]
 

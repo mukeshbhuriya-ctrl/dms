@@ -58,10 +58,16 @@ const defaultFormData = {
     ncrDate: new Date().toISOString().split("T")[0],
 
     proposedResolution: "",
-    resolutionBy: "",
+    resolutionBy: "", // This is now basically the Engineer selected from Stage 2 who handles Stage 3
     resolutionDate: new Date().toISOString().split("T")[0],
 
-    resolutionApproval: "", // Options: USE_AS_IS, REPAIR, REWORK, REJECTED
+    // Target assignments from Stage 2 pointing to Stage 3 execution
+    targetEngineer: "",
+    targetHeadDesign: "",
+    targetHeadWelding: "",
+    targetHeadQuality: "",
+
+    resolutionApproval: "USE AS IS", // Options: USE AS IS, REPAIR, REWORK, REJECTED
     headDesign: "",
     headDesignComments: "",
     headWelding: "",
@@ -189,6 +195,14 @@ function CreateNCR() {
         if (currentStage === 1) {
             setCurrentStage(2)
         } else if (currentStage === 2) {
+            // Stage 2 completion logs the proposed resolution and kicks off Stage 3
+            setFormData(prev => ({
+                ...prev,
+                assignEngineer: prev.targetEngineer,
+                headDesign: prev.targetHeadDesign,
+                headWelding: prev.targetHeadWelding,
+                headQuality: prev.targetHeadQuality
+            }))
             setCurrentStage(3)
         } else if (currentStage === 3) {
             setNcrStatus("in_review")
@@ -315,15 +329,20 @@ function CreateNCR() {
     const isViewMode = view === "view"
 
     // Stage logic calculation
-    const isStage1Active = currentStage === 1 && currentUserRole === ROLES.INITIATOR
-    const isStage2Active = currentStage === 2 && currentUserRole === ROLES.INITIATOR
-    const isStage3InitActive = currentStage === 3 && ncrStatus !== "in_review" && currentUserRole === ROLES.INITIATOR
+    // "INITIATOR" can be basically the creator of the form (either Production or Quality).
+    // Let's use the explicit assignment logic to make it work seamlessly under simulation.
+    const isStage1Active = currentStage === 1 && (currentUserRole === ROLES.INITIATOR || currentUserRole === ROLES.HEAD_QUALITY)
+    const isStage2Active = currentStage === 2 && (currentUserRole === ROLES.INITIATOR || currentUserRole === ROLES.HEAD_QUALITY)
+
+    // Stage 3 Initialization requires you to act as the Assigned "Engineer" from Stage 2
+    // If we're fully simulating role mapping, we can simply say if it's pending review setup:
+    const isStage3InitActive = currentStage === 3 && ncrStatus !== "in_review" && (currentUserRole === ROLES.INITIATOR || currentUserRole === ROLES.HEAD_QUALITY)
 
     const isDesignActive = currentStage === 3 && subStage === "DESIGN" && currentUserRole === ROLES.HEAD_DESIGN
     const isWeldingActive = currentStage === 3 && subStage === "WELDING" && currentUserRole === ROLES.HEAD_WELDING
     const isQualityActive = currentStage === 3 && subStage === "QUALITY" && currentUserRole === ROLES.HEAD_QUALITY
 
-    const isStage4InitActive = currentStage === 4 && ncrStatus === "approved_resolution" && currentUserRole === ROLES.INITIATOR
+    const isStage4InitActive = currentStage === 4 && ncrStatus === "approved_resolution" && (currentUserRole === ROLES.INITIATOR || currentUserRole === ROLES.HEAD_QUALITY)
     const isStage4QualityActive = currentStage === 4 && ncrStatus === "pending_verification" && currentUserRole === ROLES.HEAD_QUALITY
 
     const isStage5QualityActive = currentStage === 5 && ncrStatus !== "closed" && ncrStatus !== "rejected" && currentUserRole === ROLES.HEAD_QUALITY
@@ -469,7 +488,7 @@ function CreateNCR() {
                                 <div className="grid gap-6">
 
                                     {/* 1. Basic Information (Combined Card 1 & 2 for Workflow UI) */}
-                                    <Card className={isStage1Active ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                    <Card className={isStage1Active ? "shadow-md" : "opacity-80"}>
                                         <CardHeader className="bg-muted/30">
                                             <CardTitle className="flex justify-between items-center text-lg">
                                                 <span>STAGE 1: DESCRIPTION OF NON-CONFORMANCE</span>
@@ -481,11 +500,6 @@ function CreateNCR() {
                                                 <div className="text-sm text-muted-foreground bg-amber-50 rounded-md p-3 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/50 w-full md:w-2/3">
                                                     <strong>Initiator Note:</strong> Please fill the detailed findings of the non-conformance ensuring the MSN number matches strictly.
                                                 </div>
-                                                {isStage1Active && (
-                                                    <div className="flex items-center">
-                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap">Submit Description (Stage 1)</Button>
-                                                    </div>
-                                                )}
                                             </div>
 
                                             {renderBasicInfo(!isStage1Active || isViewMode, "stage1-")}
@@ -536,12 +550,17 @@ function CreateNCR() {
                                                     </div>
                                                 </div>
                                             </div>
+                                            {isStage1Active && (
+                                                <div className="pt-4 flex justify-end">
+                                                    <Button type="button" onClick={handleNextStage} className="bg-black hover:bg-zinc-800 text-white px-8">Save & Submit</Button>
+                                                </div>
+                                            )}
                                         </CardContent>
                                     </Card>
 
                                     {/* 2. Proposed Resolution */}
                                     {currentStage >= 2 && (
-                                        <Card className={isStage2Active ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                        <Card className={isStage2Active ? "shadow-md" : "opacity-80"}>
                                             <CardHeader className="bg-muted/30">
                                                 <CardTitle className="flex justify-between items-center text-lg">
                                                     <span className="uppercase">STAGE 2: Proposed Resolution with Justification</span>
@@ -559,9 +578,40 @@ function CreateNCR() {
                                                     disabled={!isStage2Active || isViewMode}
                                                     required
                                                 />
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 mt-4 border-t">
                                                     <div className="space-y-2">
-                                                        <Label htmlFor="resolutionBy" className="uppercase">By:</Label>
+                                                        <Label htmlFor="targetEngineer" className="uppercase font-semibold text-sm">Assign Engineer:</Label>
+                                                        <Select value={formData.targetEngineer} onValueChange={(val) => handleSelectChange("targetEngineer", val)} disabled={!isStage2Active || isViewMode}>
+                                                            <SelectTrigger id="targetEngineer" className="w-full bg-background"><SelectValue placeholder="Assign Engineer" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="targetHeadDesign" className="uppercase font-semibold text-sm">Head Design:</Label>
+                                                        <Select value={formData.targetHeadDesign} onValueChange={(val) => handleSelectChange("targetHeadDesign", val)} disabled={!isStage2Active || isViewMode}>
+                                                            <SelectTrigger id="targetHeadDesign" className="w-full bg-background"><SelectValue placeholder="Assign Design Head" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="targetHeadWelding" className="uppercase font-semibold text-sm">Head Welding:</Label>
+                                                        <Select value={formData.targetHeadWelding} onValueChange={(val) => handleSelectChange("targetHeadWelding", val)} disabled={!isStage2Active || isViewMode}>
+                                                            <SelectTrigger id="targetHeadWelding" className="w-full bg-background"><SelectValue placeholder="Assign Welding Head" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="targetHeadQuality" className="uppercase font-semibold text-sm">Head Quality:</Label>
+                                                        <Select value={formData.targetHeadQuality} onValueChange={(val) => handleSelectChange("targetHeadQuality", val)} disabled={!isStage2Active || isViewMode}>
+                                                            <SelectTrigger id="targetHeadQuality" className="w-full bg-background"><SelectValue placeholder="Assign Quality Head" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="resolutionBy" className="uppercase">Submitted By:</Label>
                                                         <Select value={formData.resolutionBy} onValueChange={(val) => handleSelectChange("resolutionBy", val)} disabled={!isStage2Active || isViewMode}>
                                                             <SelectTrigger id="resolutionBy" className="w-full">
                                                                 <SelectValue placeholder="Select team member" />
@@ -581,7 +631,7 @@ function CreateNCR() {
 
                                                 {isStage2Active && (
                                                     <div className="pt-4 flex justify-end">
-                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700">Submit Resolution (Stage 2)</Button>
+                                                        <Button type="button" onClick={handleNextStage} className="bg-black hover:bg-zinc-800 text-white px-8">Submit Resolution (Stage 2)</Button>
                                                     </div>
                                                 )}
                                             </CardContent>
@@ -590,7 +640,7 @@ function CreateNCR() {
 
                                     {/* 3. Acceptance of Proposal */}
                                     {currentStage >= 3 && (
-                                        <Card className={isStage3InitActive || isDesignActive || isWeldingActive || isQualityActive ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                        <Card className={isStage3InitActive || isDesignActive || isWeldingActive || isQualityActive ? "shadow-md" : "opacity-80"}>
                                             <CardHeader className="bg-muted/30">
                                                 <CardTitle className="flex justify-between items-center text-lg">
                                                     <span className="uppercase">STAGE 3: Acceptance of Proposal for Resolution</span>
@@ -599,113 +649,172 @@ function CreateNCR() {
                                             </CardHeader>
                                             <CardContent className="pt-6 space-y-6">
                                                 {renderBasicInfo(true, "stage3-")}
-                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                    <Label className="font-medium text-base">Customer approval required.</Label>
-                                                    <div className="w-full md:w-1/4 space-y-2 text-right">
-                                                        <div className="flex items-center space-x-2 md:justify-end">
-                                                            <Label htmlFor="acceptanceDate" className="uppercase whitespace-nowrap">DATE:</Label>
-                                                            <Input id="acceptanceDate" className="w-40" name="acceptanceDate" type="date" value={formData.acceptanceDate} onChange={handleInputChange} disabled={!isStage3InitActive || isViewMode} />
-                                                        </div>
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4">
+                                                    <Label className="font-semibold text-base">Customer approval required.</Label>
+                                                    <div className="w-full md:w-auto flex items-center gap-4 text-right">
+                                                        <Label htmlFor="acceptanceDate" className="uppercase font-bold text-sm">DATE:</Label>
+                                                        <Input id="acceptanceDate" className="w-[180px] h-9" name="acceptanceDate" type="date" value={formData.acceptanceDate} onChange={handleInputChange} disabled={!isStage3InitActive || isViewMode} />
                                                     </div>
                                                 </div>
 
-                                                <div className={`space-y-3 border p-4 rounded-md ${isStage3InitActive ? 'bg-primary/5 border-primary/20' : ''}`}>
-                                                    <Label className="uppercase block mb-2">Resolution Approval Selection</Label>
-                                                    <div className="flex flex-wrap justify-between items-center w-full">
+                                                <div className="space-y-3 p-4 border rounded-md">
+                                                    <Label className="uppercase font-semibold block mb-2 text-sm">RESOLUTION APPROVAL SELECTION</Label>
+                                                    <div className="flex flex-wrap items-center w-full justify-between pr-4">
                                                         {["USE AS IS", "REPAIR", "REWORK", "REJECTED"].map((option) => (
                                                             <div key={option} className="flex items-center space-x-2">
                                                                 <Checkbox
                                                                     id={`res-${option}`}
-                                                                    checked={formData.resolutionApproval === option}
-                                                                    onCheckedChange={(checked) => {
-                                                                        if (checked) handleSelectChange("resolutionApproval", option)
-                                                                    }}
+                                                                    checked={formData.resolutionApproval.includes(option)}
+                                                                    onCheckedChange={(checked) => handleCheckboxChange("resolutionApproval", option, checked)}
                                                                     disabled={!isStage3InitActive || isViewMode}
                                                                 />
-                                                                <Label htmlFor={`res-${option}`} className="uppercase">{option}</Label>
+                                                                <Label htmlFor={`res-${option}`} className="uppercase text-sm font-medium text-muted-foreground">{option}</Label>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
 
-                                                {/* Reviewers Grid */}
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
-
-                                                    {/* Design Review */}
-                                                    <div className={`space-y-3 p-3 rounded-md border flex flex-col ${isDesignActive ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                                                        <Label className="uppercase font-bold flex items-center gap-2">
-                                                            HEAD DESIGN:
-                                                            {formData.designReviewStatus === 'APPROVED' && <CheckCircle className="w-4 h-4 text-green-500" />}
-                                                            {formData.designReviewStatus === 'REJECTED' && <XCircle className="w-4 h-4 text-red-500" />}
-                                                        </Label>
-                                                        <Select value={formData.headDesign} onValueChange={(val) => handleSelectChange("headDesign", val)} disabled={!isStage3InitActive || isViewMode}>
-                                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Head of Design" /></SelectTrigger>
+                                                {/* Assignment Overview */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="assignEngineerStage3" className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Assign Engineer:</Label>
+                                                        <Select value={formData.assignEngineer} disabled={true}>
+                                                            <SelectTrigger id="assignEngineerStage3" className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Assigned Engineer" /></SelectTrigger>
                                                             <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
                                                         </Select>
-                                                        <Textarea name="headDesignComments" placeholder="Add comments or approval notes..." value={formData.headDesignComments} onChange={handleInputChange} className="mt-2 flex-grow min-h-[5rem] bg-background" disabled={!isDesignActive || isViewMode} />
-
-                                                        {isDesignActive && (
-                                                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
-                                                                <Button size="sm" type="button" className="w-full bg-green-600 hover:bg-green-700 px-1" onClick={() => handleReviewSubmit('DESIGN', 'APPROVE')}>Approve</Button>
-                                                                <Button size="sm" type="button" variant="destructive" className="w-full px-1" onClick={() => handleReviewSubmit('DESIGN', 'REJECT')}>Reject</Button>
-                                                            </div>
-                                                        )}
                                                     </div>
-
-                                                    {/* Welding Review */}
-                                                    <div className={`space-y-3 p-3 rounded-md border flex flex-col ${isWeldingActive ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                                                        <Label className="uppercase font-bold flex items-center gap-2">
-                                                            HEAD WELDING:
-                                                            {formData.weldingReviewStatus === 'APPROVED' && <CheckCircle className="w-4 h-4 text-green-500" />}
-                                                            {formData.weldingReviewStatus === 'REJECTED' && <XCircle className="w-4 h-4 text-red-500" />}
-                                                        </Label>
-                                                        <Select value={formData.headWelding} onValueChange={(val) => handleSelectChange("headWelding", val)} disabled={!isStage3InitActive || isViewMode}>
-                                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Head of Welding" /></SelectTrigger>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="headDesignStage3" className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Design:</Label>
+                                                        <Select value={formData.headDesign} disabled={true}>
+                                                            <SelectTrigger id="headDesignStage3" className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Head of Design" /></SelectTrigger>
                                                             <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
                                                         </Select>
-                                                        <Textarea name="headWeldingComments" placeholder="Add comments or approval notes..." value={formData.headWeldingComments} onChange={handleInputChange} className="mt-2 flex-grow min-h-[5rem] bg-background" disabled={!isWeldingActive || isViewMode} />
-
-                                                        {isWeldingActive && (
-                                                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
-                                                                <Button size="sm" type="button" className="w-full bg-green-600 hover:bg-green-700 px-1" onClick={() => handleReviewSubmit('WELDING', 'APPROVE')}>Approve</Button>
-                                                                <Button size="sm" type="button" variant="destructive" className="w-full px-1" onClick={() => handleReviewSubmit('WELDING', 'REJECT')}>Reject</Button>
-                                                            </div>
-                                                        )}
                                                     </div>
-
-                                                    {/* Quality Review */}
-                                                    <div className={`space-y-3 p-3 rounded-md border flex flex-col ${isQualityActive ? 'ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
-                                                        <Label className="uppercase font-bold flex items-center gap-2">
-                                                            HEAD QUALITY:
-                                                            {formData.qualityReviewStatus === 'APPROVED' && <CheckCircle className="w-4 h-4 text-green-500" />}
-                                                            {formData.qualityReviewStatus === 'REJECTED' && <XCircle className="w-4 h-4 text-red-500" />}
-                                                        </Label>
-                                                        <Select value={formData.headQuality} onValueChange={(val) => handleSelectChange("headQuality", val)} disabled={!isStage3InitActive || isViewMode}>
-                                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Head of Quality" /></SelectTrigger>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="headWeldingStage3" className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Welding:</Label>
+                                                        <Select value={formData.headWelding} disabled={true}>
+                                                            <SelectTrigger id="headWeldingStage3" className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Head of Welding" /></SelectTrigger>
                                                             <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
                                                         </Select>
-                                                        <Textarea name="headQualityComments" placeholder="Add comments or approval notes..." value={formData.headQualityComments} onChange={handleInputChange} className="mt-2 flex-grow min-h-[5rem] bg-background" disabled={!isQualityActive || isViewMode} />
-
-                                                        {isQualityActive && (
-                                                            <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
-                                                                <Button size="sm" type="button" className="w-full bg-green-600 hover:bg-green-700 px-1" onClick={() => handleReviewSubmit('QUALITY', 'APPROVE')}>Approve</Button>
-                                                                <Button size="sm" type="button" variant="destructive" className="w-full px-1" onClick={() => handleReviewSubmit('QUALITY', 'REJECT')}>Reject</Button>
-                                                            </div>
-                                                        )}
                                                     </div>
-
-                                                    {/* AI Display */}
-                                                    <div className="space-y-2 p-3 opacity-60">
-                                                        <Label className="uppercase font-bold">AI:</Label>
-                                                        <div className="h-[128px] border rounded-md flex items-center justify-center text-muted-foreground font-semibold bg-muted/50">
-                                                            AI
-                                                        </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="headQualityStage3" className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Quality:</Label>
+                                                        <Select value={formData.headQuality} disabled={true}>
+                                                            <SelectTrigger id="headQualityStage3" className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Head of Quality" /></SelectTrigger>
+                                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                        </Select>
                                                     </div>
                                                 </div>
 
+                                                {/* Active Reviewer Section */}
+                                                {(isDesignActive || formData.designReviewStatus) && (
+                                                    <div className="mt-4 p-4 rounded-md border">
+                                                        <Label className="uppercase font-bold flex items-center gap-2 mb-4">
+                                                            HEAD DESIGN:
+                                                            {formData.designReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
+                                                            {formData.designReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
+                                                        </Label>
+
+                                                        <div className="space-y-4">
+                                                            <Select value={formData.headDesign} disabled={true}>
+                                                                <SelectTrigger className="w-full md:w-1/2 bg-background"><SelectValue placeholder="Assigned Head of Design" /></SelectTrigger>
+                                                                <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                            </Select>
+                                                            <Textarea name="headDesignComments" placeholder="Add comments or approval notes..." value={formData.headDesignComments} onChange={handleInputChange} className="w-full min-h-[5rem] bg-background" disabled={!isDesignActive || isViewMode} />
+
+                                                            {isDesignActive && (
+                                                                <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
+                                                                    <div className="flex items-center space-x-2 mr-auto sm:mr-4">
+                                                                        <Checkbox id="na-design" />
+                                                                        <Label htmlFor="na-design" className="text-sm font-medium">NA (if applicable)</Label>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                                        <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('DESIGN', 'REJECT')}>Reject</Button>
+                                                                        <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('DESIGN', 'APPROVE')}>Approve</Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {(isWeldingActive || formData.weldingReviewStatus) && (
+                                                    <div className="mt-4 p-4 rounded-md border">
+                                                        <Label className="uppercase font-bold flex items-center gap-2 mb-4">
+                                                            HEAD WELDING:
+                                                            {formData.weldingReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
+                                                            {formData.weldingReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
+                                                        </Label>
+
+                                                        <div className="space-y-4">
+                                                            <Select value={formData.headWelding} disabled={true}>
+                                                                <SelectTrigger className="w-full md:w-1/2 bg-background"><SelectValue placeholder="Assigned Head of Welding" /></SelectTrigger>
+                                                                <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                            </Select>
+                                                            <Textarea name="headWeldingComments" placeholder="Add comments or approval notes..." value={formData.headWeldingComments} onChange={handleInputChange} className="w-full min-h-[5rem] bg-background" disabled={!isWeldingActive || isViewMode} />
+
+                                                            {isWeldingActive && (
+                                                                <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
+                                                                    <div className="flex items-center space-x-2 mr-auto sm:mr-4">
+                                                                        <Checkbox id="na-welding" />
+                                                                        <Label htmlFor="na-welding" className="text-sm font-medium">NA (if applicable)</Label>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                                        <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('WELDING', 'REJECT')}>Reject</Button>
+                                                                        <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('WELDING', 'APPROVE')}>Approve</Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {(isQualityActive || formData.qualityReviewStatus) && (
+                                                    <div className="mt-4 p-4 rounded-md border">
+                                                        <Label className="uppercase font-bold flex items-center gap-2 mb-4">
+                                                            HEAD QUALITY:
+                                                            {formData.qualityReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
+                                                            {formData.qualityReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
+                                                        </Label>
+
+                                                        <div className="space-y-4">
+                                                            <Select value={formData.headQuality} disabled={true}>
+                                                                <SelectTrigger className="w-full md:w-1/2 bg-background"><SelectValue placeholder="Assigned Head of Quality" /></SelectTrigger>
+                                                                <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
+                                                            </Select>
+                                                            <Textarea name="headQualityComments" placeholder="Add comments or approval notes..." value={formData.headQualityComments} onChange={handleInputChange} className="w-full min-h-[5rem] bg-background" disabled={!isQualityActive || isViewMode} />
+
+                                                            {isQualityActive && (
+                                                                <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
+                                                                    <div className="flex items-center space-x-2 mr-auto sm:mr-4">
+                                                                        <Checkbox id="na-quality" />
+                                                                        <Label htmlFor="na-quality" className="text-sm font-medium">NA (if applicable)</Label>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                                        <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('QUALITY', 'REJECT')}>Reject</Button>
+                                                                        <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('QUALITY', 'APPROVE')}>Approve</Button>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {isStage3InitActive && (
-                                                    <div className="pt-4 flex justify-end">
-                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700">Send for Sequential Reviews (Stage 3)</Button>
+                                                    <div className="mt-6 pt-4 border-t space-y-4">
+                                                        <div className="space-y-2">
+                                                            <Textarea
+                                                                name="proposedResolution"
+                                                                rows={3}
+                                                                placeholder="Add comments or approval notes..."
+                                                                value={formData.proposedResolution}
+                                                                onChange={handleInputChange}
+                                                                disabled={!isStage3InitActive || isViewMode}
+                                                            />
+                                                        </div>
+                                                        <div className="flex justify-end pt-2">
+                                                            <Button type="button" onClick={handleNextStage} className="w-full md:w-auto bg-black hover:bg-zinc-800 text-white font-medium px-8">Save & Submit (Stage 3)</Button>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </CardContent>
@@ -714,7 +823,7 @@ function CreateNCR() {
 
                                     {/* 4. Corrective Action Verification */}
                                     {currentStage >= 4 && ncrStatus !== "rejected" && (
-                                        <Card className={(isStage4InitActive || isStage4QualityActive) ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "opacity-80"}>
+                                        <Card className={(isStage4InitActive || isStage4QualityActive) ? "shadow-md" : "opacity-80"}>
                                             <CardHeader className="bg-muted/30">
                                                 <CardTitle className="uppercase flex justify-between items-center text-lg">
                                                     <span>STAGE 4: Corrective Action Verification Carried Out By</span>
@@ -732,7 +841,7 @@ function CreateNCR() {
                                                             value={formData.correctiveActionVerifiedBy}
                                                             onChange={handleInputChange}
                                                             disabled={!isStage4InitActive || isViewMode}
-                                                            className={isStage4InitActive ? "bg-blue-50/30" : ""}
+                                                            className={isStage4InitActive ? "bg-muted/10" : ""}
                                                         />
                                                     </div>
                                                     <div className="w-full md:w-1/4 space-y-2 min-w-[200px]">
@@ -744,15 +853,14 @@ function CreateNCR() {
                                                 </div>
 
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
-                                                    <div className={`space-y-2 p-3 rounded border ${isStage4QualityActive ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''}`}>
+                                                    <div className={`space-y-2 p-3 rounded border ${isStage4QualityActive ? 'bg-muted/10' : ''}`}>
                                                         <Label htmlFor="verifiedByQce" className="uppercase font-bold">VERIFIED BY QCE:</Label>
                                                         <Select
-                                                            value={formData.verifiedByQce} // Pre-set to "u2" default
-                                                            onValueChange={(val) => handleSelectChange("verifiedByQce", val)}
-                                                            disabled={!isStage4InitActive || isViewMode} // Initiator selects, QCE verifies
+                                                            value={formData.headQuality} // Auto-selects Head Quality from earlier
+                                                            disabled={true} // Initiator has no choice, Head Quality handles
                                                         >
                                                             <SelectTrigger id="verifiedByQce" className="w-full bg-background">
-                                                                <SelectValue placeholder="Select quality control engineer" />
+                                                                <SelectValue placeholder="Assigned Quality Control Engineer" />
                                                             </SelectTrigger>
                                                             <SelectContent>
                                                                 {users.map((user) => (
@@ -763,21 +871,15 @@ function CreateNCR() {
 
                                                         {isStage4QualityActive && (
                                                             <div className="pt-4 flex">
-                                                                <Button type="button" onClick={handleNextStage} className="w-full bg-green-600 hover:bg-green-700">Verify & Approve Action</Button>
+                                                                <Button type="button" onClick={handleNextStage} className="w-full bg-black hover:bg-zinc-800 text-white">Verify & Approve Action</Button>
                                                             </div>
                                                         )}
-                                                    </div>
-                                                    <div className="space-y-2 p-3 opacity-60 rounded border">
-                                                        <Label htmlFor="verifiedByAi" className="uppercase font-bold">VERIFIED BY AI:</Label>
-                                                        <div className="h-10 border rounded-md flex items-center justify-center text-muted-foreground font-semibold bg-muted/50">
-                                                            AI
-                                                        </div>
                                                     </div>
                                                 </div>
 
                                                 {isStage4InitActive && (
                                                     <div className="pt-4 flex justify-end">
-                                                        <Button type="button" onClick={handleNextStage} className="bg-blue-600 hover:bg-blue-700">Send for QCE Verification (Stage 4)</Button>
+                                                        <Button type="button" onClick={handleNextStage} className="bg-black hover:bg-zinc-800 text-white px-8">Submit CA Verification (Stage 4)</Button>
                                                     </div>
                                                 )}
                                             </CardContent>
@@ -786,7 +888,7 @@ function CreateNCR() {
 
                                     {/* 6. Disposition */}
                                     {currentStage >= 5 && ncrStatus !== "rejected" && (
-                                        <Card className={isStage5QualityActive ? "border-green-500 shadow-md ring-1 ring-green-500/20" : "opacity-80"}>
+                                        <Card className={isStage5QualityActive ? "shadow-md" : "opacity-80"}>
                                             <CardHeader className="bg-muted/30">
                                                 <CardTitle className="uppercase flex justify-between items-center text-lg">
                                                     <span className="text-green-700 dark:text-green-500">STAGE 5: FINAL DISPOSITION</span>
@@ -804,7 +906,7 @@ function CreateNCR() {
                                                             value={formData.disposition}
                                                             onChange={handleInputChange}
                                                             disabled={!isStage5QualityActive || isViewMode}
-                                                            className={isStage5QualityActive ? "bg-green-50/30" : ""}
+                                                            className={isStage5QualityActive ? "bg-muted/10" : ""}
                                                         />
                                                     </div>
                                                     <div className="w-full md:w-1/4 space-y-2 min-w-[200px]">
@@ -818,12 +920,11 @@ function CreateNCR() {
                                                 <div className="w-full md:w-1/2 space-y-2 border-t pt-4">
                                                     <Label htmlFor="verifiedByHeadQuality" className="uppercase font-bold">VERIFIED BY HEAD QUALITY:</Label>
                                                     <Select
-                                                        value={formData.verifiedByHeadQuality}
-                                                        onValueChange={(val) => handleSelectChange("verifiedByHeadQuality", val)}
-                                                        disabled={!isStage5QualityActive || isViewMode}
+                                                        value={formData.headQuality}
+                                                        disabled={true}
                                                     >
-                                                        <SelectTrigger id="verifiedByHeadQuality" className="w-full">
-                                                            <SelectValue placeholder="Select Head of Quality" />
+                                                        <SelectTrigger id="verifiedByHeadQuality" className="w-full bg-background">
+                                                            <SelectValue placeholder="Assigned Head of Quality" />
                                                         </SelectTrigger>
                                                         <SelectContent>
                                                             {users.map((user) => (
@@ -835,7 +936,7 @@ function CreateNCR() {
 
                                                 {isStage5QualityActive && (
                                                     <div className="pt-4 flex justify-end">
-                                                        <Button type="button" onClick={handleNextStage} className="w-full bg-green-600 hover:bg-green-700 font-bold tracking-wide">CLOSE NCR</Button>
+                                                        <Button type="button" onClick={handleNextStage} className="w-full bg-black hover:bg-zinc-800 text-white font-bold tracking-wide">CLOSE NCR</Button>
                                                     </div>
                                                 )}
                                             </CardContent>
@@ -857,7 +958,7 @@ function CreateNCR() {
                     </div>
                 </main>
             </SidebarInset>
-        </SidebarProvider>
+        </SidebarProvider >
     )
 }
 
