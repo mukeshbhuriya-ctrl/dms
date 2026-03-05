@@ -161,6 +161,7 @@ async function me(req, res) {
     const user = await prisma.user.findUnique({
       where: { id: currentUser.userid },
       include: {
+        company: true,
         user_roles: {
           include: {
             role: true
@@ -185,9 +186,18 @@ async function me(req, res) {
         email: user.email,
         empid: user.empid,
         role: user.user_roles.map(ur => ur.role.name), // Array of role names
+        company: user.company ? {
+          id: user.company.id,
+          name: user.company.name,
+          logo_url: user.company.logo_url
+        } : null
       },
       role: user.user_roles.map(ur => ur.role.name), // Keep for backward compatibility
-      name: user.name
+      name: user.name,
+      company: user.company ? {
+        name: user.company.name,
+        logo_url: user.company.logo_url
+      } : null
     });
   }
   catch (error) {

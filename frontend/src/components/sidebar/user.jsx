@@ -29,10 +29,25 @@ import { getFilteredMenu } from "@/config/roles"
 function UserSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { roles: userRoles, userName, isLoading, logout } = useAuth()
+  const { roles: userRoles, userName, companyName, companyLogo, isLoading, logout } = useAuth()
 
   // Collapsible state management
   const [openItems, setOpenItems] = useState({})
+
+  // Image error state
+  const [imageError, setImageError] = useState(false)
+
+  // Get initials from company name (e.g., "Shreno Engineering" => "SE")
+  const getInitials = (name) => {
+    if (!name) return "CO"
+    return name
+      .split(" ")
+      .filter((n) => n.trim().length > 0)
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase()
+  }
 
   // Get filtered menu items based on user's roles
   const menuItems = getFilteredMenu(userRoles)
@@ -90,11 +105,22 @@ function UserSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-4 border-b">
           {/* Company Logo / Initials */}
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
-            <Building2 className="h-6 w-6" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-transparent text-primary-foreground overflow-hidden">
+            {companyLogo && !imageError ? (
+              <img
+                src={companyLogo}
+                alt={companyName || "Company Logo"}
+                className="h-full w-full object-contain"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-primary text-primary-foreground font-bold text-sm rounded-md">
+                {getInitials(companyName)}
+              </div>
+            )}
           </div>
           <div className="flex flex-col overflow-hidden">
-            <span className="truncate font-semibold text-sm">Tech Fab</span>
+            <span className="truncate font-semibold text-sm">{companyName || "Tech Fab"}</span>
             <span className="truncate text-xs text-muted-foreground">Engineering</span>
           </div>
         </div>

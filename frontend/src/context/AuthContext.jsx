@@ -31,7 +31,11 @@ export function AuthProvider({ children }) {
 
             if (roles.length === 0) roles.push("USER")
 
-            setUser({ name: data?.name || data?.user?.name || "User", roles })
+            setUser({
+                name: data?.name || data?.user?.name || "User",
+                roles,
+                company: data?.company || data?.user?.company || null
+            })
             setIsAuthenticated(true)
         } catch {
             // Not authenticated or API error — stay unauthenticated
@@ -56,6 +60,8 @@ export function AuthProvider({ children }) {
         user,
         roles: user?.roles || [],
         userName: user?.name || "User",
+        companyName: user?.company?.name || "Tech Fab",
+        companyLogo: user?.company?.logo_url || null,
         isLoading,
         isAuthenticated,
         logout,
