@@ -32,6 +32,7 @@ export function AuthProvider({ children }) {
             if (roles.length === 0) roles.push("USER")
 
             setUser({
+                id: data?.id || data?.user?.id || "",
                 name: data?.name || data?.user?.name || "User",
                 roles,
                 company: data?.company || data?.user?.company || null

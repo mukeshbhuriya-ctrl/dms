@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { DataTable } from "@/components/shared/DataTable"
-import { ArrowLeft, Plus, CheckCircle, XCircle, Eye } from "lucide-react"
+import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { useAuth } from "@/context/AuthContext"
 
@@ -100,8 +100,55 @@ const defaultFormData = {
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onViewClick }) {
+function ListView({ onCreateClick, onViewClick, onOpenClick }) {
+    const { user } = useAuth()
+    const currentUserId = user?.id || ""
     const [error, setError] = useState("")
+
+    // Check if the logged-in user can take action on a given NCR row
+    const canUserAct = (row) => {
+        if (row.status === "CLOSED" || row.status === "REJECTED") return false
+        const stage = row.current_stage
+        const ncrSt = row.ncr_status
+
+        const isAdmin = user?.roles?.includes("ADMIN")
+        const creatorId = row.ncr_raised_by || row.initiator?.id
+
+        // Admins can potentially bypass or view, but strictly adhering to IDs for workflow:
+        // Stage 1 Action is "Create", not in table rows.
+        if (stage === 1) return false
+
+        // Stage 2 (Draft -> Submitted): Only the creator can submit a proposed resolution
+        if (stage === 2) return creatorId === currentUserId
+
+        // Stage 3 init (assign engineer): Only the target engineer can accept the proposal
+        if (stage === 3 && ncrSt === "stage2_submitted") {
+            return (row.target_engineer_id || row.target_engineer?.id) === currentUserId
+        }
+
+        // Stage 3 review: Only the specific assigned heads can review
+        if (stage === 3 && ncrSt === "stage3_in_review") {
+            const designId = row.target_head_design?.id || row.target_head_design_id
+            const weldingId = row.target_head_welding?.id || row.target_head_welding_id
+            const qualityId = row.target_head_quality?.id || row.target_head_quality_id
+            const hasPending = (id, status) => id === currentUserId && (!status || status === "PENDING")
+            return hasPending(designId, row.design_review_status) ||
+                hasPending(weldingId, row.welding_review_status) ||
+                hasPending(qualityId, row.quality_review_status)
+        }
+
+        // Stage 4 (Approved Resolution -> Pending Disposition): The assigned engineer performs corrective action
+        if (stage === 4) {
+            return (row.target_engineer_id || row.target_engineer?.id) === currentUserId
+        }
+
+        // Stage 5 (Pending disposition -> Closed): The assigned QCE verifies the disposition
+        if (stage === 5) {
+            return (row.verified_by_qce_id || row.qce_verifier?.id) === currentUserId
+        }
+
+        return false
+    }
 
     const columns = [
         { header: "NCR No", accessorKey: "ncr_no" },
@@ -141,9 +188,16 @@ function ListView({ onCreateClick, onViewClick }) {
             id: "actions",
             header: "Action",
             cell: (row) => (
-                <Button variant="outline" size="sm" onClick={() => onViewClick(row.id)} title="View">
-                    <Eye className="h-4 w-4 mr-1" /> View
-                </Button>
+                <div className="flex items-center gap-1">
+                    {canUserAct(row) && (
+                        <Button variant="outlined" size="sm" onClick={() => onOpenClick(row.id)} title="Open & take action" className="border">
+                            <Pencil className="h-3.5 w-3.5 mr-1" /> Open
+                        </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => onViewClick(row.id)} title="View full NCR">
+                        <Eye className="h-3.5 w-3.5 mr-1" /> View
+                    </Button>
+                </div>
             ),
         },
     ]
@@ -178,7 +232,7 @@ function ListView({ onCreateClick, onViewClick }) {
 }
 
 // ─── Create / View Form ──────────────────────────────────────────────────────
-function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
+function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = false }) {
     const { user } = useAuth()
     const currentUserId = user?.id || ""
 
@@ -290,6 +344,9 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
 
     const handleCheckboxChange = (name, option, checked) => {
         setFormData((prev) => {
+            if (name === "resolutionApproval") {
+                return { ...prev, [name]: checked ? [option] : [] }
+            }
             const current = Array.isArray(prev[name]) ? prev[name] : []
             if (checked) {
                 return { ...prev, [name]: [...current, option] }
@@ -343,6 +400,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                 setNcrDbId(res.data.id)
                 setCurrentStage(2)
                 setNcrStatus("stage1_submitted")
+                if (onSuccess) onSuccess()
             }
         } catch (err) {
             setError(err.message || "Failed to create NCR")
@@ -374,6 +432,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                     headWelding: prev.targetHeadWelding,
                     headQuality: prev.targetHeadQuality,
                 }))
+                if (onSuccess) onSuccess()
             }
         } catch (err) {
             setError(err.message || "Failed to submit Stage 2")
@@ -393,6 +452,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
             })
             if (res.success) {
                 setNcrStatus("stage3_in_review")
+                if (onSuccess) onSuccess()
             }
         } catch (err) {
             setError(err.message || "Failed to submit Stage 3")
@@ -426,6 +486,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                 }))
                 setCurrentStage(updated.current_stage || currentStage)
                 setNcrStatus(updated.ncr_status || ncrStatus)
+                if (onSuccess) onSuccess()
             }
         } catch (err) {
             setError(err.message || "Failed to submit review")
@@ -447,6 +508,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
             if (res.success) {
                 setCurrentStage(5)
                 setNcrStatus("pending_disposition")
+                if (onSuccess) onSuccess()
             }
         } catch (err) {
             setError(err.message || "Failed to submit Stage 4")
@@ -479,19 +541,70 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
     // ── Permission Logic ──
     const isViewMode = isViewOnly
 
-    // Determine if the current user is the assigned head for Stage 3 reviews
-    const isDesignHead = currentUserId === formData.targetHeadDesign
-    const isWeldingHead = currentUserId === formData.targetHeadWelding
-    const isQualityHead = currentUserId === formData.targetHeadQuality
+    // Determine if the current user is assigned to specific roles
+    const isCreator = currentUserId && currentUserId === formData.ncrRaisedBy
+    const isTargetEngineer = currentUserId && currentUserId === formData.targetEngineer
+    const isAssignedQCE = currentUserId && currentUserId === formData.verifiedByQce
 
+    // Determine if the current user is the assigned head for Stage 3 reviews
+    const isDesignHead = currentUserId && currentUserId === formData.headDesign
+    const isWeldingHead = currentUserId && currentUserId === formData.headWelding
+    const isQualityHead = currentUserId && currentUserId === formData.headQuality
+
+    // Check actionability based on stage matching user ID
     const isStage1Active = currentStage === 1 && !isViewMode
-    const isStage2Active = currentStage === 2 && !isViewMode
-    const isStage3InitActive = currentStage === 3 && ncrStatus === "stage2_submitted" && !isViewMode
-    const isDesignActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isDesignHead && formData.designReviewStatus === "PENDING"
-    const isWeldingActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isWeldingHead && formData.weldingReviewStatus === "PENDING"
-    const isQualityActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isQualityHead && formData.qualityReviewStatus === "PENDING"
-    const isStage4InitActive = currentStage === 4 && ncrStatus === "approved_resolution" && !isViewMode
-    const isStage5QualityActive = currentStage === 5 && ncrStatus === "pending_disposition" && !isViewMode
+    const isStage2Active = currentStage === 2 && !isViewMode && isCreator
+    const isStage3InitActive = currentStage === 3 && ncrStatus === "stage2_submitted" && !isViewMode && isTargetEngineer
+    const isDesignActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isDesignHead && formData.designReviewStatus === "PENDING" && !isViewMode
+    const isWeldingActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isWeldingHead && formData.weldingReviewStatus === "PENDING" && !isViewMode
+    const isQualityActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isQualityHead && formData.qualityReviewStatus === "PENDING" && !isViewMode
+    const isStage4InitActive = currentStage === 4 && ncrStatus === "approved_resolution" && !isViewMode && isTargetEngineer
+    const isStage5QualityActive = currentStage === 5 && ncrStatus === "pending_disposition" && !isViewMode && isAssignedQCE
+
+    // ── Open Mode: determine which stage should be visible ──
+    const userHasAction = isStage1Active || isStage2Active || isStage3InitActive || isDesignActive || isWeldingActive || isQualityActive || isStage4InitActive || isStage5QualityActive
+
+    // Helper: in open mode, should a given stage card be shown?
+    const shouldShowStage = (stageNum) => {
+        if (!isOpenMode) return true // View/Create: show everything as before
+        // In open mode, show only the stage that requires action from this user
+        if (stageNum === 1) return isStage1Active
+        if (stageNum === 2) return isStage2Active
+        if (stageNum === 3) return isStage3InitActive || isDesignActive || isWeldingActive || isQualityActive
+        if (stageNum === 4) return isStage4InitActive
+        if (stageNum === 5) return isStage5QualityActive
+        return false
+    }
+
+    // Compact summary for completed stages (used in open mode)
+    const renderCompletedSummary = () => {
+        if (!isOpenMode) return null
+        const completedStages = []
+        if (currentStage > 1) completedStages.push({ num: 1, label: 'Description of Non-Conformance' })
+        if (currentStage > 2) completedStages.push({ num: 2, label: 'Proposed Resolution' })
+        if (currentStage > 3) completedStages.push({ num: 3, label: 'Acceptance of Proposal' })
+        if (currentStage > 4) completedStages.push({ num: 4, label: 'Corrective Action Verification' })
+        if (completedStages.length === 0) return null
+
+        return (
+            <div className="rounded-lg border bg-muted/20 p-4 mb-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Completed Stages</p>
+                <div className="flex flex-wrap gap-2">
+                    {completedStages.map(s => (
+                        <span key={s.num} className="inline-flex items-center gap-1.5 text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-full font-medium">
+                            <CheckCircle className="w-3 h-3" /> Stage {s.num}: {s.label}
+                        </span>
+                    ))}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-muted/40">
+                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">NCR No</span><p className="text-sm font-medium">{formData.ncrNo}</p></div>
+                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">Client</span><p className="text-sm font-medium">{formData.client}</p></div>
+                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">MSN</span><p className="text-sm font-medium">{jobs.find(j => j.id === formData.msmNumber)?.job_number || formData.msmNumber}</p></div>
+                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">Date</span><p className="text-sm font-medium">{formData.date}</p></div>
+                </div>
+            </div>
+        )
+    }
 
     const renderBasicInfo = (isDisabled, idPrefix) => (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 pb-4 border-b border-muted/50">
@@ -574,66 +687,72 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
             <form onSubmit={(e) => e.preventDefault()}>
                 <div className="grid gap-6">
 
+
+                    {/* Open Mode: Completed Stages Summary */}
+                    {renderCompletedSummary()}
+
                     {/* STAGE 1 */}
-                    <Card className={isStage1Active ? "shadow-md" : "opacity-80"}>
-                        <CardHeader className="bg-muted/30">
-                            <CardTitle className="flex justify-between items-center text-lg">
-                                <span>STAGE 1: DESCRIPTION OF NON-CONFORMANCE</span>
-                                {currentStage > 1 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-6 space-y-6">
-                            {renderBasicInfo(!isStage1Active, "stage1-")}
-                            <div className="space-y-4 pt-2">
-                                <div className="space-y-2">
-                                    <Label className="uppercase text-md">Description of Non-Conformance:</Label>
-                                    <Textarea name="descriptionNonConformance" rows={4} placeholder="Provide a detailed description of the non-conformance..." value={formData.descriptionNonConformance} onChange={handleInputChange} disabled={!isStage1Active} required />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {shouldShowStage(1) && (
+                        <Card className={isStage1Active ? "shadow-md" : "opacity-80"}>
+                            <CardHeader className="bg-muted/30">
+                                <CardTitle className="flex justify-between items-center text-lg">
+                                    <span>STAGE 1: DESCRIPTION OF NON-CONFORMANCE</span>
+                                    {currentStage > 1 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-6 space-y-6">
+                                {renderBasicInfo(!isStage1Active, "stage1-")}
+                                <div className="space-y-4 pt-2">
                                     <div className="space-y-2">
-                                        <Label htmlFor="ncrRaisedAt" className="uppercase">NCR Raised At:</Label>
-                                        <Select value={formData.ncrRaisedAt} onValueChange={(val) => handleSelectChange("ncrRaisedAt", val)} disabled={!isStage1Active}>
-                                            <SelectTrigger id="ncrRaisedAt" className="w-full"><SelectValue placeholder="Select team member" /></SelectTrigger>
-                                            <SelectContent>
-                                                {users.map((user) => (
-                                                    <SelectItem key={`raisedAt-${user.id}`} value={user.id}>
-                                                        {user.displayName}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Label className="text-md">Description of Non-Conformance:</Label>
+                                        <Textarea name="descriptionNonConformance" rows={4} placeholder="Provide a detailed description of the non-conformance..." value={formData.descriptionNonConformance} onChange={handleInputChange} disabled={!isStage1Active} required />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="ncrRaisedBy" className="uppercase">NCR Raised By:</Label>
-                                        <Select value={formData.ncrRaisedBy} onValueChange={(val) => handleSelectChange("ncrRaisedBy", val)} disabled={!isStage1Active}>
-                                            <SelectTrigger id="ncrRaisedBy" className="w-full"><SelectValue placeholder="Select team member" /></SelectTrigger>
-                                            <SelectContent>
-                                                {users.map((user) => (
-                                                    <SelectItem key={`raisedBy-${user.id}`} value={user.id}>
-                                                        {user.displayName}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="ncrDate" className="uppercase">Date:</Label>
-                                        <Input id="ncrDate" name="ncrDate" type="date" value={formData.ncrDate} onChange={handleInputChange} disabled={!isStage1Active} />
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="ncrRaisedAt" className="uppercase">NCR Raised At:</Label>
+                                            <Select value={formData.ncrRaisedAt} onValueChange={(val) => handleSelectChange("ncrRaisedAt", val)} disabled={!isStage1Active}>
+                                                <SelectTrigger id="ncrRaisedAt" className="w-full"><SelectValue placeholder="Select team member" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {users.map((user) => (
+                                                        <SelectItem key={`raisedAt-${user.id}`} value={user.id}>
+                                                            {user.displayName}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="ncrRaisedBy" className="uppercase">NCR Raised By:</Label>
+                                            <Select value={formData.ncrRaisedBy} onValueChange={(val) => handleSelectChange("ncrRaisedBy", val)} disabled={!isStage1Active}>
+                                                <SelectTrigger id="ncrRaisedBy" className="w-full"><SelectValue placeholder="Select team member" /></SelectTrigger>
+                                                <SelectContent>
+                                                    {users.map((user) => (
+                                                        <SelectItem key={`raisedBy-${user.id}`} value={user.id}>
+                                                            {user.displayName}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="ncrDate" className="uppercase">Date:</Label>
+                                            <Input id="ncrDate" name="ncrDate" type="date" value={formData.ncrDate} onChange={handleInputChange} disabled={!isStage1Active} />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            {isStage1Active && (
-                                <div className="pt-4 flex justify-end">
-                                    <Button type="button" onClick={handleSubmitStage1} disabled={isSubmitting} className="bg-black hover:bg-zinc-800 text-white px-8">
-                                        {isSubmitting ? "Saving…" : "Save & Submit"}
-                                    </Button>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                                {isStage1Active && (
+                                    <div className="pt-4 flex justify-end">
+                                        <Button type="button" onClick={handleSubmitStage1} disabled={isSubmitting} className="bg-black hover:bg-zinc-800 text-white px-8">
+                                            {isSubmitting ? "Saving…" : "Save & Submit"}
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* STAGE 2 */}
-                    {currentStage >= 2 && (
+                    {(isOpenMode ? shouldShowStage(2) : currentStage >= 2) && (
                         <Card className={isStage2Active ? "shadow-md" : "opacity-80"}>
                             <CardHeader className="bg-muted/30">
                                 <CardTitle className="flex justify-between items-center text-lg">
@@ -642,8 +761,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-4">
-                                {renderBasicInfo(true, "stage2-")}
+                                {!isViewMode && renderBasicInfo(true, "stage2-")}
+                                <div className="space-y-2">
+                                <Label className="text-md">Proposed Resolution with Justification:</Label>
                                 <Textarea name="proposedResolution" rows={4} placeholder="Provide the proposed resolution and its justification..." value={formData.proposedResolution} onChange={handleInputChange} disabled={!isStage2Active} required />
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 mt-4 border-t">
                                     <div className="space-y-2">
                                         <Label className="uppercase font-semibold text-sm">Assign Engineer:</Label>
@@ -699,7 +821,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                     )}
 
                     {/* STAGE 3 */}
-                    {currentStage >= 3 && (
+                    {(isOpenMode ? shouldShowStage(3) : currentStage >= 3) && (
                         <Card className={isStage3InitActive || isDesignActive || isWeldingActive || isQualityActive ? "shadow-md" : "opacity-80"}>
                             <CardHeader className="bg-muted/30">
                                 <CardTitle className="flex justify-between items-center text-lg">
@@ -708,7 +830,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-6">
-                                {renderBasicInfo(true, "stage3-")}
+                                {!isViewMode && renderBasicInfo(true, "stage3-")}
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4">
                                     <Label className="font-semibold text-base">Customer approval required.</Label>
                                     <div className="w-full md:w-auto flex items-center gap-4 text-right">
@@ -767,7 +889,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                                 </div>
 
                                 {/* Head Design Review */}
-                                {(isDesignActive || formData.designReviewStatus) && (
+                                {(isDesignActive || !isOpenMode || (formData.designReviewStatus && formData.designReviewStatus !== 'PENDING')) && (
                                     <div className="mt-4 p-4 rounded-md border">
                                         <Label className="uppercase font-bold flex items-center gap-2 mb-4">
                                             HEAD DESIGN:
@@ -796,7 +918,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                                 )}
 
                                 {/* Head Welding Review */}
-                                {(isWeldingActive || formData.weldingReviewStatus) && (
+                                {(isWeldingActive || !isOpenMode || (formData.weldingReviewStatus && formData.weldingReviewStatus !== 'PENDING')) && (
                                     <div className="mt-4 p-4 rounded-md border">
                                         <Label className="uppercase font-bold flex items-center gap-2 mb-4">
                                             HEAD WELDING:
@@ -825,7 +947,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                                 )}
 
                                 {/* Head Quality Review */}
-                                {(isQualityActive || formData.qualityReviewStatus) && (
+                                {(isQualityActive || !isOpenMode || (formData.qualityReviewStatus && formData.qualityReviewStatus !== 'PENDING')) && (
                                     <div className="mt-4 p-4 rounded-md border">
                                         <Label className="uppercase font-bold flex items-center gap-2 mb-4">
                                             HEAD QUALITY:
@@ -868,7 +990,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                     )}
 
                     {/* STAGE 4 */}
-                    {currentStage >= 4 && ncrStatus !== "rejected" && (
+                    {(isOpenMode ? shouldShowStage(4) : (currentStage >= 4 && ncrStatus !== "rejected")) && (
                         <Card className={isStage4InitActive ? "shadow-md" : "opacity-80"}>
                             <CardHeader className="bg-muted/30">
                                 <CardTitle className="uppercase flex justify-between items-center text-lg">
@@ -877,7 +999,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-4">
-                                {renderBasicInfo(true, "stage4-")}
+                                {!isViewMode && renderBasicInfo(true, "stage4-")}
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                                     <div className="flex-1 w-full space-y-2">
                                         <Textarea name="correctiveActionVerifiedBy" rows={3} placeholder="Provide details about the corrective action verification process..." value={formData.correctiveActionVerifiedBy} onChange={handleInputChange} disabled={!isStage4InitActive} />
@@ -908,7 +1030,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                     )}
 
                     {/* STAGE 5 */}
-                    {currentStage >= 5 && ncrStatus !== "rejected" && (
+                    {(isOpenMode ? shouldShowStage(5) : (currentStage >= 5 && ncrStatus !== "rejected")) && (
                         <Card className={isStage5QualityActive ? "shadow-md" : "opacity-80"}>
                             <CardHeader className="bg-muted/30">
                                 <CardTitle className="uppercase flex justify-between items-center text-lg">
@@ -917,7 +1039,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-4">
-                                {renderBasicInfo(true, "stage5-")}
+                                {!isViewMode && renderBasicInfo(true, "stage5-")}
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                                     <div className="flex-1 w-full space-y-2">
                                         <Textarea name="disposition" rows={3} placeholder="Head Quality: Provide final disposition notes..." value={formData.disposition} onChange={handleInputChange} disabled={!isStage5QualityActive} />
@@ -961,7 +1083,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function CreateNCR() {
-    const [view, setView] = useState("list") // "list" | "create" | "view"
+    const [view, setView] = useState("list") // "list" | "create" | "view" | "open"
     const [viewNcrId, setViewNcrId] = useState(null)
     const [successMsg, setSuccessMsg] = useState("")
 
@@ -974,6 +1096,11 @@ function CreateNCR() {
     const handleViewClick = (id) => {
         setViewNcrId(id)
         setView("view")
+    }
+
+    const handleOpenClick = (id) => {
+        setViewNcrId(id)
+        setView("open")
     }
 
     return (
@@ -996,6 +1123,7 @@ function CreateNCR() {
                             <ListView
                                 onCreateClick={() => { setViewNcrId(null); setView("create") }}
                                 onViewClick={handleViewClick}
+                                onOpenClick={handleOpenClick}
                             />
                         ) : (
                             <FormView
@@ -1003,6 +1131,7 @@ function CreateNCR() {
                                 onBack={() => { setView("list"); setViewNcrId(null) }}
                                 onSuccess={handleSuccess}
                                 isViewOnly={view === "view"}
+                                isOpenMode={view === "open"}
                             />
                         )}
                     </div>

@@ -79,7 +79,7 @@ const userRoutes = [
     path: "/user/dashboard",
     element: protect(
       <UserDashboard />,
-      [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.PRODUCTION, ROLES.MANAGER]
+      [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER]
     ),
   },
   {
@@ -228,7 +228,7 @@ const marketingRoutes = [
 const ncrRoutes = [
   {
     path: "/ncr/create-ncr",
-    element: protect(<CreateNCR />, [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]),
+    element: protect(<CreateNCR />, [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER, ROLES.WELD_PLAN_ADMIN]),
   },
 ]
 

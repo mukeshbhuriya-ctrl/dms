@@ -4,7 +4,7 @@ const router = express.Router();
 const { authenticateUser } = require('#api/middleware/user.middleware.js');
 const NcrController = require('../../controllers/ncr.controller');
 
-router.use(authenticateUser(['ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER']));
+router.use(authenticateUser(['ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER', 'DESIGN_ENGINEER']));
 
 // List & detail
 router.get('/list', (req, res) => NcrController.list(req, res));

@@ -40,7 +40,7 @@ export const MENU_CONFIG = [
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",
-        roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN],
+        roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER],
     },
 
     // ── Customer Management ──
@@ -112,7 +112,7 @@ export const MENU_CONFIG = [
         title: "NCR",
         icon: Folder,
         items: [
-            { title: "NCR", path: "/ncr/create-ncr", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] }
+            { title: "NCR", path: "/ncr/create-ncr", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER, ROLES.WELD_PLAN_ADMIN] }
         ],
     },
 
