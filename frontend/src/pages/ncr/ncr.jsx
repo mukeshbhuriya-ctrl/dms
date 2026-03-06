@@ -195,17 +195,17 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
             cell: (row) => `Stage ${row.current_stage}/5`
         },
         {
-            header: "Design",
+            header: "Head Design",
             accessorKey: "design_review_status",
             cell: (row) => <NcrStatusBadge status={row.design_review_status || "PENDING"} />
         },
         {
-            header: "Welding",
+            header: "Head Welding",
             accessorKey: "welding_review_status",
             cell: (row) => <NcrStatusBadge status={row.welding_review_status || "PENDING"} />
         },
         {
-            header: "Quality",
+            header: "Head Quality",
             accessorKey: "quality_review_status",
             cell: (row) => <NcrStatusBadge status={row.quality_review_status || "PENDING"} />
         },
