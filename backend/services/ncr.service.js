@@ -366,6 +366,7 @@ class NcrService {
                 id: true,
                 name: true,
                 email: true,
+                empid: true,
                 designation: true,
                 user_roles: {
                     select: {

@@ -37,7 +37,7 @@ const normalizeUser = (user) => {
         id,
         name,
         empid,
-        displayName: empid ? `${name} (${empid})` : name,
+        displayName: empid ? `${name} (${empid})` : `${name}`,
     }
 }
 
@@ -254,16 +254,10 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             .catch(() => setJobs([]))
             .finally(() => setJobsLoading(false))
 
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        fetch(`${backendUrl}/api/users/get-users?page=1&limit=1000`, {
-            method: "GET",
-            headers: getAuthHeaders(),
-            credentials: "include",
-        })
-            .then((res) => res.json())
-            .then((payload) => {
-                const userList = Array.isArray(payload?.data)
-                    ? payload.data.map(normalizeUser).filter((u) => u.id)
+        apiClient.get("/api/ncr/users")
+            .then((res) => {
+                const userList = Array.isArray(res?.data)
+                    ? res.data.map(normalizeUser).filter((u) => u.id)
                     : []
                 setUsers(userList)
             })
@@ -288,25 +282,25 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                         revNo: d.rev_no || "",
 
                         descriptionNonConformance: d.description_non_conformance || "",
-                        ncrRaisedAt: d.ncr_raised_at || "",
-                        ncrRaisedBy: d.ncr_raised_by || "",
+                        ncrRaisedAt: d.ncr_raised_at?.toString() || "",
+                        ncrRaisedBy: d.ncr_raised_by?.toString() || "",
                         ncrDate: d.ncr_date ? new Date(d.ncr_date).toISOString().split("T")[0] : "",
 
                         proposedResolution: d.proposed_resolution || "",
-                        resolutionBy: d.resolution_by || "",
+                        resolutionBy: d.resolution_by?.toString() || "",
                         resolutionDate: d.resolution_date ? new Date(d.resolution_date).toISOString().split("T")[0] : "",
 
-                        targetEngineer: d.target_engineer_id || "",
-                        targetHeadDesign: d.target_head_design_id || "",
-                        targetHeadWelding: d.target_head_welding_id || "",
-                        targetHeadQuality: d.target_head_quality_id || "",
+                        targetEngineer: d.target_engineer_id?.toString() || "",
+                        targetHeadDesign: d.target_head_design_id?.toString() || "",
+                        targetHeadWelding: d.target_head_welding_id?.toString() || "",
+                        targetHeadQuality: d.target_head_quality_id?.toString() || "",
 
                         resolutionApproval: Array.isArray(d.resolution_approval) ? d.resolution_approval : (d.resolution_approval ? [d.resolution_approval] : ["USE AS IS"]),
-                        headDesign: d.target_head_design_id || "",
+                        headDesign: d.target_head_design_id?.toString() || "",
                         headDesignComments: d.head_design_comments || "",
-                        headWelding: d.target_head_welding_id || "",
+                        headWelding: d.target_head_welding_id?.toString() || "",
                         headWeldingComments: d.head_welding_comments || "",
-                        headQuality: d.target_head_quality_id || "",
+                        headQuality: d.target_head_quality_id?.toString() || "",
                         headQualityComments: d.head_quality_comments || "",
                         acceptanceDate: d.acceptance_date ? new Date(d.acceptance_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
 
@@ -316,10 +310,10 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
                         correctiveActionVerifiedBy: d.corrective_action_verified_by || "",
                         correctiveActionDate: d.corrective_action_date ? new Date(d.corrective_action_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-                        verifiedByQce: d.verified_by_qce_id || "",
+                        verifiedByQce: d.verified_by_qce_id?.toString() || "",
 
                         disposition: d.disposition || "",
-                        verifiedByHeadQuality: d.verified_by_head_quality_id || "",
+                        verifiedByHeadQuality: d.verified_by_head_quality_id?.toString() || "",
                         dispositionDate: d.disposition_date ? new Date(d.disposition_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
                     })
                     setCurrentStage(d.current_stage || 1)
@@ -763,8 +757,8 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                             <CardContent className="pt-6 space-y-4">
                                 {!isViewMode && renderBasicInfo(true, "stage2-")}
                                 <div className="space-y-2">
-                                <Label className="text-md">Proposed Resolution with Justification:</Label>
-                                <Textarea name="proposedResolution" rows={4} placeholder="Provide the proposed resolution and its justification..." value={formData.proposedResolution} onChange={handleInputChange} disabled={!isStage2Active} required />
+                                    <Label className="text-md">Proposed Resolution with Justification:</Label>
+                                    <Textarea name="proposedResolution" rows={4} placeholder="Provide the proposed resolution and its justification..." value={formData.proposedResolution} onChange={handleInputChange} disabled={!isStage2Active} required />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 mt-4 border-t">
                                     <div className="space-y-2">

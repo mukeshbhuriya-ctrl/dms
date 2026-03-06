@@ -75,7 +75,7 @@ class NcrController {
 
     async submitReview(req, res) {
         try {
-            const result = await NcrService.submitReview(req.user.company_id, req.params.id, req.user.id, req.body);
+            const result = await NcrService.submitReview(req.user.company_id, req.params.id, req.user.userid, req.body);
             res.status(200).json({ success: true, message: 'Review submitted', data: result });
         } catch (error) {
             console.error('NCR submitReview error:', error);
