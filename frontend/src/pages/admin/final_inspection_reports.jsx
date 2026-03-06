@@ -34,9 +34,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, CheckCircle, XCircle } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import { toast } from 'react-toastify'
+import { useAuth } from "@/context/AuthContext"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick }) {
@@ -44,6 +45,65 @@ function ListView({ onCreateClick, onEditClick }) {
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
   const [error, setError] = useState("")
+
+  const { user, roles } = useAuth()
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Review Dialog State
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [docForReview, setDocForReview] = useState(null)
+  const [reviewStatus, setReviewStatus] = useState("")
+  const [reviewRemarks, setReviewRemarks] = useState("")
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  const handleReviewClick = (row, status) => {
+    setDocForReview(row)
+    setReviewStatus(status)
+    setReviewRemarks("")
+    setReviewDialogOpen(true)
+  }
+
+  const submitReview = async () => {
+    if (!docForReview) return
+    if (reviewStatus === "Rejected" && !reviewRemarks.trim()) {
+      toast.error("Remarks are required for rejection.")
+      return
+    }
+
+    setIsReviewing(true)
+    try {
+      const res = await apiClient.put(`/api/inspection-report/final/update-status/${docForReview.id}`, {
+        status: reviewStatus,
+        remarks: reviewRemarks
+      })
+      if (res.success) {
+        toast.success(`Report ${reviewStatus} successfully`)
+        setReviewDialogOpen(false)
+        setRefreshTrigger(prev => prev + 1)
+      } else {
+        toast.error(res.message || "Failed to submit review")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to submit review")
+    } finally {
+      setIsReviewing(false)
+    }
+  }
+
+  const getStatusBadge = (status) => {
+    const s = status || "Pending"
+    switch (s) {
+      case "Approved":
+        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Approved</span>
+      case "Rejected":
+        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">Rejected</span>
+      case "Pending":
+        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Pending</span>
+      default:
+        return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">{s}</span>
+    }
+  }
 
   const handleViewClick = async (id) => {
     setIsViewLoading(true)
@@ -74,11 +134,7 @@ function ListView({ onCreateClick, onEditClick }) {
     {
       header: "Status",
       accessorKey: "status",
-      cell: (row) => (
-        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${row.status === 'draft' ? 'bg-amber-100 text-amber-800' : row.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-          {row.status}
-        </span>
-      ),
+      cell: (row) => getStatusBadge(row.status),
     },
     {
       header: "Created",
@@ -88,24 +144,50 @@ function ListView({ onCreateClick, onEditClick }) {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewClick(row.id)}
-            title="View">
-            <Eye className="h-4 w-4 mr-2" /> View
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onEditClick(row.id)}
-            title="Edit">
-            <Edit className="h-4 w-4 mr-2" /> Edit
-          </Button>
-        </div>
-      ),
+      cell: (row) => {
+        const isAssignedQE = row.quality_engineer_id === user?.id
+        const isQE = roles?.includes("QE") || roles?.includes("QUALITY_ENGINEER")
+        const canReview = (isQE || isAssignedQE) && row.status !== "Approved" && row.status !== "Rejected"
+
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleViewClick(row.id)}
+              title="View">
+              <Eye className="h-4 w-4 mr-2" /> View
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEditClick(row.id)}
+              title="Edit">
+              <Edit className="h-4 w-4 mr-2" /> Edit
+            </Button>
+            {canReview && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
+                  onClick={() => handleReviewClick(row, "Approved")}
+                  title="Approve">
+                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
+                  onClick={() => handleReviewClick(row, "Rejected")}
+                  title="Reject">
+                  <XCircle className="h-4 w-4 mr-2" /> Reject
+                </Button>
+              </>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
@@ -113,7 +195,7 @@ function ListView({ onCreateClick, onEditClick }) {
     const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
     const res = await apiClient.get(`/api/inspection-report/final/list`, Object.fromEntries(params))
     return { data: res.data, meta: res.meta }
-  }, [])
+  }, [refreshTrigger])
 
   return (
     <div>
@@ -135,6 +217,39 @@ function ListView({ onCreateClick, onEditClick }) {
       )}
 
       <DataTable columns={columns} fetchData={fetchData} />
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{reviewStatus} Report</DialogTitle>
+            <DialogDescription>
+              {docForReview && `Are you sure you want to ${reviewStatus.toLowerCase()} report ${docForReview.report_no}?`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="remarks">Remarks {reviewStatus === "Rejected" && <span className="text-destructive">*</span>}</Label>
+              <Input
+                id="remarks"
+                value={reviewRemarks}
+                onChange={(e) => setReviewRemarks(e.target.value)}
+                placeholder="Enter remarks..."
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={submitReview}
+              disabled={isReviewing || (reviewStatus === "Rejected" && !reviewRemarks.trim())}
+              variant={reviewStatus === "Rejected" ? "destructive" : "default"}
+            >
+              Confirm {reviewStatus}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* View Details Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

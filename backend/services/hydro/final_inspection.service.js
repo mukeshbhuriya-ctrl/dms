@@ -34,6 +34,7 @@ class FinalInspectionService {
                     project_id: true,
                     equipment_name: true,
                     status: true,
+                    quality_engineer_id: true,
                     createdAt: true
                 }
             }),
@@ -141,7 +142,7 @@ class FinalInspectionService {
                     code,
                     drg_no,
                     quality_engineer_id: quality_engineer_id || null,
-                    status: status || "draft",
+                    status: status || "Pending",
                     details: {
                         create: details?.map(item => ({
                             sr_no: item.sr_no,
@@ -247,7 +248,7 @@ class FinalInspectionService {
                     code,
                     drg_no,
                     quality_engineer_id: quality_engineer_id || null,
-                    status: status || "draft",
+                    status: status || "Pending",
                     details: {
                         create: details?.map(item => ({
                             sr_no: item.sr_no,
@@ -299,6 +300,26 @@ class FinalInspectionService {
             });
 
             return report;
+        });
+    }
+
+    /**
+     * Update Report Status (Approve/Reject)
+     */
+    async updateStatus(company_id, id, payload) {
+        const { status, remarks } = payload;
+
+        const existing = await prisma.final_inspection_report.findFirst({
+            where: { id, company_id }
+        });
+        if (!existing) throw new Error("Report not found");
+
+        return await prisma.final_inspection_report.update({
+            where: { id },
+            data: {
+                status,
+                approver_remarks: remarks || null
+            }
         });
     }
 }

@@ -18,5 +18,6 @@ router.get('/final/:id', authenticateUserOnly, FinalInspectionController.getById
 router.get('/final/next-report-no/:jobId', authenticateUserOnly, FinalInspectionController.getNextReportNo);
 router.post('/final/create', authenticateUserOnly, FinalInspectionController.createReport);
 router.put('/final/update/:id', authenticateUserOnly, FinalInspectionController.updateReport);
+router.put('/final/update-status/:id', authenticateUserOnly, FinalInspectionController.updateStatus);
 
 module.exports = router;

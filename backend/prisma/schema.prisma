@@ -690,7 +690,8 @@ model final_inspection_report {
   drg_no          String?
   
   quality_engineer_id String?
-  status          String   @default("draft")
+  status          String   @default("Pending")
+  approver_remarks String?
 
   company   company  @relation(fields: [company_id], references: [id])
   job       job      @relation(fields: [job_id], references: [id])
