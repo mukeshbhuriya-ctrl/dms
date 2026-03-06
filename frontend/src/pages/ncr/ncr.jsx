@@ -39,7 +39,10 @@ const ncrStatusConfig = {
     pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20" },
     rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" },
     approved: { label: "Approved", className: "bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20" },
-    open: { label: "Open", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20" }
+    open: { label: "Open", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20" },
+    closed: { label: "Closed", className: "bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20" },
+    na: { label: "N/A", className: "bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20" },
+    "in progress": { label: "In Progress", className: "bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20" }
 };
 
 function NcrStatusBadge({ status, className }) {
@@ -117,6 +120,10 @@ const defaultFormData = {
     weldingReviewStatus: "",
     qualityReviewStatus: "",
 
+    naDesign: false,
+    naWelding: false,
+    naQuality: false,
+
     correctiveActionComments: "",
     correctiveActionDate: new Date().toISOString().split("T")[0],
     verifiedByQce: "",
@@ -145,8 +152,8 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
         // Stage 1 Action is "Create", not in table rows.
         if (stage === 1) return false
 
-        // Stage 2 (Draft -> Submitted): Only the creator can submit a proposed resolution
-        if (stage === 2) return creatorId === currentUserId
+        // Stage 2 (Draft -> Submitted): Only the person assigned in ncr_raised_at can submit
+        if (stage === 2) return (row.ncr_raised_at) === currentUserId
 
         // Stage 3 init (assign engineer): Only the target engineer can accept the proposal
         if (stage === 3 && ncrSt === "stage2_submitted") {
@@ -201,6 +208,17 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
             header: "Quality",
             accessorKey: "quality_review_status",
             cell: (row) => <NcrStatusBadge status={row.quality_review_status || "PENDING"} />
+        },
+        {
+            header: "NCR Status",
+            id: "overall_ncr_status",
+            cell: (row) => {
+                const isRejected = row.ncr_status === "rejected" || row.status === "REJECTED";
+                if (isRejected) return <NcrStatusBadge status="rejected" />;
+                const isApproved = row.status === "CLOSED" && row.current_stage === 5 && row.ncr_status === "closed";
+                if (isApproved) return <NcrStatusBadge status="approved" />;
+                return <NcrStatusBadge status="in progress" />;
+            }
         },
         {
             header: "Status",
@@ -572,10 +590,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
     const isDesignHead = currentUserId && currentUserId === formData.headDesign
     const isWeldingHead = currentUserId && currentUserId === formData.headWelding
     const isQualityHead = currentUserId && currentUserId === formData.headQuality
+    const isNcrRaisedAt = currentUserId && currentUserId === formData.ncrRaisedAt
 
     // Check actionability based on stage matching user ID
     const isStage1Active = currentStage === 1 && !isViewMode
-    const isStage2Active = currentStage === 2 && !isViewMode && isCreator
+    const isStage2Active = currentStage === 2 && !isViewMode && isNcrRaisedAt
     const isStage3InitActive = currentStage === 3 && ncrStatus === "stage2_submitted" && !isViewMode && isTargetEngineer
     const isDesignActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isDesignHead && formData.designReviewStatus === "PENDING" && !isViewMode
     const isWeldingActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isWeldingHead && formData.weldingReviewStatus === "PENDING" && !isViewMode
@@ -917,6 +936,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             HEAD DESIGN:
                                             {formData.designReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
                                             {formData.designReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
+                                            {formData.designReviewStatus === 'NA' && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded text-xs">NA</span>}
                                         </Label>
                                         <div className="space-y-4">
                                             <Select value={formData.headDesign} disabled={true}>
@@ -927,11 +947,17 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             {isDesignActive && (
                                                 <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
                                                     <div className="flex items-center space-x-2 mr-auto sm:mr-4">
-                                                        <Checkbox id="na-design" /><Label htmlFor="na-design" className="text-sm font-medium">NA (if applicable)</Label>
+                                                        <Checkbox id="na-design" checked={formData.naDesign} onCheckedChange={(val) => handleSelectChange('naDesign', val)} /><Label htmlFor="na-design" className="text-sm font-medium">NA (if applicable)</Label>
                                                     </div>
                                                     <div className="flex items-center gap-3 w-full sm:w-auto">
-                                                        <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('DESIGN', 'REJECT')} disabled={isSubmitting}>Reject</Button>
-                                                        <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('DESIGN', 'APPROVE')} disabled={isSubmitting}>Approve</Button>
+                                                        {formData.naDesign ? (
+                                                            <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('DESIGN', 'NA')} disabled={isSubmitting}>Save & Submit</Button>
+                                                        ) : (
+                                                            <>
+                                                                <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('DESIGN', 'REJECT')} disabled={isSubmitting}>Reject</Button>
+                                                                <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('DESIGN', 'APPROVE')} disabled={isSubmitting}>Approve</Button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -946,6 +972,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             HEAD WELDING:
                                             {formData.weldingReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
                                             {formData.weldingReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
+                                            {formData.weldingReviewStatus === 'NA' && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded text-xs">NA</span>}
                                         </Label>
                                         <div className="space-y-4">
                                             <Select value={formData.headWelding} disabled={true}>
@@ -956,11 +983,17 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             {isWeldingActive && (
                                                 <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
                                                     <div className="flex items-center space-x-2 mr-auto sm:mr-4">
-                                                        <Checkbox id="na-welding" /><Label htmlFor="na-welding" className="text-sm font-medium">NA (if applicable)</Label>
+                                                        <Checkbox id="na-welding" checked={formData.naWelding} onCheckedChange={(val) => handleSelectChange('naWelding', val)} /><Label htmlFor="na-welding" className="text-sm font-medium">NA (if applicable)</Label>
                                                     </div>
                                                     <div className="flex items-center gap-3 w-full sm:w-auto">
-                                                        <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('WELDING', 'REJECT')} disabled={isSubmitting}>Reject</Button>
-                                                        <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('WELDING', 'APPROVE')} disabled={isSubmitting}>Approve</Button>
+                                                        {formData.naWelding ? (
+                                                            <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('WELDING', 'NA')} disabled={isSubmitting}>Save & Submit</Button>
+                                                        ) : (
+                                                            <>
+                                                                <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('WELDING', 'REJECT')} disabled={isSubmitting}>Reject</Button>
+                                                                <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('WELDING', 'APPROVE')} disabled={isSubmitting}>Approve</Button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}
@@ -975,6 +1008,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             HEAD QUALITY:
                                             {formData.qualityReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
                                             {formData.qualityReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
+                                            {formData.qualityReviewStatus === 'NA' && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded text-xs">NA</span>}
                                         </Label>
                                         <div className="space-y-4">
                                             <Select value={formData.headQuality} disabled={true}>
@@ -985,11 +1019,17 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             {isQualityActive && (
                                                 <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
                                                     <div className="flex items-center space-x-2 mr-auto sm:mr-4">
-                                                        <Checkbox id="na-quality" /><Label htmlFor="na-quality" className="text-sm font-medium">NA (if applicable)</Label>
+                                                        <Checkbox id="na-quality" checked={formData.naQuality} onCheckedChange={(val) => handleSelectChange('naQuality', val)} /><Label htmlFor="na-quality" className="text-sm font-medium">NA (if applicable)</Label>
                                                     </div>
                                                     <div className="flex items-center gap-3 w-full sm:w-auto">
-                                                        <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('QUALITY', 'REJECT')} disabled={isSubmitting}>Reject</Button>
-                                                        <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('QUALITY', 'APPROVE')} disabled={isSubmitting}>Approve</Button>
+                                                        {formData.naQuality ? (
+                                                            <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('QUALITY', 'NA')} disabled={isSubmitting}>Save & Submit</Button>
+                                                        ) : (
+                                                            <>
+                                                                <Button type="button" variant="outline" className="flex-1 sm:flex-none px-8 border-gray-300 font-medium text-black hover:bg-gray-100" onClick={() => handleReviewSubmit('QUALITY', 'REJECT')} disabled={isSubmitting}>Reject</Button>
+                                                                <Button type="button" className="flex-1 sm:flex-none px-8 bg-black hover:bg-zinc-800 text-white font-medium" onClick={() => handleReviewSubmit('QUALITY', 'APPROVE')} disabled={isSubmitting}>Approve</Button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
                                             )}

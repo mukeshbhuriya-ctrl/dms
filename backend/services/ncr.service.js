@@ -239,8 +239,8 @@ class NcrService {
         if (!['DESIGN', 'WELDING', 'QUALITY'].includes(review_type)) {
             throw new Error('Invalid review_type. Must be DESIGN, WELDING, or QUALITY');
         }
-        if (!['APPROVE', 'REJECT'].includes(action)) {
-            throw new Error('Invalid action. Must be APPROVE or REJECT');
+        if (!['APPROVE', 'REJECT', 'NA'].includes(action)) {
+            throw new Error('Invalid action. Must be APPROVE, REJECT, or NA');
         }
 
         // Validate the user is the assigned head
@@ -258,7 +258,7 @@ class NcrService {
         const commentsField = `head_${review_type.toLowerCase()}_comments`;
 
         const updateData = {
-            [statusField]: action === 'APPROVE' ? 'APPROVED' : 'REJECTED',
+            [statusField]: action === 'APPROVE' ? 'APPROVED' : (action === 'REJECT' ? 'REJECTED' : 'NA'),
             [commentsField]: comments || null,
         };
 
@@ -277,10 +277,11 @@ class NcrService {
             freshNcr.quality_review_status,
         ];
 
-        const allDecided = allStatuses.every(s => s === 'APPROVED' || s === 'REJECTED');
+        const allDecided = allStatuses.every(s => s === 'APPROVED' || s === 'REJECTED' || s === 'NA');
 
         if (allDecided) {
             const anyRejected = allStatuses.some(s => s === 'REJECTED');
+            const anyApproved = allStatuses.some(s => s === 'APPROVED');
 
             if (anyRejected) {
                 await prisma.ncr.update({
