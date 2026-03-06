@@ -1172,8 +1172,8 @@ function CreateNCR() {
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />
                 </header>
-                <main className="flex-1 overflow-auto p-6">
-                    <div className="max-w-6xl mx-auto w-full">
+                <main className="flex-1 overflow-auto p-6 flex flex-col">
+                    <div className="flex-1 flex flex-col w-full">
                         {successMsg && (
                             <div className="mb-4 rounded-md border border-green-500 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
                                 <CheckCircle className="h-4 w-4" />
