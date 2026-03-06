@@ -29,6 +29,33 @@ import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil } from "lucide-react
 import apiClient from "@/api/api.client"
 import { useAuth } from "@/context/AuthContext"
 
+const ncrStatusConfig = {
+    stage1: { label: "Stage 1", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20" },
+    stage2: { label: "Stage 2", className: "bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20" },
+    stage3: { label: "Stage 3", className: "bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20" },
+    stage4: { label: "Stage 4", className: "bg-orange-500/10 text-orange-600 dark:text-orange-400 hover:bg-orange-500/20" },
+    stage5: { label: "Stage 5", className: "bg-pink-500/10 text-pink-600 dark:text-pink-400 hover:bg-pink-500/20" },
+    completed: { label: "Completed", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20" },
+    pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20" },
+    rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" },
+    approved: { label: "Approved", className: "bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20" },
+    open: { label: "Open", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20" }
+};
+
+function NcrStatusBadge({ status, className }) {
+    const rawStatus = String(status || "");
+    const config = ncrStatusConfig[rawStatus.toLowerCase()] || {
+        label: rawStatus,
+        className: "bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20"
+    };
+
+    return (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className} ${className || ''}`}>
+            {config.label}
+        </span>
+    );
+}
+
 const normalizeUser = (user) => {
     const id = String(user?.id || "")
     const name = String(user?.name || user?.full_name || user?.email || "User")
@@ -90,7 +117,7 @@ const defaultFormData = {
     weldingReviewStatus: "",
     qualityReviewStatus: "",
 
-    correctiveActionVerifiedBy: "",
+    correctiveActionComments: "",
     correctiveActionDate: new Date().toISOString().split("T")[0],
     verifiedByQce: "",
 
@@ -137,9 +164,10 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                 hasPending(qualityId, row.quality_review_status)
         }
 
-        // Stage 4 (Approved Resolution -> Pending Disposition): The assigned engineer performs corrective action
+        // Stage 4 (Approved Resolution -> Pending Disposition): The assigned engineer or initiator performs corrective action
         if (stage === 4) {
-            return (row.target_engineer_id || row.target_engineer?.id) === currentUserId
+            const targetEng = row.target_engineer_id || row.target_engineer?.id
+            return targetEng === currentUserId || creatorId === currentUserId
         }
 
         // Stage 5 (Pending disposition -> Closed): The assigned QCE verifies the disposition
@@ -162,22 +190,22 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
         {
             header: "Design",
             accessorKey: "design_review_status",
-            cell: (row) => <StatusBadge status={row.design_review_status || "PENDING"} />
+            cell: (row) => <NcrStatusBadge status={row.design_review_status || "PENDING"} />
         },
         {
             header: "Welding",
             accessorKey: "welding_review_status",
-            cell: (row) => <StatusBadge status={row.welding_review_status || "PENDING"} />
+            cell: (row) => <NcrStatusBadge status={row.welding_review_status || "PENDING"} />
         },
         {
             header: "Quality",
             accessorKey: "quality_review_status",
-            cell: (row) => <StatusBadge status={row.quality_review_status || "PENDING"} />
+            cell: (row) => <NcrStatusBadge status={row.quality_review_status || "PENDING"} />
         },
         {
             header: "Status",
             accessorKey: "status",
-            cell: (row) => <StatusBadge status={row.status} />
+            cell: (row) => <NcrStatusBadge status={row.status} />
         },
         {
             header: "Created",
@@ -308,7 +336,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                         weldingReviewStatus: d.welding_review_status || "",
                         qualityReviewStatus: d.quality_review_status || "",
 
-                        correctiveActionVerifiedBy: d.corrective_action_verified_by || "",
+                        correctiveActionComments: d.corrective_action_comments || "",
                         correctiveActionDate: d.corrective_action_date ? new Date(d.corrective_action_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
                         verifiedByQce: d.verified_by_qce_id?.toString() || "",
 
@@ -495,7 +523,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         setIsSubmitting(true)
         try {
             const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage4`, {
-                corrective_action_verified_by: formData.correctiveActionVerifiedBy,
+                corrective_action_comments: formData.correctiveActionComments,
                 corrective_action_date: formData.correctiveActionDate,
                 verified_by_qce_id: formData.headQuality,
             })
@@ -552,7 +580,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
     const isDesignActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isDesignHead && formData.designReviewStatus === "PENDING" && !isViewMode
     const isWeldingActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isWeldingHead && formData.weldingReviewStatus === "PENDING" && !isViewMode
     const isQualityActive = currentStage === 3 && ncrStatus === "stage3_in_review" && isQualityHead && formData.qualityReviewStatus === "PENDING" && !isViewMode
-    const isStage4InitActive = currentStage === 4 && ncrStatus === "approved_resolution" && !isViewMode && isTargetEngineer
+    const isStage4InitActive = currentStage === 4 && ncrStatus === "approved_resolution" && !isViewMode && (isTargetEngineer || isCreator)
     const isStage5QualityActive = currentStage === 5 && ncrStatus === "pending_disposition" && !isViewMode && isAssignedQCE
 
     // ── Open Mode: determine which stage should be visible ──
@@ -996,7 +1024,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 {!isViewMode && renderBasicInfo(true, "stage4-")}
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                                     <div className="flex-1 w-full space-y-2">
-                                        <Textarea name="correctiveActionVerifiedBy" rows={3} placeholder="Provide details about the corrective action verification process..." value={formData.correctiveActionVerifiedBy} onChange={handleInputChange} disabled={!isStage4InitActive} />
+                                        <Textarea name="correctiveActionComments" rows={3} placeholder="Provide details about the corrective action verification process..." value={formData.correctiveActionComments} onChange={handleInputChange} disabled={!isStage4InitActive} />
                                     </div>
                                     <div className="w-full md:w-1/4 space-y-2 min-w-[200px]">
                                         <Label className="uppercase">Date:</Label>
@@ -1004,13 +1032,13 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
-                                    <div className="space-y-2 p-3 rounded border">
-                                        <Label className="uppercase font-bold">VERIFIED BY QCE:</Label>
-                                        <Select value={formData.headQuality} disabled={true}>
-                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assigned Quality Control Engineer" /></SelectTrigger>
-                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                        </Select>
-                                    </div>
+
+                                    <Label className="uppercase font-bold">VERIFIED BY QCE:</Label>
+                                    <Select value={formData.headQuality} disabled={true}>
+                                        <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assigned Quality Control Engineer" /></SelectTrigger>
+                                        <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
+                                    </Select>
+
                                 </div>
                                 {isStage4InitActive && (
                                     <div className="pt-4 flex justify-end">

@@ -1102,6 +1102,7 @@ model ncr {
 
   // Stage 4
   corrective_action_verified_by String?
+  corrective_action_comments    String?
   corrective_action_date        DateTime?
   verified_by_qce_id            String?
 

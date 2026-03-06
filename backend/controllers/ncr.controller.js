@@ -85,7 +85,7 @@ class NcrController {
 
     async updateStage4(req, res) {
         try {
-            const result = await NcrService.updateStage4(req.user.company_id, req.params.id, req.body);
+            const result = await NcrService.updateStage4(req.user.company_id, req.params.id, req.user.userid, req.body);
             res.status(200).json({ success: true, message: 'Stage 4 submitted', data: result });
         } catch (error) {
             console.error('NCR updateStage4 error:', error);

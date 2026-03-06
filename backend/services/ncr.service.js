@@ -308,12 +308,12 @@ class NcrService {
     /**
      * Stage 4 - Corrective Action Verification
      */
-    async updateStage4(company_id, id, body) {
+    async updateStage4(company_id, id, userId, body) {
         const ncr = await prisma.ncr.findFirst({ where: { id, company_id } });
         if (!ncr) throw new Error('NCR not found');
 
         const {
-            corrective_action_verified_by,
+            corrective_action_comments,
             corrective_action_date,
             verified_by_qce_id,
         } = body;
@@ -321,7 +321,8 @@ class NcrService {
         return await prisma.ncr.update({
             where: { id },
             data: {
-                corrective_action_verified_by: corrective_action_verified_by || null,
+                corrective_action_verified_by: userId,
+                corrective_action_comments: corrective_action_comments || null,
                 corrective_action_date: corrective_action_date ? new Date(corrective_action_date) : null,
                 verified_by_qce_id: verified_by_qce_id || null,
                 current_stage: 5,
