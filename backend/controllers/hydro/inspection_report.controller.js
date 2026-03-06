@@ -102,6 +102,28 @@ class InspectionReportController {
             res.status(500).json({ success: false, message: "Failed to update report", error: error.message });
         }
     }
+
+    /**
+     * Update Report Status
+     */
+    async updateStatus(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+            const data = req.body;
+
+            const report = await InspectionReportService.updateStatus(company_id, id, data);
+
+            res.status(200).json({
+                success: true,
+                message: "Inspection Report status updated successfully",
+                data: report
+            });
+        } catch (error) {
+            console.error("DishEndController.updateStatus Error:", error);
+            res.status(500).json({ success: false, message: "Failed to update report status", error: error.message });
+        }
+    }
 }
 
 module.exports = new InspectionReportController();

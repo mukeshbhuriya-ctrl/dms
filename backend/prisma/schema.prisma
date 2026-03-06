@@ -628,7 +628,8 @@ model dish_end_inspection_report {
   quality_engineer_id String?
   vendor_dish_end_number String?
 
-  status          String   @default("draft")
+  status          String   @default("Pending")
+  approver_remarks String?
 
   company   company  @relation(fields: [company_id], references: [id])
   job       job      @relation(fields: [job_id], references: [id])

@@ -34,6 +34,8 @@ class InspectionReportService {
                     project_id: true,
                     equipment_name: true,
                     vendor_dish_end_number: true,
+                    status: true,
+                    quality_engineer_id: true,
                     createdAt: true
                 }
             }),
@@ -231,6 +233,26 @@ class InspectionReportService {
             });
 
             return report;
+        });
+    }
+
+    /**
+     * Update Report Status (Approve/Reject)
+     */
+    async updateStatus(company_id, id, payload) {
+        const { status, remarks } = payload;
+
+        const existing = await prisma.dish_end_inspection_report.findFirst({
+            where: { id, company_id }
+        });
+        if (!existing) throw new Error("Report not found");
+
+        return await prisma.dish_end_inspection_report.update({
+            where: { id },
+            data: {
+                status,
+                approver_remarks: remarks || null
+            }
         });
     }
 }

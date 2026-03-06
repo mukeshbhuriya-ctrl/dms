@@ -10,6 +10,7 @@ router.get('/:id', authenticateUserOnly, InspectionReportController.getById);
 router.get('/next-report-no/:jobId', authenticateUserOnly, InspectionReportController.getNextReportNo);
 router.post('/create', authenticateUserOnly, InspectionReportController.createReport);
 router.put('/update/:id', authenticateUserOnly, InspectionReportController.updateReport);
+router.put('/update-status/:id', authenticateUserOnly, InspectionReportController.updateStatus);
 
 // Final Inspection
 router.get('/final/list', authenticateUserOnly, FinalInspectionController.getList);
