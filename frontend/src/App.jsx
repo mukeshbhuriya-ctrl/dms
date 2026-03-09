@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
+import apiClient from "@/api/api.client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,28 +30,11 @@ function App() {
     setIsLoading(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const res = await fetch(`${backendUrl}/api/users/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({ employeeId, password }),
-      })
-
-      const contentType = res.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await res.json()
-        : await res.text()
-
-      if (!res.ok) {
-        const message =
-          typeof payload === "string"
-            ? payload
-            : payload?.message || "Login failed"
-        throw new Error(message)
-      }
+      const payload = await apiClient.post(
+        "/api/users/auth/login",
+        { employeeId, password },
+        { skipAuthRedirect: true }
+      )
 
       // Store authentication data
       localStorage.setItem(

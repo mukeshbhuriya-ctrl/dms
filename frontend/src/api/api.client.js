@@ -51,10 +51,10 @@ class ApiClient {
 
         const response = await fetch(`${backendUrl}${endpoint}`, config);
 
-        return this.handleResponse(response);
+        return this.handleResponse(response, options);
     }
 
-    async handleResponse(response) {
+    async handleResponse(response, options = {}) {
         const contentType = response.headers.get("content-type");
 
         let data;
@@ -66,9 +66,9 @@ class ApiClient {
 
         if (!response.ok) {
             // Auto handle unauthorized globally
-            if (response.status === 401) {
+            if (response.status === 401 && !options.skipAuthRedirect) {
                 localStorage.removeItem("user_auth");
-                window.location.href = "/login";
+                window.location.href = "/";
             }
 
             const error = new Error(

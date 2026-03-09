@@ -238,6 +238,10 @@ const appRoutes = [
     path: "/",
     element: <App />,
   },
+  {
+    path: "/login",
+    element: <App />,
+  },
   ...siteAdminRoutes,
   ...userRoutes,
   ...dccRoutes,
