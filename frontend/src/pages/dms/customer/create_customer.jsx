@@ -13,7 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
-import { Plus, ArrowLeft } from "lucide-react"
+import { Plus, ArrowLeft, Edit } from "lucide-react"
+import apiClient from "@/api/api.client"
 
 function CreateCustomer() {
   const navigate = useNavigate()
@@ -29,6 +30,20 @@ function CreateCustomer() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [editingId, setEditingId] = useState(null)
+
+  const handleEdit = useCallback((customer) => {
+    setFormData({
+      customerName: customer.customer_name || "",
+      email: customer.email || "",
+      shortName: customer.customer_short_name || "",
+      mobileNumber: customer.mobile || "",
+    })
+    setEditingId(customer.id)
+    setView("create")
+    setError("")
+    setSuccess("")
+  }, [])
 
   const columns = useMemo(() => [
     {
@@ -53,25 +68,24 @@ function CreateCustomer() {
       header: "Created Date",
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
-  ], [])
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleEdit(row)}
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      ),
+    },
+  ], [handleEdit])
 
   const fetchCustomers = useCallback(async ({ page, limit, search, sorting }) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
       const params = new URLSearchParams()
       params.append("page", page)
       params.append("limit", limit)
@@ -81,15 +95,9 @@ function CreateCustomer() {
         params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
+      const responseData = await apiClient.get(`/api/dcc/get-customers?${params.toString()}`)
 
-      const responseData = await res.json()
-
-      if (res.ok && responseData.success) {
+      if (responseData.success) {
         return {
           data: responseData.data || [],
           meta: responseData.meta || {}
@@ -120,16 +128,6 @@ function CreateCustomer() {
     setIsLoading(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
       const requestBody = {
         customer_name: formData.customerName,
         customer_short_name: formData.shortName,
@@ -137,31 +135,25 @@ function CreateCustomer() {
         mobile: formData.mobileNumber,
       }
 
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
+      let data;
+      if (editingId) {
+        data = await apiClient.put(`/api/dcc/update-customer/${editingId}`, requestBody)
+      } else {
+        data = await apiClient.post(`/api/dcc/create-customer`, requestBody)
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/create-customer`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to create customer")
+      if (!data.success) {
+        throw new Error(data.message || (editingId ? "Failed to update customer" : "Failed to create customer"))
       }
 
-      setSuccess("Customer created successfully!")
+      setSuccess(editingId ? "Customer updated successfully!" : "Customer created successfully!")
       setFormData({
         customerName: "",
         email: "",
         shortName: "",
         mobileNumber: "",
       })
+      setEditingId(null)
 
       // Refresh list and switch to list view
       setRefreshKey(prev => prev + 1)
@@ -189,17 +181,21 @@ function CreateCustomer() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Customers List" : "Create Customer"}
+                  {view === "list" ? "Customers List" : (editingId ? "Update Customer" : "Create Customer")}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
                     ? "List of all customers in the system"
-                    : "Fill in the details to create a new customer profile."}
+                    : (editingId ? "Update the details of the selected customer." : "Fill in the details to create a new customer profile.")}
                 </p>
               </div>
               <div>
                 {view === "list" ? (
-                  <Button onClick={() => setView("create")}>
+                  <Button onClick={() => {
+                    setEditingId(null)
+                    setFormData({ customerName: "", email: "", shortName: "", mobileNumber: "" })
+                    setView("create")
+                  }}>
                     <Plus className="mr-2 h-4 w-4" /> Create Customer
                   </Button>
                 ) : (
@@ -324,13 +320,14 @@ function CreateCustomer() {
                         shortName: "",
                         mobileNumber: "",
                       })
+                      setEditingId(null)
                     }}
                     disabled={isLoading}
                   >
                     Reset
                   </Button>
                   <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Creating..." : "Create Customer"}
+                    {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Customer" : "Create Customer")}
                   </Button>
                 </div>
               </form>

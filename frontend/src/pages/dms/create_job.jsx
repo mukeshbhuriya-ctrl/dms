@@ -19,7 +19,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
-import { Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Edit } from "lucide-react"
+import apiClient from "@/api/api.client"
 
 function CreateJob() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -47,6 +48,27 @@ function CreateJob() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [editingId, setEditingId] = useState(null)
+
+  const handleEdit = useCallback((job) => {
+    setFormData({
+      customerId: String(job.customer?.id || ""),
+      locationId: String(job.customer_location?.id || ""),
+      poId: String(job.po?.id || ""),
+    })
+    setJobs([{
+      id: 1,
+      job_number: job.job_number || "",
+      project_id: job.project_id || "",
+      equipement_name: job.equipement_name || "",
+      tag_number: job.tag_number || "",
+      code: job.code || "",
+    }])
+    setEditingId(job.id)
+    setView("create")
+    setError("")
+    setSuccess("")
+  }, [])
 
   const columns = useMemo(() => [
     {
@@ -80,43 +102,34 @@ function CreateJob() {
       header: "Created Date",
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
-  ], [])
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleEdit(row)}
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      ),
+    },
+  ], [handleEdit])
 
   const fetchJobs = useCallback(async ({ page, limit, search, sorting }) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const params = new URLSearchParams()
-      params.append("page", page)
-      params.append("limit", limit)
-      if (search) params.append("search", search)
+      const params = { page, limit }
+      if (search) params.search = search
       if (sorting && sorting.length > 0) {
-        params.append("sortBy", sorting[0].id)
-        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+        params.sortBy = sorting[0].id
+        params.sortOrder = sorting[0].desc ? "desc" : "asc"
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-jobs?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
+      const responseData = await apiClient.get('/api/dcc/get-jobs', params)
 
-      const responseData = await res.json()
-
-      if (res.ok && responseData.success) {
+      if (responseData.success) {
         return {
           data: responseData.data || [],
           meta: responseData.meta || {}
@@ -134,29 +147,8 @@ function CreateJob() {
   // Fetch customers
   const fetchCustomers = async () => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-
-      const responseData = await res.json()
-      if (res.ok && responseData.success) {
+      const responseData = await apiClient.get('/api/dcc/get-customers', { limit: 1000 })
+      if (responseData.success) {
         setCustomers(responseData.data || [])
       } else {
         console.error("Failed to fetch customers", responseData)
@@ -290,55 +282,40 @@ function CreateJob() {
     setIsLoading(true)
 
     try {
-      const validJobs = jobs.filter((job) => job.job_number.trim())
-      if (validJobs.length === 0) {
-        throw new Error("Please add at least one job number")
+      if (editingId) {
+        const updateBody = {
+          job_number: jobs[0].job_number.trim(),
+          project_id: jobs[0].project_id?.trim() || null,
+          equipement_name: jobs[0].equipement_name?.trim() || null,
+          tag_number: jobs[0].tag_number?.trim() || null,
+          code: jobs[0].code?.trim() || null,
+        }
+        await apiClient.put(`/api/dcc/update-job/${editingId}`, updateBody)
+        setSuccess("Job updated successfully!")
+      } else {
+        const validJobs = jobs.filter((job) => job.job_number.trim())
+        if (validJobs.length === 0) {
+          throw new Error("Please add at least one job number")
+        }
+
+        const jobsArray = validJobs.map((job) => ({
+          job_number: job.job_number.trim(),
+          project_id: job.project_id?.trim() || null,
+          equipement_name: job.equipement_name?.trim() || null,
+          tag_number: job.tag_number?.trim() || null,
+          code: job.code?.trim() || null,
+        }))
+
+        const requestBody = {
+          customer_id: formData.customerId,
+          customer_location_id: formData.locationId,
+          po_id: formData.poId,
+          jobs: jobsArray,
+        }
+
+        await apiClient.post('/api/dcc/create-job', requestBody)
+        setSuccess(`Successfully created ${validJobs.length} job(s)!`)
       }
-
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const jobsArray = validJobs.map((job) => ({
-        job_number: job.job_number.trim(),
-        project_id: job.project_id?.trim() || null,
-        equipement_name: job.equipement_name?.trim() || null,
-        tag_number: job.tag_number?.trim() || null,
-        code: job.code?.trim() || null,
-      }))
-
-      const requestBody = {
-        customer_id: formData.customerId,
-        customer_location_id: formData.locationId,
-        po_id: formData.poId,
-        jobs: jobsArray,
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/create-job`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to create jobs")
-      }
-
-      setSuccess(`Successfully created ${validJobs.length} job(s)!`)
 
       // Reset form
       setFormData({ customerId: "", locationId: "", poId: "" })
@@ -352,13 +329,14 @@ function CreateJob() {
           code: "",
         },
       ])
+      setEditingId(null)
 
       // Refresh list and switch view
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
         setView("list")
-      }, 3000)
+      }, 1500)
 
     } catch (err) {
       setError(err?.message || "Something went wrong")
@@ -379,17 +357,22 @@ function CreateJob() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Jobs List" : "Create Job"}
+                  {view === "list" ? "Jobs List" : (editingId ? "Update Job" : "Create Job")}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
                     ? "List of all created jobs"
-                    : "Select customer, location, and PO to create jobs."}
+                    : (editingId ? "Update the details for the selected job." : "Select customer, location, and PO to create jobs.")}
                 </p>
               </div>
               <div>
                 {view === "list" ? (
-                  <Button onClick={() => setView("create")}>
+                  <Button onClick={() => {
+                    setEditingId(null)
+                    setFormData({ customerId: "", locationId: "", poId: "" })
+                    setJobs([{ id: 1, job_number: "", project_id: "", equipement_name: "", tag_number: "", code: "" }])
+                    setView("create")
+                  }}>
                     <Plus className="mr-2 h-4 w-4" /> Create Job
                   </Button>
                 ) : (
@@ -404,6 +387,7 @@ function CreateJob() {
                       tag_number: "",
                       code: "",
                     }])
+                    setEditingId(null)
                   }}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
@@ -445,7 +429,7 @@ function CreateJob() {
                         <Select
                           value={formData.customerId}
                           onValueChange={handleCustomerChange}
-                          disabled={isLoading || isLoadingCustomers || !!formData.poId}
+                          disabled={isLoading || isLoadingCustomers || !!formData.poId || !!editingId}
                           required
                         >
                           <SelectTrigger className="w-full">
@@ -470,7 +454,7 @@ function CreateJob() {
                           <Select
                             value={formData.locationId}
                             onValueChange={handleLocationChange}
-                            disabled={isLoading || !formData.customerId || !!formData.poId}
+                            disabled={isLoading || !formData.customerId || !!formData.poId || !!editingId}
                             required
                           >
                             <SelectTrigger className="w-full">
@@ -507,7 +491,7 @@ function CreateJob() {
                         <Select
                           value={formData.poId}
                           onValueChange={handlePOChange}
-                          disabled={isLoading || isLoadingCustomers}
+                          disabled={isLoading || isLoadingCustomers || !!editingId}
                           required
                         >
                           <SelectTrigger className="w-full">
@@ -580,7 +564,7 @@ function CreateJob() {
                                   />
                                 </div>
                               </div>
-                              {jobs.length > 1 && (
+                              {(!editingId && jobs.length > 1) && (
                                 <Button type="button" variant="outline" size="icon" onClick={() => removeJob(job.id)} className="mt-4">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -588,7 +572,7 @@ function CreateJob() {
                               <hr className="my-6" />
                             </div>
                           ))}
-                          <Button type="button" variant="outline" onClick={addJob} className="w-full">
+                          <Button type="button" variant="outline" onClick={addJob} className={`w-full ${editingId ? 'hidden' : ''}`}>
                             <Plus className="h-4 w-4 mr-2" /> Add Another Job
                           </Button>
                         </div>
@@ -596,16 +580,22 @@ function CreateJob() {
                     </Card>
                   )}
 
-                  {formData.poId && (
+                  {(formData.poId || editingId) && (
                     <div className="flex justify-end gap-4">
                       <Button type="button" variant="outline" onClick={() => {
-                        setFormData({ customerId: "", locationId: "", poId: "" })
+                        if (!editingId) {
+                          setFormData({ customerId: "", locationId: "", poId: "" })
+                        }
                         setJobs([{ id: 1, job_number: "", project_id: "", equipement_name: "", tag_number: "", code: "" }])
+                        if (editingId) {
+                          setEditingId(null)
+                          setView("list")
+                        }
                       }}>
-                        Reset
+                        {editingId ? "Cancel" : "Reset"}
                       </Button>
                       <Button type="submit" disabled={isLoading}>
-                        {isLoading ? "Creating..." : "Create Jobs"}
+                        {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Job" : "Create Jobs")}
                       </Button>
                     </div>
                   )}

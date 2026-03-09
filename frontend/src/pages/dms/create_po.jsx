@@ -19,9 +19,10 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
-import { Upload, X, Plus, Mail, ArrowLeft, FileText } from "lucide-react"
+import { Upload, X, Plus, Mail, ArrowLeft, FileText, Edit } from "lucide-react"
 import { poApi } from "@/api/po.api"
 import { commonApi } from "@/api/common.api"
+import apiClient from "@/api/api.client"
 
 function CreatePO() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -35,6 +36,7 @@ function CreatePO() {
 
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [poDocument, setPoDocument] = useState(null)
+  const [existingDocUrl, setExistingDocUrl] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true)
   const [isLoadingLocations, setIsLoadingLocations] = useState(false)
@@ -44,12 +46,49 @@ function CreatePO() {
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
 
+  const [editingId, setEditingId] = useState(null)
+
   const [shrenoCommunication, setShrenoCommunication] = useState([
     { name: "", email: "" },
   ])
   const [clientCommunication, setClientCommunication] = useState([
     { name: "", email: "" },
   ])
+
+  const handleEdit = useCallback(async (po) => {
+    // Populate form logic
+    setFormData({
+      customerId: String(po.customer_id),
+      locationId: String(po.customer_location_id),
+      poNumber: po.po_number || "",
+      poDate: po.po_date ? new Date(po.po_date).toISOString().split('T')[0] : "",
+    })
+
+    if (po.customer_location) {
+      setLocations([po.customer_location])
+      setSelectedLocation(po.customer_location)
+    }
+
+    setExistingDocUrl(po.po_doc_url)
+    setPoDocument(null)
+
+    // Parse matrix
+    const shreno = []
+    const client = []
+    if (po.po_communication_matrix && Array.isArray(po.po_communication_matrix)) {
+      po.po_communication_matrix.forEach(contact => {
+        if (contact.type === 'shreno') shreno.push({ name: contact.name, email: contact.email })
+        if (contact.type === 'client') client.push({ name: contact.name, email: contact.email })
+      })
+    }
+    setShrenoCommunication(shreno.length ? shreno : [{ name: "", email: "" }])
+    setClientCommunication(client.length ? client : [{ name: "", email: "" }])
+
+    setEditingId(po.id)
+    setView("create")
+    setError("")
+    setSuccess("")
+  }, [])
 
   const columns = useMemo(() => [
     {
@@ -89,7 +128,21 @@ function CreatePO() {
       header: "Created Date",
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
-  ], [])
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleEdit(row)}
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      ),
+    },
+  ], [handleEdit])
 
   const fetchPos = useCallback(async ({ page, limit, search, sorting }) => {
     try {
@@ -281,11 +334,17 @@ function CreatePO() {
 
       if (poDocument) {
         formDataToSend.append("po_document", poDocument)
+      } else if (existingDocUrl) {
+        formDataToSend.append("po_doc_url", existingDocUrl)
       }
 
-      await poApi.createPo(formDataToSend)
-
-      setSuccess("PO created successfully!")
+      if (editingId) {
+        await apiClient.put(`/api/dcc/update-po/${editingId}`, formDataToSend)
+        setSuccess("PO updated successfully!")
+      } else {
+        await poApi.createPo(formDataToSend)
+        setSuccess("PO created successfully!")
+      }
 
       // Reset form
       setFormData({
@@ -296,8 +355,10 @@ function CreatePO() {
       })
       setSelectedLocation(null)
       setPoDocument(null)
+      setExistingDocUrl(null)
       setShrenoCommunication([{ name: "", email: "" }])
       setClientCommunication([{ name: "", email: "" }])
+      setEditingId(null)
 
       const fileInput = document.getElementById("documentUpload")
       if (fileInput) fileInput.value = ""
@@ -307,7 +368,7 @@ function CreatePO() {
       setTimeout(() => {
         setSuccess("")
         setView("list")
-      }, 3000)
+      }, 1500)
 
     } catch (err) {
       setError(err?.message || "Something went wrong")
@@ -330,17 +391,26 @@ function CreatePO() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Purchase Orders List" : "Create Purchase Order"}
+                  {view === "list" ? "Purchase Orders List" : (editingId ? "Update Purchase Order" : "Create Purchase Order")}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
                     ? "List of all purchase orders"
-                    : "Fill in the purchase order information below."}
+                    : (editingId ? "Update the details for the selected purchase order." : "Fill in the purchase order information below.")}
                 </p>
               </div>
               <div>
                 {view === "list" ? (
-                  <Button onClick={() => setView("create")}>
+                  <Button onClick={() => {
+                    setEditingId(null)
+                    setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
+                    setSelectedLocation(null)
+                    setPoDocument(null)
+                    setExistingDocUrl(null)
+                    setShrenoCommunication([{ name: "", email: "" }])
+                    setClientCommunication([{ name: "", email: "" }])
+                    setView("create")
+                  }}>
                     <Plus className="mr-2 h-4 w-4" /> Create PO
                   </Button>
                 ) : (
@@ -389,7 +459,7 @@ function CreatePO() {
                         <Select
                           value={formData.customerId}
                           onValueChange={handleCustomerChange}
-                          disabled={isLoading || isLoadingCustomers}
+                          disabled={isLoading || isLoadingCustomers || !!editingId}
                           required
                         >
                           <SelectTrigger className="w-full">
@@ -413,7 +483,7 @@ function CreatePO() {
                           <Select
                             value={formData.locationId}
                             onValueChange={handleLocationChange}
-                            disabled={isLoading || isLoadingLocations || !formData.customerId}
+                            disabled={isLoading || isLoadingLocations || !formData.customerId || !!editingId}
                             required
                           >
                             <SelectTrigger className="w-full">
@@ -492,6 +562,14 @@ function CreatePO() {
                               onChange={handleDocumentUpload}
                               className="hidden"
                             />
+                            {existingDocUrl && !poDocument && (
+                              <div className="flex items-center gap-2 p-2 border rounded">
+                                <span className="text-sm">Current Document</span>
+                                <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
+                                  <FileText className="h-3 w-3 mr-1" /> View
+                                </a>
+                              </div>
+                            )}
                             {poDocument && (
                               <div className="flex items-center gap-2 p-2 border rounded">
                                 <span className="text-sm">{poDocument.name}</span>
@@ -597,15 +675,21 @@ function CreatePO() {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
-                          setSelectedLocation(null)
+                          if (!editingId) {
+                            setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
+                            setSelectedLocation(null)
+                          }
                           setPoDocument(null)
+                          if (editingId) {
+                            setEditingId(null)
+                            setView("list")
+                          }
                         }}
                       >
-                        Reset
+                        {editingId ? "Cancel" : "Reset"}
                       </Button>
                       <Button type="submit" disabled={isLoading}>
-                        {isLoading ? "Creating..." : "Create PO"}
+                        {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update PO" : "Create PO")}
                       </Button>
                     </div>
                   )}

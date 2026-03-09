@@ -732,8 +732,9 @@ async function getPos(req, res) {
     const pos = await prisma.po.findMany({
       where: { company_id },
       include: {
-        customer: { select: { customer_name: true } },
-        customer_location: { select: { location_name: true } }
+        customer: { select: { id: true, customer_name: true } },
+        customer_location: { select: { id: true, location_name: true, gst_number: true } },
+        po_communication_matrix: true
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -775,6 +776,177 @@ async function getJobs(req, res) {
 }
 
 
+/**
+ * Update Customer API
+ */
+async function updateCustomer(req, res) {
+  try {
+    const { id } = req.params;
+    const { customer_name, customer_short_name, email, mobile } = req.body;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'Customer ID is required' });
+
+    const existing = await prisma.customer.findFirst({ where: { id: id.trim(), company_id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Customer not found' });
+
+    if (email && email.toLowerCase().trim() !== existing.email) {
+      const emailCheck = await prisma.customer.findFirst({ where: { company_id, email: email.toLowerCase().trim() } });
+      if (emailCheck) return res.status(409).json({ success: false, message: 'Email already exists' });
+    }
+
+    const updated = await prisma.customer.update({
+      where: { id: id.trim() },
+      data: {
+        customer_name: customer_name ? customer_name.trim() : undefined,
+        customer_short_name: customer_short_name ? customer_short_name.trim() : undefined,
+        email: email ? email.toLowerCase().trim() : undefined,
+        mobile: mobile ? mobile.trim() : null,
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Customer updated successfully', data: updated });
+  } catch (error) {
+    console.error('Update customer error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+}
+
+/**
+ * Update Customer Location API
+ */
+async function updateCustomerLocation(req, res) {
+  try {
+    const { id } = req.params;
+    const { location_name, customer_number_as_per_sap, gst_number } = req.body;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'Location ID is required' });
+
+    const existing = await prisma.customer_location.findFirst({ where: { id: id.trim(), company_id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Location not found' });
+
+    const updated = await prisma.customer_location.update({
+      where: { id: id.trim() },
+      data: {
+        location_name: location_name ? location_name.trim() : undefined,
+        customer_number_as_per_sap: customer_number_as_per_sap ? customer_number_as_per_sap.trim() : undefined,
+        gst_number: gst_number ? gst_number.trim() : undefined,
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Location updated successfully', data: updated });
+  } catch (error) {
+    console.error('Update location error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+}
+
+/**
+ * Update PO
+ */
+async function updatePo(req, res) {
+  try {
+    const { id } = req.params;
+    const { po_number, po_date, po_doc_url, communication_matrix } = req.body;
+    const uploadedFile = req.file;
+    const company_id = req.user.company_id;
+
+    const existingPo = await prisma.po.findFirst({ where: { id: id.trim(), company_id } });
+    if (!existingPo) return res.status(404).json({ success: false, message: 'PO not found' });
+
+    let finalPoDocUrl = existingPo.po_doc_url;
+    if (uploadedFile) {
+      const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+      finalPoDocUrl = `${backendUrl}/uploads/${uploadedFile.filename}`;
+    } else if (po_doc_url && po_doc_url.trim() !== '') {
+      finalPoDocUrl = po_doc_url.trim();
+    }
+
+    let parsedCommunicationMatrix = null;
+    if (communication_matrix) {
+      if (typeof communication_matrix === 'string') {
+        try { parsedCommunicationMatrix = JSON.parse(communication_matrix); } catch (e) { }
+      } else {
+        parsedCommunicationMatrix = communication_matrix;
+      }
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updateData = {};
+      if (po_number) updateData.po_number = po_number.trim();
+      if (po_date) updateData.po_date = new Date(po_date);
+      if (finalPoDocUrl !== existingPo.po_doc_url) updateData.po_doc_url = finalPoDocUrl;
+
+      const updatedPo = await tx.po.update({
+        where: { id: id.trim() },
+        data: updateData
+      });
+
+      let newMatrix = [];
+      if (parsedCommunicationMatrix) {
+        await tx.po_communication_matrix.deleteMany({ where: { po_id: id.trim(), company_id } });
+
+        if (parsedCommunicationMatrix.shreno && Array.isArray(parsedCommunicationMatrix.shreno)) {
+          for (const person of parsedCommunicationMatrix.shreno) {
+            newMatrix.push(await tx.po_communication_matrix.create({
+              data: { company_id, po_id: id.trim(), name: person.name.trim(), email: person.email.toLowerCase().trim(), type: 'shreno' }
+            }));
+          }
+        }
+        if (parsedCommunicationMatrix.client && Array.isArray(parsedCommunicationMatrix.client)) {
+          for (const person of parsedCommunicationMatrix.client) {
+            newMatrix.push(await tx.po_communication_matrix.create({
+              data: { company_id, po_id: id.trim(), name: person.name.trim(), email: person.email.toLowerCase().trim(), type: 'client' }
+            }));
+          }
+        }
+      } else {
+        newMatrix = await tx.po_communication_matrix.findMany({ where: { po_id: id.trim() } });
+      }
+
+      return { po: updatedPo, communicationMatrixEntries: newMatrix };
+    });
+
+    res.status(200).json({ success: true, message: 'PO updated successfully', data: result });
+  } catch (error) {
+    console.error('Update PO error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+}
+
+/**
+ * Update Job
+ */
+async function updateJob(req, res) {
+  try {
+    const { id } = req.params;
+    const { job_number, project_id, equipement_name, tag_number, code } = req.body;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'Job ID is required' });
+
+    const existing = await prisma.job.findFirst({ where: { id: id.trim(), company_id } });
+    if (!existing) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    const updated = await prisma.job.update({
+      where: { id: id.trim() },
+      data: {
+        job_number: job_number ? job_number.trim() : undefined,
+        project_id: project_id !== undefined ? (project_id ? project_id.trim() : null) : undefined,
+        equipement_name: equipement_name !== undefined ? (equipement_name ? equipement_name.trim() : null) : undefined,
+        tag_number: tag_number !== undefined ? (tag_number ? tag_number.trim() : null) : undefined,
+        code: code !== undefined ? (code ? code.trim() : null) : undefined,
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Job updated successfully', data: updated });
+  } catch (error) {
+    console.error('Update job error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+}
+
 module.exports = {
   createCustomer,
   createCustomerLocation,
@@ -783,5 +955,9 @@ module.exports = {
   getCustomers,
   getCustomerLocations,
   getPos,
-  getJobs
+  getJobs,
+  updateCustomer,
+  updateCustomerLocation,
+  updatePo,
+  updateJob
 };

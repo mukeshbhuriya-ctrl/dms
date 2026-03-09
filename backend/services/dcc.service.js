@@ -260,8 +260,9 @@ class DccService {
             prisma.po.findMany({
                 where, skip, take,
                 include: {
-                    customer: { select: { customer_name: true } },
-                    customer_location: { select: { location_name: true } }
+                    customer: { select: { id: true, customer_name: true } },
+                    customer_location: { select: { id: true, location_name: true, gst_number: true } },
+                    po_communication_matrix: true
                 },
                 orderBy: { createdAt: 'desc' }
             })
@@ -319,9 +320,9 @@ class DccService {
             prisma.job.findMany({
                 where, skip, take,
                 include: {
-                    customer: { select: { customer_name: true } },
-                    customer_location: { select: { location_name: true } },
-                    po: { select: { po_number: true } }
+                    customer: { select: { id: true, customer_name: true } },
+                    customer_location: { select: { id: true, location_name: true } },
+                    po: { select: { id: true, po_number: true } }
                 },
                 orderBy: { createdAt: 'desc' }
             })

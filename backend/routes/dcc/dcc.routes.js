@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs } = require('#api/dcc/customer.js');
+const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs, updateCustomer, updateCustomerLocation, updatePo, updateJob } = require('#api/dcc/customer.js');
 const { getDocumentType, createDocumentType, getDocumentMaster, createDocumentMaster } = require('#api/dcc/document.js');
 const { getUsers } = require('#api/users/user.js');
 
@@ -21,15 +21,19 @@ router.use(authenticateUser(['DCC', 'ADMIN']));
 
 router.get('/get-customers', DccController.getCustomers);
 router.post('/create-customer', createCustomer);
+router.put('/update-customer/:id', updateCustomer);
 
 router.get('/get-customer-locations', DccController.getCustomerLocations);
 router.post('/create-customer-location', createCustomerLocation);
+router.put('/update-customer-location/:id', updateCustomerLocation);
 
 router.get('/get-pos', DccController.getPos);
 router.post('/create-po', documentUpload.single('po_document'), createPo);
+router.put('/update-po/:id', documentUpload.single('po_document'), updatePo);
 
 router.get('/get-jobs', DccController.getJobs);
 router.post('/create-job', createJob);
+router.put('/update-job/:id', updateJob);
 
 router.get('/document', DccController.getDocuments);
 router.post('/create-document-master', createDocumentMaster);

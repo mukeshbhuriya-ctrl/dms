@@ -19,7 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
-import { Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Edit } from "lucide-react"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
 
@@ -41,6 +41,23 @@ function CreateLocation() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [editingId, setEditingId] = useState(null)
+
+  const handleEdit = useCallback((locationItem) => {
+    setSelectedCustomer(String(locationItem.customer_id))
+    setLocations([
+      {
+        id: 1,
+        location: locationItem.location_name || "",
+        customerNumber: locationItem.customer_number_as_per_sap || "",
+        gstNumber: locationItem.gst_number || "",
+      }
+    ])
+    setEditingId(locationItem.id)
+    setView("create")
+    setError("")
+    setSuccess("")
+  }, [])
 
   const columns = useMemo(() => [
     {
@@ -65,7 +82,21 @@ function CreateLocation() {
       header: "Created Date",
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
-  ], [])
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleEdit(row)}
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      ),
+    },
+  ], [handleEdit])
 
   const fetchCustomerLocations = useCallback(async ({ page, limit, search, sorting }) => {
     try {
@@ -150,20 +181,29 @@ function CreateLocation() {
     setIsLoading(true)
 
     try {
-      const locationsArray = locations.map((location) => ({
-        location_name: location.location,
-        customer_number_as_per_sap: location.customerNumber,
-        gst_number: location.gstNumber,
-      }))
+      if (editingId) {
+        const updateBody = {
+          location_name: locations[0].location,
+          customer_number_as_per_sap: locations[0].customerNumber,
+          gst_number: locations[0].gstNumber,
+        }
+        await apiClient.put(`/api/dcc/update-customer-location/${editingId}`, updateBody)
+        setSuccess("Location updated successfully!")
+      } else {
+        const locationsArray = locations.map((location) => ({
+          location_name: location.location,
+          customer_number_as_per_sap: location.customerNumber,
+          gst_number: location.gstNumber,
+        }))
 
-      const requestBody = {
-        customer_id: selectedCustomer,
-        locations: locationsArray,
+        const requestBody = {
+          customer_id: selectedCustomer,
+          locations: locationsArray,
+        }
+
+        await apiClient.post('/api/dcc/create-customer-location', requestBody)
+        setSuccess(`Successfully created ${locations.length} location(s)!`)
       }
-
-      await apiClient.post('/api/dcc/create-customer-location', requestBody)
-
-      setSuccess(`Successfully created ${locations.length} location(s)!`)
 
       // Reset form
       setSelectedCustomer("")
@@ -175,13 +215,14 @@ function CreateLocation() {
           gstNumber: "",
         },
       ])
+      setEditingId(null)
 
       // Refresh list and switch view
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
         setView("list")
-      }, 3000)
+      }, 1500)
 
     } catch (err) {
       setError(err?.message || "Something went wrong")
@@ -202,17 +243,22 @@ function CreateLocation() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Locations List" : "Create Location"}
+                  {view === "list" ? "Locations List" : (editingId ? "Update Location" : "Create Location")}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
                     ? "List of all customer locations"
-                    : "Add one or more locations for a customer."}
+                    : (editingId ? "Update the details for the selected location." : "Add one or more locations for a customer.")}
                 </p>
               </div>
               <div>
                 {view === "list" ? (
-                  <Button onClick={() => setView("create")}>
+                  <Button onClick={() => {
+                    setEditingId(null)
+                    setSelectedCustomer("")
+                    setLocations([{ id: 1, location: "", customerNumber: "", gstNumber: "" }])
+                    setView("create")
+                  }}>
                     <Plus className="mr-2 h-4 w-4" /> Create Location
                   </Button>
                 ) : (
@@ -266,7 +312,7 @@ function CreateLocation() {
                         <Select
                           value={selectedCustomer}
                           onValueChange={setSelectedCustomer}
-                          disabled={isLoading || isLoadingCustomers}
+                          disabled={isLoading || isLoadingCustomers || !!editingId}
                           required
                         >
                           <SelectTrigger className="w-full">
@@ -313,6 +359,7 @@ function CreateLocation() {
                             size="sm"
                             onClick={addLocation}
                             disabled={isLoading}
+                            className={editingId ? "hidden" : ""}
                           >
                             <Plus className="h-4 w-4 mr-2" />
                             Add Location
@@ -334,7 +381,7 @@ function CreateLocation() {
                               <h3 className="font-semibold">
                                 Location {index + 1}
                               </h3>
-                              {locations.length > 1 && (
+                              {(!editingId && locations.length > 1) && (
                                 <Button
                                   type="button"
                                   variant="ghost"
@@ -420,15 +467,19 @@ function CreateLocation() {
                         type="button"
                         variant="outline"
                         onClick={() => {
-                          setSelectedCustomer("")
+                          if (!editingId) setSelectedCustomer("")
                           setLocations([{ id: 1, location: "", customerNumber: "", gstNumber: "" }])
+                          if (editingId) {
+                            setEditingId(null)
+                            setView("list")
+                          }
                         }}
                         disabled={isLoading}
                       >
-                        Reset
+                        {editingId ? "Cancel" : "Reset"}
                       </Button>
                       <Button type="submit" disabled={isLoading}>
-                        {isLoading ? "Creating..." : "Create Locations"}
+                        {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Location" : "Create Locations")}
                       </Button>
                     </div>
                   )}
