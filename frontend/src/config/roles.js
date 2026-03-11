@@ -88,7 +88,7 @@ export const MENU_CONFIG = [
         items: [
             { title: "Document Master", path: "/dcc/document-master", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Assign Document", path: "/dcc/assign-document", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.USER] },
+            { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER] },
             { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Create Transmission", path: "/dcc/create-transmission", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Send Document to Client", path: "/dcc/send-document-to-client", roles: [ROLES.ADMIN, ROLES.DCC] },

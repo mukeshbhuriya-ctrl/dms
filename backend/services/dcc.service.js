@@ -362,7 +362,7 @@ class DccService {
     }
 
     async getDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', exclude_transmitted, exclude_assigned } = params;
+        const { page = 1, limit = 50, search = '', exclude_transmitted, exclude_assigned, include_id } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
         const where = { company_id };
@@ -417,7 +417,14 @@ class DccService {
             const assignedDocIds = assignedDocs.map(d => d.document_id);
 
             if (assignedDocIds.length > 0) {
-                where.id = { ...where.id, notIn: [...(where.id?.notIn || []), ...assignedDocIds] };
+                let idsToExclude = assignedDocIds;
+                if (include_id) {
+                    idsToExclude = assignedDocIds.filter(id => id !== include_id);
+                }
+                
+                if (idsToExclude.length > 0) {
+                    where.id = { ...where.id, notIn: [...(where.id?.notIn || []), ...idsToExclude] };
+                }
             }
         }
 
@@ -1360,6 +1367,60 @@ class DccService {
                 document_name: document_name ? document_name.trim() : undefined,
                 document_type_id: document_type_id || undefined
             }
+        });
+    }
+
+    /**
+     * Update Assigned Document
+     */
+    async updateAssignedDocument(company_id, id, data) {
+        const { document_id, job_ids, assign_user_id, upload_due_days, response_due_days, shreno_document_no, shreno_reference_no, client_document_no, client_reference_no } = data;
+
+        const groupDoc = await prisma.group_document.findFirst({
+            where: { id, company_id },
+            include: { group: true }
+        });
+
+        if (!groupDoc) throw new Error('Assignment not found');
+
+        return await prisma.$transaction(async (tx) => {
+            // 1. Update Group Document
+            const updatedGroupDoc = await tx.group_document.update({
+                where: { id },
+                data: {
+                    document_id: document_id || undefined,
+                    user_id: assign_user_id || undefined,
+                    upload_due_days: upload_due_days !== undefined ? parseInt(upload_due_days) : undefined,
+                    response_due_days: response_due_days !== undefined ? parseInt(response_due_days) : undefined,
+                    shreno_doc_no: shreno_document_no || undefined,
+                    shreno_reference_no: shreno_reference_no || undefined,
+                    client_doc_no: client_document_no || undefined,
+                    client_reference_no: client_reference_no || undefined
+                }
+            });
+
+            // 2. Update Job Groups if job_ids provided
+            if (job_ids && Array.isArray(job_ids)) {
+                const groupId = groupDoc.group_id;
+                
+                // Delete old job groups
+                await tx.job_group.deleteMany({
+                    where: { group_id: groupId, company_id }
+                });
+
+                // Create new job groups
+                for (const jobId of job_ids) {
+                    await tx.job_group.create({
+                        data: {
+                            company_id,
+                            group_id: groupId,
+                            job_id: jobId
+                        }
+                    });
+                }
+            }
+
+            return updatedGroupDoc;
         });
     }
 }

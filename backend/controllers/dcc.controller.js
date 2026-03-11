@@ -233,6 +233,20 @@ class DccController {
             res.status(400).json({ success: false, message: error.message });
         }
     }
+
+    async updateAssignedDocument(req, res) {
+        try {
+            const result = await DccService.updateAssignedDocument(req.user.company_id, req.params.id, req.body);
+            res.status(200).json({
+                success: true,
+                message: 'Assignment updated successfully',
+                data: result
+            });
+        } catch (error) {
+            console.error('Update assignment error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = new DccController();

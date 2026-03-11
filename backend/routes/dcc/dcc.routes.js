@@ -54,5 +54,6 @@ router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
 // Client Approval Status
 router.post('/transmission/client-status', DccController.updateTransmissionClientStatus);
+router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), DccController.updateAssignedDocument);
 
 module.exports = router;
