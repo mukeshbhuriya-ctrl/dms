@@ -362,7 +362,7 @@ class DccService {
     }
 
     async getDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', exclude_transmitted } = params;
+        const { page = 1, limit = 50, search = '', exclude_transmitted, exclude_assigned } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
         const where = { company_id };
@@ -402,7 +402,22 @@ class DccService {
             approvedDocs.forEach(d => excludedDocumentMasterIds.add(d.document_id));
 
             if (excludedDocumentMasterIds.size > 0) {
-                where.id = { notIn: [...excludedDocumentMasterIds] };
+                where.id = { ...where.id, notIn: [...(where.id?.notIn || []), ...excludedDocumentMasterIds] };
+            }
+        }
+
+        if (exclude_assigned === 'true' || exclude_assigned === true) {
+            // Find all unique document_id from group_document which represents assigned documents
+            const assignedDocs = await prisma.group_document.findMany({
+                where: { company_id },
+                select: { document_id: true },
+                distinct: ['document_id']
+            });
+
+            const assignedDocIds = assignedDocs.map(d => d.document_id);
+
+            if (assignedDocIds.length > 0) {
+                where.id = { ...where.id, notIn: [...(where.id?.notIn || []), ...assignedDocIds] };
             }
         }
 

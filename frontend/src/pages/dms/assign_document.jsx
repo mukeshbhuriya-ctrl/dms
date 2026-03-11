@@ -175,7 +175,7 @@ function AssignDocument() {
             headers,
             credentials: "include",
           }),
-          fetch(`${backendUrl}/api/dcc/document?limit=1000&exclude_transmitted=true`, {
+          fetch(`${backendUrl}/api/dcc/document?limit=1000&exclude_transmitted=true&exclude_assigned=true`, {
             method: "GET",
             headers,
             credentials: "include",
@@ -598,7 +598,7 @@ function AssignDocument() {
 
             {/* Assign View */}
             {view === 'assign' && (
-              <div className="max-w-4xl mx-auto">
+              <div className="space-y-6">
                 <form>
                   <Card>
                     <CardHeader>
@@ -810,7 +810,7 @@ function AssignDocument() {
 
                 {/* Document List - Show after job selection */}
                 {formData.jobIds && formData.jobIds.length > 0 && !isLoadingData && (
-                  <Card className="mt-8">
+                  <Card>
                     <CardHeader>
                       <CardTitle>Available Documents</CardTitle>
                       <CardDescription>
@@ -946,7 +946,7 @@ function AssignDocument() {
 
                 {/* Step 2: Document Details */}
                 {currentStep === 2 && selectedDocuments.length > 0 && (
-                  <Card className="mt-8">
+                  <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <div>
