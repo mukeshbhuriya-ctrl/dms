@@ -37,6 +37,7 @@ router.put('/update-job/:id', updateJob);
 
 router.get('/document', DccController.getDocuments);
 router.post('/create-document-master', createDocumentMaster);
+router.put('/update-document-master/:id', DccController.updateDocumentMaster);
 
 router.get('/document-type', getDocumentType);
 router.get('/get-users', getUsers);

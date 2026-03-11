@@ -99,6 +99,15 @@ class DccController {
         }
     }
 
+    async updateDocumentMaster(req, res) {
+        try {
+            const result = await DccService.updateDocumentMaster(req.user.company_id, req.params.id, req.body);
+            res.status(200).json({ success: true, message: 'Document master updated successfully', data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
     async getDocuments(req, res) {
         try {
             const result = await DccService.getDocuments(req.user.company_id, req.query);

@@ -446,7 +446,7 @@ async function assignDocument(req, res) {
               client_doc_no: doc.client_document_no ? doc.client_document_no.trim() : null,
               client_reference_no: doc.client_reference_no ? doc.client_reference_no.trim() : null,
               upload_due_days: doc.upload_due_days || null,
-              reponce_due_days: doc.response_due_days || null,
+              response_due_days: doc.response_due_days || null,
               user_id: doc.assign_user_id.trim(),
             },
           });
@@ -495,7 +495,7 @@ async function assignDocument(req, res) {
                 client_doc_no: doc.client_document_no ? doc.client_document_no.trim() : null,
                 client_reference_no: doc.client_reference_no ? doc.client_reference_no.trim() : null,
                 upload_due_days: doc.upload_due_days || null,
-                reponce_due_days: doc.response_due_days || null,
+                response_due_days: doc.response_due_days || null,
                 user_id: doc.assign_user_id.trim(),
               },
             })

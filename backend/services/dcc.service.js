@@ -1322,6 +1322,31 @@ class DccService {
             return results;
         });
     }
+
+    async updateDocumentMaster(company_id, id, data) {
+        const { document_number, document_name, document_type_id } = data;
+
+        // Check duplicates if document_number is being changed
+        if (document_number) {
+            const existing = await prisma.document_master.findFirst({
+                where: {
+                    company_id,
+                    document_number,
+                    NOT: { id: id }
+                }
+            });
+            if (existing) throw new Error('Document number already exists');
+        }
+
+        return await prisma.document_master.update({
+            where: { id, company_id },
+            data: {
+                document_number: document_number ? document_number.trim() : undefined,
+                document_name: document_name ? document_name.trim() : undefined,
+                document_type_id: document_type_id || undefined
+            }
+        });
+    }
 }
 
 module.exports = new DccService();

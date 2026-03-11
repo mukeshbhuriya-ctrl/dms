@@ -19,7 +19,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
-import { Plus, ArrowLeft } from "lucide-react"
+import { Plus, ArrowLeft, Edit } from "lucide-react"
+import apiClient from "@/api/api.client"
 
 function DocumentMaster() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -41,6 +42,7 @@ function DocumentMaster() {
   const [typeSuccess, setTypeSuccess] = useState("")
   const [showTypeForm, setShowTypeForm] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [editingId, setEditingId] = useState(null)
 
   const columns = useMemo(() => [
     {
@@ -65,43 +67,34 @@ function DocumentMaster() {
       header: "Created Date",
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleEditDocument(row)}
+        >
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
+        </Button>
+      ),
+    },
   ], [])
 
   const fetchDocuments = useCallback(async ({ page, limit, search, sorting }) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const params = new URLSearchParams()
-      params.append("page", page)
-      params.append("limit", limit)
-      if (search) params.append("search", search)
+      const params = { page, limit }
+      if (search) params.search = search
       if (sorting && sorting.length > 0) {
-        params.append("sortBy", sorting[0].id)
-        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+        params.sortBy = sorting[0].id
+        params.sortOrder = sorting[0].desc ? "desc" : "asc"
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/document?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
+      const responseData = await apiClient.get("/api/dcc/document", params)
 
-      const responseData = await res.json()
-
-      if (res.ok && responseData.success) {
+      if (responseData.success) {
         return {
           data: responseData.data || [],
           meta: responseData.meta || {}
@@ -119,29 +112,8 @@ function DocumentMaster() {
   // Fetch document types
   const fetchDocumentTypes = async () => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/document-type`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-
-      const responseData = await res.json()
-      if (res.ok) {
+      const responseData = await apiClient.get("/api/dcc/document-type")
+      if (responseData.success) {
         setDocumentTypes(responseData.data || responseData.documentTypes || [])
       } else {
         console.error("Failed to fetch document types", responseData)
@@ -181,31 +153,9 @@ function DocumentMaster() {
     setIsLoadingType(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/create-document-type`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({ name: documentTypeFormData.name.trim() }),
+      const responseData = await apiClient.post("/api/dcc/create-document-type", {
+        name: documentTypeFormData.name.trim()
       })
-
-      const data = await res.json()
-
-      if (!res.ok) throw new Error(data.message || "Failed to create document type")
 
       setTypeSuccess("Document type created successfully!")
       setDocumentTypeFormData({ name: "" })
@@ -221,6 +171,16 @@ function DocumentMaster() {
     }
   }
 
+  const handleEditDocument = (doc) => {
+    setDocumentFormData({
+      document_number: doc.document_number,
+      document_name: doc.document_name,
+      document_type_id: doc.document_type_id ? String(doc.document_type_id) : "",
+    })
+    setEditingId(doc.id)
+    setView("create")
+  }
+
   const handleCreateDocument = async (e) => {
     e.preventDefault()
     setError("")
@@ -228,42 +188,26 @@ function DocumentMaster() {
     setIsLoading(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
+      const payload = {
+        document_number: documentFormData.document_number.trim(),
+        document_name: documentFormData.document_name.trim(),
+        document_type_id: documentFormData.document_type_id,
       }
 
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
+      let responseData;
+      if (editingId) {
+        responseData = await apiClient.put(`/api/dcc/update-document-master/${editingId}`, payload)
+      } else {
+        responseData = await apiClient.post("/api/dcc/create-document-master", payload)
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/create-document-master`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify({
-          document_number: documentFormData.document_number.trim(),
-          document_name: documentFormData.document_name.trim(),
-          document_type_id: documentFormData.document_type_id,
-        }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) throw new Error(data.message || "Failed to create document")
-
-      setSuccess("Document created successfully!")
+      setSuccess(editingId ? "Document updated successfully!" : "Document created successfully!")
       setDocumentFormData({
         document_number: "",
         document_name: "",
         document_type_id: "",
       })
+      setEditingId(null)
 
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
@@ -289,17 +233,25 @@ function DocumentMaster() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Document Master List" : "Create Document"}
+                  {view === "list" ? "Document Master List" : editingId ? "Edit Document" : "Create Document"}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
                     ? "List of all documents and types"
-                    : "Create and manage document types and documents."}
+                    : editingId ? "Update document details." : "Create and manage document types and documents."}
                 </p>
               </div>
               <div>
                 {view === "list" ? (
-                  <Button onClick={() => setView("create")}>
+                  <Button onClick={() => {
+                    setEditingId(null)
+                    setDocumentFormData({
+                      document_number: "",
+                      document_name: "",
+                      document_type_id: "",
+                    })
+                    setView("create")
+                  }}>
                     <Plus className="mr-2 h-4 w-4" /> Create Document
                   </Button>
                 ) : (
@@ -397,8 +349,10 @@ function DocumentMaster() {
                 <form onSubmit={handleCreateDocument}>
                   <Card>
                     <CardHeader>
-                      <CardTitle>Create Document</CardTitle>
-                      <CardDescription>Enter the details for the new document</CardDescription>
+                      <CardTitle>{editingId ? "Edit Document" : "Create Document"}</CardTitle>
+                      <CardDescription>
+                        {editingId ? "Update the details for the document" : "Enter the details for the new document"}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {error && (
@@ -487,6 +441,7 @@ function DocumentMaster() {
                               document_name: "",
                               document_type_id: "",
                             })
+                            setEditingId(null)
                             setError("")
                           }}
                           disabled={isLoading}
@@ -494,7 +449,7 @@ function DocumentMaster() {
                           Reset
                         </Button>
                         <Button type="submit" disabled={isLoading || documentTypes.length === 0}>
-                          {isLoading ? "Creating..." : "Create Document"}
+                          {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Document" : "Create Document")}
                         </Button>
                       </div>
                     </CardContent>
