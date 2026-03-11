@@ -315,6 +315,8 @@ class DcrController {
                         dcr_no: true,
                         drg_no: true,
                         inspect_by: true,
+                        design_engineer_id: true,
+                        quality_engineer_id: true,
                         dcr_status: {
                             select: {
                                 id: true,
@@ -335,6 +337,8 @@ class DcrController {
                 dcr_no: item.dcr_no,
                 drg_no: item.drg_no,
                 inspect_by: item.inspect_by,
+                design_engineer_id: item.design_engineer_id,
+                quality_engineer_id: item.quality_engineer_id,
                 dcr_status: item.dcr_status,
             }));
 

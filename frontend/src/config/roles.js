@@ -102,8 +102,6 @@ export const MENU_CONFIG = [
         icon: Folder,
         items: [
             { title: "DCR Request", path: "/dcr/dcr-request", roles: [ROLES.ADMIN, ROLES.QC_ENGINEER, ROLES.DCR, ROLES.DESIGN_ENGINEER] },
-            { title: "Approve DCR Request", path: "/dcr/design-engineer-approval", roles: [ROLES.ADMIN, ROLES.DCR, ROLES.DESIGN_ENGINEER] },
-            { title: "Approve DCR Request", path: "/dcr/quality-engineer-approval", roles: [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER] },
         ],
     },
 
@@ -202,6 +200,10 @@ export function getFilteredMenu(userRoles = []) {
     for (const item of MENU_CONFIG) {
         // Simple item (no sub-items)
         if (!item.items) {
+            // ── Skip /user/dashboard for ADMIN ──
+            if (item.path === "/user/dashboard" && roleSet.has(ROLES.ADMIN)) {
+                continue
+            }
             if (hasAccess(item.roles)) {
                 filtered.push(item)
             }
@@ -209,7 +211,14 @@ export function getFilteredMenu(userRoles = []) {
         }
 
         // Group item — filter sub-items
-        const visibleSubItems = item.items.filter((sub) => hasAccess(sub.roles))
+        // const visibleSubItems = item.items.filter((sub) => hasAccess(sub.roles))
+
+        const visibleSubItems = item.items.filter((sub) => {
+            // ── Skip /user/dashboard sub-item for ADMIN ──
+            if (sub.path === "/user/dashboard" && roleSet.has(ROLES.ADMIN)) return false
+            return hasAccess(sub.roles)
+        })
+        
         if (visibleSubItems.length > 0) {
             filtered.push({
                 ...item,

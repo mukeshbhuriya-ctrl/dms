@@ -7,7 +7,7 @@ const router = express.Router();
 
 
 // Apply authentication middleware to all routes in this router
-router.use(authenticateUser(['ADMIN', 'DCR', 'QC_ENGINEER']));
+router.use(authenticateUser(['ADMIN', 'DCR', 'QC_ENGINEER', 'DESIGN_ENGINEER']));
 
 router.get('/get-dcr', DcrController.getDcr);
 router.get('/get-dcr-by-id/:id', DcrController.getDcrById);

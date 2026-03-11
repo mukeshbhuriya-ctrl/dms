@@ -33,7 +33,7 @@ import { ViewWeldingJoints } from "@/pages/wpj/user"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP } from "@/pages/admin/qap"
-import { CreateDCR, DesignEngineerDCRApproval, QualityEngineerDCRApproval } from "@/pages/dcr"
+import { CreateDCR } from "@/pages/dcr"
 import { RfqRegister, RfqLookupManager, RfqDashboard } from "@/pages/marketing"
 import { CreateNCR } from "@/pages/ncr"
 
@@ -86,7 +86,7 @@ const userRoutes = [
     path: "/user/upload-documents",
     element: protect(
       <UploadDocument />,
-      [ROLES.ADMIN, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
+      [ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
     ),
   },
 ]
@@ -200,11 +200,11 @@ const dcrRoutes = [
   },
   {
     path: "/dcr/design-engineer-approval",
-    element: protect(<DesignEngineerDCRApproval />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
+    element: protect(<CreateDCR />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
   },
   {
     path: "/dcr/quality-engineer-approval",
-    element: protect(<QualityEngineerDCRApproval />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
+    element: protect(<CreateDCR />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
   },
 ]
 

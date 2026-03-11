@@ -30,8 +30,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { StatusBadge } from "@/components/shared/StatusBadge"
-import { ArrowLeft, Plus, X } from "lucide-react"
+
+import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useAuth } from "@/context/AuthContext"
+import { toast } from "react-toastify"
+
+const StatusBadge = ({ status, className }) => {
+  const statusConfig = {
+    pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20" },
+    waiting: { label: "Waiting for Design", className: "bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20" },
+    rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" },
+    approved: { label: "Approved", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20" }
+  };
+
+  const config = statusConfig[status] || {
+    label: status,
+    className: "bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20"
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className} ${className || ""}`}>
+      {config.label}
+    </span>
+  );
+};
 
 const defaultFormData = {
   msmNumber: "",
@@ -93,6 +116,8 @@ const normalizeRecord = (item, index) => {
     status: statuses.status,
     design_engineer_status: statuses.designStatus,
     quality_engineer_status: statuses.qualityStatus,
+    design_engineer_id: item?.design_engineer_id || "",
+    quality_engineer_id: item?.quality_engineer_id || "",
     change_requests: requests.map((request, requestIndex) =>
       normalizeChangeRequest(request, requestIndex)
     ),
@@ -116,12 +141,12 @@ const normalizeDetail = (item) => {
     tableRows:
       changeList.length > 0
         ? changeList.map((row, index) => ({
-            id: row?.id || `view-row-${index + 1}`,
-            itemPartNo: String(row?.item_part_no || ""),
-            changeFrom: String(row?.chnage_from || ""),
-            changeTo: String(row?.chnage_to || ""),
-            reasonForChange: String(row?.reason || ""),
-          }))
+          id: row?.id || `view-row-${index + 1}`,
+          itemPartNo: String(row?.item_part_no || ""),
+          changeFrom: String(row?.chnage_from || ""),
+          changeTo: String(row?.chnage_to || ""),
+          reasonForChange: String(row?.reason || ""),
+        }))
         : [createEmptyRow(1)],
     jobNumber: String(item?.job_number || "-"),
     designEngineerName: String(item?.design_engineer?.name || "-"),
@@ -157,6 +182,7 @@ const normalizeJob = (job) => ({
   next_dcr_no: String(job?.next_dcr_no || ""),
   tag_number: String(job?.tag_number || "-"),
   equipement_name: String(job?.equipement_name || "-"),
+  code: String(job?.code || ""),
 })
 
 const normalizeUser = (user) => {
@@ -198,7 +224,76 @@ const getAuthHeaders = () => {
 }
 
 function CreateDCR() {
+  const { user, roles } = useAuth()
   const [view, setView] = useState("list")
+
+  // Review Dialog State
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [docForReview, setDocForReview] = useState(null)
+  const [reviewStatus, setReviewStatus] = useState("")
+  const [reviewRemarks, setReviewRemarks] = useState("")
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  const handleReviewClick = (row, status) => {
+    setDocForReview(row)
+    setReviewStatus(status)
+    setReviewRemarks("")
+    setReviewDialogOpen(true)
+  }
+
+  const submitReview = async () => {
+    if (!docForReview) return
+    if (reviewStatus === "rejected" && !reviewRemarks.trim()) {
+      toast.error("Remarks are required for rejection.")
+      return
+    }
+
+    setIsReviewing(true)
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      
+      const isDesignEngineer = roles?.includes("DESIGN_ENGINEER") && docForReview.design_engineer_id === user?.id
+      const isQualityEngineer = roles?.includes("QC_ENGINEER") && docForReview.quality_engineer_id === user?.id
+      
+      let apiUrl = ""
+      let payload = { dcr_id: docForReview.id }
+
+      if (isDesignEngineer) {
+        apiUrl = `${backendUrl}/api/dcr/approval/update-design-engineer-status`
+        payload.design_engineer_status = reviewStatus
+        payload.design_engineer_remarks = reviewRemarks
+      } else if (isQualityEngineer) {
+        apiUrl = `${backendUrl}/api/dcr/approval/update-quality-engineer-status`
+        payload.quality_engineer_status = reviewStatus
+        payload.quality_engineer_remarks = reviewRemarks
+      } else {
+         toast.error("You are not authorized to perform this review.")
+         setIsReviewing(false)
+         return
+      }
+
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+        credentials: "include",
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success(`DCR ${reviewStatus} successfully`)
+        setReviewDialogOpen(false)
+        fetchDcrList()
+      } else {
+        toast.error(data.message || "Failed to submit review")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to submit review")
+    } finally {
+      setIsReviewing(false)
+    }
+  }
   const [dcrList, setDcrList] = useState([])
   const [isLoadingList, setIsLoadingList] = useState(false)
   const [listError, setListError] = useState("")
@@ -427,6 +522,8 @@ function CreateDCR() {
       ...prev,
       msmNumber: jobId,
       dcrNo: selectedJob?.next_dcr_no || "",
+      equipmentNo: selectedJob?.equipement_name || "",
+      drawingNo: selectedJob?.code || "",
     }))
 
     if (formError) {
@@ -679,18 +776,79 @@ function CreateDCR() {
                                     <StatusBadge status={record.design_engineer_status} />
                                   </TableCell>
                                   <TableCell>
-                                    <StatusBadge status={record.quality_engineer_status} />
+                                    {record.quality_engineer_status === "pending" &&
+                                    record.design_engineer_status !== "approved" ? (
+                                      <StatusBadge status="waiting" />
+                                    ) : (
+                                      <StatusBadge status={record.quality_engineer_status} />
+                                    )}
                                   </TableCell>
                                   <TableCell>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleViewDcr(record.id)}
-                                      disabled={isLoadingDetail}
-                                    >
-                                      View
-                                    </Button>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleViewDcr(record.id)}
+                                        disabled={isLoadingDetail}
+                                        title="View"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+
+                                      {/* Design Engineer Actions */}
+                                      {roles?.includes("DESIGN_ENGINEER") &&
+                                        record.design_engineer_id === user?.id &&
+                                        record.design_engineer_status === "pending" && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
+                                              onClick={() => handleReviewClick(record, "approved")}
+                                              title="Approve"
+                                            >
+                                              <CheckCircle className="h-4 w-4" />Approve
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
+                                              onClick={() => handleReviewClick(record, "rejected")}
+                                              title="Reject"
+                                            >
+                                              <XCircle className="h-4 w-4" /> Reject
+                                            </Button>
+                                          </>
+                                        )}
+
+                                      {/* Quality Engineer Actions */}
+                                      {roles?.includes("QC_ENGINEER") &&
+                                        record.quality_engineer_id === user?.id &&
+                                        record.design_engineer_status === "approved" &&
+                                        record.quality_engineer_status === "pending" && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
+                                              onClick={() => handleReviewClick(record, "approved")}
+                                              title="Approve"
+                                            >
+                                              <CheckCircle className="h-4 w-4" /> Approve
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
+                                              onClick={() => handleReviewClick(record, "rejected")}
+                                              title="Reject"
+                                            >
+                                              <XCircle className="h-4 w-4" /> Reject
+                                            </Button>
+                                          </>
+                                        )}
+                                    </div>
                                   </TableCell>
                                 </TableRow>
                               ))
@@ -872,23 +1030,6 @@ function CreateDCR() {
                             disabled={isFormDisabled}
                           />
                         </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="selectedJobInfo">Selected Job</Label>
-                          <Input
-                            id="selectedJobInfo"
-                            type="text"
-                            value={
-                              isViewMode
-                                ? `Job No: ${viewDetails.jobNumber}`
-                                : selectedJob
-                                  ? `${selectedJob.job_number} | Tag: ${selectedJob.tag_number} | Equip: ${selectedJob.equipement_name}`
-                                  : "No job selected"
-                            }
-                            readOnly
-                            disabled
-                          />
-                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1006,41 +1147,7 @@ function CreateDCR() {
                     </CardHeader>
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="qualityEngineerId">
-                            QUALITY <span className="text-destructive">*</span>
-                          </Label>
-                          {isViewMode ? (
-                            <Input
-                              id="qualityEngineerId"
-                              type="text"
-                              value={viewDetails.qualityEngineerName}
-                              readOnly
-                              disabled
-                            />
-                          ) : (
-                            <Select
-                              value={formData.qualityEngineerId}
-                              onValueChange={(value) => handleSelectChange("qualityEngineerId", value)}
-                              disabled={isSubmitting || isLoadingUsers}
-                            >
-                              <SelectTrigger id="qualityEngineerId" className="w-full">
-                                <SelectValue
-                                  placeholder={
-                                    isLoadingUsers ? "Loading users..." : "Select quality engineer"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {users.map((user) => (
-                                  <SelectItem key={`quality-${user.id}`} value={user.id}>
-                                    {user.displayName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
+
 
                         <div className="space-y-2">
                           <Label htmlFor="designEngineerId">
@@ -1077,6 +1184,42 @@ function CreateDCR() {
                             </Select>
                           )}
                         </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="qualityEngineerId">
+                            QUALITY <span className="text-destructive">*</span>
+                          </Label>
+                          {isViewMode ? (
+                            <Input
+                              id="qualityEngineerId"
+                              type="text"
+                              value={viewDetails.qualityEngineerName}
+                              readOnly
+                              disabled
+                            />
+                          ) : (
+                            <Select
+                              value={formData.qualityEngineerId}
+                              onValueChange={(value) => handleSelectChange("qualityEngineerId", value)}
+                              disabled={isSubmitting || isLoadingUsers}
+                            >
+                              <SelectTrigger id="qualityEngineerId" className="w-full">
+                                <SelectValue
+                                  placeholder={
+                                    isLoadingUsers ? "Loading users..." : "Select quality engineer"
+                                  }
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {users.map((user) => (
+                                  <SelectItem key={`quality-${user.id}`} value={user.id}>
+                                    {user.displayName}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1102,6 +1245,43 @@ function CreateDCR() {
           </div>
         </main>
       </SidebarInset>
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="capitalize">{reviewStatus} DCR</DialogTitle>
+            <DialogDescription>
+              {docForReview && `Are you sure you want to ${reviewStatus.toLowerCase()} DCR ${docForReview.dcr_no}?`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="remarks">
+                Remarks {reviewStatus === "rejected" && <span className="text-destructive">*</span>}
+              </Label>
+              <Input
+                id="remarks"
+                value={reviewRemarks}
+                onChange={(e) => setReviewRemarks(e.target.value)}
+                placeholder="Enter remarks..."
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitReview}
+              disabled={isReviewing || (reviewStatus === "rejected" && !reviewRemarks.trim())}
+              variant={reviewStatus === "rejected" ? "destructive" : "default"}
+            >
+              {isReviewing ? "Submitting..." : `Confirm ${reviewStatus}`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
 }
