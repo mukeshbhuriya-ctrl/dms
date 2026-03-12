@@ -1,4 +1,5 @@
 const QapService = require('../services/qap.service');
+const QapPdfGenerator = require('../utils/qapPdfGenerator');
 
 class QapController {
     async create(req, res) {
@@ -63,6 +64,18 @@ class QapController {
             console.error('QAP getNextReportNo error:', error);
             const status = error.message.includes('not found') ? 404 : 500;
             res.status(status).json({ success: false, message: error.message || 'Failed to fetch next report number.' });
+        }
+    }
+
+    async downloadPdf(req, res) {
+        try {
+            const data = await QapService.getById(req.user.company_id, req.params.id);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=QAP_${data.report_no.replace(/\//g, '_')}.pdf`);
+            QapPdfGenerator.generatePDF(data, res);
+        } catch (error) {
+            console.error('QAP downloadPdf error:', error);
+            res.status(500).json({ success: false, message: 'Failed to generate PDF.' });
         }
     }
 }

@@ -35,7 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, Eye, Edit } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 
 // ─── List View ───────────────────────────────────────────────────────────────
@@ -44,6 +44,22 @@ function ListView({ onCreateClick, onEditClick }) {
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
   const [error, setError] = useState("")
+
+  const handleDownloadPdf = async (id) => {
+    try {
+      const res = await apiClient.get(`/api/qap/download-pdf/${id}`, {}, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `QAP_${id}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to download PDF")
+    }
+  }
 
   const handleViewClick = async (id) => {
     setIsViewLoading(true)
@@ -95,6 +111,14 @@ function ListView({ onCreateClick, onEditClick }) {
             title="Edit">
             <Edit className="h-4 w-4 mr-2" /> Edit
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            onClick={() => handleDownloadPdf(row.id)}
+            title="Download PDF">
+            <Download className="h-4 w-4 mr-2" /> Download
+          </Button>
         </div>
       ),
     },
@@ -135,6 +159,16 @@ function ListView({ onCreateClick, onEditClick }) {
             <DialogDescription className="text-center">
               Complete details of the selected Quality Assurance Plan.
             </DialogDescription>
+            <div className="flex justify-center mt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => handleDownloadPdf(selectedRecord.id)}
+              >
+                <Download className="h-4 w-4 mr-2" /> Download QAP PDF
+              </Button>
+            </div>
           </DialogHeader>
 
           {selectedRecord && (
