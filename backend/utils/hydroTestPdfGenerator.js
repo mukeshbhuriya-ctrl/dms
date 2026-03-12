@@ -144,17 +144,17 @@ class HydroTestPdfGenerator {
         });
 
         // 3. Pressure Test Details Table
-        const greenHeaderH = 65; // Slightly taller for cleaner layout
+        const greenHeaderH = 65; 
         doc.rect(startX, curY, width, greenHeaderH).fillAndStroke(this.colors.green, this.colors.black);
         
-        // Recalculated column widths for 515 total (A4 with 40 margins each side)
+        // Revised column widths to prevent header wrapping and provide more space for results
         const c1 = 60;  // PARTICULARS
-        const c2 = 55;  // MAWP
-        const c3 = 70;  // REQUIRED TEST PRESSURE
+        const c2 = 50;  // MAWP
+        const c3 = 65;  // REQUIRED TEST PRESSURE
         const c4 = 55;  // ACTUAL TEST PRESSURE
-        const c5 = 170; // PRESSURE GAUGE DETAIL (Total)
+        const c5 = 150; // PRESSURE GAUGE DETAIL (Total) - Reduced to give c7 more space
         const c6 = 45;  // HOLDING TIME
-        const c7 = width - c1-c2-c3-c4-c5-c6; // TEST RESULT (approx 60)
+        const c7 = width - c1-c2-c3-c4-c5-c6; // TEST RESULT (approx 90)
         
         doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.red);
         
@@ -184,7 +184,7 @@ class HydroTestPdfGenerator {
 
         if (data.items && data.items.length > 0) {
             data.items.forEach(item => {
-                const rowH = 40; // Reduced height back slightly
+                const rowH = 50; // Increased height to prevent text overlap
                 doc.rect(startX, curY, width, rowH).stroke();
                 
                 // Vertical lines for main columns
@@ -207,16 +207,16 @@ class HydroTestPdfGenerator {
                 doc.moveTo(startX + c1+c2+c3+c4, curY + rowH / 2).lineTo(startX + c1+c2+c3+c4 + c5, curY + rowH / 2).stroke();
 
                 // Row 1 (PG1)
-                doc.text(item.pg1_range || '', startX + c1 + c2 + c3 + c4, curY + 4, { width: gcW, align: 'center' });
-                doc.text(item.pg1_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + 4, { width: gcW, align: 'center' });
-                doc.text(item.pg1_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + 4, { width: gcW, align: 'center' });
-                doc.text(item.pg1_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg1_range || '', startX + c1 + c2 + c3 + c4, curY + 6, { width: gcW, align: 'center' });
+                doc.text(item.pg1_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + 6, { width: gcW, align: 'center' });
+                doc.text(item.pg1_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + 6, { width: gcW, align: 'center' });
+                doc.text(item.pg1_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + 6, { width: gcW, align: 'center' });
 
                 // Row 2 (PG2)
-                doc.text(item.pg2_range || '', startX + c1 + c2 + c3 + c4, curY + rowH/2 + 4, { width: gcW, align: 'center' });
-                doc.text(item.pg2_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + rowH/2 + 4, { width: gcW, align: 'center' });
-                doc.text(item.pg2_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + rowH/2 + 4, { width: gcW, align: 'center' });
-                doc.text(item.pg2_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + rowH/2 + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg2_range || '', startX + c1 + c2 + c3 + c4, curY + rowH/2 + 6, { width: gcW, align: 'center' });
+                doc.text(item.pg2_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
+                doc.text(item.pg2_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
+                doc.text(item.pg2_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
 
                 doc.text(item.holding_time || '', startX + c1 + c2 + c3 + c4 + c5 + 2, curY + 15, { width: c6 - 4, align: 'center' });
                 doc.text(item.test_result || '', startX + c1 + c2 + c3 + c4 + c5 + c6 + 2, curY + 15, { width: c7 - 4, align: 'center' });
@@ -225,29 +225,41 @@ class HydroTestPdfGenerator {
             });
         }
 
-        // 4. Remarks section (Updated to match specific screenshot)
-        curY += 10;
+        // 4. Remarks section (Updated to match SS1 precisely)
+        curY += 15;
+        const remRowH = 22; // Slightly taller for cleaner look
         doc.font(this.fonts.bold).fontSize(8);
-        doc.rect(startX, curY, 80, 20).fillAndStroke(this.colors.green, this.colors.black);
-        doc.fillColor(this.colors.red).text('REMARKS :', startX + 5, curY + 6);
-        doc.rect(startX + 80, curY, width - 80, 20).stroke(); // Box for remarks label continuation
-        curY += 20;
+        
+        // Label Row
+        doc.rect(startX, curY, 80, remRowH).fillAndStroke(this.colors.green, this.colors.black);
+        doc.fillColor(this.colors.red).text('REMARKS :', startX + 5, curY + 7);
+        doc.rect(startX + 80, curY, width - 80, remRowH).stroke(); 
+        curY += remRowH;
 
         if (data.remarks && data.remarks.length > 0) {
-            // Main Remarks Box
-            const remBoxH = 60;
-            doc.rect(startX, curY, width, remBoxH).stroke();
-            
-            let remY = curY + 8;
             data.remarks.forEach(rem => {
-                doc.font(this.fonts.regular).fillColor(this.colors.red);
-                doc.text(rem.text || '', startX + 5, remY, { width: width - 10 });
-                remY += 20; // Spacing for lines
+                const text = String(rem.text || '');
+                doc.font(this.fonts.regular).fontSize(7.5).fillColor(this.colors.red);
+                
+                // Calculate height needed for this specific remark
+                const textHeight = doc.heightOfString(text, { width: width - 10 });
+                const rowH = Math.max(remRowH, textHeight + 6); // Add small padding
+                
+                doc.rect(startX, curY, width, rowH).stroke();
+                doc.text(text, startX + 5, curY + 4, { width: width - 10 });
+                curY += rowH;
             });
-            curY += remBoxH;
+            
+            // Add a placeholder empty row if only one remark exists
+            if (data.remarks.length < 2) {
+                doc.rect(startX, curY, width, remRowH).stroke();
+                curY += remRowH;
+            }
         } else {
-            doc.rect(startX, curY, width, 40).stroke();
-            curY += 40;
+            for(let i=0; i<3; i++) {
+                doc.rect(startX, curY, width, remRowH).stroke();
+                curY += remRowH;
+            }
         }
 
         // 5. Signatures
