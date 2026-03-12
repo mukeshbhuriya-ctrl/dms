@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { DataTable } from "@/components/shared/DataTable"
-import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil } from "lucide-react"
+import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { useAuth } from "@/context/AuthContext"
 
@@ -138,6 +138,27 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
     const { user } = useAuth()
     const currentUserId = user?.id || ""
     const [error, setError] = useState("")
+    const [isDownloading, setIsDownloading] = useState(false)
+
+    const handleDownload = async (id, ncrNo) => {
+        setIsDownloading(true)
+        setError("")
+        try {
+            const res = await apiClient.get(`/api/ncr/${id}/download`, {}, { responseType: 'blob' })
+            const url = window.URL.createObjectURL(new Blob([res]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `NCR_${ncrNo.replace(/\//g, '_')}.pdf`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+        } catch (err) {
+            console.error("Download error:", err)
+            setError("Failed to download PDF")
+        } finally {
+            setIsDownloading(false)
+        }
+    }
 
     // Check if the logged-in user can take action on a given NCR row
     const canUserAct = (row) => {
@@ -243,6 +264,18 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                     <Button variant="outline" size="sm" onClick={() => onViewClick(row.id)} title="View full NCR">
                         <Eye className="h-3.5 w-3.5 mr-1" /> View
                     </Button>
+                    {row.status === "CLOSED" && row.ncr_status === "closed" && (
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => handleDownload(row.id, row.ncr_no)} 
+                            title="Download NCR PDF"
+                            disabled={isDownloading}
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                        >
+                            <Download className="h-3.5 w-3.5 mr-1" /> {isDownloading ? "..." : "Download"}
+                        </Button>
+                    )}
                 </div>
             ),
         },

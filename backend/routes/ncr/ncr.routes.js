@@ -10,6 +10,7 @@ router.use(authenticateUser(['ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER', 'DES
 router.get('/list', (req, res) => NcrController.list(req, res));
 router.get('/users', (req, res) => NcrController.getUsers(req, res));
 router.get('/next-ncr-no/:job_id', (req, res) => NcrController.getNextNcrNo(req, res));
+router.get('/:id/download', (req, res) => NcrController.downloadPdf(req, res));
 router.get('/:id', (req, res) => NcrController.getById(req, res));
 
 // Stage submissions

@@ -55,6 +55,13 @@ class ApiClient {
     }
 
     async handleResponse(response, options = {}) {
+        if (options.responseType === 'blob') {
+            return await response.blob();
+        }
+        if (options.responseType === 'text') {
+            return await response.text();
+        }
+
         const contentType = response.headers.get("content-type");
 
         let data;

@@ -1,4 +1,5 @@
 const NcrService = require('../services/ncr.service');
+const NCRPdfGenerator = require('../utils/ncrPdfGenerator');
 
 class NcrController {
     async list(req, res) {
@@ -110,6 +111,23 @@ class NcrController {
         } catch (error) {
             console.error('NCR getUsers error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async downloadPdf(req, res) {
+        try {
+            const ncr = await NcrService.getById(req.user.company_id, req.params.id);
+            
+            // Set response headers
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=NCR_${ncr.ncr_no.replace(/\//g, '_')}.pdf`);
+
+            // Generate PDF
+            NCRPdfGenerator.generateNCR(ncr, res);
+        } catch (error) {
+            console.error('NCR downloadPdf error:', error);
+            const status = error.message.includes('not found') ? 404 : 500;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
 }

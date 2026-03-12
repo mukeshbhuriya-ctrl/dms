@@ -62,6 +62,7 @@ class NcrService {
             where: { id, company_id },
             include: {
                 initiator: { select: { id: true, name: true } },
+                raised_at_user: { select: { id: true, name: true } },
                 resolution_user: { select: { id: true, name: true } },
                 target_engineer: { select: { id: true, name: true } },
                 target_head_design: { select: { id: true, name: true } },

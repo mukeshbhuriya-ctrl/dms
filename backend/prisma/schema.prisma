@@ -102,6 +102,7 @@ model user{
   rfq_registers rfq_register[]
 
   // NCR relations
+  ncr_raised_at_user ncr[] @relation("NcrRaisedAt")
   ncr_raised_by ncr[] @relation("NcrRaisedBy")
   ncr_resolution_by ncr[] @relation("NcrResolutionBy")
   ncr_target_engineer ncr[] @relation("NcrTargetEngineer")
@@ -1123,6 +1124,7 @@ model ncr {
   job      job      @relation(fields: [job_id], references: [id])
 
   initiator           user? @relation("NcrRaisedBy", fields: [ncr_raised_by], references: [id])
+  raised_at_user      user? @relation("NcrRaisedAt", fields: [ncr_raised_at], references: [id])
   resolution_user     user? @relation("NcrResolutionBy", fields: [resolution_by], references: [id])
   target_engineer     user? @relation("NcrTargetEngineer", fields: [target_engineer_id], references: [id])
   target_head_design  user? @relation("NcrTargetHeadDesign", fields: [target_head_design_id], references: [id])
