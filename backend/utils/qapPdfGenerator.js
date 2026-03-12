@@ -40,12 +40,12 @@ class QapPdfGenerator {
             }
         }
         doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text('Shreno Engineering Limited', x + 35, y + 16);
+            .text('Shreno Engineering', x + 35, y + 16);
 
         // 2. Title Section
         const titleX = x + logoBoxW;
         doc.rect(titleX, y, titleBoxW, headerH).stroke();
-        doc.font(this.fonts.bold).fontSize(16).fillColor(this.colors.black)
+        doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.black)
             .text('Quality Assurance Plan', titleX, y + 14, { width: titleBoxW, align: 'center' });
 
         // 3. Document No. Section
@@ -111,17 +111,18 @@ class QapPdfGenerator {
         const headerH = 35;
         const colWs = {
             cSr: 30,
-            cAct: 110,
-            cType: 105,
-            cCrit: 105,
-            cDoc: 75,
+            cAct: 105,
+            cType: 100,
+            cCrit: 100,
+            cDoc: 70,
             cShreno: 35,
             cClient: 45,
-            cAI: 30
+            cRemark: 55 // Increased for Remarks
         };
         
         const staticTotal = Object.values(colWs).reduce((a, b) => a + b, 0);
         let finalCols = { ...colWs };
+
         if (dynamicCols && dynamicCols.length > 0) {
             const availableForDyn = width - staticTotal;
             const dynW = availableForDyn / dynamicCols.length;
@@ -130,6 +131,7 @@ class QapPdfGenerator {
             });
         } else {
             const extra = (width - staticTotal) / 3;
+            // Distribute remaining width
             finalCols.cAct += extra;
             finalCols.cType += extra;
             finalCols.cCrit += extra;
@@ -152,13 +154,16 @@ class QapPdfGenerator {
         drawH('Verifying Document', finalCols.cDoc);
         drawH('Shreno', finalCols.cShreno);
         drawH('Client / TPIA', finalCols.cClient);
-        drawH('AI', finalCols.cAI);
         
+        // Dynamic columns in between
         if (dynamicCols) {
             dynamicCols.forEach(col => {
                 drawH(col.name, finalCols[col.id]);
             });
         }
+
+        // Remarks at the end
+        drawH('Remarks', finalCols.cRemark);
 
         return { height: headerH, columnWidths: finalCols };
     }
@@ -238,7 +243,6 @@ class QapPdfGenerator {
                     drawC(item.verifying_document, colWs.cDoc, 'left');
                     drawC(item.shreno, colWs.cShreno);
                     drawC(item.client_tpia, colWs.cClient);
-                    drawC(item.ai, colWs.cAI);
 
                     if (dynamicCols) {
                         dynamicCols.forEach(col => {
@@ -246,6 +250,9 @@ class QapPdfGenerator {
                             drawC(val, colWs[col.id]);
                         });
                     }
+
+                    // Remarks column at the end
+                    drawC(item.remark, colWs.cRemark, 'left');
                 }
                 curY += rowH;
             });
