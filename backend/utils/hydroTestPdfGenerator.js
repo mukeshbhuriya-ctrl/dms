@@ -20,29 +20,38 @@ class HydroTestPdfGenerator {
         const logoBoxW = 160;
         const titleBoxW = width - logoBoxW;
         
+        // Logo Box
         doc.lineWidth(0.5).strokeColor(this.colors.black);
         doc.rect(x, y, logoBoxW, height).stroke();
-        doc.rect(x + logoBoxW, y, titleBoxW, height).stroke();
-
-        // Sub-rect for the title box split
+        
+        // Title Box split vertically
         doc.rect(x + logoBoxW, y, titleBoxW, height / 2).stroke();
+        doc.rect(x + logoBoxW, y + height / 2, titleBoxW, height / 2).stroke();
 
+        // Logo
         const logoPath = path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 15, { width: 35 });
+                // Adjust logo positioning and size based on SS2
+                doc.image(logoPath, x + 10, y + 15, { width: 30 });
             } catch (e) {
                 console.error("Logo Error:", e);
             }
         }
+        
+        // "Shreno Engineering Limited" text in logo box
         doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black)
-            .text('Shreno Engineering Limited', x + 45, y + 27);
+            .text('Shreno Engineering', x + 45, y + 25);
 
+        // Company Name in Title Box Top
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
             .text('SHRENO ENGINEERING LIMITED', x + logoBoxW, y + 8, { width: titleBoxW, align: 'center' });
         
+        // Report Title in Title Box Bottom
         doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.red)
             .text('HYDROSTATIC PRESSURE TEST REPORT', x + logoBoxW, y + height / 2 + 10, { width: titleBoxW, align: 'center' });
+        
+        // Separator between rows in the outer border is handled by drawing rects
     }
 
     generatePDF(data, res) {
@@ -65,15 +74,16 @@ class HydroTestPdfGenerator {
         curY += headerH;
 
         // 2. Info Grid Section
-        const rowH = 18;
+        const rowH = 22; 
         doc.fontSize(8);
-        const labelW = 90;
+        const labelW = 95; // Slightly reduced for better fit in 3-col rows
 
+        // Based on SS2 grid structure
         const infoRows = [
             [
-                { l: 'MSN :', v: data.msn, w: 0.5 },
-                { l: 'TAG No. :', v: data.tag_no, w: 0.3 },
-                { l: 'DATE :', v: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-', w: 0.2 }
+                { l: 'MSN :', v: data.msn, w: 0.35 },
+                { l: 'TAG No. :', v: data.tag_no, w: 0.35 },
+                { l: 'DATE :', v: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-', w: 0.3 }
             ],
             [
                 { l: 'CLIENT :', v: data.client, w: 0.5 },
@@ -98,48 +108,73 @@ class HydroTestPdfGenerator {
             [
                 { l: 'TEST MEDIUM :', v: data.test_medium || 'WATER', w: 0.5 },
                 { l: 'METAL TEMP.:', v: data.metal_temp || '-', w: 0.5 }
+            ],
+            [
+                { l: 'PROCEDURE No :', v: data.procedure_no, w: 1.0 }
             ]
         ];
 
-        infoRows.forEach(row => {
-            doc.rect(startX, curY, width, rowH).stroke();
+        infoRows.forEach((row, rowIndex) => {
             let currentX = startX;
-            row.forEach(cell => {
+            doc.rect(startX, curY, width, rowH).stroke();
+
+            row.forEach((cell, cellIndex) => {
                 const cellW = width * cell.w;
-                doc.rect(currentX, curY, labelW, rowH).stroke();
-                doc.font(this.fonts.bold).fillColor(this.colors.red).text(cell.l, currentX + 5, curY + 5);
-                doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(cell.v || '-'), currentX + labelW + 5, curY + 5);
-                currentX += cellW;
-                if (currentX < startX + width) {
-                    doc.moveTo(currentX, curY).lineTo(currentX, curY + rowH).stroke();
+                
+                // Determine label width for this cell (prevent overflow in small cells like DATE)
+                const currentLabelW = (cell.w < 0.35) ? 50 : labelW;
+                
+                // Draw internal boundary lines for labels vs values
+                doc.rect(currentX, curY, currentLabelW, rowH).stroke();
+                
+                // Draw Vertical line for the cell end if not the last one
+                if (cellIndex < row.length - 1) {
+                    doc.moveTo(currentX + cellW, curY).lineTo(currentX + cellW, curY + rowH).stroke();
                 }
+
+                doc.font(this.fonts.bold).fillColor(this.colors.red).text(cell.l, currentX + 5, curY + 7);
+                doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(cell.v || '-'), currentX + currentLabelW + 5, curY + 7, {
+                    width: cellW - currentLabelW - 10,
+                    ellipsis: true
+                });
+
+                currentX += cellW;
             });
             curY += rowH;
         });
 
         // 3. Pressure Test Details Table
-        const greenHeaderH = 50;
+        const greenHeaderH = 65; // Slightly taller for cleaner layout
         doc.rect(startX, curY, width, greenHeaderH).fillAndStroke(this.colors.green, this.colors.black);
         
-        const c1 = 80, c2 = 70, c3 = 80, c4 = 60, c5 = 200, c6 = 60, c7 = width - c1-c2-c3-c4-c5-c6;
+        // Recalculated column widths for 515 total (A4 with 40 margins each side)
+        const c1 = 60;  // PARTICULARS
+        const c2 = 55;  // MAWP
+        const c3 = 70;  // REQUIRED TEST PRESSURE
+        const c4 = 55;  // ACTUAL TEST PRESSURE
+        const c5 = 170; // PRESSURE GAUGE DETAIL (Total)
+        const c6 = 45;  // HOLDING TIME
+        const c7 = width - c1-c2-c3-c4-c5-c6; // TEST RESULT (approx 60)
         
-        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red);
-        doc.text('PARTICULARS', startX, curY + 20, { width: c1, align: 'center' });
-        doc.text('MAWP INT. / EXT. PSI (g)', startX + c1, curY + 15, { width: c2, align: 'center' });
-        doc.text('REQUIRED TEST PRESSURE PSI (Kg/Cm2) (g)', startX + c1 + c2, curY + 10, { width: c3, align: 'center' });
-        doc.text('ACTUAL TEST PRESSURE Kg/Cm2 (g)', startX + c1 + c2 + c3, curY + 10, { width: c4, align: 'center' });
+        doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.red);
+        
+        // Table Headers
+        doc.text('PARTICULARS', startX, curY + 28, { width: c1, align: 'center' });
+        doc.text('MAWP INT. / EXT. PSI (g)', startX + c1, curY + 22, { width: c2, align: 'center' });
+        doc.text('REQUIRED TEST PRESSURE PSI (Kg/Cm2) (g)', startX + c1 + c2, curY + 18, { width: c3, align: 'center' });
+        doc.text('ACTUAL TEST PRESSURE Kg/Cm2 (g)', startX + c1 + c2 + c3, curY + 18, { width: c4, align: 'center' });
         
         doc.text('PRESSURE GAUGE DETAIL', startX + c1+c2+c3+c4, curY + 10, { width: c5, align: 'center' });
         doc.moveTo(startX + c1+c2+c3+c4, curY + 25).lineTo(startX + c1+c2+c3+c4 + c5, curY + 25).stroke();
         
         const gcW = c5 / 4;
-        doc.text('RANGE (Kg/Cm2) (g)', startX + c1+c2+c3+c4, curY + 30, { width: gcW, align: 'center' });
-        doc.text('I.D No.', startX + c1+c2+c3+c4 + gcW, curY + 35, { width: gcW, align: 'center' });
-        doc.text('DATE OF CALIBRATION', startX + c1+c2+c3+c4 + 2*gcW, curY + 30, { width: gcW, align: 'center' });
-        doc.text('DATE OF DUE', startX + c1+c2+c3+c4 + 3*gcW, curY + 30, { width: gcW, align: 'center' });
+        doc.text('RANGE (Kg/Cm2) (g)', startX + c1+c2+c3+c4, curY + 32, { width: gcW, align: 'center' });
+        doc.text('I.D No.', startX + c1+c2+c3+c4 + gcW, curY + 38, { width: gcW, align: 'center' });
+        doc.text('DATE OF CALIBRATION', startX + c1+c2+c3+c4 + 2*gcW, curY + 32, { width: gcW, align: 'center' });
+        doc.text('DATE OF DUE', startX + c1+c2+c3+c4 + 3*gcW, curY + 38, { width: gcW, align: 'center' });
 
-        doc.text('HOLDING TIME', startX + c1+c2+c3+c4+c5, curY + 15, { width: c6, align: 'center' });
-        doc.text('TEST RESULT', startX + c1+c2+c3+c4+c5+c6, curY + 20, { width: c7, align: 'center' });
+        doc.text('HOLDING TIME', startX + c1+c2+c3+c4+c5, curY + 22, { width: c6, align: 'center' });
+        doc.text('TEST RESULT', startX + c1+c2+c3+c4+c5+c6, curY + 28, { width: c7, align: 'center' });
 
         // Vertical lines for header
         [c1, c1+c2, c1+c2+c3, c1+c2+c3+c4, c1+c2+c3+c4+gcW, c1+c2+c3+c4+2*gcW, c1+c2+c3+c4+3*gcW, c1+c2+c3+c4+c5, c1+c2+c3+c4+c5+c6].forEach(lx => {
@@ -149,64 +184,75 @@ class HydroTestPdfGenerator {
 
         if (data.items && data.items.length > 0) {
             data.items.forEach(item => {
-                const rowH = 40; // Double row for PG1 and PG2
+                const rowH = 40; // Reduced height back slightly
                 doc.rect(startX, curY, width, rowH).stroke();
                 
-                // Vertical lines
+                // Vertical lines for main columns
                 [c1, c1+c2, c1+c2+c3, c1+c2+c3+c4, c1+c2+c3+c4+c5, c1+c2+c3+c4+c5+c6].forEach(lx => {
                     doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + rowH).stroke();
                 });
                 
-                // Particulars etc. (Centered vertically)
-                doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
-                doc.text(item.particulars || '', startX + 5, curY + 15, { width: c1 - 10 });
-                doc.text(item.mawp_int_ext || '', startX + c1 + 5, curY + 15, { width: c2 - 10, align: 'center' });
-                doc.text(item.required_test_pressure || '', startX + c1 + c2 + 5, curY + 15, { width: c3 - 10, align: 'center' });
-                doc.text(item.actual_test_pressure || '', startX + c1 + c2 + c3 + 5, curY + 15, { width: c4 - 10, align: 'center' });
-                
-                // PG Details (Two rows inside)
-                doc.moveTo(startX + c1+c2+c3+c4, curY + 20).lineTo(startX + c1+c2+c3+c4 + c5, curY + 20).stroke();
+                // Vertical lines for Gauge columns
                 [gcW, 2*gcW, 3*gcW].forEach(gx => {
                     doc.moveTo(startX + c1+c2+c3+c4 + gx, curY).lineTo(startX + c1+c2+c3+c4 + gx, curY + rowH).stroke();
                 });
 
+                doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
+                doc.text(item.particulars || '', startX + 5, curY + 15, { width: c1 - 10 });
+                doc.text(item.mawp_int_ext || '', startX + c1 + 2, curY + 15, { width: c2 - 4, align: 'center' });
+                doc.text(item.required_test_pressure || '', startX + c1 + c2 + 2, curY + 15, { width: c3 - 4, align: 'center' });
+                doc.text(item.actual_test_pressure || '', startX + c1 + c2 + c3 + 2, curY + 15, { width: c4 - 4, align: 'center' });
+                
+                // Horizontal split for PG1/PG2
+                doc.moveTo(startX + c1+c2+c3+c4, curY + rowH / 2).lineTo(startX + c1+c2+c3+c4 + c5, curY + rowH / 2).stroke();
+
                 // Row 1 (PG1)
-                doc.text(item.pg1_range || '', startX + c1 + c2 + c3 + c4, curY + 5, { width: gcW, align: 'center' });
-                doc.text(item.pg1_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + 5, { width: gcW, align: 'center' });
-                doc.text(item.pg1_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + 5, { width: gcW, align: 'center' });
-                doc.text(item.pg1_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + 5, { width: gcW, align: 'center' });
+                doc.text(item.pg1_range || '', startX + c1 + c2 + c3 + c4, curY + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg1_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg1_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg1_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + 4, { width: gcW, align: 'center' });
 
                 // Row 2 (PG2)
-                doc.text(item.pg2_range || '', startX + c1 + c2 + c3 + c4, curY + 25, { width: gcW, align: 'center' });
-                doc.text(item.pg2_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + 25, { width: gcW, align: 'center' });
-                doc.text(item.pg2_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + 25, { width: gcW, align: 'center' });
-                doc.text(item.pg2_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + 25, { width: gcW, align: 'center' });
+                doc.text(item.pg2_range || '', startX + c1 + c2 + c3 + c4, curY + rowH/2 + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg2_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + rowH/2 + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg2_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + rowH/2 + 4, { width: gcW, align: 'center' });
+                doc.text(item.pg2_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + rowH/2 + 4, { width: gcW, align: 'center' });
 
-                doc.text(item.holding_time || '', startX + c1 + c2 + c3 + c4 + c5 + 5, curY + 15, { width: c6 - 10, align: 'center' });
-                doc.text(item.test_result || '', startX + c1 + c2 + c3 + c4 + c5 + c6 + 5, curY + 15, { width: c7 - 10, align: 'center' });
+                doc.text(item.holding_time || '', startX + c1 + c2 + c3 + c4 + c5 + 2, curY + 15, { width: c6 - 4, align: 'center' });
+                doc.text(item.test_result || '', startX + c1 + c2 + c3 + c4 + c5 + c6 + 2, curY + 15, { width: c7 - 4, align: 'center' });
 
                 curY += rowH;
             });
         }
 
-        // 4. Remarks section
+        // 4. Remarks section (Updated to match specific screenshot)
         curY += 10;
-        doc.rect(startX, curY, 80, 15).fillAndStroke(this.colors.green, this.colors.black);
-        doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.red).text('REMARKS :', startX + 5, curY + 4);
-        curY += 15;
+        doc.font(this.fonts.bold).fontSize(8);
+        doc.rect(startX, curY, 80, 20).fillAndStroke(this.colors.green, this.colors.black);
+        doc.fillColor(this.colors.red).text('REMARKS :', startX + 5, curY + 6);
+        doc.rect(startX + 80, curY, width - 80, 20).stroke(); // Box for remarks label continuation
+        curY += 20;
 
-        doc.rect(startX, curY, width, 50).stroke();
         if (data.remarks && data.remarks.length > 0) {
-            let remText = data.remarks.map(r => r.text).join('\n');
-            doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.red);
-            doc.text(remText, startX + 5, curY + 5, { width: width - 10 });
+            // Main Remarks Box
+            const remBoxH = 60;
+            doc.rect(startX, curY, width, remBoxH).stroke();
+            
+            let remY = curY + 8;
+            data.remarks.forEach(rem => {
+                doc.font(this.fonts.regular).fillColor(this.colors.red);
+                doc.text(rem.text || '', startX + 5, remY, { width: width - 10 });
+                remY += 20; // Spacing for lines
+            });
+            curY += remBoxH;
+        } else {
+            doc.rect(startX, curY, width, 40).stroke();
+            curY += 40;
         }
-        curY += 50;
 
         // 5. Signatures
-        const sigBoxH = 100;
-        const availableSpace = (startY + height) - curY - 20;
-        const sigY = curY + 20;
+        const sigBoxH = 80;
+        const sigY = (startY + height) - sigBoxH; // Stick to bottom border
         
         doc.rect(startX, sigY, width, sigBoxH).stroke();
         const sigW = width / 3;
