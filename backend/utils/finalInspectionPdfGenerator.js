@@ -62,36 +62,56 @@ class FinalInspectionPdfGenerator {
         const rowH = 18;
         doc.fontSize(9);
 
-        // Row 1: MSN, TAG NO, DATE
+        // --- ROW 1: MSN, TAG NO, DATE (3 columns) ---
         doc.rect(startX, curY, width, rowH).stroke();
         const col3W = width / 3;
+        const labelW = 45; // Width of red label boxes
+
+        // col 1 (MSN)
+        doc.rect(startX, curY, labelW, rowH).stroke();
         doc.font(this.fonts.bold).fillColor(this.colors.red).text('MSN:', startX + 5, curY + 5);
-        doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(data.msn || '-'), startX + 80, curY + 5);
+        doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(data.msn || '-'), startX + labelW + 5, curY + 5);
         doc.moveTo(startX + col3W, curY).lineTo(startX + col3W, curY + rowH).stroke();
 
-        doc.font(this.fonts.bold).fillColor(this.colors.red).text('TAG NO.:', startX + col3W + 5, curY + 5);
-        doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(data.tag_no || '-'), startX + col3W + 80, curY + 5);
+        // col 2 (TAG NO)
+        const startCol2 = startX + col3W;
+        doc.rect(startCol2, curY, labelW + 10, rowH).stroke();
+        doc.font(this.fonts.bold).fillColor(this.colors.red).text('TAG NO.:', startCol2 + 5, curY + 5);
+        doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(data.tag_no || '-'), startCol2 + labelW + 15, curY + 5);
         doc.moveTo(startX + 2 * col3W, curY).lineTo(startX + 2 * col3W, curY + rowH).stroke();
 
-        doc.font(this.fonts.bold).fillColor(this.colors.red).text('DATE:', startX + 2 * col3W + 5, curY + 5);
-        doc.font(this.fonts.regular).fillColor(this.colors.black).text(data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-', startX + 2 * col3W + 50, curY + 5);
+        // col 3 (DATE)
+        const startCol3 = startX + 2 * col3W;
+        doc.rect(startCol3, curY, labelW, rowH).stroke();
+        doc.font(this.fonts.bold).fillColor(this.colors.red).text('DATE:', startCol3 + 5, curY + 5);
+        const reportDate = data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-';
+        doc.font(this.fonts.regular).fillColor(this.colors.black).text(reportDate, startCol3 + labelW + 5, curY + 5);
+        
         curY += rowH;
 
-        // Remaining Info Rows (2 columns)
+        // --- REMAINING ROWS: (2 columns each) ---
         const col2W = width / 2;
-        const rows = [
+        const infoRows = [
             { l1: 'CLIENT:', v1: data.client, l2: 'DRG. NO.:', v2: data.drg_no },
             { l1: 'P.O. NO.:', v1: data.po_no, l2: 'EQUIPMENT:', v2: data.equipment_name },
             { l1: 'CODE:', v1: data.code, l2: 'QAP CLAUSE:', v2: data.qap_clause || '-' }
         ];
 
-        rows.forEach(row => {
+        infoRows.forEach(row => {
             doc.rect(startX, curY, width, rowH).stroke();
             doc.moveTo(startX + col2W, curY).lineTo(startX + col2W, curY + rowH).stroke();
+            
+            // Col 1
+            doc.rect(startX, curY, labelW, rowH).stroke();
             doc.font(this.fonts.bold).fillColor(this.colors.red).text(row.l1, startX + 5, curY + 5);
-            doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(row.v1 || '-'), startX + 80, curY + 5);
-            doc.font(this.fonts.bold).fillColor(this.colors.red).text(row.l2, startX + col2W + 5, curY + 5);
-            doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(row.v2 || '-'), startX + col2W + 80, curY + 5);
+            doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(row.v1 || '-'), startX + labelW + 5, curY + 5);
+            
+            // Col 2
+            const startC2 = startX + col2W;
+            doc.rect(startC2, curY, labelW + 20, rowH).stroke();
+            doc.font(this.fonts.bold).fillColor(this.colors.red).text(row.l2, startC2 + 5, curY + 5);
+            doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(row.v2 || '-'), startC2 + labelW + 25, curY + 5);
+            
             curY += rowH;
         });
 
@@ -115,13 +135,13 @@ class FinalInspectionPdfGenerator {
             data.details.forEach((item, i) => {
                 doc.rect(startX, curY, width, 15).stroke();
                 // Vertical lines
-                [c1, c1+c2, c1+c2+c3, c1+c2+c3+c4].forEach(x => {
+                [c1, c1 + c2, c1 + c2 + c3, c1 + c2 + c3 + c4].forEach(x => {
                     doc.moveTo(startX + x, curY).lineTo(startX + x, curY + 15).stroke();
                 });
                 doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black);
-                doc.text(String(item.sr_no || (i+1)), startX, curY + 4, { width: c1, align: 'center' });
-                doc.text(String(item.description || ''), startX + c1 + 5, curY + 4, { width: c2 - 10 });
-                doc.text(String(item.required || ''), startX + c1 + c2 + 5, curY + 4, { width: c3 - 10, align: 'center' });
+                doc.text(String(item.sr_no || (i + 1)), startX, curY + 4, { width: c1, align: 'center' });
+                doc.font(this.fonts.bold).fillColor(this.colors.red).text(String(item.description || ''), startX + c1 + 5, curY + 4, { width: c2 - 10 });
+                doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(item.required || ''), startX + c1 + c2 + 5, curY + 4, { width: c3 - 10, align: 'center' });
                 doc.text(String(item.actual || ''), startX + c1 + c2 + c3 + 5, curY + 4, { width: c4 - 10, align: 'center' });
                 doc.text(String(item.remarks || ''), startX + c1 + c2 + c3 + c4 + 5, curY + 4, { width: c5 - 10, align: 'center' });
                 curY += 15;
@@ -133,27 +153,27 @@ class FinalInspectionPdfGenerator {
         doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text('NOZZLE DETAILS', startX, curY + 5, { width: width, align: 'center' });
         curY += greenHeaderH;
 
-        const nc1 = 50, nc2 = 80, nc3 = 50, nc4 = 60, nc5 = 60, nc6 = 60, nc7 = 60, nc8 = width - nc1-nc2-nc3-nc4-nc5-nc6-nc7;
-        
+        const nc1 = 50, nc2 = 80, nc3 = 50, nc4 = 60, nc5 = 60, nc6 = 60, nc7 = 60, nc8 = width - nc1 - nc2 - nc3 - nc4 - nc5 - nc6 - nc7;
+
         // Multi-level Header
         doc.rect(startX, curY, width, 30).fillAndStroke(this.colors.green, this.colors.black);
         doc.fontSize(7).font(this.fonts.bold).fillColor(this.colors.red);
         doc.text('NOZZLE MARK', startX, curY + 10, { width: nc1, align: 'center' });
         doc.text('ORIENTATION', startX + nc1, curY + 10, { width: nc2, align: 'center' });
         doc.text('SIZE', startX + nc1 + nc2, curY + 10, { width: nc3, align: 'center' });
-        
+
         doc.text('DIMENSION AS PER APRROVED DRAWING', startX + nc1 + nc2 + nc3, curY + 5, { width: nc4 + nc5 + nc6, align: 'center' });
         doc.text('DIMENSION AT ACTUAL MEASURE', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 5, { width: nc7 + nc8, align: 'center' });
-        
+
         doc.fontSize(6);
         doc.text('LOCATION', startX + nc1 + nc2 + nc3, curY + 18, { width: nc4, align: 'center' });
         doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4, curY + 18, { width: nc5, align: 'center' });
         doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5, curY + 18, { width: nc6, align: 'center' });
         doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 18, { width: nc7, align: 'center' });
         doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7, curY + 18, { width: nc8, align: 'center' });
-        
+
         // Vertical lines for header
-        [nc1, nc1+nc2, nc1+nc2+nc3, nc1+nc2+nc3+nc4, nc1+nc2+nc3+nc4+nc5, nc1+nc2+nc3+nc4+nc5+nc6, nc1+nc2+nc3+nc4+nc5+nc6+nc7].forEach(lx => {
+        [nc1, nc1 + nc2, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
             doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 30).stroke();
         });
         curY += 30;
@@ -161,7 +181,7 @@ class FinalInspectionPdfGenerator {
         if (data.nozzles && data.nozzles.length > 0) {
             data.nozzles.forEach(nz => {
                 doc.rect(startX, curY, width, 15).stroke();
-                [nc1, nc1+nc2, nc1+nc2+nc3, nc1+nc2+nc3+nc4, nc1+nc2+nc3+nc4+nc5, nc1+nc2+nc3+nc4+nc5+nc6, nc1+nc2+nc3+nc4+nc5+nc6+nc7].forEach(lx => {
+                [nc1, nc1 + nc2, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
                     doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 15).stroke();
                 });
                 doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
@@ -188,15 +208,15 @@ class FinalInspectionPdfGenerator {
         doc.text('DESCRIPTION', startX + nc1, curY + 10, { width: nc2 + nc3, align: 'center' });
         doc.text('DIMENSION AS PER APRROVED DRAWING', startX + nc1 + nc2 + nc3, curY + 5, { width: nc4 + nc5 + nc6, align: 'center' });
         doc.text('DIMENSION AT ACTUAL MEASURE', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 5, { width: nc7 + nc8, align: 'center' });
-        
+
         doc.fontSize(6);
         doc.text('ORIENTATION', startX + nc1 + nc2 + nc3, curY + 18, { width: nc4, align: 'center' });
         doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4, curY + 18, { width: nc5, align: 'center' });
         doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5, curY + 18, { width: nc6, align: 'center' });
         doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 18, { width: nc7, align: 'center' });
         doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7, curY + 18, { width: nc8, align: 'center' });
-        
-        [nc1, nc1+nc2+nc3, nc1+nc2+nc3+nc4, nc1+nc2+nc3+nc4+nc5, nc1+nc2+nc3+nc4+nc5+nc6, nc1+nc2+nc3+nc4+nc5+nc6+nc7].forEach(lx => {
+
+        [nc1, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
             doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 30).stroke();
         });
         curY += 30;
@@ -204,7 +224,7 @@ class FinalInspectionPdfGenerator {
         if (data.parts && data.parts.length > 0) {
             data.parts.forEach(pt => {
                 doc.rect(startX, curY, width, 15).stroke();
-                [nc1, nc1+nc2+nc3, nc1+nc2+nc3+nc4, nc1+nc2+nc3+nc4+nc5, nc1+nc2+nc3+nc4+nc5+nc6, nc1+nc2+nc3+nc4+nc5+nc6+nc7].forEach(lx => {
+                [nc1, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
                     doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 15).stroke();
                 });
                 doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
@@ -224,15 +244,31 @@ class FinalInspectionPdfGenerator {
         doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.red).text('REMARK:', startX + 5, curY + 4);
         curY += 15;
 
+        const idxColW = 35;
         if (data.remarks && data.remarks.length > 0) {
-            const remH = data.remarks.length * 12 + 10;
-            doc.rect(startX, curY, width, remH).stroke();
             data.remarks.forEach((rem, idx) => {
-                doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.red);
-                doc.text(`${idx + 1}.`, startX + 5, curY + 5 + (idx * 12), { width: 15 });
-                doc.text(rem.text, startX + 25, curY + 5 + (idx * 12), { width: width - 35 });
+                const textWidth = width - idxColW - 10;
+                doc.fontSize(7).font(this.fonts.regular);
+                const textHeight = Math.max(15, doc.heightOfString(rem.text, { width: textWidth }) + 8);
+                
+                // Row Box
+                doc.rect(startX, curY, width, textHeight).stroke();
+                
+                // Vertical Line
+                doc.moveTo(startX + idxColW, curY).lineTo(startX + idxColW, curY + textHeight).stroke();
+                
+                // Index
+                doc.font(this.fonts.regular).fillColor(this.colors.black);
+                const idxH = doc.currentLineHeight();
+                doc.text(String(idx + 1), startX, curY + (textHeight - idxH) / 2, { width: idxColW, align: 'center' });
+                
+                // Remark Text
+                doc.fillColor(this.colors.red);
+                const actualTextH = doc.heightOfString(rem.text, { width: textWidth });
+                doc.text(rem.text, startX + idxColW + 5, curY + (textHeight - actualTextH) / 2, { width: textWidth });
+                
+                curY += textHeight;
             });
-            curY += remH;
         }
 
         // 7. Instruments
@@ -240,22 +276,38 @@ class FinalInspectionPdfGenerator {
         curY += 15;
 
         const iColW = width / 4;
-        doc.rect(startX, curY, width, 15).stroke();
-        [doc.font(this.fonts.bold).fillColor(this.colors.black).text('1', startX + iColW, curY + 4, { width: iColW, align: 'center' }),
-         doc.text('2', startX + 2 * iColW, curY + 4, { width: iColW, align: 'center' }),
-         doc.text('3', startX + 3 * iColW, curY + 4, { width: iColW, align: 'center' })];
-        curY += 15;
+        const iRowH = 15;
+
+        // Header Row: 1, 2, 3
+        doc.rect(startX, curY, width, iRowH).stroke();
+        [1, 2, 3].forEach(num => {
+            const ix = startX + num * iColW;
+            doc.moveTo(ix, curY).lineTo(ix, curY + iRowH).stroke();
+            doc.font(this.fonts.bold).fillColor(this.colors.black).text(String(num), ix, curY + 4, { width: iColW, align: 'center' });
+        });
+        curY += iRowH;
 
         ['NAME:', 'ID NO. / SR NO.:', 'DUE DATE:'].forEach((lbl, lIdx) => {
-            doc.rect(startX, curY, width, 15).stroke();
+            doc.rect(startX, curY, width, iRowH).stroke();
+            
+            // Vertical lines for each column
+            [1, 2, 3].forEach(num => {
+                const ix = startX + num * iColW;
+                doc.moveTo(ix, curY).lineTo(ix, curY + iRowH).stroke();
+            });
+
             doc.font(this.fonts.bold).fillColor(this.colors.red).text(lbl, startX + 5, curY + 4);
             if (data.instruments) {
                 data.instruments.slice(0, 3).forEach((inst, i) => {
                     const fields = ['name', 'id_no', 'due_date'];
-                    doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(inst[fields[lIdx]] || ''), startX + iColW * (i + 1), curY + 4, { width: iColW, align: 'center' });
+                    let val = String(inst[fields[lIdx]] || '');
+                    if (fields[lIdx] === 'due_date' && val) {
+                        try { val = new Date(val).toLocaleDateString('en-GB'); } catch(e){}
+                    }
+                    doc.font(this.fonts.regular).fillColor(this.colors.black).text(val, startX + iColW * (i + 1), curY + 4, { width: iColW, align: 'center' });
                 });
             }
-            curY += 15;
+            curY += iRowH;
         });
 
         // 8. Signatures
