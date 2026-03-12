@@ -11,5 +11,6 @@ router.post('/create', HydroTestController.create);
 router.put('/update/:id', HydroTestController.update);
 router.get('/next-report-no/:job_id', HydroTestController.getNextReportNo);
 router.get('/:id', HydroTestController.getById);
+router.get('/:id/download', HydroTestController.downloadPdf);
 
 module.exports = router;

@@ -60,6 +60,8 @@ class HydroTestService {
             inspection_agency,
             test_position,
             procedure_no,
+            test_medium,
+            metal_temp,
             items = [],
             remarks = [],
         } = body;
@@ -111,6 +113,8 @@ class HydroTestService {
                     inspection_agency: inspection_agency || null,
                     test_position: test_position || null,
                     procedure_no: procedure_no || null,
+                    test_medium: test_medium || null,
+                    metal_temp: metal_temp || null,
 
                     status: 'draft',
                 },
@@ -176,6 +180,8 @@ class HydroTestService {
             inspection_agency,
             test_position,
             procedure_no,
+            test_medium,
+            metal_temp,
             items = [],
             remarks = [],
         } = body;
@@ -198,6 +204,8 @@ class HydroTestService {
                     inspection_agency: inspection_agency !== undefined ? inspection_agency : existingReport.inspection_agency,
                     test_position: test_position !== undefined ? test_position : existingReport.test_position,
                     procedure_no: procedure_no !== undefined ? procedure_no : existingReport.procedure_no,
+                    test_medium: test_medium !== undefined ? test_medium : existingReport.test_medium,
+                    metal_temp: metal_temp !== undefined ? metal_temp : existingReport.metal_temp,
                 },
             });
 

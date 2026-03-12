@@ -67,6 +67,31 @@ class HydroTestController {
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
+
+    /**
+     * Download Hydrostatic Test Report as PDF
+     */
+    async downloadPdf(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+
+            const data = await HydroTestService.getById(company_id, id);
+            if (!data) {
+                return res.status(404).json({ success: false, message: "Hydrostatic Test Report not found" });
+            }
+
+            const HydroTestPdfGenerator = require('../../utils/hydroTestPdfGenerator');
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=HYDRO_${data.report_no.replace(/\//g, '_')}.pdf`);
+
+            HydroTestPdfGenerator.generatePDF(data, res);
+        } catch (error) {
+            console.error("HydroTestController.downloadPdf Error:", error);
+            res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });
+        }
+    }
 }
 
 module.exports = new HydroTestController();

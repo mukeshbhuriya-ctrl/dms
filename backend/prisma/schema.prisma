@@ -935,6 +935,8 @@ model hydrostatic_test_report {
   inspection_agency String?
   test_position     String?
   procedure_no      String?
+  test_medium       String?
+  metal_temp        String?
 
   status           String   @default("draft")
 

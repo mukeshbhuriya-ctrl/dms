@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit, FileText } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, FileText, Download } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
 
@@ -75,41 +75,65 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
-  const columns = [
-    { header: "Report No.", accessorKey: "report_no" },
-    { header: "MSN", accessorKey: "msn" },
-    { header: "Client", accessorKey: "client" },
-    { header: "PO No.", accessorKey: "po_no" },
-    { header: "Project ID", accessorKey: "project_id" },
-    { header: "Equipment", accessorKey: "equipment_name" },
-    {
-      header: "Created",
-      accessorKey: "createdAt",
-      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewClick(row.id)}
-            title="View">
-            <Eye className="h-4 w-4" /> View
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onEditClick(row.id)}
-            title="Edit">
-            <Edit className="h-4 w-4" /> Edit
-          </Button>
-        </div>
-      ),
-    },
-  ]
+    const handleDownload = async (id) => {
+      try {
+        const res = await apiClient.get(`/api/hydro-test/${id}/download`, {}, { responseType: 'blob' })
+        const url = window.URL.createObjectURL(new Blob([res]))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', `HYDRO_${id}.pdf`)
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+      } catch (err) {
+        console.error(err)
+        alert("Failed to download PDF")
+      }
+    }
+
+    const columns = [
+      { header: "Report No.", accessorKey: "report_no" },
+      { header: "MSN", accessorKey: "msn" },
+      { header: "Client", accessorKey: "client" },
+      { header: "PO No.", accessorKey: "po_no" },
+      { header: "Project ID", accessorKey: "project_id" },
+      { header: "Equipment", accessorKey: "equipment_name" },
+      {
+        header: "Created",
+        accessorKey: "createdAt",
+        cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: (row) => (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleViewClick(row.id)}
+              title="View">
+              <Eye className="h-4 w-4" /> View
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEditClick(row.id)}
+              title="Edit">
+              <Edit className="h-4 w-4" /> Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              onClick={() => handleDownload(row.id)}
+              title="Download">
+              <Download className="h-4 w-4" /> Download
+            </Button>
+          </div>
+        ),
+      },
+    ]
 
   const fetchData = useCallback(async ({ page, limit, search }) => {
     const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
@@ -208,6 +232,14 @@ function ListView({ onCreateClick, onEditClick }) {
                 <div className="flex flex-col space-y-1">
                   <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PROCEDURE NO.:</span>
                   <span className="font-medium">{selectedRecord.procedure_no || "-"}</span>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">TEST MEDIUM:</span>
+                  <span className="font-medium">{selectedRecord.test_medium || "-"}</span>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">METAL TEMP.:</span>
+                  <span className="font-medium">{selectedRecord.metal_temp || "-"}</span>
                 </div>
               </div>
 
@@ -340,6 +372,8 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
     inspectionAgency: "",
     testPosition: "",
     procedureNo: "",
+    testMedium: "WATER",
+    metalTemp: "",
   })
 
   // Table rows
@@ -389,6 +423,8 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
               inspectionAgency: data.inspection_agency || "",
               testPosition: data.test_position || "",
               procedureNo: data.procedure_no || "",
+              testMedium: data.test_medium || "WATER",
+              metalTemp: data.metal_temp || "",
             })
 
             if (data.items && data.items.length > 0) {
@@ -542,6 +578,8 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
       inspection_agency: formData.inspectionAgency,
       test_position: formData.testPosition,
       procedure_no: formData.procedureNo,
+      test_medium: formData.testMedium,
+      metal_temp: formData.metalTemp,
       items,
       remarks: remarksToSubmit,
     }
@@ -713,6 +751,28 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                 value={formData.procedureNo}
                 onChange={handleFormChange}
                 placeholder="Enter PROCEDURE NO."
+                className="h-9 focus-visible:ring-1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="testMedium" className="uppercase text-xs font-semibold text-muted-foreground">TEST MEDIUM:</Label>
+              <Input
+                id="testMedium"
+                name="testMedium"
+                value={formData.testMedium}
+                onChange={handleFormChange}
+                placeholder="Enter TEST MEDIUM"
+                className="h-9 focus-visible:ring-1"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="metalTemp" className="uppercase text-xs font-semibold text-muted-foreground">METAL TEMP.:</Label>
+              <Input
+                id="metalTemp"
+                name="metalTemp"
+                value={formData.metalTemp}
+                onChange={handleFormChange}
+                placeholder="Enter METAL TEMP."
                 className="h-9 focus-visible:ring-1"
               />
             </div>
