@@ -34,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit, CheckCircle, XCircle } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, CheckCircle, XCircle, Download } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import { toast } from 'react-toastify'
 import { useAuth } from "@/context/AuthContext"
@@ -149,6 +149,22 @@ function ListView({ onCreateClick, onEditClick }) {
         const isQE = roles?.includes("QE") || roles?.includes("QUALITY_ENGINEER")
         const canReview = (isQE || isAssignedQE) && row.status !== "Approved" && row.status !== "Rejected"
 
+        const handleDownload = async (id) => {
+          try {
+            const res = await apiClient.get(`/api/inspection-report/final/${id}/download`, {}, { responseType: 'blob' })
+            const url = window.URL.createObjectURL(new Blob([res]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `FIR_${id}.pdf`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+          } catch (err) {
+            console.error(err)
+            toast.error("Failed to download PDF")
+          }
+        }
+
         return (
           <div className="flex gap-2">
             <Button
@@ -165,6 +181,16 @@ function ListView({ onCreateClick, onEditClick }) {
               title="Edit">
               <Edit className="h-4 w-4 mr-2" /> Edit
             </Button>
+            {row.status === "Approved" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                onClick={() => handleDownload(row.id)}
+                title="Download">
+                <Download className="h-4 w-4 mr-2" /> Download
+              </Button>
+            )}
             {canReview && (
               <>
                 <Button

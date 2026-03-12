@@ -124,6 +124,31 @@ class FinalInspectionController {
             res.status(500).json({ success: false, message: "Failed to update report status", error: error.message });
         }
     }
+
+    /**
+     * Download Report as PDF
+     */
+    async downloadPdf(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+
+            const data = await FinalInspectionService.getById(company_id, id);
+            if (!data) {
+                return res.status(404).json({ success: false, message: "Report not found" });
+            }
+
+            const FinalInspectionPdfGenerator = require('../../utils/finalInspectionPdfGenerator');
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=FIR_${data.report_no.replace(/\//g, '_')}.pdf`);
+
+            FinalInspectionPdfGenerator.generatePDF(data, res);
+        } catch (error) {
+            console.error("FinalInspectionController.downloadPdf Error:", error);
+            res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });
+        }
+    }
 }
 
 module.exports = new FinalInspectionController();
