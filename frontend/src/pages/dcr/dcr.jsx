@@ -251,10 +251,10 @@ function CreateDCR() {
     setIsReviewing(true)
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      
+
       const isDesignEngineer = roles?.includes("DESIGN_ENGINEER") && docForReview.design_engineer_id === user?.id
       const isQualityEngineer = roles?.includes("QC_ENGINEER") && docForReview.quality_engineer_id === user?.id
-      
+
       let apiUrl = ""
       let payload = { dcr_id: docForReview.id }
 
@@ -267,9 +267,9 @@ function CreateDCR() {
         payload.quality_engineer_status = reviewStatus
         payload.quality_engineer_remarks = reviewRemarks
       } else {
-         toast.error("You are not authorized to perform this review.")
-         setIsReviewing(false)
-         return
+        toast.error("You are not authorized to perform this review.")
+        setIsReviewing(false)
+        return
       }
 
       const res = await fetch(apiUrl, {
@@ -777,7 +777,7 @@ function CreateDCR() {
                                   </TableCell>
                                   <TableCell>
                                     {record.quality_engineer_status === "pending" &&
-                                    record.design_engineer_status !== "approved" ? (
+                                      record.design_engineer_status !== "approved" ? (
                                       <StatusBadge status="waiting" />
                                     ) : (
                                       <StatusBadge status={record.quality_engineer_status} />
@@ -793,46 +793,19 @@ function CreateDCR() {
                                         disabled={isLoadingDetail}
                                         title="View"
                                       >
-                                        <Eye className="h-4 w-4" />
+                                        <Eye className="h-4 w-4" />View
                                       </Button>
 
                                       {/* Design Engineer Actions */}
                                       {roles?.includes("DESIGN_ENGINEER") &&
-                                        record.design_engineer_id === user?.id &&
-                                        record.design_engineer_status === "pending" && (
+                                        record.design_engineer_id === user?.id && (
                                           <>
                                             <Button
                                               size="sm"
                                               variant="outline"
                                               className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
                                               onClick={() => handleReviewClick(record, "approved")}
-                                              title="Approve"
-                                            >
-                                              <CheckCircle className="h-4 w-4" />Approve
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
-                                              onClick={() => handleReviewClick(record, "rejected")}
-                                              title="Reject"
-                                            >
-                                              <XCircle className="h-4 w-4" /> Reject
-                                            </Button>
-                                          </>
-                                        )}
-
-                                      {/* Quality Engineer Actions */}
-                                      {roles?.includes("QC_ENGINEER") &&
-                                        record.quality_engineer_id === user?.id &&
-                                        record.design_engineer_status === "approved" &&
-                                        record.quality_engineer_status === "pending" && (
-                                          <>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
-                                              onClick={() => handleReviewClick(record, "approved")}
+                                              disabled={record.design_engineer_status !== "pending" || isLoadingDetail}
                                               title="Approve"
                                             >
                                               <CheckCircle className="h-4 w-4" /> Approve
@@ -842,6 +815,42 @@ function CreateDCR() {
                                               variant="outline"
                                               className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
                                               onClick={() => handleReviewClick(record, "rejected")}
+                                              disabled={record.design_engineer_status !== "pending" || isLoadingDetail}
+                                              title="Reject"
+                                            >
+                                              <XCircle className="h-4 w-4" /> Reject
+                                            </Button>
+                                          </>
+                                        )}
+
+                                      {/* Quality Engineer Actions */}
+                                      {roles?.includes("QC_ENGINEER") &&
+                                        record.quality_engineer_id === user?.id && (
+                                          <>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
+                                              onClick={() => handleReviewClick(record, "approved")}
+                                              disabled={
+                                                record.design_engineer_status !== "approved" ||
+                                                record.quality_engineer_status !== "pending" ||
+                                                isLoadingDetail
+                                              }
+                                              title="Approve"
+                                            >
+                                              <CheckCircle className="h-4 w-4" /> Approve
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
+                                              onClick={() => handleReviewClick(record, "rejected")}
+                                              disabled={
+                                                record.design_engineer_status !== "approved" ||
+                                                record.quality_engineer_status !== "pending" ||
+                                                isLoadingDetail
+                                              }
                                               title="Reject"
                                             >
                                               <XCircle className="h-4 w-4" /> Reject
