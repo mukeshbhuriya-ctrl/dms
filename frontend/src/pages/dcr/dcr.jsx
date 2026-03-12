@@ -41,6 +41,7 @@ const StatusBadge = ({ status, className }) => {
     pending: { label: "Pending", className: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/20" },
     waiting: { label: "Waiting for Design", className: "bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20" },
     rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" },
+    design_rejected: { label: "Rejected by Design", className: "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" },
     approved: { label: "Approved", className: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20" }
   };
 
@@ -776,9 +777,14 @@ function CreateDCR() {
                                     <StatusBadge status={record.design_engineer_status} />
                                   </TableCell>
                                   <TableCell>
-                                    {record.quality_engineer_status === "pending" &&
-                                      record.design_engineer_status !== "approved" ? (
-                                      <StatusBadge status="waiting" />
+                                    {record.quality_engineer_status === "pending" ? (
+                                      record.design_engineer_status === "rejected" ? (
+                                        <StatusBadge status="design_rejected" />
+                                      ) : record.design_engineer_status !== "approved" ? (
+                                        <StatusBadge status="waiting" />
+                                      ) : (
+                                        <StatusBadge status="pending" />
+                                      )
                                     ) : (
                                       <StatusBadge status={record.quality_engineer_status} />
                                     )}
