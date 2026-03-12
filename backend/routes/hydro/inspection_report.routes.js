@@ -11,6 +11,7 @@ router.get('/next-report-no/:jobId', authenticateUserOnly, InspectionReportContr
 router.post('/create', authenticateUserOnly, InspectionReportController.createReport);
 router.put('/update/:id', authenticateUserOnly, InspectionReportController.updateReport);
 router.put('/update-status/:id', authenticateUserOnly, InspectionReportController.updateStatus);
+router.get('/:id/download', authenticateUserOnly, InspectionReportController.downloadPdf);
 
 // Final Inspection
 router.get('/final/list', authenticateUserOnly, FinalInspectionController.getList);

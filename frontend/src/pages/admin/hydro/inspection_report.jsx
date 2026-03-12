@@ -33,7 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, FileText, Eye, Edit, CheckCircle, XCircle } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, FileText, Eye, Edit, CheckCircle, XCircle, Download } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import { toast } from 'react-toastify'
 import { useAuth } from "@/context/AuthContext"
@@ -123,6 +123,27 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
+  const handleDownload = async (id, reportNo) => {
+    try {
+      const response = await apiClient.get(`/api/inspection-report/${id}/download`, {}, {
+        responseType: 'blob'
+      });
+
+      const blob = new Blob([response.data || response], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `DISH_END_${reportNo.replace(/\//g, '_')}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download report');
+    }
+  };
+
   const columns = [
     { header: "Report No.", accessorKey: "report_no" },
     { header: "MSN", accessorKey: "msn" },
@@ -183,6 +204,16 @@ function ListView({ onCreateClick, onEditClick }) {
                   <XCircle className="h-4 w-4 mr-2" /> Reject
                 </Button>
               </>
+            )}
+            {row.status === "Approved" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200"
+                onClick={() => handleDownload(row.id, row.report_no)}
+                title="Download PDF">
+                <Download className="h-4 w-4 mr-2" /> Download
+              </Button>
             )}
           </div>
         )

@@ -1,4 +1,5 @@
 const InspectionReportService = require('../../services/hydro/inspection_report.service');
+const DishEndPdfGenerator = require('../../utils/dishEndPdfGenerator');
 
 class InspectionReportController {
     /**
@@ -122,6 +123,29 @@ class InspectionReportController {
         } catch (error) {
             console.error("DishEndController.updateStatus Error:", error);
             res.status(500).json({ success: false, message: "Failed to update report status", error: error.message });
+        }
+    }
+    /**
+     * Download Report PDF
+     */
+    async downloadPdf(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+
+            const data = await InspectionReportService.getById(company_id, id);
+            if (!data) {
+                return res.status(404).json({ success: false, message: "Report not found" });
+            }
+
+            const fileName = `DISH_END_${data.report_no.replace(/\//g, '_')}.pdf`;
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+            DishEndPdfGenerator.generatePDF(data, res);
+        } catch (error) {
+            console.error("DishEndController.downloadPdf Error:", error);
+            res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });
         }
     }
 }
