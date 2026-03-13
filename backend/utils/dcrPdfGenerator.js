@@ -215,12 +215,12 @@ class DcrPdfGenerator {
         const changeRequests = data.change_request || data.dcr_change_request || [];
         changeRequests.forEach(renderItem);
 
-        // Filling empty rows
-        const approvalH = 102; 
+        // Filling empty rows to match SS and occupy space
+        const approvalH = 105; 
         const bottomLimit = doc.page.height - 40 - approvalH;
         
         while (curY < bottomLimit) {
-            const h = 40;
+            const h = 30; // Slightly smaller filler rows
             if (curY + h > bottomLimit) break;
             doc.rect(startX, curY, colWs.item, h).stroke();
             doc.rect(startX + colWs.item, curY, colWs.from, h).stroke();
@@ -230,21 +230,21 @@ class DcrPdfGenerator {
         }
 
         // Approval Grid
-        if (curY + approvalH > doc.page.height - 20) {
+        if (curY + approvalH > doc.page.height - 35) {
             doc.addPage();
             curY = 20;
         }
         this.drawApprovalGrid(doc, startX, curY, pageWidth, data);
 
-        // Footer
+        // Footer - Positioning it higher to avoid triggering auto-page breaks
         const range = doc.bufferedPageRange();
         for (let i = range.start; i < range.start + range.count; i++) {
             doc.switchToPage(i);
-            const footerY = doc.page.height - 20;
+            const footerY = doc.page.height - 35;
             doc.fontSize(8).font(this.fonts.regular).fillColor(this.colors.black);
-            doc.text('EXHIBIT: 8/4', startX, footerY);
-            doc.text('DESIGN CHANGE REQUEST', startX, footerY, { align: 'center', width: pageWidth });
-            doc.text('REV: R1', startX, footerY, { align: 'right', width: pageWidth });
+            doc.text('EXHIBIT: 8/4', startX, footerY, { lineBreak: false });
+            doc.text('DESIGN CHANGE REQUEST', startX, footerY, { align: 'center', width: pageWidth, lineBreak: false });
+            doc.text('REV: R1', startX, footerY, { align: 'right', width: pageWidth, lineBreak: false });
         }
 
         doc.end();
