@@ -1,4 +1,5 @@
 const prisma = require('#prisma');
+const dcrPdfGenerator = require('../utils/dcrPdfGenerator');
 
 const ALLOWED_SORT_FIELDS = new Set([
     'createdAt',
@@ -454,6 +455,70 @@ class DcrController {
             });
         } catch (error) {
             console.error('Get DCR by id error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            });
+        }
+    }
+
+    async downloadPdf(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const id = toTrimmedString(req.params.id);
+
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'DCR id is required',
+                });
+            }
+
+            const dcr = await prisma.dcr.findFirst({
+                where: {
+                    id,
+                    company_id,
+                },
+                include: {
+                    job: {
+                        select: {
+                            job_number: true,
+                            equipement_name: true,
+                            tag_number: true,
+                            code: true,
+                        },
+                    },
+                    design_engineer: {
+                        select: { id: true, name: true, email: true, empid: true },
+                    },
+                    quality_engineer: {
+                        select: { id: true, name: true, email: true, empid: true },
+                    },
+                    dcr_change_request: {
+                        orderBy: { createdAt: 'asc' },
+                    },
+                    dcr_status: {
+                        orderBy: { createdAt: 'desc' },
+                        take: 1
+                    },
+                },
+            });
+
+            if (!dcr) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'DCR not found',
+                });
+            }
+
+            const fileName = `DCR_${dcr.dcr_no.replace(/\//g, '_')}.pdf`;
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+            dcrPdfGenerator.generatePDF(dcr, res);
+        } catch (error) {
+            console.error('Download DCR PDF error:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Internal server error',

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { AdminSidebar } from "@/components"
+import apiClient from "@/api/api.client"
 import {
   SidebarProvider,
   SidebarInset,
@@ -31,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit } from "lucide-react"
+import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
@@ -234,6 +235,7 @@ function CreateDCR() {
   const [reviewStatus, setReviewStatus] = useState("")
   const [reviewRemarks, setReviewRemarks] = useState("")
   const [isReviewing, setIsReviewing] = useState(false)
+  const [selectedDcrId, setSelectedDcrId] = useState(null)
 
   const handleReviewClick = (row, status) => {
     setDocForReview(row)
@@ -325,6 +327,23 @@ function CreateDCR() {
     designStatus: "pending",
     qualityStatus: "pending",
   })
+
+  const handleDownloadPdf = async (id, dcrNo) => {
+    try {
+      const res = await apiClient.get(`/api/dcr/download-pdf/${id}`, {}, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `DCR_${String(dcrNo || id).replace(/\//g, "_")}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to download PDF")
+    }
+  }
 
   const fetchDcrList = useCallback(async () => {
     setIsLoadingList(true)
@@ -470,6 +489,7 @@ function CreateDCR() {
         designStatus: detail.designStatus,
         qualityStatus: detail.qualityStatus,
       })
+      setSelectedDcrId(id)
       setView("view")
     } catch (err) {
       setListError(err?.message || "Unable to load DCR details")
@@ -718,10 +738,12 @@ function CreateDCR() {
                     </Button>
                   </>
                 ) : (
-                  <Button variant="outline" onClick={() => setView("list")}>
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to List
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setView("list")}>
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to List
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -800,6 +822,25 @@ function CreateDCR() {
                                         title="View"
                                       >
                                         <Eye className="h-4 w-4" />View
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className={`${normalizeStatus(record.design_engineer_status) === "approved" && normalizeStatus(record.quality_engineer_status) === "approved"
+                                            ? "text-blue-600 border-blue-200 hover:bg-blue-50"
+                                            : "opacity-50 cursor-not-allowed text-gray-400 border-gray-200"
+                                          }`}
+                                        onClick={() => {
+                                          if (normalizeStatus(record.design_engineer_status) === "approved" && normalizeStatus(record.quality_engineer_status) === "approved") {
+                                            handleDownloadPdf(record.id, record.dcr_no)
+                                          } else {
+                                            toast.info("DCR can only be downloaded after approval from both Design and Quality.")
+                                          }
+                                        }}
+                                        title="Download PDF"
+                                      >
+                                        <Download className="h-4 w-4 mr-2" /> Download
                                       </Button>
 
                                       {/* Design Engineer Actions */}
