@@ -18,7 +18,7 @@ class QapPdfGenerator {
         };
     }
 
-    drawHeader(doc, x, y, width, data) {
+    drawHeader(doc, x, y, width, data, companyInfo) {
         const logoBoxW = 160;
         const docNoBoxW = 200;
         const titleBoxW = width - logoBoxW - docNoBoxW;
@@ -30,17 +30,17 @@ class QapPdfGenerator {
 
         // 1. Logo Section
         doc.rect(x, y, logoBoxW, headerH).stroke();
-        const logoPath = path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 8, { width: 22 });
+                doc.image(logoPath, x + 5, y + 10, { height: 30 });
             } catch (e) {
                 const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
-                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 8, { width: 22 });
+                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
             }
         }
         doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text('Shreno Engineering', x + 35, y + 16);
+            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // 2. Title Section
         const titleX = x + logoBoxW;
@@ -168,7 +168,7 @@ class QapPdfGenerator {
         return { height: headerH, columnWidths: finalCols };
     }
 
-    generatePDF(data, res) {
+    generatePDF(data, res, companyInfo) {
         const doc = new PDFDocument({ 
             margin: 30, 
             size: 'A4', 
@@ -185,7 +185,7 @@ class QapPdfGenerator {
 
         const initPageHeader = (firstPage = false) => {
             curY = 30;
-            const hH = this.drawHeader(doc, startX, curY, pageWidth, data);
+            const hH = this.drawHeader(doc, startX, curY, pageWidth, data, companyInfo);
             curY += hH; 
             
             if (firstPage) {

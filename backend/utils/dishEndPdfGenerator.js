@@ -15,7 +15,7 @@ class DishEndPdfGenerator {
         };
     }
 
-    drawLogoAndTitle(doc, x, y, width, height) {
+    drawLogoAndTitle(doc, x, y, width, height, companyInfo) {
         const logoBoxW = 160;
         const titleBoxW = width - logoBoxW;
 
@@ -25,23 +25,25 @@ class DishEndPdfGenerator {
         doc.rect(x + logoBoxW, y, titleBoxW, height).stroke();
 
         // Left Side: Logo + Name
-        const logoPath = path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
+        doc.rect(x, y, logoBoxW, height).stroke();
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 15, { width: 35, height: 35 });
+                doc.image(logoPath, x + 5, y + 10, { height: 30 });
             } catch (e) {
-                console.error("Logo Error:", e);
+                const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
+                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
             }
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black)
-            .text('Shreno Engineering', x + 45, y + 27);
+        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // Right Side: Report Title
         doc.font(this.fonts.bold).fontSize(16).fillColor(this.colors.red)
             .text('DISH END INSPECTION REPORT', x + logoBoxW, y + 25, { width: titleBoxW, align: 'center' });
     }
 
-    generatePDF(data, res) {
+    generatePDF(data, res, companyInfo) {
         const doc = new PDFDocument({ margin: 25, size: 'A4' });
         doc.pipe(res);
 
@@ -57,7 +59,7 @@ class DishEndPdfGenerator {
 
         // 1. Header Section
         const headerH = 65;
-        this.drawLogoAndTitle(doc, startX, curY, width, headerH);
+        this.drawLogoAndTitle(doc, startX, curY, width, headerH, companyInfo);
         curY += headerH;
 
         // 2. Info Grid Section

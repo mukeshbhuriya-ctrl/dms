@@ -1,4 +1,5 @@
 const FinalInspectionService = require('../../services/hydro/final_inspection.service');
+const { getCompanyInfo } = require('../../utils/companyInfo');
 
 class FinalInspectionController {
     /**
@@ -143,7 +144,8 @@ class FinalInspectionController {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=FIR_${data.report_no.replace(/\//g, '_')}.pdf`);
 
-            FinalInspectionPdfGenerator.generatePDF(data, res);
+            const companyInfo = await getCompanyInfo(company_id);
+            FinalInspectionPdfGenerator.generatePDF(data, res, companyInfo);
         } catch (error) {
             console.error("FinalInspectionController.downloadPdf Error:", error);
             res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });

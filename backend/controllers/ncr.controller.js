@@ -1,5 +1,6 @@
 const NcrService = require('../services/ncr.service');
 const NCRPdfGenerator = require('../utils/ncrPdfGenerator');
+const { getCompanyInfo } = require('../utils/companyInfo');
 
 class NcrController {
     async list(req, res) {
@@ -122,8 +123,11 @@ class NcrController {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=NCR_${ncr.ncr_no.replace(/\//g, '_')}.pdf`);
 
+            // Fetch company info
+            const companyInfo = await getCompanyInfo(req.user.company_id);
+
             // Generate PDF
-            NCRPdfGenerator.generateNCR(ncr, res);
+            NCRPdfGenerator.generateNCR(ncr, res, companyInfo);
         } catch (error) {
             console.error('NCR downloadPdf error:', error);
             const status = error.message.includes('not found') ? 404 : 500;

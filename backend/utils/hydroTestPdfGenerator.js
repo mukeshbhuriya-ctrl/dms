@@ -16,7 +16,7 @@ class HydroTestPdfGenerator {
         };
     }
 
-    drawLogoAndTitle(doc, x, y, width, height) {
+    drawLogoAndTitle(doc, x, y, width, height, companyInfo) {
         const logoBoxW = 160;
         const titleBoxW = width - logoBoxW;
         
@@ -28,24 +28,23 @@ class HydroTestPdfGenerator {
         doc.rect(x + logoBoxW, y, titleBoxW, height / 2).stroke();
         doc.rect(x + logoBoxW, y + height / 2, titleBoxW, height / 2).stroke();
 
-        // Logo
-        const logoPath = path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
+        // Logo Section
+        doc.rect(x, y, logoBoxW, height).stroke();
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                // Adjust logo positioning and size based on SS2
-                doc.image(logoPath, x + 10, y + 15, { width: 30 });
+                doc.image(logoPath, x + 5, y + 10, { height: 30 });
             } catch (e) {
-                console.error("Logo Error:", e);
+                const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
+                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
             }
         }
-        
-        // "Shreno Engineering Limited" text in logo box
-        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black)
-            .text('Shreno Engineering', x + 45, y + 25);
+        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // Company Name in Title Box Top
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
-            .text('SHRENO ENGINEERING LIMITED', x + logoBoxW, y + 8, { width: titleBoxW, align: 'center' });
+            .text((companyInfo?.name || 'SHRENO ENGINEERING LIMITED').toUpperCase(), x + logoBoxW, y + 8, { width: titleBoxW, align: 'center' });
         
         // Report Title in Title Box Bottom
         doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.red)
@@ -54,7 +53,7 @@ class HydroTestPdfGenerator {
         // Separator between rows in the outer border is handled by drawing rects
     }
 
-    generatePDF(data, res) {
+    generatePDF(data, res, companyInfo) {
         const doc = new PDFDocument({ margin: 25, size: 'A4' });
         doc.pipe(res);
 
@@ -70,7 +69,7 @@ class HydroTestPdfGenerator {
 
         // 1. Header Section
         const headerH = 65;
-        this.drawLogoAndTitle(doc, startX, curY, width, headerH);
+        this.drawLogoAndTitle(doc, startX, curY, width, headerH, companyInfo);
         curY += headerH;
 
         // 2. Info Grid Section

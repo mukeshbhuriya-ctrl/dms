@@ -1,5 +1,6 @@
 const QapService = require('../services/qap.service');
 const QapPdfGenerator = require('../utils/qapPdfGenerator');
+const { getCompanyInfo } = require('../utils/companyInfo');
 
 class QapController {
     async create(req, res) {
@@ -72,7 +73,8 @@ class QapController {
             const data = await QapService.getById(req.user.company_id, req.params.id);
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=QAP_${data.report_no.replace(/\//g, '_')}.pdf`);
-            QapPdfGenerator.generatePDF(data, res);
+            const companyInfo = await getCompanyInfo(req.user.company_id);
+            QapPdfGenerator.generatePDF(data, res, companyInfo);
         } catch (error) {
             console.error('QAP downloadPdf error:', error);
             res.status(500).json({ success: false, message: 'Failed to generate PDF.' });

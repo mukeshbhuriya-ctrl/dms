@@ -16,7 +16,7 @@ class DcrPdfGenerator {
         };
     }
 
-    drawHeader(doc, x, y, width, data) {
+    drawHeader(doc, x, y, width, data, companyInfo) {
         const logoBoxW = 150;
         const titleRowH = 45;
         const dcrRowH = 22;
@@ -27,7 +27,7 @@ class DcrPdfGenerator {
         
         // 1. Logo Box (Tall, on the left)
         doc.rect(x, y, logoBoxW, totalH).stroke();
-        const logoPath = path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
                 doc.image(logoPath, x + 5, y + 10, { height: 30 });
@@ -36,15 +36,14 @@ class DcrPdfGenerator {
                 if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
             }
         }
-        doc.font(this.fonts.bold).fontSize(11).fillColor('#005596')
-            .text('Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
+        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
-        // 2. Title Section
         const titleX = x + logoBoxW;
         const titleW = width - logoBoxW;
         doc.rect(titleX, y, titleW, titleRowH).stroke();
-        doc.font(this.fonts.bold).fontSize(17).fillColor(this.colors.black)
-            .text('SHRENO ENGINEERING LIMITED', titleX, y + 15, { width: titleW, align: 'center' });
+        doc.font(this.fonts.bold).fontSize(16).fillColor(this.colors.black)
+            .text((companyInfo?.name || 'SHRENO ENGINEERING LIMITED').toUpperCase(), titleX, y + 15, { width: titleW, align: 'center' });
 
         // 3. Sub-header (DCR)
         const dcrY = y + titleRowH;
@@ -158,7 +157,7 @@ class DcrPdfGenerator {
         return titleH + gridH;
     }
 
-    generatePDF(data, res) {
+    generatePDF(data, res, companyInfo) {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
@@ -167,7 +166,7 @@ class DcrPdfGenerator {
         const pageWidth = doc.page.width - 40;
 
         // Header
-        curY += this.drawHeader(doc, startX, curY, pageWidth, data);
+        curY += this.drawHeader(doc, startX, curY, pageWidth, data, companyInfo);
 
         // Info Grid
         curY += this.drawInfoGrid(doc, startX, curY, pageWidth, data);

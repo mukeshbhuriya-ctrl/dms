@@ -16,49 +16,41 @@ class NCRPdfGenerator {
         };
     }
 
-    drawLogo(doc, x, y, width, height) {
-        const paths = [
-            path.join(__dirname, '../../frontend/public/lego_logo.png'),
-            path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png'),
-            path.join(__dirname, '../public/lego_logo.png')
-        ];
 
-        for (const p of paths) {
-            if (fs.existsSync(p)) {
-                const imgW = 80;
-                const imgH = 40;
-                const ix = x + (width - imgW) / 2;
-                const iy = y + (height - imgH) / 2;
-                doc.image(p, ix, iy, { width: imgW, height: imgH });
-                break;
-            }
-        }
-    }
-
-    drawHeader(doc, x, y, width, data) {
+    drawHeader(doc, x, y, width, data, companyInfo) {
         const headerH = 70;
         doc.lineWidth(0.5).strokeColor(this.colors.black);
 
         // Logo Box (Left)
-        const logoW = 160;
-        doc.rect(x, y, logoW, headerH).stroke();
-        this.drawLogo(doc, x, y, logoW, headerH);
+        const logoBoxW = 160;
+        doc.rect(x, y, logoBoxW, headerH).stroke();
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
+        if (fs.existsSync(logoPath)) {
+            try {
+                doc.image(logoPath, x + 5, y + 10, { height: 30 });
+            } catch (e) {
+                const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
+                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
+            }
+        }
+        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // Title Box (Right)
-        const titleBoxW = width - logoW;
+        const titleBoxW = width - logoBoxW;
         const titleRowH = 40;
         const reportRowH = 30;
 
-        doc.rect(x + logoW, y, titleBoxW, titleRowH).stroke();
-        doc.rect(x + logoW, y + titleRowH, titleBoxW, reportRowH).stroke();
+        doc.rect(x + logoBoxW, y, titleBoxW, titleRowH).stroke();
+        doc.rect(x + logoBoxW, y + titleRowH, titleBoxW, reportRowH).stroke();
 
         // Title Text
         doc.font(this.fonts.bold).fontSize(14).fillColor(this.colors.red)
-            .text('SHRENO ENGINEERING LIMITED', x + logoW, y + 14, { width: titleBoxW, align: 'center' });
+            .text((companyInfo?.name || 'SHRENO ENGINEERING LIMITED').toUpperCase(), x + logoBoxW, y + 14, { width: titleBoxW, align: 'center' });
 
         // Subtitle Text
         doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.red)
-            .text('NON CONFORMANCE REPORT', x + logoW, y + titleRowH + 8, { width: titleBoxW, align: 'center' });
+            .text('NON CONFORMANCE REPORT', x + logoBoxW, y + titleRowH + 8, { width: titleBoxW, align: 'center' });
 
         return y + headerH;
     }
@@ -128,7 +120,7 @@ class NCRPdfGenerator {
         });
     }
 
-    generateNCR(data, res) {
+    generateNCR(data, res, companyInfo) {
         const doc = new PDFDocument({ margin: 25, size: 'A4' });
         doc.pipe(res);
 
@@ -141,7 +133,7 @@ class NCRPdfGenerator {
         doc.rect(startX, startY, width, height).strokeColor(this.colors.black).lineWidth(1).stroke();
 
         let curY = startY;
-        curY = this.drawHeader(doc, startX, curY, width, data);
+        curY = this.drawHeader(doc, startX, curY, width, data, companyInfo);
         curY = this.drawInfoGrid(doc, startX, curY, width, data);
 
         // Description of Non-Conformance

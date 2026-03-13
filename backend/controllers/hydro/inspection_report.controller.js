@@ -1,5 +1,6 @@
 const InspectionReportService = require('../../services/hydro/inspection_report.service');
 const DishEndPdfGenerator = require('../../utils/dishEndPdfGenerator');
+const { getCompanyInfo } = require('../../utils/companyInfo');
 
 class InspectionReportController {
     /**
@@ -142,7 +143,8 @@ class InspectionReportController {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
 
-            DishEndPdfGenerator.generatePDF(data, res);
+            const companyInfo = await getCompanyInfo(company_id);
+            DishEndPdfGenerator.generatePDF(data, res, companyInfo);
         } catch (error) {
             console.error("DishEndController.downloadPdf Error:", error);
             res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });

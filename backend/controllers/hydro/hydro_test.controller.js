@@ -1,4 +1,5 @@
 const HydroTestService = require('../../services/hydro/hydro_test.service');
+const { getCompanyInfo } = require('../../utils/companyInfo');
 
 class HydroTestController {
     async list(req, res) {
@@ -86,7 +87,8 @@ class HydroTestController {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=HYDRO_${data.report_no.replace(/\//g, '_')}.pdf`);
 
-            HydroTestPdfGenerator.generatePDF(data, res);
+            const companyInfo = await getCompanyInfo(company_id);
+            HydroTestPdfGenerator.generatePDF(data, res, companyInfo);
         } catch (error) {
             console.error("HydroTestController.downloadPdf Error:", error);
             res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });

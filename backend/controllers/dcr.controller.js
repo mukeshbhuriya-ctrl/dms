@@ -1,5 +1,6 @@
 const prisma = require('#prisma');
 const dcrPdfGenerator = require('../utils/dcrPdfGenerator');
+const { getCompanyInfo } = require('../utils/companyInfo');
 
 const ALLOWED_SORT_FIELDS = new Set([
     'createdAt',
@@ -516,7 +517,8 @@ class DcrController {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
 
-            dcrPdfGenerator.generatePDF(dcr, res);
+            const companyInfo = await getCompanyInfo(company_id);
+            dcrPdfGenerator.generatePDF(dcr, res, companyInfo);
         } catch (error) {
             console.error('Download DCR PDF error:', error);
             return res.status(500).json({
