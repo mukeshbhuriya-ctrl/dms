@@ -17,109 +17,87 @@ class DcrPdfGenerator {
     }
 
     drawHeader(doc, x, y, width, data) {
-        const logoBoxW = 160;
-        const headerH = 45;
+        const logoBoxW = 150;
+        const titleRowH = 45;
+        const dcrRowH = 22;
+        const totalH = titleRowH + dcrRowH;
 
-        // Outer Header Border
+        // Outer Border
         doc.lineWidth(0.5).strokeColor(this.colors.black);
         
-        // 1. Logo Section
-        doc.rect(x, y, logoBoxW, headerH).stroke();
+        // 1. Logo Box (Tall, on the left)
+        doc.rect(x, y, logoBoxW, totalH).stroke();
         const logoPath = path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 3, y + 8, { height: 28 });
+                doc.image(logoPath, x + 5, y + 10, { height: 30 });
             } catch (e) {
                 const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
-                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 3, y + 8, { height: 28 });
+                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
             }
         }
         doc.font(this.fonts.bold).fontSize(11).fillColor('#005596')
-            .text('Shreno Engineering\nLimited', x + 35, y + 13, { width: logoBoxW - 40, align: 'center' });
+            .text('Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // 2. Title Section
         const titleX = x + logoBoxW;
         const titleW = width - logoBoxW;
-        doc.rect(titleX, y, titleW, headerH).stroke();
-        doc.font(this.fonts.bold).fontSize(18).fillColor(this.colors.black)
-            .text('SHRENO ENGINEERING LIMITED', titleX, y + 14, { width: titleW, align: 'center' });
+        doc.rect(titleX, y, titleW, titleRowH).stroke();
+        doc.font(this.fonts.bold).fontSize(17).fillColor(this.colors.black)
+            .text('SHRENO ENGINEERING LIMITED', titleX, y + 15, { width: titleW, align: 'center' });
 
-        // 3. Sub-header (Design Change Request)
-        const subHeaderY = y + headerH;
-        const subHeaderH = 22;
-        doc.rect(x, subHeaderY, width, subHeaderH).stroke();
-        doc.font(this.fonts.bold).fontSize(12)
-            .text('DESIGN CHANGE REQUEST', x, subHeaderY + 5, { width: width, align: 'center' });
+        // 3. Sub-header (DCR)
+        const dcrY = y + titleRowH;
+        doc.rect(titleX, dcrY, titleW, dcrRowH).stroke();
+        doc.font(this.fonts.bold).fontSize(11)
+            .text('DESIGN CHANGE REQUEST', titleX, dcrY + 5, { width: titleW, align: 'center' });
 
-        return headerH + subHeaderH;
+        return totalH;
     }
 
     drawInfoGrid(doc, x, y, width, data) {
         const rowH = 24;
-        const fontSize = 9;
-        doc.font(this.fonts.bold).fontSize(fontSize);
+        const fontSize = 8.5;
+        doc.font(this.fonts.bold).fontSize(fontSize).fillColor(this.colors.black);
 
-        // Precise Grid alignment to match SS1
-        // Row 1 & 2 vertical lines should align at x=150, x=300 (relative)
-        const gridW1 = 150;
-        const gridW2 = 150;
-        const remainingW = width - gridW1 - gridW2;
+        // Absolute vertical line positions (relative to x)
+        // Adjusting for perfect alignment and enough text space
+        const L1 = 160; 
+        const L2 = 330; 
+        const LEnd = width;
 
-        let curX = x;
+        const drawBox = (x1, x2, txt, isBold = false, cy = y, align = 'left') => {
+            doc.rect(x + x1, cy, x2 - x1, rowH).stroke();
+            doc.font(isBold ? this.fonts.bold : this.fonts.regular);
+            const val = String(txt || '-');
+            doc.text(val, x + x1 + 5, cy + 8, { width: x2 - x1 - 10, align, ellipsis: true });
+        };
 
-        // Row 1
-        // Col 1: MSN
-        doc.rect(curX, y, 60, rowH).stroke();
-        doc.font(this.fonts.bold).text('MSN', curX + 5, y + 8);
-        doc.rect(curX + 60, y, gridW1 - 60, rowH).stroke();
-        doc.font(this.fonts.regular).text(String(data.job_number || data.job?.job_number || '-'), curX + 65, y + 8, { width: gridW1 - 65 });
-        curX += gridW1;
+        // --- Row 1 ---
+        drawBox(0, 50, 'MSN', true);
+        drawBox(50, L1, data.job_number || data.job?.job_number, false);
+        
+        drawBox(L1, L1 + 60, 'DATE:-', true);
+        drawBox(L1 + 60, L2, data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '', false);
+        
+        drawBox(L2, L2 + 70, 'DCR NO.', true);
+        drawBox(L2 + 70, LEnd, data.dcr_no, false);
 
-        // Col 2: DATE
-        doc.rect(curX, y, 60, rowH).stroke();
-        doc.font(this.fonts.bold).text('DATE:-', curX + 5, y + 8);
-        doc.rect(curX + 60, y, gridW2 - 60, rowH).stroke();
-        doc.font(this.fonts.regular).text(data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-', curX + 65, y + 8, { width: gridW2 - 65 });
-        curX += gridW2;
-
-        // Col 3: DCR NO
-        doc.rect(curX, y, 90, rowH).stroke();
-        doc.font(this.fonts.bold).text('DCR NO.', curX + 5, y + 8);
-        doc.rect(curX + 90, y, remainingW - 90, rowH).stroke();
-        doc.font(this.fonts.regular).text(String(data.dcr_no || '-'), curX + 95, y + 8, { width: remainingW - 95 });
-
-        // Row 2
-        const row2Y = y + rowH;
-        curX = x;
-
-        // Col 1: DRAWING NO
-        doc.rect(curX, row2Y, 85, rowH).stroke();
-        doc.font(this.fonts.bold).text('DRAWING NO.', curX + 5, row2Y + 8);
-        doc.rect(curX + 85, row2Y, gridW1 - 85, rowH).stroke();
-        doc.font(this.fonts.regular).text(String(data.drg_no || '-'), curX + 90, row2Y + 8, { width: gridW1 - 90 });
-        curX += gridW1;
-
-        // Col 2: EQUIPMENT NO
-        doc.rect(curX, row2Y, 95, rowH).stroke();
-        doc.font(this.fonts.bold).text('EQUIPMENT NO.', curX + 2, row2Y + 8); // Tight
-        doc.rect(curX + 95, row2Y, gridW2 - 95, rowH).stroke();
-        doc.font(this.fonts.regular).text(String(data.equ_no || '-'), curX + 98, row2Y + 8, { width: gridW2 - 100 });
-        curX += gridW2;
-
-        // Split remaining for INSP. BY and CLIENT/TPI
-        const halfRem = remainingW / 2;
-        // Col 3: INSP. BY
-        doc.rect(curX, row2Y, 70, rowH).stroke();
-        doc.font(this.fonts.bold).text('INSP. BY', curX + 5, row2Y + 8);
-        doc.rect(curX + 70, row2Y, halfRem - 70, rowH).stroke();
-        doc.font(this.fonts.regular).text(String(data.inspect_by || '-'), curX + 75, row2Y + 8, { width: halfRem - 75 });
-        curX += halfRem;
-
-        // Col 4: CLIENT/TPI
-        doc.rect(curX, row2Y, 80, rowH).stroke();
-        doc.font(this.fonts.bold).text('CLIENT/TPI', curX + 5, row2Y + 8);
-        doc.rect(curX + 80, row2Y, width - (curX - x) - 80, rowH).stroke();
-        doc.font(this.fonts.regular).text('-', curX + 85, row2Y + 8);
+        // --- Row 2 ---
+        const r2y = y + rowH;
+        drawBox(0, 90, 'DRAWING NO.', true, r2y); // Slightly wider label
+        drawBox(90, L1, data.drg_no, false, r2y);
+        
+        drawBox(L1, L1 + 105, 'EQUIPMENT NO.', true, r2y);
+        drawBox(L1 + 105, L2, data.equ_no, false, r2y);
+        
+        // Segment 3 (Split into INSP BY and CLIENT/TPI)
+        const L3 = 460;
+        drawBox(L2, L2 + 65, 'INSP. BY', true, r2y);
+        drawBox(L2 + 65, L3, data.inspect_by, false, r2y);
+        
+        drawBox(L3, L3 + 70, 'CLIENT/TPI', true, r2y);
+        drawBox(L3 + 70, LEnd, '-', false, r2y);
 
         return rowH * 2;
     }
@@ -209,7 +187,6 @@ class DcrPdfGenerator {
             const rowH = Math.max(40, itemH + 15, fromH + 15, toH + 15, reasonH + 15);
 
             if (curY + rowH > doc.page.height - 150) {
-                // Should only be called if strictly necessary
                 doc.addPage();
                 curY = 20;
                 const { height: thH } = this.drawTableHeader(doc, startX, curY, pageWidth);
@@ -238,8 +215,8 @@ class DcrPdfGenerator {
         const changeRequests = data.change_request || data.dcr_change_request || [];
         changeRequests.forEach(renderItem);
 
-        // Filling empty rows to match SS and occupy space
-        const approvalH = 102; // titleH + gridH
+        // Filling empty rows
+        const approvalH = 102; 
         const bottomLimit = doc.page.height - 40 - approvalH;
         
         while (curY < bottomLimit) {
@@ -259,7 +236,7 @@ class DcrPdfGenerator {
         }
         this.drawApprovalGrid(doc, startX, curY, pageWidth, data);
 
-        // Page numbering and static footer
+        // Footer
         const range = doc.bufferedPageRange();
         for (let i = range.start; i < range.start + range.count; i++) {
             doc.switchToPage(i);
