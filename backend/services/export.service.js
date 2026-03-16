@@ -241,70 +241,54 @@ class ExportService {
             orderBy: { createdAt: 'desc' },
         });
 
-        const flatData = [];
-        reports.forEach(r => {
+        const flatData = reports.map(r => {
+            const items = r.items || [];
             let currentHeading = "-";
-            r.items.forEach(item => {
+            
+            const itemRows = items.map(item => {
                 if (item.is_heading) {
                     currentHeading = item.heading_text || item.item_no || "HEADING";
                 }
-
-                flatData.push({
-                    msn: r.msn,
-                    client: r.client,
-                    po_no: r.po_no,
-                    project_id: r.project_id || 'N/A',
-                    equipment_name: r.equipment_name || 'N/A',
-                    tag_no: r.tag_no || 'N/A',
-                    code: r.code || 'N/A',
-                    shreno_drg_no: r.shreno_drg_no || 'N/A',
-                    customer_drg_no: r.customer_drg_no || 'N/A',
-                    report_no: r.report_no,
-                    inspection_by: r.inspection_by || 'N/A',
-                    status: (r.status || 'draft').toUpperCase(),
-                    // Table Data
+                return {
                     heading: currentHeading,
-                    item_no: item.item_no || 'N/A',
-                    description: item.description || 'N/A',
-                    size: item.size || 'N/A',
-                    material_spec: item.material_spec || 'N/A',
-                    qty_unit: item.quantity_unit || 'N/A',
-                    heat_no: item.heat_no || 'N/A',
-                    mtr_no: item.mtr_no || 'N/A',
-                    manufacturer: item.manufacturer || 'N/A',
-                    remarks: item.remarks || 'N/A',
-                    created_at: r.createdAt.toLocaleString(),
-                });
+                    item_no: item.item_no || '-',
+                    description: item.description || '-',
+                    size: item.size || '-',
+                    material_spec: item.material_spec || '-',
+                    qty_unit: item.quantity_unit || '-',
+                    heat_no: item.heat_no || '-',
+                    mtr_no: item.mtr_no || '-',
+                    manufacturer: item.manufacturer || '-',
+                    remarks: item.remarks || '-',
+                };
             });
 
-            // If no items, include at least one row with header info
-            if (r.items.length === 0) {
-                flatData.push({
-                    msn: r.msn,
-                    client: r.client,
-                    po_no: r.po_no,
-                    project_id: r.project_id || 'N/A',
-                    equipment_name: r.equipment_name || 'N/A',
-                    tag_no: r.tag_no || 'N/A',
-                    code: r.code || 'N/A',
-                    shreno_drg_no: r.shreno_drg_no || 'N/A',
-                    customer_drg_no: r.customer_drg_no || 'N/A',
-                    report_no: r.report_no,
-                    inspection_by: r.inspection_by || 'N/A',
-                    status: (r.status || 'draft').toUpperCase(),
-                    heading: 'N/A',
-                    item_no: 'N/A',
-                    description: 'No items found',
-                    size: 'N/A',
-                    material_spec: 'N/A',
-                    qty_unit: 'N/A',
-                    heat_no: 'N/A',
-                    mtr_no: 'N/A',
-                    manufacturer: 'N/A',
-                    remarks: 'N/A',
-                    created_at: r.createdAt.toLocaleString(),
-                });
-            }
+            return {
+                msn: r.msn,
+                client: r.client,
+                po_no: r.po_no,
+                project_id: r.project_id || 'N/A',
+                equipment_name: r.equipment_name || 'N/A',
+                tag_no: r.tag_no || 'N/A',
+                code: r.code || 'N/A',
+                shreno_drg_no: r.shreno_drg_no || 'N/A',
+                customer_drg_no: r.customer_drg_no || 'N/A',
+                report_no: r.report_no,
+                inspection_by: r.inspection_by || 'N/A',
+                // Table Data (Aggregated)
+                heading: itemRows.map(ir => ir.heading).join('\n') || 'N/A',
+                item_no: itemRows.map(ir => ir.item_no).join('\n') || 'N/A',
+                description: itemRows.map(ir => ir.description).join('\n') || 'N/A',
+                size: itemRows.map(ir => ir.size).join('\n') || 'N/A',
+                material_spec: itemRows.map(ir => ir.material_spec).join('\n') || 'N/A',
+                qty_unit: itemRows.map(ir => ir.qty_unit).join('\n') || 'N/A',
+                heat_no: itemRows.map(ir => ir.heat_no).join('\n') || 'N/A',
+                mtr_no: itemRows.map(ir => ir.mtr_no).join('\n') || 'N/A',
+                manufacturer: itemRows.map(ir => ir.manufacturer).join('\n') || 'N/A',
+                remarks: itemRows.map(ir => ir.remarks).join('\n') || 'N/A',
+                status: (r.status || 'draft').toUpperCase(),
+                created_at: r.createdAt.toLocaleString(),
+            };
         });
 
         const sheets = [
@@ -390,89 +374,49 @@ class ExportService {
             orderBy: { createdAt: 'desc' },
         });
 
-        const flatData = [];
-        reports.forEach(r => {
-            const remarksText = r.remarks.map(rem => rem.text).filter(Boolean).join(' | ');
+        const flatData = reports.map(r => {
+            const items = r.items || [];
+            const remarksText = r.remarks.map(rem => rem.text).filter(Boolean).join('\n');
 
-            r.items.forEach(item => {
-                flatData.push({
-                    msn: r.msn,
-                    client: r.client,
-                    po_no: r.po_no,
-                    project_id: r.project_id || 'N/A',
-                    equipment_name: r.equipment_name || 'N/A',
-                    tag_no: r.tag_no || 'N/A',
-                    code: r.code || 'N/A',
-                    shreno_drg_no: r.shreno_drg_no || 'N/A',
-                    customer_drg_no: r.customer_drg_no || 'N/A',
-                    report_no: r.report_no,
-                    construction_code: r.construction_code || 'N/A',
-                    chlorine_content: r.chlorine_content || 'N/A',
-                    inspection_agency: r.inspection_agency || 'N/A',
-                    test_position: r.test_position || 'N/A',
-                    procedure_no: r.procedure_no || 'N/A',
-                    test_medium: r.test_medium || 'N/A',
-                    metal_temp: r.metal_temp || 'N/A',
-                    status: (r.status || 'draft').toUpperCase(),
-                    // Item Data
-                    particulars: item.particulars || 'N/A',
-                    mawp_int_ext: item.mawp_int_ext || 'N/A',
-                    required_test_pressure: item.required_test_pressure || 'N/A',
-                    actual_test_pressure: item.actual_test_pressure || 'N/A',
-                    holding_time: item.holding_time || 'N/A',
-                    test_result: item.test_result || 'N/A',
-                    // Gauges
-                    pg1_range: item.pg1_range || 'N/A',
-                    pg1_id_no: item.pg1_id_no || 'N/A',
-                    pg1_calib_date: item.pg1_calib_date || 'N/A',
-                    pg1_due_date: item.pg1_due_date || 'N/A',
-                    pg2_range: item.pg2_range || 'N/A',
-                    pg2_id_no: item.pg2_id_no || 'N/A',
-                    pg2_calib_date: item.pg2_calib_date || 'N/A',
-                    pg2_due_date: item.pg2_due_date || 'N/A',
-                    remarks_all: remarksText || 'N/A',
-                    created_at: r.createdAt.toLocaleString(),
-                });
-            });
-
-            if (r.items.length === 0) {
-                flatData.push({
-                    msn: r.msn,
-                    client: r.client,
-                    po_no: r.po_no,
-                    project_id: r.project_id || 'N/A',
-                    equipment_name: r.equipment_name || 'N/A',
-                    tag_no: r.tag_no || 'N/A',
-                    code: r.code || 'N/A',
-                    shreno_drg_no: r.shreno_drg_no || 'N/A',
-                    customer_drg_no: r.customer_drg_no || 'N/A',
-                    report_no: r.report_no,
-                    construction_code: r.construction_code || 'N/A',
-                    chlorine_content: r.chlorine_content || 'N/A',
-                    inspection_agency: r.inspection_agency || 'N/A',
-                    test_position: r.test_position || 'N/A',
-                    procedure_no: r.procedure_no || 'N/A',
-                    test_medium: r.test_medium || 'N/A',
-                    metal_temp: r.metal_temp || 'N/A',
-                    status: (r.status || 'draft').toUpperCase(),
-                    particulars: 'No items found',
-                    mawp_int_ext: 'N/A',
-                    required_test_pressure: 'N/A',
-                    actual_test_pressure: 'N/A',
-                    holding_time: 'N/A',
-                    test_result: 'N/A',
-                    pg1_range: 'N/A',
-                    pg1_id_no: 'N/A',
-                    pg1_calib_date: 'N/A',
-                    pg1_due_date: 'N/A',
-                    pg2_range: 'N/A',
-                    pg2_id_no: 'N/A',
-                    pg2_calib_date: 'N/A',
-                    pg2_due_date: 'N/A',
-                    remarks_all: remarksText || 'N/A',
-                    created_at: r.createdAt.toLocaleString(),
-                });
-            }
+            return {
+                msn: r.msn,
+                client: r.client,
+                po_no: r.po_no,
+                project_id: r.project_id || 'N/A',
+                equipment_name: r.equipment_name || 'N/A',
+                tag_no: r.tag_no || 'N/A',
+                code: r.code || 'N/A',
+                shreno_drg_no: r.shreno_drg_no || 'N/A',
+                customer_drg_no: r.customer_drg_no || 'N/A',
+                report_no: r.report_no,
+                // Aggregated Item Data
+                particulars: items.map(i => i.particulars || '-').join('\n') || 'N/A',
+                mawp_int_ext: items.map(i => i.mawp_int_ext || '-').join('\n') || 'N/A',
+                required_test_pressure: items.map(i => i.required_test_pressure || '-').join('\n') || 'N/A',
+                actual_test_pressure: items.map(i => i.actual_test_pressure || '-').join('\n') || 'N/A',
+                holding_time: items.map(i => i.holding_time || '-').join('\n') || 'N/A',
+                test_result: items.map(i => i.test_result || '-').join('\n') || 'N/A',
+                // Pressure Gauges
+                pg1_range: items.map(i => i.pg1_range || '-').join('\n') || 'N/A',
+                pg1_id_no: items.map(i => i.pg1_id_no || '-').join('\n') || 'N/A',
+                pg1_calib_date: items.map(i => i.pg1_calib_date || '-').join('\n') || 'N/A',
+                pg1_due_date: items.map(i => i.pg1_due_date || '-').join('\n') || 'N/A',
+                pg2_range: items.map(i => i.pg2_range || '-').join('\n') || 'N/A',
+                pg2_id_no: items.map(i => i.pg2_id_no || '-').join('\n') || 'N/A',
+                pg2_calib_date: items.map(i => i.pg2_calib_date || '-').join('\n') || 'N/A',
+                pg2_due_date: items.map(i => i.pg2_due_date || '-').join('\n') || 'N/A',
+                // Header details continued
+                construction_code: r.construction_code || 'N/A',
+                chlorine_content: r.chlorine_content || 'N/A',
+                inspection_agency: r.inspection_agency || 'N/A',
+                test_position: r.test_position || 'N/A',
+                procedure_no: r.procedure_no || 'N/A',
+                test_medium: r.test_medium || 'N/A',
+                metal_temp: r.metal_temp || 'N/A',
+                status: (r.status || 'draft').toUpperCase(),
+                remarks_all: remarksText || 'N/A',
+                created_at: r.createdAt.toLocaleString(),
+            };
         });
 
         const sheets = [
