@@ -144,7 +144,6 @@ function ListView({ onCreateClick, onEditClick }) {
     { header: "MSN", accessorKey: "msn" },
     { header: "Client", accessorKey: "client" },
     { header: "PO No.", accessorKey: "po_no" },
-    { header: "Project ID", accessorKey: "project_id" },
     { header: "Equipment", accessorKey: "equipment_name" },
     {
       header: "Created",

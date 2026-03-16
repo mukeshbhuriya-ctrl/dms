@@ -471,29 +471,74 @@ class ExportService {
     async exportDishEnd(company_id) {
         const reports = await prisma.dish_end_inspection_report.findMany({
             where: { company_id },
-            include: { job: true },
+            include: { 
+                items: { orderBy: { sr_no: 'asc' } },
+                instruments: true,
+                quality_engineer: true
+            },
             orderBy: { createdAt: 'desc' },
+        });
+
+        const flatData = reports.map(r => {
+            const items = r.items || [];
+            const instruments = r.instruments || [];
+
+            return {
+                msn: r.msn,
+                client: r.client,
+                po_no: r.po_no,
+                project_id: r.project_id || 'N/A',
+                equipment_name: r.equipment_name || 'N/A',
+                tag_no: r.tag_no || 'N/A',
+                code: r.code || 'N/A',
+                drg_no: r.drg_no || 'N/A',
+                insp_agency: r.insp_agency || 'N/A',
+                report_no: r.report_no,
+                quality_engineer: r.quality_engineer?.name || 'N/A',
+                vendor_dish_end_number: r.vendor_dish_end_number || 'N/A',
+                status: (r.status || 'Pending').toUpperCase(),
+                createdAt: r.createdAt.toLocaleString(),
+                // Items Aggregation
+                item_sr: items.map(i => i.sr_no || '-').join('\n'),
+                item_desc: items.map(i => i.description || '-').join('\n'),
+                item_drg: items.map(i => i.as_per_drg || '-').join('\n'),
+                item_actual: items.map(i => i.actual || '-').join('\n'),
+                item_remarks: items.map(i => i.remarks || '-').join('\n'),
+                // Instruments Aggregation
+                inst_name: instruments.map(i => i.name || '-').join('\n'),
+                inst_id: instruments.map(i => i.id_no || '-').join('\n'),
+                inst_due: instruments.map(i => i.due_date || '-').join('\n'),
+            };
         });
 
         const sheets = [
             {
-                name: 'Dish End Reports',
+                name: 'Dish End Full Report',
                 columns: [
-                    { header: 'Report No', key: 'report_no', width: 20 },
-                    { header: 'MSN', key: 'msn', width: 20 },
-                    { header: 'Client', key: 'client', width: 30 },
-                    { header: 'PO No', key: 'po_no', width: 20 },
-                    { header: 'Status', key: 'status', width: 15 },
-                    { header: 'Created Date', key: 'created_at', width: 25 },
+                    { header: 'MSN / JOB NO', key: 'msn', width: 15 },
+                    { header: 'CLIENT', key: 'client', width: 20 },
+                    { header: 'PO NO', key: 'po_no', width: 15 },
+                    { header: 'PROJECT ID', key: 'project_id', width: 15 },
+                    { header: 'EQUIPMENT', key: 'equipment_name', width: 20 },
+                    { header: 'TAG NO', key: 'tag_no', width: 15 },
+                    { header: 'CODE', key: 'code', width: 15 },
+                    { header: 'DRG NO', key: 'drg_no', width: 20 },
+                    { header: 'INSP AGENCY', key: 'insp_agency', width: 20 },
+                    { header: 'REPORT NO', key: 'report_no', width: 25 },
+                    { header: 'QUALITY ENGINEER', key: 'quality_engineer', width: 20 },
+                    { header: 'VENDOR DISH END NO', key: 'vendor_dish_end_number', width: 20 },
+                    { header: 'ITEM SR NO', key: 'item_sr', width: 10 },
+                    { header: 'ITEM DESCRIPTION', key: 'item_desc', width: 30 },
+                    { header: 'AS PER DRG', key: 'item_drg', width: 20 },
+                    { header: 'ACTUAL', key: 'item_actual', width: 20 },
+                    { header: 'ITEM REMARKS', key: 'item_remarks', width: 25 },
+                    { header: 'INSTRUMENT NAME', key: 'inst_name', width: 20 },
+                    { header: 'INST. ID / SR NO', key: 'inst_id', width: 20 },
+                    { header: 'INST. DUE DATE', key: 'inst_due', width: 15 },
+                    { header: 'STATUS', key: 'status', width: 12 },
+                    { header: 'CREATED DATE', key: 'createdAt', width: 20 },
                 ],
-                data: reports.map(r => ({
-                    report_no: r.report_no,
-                    msn: r.msn,
-                    client: r.client,
-                    po_no: r.po_no,
-                    status: r.status,
-                    created_at: r.createdAt.toLocaleString(),
-                })),
+                data: flatData,
             }
         ];
 
@@ -506,29 +551,109 @@ class ExportService {
     async exportFinalInspection(company_id) {
         const reports = await prisma.final_inspection_report.findMany({
             where: { company_id },
-            include: { job: true },
+            include: { 
+                details: { orderBy: { sr_no: 'asc' } },
+                nozzles: { orderBy: { sr_no: 'asc' } },
+                parts: { orderBy: { sr_no: 'asc' } },
+                instruments: true,
+                remarks: { orderBy: { sr_no: 'asc' } },
+                quality_engineer: true
+            },
             orderBy: { createdAt: 'desc' },
+        });
+
+        const flatData = reports.map(r => {
+            const details = r.details || [];
+            const nozzles = r.nozzles || [];
+            const parts = r.parts || [];
+            const instruments = r.instruments || [];
+            const remarks = r.remarks || [];
+
+            return {
+                msn: r.msn,
+                client: r.client,
+                po_no: r.po_no,
+                project_id: r.project_id || 'N/A',
+                equipment_name: r.equipment_name || 'N/A',
+                tag_no: r.tag_no || 'N/A',
+                code: r.code || 'N/A',
+                drg_no: r.drg_no || 'N/A',
+                report_no: r.report_no,
+                quality_engineer: r.quality_engineer?.name || 'N/A',
+                status: (r.status || 'Pending').toUpperCase(),
+                createdAt: r.createdAt.toLocaleString(),
+                // Details Aggregation
+                det_desc: details.map(d => d.description || '-').join('\n'),
+                det_req: details.map(d => d.required || '-').join('\n'),
+                det_act: details.map(d => d.actual || '-').join('\n'),
+                det_rem: details.map(d => d.remarks || '-').join('\n'),
+                // Nozzles Aggregation
+                noz_mark: nozzles.map(n => n.nozzle_mark || '-').join('\n'),
+                noz_orient: nozzles.map(n => n.orientation || '-').join('\n'),
+                noz_size: nozzles.map(n => n.size || '-').join('\n'),
+                noz_loc: nozzles.map(n => n.location || '-').join('\n'),
+                noz_elev_app: nozzles.map(n => n.elevation_approved || '-').join('\n'),
+                noz_proj_app: nozzles.map(n => n.projection_approved || '-').join('\n'),
+                noz_elev_act: nozzles.map(n => n.elevation_actual || '-').join('\n'),
+                noz_proj_act: nozzles.map(n => n.projection_actual || '-').join('\n'),
+                // Parts Aggregation
+                part_no: parts.map(p => p.part_no || '-').join('\n'),
+                part_desc: parts.map(p => p.description || '-').join('\n'),
+                part_orient: parts.map(p => p.orientation_approved || '-').join('\n'),
+                part_elev_app: parts.map(p => p.elevation_approved || '-').join('\n'),
+                part_proj_app: parts.map(p => p.projection_approved || '-').join('\n'),
+                part_elev_act: parts.map(p => p.elevation_actual || '-').join('\n'),
+                part_proj_act: parts.map(p => p.projection_actual || '-').join('\n'),
+                // Instruments Aggregation
+                inst_name: instruments.map(i => i.name || '-').join('\n'),
+                inst_id: instruments.map(i => i.id_no || '-').join('\n'),
+                inst_due: instruments.map(i => i.due_date || '-').join('\n'),
+                // Remarks Aggregation
+                rem_text: remarks.map(rem => rem.text || '-').join('\n'),
+            };
         });
 
         const sheets = [
             {
-                name: 'Final Inspection Reports',
+                name: 'Final Inspection Full Report',
                 columns: [
-                    { header: 'Report No', key: 'report_no', width: 20 },
-                    { header: 'MSN', key: 'msn', width: 20 },
-                    { header: 'Client', key: 'client', width: 30 },
-                    { header: 'PO No', key: 'po_no', width: 20 },
-                    { header: 'Status', key: 'status', width: 15 },
-                    { header: 'Created Date', key: 'created_at', width: 25 },
+                    { header: 'MSN / JOB NO', key: 'msn', width: 15 },
+                    { header: 'CLIENT', key: 'client', width: 20 },
+                    { header: 'PO NO', key: 'po_no', width: 15 },
+                    { header: 'PROJECT ID', key: 'project_id', width: 15 },
+                    { header: 'EQUIPMENT', key: 'equipment_name', width: 20 },
+                    { header: 'TAG NO', key: 'tag_no', width: 15 },
+                    { header: 'CODE', key: 'code', width: 15 },
+                    { header: 'DRG NO', key: 'drg_no', width: 20 },
+                    { header: 'REPORT NO', key: 'report_no', width: 25 },
+                    { header: 'QUALITY ENGINEER', key: 'quality_engineer', width: 20 },
+                    { header: 'INSP. DESCRIPTION', key: 'det_desc', width: 30 },
+                    { header: 'INSP. REQUIRED', key: 'det_req', width: 20 },
+                    { header: 'INSP. ACTUAL', key: 'det_act', width: 20 },
+                    { header: 'INSP. REMARKS', key: 'det_rem', width: 25 },
+                    { header: 'NOZZLE MARK', key: 'noz_mark', width: 15 },
+                    { header: 'NOZZLE ORIENT', key: 'noz_orient', width: 15 },
+                    { header: 'NOZZLE SIZE', key: 'noz_size', width: 15 },
+                    { header: 'NOZZLE LOCATION', key: 'noz_loc', width: 15 },
+                    { header: 'NOZZLE ELEV APP', key: 'noz_elev_app', width: 15 },
+                    { header: 'NOZZLE PROJ APP', key: 'noz_proj_app', width: 15 },
+                    { header: 'NOZZLE ELEV ACT', key: 'noz_elev_act', width: 15 },
+                    { header: 'NOZZLE PROJ ACT', key: 'noz_proj_act', width: 15 },
+                    { header: 'PART NO', key: 'part_no', width: 15 },
+                    { header: 'PART DESCRIPTION', key: 'part_desc', width: 30 },
+                    { header: 'PART ORIENT', key: 'part_orient', width: 15 },
+                    { header: 'PART ELEV APP', key: 'part_elev_app', width: 15 },
+                    { header: 'PART PROJ APP', key: 'part_proj_app', width: 15 },
+                    { header: 'PART ELEV ACT', key: 'part_elev_act', width: 15 },
+                    { header: 'PART PROJ ACT', key: 'part_proj_act', width: 15 },
+                    { header: 'INSTRUMENT NAME', key: 'inst_name', width: 20 },
+                    { header: 'INST. ID / SR NO', key: 'inst_id', width: 20 },
+                    { header: 'INST. DUE DATE', key: 'inst_due', width: 15 },
+                    { header: 'REMARKS / NOTES', key: 'rem_text', width: 40 },
+                    { header: 'STATUS', key: 'status', width: 12 },
+                    { header: 'CREATED DATE', key: 'createdAt', width: 20 },
                 ],
-                data: reports.map(r => ({
-                    report_no: r.report_no,
-                    msn: r.msn,
-                    client: r.client,
-                    po_no: r.po_no,
-                    status: r.status,
-                    created_at: r.createdAt.toLocaleString(),
-                })),
+                data: flatData,
             }
         ];
 
