@@ -748,6 +748,61 @@ class ExportService {
     }
 
     /**
+     * Export RFQ Lookup values (RFQ Type, Mode of Enquiry, Remark).
+     */
+    async exportRFQLookup(company_id, type, title) {
+        const lookups = await prisma.rfq_lookup.findMany({
+            where: { company_id, type },
+            orderBy: { name: 'asc' },
+        });
+
+        const sheets = [
+            {
+                name: title,
+                columns: [
+                    { header: 'NAME', key: 'name', width: 40 },
+                    { header: 'CREATED AT', key: 'createdAt', width: 25 },
+                ],
+                data: lookups.map(l => ({
+                    name: l.name,
+                    createdAt: l.createdAt.toLocaleString(),
+                })),
+            }
+        ];
+
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
+     * Export Users for RFQ (Mediators / Estimators).
+     */
+    async exportRFQUsers(company_id, title) {
+        const users = await prisma.user.findMany({
+            where: { company_id },
+            select: { name: true, email: true, createdAt: true },
+            orderBy: { name: 'asc' },
+        });
+
+        const sheets = [
+            {
+                name: title,
+                columns: [
+                    { header: 'NAME', key: 'name', width: 30 },
+                    { header: 'EMAIL', key: 'email', width: 40 },
+                    { header: 'CREATED AT', key: 'createdAt', width: 25 },
+                ],
+                data: users.map(u => ({
+                    name: u.name,
+                    email: u.email,
+                    createdAt: u.createdAt.toLocaleString(),
+                })),
+            }
+        ];
+
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
      * Helper to flatten nested objects for Excel columns.
      * Smartly picks display names for relation objects.
      */
@@ -803,11 +858,16 @@ class ExportService {
      */
     async exportModule(moduleName, company_id) {
         const modelName = moduleName.replace(/-/g, '_');
-        const model = prisma[modelName];
         
-        // SPECIAL HANDLING FOR CONSOLIDATED EXPORTS
+        // SPECIAL HANDLING FOR RFQ LOOKUPS & USERS
         if (modelName === 'rfq_register') return this.exportRFQRegister(company_id);
+        if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
+        if (modelName === 'mode_of_enquiry') return this.exportRFQLookup(company_id, 'mode_of_enquiry', 'Mode of Enquiry');
+        if (modelName === 'remark') return this.exportRFQLookup(company_id, 'remark', 'Remark Options');
+        if (modelName === 'mediator') return this.exportRFQUsers(company_id, 'Mediators');
+        if (modelName === 'estimator') return this.exportRFQUsers(company_id, 'Estimators');
 
+        const model = prisma[modelName];
         if (!model) throw new Error(`Model ${modelName} not found`);
 
         // Configuration for relations to include - now with nested names

@@ -13,6 +13,7 @@ import {
 import { Plus, Edit, Trash2 } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
 import { useParams } from "react-router-dom"
 
@@ -143,6 +144,14 @@ function RfqLookupManager() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [type, isUserType, refreshKey])
 
+    const handleExport = async () => {
+        try {
+            await exportApi.exportModule(type, `${config.title.replace(/\s+/g, '_').toLowerCase()}_export.xlsx`);
+        } catch (error) {
+            console.error(`${config.title} Export failed:`, error);
+        }
+    };
+
     return (
         <SidebarProvider>
             <AdminSidebar />
@@ -168,6 +177,7 @@ function RfqLookupManager() {
                         <DataTable
                             columns={isUserType ? userColumns : lookupColumns}
                             fetchData={fetchData}
+                            onExport={handleExport}
                         />
                     </div>
                 </main>
