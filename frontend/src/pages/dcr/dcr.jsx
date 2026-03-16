@@ -336,6 +336,15 @@ function CreateDCR() {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule('dcr', 'dcr_export.xlsx');
+    } catch (error) {
+      console.error("DCR Export failed:", error);
+      toast.error("Export failed");
+    }
+  };
+
   const fetchDcrList = useCallback(async () => {
     setIsLoadingList(true)
     setListError("")
@@ -665,6 +674,14 @@ function CreateDCR() {
                       disabled={isLoadingList || isLoadingDetail}
                     >
                       {isLoadingList ? "Refreshing..." : "Refresh"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleExport}
+                      disabled={isLoadingList || isLoadingDetail}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Export
                     </Button>
                     <Button onClick={() => setView("create")}>
                       <Plus className="mr-2 h-4 w-4" />

@@ -913,6 +913,91 @@ class ExportService {
     }
 
     /**
+     * Export Design Change Request (DCR) reports.
+     */
+    async exportDCR(company_id) {
+        const dcrs = await prisma.dcr.findMany({
+            where: { company_id },
+            include: {
+                job: { select: { job_number: true } },
+                design_engineer: { select: { name: true } },
+                quality_engineer: { select: { name: true } },
+                dcr_change_request: true,
+                dcr_status: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (dcrs.length === 0) {
+            return await excelGenerator.generateReport([{ name: 'DCR Reports', columns: [{ header: 'DCR NO', key: 'dcr_no' }], data: [] }]);
+        }
+
+        const flatData = dcrs.map(d => {
+            const requests = d.dcr_change_request || [];
+            const latestStatus = d.dcr_status?.[0] || {};
+            
+            return {
+                dcr_no: d.dcr_no || 'N/A',
+                job_no: d.job?.job_number || 'N/A',
+                drg_no: d.drg_no || 'N/A',
+                equ_no: d.equ_no || 'N/A',
+                inspect_by: d.inspect_by || 'N/A',
+                design_engineer: d.design_engineer?.name || 'N/A',
+                quality_engineer: d.quality_engineer?.name || 'N/A',
+                
+                // Aggregated Change Requests
+                item_part_no: requests.map(r => r.item_part_no || '-').join('\n') || 'N/A',
+                change_from: requests.map(r => r.chnage_from || '-').join('\n') || 'N/A',
+                change_to: requests.map(r => r.chnage_to || '-').join('\n') || 'N/A',
+                reasons: requests.map(r => r.reason || '-').join('\n') || 'N/A',
+                
+                // Status Details
+                design_status: (latestStatus.design_engineer_status || 'pending').toUpperCase(),
+                design_remarks: latestStatus.design_engineer_remarks || '-',
+                quality_status: (latestStatus.quality_engineer_status || 'pending').toUpperCase(),
+                quality_remarks: latestStatus.quality_engineer_remarks || '-',
+                overall_status: (latestStatus.status || 'pending').toUpperCase(),
+                
+                created_at: d.createdAt.toLocaleString(),
+            };
+        });
+
+        const sheets = [
+            {
+                name: 'DCR reports',
+                columns: [
+                    { header: 'DCR NO', key: 'dcr_no', width: 25 },
+                    { header: 'JOB NO', key: 'job_no', width: 15 },
+                    { header: 'DRAWING NO', key: 'drg_no', width: 20 },
+                    { header: 'EQUIPMENT NO', key: 'equ_no', width: 20 },
+                    { header: 'INSPECT BY', key: 'inspect_by', width: 20 },
+                    { header: 'DESIGN ENGINEER', key: 'design_engineer', width: 25 },
+                    { header: 'QUALITY ENGINEER', key: 'quality_engineer', width: 25 },
+                    
+                    { header: 'ITEM / PART NO', key: 'item_part_no', width: 25 },
+                    { header: 'CHANGE FROM', key: 'change_from', width: 30 },
+                    { header: 'CHANGE TO', key: 'change_to', width: 30 },
+                    { header: 'REASON FOR CHANGE', key: 'reasons', width: 40 },
+                    
+                    { header: 'DESIGN STATUS', key: 'design_status', width: 15 },
+                    { header: 'DESIGN REMARKS', key: 'design_remarks', width: 25 },
+                    { header: 'QUALITY STATUS', key: 'quality_status', width: 15 },
+                    { header: 'QUALITY REMARKS', key: 'quality_remarks', width: 25 },
+                    { header: 'MAIN STATUS', key: 'overall_status', width: 15 },
+                    
+                    { header: 'CREATED DATE', key: 'created_at', width: 20 },
+                ],
+                data: flatData,
+            }
+        ];
+
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
      * Helper to flatten nested objects for Excel columns.
      * Smartly picks display names for relation objects.
      */
@@ -972,6 +1057,7 @@ class ExportService {
         // SPECIAL HANDLING FOR RFQ LOOKUPS & USERS
         if (modelName === 'rfq_register') return this.exportRFQRegister(company_id);
         if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id);
+        if (modelName === 'dcr') return this.exportDCR(company_id);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
         if (modelName === 'mode_of_enquiry') return this.exportRFQLookup(company_id, 'mode_of_enquiry', 'Mode of Enquiry');
         if (modelName === 'remark') return this.exportRFQLookup(company_id, 'remark', 'Remark Options');
