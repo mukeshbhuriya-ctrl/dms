@@ -803,6 +803,116 @@ class ExportService {
     }
 
     /**
+     * Export Quality Assurance Plan (QAP) reports.
+     */
+    async exportQAP(company_id) {
+        const plans = await prisma.quality_assurance_plan.findMany({
+            where: { company_id },
+            include: {
+                items: { orderBy: { sort_order: 'asc' } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (plans.length === 0) {
+            return await excelGenerator.generateReport([{ name: 'QAP Reports', columns: [{ header: 'STATUS', key: 'status' }], data: [] }]);
+        }
+
+        // Identify all unique dynamic columns across all plans
+        const dynamicColMap = new Map();
+        plans.forEach(plan => {
+            if (plan.dynamic_columns && Array.isArray(plan.dynamic_columns)) {
+                plan.dynamic_columns.forEach(col => {
+                    dynamicColMap.set(col.id, col.name);
+                });
+            }
+        });
+
+        const flatData = plans.map(p => {
+            const items = p.items || [];
+            
+            // Helper to aggregate item fields
+            const getAggr = (fn) => items.map(i => {
+                if (i.is_heading) return i.heading_text || '-';
+                return fn(i) || '-';
+            }).join('\n');
+
+            const row = {
+                msn: p.msn || 'N/A',
+                report_no: p.report_no || 'N/A',
+                client: p.client || 'N/A',
+                po_no: p.po_no || 'N/A',
+                po_date: p.po_date || 'N/A',
+                project_id: p.project_id || 'N/A',
+                equipment_name: p.equipment_name || 'N/A',
+                tag_no: p.tag_no || 'N/A',
+                code: p.code || 'N/A',
+                shreno_drg_no: p.shreno_drg_no || 'N/A',
+                customer_drg_no: p.customer_drg_no || 'N/A',
+                status: (p.status || 'draft').toUpperCase(),
+                created_at: p.createdAt.toLocaleString(),
+                
+                // Aggregated Item details
+                sr_no: items.map(i => i.sr_no || '-').join('\n'),
+                activities: getAggr(i => i.activity),
+                methods: getAggr(i => `${i.type_method_check || ''} ${i.extent || ''}`.trim()),
+                criteria: getAggr(i => `${i.acceptance_criteria || ''} ${i.reference_documents || ''}`.trim()),
+                verifying: getAggr(i => i.verifying_document),
+                shreno_val: getAggr(i => i.shreno),
+                client_tpia_val: getAggr(i => i.client_tpia),
+                remarks_val: getAggr(i => i.remark),
+            };
+
+            // Add dynamic column values
+            dynamicColMap.forEach((name, id) => {
+                row[id] = items.map(i => {
+                    if (i.is_heading) return '-';
+                    return (i.dynamic_values && i.dynamic_values[id]) || '-';
+                }).join('\n');
+            });
+
+            return row;
+        });
+
+        const columns = [
+            { header: 'REPORT NO', key: 'report_no', width: 25 },
+            { header: 'MSN NUMBER', key: 'msn', width: 15 },
+            { header: 'CLIENT', key: 'client', width: 20 },
+            { header: 'PO NO', key: 'po_no', width: 15 },
+            { header: 'PO DATE', key: 'po_date', width: 15 },
+            { header: 'PROJECT ID', key: 'project_id', width: 15 },
+            { header: 'EQUIPMENT', key: 'equipment_name', width: 20 },
+            { header: 'TAG NO', key: 'tag_no', width: 15 },
+            { header: 'CODE', key: 'code', width: 15 },
+            { header: 'SHRENO DRG NO', key: 'shreno_drg_no', width: 20 },
+            { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
+            // Aggregated columns
+            { header: 'SR NO', key: 'sr_no', width: 10 },
+            { header: 'ACTIVITY (DESCRIPTION)', key: 'activities', width: 40 },
+            { header: 'TYPE / METHOD / EXTENT', key: 'methods', width: 30 },
+            { header: 'ACCEPTANCE CRITERIA / REF DOCS', key: 'criteria', width: 35 },
+            { header: 'VERIFYING DOCUMENT', key: 'verifying', width: 25 },
+            { header: 'SHRENO', key: 'shreno_val', width: 10 },
+            { header: 'CLIENT / TPIA', key: 'client_tpia_val', width: 15 },
+        ];
+
+        // Append dynamic columns to headers
+        dynamicColMap.forEach((name, id) => {
+            columns.push({ header: name.toUpperCase(), key: id, width: 15 });
+        });
+
+        // Closing standard columns
+        columns.push(
+            { header: 'REMARKS', key: 'remarks_val', width: 30 },
+            { header: 'STATUS', key: 'status', width: 12 },
+            { header: 'CREATED DATE', key: 'created_at', width: 20 }
+        );
+
+        const sheets = [{ name: 'QAP Full Report', columns, data: flatData }];
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
      * Helper to flatten nested objects for Excel columns.
      * Smartly picks display names for relation objects.
      */
@@ -861,6 +971,7 @@ class ExportService {
         
         // SPECIAL HANDLING FOR RFQ LOOKUPS & USERS
         if (modelName === 'rfq_register') return this.exportRFQRegister(company_id);
+        if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
         if (modelName === 'mode_of_enquiry') return this.exportRFQLookup(company_id, 'mode_of_enquiry', 'Mode of Enquiry');
         if (modelName === 'remark') return this.exportRFQLookup(company_id, 'remark', 'Remark Options');
