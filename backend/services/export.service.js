@@ -452,7 +452,15 @@ class ExportService {
                 const val = obj[key];
                 
                 // Skip technical IDs and meta fields
-                const skipList = ['id', '_id', 'company_id', 'group_id', 'created_by', 'updated_by', 'createdat', 'updatedat', 'deletedat', 'password'];
+                const skipList = [
+                    'id', '_id', 'company_id', 'group_id', 'created_by', 'updated_by', 
+                    'createdat', 'updatedat', 'deletedat', 'password',
+                    'ncr_raised_at', 'ncr_raised_by', 'resolution_by', 'assigned_engineer', 
+                    'design_head', 'welding_head', 'quality_head', 'corrective_action_verified_by',
+                    'target_engineer_id', 'target_head_design_id', 'target_head_welding_id', 
+                    'target_head_quality_id', 'verified_by_qce_id', 'verified_by_head_quality_id',
+                    'resolution_approval'
+                ];
                 if (skipList.includes(keyLower) || keyLower.endsWith('_id')) continue;
                 
                 const propName = prefix ? (keyLower.startsWith(prefix.toLowerCase()) ? key : `${prefix}_${key}`) : key;
@@ -543,7 +551,16 @@ class ExportService {
             },
             ncr: {
                 job: true,
-                initiator: true
+                initiator: true,
+                raised_at_user: true,
+                resolution_user: true,
+                target_engineer: true,
+                target_head_design: true,
+                target_head_welding: true,
+                target_head_quality: true,
+                corrective_action_verifier: true,
+                qce_verifier: true,
+                head_quality_verifier: true
             },
             rfq_register: {
                 creator: true
@@ -602,6 +619,27 @@ class ExportService {
                 mainRow['Zip Password'] = item.password;
             }
 
+            // Special handling for ncr to ensure real names instead of UUIDs
+            if (modelName === 'ncr') {
+                if (item.initiator) mainRow['Raised By'] = item.initiator.name;
+                if (item.raised_at_user) mainRow['Raised At'] = item.raised_at_user.name;
+                if (item.resolution_user) mainRow['Resolution By'] = item.resolution_user.name;
+                if (item.target_engineer) mainRow['Assigned Engineer'] = item.target_engineer.name;
+                if (item.target_head_design) mainRow['Design Head'] = item.target_head_design.name;
+                if (item.target_head_welding) mainRow['Welding Head'] = item.target_head_welding.name;
+                if (item.target_head_quality) mainRow['Quality Head'] = item.target_head_quality.name;
+                if (item.corrective_action_verifier) mainRow['Corrective Action Verified By'] = item.corrective_action_verifier.name;
+                if (item.qce_verifier) mainRow['QCE Verifier'] = item.qce_verifier.name;
+                if (item.head_quality_verifier) mainRow['Head Quality Verifier'] = item.head_quality_verifier.name;
+
+                // Handle Resolution Approval (could be string or array)
+                if (item.resolution_approval) {
+                    mainRow['Resolution Approval'] = Array.isArray(item.resolution_approval) 
+                        ? item.resolution_approval[0] 
+                        : item.resolution_approval;
+                }
+            }
+
             mainSheetData.push(mainRow);
             
             // Handle array relations (child sheets)
@@ -618,8 +656,11 @@ class ExportService {
 
         // 1. Create Main Sheet
         if (mainSheetData.length > 0) {
-            const mainSample = mainSheetData[0];
-            const mainColumns = Object.keys(mainSample).map(key => {
+            // Collect all unique keys from all rows to ensure no columns are missed
+            const allKeys = new Set();
+            mainSheetData.forEach(row => Object.keys(row).forEach(key => allKeys.add(key)));
+            
+            const mainColumns = Array.from(allKeys).map(key => {
                 let header = key.split(/_|\./)
                     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
                     .join(' ');
