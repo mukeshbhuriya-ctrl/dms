@@ -1222,6 +1222,177 @@ class ExportService {
     }
 
     /**
+     * Export individual Weld Joints with full specifications and parent metadata.
+     */
+    async exportWeldJoint(company_id) {
+        const joints = await prisma.weld_joint.findMany({
+            where: { weld_joint_plan: { company_id } },
+            include: {
+                weld_joint_plan: {
+                    include: {
+                        job: {
+                            include: {
+                                customer: { select: { customer_name: true } }
+                            }
+                        }
+                    }
+                },
+                weld_joint_inspection: true
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (joints.length === 0) {
+            return await excelGenerator.generateReport([{ name: 'Weld Joints', columns: [{ header: 'JOINT NO', key: 'joint_no' }], data: [] }]);
+        }
+
+        const flatData = joints.map(j => {
+            const p = j.weld_joint_plan || {};
+            const job = p.job || {};
+            const insp = j.weld_joint_inspection || {};
+
+            const getOverallStatus = (joint) => {
+                const insp = joint.weld_joint_inspection || {};
+                if (insp.s1_status !== 'approved') return 'STAGE 1';
+
+                if (joint.joint_type === 'C') {
+                    if (insp.s2_status !== 'approved') return 'STAGE 2';
+                    if (insp.s7_status !== 'approved') return 'STAGE 7';
+                    if (insp.s8_status !== 'approved') return 'STAGE 8';
+                    return 'COMPLETED';
+                }
+
+                if (joint.joint_type === 'D') {
+                    if (insp.s2_status !== 'approved') return 'STAGE 2';
+                    if (insp.s3_status !== 'approved') return 'STAGE 3';
+                    if (insp.s4_status !== 'approved') return 'STAGE 4';
+                    if (insp.s5_status !== 'approved') return 'STAGE 5';
+                    if (insp.s6_status !== 'approved') return 'STAGE 6';
+                    if (insp.s7_status !== 'approved') return 'STAGE 7';
+                    if (insp.s8_status !== 'approved') return 'STAGE 8';
+                    return 'COMPLETED';
+                }
+
+                if (joint.joint_type === 'F') {
+                    if (insp.s2_status !== 'approved') return 'STAGE 2';
+                    if (insp.s3_status !== 'approved') return 'STAGE 3';
+                    if (insp.s4_status !== 'approved') return 'STAGE 4';
+                    return 'COMPLETED';
+                }
+
+                if (joint.joint_type === 'A' || joint.joint_type === 'B') {
+                    if (joint.back_chip_req) {
+                        if (insp.s2_status !== 'approved') return 'STAGE 2';
+                    }
+                    if (insp.s3_status !== 'approved') return 'STAGE 3';
+                    if (joint.rt) {
+                        if (insp.s4_status !== 'approved') return 'STAGE 4';
+                    }
+                    if (joint.pt) {
+                        if (insp.s5_status !== 'approved') return 'STAGE 5';
+                    }
+                    if (joint.pwht) {
+                        if (insp.s6_status !== 'approved') return 'STAGE 6';
+                        if (insp.s7_status !== 'approved') return 'STAGE 7';
+                    }
+                }
+                return 'COMPLETED';
+            };
+            
+            return {
+                msn: job.job_number || 'N/A',
+                client: job.customer?.customer_name || 'N/A',
+                project_id: job.project_id || 'N/A',
+                tag_no: job.tag_number || 'N/A',
+                equipment: job.equipement_name || 'N/A',
+                weld_plan_no: p.weld_plan_no || 'N/A',
+                shr_drg_no: p.shreno_drg_no || 'N/A',
+                customer_drg_no: p.customer_drg_no || 'N/A',
+                
+                joint_no: j.joint_no || 'N/A',
+                joint_type: j.joint_type || 'N/A',
+                joint_description: j.joint_description || 'N/A',
+                
+                thickness_p1: j.base_metal_thickness_p1 || 'N/A',
+                thickness_p2: j.base_metal_thickness_p2 || 'N/A',
+                spec_p1: j.base_metal_spec_p1 || 'N/A',
+                spec_p2: j.base_metal_spec_p2 || 'N/A',
+                
+                consumable: j.consumable || 'N/A',
+                wps_pqr_no: j.wps_pqr_no || 'N/A',
+                process: j.process || 'N/A',
+                impact_test: j.impact_test || 'N/A',
+                
+                back_chip: j.back_chip_req ? 'YES' : 'NO',
+                pwht: j.pwht ? 'YES' : 'NO',
+                rt: j.rt ? 'YES' : 'NO',
+                pt: j.pt ? 'YES' : 'NO',
+                
+                remarks: j.remarks || '-',
+                
+                overall_status: getOverallStatus(j),
+                s1_status: (insp.s1_status || 'PENDING').toUpperCase(),
+                s2_status: (insp.s2_status || 'PENDING').toUpperCase(),
+                s3_status: (insp.s3_status || 'PENDING').toUpperCase(),
+                s4_status: (insp.s4_status || 'PENDING').toUpperCase(),
+                s5_status: (insp.s5_status || 'PENDING').toUpperCase(),
+                s6_status: (insp.s6_status || 'PENDING').toUpperCase(),
+                s7_status: (insp.s7_status || 'PENDING').toUpperCase(),
+                s8_status: (insp.s8_status || 'PENDING').toUpperCase(),
+
+                created_at: j.createdAt.toLocaleString()
+            };
+        });
+
+        const columns = [
+            { header: 'MSN NO', key: 'msn', width: 15 },
+            { header: 'CLIENT', key: 'client', width: 25 },
+            { header: 'PROJECT ID', key: 'project_id', width: 15 },
+            { header: 'TAG NO', key: 'tag_no', width: 15 },
+            { header: 'EQUIPMENT', key: 'equipment', width: 25 },
+            { header: 'WELD PLAN NO', key: 'weld_plan_no', width: 25 },
+            { header: 'SHRENO DRG NO', key: 'shr_drg_no', width: 20 },
+            { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
+            
+            { header: 'JOINT NO', key: 'joint_no', width: 15 },
+            { header: 'CATEGORY', key: 'joint_type', width: 12 },
+            { header: 'DESCRIPTION', key: 'joint_description', width: 30 },
+            
+            { header: 'THICKNESS P1', key: 'thickness_p1', width: 15 },
+            { header: 'THICKNESS P2', key: 'thickness_p2', width: 15 },
+            { header: 'SPEC P1', key: 'spec_p1', width: 15 },
+            { header: 'SPEC P2', key: 'spec_p2', width: 15 },
+            
+            { header: 'CONSUMABLE', key: 'consumable', width: 15 },
+            { header: 'WPS / PQR NO', key: 'wps_pqr_no', width: 20 },
+            { header: 'PROCESS', key: 'process', width: 15 },
+            { header: 'IMPACT TEST', key: 'impact_test', width: 15 },
+            
+            { header: 'BACK CHIP', key: 'back_chip', width: 12 },
+            { header: 'PWHT', key: 'pwht', width: 10 },
+            { header: 'RT', key: 'rt', width: 10 },
+            { header: 'PT', key: 'pt', width: 10 },
+            
+            { header: 'REMARKS', key: 'remarks', width: 30 },
+            
+            { header: 'WORKFLOW STATUS', key: 'overall_status', width: 20 },
+            { header: 'S1 STATUS', key: 's1_status', width: 12 },
+            { header: 'S2 STATUS', key: 's2_status', width: 12 },
+            { header: 'S3 STATUS', key: 's3_status', width: 12 },
+            { header: 'S4 STATUS', key: 's4_status', width: 12 },
+            { header: 'S5 STATUS', key: 's5_status', width: 12 },
+            { header: 'S6 STATUS', key: 's6_status', width: 12 },
+            { header: 'S7 STATUS', key: 's7_status', width: 12 },
+            { header: 'S8 STATUS', key: 's8_status', width: 12 },
+
+            { header: 'CREATED AT', key: 'created_at', width: 20 }
+        ];
+
+        const sheets = [{ name: 'Welding Joints', columns, data: flatData }];
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
      * Helper to flatten nested objects for Excel columns.
      * Smartly picks display names for relation objects.
      */
@@ -1284,6 +1455,7 @@ class ExportService {
         if (modelName === 'dcr') return this.exportDCR(company_id);
         if (modelName === 'ncr') return this.exportNCR(company_id);
         if (modelName === 'weld_joint_plan') return this.exportWeldJointPlan(company_id);
+        if (modelName === 'weld_joint') return this.exportWeldJoint(company_id);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
         if (modelName === 'mode_of_enquiry') return this.exportRFQLookup(company_id, 'mode_of_enquiry', 'Mode of Enquiry');
         if (modelName === 'remark') return this.exportRFQLookup(company_id, 'remark', 'Remark Options');

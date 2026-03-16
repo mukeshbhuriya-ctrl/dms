@@ -353,7 +353,7 @@ function ViewWeldingJoints() {
 
   const handleExport = async () => {
     try {
-      await exportApi.exportModule("weld_joint")
+      await exportApi.exportModule("weld_joint", "weld_joints_list_export.xlsx")
     } catch (error) {
       console.error("Export failed:", error)
     }
