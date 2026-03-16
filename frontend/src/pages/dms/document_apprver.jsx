@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { dccService } from "../../services/dcc.service";
 import { DataTable } from "@/components/shared/DataTable"
+import { exportApi } from "@/api/export.api"
 
 function DocumentApprover() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -223,6 +224,15 @@ function DocumentApprover() {
     return fetchDocuments(params);
   }, [fetchDocuments, refreshTrigger]);
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule('group_document', 'Approve documents export.xlsx')
+    } catch (error) {
+
+      console.error("Export failed:", error)
+    }
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -288,6 +298,7 @@ function DocumentApprover() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchDocumentsWrapper}
+                    onExport={handleExport}
                   />
                 </div>
               </CardContent>

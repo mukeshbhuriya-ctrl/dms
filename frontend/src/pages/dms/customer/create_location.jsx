@@ -22,6 +22,7 @@ import { DataTable } from "@/components/shared/DataTable"
 import { Plus, Trash2, ArrowLeft, Edit } from "lucide-react"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function CreateLocation() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -231,6 +232,14 @@ function CreateLocation() {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportLocations();
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -279,7 +288,7 @@ function CreateLocation() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchCustomerLocations}
-                    key={refreshKey}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>

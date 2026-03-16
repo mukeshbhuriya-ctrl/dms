@@ -15,6 +15,7 @@ import {
 import { DataTable } from "@/components/shared/DataTable"
 import { Plus, ArrowLeft, Edit } from "lucide-react"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function CreateCustomer() {
   const navigate = useNavigate()
@@ -169,6 +170,14 @@ function CreateCustomer() {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportCustomers();
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -228,7 +237,7 @@ function CreateCustomer() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchCustomers}
-                    key={refreshKey}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>

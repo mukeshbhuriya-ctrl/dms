@@ -35,6 +35,7 @@ import {
 import { Plus, Trash2, ArrowLeft, Eye, Edit } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
 
 // ─── Status Options ────────────────────────────────────────────────────────────
@@ -175,6 +176,17 @@ function ListView({ onCreateClick, onEditClick }) {
         return { data: res.data || [], meta: res.meta || {} }
     }, [])
 
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const handleExport = async () => {
+        try {
+            await exportApi.exportModule('rfq_register');
+            setRefreshKey(prev => prev + 1);
+        } catch (error) {
+            console.error("RFQ Export failed:", error);
+        }
+    };
+
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
@@ -188,7 +200,11 @@ function ListView({ onCreateClick, onEditClick }) {
                 </Button>
             </div>
 
-            <DataTable columns={columns} fetchData={fetchData} />
+            <DataTable 
+                columns={columns} 
+                fetchData={fetchData} 
+                onExport={handleExport}
+            />
 
             {/* View Dialog */}
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

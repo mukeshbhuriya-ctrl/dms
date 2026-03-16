@@ -30,6 +30,8 @@ import Stage7D from "@/components/form/d/Stage7"
 import Stage1F from "@/components/form/f/Stage1"
 import Stage2F from "@/components/form/f/Stage2"
 import Stage3F from "@/components/form/f/Stage3"
+import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function ViewWeldingJoints() {
   const [userRoles, setUserRoles] = useState([])
@@ -63,8 +65,6 @@ function ViewWeldingJoints() {
     setSelectedJoint(joint)
     setIsDialogOpen(true)
   }
-
-
 
   const getJointCategoryBadge = (category) => {
     if (category === "A") {
@@ -164,189 +164,101 @@ function ViewWeldingJoints() {
 
 
   const fetchJointsData = useCallback(async ({ page, limit, search }) => {
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-    const authData = localStorage.getItem("user_auth")
-    let token = null
-    let isQC = false
+    try {
+      const data = await apiClient.get('/api/wpj/get-all-weld-joints', { page, limit, search });
 
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData)
-        token = parsed?.payload?.token || parsed?.token
-        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
-        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
-        if (roleNames.includes('QC_ENGINEER') || roleNames.includes('NDT_ENGINEER')) {
-          isQC = true;
-        }
-      } catch { }
-    }
+      function getStatus(joint) {
+        const insp = joint.weld_joint_inspection || {};
+        if (insp.s1_status !== 'approved') return 'stage1';
 
-    const endpoint = '/api/wpj/get-all-weld-joints';
-    // If QC, we might strictly use get-assigned-weld-joints which might not support pagination yet?
-    // We will pass params anyway, if backend mocks it fine.
-    // NOTE: We updated getWeldJoints to support pagination properly. 
-    // getAssignedWeldJoints calls prisma.findMany without skip/take in current code. 
-    // For now we will assume it returns all and let DataTable filter client side if backend ignores, 
-    // OR we should fix backend. For now, we will perform GET.
-
-    const queryInfo = { page, limit, search };
-    const queryString = new URLSearchParams(queryInfo).toString();
-    const url = `${backendUrl}${endpoint}?${queryString}`;
-
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      },
-      credentials: "include",
-    })
-
-    const data = await res.json()
-
-    function getStatus(joint) {
-      const insp = joint.weld_joint_inspection || {};
-      if (insp.s1_status !== 'approved') return 'stage1';
-
-      if (joint.joint_type === 'C') {
-        if (insp.s2_status !== 'approved') return 'stage2';
-        if (insp.s7_status !== 'approved') return 'stage7';
-        if (insp.s8_status !== 'approved') return 'stage8';
-        return 'completed';
-      }
-
-      if (joint.joint_type === 'D') {
-        if (insp.s2_status !== 'approved') return 'stage2';
-        if (insp.s3_status !== 'approved') return 'stage3';
-        if (insp.s4_status !== 'approved') return 'stage4';
-        if (insp.s5_status !== 'approved') return 'stage5';
-        if (insp.s6_status !== 'approved') return 'stage6';
-        if (insp.s7_status !== 'approved') return 'stage7';
-        if (insp.s8_status !== 'approved') return 'stage8';
-        return 'completed';
-      }
-
-      if (joint.joint_type === 'F') {
-        if (insp.s2_status !== 'approved') return 'stage2';
-        if (insp.s3_status !== 'approved') return 'stage3';
-        if (insp.s4_status !== 'approved') return 'stage4';
-        return 'completed';
-      }
-
-      if (joint.joint_type === 'A' || joint.joint_type === 'B') {
-        if (joint.back_chip_req) {
+        if (joint.joint_type === 'C') {
           if (insp.s2_status !== 'approved') return 'stage2';
+          if (insp.s7_status !== 'approved') return 'stage7';
+          if (insp.s8_status !== 'approved') return 'stage8';
+          return 'completed';
         }
-        if (insp.s3_status !== 'approved') return 'stage3';
-        if (joint.rt) {
+
+        if (joint.joint_type === 'D') {
+          if (insp.s2_status !== 'approved') return 'stage2';
+          if (insp.s3_status !== 'approved') return 'stage3';
           if (insp.s4_status !== 'approved') return 'stage4';
-        }
-        if (joint.pt) {
           if (insp.s5_status !== 'approved') return 'stage5';
-        }
-        if (joint.pwht) {
           if (insp.s6_status !== 'approved') return 'stage6';
           if (insp.s7_status !== 'approved') return 'stage7';
+          if (insp.s8_status !== 'approved') return 'stage8';
+          return 'completed';
         }
+
+        if (joint.joint_type === 'F') {
+          if (insp.s2_status !== 'approved') return 'stage2';
+          if (insp.s3_status !== 'approved') return 'stage3';
+          if (insp.s4_status !== 'approved') return 'stage4';
+          return 'completed';
+        }
+
+        if (joint.joint_type === 'A' || joint.joint_type === 'B') {
+          if (joint.back_chip_req) {
+            if (insp.s2_status !== 'approved') return 'stage2';
+          }
+          if (insp.s3_status !== 'approved') return 'stage3';
+          if (joint.rt) {
+            if (insp.s4_status !== 'approved') return 'stage4';
+          }
+          if (joint.pt) {
+            if (insp.s5_status !== 'approved') return 'stage5';
+          }
+          if (joint.pwht) {
+            if (insp.s6_status !== 'approved') return 'stage6';
+            if (insp.s7_status !== 'approved') return 'stage7';
+          }
+        }
+        return 'completed';
       }
-      return 'completed';
-    }
 
-    const mapData = (item) => ({
-      id: item.id,
-      msnNumber: item.weld_joint_plan?.job?.job_number || "-",
-      client: item.weld_joint_plan?.job?.customer?.customer_name || "",
-      poNo: item.weld_joint_plan?.job?.po?.po_number || "",
-      tagNo: item.weld_joint_plan?.job?.tag_number || "",
-      equipment: item.weld_joint_plan?.job?.equipement_name || "",
-      projectsId: item.weld_joint_plan?.job?.project_id || "",
-      lindeDrgNo: item.weld_joint_plan?.shreno_drg_no || "",
-      drgNo: item.weld_joint_plan?.customer_drg_no || "",
-      code: item.weld_joint_plan?.job?.code || "",
-      jointNo: item.joint_no,
-      jointCategory: item.joint_type,
-      status: getStatus(item),
-      backChip: item.back_chip_req || false,
-      inspectionData: item.weld_joint_inspection || {},
-      fullItem: item
-    })
+      const mapData = (item) => ({
+        id: item.id,
+        msnNumber: item.weld_joint_plan?.job?.job_number || "-",
+        client: item.weld_joint_plan?.job?.customer?.customer_name || "",
+        poNo: item.weld_joint_plan?.job?.po?.po_number || "",
+        tagNo: item.weld_joint_plan?.job?.tag_number || "",
+        equipment: item.weld_joint_plan?.job?.equipement_name || "",
+        projectsId: item.weld_joint_plan?.job?.project_id || "",
+        lindeDrgNo: item.weld_joint_plan?.shreno_drg_no || "",
+        drgNo: item.weld_joint_plan?.customer_drg_no || "",
+        code: item.weld_joint_plan?.job?.code || "",
+        jointNo: item.joint_no,
+        jointCategory: item.joint_type,
+        status: getStatus(item),
+        backChip: item.back_chip_req || false,
+        inspectionData: item.weld_joint_inspection || {},
+        fullItem: item
+      })
 
-    return {
-      data: (data.data || []).map(mapData),
-      meta: data.meta || { total: (data.data || []).length, page: 1, limit: 1000, totalPages: 1 }
+      return {
+        data: (data.data || []).map(mapData),
+        meta: data.meta || { total: (data.data || []).length, page: 1, limit: 1000, totalPages: 1 }
+      }
+    } catch (err) {
+      console.error("Error fetching welding joints:", err);
+      return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
     }
   }, [])
 
   const handleDownloadReport = async (joint, stage) => {
     setDownloadError("");
     try {
-      let backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
-      if (backendUrl.endsWith("/")) backendUrl = backendUrl.slice(0, -1);
+      const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
+      const filename = `${stage === 'all' ? 'Complete_Report' : stage}_${joint.jointNo}_${dateTime}.pdf`;
 
-      const authData = localStorage.getItem("user_auth");
-      let token = null;
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData);
-          token = parsed?.payload?.token || parsed?.token;
-        } catch (e) {
-          console.error("Auth parse error in handleDownloadReport:", e);
-        }
-      }
-
-      if (!token) {
-        console.warn("Token not found in localStorage, attempting validation via Cookies...");
-      }
-
-      const url = `${backendUrl}/api/wpj/generate-report/${joint.id}/${stage}`;
-      console.log(`Downloading from: ${url}`);
-      console.log(`Headers: Authorization: Bearer ${token ? token.substring(0, 10) + '...' : 'NONE'}`);
-
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : ""
-        },
-        credentials: "include"
-      });
-
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-
-        // Use backend filename if possible, otherwise generate one
-        const contentDisposition = res.headers.get('Content-Disposition');
-        let filename = `${stage === 'all' ? 'Complete_Report' : stage}_${joint.jointNo}.pdf`;
-
-        if (contentDisposition) {
-          const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-          if (filenameMatch && filenameMatch[1]) {
-            filename = filenameMatch[1];
-          }
-        }
-
-        // If backend header didn't work (CORS?), fallback to generating it here with timestamp
-        if (!contentDisposition || !filename.includes('_20')) {
-          const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
-          filename = `${stage === 'all' ? 'Complete_Report' : stage}_${joint.jointNo}_${dateTime}.pdf`;
-        }
-
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        const msg = errData.message || res.statusText || "Failed to download report";
-        console.error("Download fail:", res.status, msg);
-        setDownloadError(`Download failed (${res.status}): ${msg}`);
-      }
+      await exportApi.download(
+        `/api/wpj/generate-report/${joint.id}/${stage}`,
+        filename,
+        {},
+        { contentType: 'application/pdf' }
+      );
     } catch (e) {
       console.error("Error downloading report", e);
-      setDownloadError("Error downloading report: Network or Server Error");
+      setDownloadError(e.message || "Error downloading report: Network or Server Error");
     }
   }
 
@@ -368,8 +280,6 @@ function ViewWeldingJoints() {
       header: "Action",
       cell: (row) => {
         const joint = row.fullItem;
-        // We can access getStageActionState since it is in scope.
-        // Merge fullItem (raw backend data) with row (flattened table data) to ensure Stage forms get everything they need.
         const mergedJoint = { ...row.fullItem, ...row };
         const { isPending, isAssignedToMe, hasAssignment, isSubmitted } = getStageActionState(mergedJoint);
 
@@ -414,7 +324,6 @@ function ViewWeldingJoints() {
 
             return <span className="text-muted-foreground">-</span>
           } else {
-            // Prod Engineer
             const showPending = isPending && isSubmitted;
             const currentStageKey = row.status.replace('stage', 's') + '_status';
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
@@ -442,6 +351,14 @@ function ViewWeldingJoints() {
     }
   ]
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule("weld_joint")
+    } catch (error) {
+      console.error("Export failed:", error)
+    }
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -463,6 +380,7 @@ function ViewWeldingJoints() {
               <DataTable
                 columns={columns}
                 fetchData={fetchJointsData}
+                onExport={handleExport}
               />
             </CardContent>
           </Card>

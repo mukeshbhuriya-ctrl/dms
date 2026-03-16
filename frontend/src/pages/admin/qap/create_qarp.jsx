@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
@@ -47,17 +48,16 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const handleDownloadPdf = async (id) => {
     try {
-      const res = await apiClient.get(`/api/qap/download-pdf/${id}`, {}, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `QAP_${id}.pdf`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
+      const filename = `QAP_${id}.pdf`;
+      await exportApi.download(
+        `/api/qap/download-pdf/${id}`,
+        filename,
+        {},
+        { contentType: 'application/pdf' }
+      );
     } catch (err) {
       console.error(err)
-      toast.error("Failed to download PDF")
+      toast.error(err.message || "Failed to download PDF")
     }
   }
 
@@ -130,6 +130,17 @@ function ListView({ onCreateClick, onEditClick }) {
     return { data: res.data, meta: res.meta }
   }, [])
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportQAP();
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("QAP Export failed:", error);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -149,7 +160,11 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       )}
 
-      <DataTable columns={columns} fetchData={fetchData} />
+      <DataTable 
+        columns={columns} 
+        fetchData={fetchData} 
+        onExport={handleExport}
+      />
 
       {/* View Details Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

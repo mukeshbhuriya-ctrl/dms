@@ -25,6 +25,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
+import { exportApi } from "@/api/export.api";
 
 const ClientApprovalStatus = () => {
     // Rejection Dialog State
@@ -40,14 +41,8 @@ const ClientApprovalStatus = () => {
 
     const fetchTransmissionsWrapper = useCallback(async (params) => {
         try {
-            // The DataTable will pass params like page, pageSize, search, sortBy, sortOrder
-            // We need to ensure our backend API can handle these or adapt them.
-            // For now, we'll pass them directly and filter by status 'Sent'.
             const res = await dccService.getTransmissions({ ...params, status: 'Sent' });
             if (res.success) {
-                // Backend returns { success: true, data: { data: [], meta: {} } }
-                // So res.data contains both the array and the meta info
-                console.log("Transmissions response:", res);
                 return {
                     data: res.data.data || [],
                     meta: res.data.meta || { total: 0, page: 1, limit: 10, totalPages: 0 }
@@ -60,7 +55,7 @@ const ClientApprovalStatus = () => {
             console.error("Error fetching transmissions:", error);
             return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
         }
-    }, [refreshTrigger]); // refreshTrigger will cause this callback to be recreated, thus triggering a re-fetch in DataTable
+    }, [refreshTrigger]);
 
     const openApproveDialog = (transmission) => {
         setSelectedTransmission(transmission);
@@ -80,7 +75,7 @@ const ClientApprovalStatus = () => {
             if (res.success) {
                 toast.success(`Transmission ${selectedTransmission.transmission_number} Approved`);
                 setIsApproveDialogOpen(false);
-                setRefreshTrigger(prev => prev + 1); // Refresh table
+                setRefreshTrigger(prev => prev + 1);
             } else {
                 toast.error(res.message || "Approval failed");
             }
@@ -115,7 +110,7 @@ const ClientApprovalStatus = () => {
             if (res.success) {
                 toast.success(`Transmission ${selectedTransmission.transmission_number} Rejected`);
                 setIsRejectDialogOpen(false);
-                setRefreshTrigger(prev => prev + 1); // Refresh table
+                setRefreshTrigger(prev => prev + 1);
             } else {
                 toast.error(res.message || "Rejection failed");
             }
@@ -196,7 +191,15 @@ const ClientApprovalStatus = () => {
                 );
             }
         }
-    ], [actionLoading]); // Re-memoize columns if actionLoading changes to update disabled state
+    ], [actionLoading]);
+
+    const handleExport = async () => {
+        try {
+            await exportApi.exportModule("transmission")
+        } catch (error) {
+            console.error("Export failed:", error)
+        }
+    };
 
     return (
         <SidebarProvider>
@@ -205,9 +208,6 @@ const ClientApprovalStatus = () => {
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />
                     <div className="mr-4 hidden h-4 w-px bg-border md:block"></div>
-                    {/* <div className="flex items-center gap-2">
-                        <span className="font-medium">DMS / Client Approval Status</span>
-                    </div> */}
                 </header>
 
                 <main className="flex-1 overflow-auto p-6 flex flex-col">
@@ -231,6 +231,7 @@ const ClientApprovalStatus = () => {
                                     <DataTable
                                         columns={columns}
                                         fetchData={fetchTransmissionsWrapper}
+                                        onExport={handleExport}
                                         searchKey="transmission_number"
                                         refreshTrigger={refreshTrigger}
                                     />

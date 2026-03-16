@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Eye, Plus, X, Copy } from "lucide-react"
+import { exportApi } from "@/api/export.api"
 
 function WeldingJoints() {
   const [formData, setFormData] = useState({
@@ -75,11 +76,21 @@ function WeldingJoints() {
   const [view, setView] = useState("list") // 'list' or 'create'
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // View Modal State
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isViewLoading, setIsViewLoading] = useState(false)
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportWeldJointPlan();
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("Weld Joint Plan Export failed:", error);
+    }
+  };
 
   const columns = useMemo(() => [
     {
@@ -444,6 +455,7 @@ function WeldingJoints() {
     }
   }
 
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -499,6 +511,7 @@ function WeldingJoints() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchPlans}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>

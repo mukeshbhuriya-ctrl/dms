@@ -17,6 +17,7 @@ export function DataTable({
     fetchData,
     initialData = [],
     initialMeta = {},
+    onExport = null,
 }) {
     const [data, setData] = useState(initialData)
     const [meta, setMeta] = useState(initialMeta)
@@ -82,6 +83,11 @@ export function DataTable({
     };
 
     const handleExport = () => {
+        if (typeof onExport === 'function') {
+            onExport();
+            return;
+        }
+
         // Basic CSV Export
         if (!data || !data.length) return;
 

@@ -16,6 +16,7 @@ import { Upload, Loader2 } from "lucide-react"
 import { dccService } from "../../services/dcc.service"
 import { toast } from "react-toastify"
 import { DataTable } from "@/components/shared/DataTable"
+import { exportApi } from "@/api/export.api"
 
 function UploadDocument() {
     const [uploadingIds, setUploadingIds] = useState({}) // Track uploading state per document ID
@@ -238,6 +239,14 @@ function UploadDocument() {
         return fetchDocuments(params);
     }, [fetchDocuments, refreshTrigger]);
 
+    const handleExport = async () => {
+        try {
+            await exportApi.exportModule("group_document")
+        } catch (error) {
+            console.error("Export failed:", error)
+        }
+    };
+
     return (
         <SidebarProvider>
             <UserSidebar />
@@ -305,6 +314,7 @@ function UploadDocument() {
                                     <DataTable
                                         columns={columns}
                                         fetchData={fetchDocumentsWrapper}
+                                        onExport={handleExport}
                                     />
                                 </div>
 

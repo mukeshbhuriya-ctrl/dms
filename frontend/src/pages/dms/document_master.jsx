@@ -21,6 +21,7 @@ import {
 import { DataTable } from "@/components/shared/DataTable"
 import { Plus, ArrowLeft, Edit } from "lucide-react"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function DocumentMaster() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -221,6 +222,15 @@ function DocumentMaster() {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule('document_master');
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("Document Export failed:", error);
+    }
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -272,7 +282,7 @@ function DocumentMaster() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchDocuments}
-                    key={refreshKey}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>

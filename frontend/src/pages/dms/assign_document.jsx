@@ -31,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Search, ArrowRight, Plus, ArrowLeft, Edit } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function AssignDocument() {
   const [view, setView] = useState("list") // 'list' or 'assign'
@@ -629,6 +630,16 @@ function AssignDocument() {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule("group_document", "Assigned documents export.xlsx")
+      setRefreshKey(prev => prev + 1)
+
+    } catch (error) {
+      console.error("Export failed:", error)
+    }
+  }
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -678,7 +689,7 @@ function AssignDocument() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchAssignedDocuments}
-                    key={refreshKey}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>

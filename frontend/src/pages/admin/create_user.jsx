@@ -36,6 +36,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function CreateUser() {
   const navigate = useNavigate()
@@ -55,6 +57,7 @@ function CreateUser() {
   const [departmentMap, setDepartmentMap] = useState({}) // ID -> Name map
   const [view, setView] = useState("list") // 'list' or 'create'
   const [editingId, setEditingId] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -88,103 +91,43 @@ function CreateUser() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
-        }
-
-        const headers = { "Content-Type": "application/json" }
-        if (token) headers["Authorization"] = `Bearer ${token}`
-
         // Fetch Roles
-        const rolesRes = await fetch(`${backendUrl}/api/users/get-roles`, {
-          method: "GET",
-          headers,
-          credentials: "include",
-        })
-        const rolesPayload = await rolesRes.json()
-        if (rolesRes.ok) {
-          setRoles(rolesPayload?.data || [])
-        }
+        const rolesPayload = await apiClient.get('/api/users/get-roles');
+        setRoles(rolesPayload?.data || []);
 
         // Fetch Departments
-        const deptsRes = await fetch(`${backendUrl}/api/departments`, {
-          method: "GET",
-          headers,
-          credentials: "include",
-        })
-        const deptsPayload = await deptsRes.json()
-        if (deptsRes.ok) {
-          const fetchedDepts = deptsPayload?.data || []
-          setDepartments(fetchedDepts)
-          // Create ID -> Name Map
-          const map = {}
-          fetchedDepts.forEach(d => map[d.name] = d.name) // If API returns ID but user stored name? 
-          // Wait, backend stores 'department' as string currently? or ID? 
-          // The CreateDepartment creates with Name. User table has String department.
-          // BUT - if the user table actually stores the ID (from a value select previously?), we need to map ID to Name.
-          // Let's assume the user table stores what is sent. 
-          // In previous code `setFormData(... department: value)` where value was `dept.name`.
-          // So it stores Name. 
-          // However, user report says "Department IDs". Maybe I changed it to store Name but existing data has IDs?
-          // Or `dept.name` was actually `dept.id` in previous iteration?
-          // Let's make a robust map: ID -> Name AND Name -> Name
-          fetchedDepts.forEach(d => {
-            map[d.id] = d.name
-            map[d.name] = d.name
-          })
-          setDepartmentMap(map)
-        }
-
+        const deptsPayload = await apiClient.get('/api/departments');
+        const fetchedDepts = deptsPayload?.data || [];
+        setDepartments(fetchedDepts);
+        
+        // Create ID -> Name Map
+        const map = {};
+        fetchedDepts.forEach(d => {
+          map[d.id] = d.name;
+          map[d.name] = d.name;
+        });
+        setDepartmentMap(map);
       } catch (err) {
-        console.error("Error fetching data:", err)
+        console.error("Error fetching data:", err);
       }
     }
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
 
   // Fetch Users for DataTable
   const fetchUsers = useCallback(async ({ page, limit, search, sorting }) => {
     try {
       setLoading(true)
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = { "Content-Type": "application/json" }
-      if (token) headers["Authorization"] = `Bearer ${token}`
-
-      // Build Query Params
-      const params = new URLSearchParams()
-      params.append("page", page) // DataTable passes 1-based index
-      params.append("limit", limit) // DataTable passes 'limit'
-      if (search) params.append("search", search)
+      const params = { page, limit }
+      if (search) params.search = search
       if (sorting && sorting.length > 0) {
-        params.append("sortBy", sorting[0].id)
-        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+        params.sortBy = sorting[0].id
+        params.sortOrder = sorting[0].desc ? "desc" : "asc"
       }
 
-      const res = await fetch(`${backendUrl}/api/users/get-users?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
+      const responseData = await apiClient.get('/api/users/get-users', params)
 
-      const responseData = await res.json()
-
-      if (res.ok && responseData.success) {
-        // Return data for DataTable to handle
+      if (responseData.success) {
         return {
           data: responseData.data || [],
           meta: responseData.meta || {}
@@ -212,7 +155,7 @@ function CreateUser() {
       fullName: user.name || "",
       email: user.email || "",
       employeeId: user.empid || "",
-      department: deptName,
+      department: user.department_id || "",
       designation: user.designation || "",
       mobileNumber: user.mobile || "",
       roles: user.user_roles?.map(ur => ur.role_id) || [], // Map to Role IDs
@@ -232,33 +175,11 @@ function CreateUser() {
     if (!userToDelete) return
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = { "Content-Type": "application/json" }
-      if (token) headers["Authorization"] = `Bearer ${token}`
-
-      const res = await fetch(`${backendUrl}/api/users/delete-user/${userToDelete.id}`, {
-        method: "DELETE",
-        headers,
-      })
-
-      if (res.ok) {
-        window.location.reload();
-      } else {
-        const payload = await res.json()
-        alert(payload.message || "Failed to delete user")
-      }
+      await apiClient.delete(`/api/users/delete-user/${userToDelete.id}`)
+      setRefreshKey(prev => prev + 1)
     } catch (error) {
       console.error("Delete user error", error)
-      alert("Failed to delete user")
+      alert(error.message || "Failed to delete user")
     } finally {
       setDeleteDialogOpen(false)
       setUserToDelete(null)
@@ -283,8 +204,7 @@ function CreateUser() {
       accessorKey: "department",
       header: "Department",
       cell: (row) => {
-        // Try to map ID to Name if possible, else show value
-        return departmentMap[row.department] || row.department || "-";
+        return row.department?.name || "-";
       },
     },
     {
@@ -330,16 +250,6 @@ function CreateUser() {
     setIsLoading(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
       const requestBody = {
         name: formData.fullName,
         email: formData.email,
@@ -351,31 +261,11 @@ function CreateUser() {
         designation: formData.designation,
       }
 
-      const headers = {
-        "Content-Type": "application/json",
-      }
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-      }
-
-      const url = editingId
-        ? `${backendUrl}/api/users/update-user/${editingId}`
-        : `${backendUrl}/api/users/create-user`
-
-      const method = editingId ? "PUT" : "POST"
-
-      const res = await fetch(url, {
-        method,
-        headers,
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      })
-
-      const payload = await res.json()
-
-      if (!res.ok) {
-        const message = payload?.message || "Failed to save user"
-        throw new Error(message)
+      let payload;
+      if (editingId) {
+        payload = await apiClient.put(`/api/users/update-user/${editingId}`, requestBody)
+      } else {
+        payload = await apiClient.post("/api/users/create-user", requestBody)
       }
 
       setSuccess(editingId ? "User updated successfully!" : "User created successfully!")
@@ -395,7 +285,7 @@ function CreateUser() {
           password: "",
         })
         setEditingId(null)
-        window.location.reload();
+        setRefreshKey(prev => prev + 1)
       }, 1000)
 
     } catch (err) {
@@ -404,6 +294,14 @@ function CreateUser() {
       setIsLoading(false)
     }
   }
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportUsers();
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -463,11 +361,7 @@ function CreateUser() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchUsers}
-                    initialData={data}
-                    initialMeta={{
-                      pageCount: pageCount,
-                      totalItems: totalItems,
-                    }}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>
@@ -566,7 +460,7 @@ function CreateUser() {
                             <SelectContent>
                               {departments.length > 0 ? (
                                 departments.map((dept) => (
-                                  <SelectItem key={dept.id} value={dept.name}>
+                                  <SelectItem key={dept.id} value={dept.id}>
                                     {dept.name}
                                   </SelectItem>
                                 ))

@@ -19,7 +19,7 @@ class UserService {
                     { name: { contains: search } }, // Case-insensitive handled by Prisma/DB collation usually, or add mode: 'insensitive' if PG
                     { email: { contains: search } },
                     { empid: { contains: search } },
-                    { department: { contains: search } },
+                    { department: { name: { contains: search } } },
                 ],
             }),
         };
@@ -36,7 +36,12 @@ class UserService {
                 email: true,
                 empid: true,
                 mobile: true,
-                department: true,
+                department_id: true,
+                department: {
+                    select: {
+                        name: true
+                    }
+                },
                 designation: true,
                 user_roles: {
                     include: {
@@ -67,11 +72,11 @@ class UserService {
      * Create a new user
      */
     async createUser(userData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation } = userData;
+        const { name, email, empid, password, mobile, role_ids, department, designation } = userData;        
         const trimmedName = name?.trim();
         const trimmedEmail = email?.trim().toLowerCase();
         const trimmedEmpid = empid?.trim();
-        const trimmedDepartment = department?.trim();
+        const trimmedDepartmentId = department?.trim();
         const trimmedDesignation = designation?.trim();
         const trimmedMobile = mobile?.trim();
 
@@ -98,7 +103,7 @@ class UserService {
                     empid: trimmedEmpid,
                     password: hashedPassword,
                     mobile: trimmedMobile,
-                    department: trimmedDepartment,
+                    department_id: trimmedDepartmentId,
                     designation: trimmedDesignation,
                     company_id,
                 },
@@ -200,7 +205,7 @@ class UserService {
                     email,
                     empid,
                     mobile,
-                    department,
+                    department_id: department,
                     designation,
                     ...(hashedPassword && { password: hashedPassword }),
                 },

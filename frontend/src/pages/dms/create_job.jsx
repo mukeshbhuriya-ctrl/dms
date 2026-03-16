@@ -21,6 +21,7 @@ import {
 import { DataTable } from "@/components/shared/DataTable"
 import { Plus, Trash2, ArrowLeft, Edit } from "lucide-react"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function CreateJob() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -345,6 +346,15 @@ function CreateJob() {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportJobs();
+      setRefreshKey(prev => prev + 1);
+    } catch (err) {
+      console.error("Export failed", err);
+    }
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -405,7 +415,7 @@ function CreateJob() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchJobs}
-                    key={refreshKey}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>

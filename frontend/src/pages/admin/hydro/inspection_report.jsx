@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -125,19 +126,13 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const handleDownload = async (id, reportNo) => {
     try {
-      const response = await apiClient.get(`/api/inspection-report/${id}/download`, {}, {
-        responseType: 'blob'
-      });
-
-      const blob = new Blob([response.data || response], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `DISH_END_${reportNo.replace(/\//g, '_')}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const filename = `DISH_END_${reportNo.replace(/\//g, '_')}.pdf`;
+      await exportApi.download(
+        `/api/inspection-report/${id}/download`,
+        filename,
+        {},
+        { contentType: 'application/pdf' }
+      );
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download report');
@@ -227,6 +222,17 @@ function ListView({ onCreateClick, onEditClick }) {
     return { data: res.data, meta: res.meta }
   }, [refreshTrigger])
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportDishEnd();
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("Dish End Export failed:", error);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -246,7 +252,11 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       )}
 
-      <DataTable columns={columns} fetchData={fetchData} />
+      <DataTable 
+        columns={columns} 
+        fetchData={fetchData} 
+        onExport={handleExport}
+      />
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>

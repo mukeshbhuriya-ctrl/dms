@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -151,17 +152,16 @@ function ListView({ onCreateClick, onEditClick }) {
 
         const handleDownload = async (id) => {
           try {
-            const res = await apiClient.get(`/api/inspection-report/final/${id}/download`, {}, { responseType: 'blob' })
-            const url = window.URL.createObjectURL(new Blob([res]))
-            const link = document.createElement('a')
-            link.href = url
-            link.setAttribute('download', `FIR_${id}.pdf`)
-            document.body.appendChild(link)
-            link.click()
-            link.remove()
+            const filename = `FIR_${id}.pdf`;
+            await exportApi.download(
+              `/api/inspection-report/final/${id}/download`,
+              filename,
+              {},
+              { contentType: 'application/pdf' }
+            );
           } catch (err) {
             console.error(err)
-            toast.error("Failed to download PDF")
+            toast.error(err.message || "Failed to download PDF")
           }
         }
 
@@ -223,6 +223,17 @@ function ListView({ onCreateClick, onEditClick }) {
     return { data: res.data, meta: res.meta }
   }, [refreshTrigger])
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportFinalInspection();
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("Final Inspection Export failed:", error);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -242,7 +253,11 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       )}
 
-      <DataTable columns={columns} fetchData={fetchData} />
+      <DataTable 
+        columns={columns} 
+        fetchData={fetchData} 
+        onExport={handleExport}
+      />
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>

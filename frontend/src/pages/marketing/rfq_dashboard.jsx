@@ -77,8 +77,8 @@ export default function RfqDashboard() {
                     </div>
                 </header>
 
-                <div className="flex-1 p-4 md:p-8 overflow-auto">
-                    <div className="max-w-[1200px] mx-auto bg-white border border-gray-200 shadow-sm rounded-lg overflow-hidden">
+                <main className="flex-1 overflow-auto p-6 flex flex-col">
+                    <div className="flex-1 flex flex-col w-full">
 
                         {/* 1. Shreno Submissions status */}
                         <div className="bg-gray-100 border-b border-gray-200 font-bold text-center py-3 text-red-600">
@@ -181,7 +181,7 @@ export default function RfqDashboard() {
                         </div>
 
                     </div>
-                </div>
+                </main>
             </SidebarInset>
         </SidebarProvider>
     )

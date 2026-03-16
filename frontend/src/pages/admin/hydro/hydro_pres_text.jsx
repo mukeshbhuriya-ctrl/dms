@@ -28,6 +28,7 @@ import {
 import { Plus, Trash2, ArrowLeft, Eye, Edit, FileText, Download } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function emptyRow(id) {
   return {
@@ -77,17 +78,16 @@ function ListView({ onCreateClick, onEditClick }) {
 
     const handleDownload = async (id) => {
       try {
-        const res = await apiClient.get(`/api/hydro-test/${id}/download`, {}, { responseType: 'blob' })
-        const url = window.URL.createObjectURL(new Blob([res]))
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', `HYDRO_${id}.pdf`)
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
+        const filename = `HYDRO_${id}.pdf`;
+        await exportApi.download(
+          `/api/hydro-test/${id}/download`,
+          filename,
+          {},
+          { contentType: 'application/pdf' }
+        );
       } catch (err) {
         console.error(err)
-        alert("Failed to download PDF")
+        alert(err.message || "Failed to download PDF")
       }
     }
 
@@ -141,6 +141,17 @@ function ListView({ onCreateClick, onEditClick }) {
     return { data: res.data, meta: res.meta }
   }, [])
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportHydro();
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("Hydro Export failed:", error);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -160,7 +171,11 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       )}
 
-      <DataTable columns={columns} fetchData={fetchData} />
+      <DataTable 
+        columns={columns} 
+        fetchData={fetchData} 
+        onExport={handleExport}
+      />
 
       {/* View Details Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

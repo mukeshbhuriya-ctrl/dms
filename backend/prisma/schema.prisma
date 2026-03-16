@@ -58,6 +58,8 @@ model department {
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  users     user[]
   
   @@unique([company_id, name]) // Ensure department names are unique per company
 }
@@ -83,7 +85,8 @@ model user{
   mobile String? @unique
   password String
   company_id String
-  department String?
+  department_id String? @map("department")
+  department department? @relation(fields: [department_id], references: [id])
   designation String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -428,18 +428,28 @@ async function assignDocument(req, res) {
     // Use transaction to ensure all operations succeed or fail together
     const result = await prisma.$transaction(async (tx) => {
       if (job_ids.length === 1) {
-        // Single job - assign directly to single_document
-        const singleJobId = job_ids[0].trim();
-        const singleDocumentAssignments = [];
+        // Create a group for the single job to maintain consistency
+        const group = await tx.group.create({
+          data: { company_id: company_id },
+        });
 
+        await tx.job_group.create({
+          data: {
+            company_id: company_id,
+            group_id: group.id,
+            job_id: job_ids[0].trim(),
+          },
+        });
+
+        const assignments = [];
         for (const doc of documents) {
-          const assignment = await tx.single_document.create({
+          const assignment = await tx.group_document.create({
             data: {
               company_id: company_id,
               customer_id: trimmedCustomerId,
               customer_location_id: trimmedCustomerLocationId,
               po_id: trimmedPoId,
-              job_id: singleJobId,
+              group_id: group.id,
               document_id: doc.document_id.trim(),
               shreno_doc_no: doc.shreno_document_no ? doc.shreno_document_no.trim() : null,
               shreno_reference_no: doc.shreno_reference_no ? doc.shreno_reference_no.trim() : null,
@@ -450,24 +460,17 @@ async function assignDocument(req, res) {
               user_id: doc.assign_user_id.trim(),
             },
           });
-          singleDocumentAssignments.push(assignment);
+          assignments.push(assignment);
         }
 
-        return {
-          type: 'single',
-          assignments: singleDocumentAssignments,
-        };
+        return { type: 'group', assignments };
       } else {
         // Multiple jobs - create group, add jobs to group, assign documents to group
-        // 1. Create group
         const group = await tx.group.create({
-          data: {
-            company_id: company_id,
-          },
+          data: { company_id: company_id },
         });
 
-        // 2. Add all jobs to the group
-        const jobGroups = await Promise.all(
+        await Promise.all(
           job_ids.map((jobId) =>
             tx.job_group.create({
               data: {
@@ -479,8 +482,7 @@ async function assignDocument(req, res) {
           )
         );
 
-        // 3. Assign all documents to the group
-        const groupDocumentAssignments = await Promise.all(
+        const assignments = await Promise.all(
           documents.map((doc) =>
             tx.group_document.create({
               data: {
@@ -502,37 +504,15 @@ async function assignDocument(req, res) {
           )
         );
 
-        return {
-          type: 'group',
-          group: group,
-          jobGroups: jobGroups,
-          assignments: groupDocumentAssignments,
-        };
+        return { type: 'group', assignments };
       }
     });
 
-    // Return success response
-    if (result.type === 'single') {
-      res.status(201).json({
-        success: true,
-        message: `${result.assignments.length} document(s) assigned to job successfully`,
-        data: {
-          type: 'single',
-          assignments: result.assignments,
-        },
-      });
-    } else {
-      res.status(201).json({
-        success: true,
-        message: `Group created with ${result.jobGroups.length} job(s) and ${result.assignments.length} document(s) assigned successfully`,
-        data: {
-          type: 'group',
-          group: result.group,
-          jobGroups: result.jobGroups,
-          assignments: result.assignments,
-        },
-      });
-    }
+    res.status(201).json({
+      success: true,
+      message: `${result.assignments.length} document(s) assigned successfully`,
+      data: result.assignments,
+    });
   } catch (error) {
     console.error('Assign document error:', error);
     

@@ -938,7 +938,7 @@ class DccService {
      * Create Transmission
      */
     async createTransmission(company_id, user_id, data) {
-        const { customer_id, customer_location_id, po_id, document_ids } = data; // document_ids is array of single_document.id
+        const { customer_id, customer_location_id, po_id, document_ids } = data; // document_ids is array of group_document.id
 
         if (!document_ids || !Array.isArray(document_ids) || document_ids.length === 0) {
             throw new Error('No documents selected');

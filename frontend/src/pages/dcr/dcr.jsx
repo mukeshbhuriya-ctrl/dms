@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { AdminSidebar } from "@/components"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 import {
   SidebarProvider,
   SidebarInset,
@@ -253,8 +254,6 @@ function CreateDCR() {
 
     setIsReviewing(true)
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
       const isDesignEngineer = roles?.includes("DESIGN_ENGINEER") && docForReview.design_engineer_id === user?.id
       const isQualityEngineer = roles?.includes("QC_ENGINEER") && docForReview.quality_engineer_id === user?.id
 
@@ -262,11 +261,11 @@ function CreateDCR() {
       let payload = { dcr_id: docForReview.id }
 
       if (isDesignEngineer) {
-        apiUrl = `${backendUrl}/api/dcr/approval/update-design-engineer-status`
+        apiUrl = "/api/dcr/approval/update-design-engineer-status"
         payload.design_engineer_status = reviewStatus
         payload.design_engineer_remarks = reviewRemarks
       } else if (isQualityEngineer) {
-        apiUrl = `${backendUrl}/api/dcr/approval/update-quality-engineer-status`
+        apiUrl = "/api/dcr/approval/update-quality-engineer-status"
         payload.quality_engineer_status = reviewStatus
         payload.quality_engineer_remarks = reviewRemarks
       } else {
@@ -275,24 +274,18 @@ function CreateDCR() {
         return
       }
 
-      const res = await fetch(apiUrl, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(payload),
-        credentials: "include",
-      })
+      const res = await apiClient.post(apiUrl, payload);
 
-      const data = await res.json()
-      if (res.ok && data.success) {
+      if (res.success) {
         toast.success(`DCR ${reviewStatus} successfully`)
         setReviewDialogOpen(false)
         fetchDcrList()
       } else {
-        toast.error(data.message || "Failed to submit review")
+        toast.error(res.message || "Failed to submit review")
       }
     } catch (err) {
       console.error(err)
-      toast.error("Failed to submit review")
+      toast.error(err.message || "Failed to submit review")
     } finally {
       setIsReviewing(false)
     }
@@ -330,18 +323,16 @@ function CreateDCR() {
 
   const handleDownloadPdf = async (id, dcrNo) => {
     try {
-      const res = await apiClient.get(`/api/dcr/download-pdf/${id}`, {}, { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res]))
-      const link = document.createElement('a')
-      link.href = url
-      link.setAttribute('download', `DCR_${String(dcrNo || id).replace(/\//g, "_")}.pdf`)
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
+      const filename = `DCR_${String(dcrNo || id).replace(/\//g, "_")}.pdf`;
+      await exportApi.download(
+        `/api/dcr/download-pdf/${id}`,
+        filename,
+        {},
+        { contentType: 'application/pdf' }
+      );
     } catch (err) {
       console.error(err)
-      toast.error("Failed to download PDF")
+      toast.error(err.message || "Failed to download PDF")
     }
   }
 
@@ -350,23 +341,12 @@ function CreateDCR() {
     setListError("")
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const params = new URLSearchParams({
-        page: String(listPagination.page),
-        limit: String(listPagination.limit),
-      })
-
-      const res = await fetch(`${backendUrl}/api/dcr/get-dcr?${params.toString()}`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-        credentials: "include",
-      })
-
-      const payload = await res.json()
-
-      if (!res.ok) {
-        throw new Error(payload?.message || "Failed to fetch DCR records")
+      const params = {
+        page: listPagination.page,
+        limit: listPagination.limit,
       }
+
+      const payload = await apiClient.get('/api/dcr/get-dcr', params)
 
       const records = extractRecords(payload).map((item, index) =>
         normalizeRecord(item, index)
@@ -397,18 +377,7 @@ function CreateDCR() {
     setIsLoadingJobs(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const res = await fetch(`${backendUrl}/api/dcr/get-jobs`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-        credentials: "include",
-      })
-
-      const payload = await res.json()
-
-      if (!res.ok || payload?.success === false) {
-        throw new Error(payload?.message || "Failed to fetch jobs")
-      }
+      const payload = await apiClient.get('/api/dcr/get-jobs')
 
       const jobList = extractJobs(payload)
         .map(normalizeJob)
@@ -427,23 +396,12 @@ function CreateDCR() {
     setIsLoadingUsers(true)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const params = new URLSearchParams({
+      const params = {
         page: "1",
         limit: "1000",
-      })
-
-      const res = await fetch(`${backendUrl}/api/users/get-users?${params.toString()}`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-        credentials: "include",
-      })
-
-      const payload = await res.json()
-
-      if (!res.ok || payload?.success === false) {
-        throw new Error(payload?.message || "Failed to fetch users")
       }
+
+      const payload = await apiClient.get('/api/users/get-users', params)
 
       const userList = Array.isArray(payload?.data)
         ? payload.data.map(normalizeUser).filter((user) => user.id)
@@ -464,18 +422,7 @@ function CreateDCR() {
     setFormError("")
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const res = await fetch(`${backendUrl}/api/dcr/get-dcr-by-id/${id}`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-        credentials: "include",
-      })
-
-      const payload = await res.json()
-
-      if (!res.ok || payload?.success === false) {
-        throw new Error(payload?.message || "Failed to fetch DCR details")
-      }
+      const payload = await apiClient.get(`/api/dcr/get-dcr-by-id/${id}`)
 
       const dataItem = Array.isArray(payload?.data) ? payload.data[0] : payload?.data
       const detail = normalizeDetail(dataItem || {})
@@ -615,8 +562,6 @@ function CreateDCR() {
     setFormSuccess("")
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
       if (!formData.msmNumber) {
         throw new Error("Please select MSM Number (Job No)")
       }
@@ -669,18 +614,7 @@ function CreateDCR() {
         })),
       }
 
-      const res = await fetch(`${backendUrl}/api/dcr/create-dcr`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        credentials: "include",
-        body: JSON.stringify(requestBody),
-      })
-
-      const payload = await res.json()
-
-      if (!res.ok || payload?.success === false) {
-        throw new Error(payload?.message || "Failed to create DCR")
-      }
+      const payload = await apiClient.post('/api/dcr/create-dcr', requestBody)
 
       setFormSuccess(payload?.message || "DCR created successfully")
       handleReset()
@@ -706,8 +640,8 @@ function CreateDCR() {
           <SidebarTrigger className="-ml-1" />
         </header>
 
-        <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-6xl mx-auto w-full">
+        <main className="flex-1 overflow-auto p-6 flex flex-col">
+          <div className="flex-1 flex flex-col w-full">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
@@ -828,8 +762,8 @@ function CreateDCR() {
                                         variant="outline"
                                         size="sm"
                                         className={`${normalizeStatus(record.design_engineer_status) === "approved" && normalizeStatus(record.quality_engineer_status) === "approved"
-                                            ? "text-blue-600 border-blue-200 hover:bg-blue-50"
-                                            : "opacity-50 cursor-not-allowed text-gray-400 border-gray-200"
+                                          ? "text-blue-600 border-blue-200 hover:bg-blue-50"
+                                          : "opacity-50 cursor-not-allowed text-gray-400 border-gray-200"
                                           }`}
                                         onClick={() => {
                                           if (normalizeStatus(record.design_engineer_status) === "approved" && normalizeStatus(record.quality_engineer_status) === "approved") {

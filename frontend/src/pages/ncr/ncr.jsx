@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { DataTable } from "@/components/shared/DataTable"
 import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download } from "lucide-react"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 import { useAuth } from "@/context/AuthContext"
 
 const ncrStatusConfig = {
@@ -144,17 +145,16 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
         setIsDownloading(true)
         setError("")
         try {
-            const res = await apiClient.get(`/api/ncr/${id}/download`, {}, { responseType: 'blob' })
-            const url = window.URL.createObjectURL(new Blob([res]))
-            const link = document.createElement('a')
-            link.href = url
-            link.setAttribute('download', `NCR_${ncrNo.replace(/\//g, '_')}.pdf`)
-            document.body.appendChild(link)
-            link.click()
-            link.remove()
+            const filename = `NCR_${ncrNo.replace(/\//g, '_')}.pdf`;
+            await exportApi.download(
+                `/api/ncr/${id}/download`,
+                filename,
+                {},
+                { contentType: 'application/pdf' }
+            );
         } catch (err) {
             console.error("Download error:", err)
-            setError("Failed to download PDF")
+            setError(err.message || "Failed to download PDF")
         } finally {
             setIsDownloading(false)
         }
@@ -287,6 +287,17 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
         return { data: res.data, meta: res.meta }
     }, [])
 
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const handleExport = async () => {
+        try {
+            await exportApi.exportModule('ncr');
+            setRefreshKey(prev => prev + 1);
+        } catch (error) {
+            console.error("NCR Export failed:", error);
+        }
+    };
+
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
@@ -305,7 +316,11 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                 </div>
             )}
 
-            <DataTable columns={columns} fetchData={fetchData} />
+            <DataTable 
+                columns={columns} 
+                fetchData={fetchData} 
+                onExport={handleExport}
+            />
         </div>
     )
 }

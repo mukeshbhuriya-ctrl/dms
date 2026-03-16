@@ -23,6 +23,8 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { FormAlert } from "@/components/ui/form-alert"
+import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function CreateDepartment() {
     const navigate = useNavigate()
@@ -32,6 +34,7 @@ function CreateDepartment() {
     // 'list' or 'create' or 'edit' - actually using 'create' for both create/edit form view
     const [view, setView] = useState("list")
     const [editingId, setEditingId] = useState(null)
+    const [refreshKey, setRefreshKey] = useState(0)
 
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
@@ -58,28 +61,9 @@ function CreateDepartment() {
     const fetchDepartments = useCallback(async () => {
         try {
             setLoading(true)
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-            const authData = localStorage.getItem("user_auth")
-            let token = null
-            if (authData) {
-                try {
-                    const parsed = JSON.parse(authData)
-                    token = parsed?.payload?.token || parsed?.token
-                } catch { }
-            }
+            const responseData = await apiClient.get('/api/departments')
 
-            const headers = { "Content-Type": "application/json" }
-            if (token) headers["Authorization"] = `Bearer ${token}`
-
-            const res = await fetch(`${backendUrl}/api/departments`, {
-                method: "GET",
-                headers,
-                credentials: "include",
-            })
-
-            const responseData = await res.json()
-
-            if (res.ok && responseData.success) {
+            if (responseData.success) {
                 return {
                     data: responseData.data || [],
                     meta: {
@@ -154,38 +138,11 @@ function CreateDepartment() {
         if (!departmentToDelete) return
 
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-            const authData = localStorage.getItem("user_auth")
-            let token = null
-            if (authData) {
-                try {
-                    const parsed = JSON.parse(authData)
-                    token = parsed?.payload?.token || parsed?.token
-                } catch { }
-            }
-
-            const headers = { "Content-Type": "application/json" }
-            if (token) headers["Authorization"] = `Bearer ${token}`
-
-            const res = await fetch(`${backendUrl}/api/departments/${departmentToDelete.id}`, {
-                method: "DELETE",
-                headers,
-                credentials: "include",
-            })
-
-            if (res.ok) {
-                // Refresh table - simple way: trigger a re-fetch via key change or just reload window? 
-                // Better: Update fetchDepartments to be called again by DataTable if we pass a refresh trigger, 
-                // or just manually reload page for simplicity in this artifact.
-                // Actually, let's just force a reload of the component's data fetching.
-                window.location.reload();
-            } else {
-                const payload = await res.json()
-                alert(payload.message || "Failed to delete department")
-            }
+            await apiClient.delete(`/api/departments/${departmentToDelete.id}`)
+            setRefreshKey(prev => prev + 1)
         } catch (err) {
             console.error("Error deleting department:", err)
-            alert("Error deleting department")
+            alert(err.message || "Error deleting department")
         } finally {
             setDeleteDialogOpen(false)
             setDepartmentToDelete(null)
@@ -199,36 +156,10 @@ function CreateDepartment() {
         setIsLoading(true)
 
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-            const authData = localStorage.getItem("user_auth")
-            let token = null
-            if (authData) {
-                try {
-                    const parsed = JSON.parse(authData)
-                    token = parsed?.payload?.token || parsed?.token
-                } catch { }
-            }
-
-            const headers = { "Content-Type": "application/json" }
-            if (token) headers["Authorization"] = `Bearer ${token}`
-
-            const url = editingId
-                ? `${backendUrl}/api/departments/${editingId}`
-                : `${backendUrl}/api/departments`
-
-            const method = editingId ? "PUT" : "POST"
-
-            const res = await fetch(url, {
-                method,
-                headers,
-                credentials: "include",
-                body: JSON.stringify(formData),
-            })
-
-            const payload = await res.json()
-
-            if (!res.ok) {
-                throw new Error(payload.message || "Failed to save department")
+            if (editingId) {
+                await apiClient.put(`/api/departments/${editingId}`, formData)
+            } else {
+                await apiClient.post("/api/departments", formData)
             }
 
             setSuccess(editingId ? "Department updated successfully!" : "Department created successfully!")
@@ -238,8 +169,7 @@ function CreateDepartment() {
                 setView("list")
                 setFormData({ name: "" })
                 setEditingId(null)
-                // Refresh list
-                window.location.reload();
+                setRefreshKey(prev => prev + 1)
             }, 1000)
 
         } catch (err) {
@@ -248,6 +178,14 @@ function CreateDepartment() {
             setIsLoading(false)
         }
     }
+
+    const handleExport = async () => {
+        try {
+            await exportApi.exportDepartments();
+        } catch (err) {
+            console.error("Export failed", err);
+        }
+    };
 
     return (
         <SidebarProvider>
@@ -299,6 +237,7 @@ function CreateDepartment() {
                                         columns={columns}
                                         fetchData={fetchDepartments}
                                         initialData={data}
+                                        onExport={handleExport}
                                     />
                                 </CardContent>
                             </Card>

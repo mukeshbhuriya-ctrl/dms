@@ -21,6 +21,7 @@ import {
 import { DataTable } from "@/components/shared/DataTable"
 import { Upload, X, Plus, Mail, ArrowLeft, FileText, Edit } from "lucide-react"
 import { poApi } from "@/api/po.api"
+import { exportApi } from "@/api/export.api"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
 
@@ -379,6 +380,16 @@ function CreatePO() {
 
   const availableLocations = locations
 
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule('po');
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("PO Export failed:", error);
+    }
+  };
+
   return (
     <SidebarProvider>
       <AdminSidebar />
@@ -431,7 +442,7 @@ function CreatePO() {
                   <DataTable
                     columns={columns}
                     fetchData={fetchPos}
-                    key={refreshKey}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>

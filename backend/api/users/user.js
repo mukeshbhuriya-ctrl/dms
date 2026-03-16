@@ -21,7 +21,12 @@ async function getUsers(req, res) {
         email: true,
         empid: true,
         mobile: true,
-        department: true,
+        department_id: true,
+        department: {
+          select: {
+            name: true,
+          }
+        },
         designation: true,
         user_roles: {
           include: {
@@ -170,7 +175,7 @@ async function createUser(req, res) {
           mobile: mobile ? mobile.trim() : null,
           password: hashedPassword,
           company_id: company_id,
-          department: department ? department.trim() : null,
+          department_id: department ? department.trim() : null,
           designation: designation ? designation.trim() : null,
         },
       });
@@ -204,7 +209,12 @@ async function createUser(req, res) {
         empid: true,
         mobile: true,
         company_id: true,
-        department: true,
+        department_id: true,
+        department: {
+          select: {
+            name: true,
+          }
+        },
         designation: true,
         createdAt: true,
         updatedAt: true,

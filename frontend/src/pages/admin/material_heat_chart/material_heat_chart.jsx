@@ -28,6 +28,7 @@ import { Plus, Trash2, Type, ArrowLeft, FileText, Eye } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 function emptyRow(id) {
   return {
@@ -106,6 +107,17 @@ function ListView({ onCreateClick }) {
     return { data: res.data, meta: res.meta }
   }, [])
 
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportMHC();
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("MHC Export failed:", error);
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -125,7 +137,11 @@ function ListView({ onCreateClick }) {
         </div>
       )}
 
-      <DataTable columns={columns} fetchData={fetchData} />
+      <DataTable 
+        columns={columns} 
+        fetchData={fetchData} 
+        onExport={handleExport}
+      />
 
       {/* View Details Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>

@@ -24,6 +24,7 @@ import { toast } from 'react-toastify';
 import { dccService } from "../../services/dcc.service";
 import { useNavigate } from "react-router-dom";
 import { DataTable } from "@/components/shared/DataTable";
+import { exportApi } from "@/api/export.api";
 import {
   Table,
   TableBody,
@@ -57,6 +58,7 @@ function CreateTransmission() {
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successData, setSuccessData] = useState(null) // { zip_url, password }
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // --- Job Selection Logic ---
   const [selectedJobs, setSelectedJobs] = useState([]);
@@ -323,6 +325,15 @@ function CreateTransmission() {
   };
 
 
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule('transmission');
+      setRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error("Transmission Export failed:", error);
+    }
+  };
+
   // --- List View Data Fetching ---
   const fetchTransmissions = useCallback(async ({ page, limit, search, sorting }) => {
     try {
@@ -515,6 +526,7 @@ function CreateTransmission() {
                     columns={listColumns}
                     fetchData={fetchTransmissions}
                     pageCount={0}
+                    onExport={handleExport}
                   />
                 </CardContent>
               </Card>
