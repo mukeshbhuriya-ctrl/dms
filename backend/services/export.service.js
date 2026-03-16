@@ -661,6 +661,93 @@ class ExportService {
     }
 
     /**
+     * Export RFQ Register reports.
+     */
+    async exportRFQRegister(company_id) {
+        const reports = await prisma.rfq_register.findMany({
+            where: { company_id },
+            include: { 
+                items: { orderBy: { sr_no: 'asc' } },
+                creator: true
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const flatData = reports.map(r => {
+            const items = r.items || [];
+
+            return {
+                quotation_no: r.quotation_no,
+                client_ref: r.client_ref || '-',
+                rfq_type: r.rfq_type || '-',
+                client_name: r.client_name || '-',
+                consultancy: r.consultancy || '-',
+                contact_person: r.contact_person || '-',
+                mode_of_enquiry: r.mode_of_enquiry || '-',
+                enq_date: r.enq_date ? new Date(r.enq_date).toLocaleDateString('en-GB') : '-',
+                target_date: r.target_date ? new Date(r.target_date).toLocaleDateString('en-GB') : '-',
+                actual_submission_date: r.actual_submission_date ? new Date(r.actual_submission_date).toLocaleDateString('en-GB') : '-',
+                time_taken: r.time_taken || '-',
+                mediator: r.mediator || '-',
+                estimator: r.estimator || '-',
+                shreno_status: r.shreno_status || '-',
+                client_status: r.client_status || '-',
+                made_by: r.made_by || '-',
+                remark: r.remark || '-',
+                createdAt: r.createdAt.toLocaleString(),
+                // Items Aggregation
+                item_sr: items.map(i => i.sr_no || '-').join('\n'),
+                item_desc: items.map(i => i.enq_description || '-').join('\n'),
+                item_qty: items.map(i => i.equip_qty || '-').join('\n'),
+                item_rev: items.map(i => i.rev || '-').join('\n'),
+                item_total: items.map(i => i.total_value ? `₹${i.total_value.toLocaleString('en-IN')}` : '-').join('\n'),
+                item_po_no: items.map(i => i.po_no || '-').join('\n'),
+                item_po_date: items.map(i => i.po_date ? new Date(i.po_date).toLocaleDateString('en-GB') : '-').join('\n'),
+                item_po_val: items.map(i => i.po_value ? `₹${i.po_value.toLocaleString('en-IN')}` : '-').join('\n'),
+                item_rem: items.map(i => i.remarks || '-').join('\n'),
+            };
+        });
+
+        const sheets = [
+            {
+                name: 'RFQ Register Full Export',
+                columns: [
+                    { header: 'QUOTATION NO.', key: 'quotation_no', width: 20 },
+                    { header: 'CLIENT REF.', key: 'client_ref', width: 20 },
+                    { header: 'RFQ TYPE', key: 'rfq_type', width: 15 },
+                    { header: 'CLIENT NAME', key: 'client_name', width: 25 },
+                    { header: 'CONSULTANCY', key: 'consultancy', width: 20 },
+                    { header: 'CONTACT PERSON', key: 'contact_person', width: 20 },
+                    { header: 'MODE OF ENQUIRY', key: 'mode_of_enquiry', width: 20 },
+                    { header: 'ENQ. DATE', key: 'enq_date', width: 15 },
+                    { header: 'TARGET DATE', key: 'target_date', width: 15 },
+                    { header: 'ACTUAL SUBMISSION DATE', key: 'actual_submission_date', width: 25 },
+                    { header: 'TIME TAKEN', key: 'time_taken', width: 15 },
+                    { header: 'MEDIATOR', key: 'mediator', width: 15 },
+                    { header: 'ESTIMATOR', key: 'estimator', width: 15 },
+                    { header: 'SHRENO STATUS', key: 'shreno_status', width: 20 },
+                    { header: 'CLIENT STATUS', key: 'client_status', width: 20 },
+                    { header: 'MADE BY', key: 'made_by', width: 15 },
+                    { header: 'REMARK', key: 'remark', width: 30 },
+                    { header: 'ITEM SR NO.', key: 'item_sr', width: 10 },
+                    { header: 'ENQ. DESCRIPTION', key: 'item_desc', width: 40 },
+                    { header: 'EQUIP. QTY', key: 'item_qty', width: 12 },
+                    { header: 'REV.', key: 'item_rev', width: 10 },
+                    { header: 'TOTAL VALUE', key: 'item_total', width: 20 },
+                    { header: 'PO NO.', key: 'item_po_no', width: 15 },
+                    { header: 'PO DATE', key: 'item_po_date', width: 15 },
+                    { header: 'PO VALUE', key: 'item_po_val', width: 20 },
+                    { header: 'ITEM REMARKS', key: 'item_rem', width: 30 },
+                    { header: 'CREATED AT', key: 'createdAt', width: 25 },
+                ],
+                data: flatData,
+            }
+        ];
+
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
      * Helper to flatten nested objects for Excel columns.
      * Smartly picks display names for relation objects.
      */
@@ -717,6 +804,10 @@ class ExportService {
     async exportModule(moduleName, company_id) {
         const modelName = moduleName.replace(/-/g, '_');
         const model = prisma[modelName];
+        
+        // SPECIAL HANDLING FOR CONSOLIDATED EXPORTS
+        if (modelName === 'rfq_register') return this.exportRFQRegister(company_id);
+
         if (!model) throw new Error(`Model ${modelName} not found`);
 
         // Configuration for relations to include - now with nested names
