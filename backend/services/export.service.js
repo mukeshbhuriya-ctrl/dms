@@ -237,63 +237,107 @@ class ExportService {
     async exportMHC(company_id) {
         const reports = await prisma.material_heat_chart.findMany({
             where: { company_id },
-            include: { job: true, items: true },
+            include: { items: { orderBy: { sort_order: 'asc' } } },
             orderBy: { createdAt: 'desc' },
         });
 
-        const sheets = [
-            {
-                name: 'MHC Reports',
-                columns: [
-                    { header: 'Report No', key: 'report_no', width: 20 },
-                    { header: 'MSN', key: 'msn', width: 20 },
-                    { header: 'Client', key: 'client', width: 30 },
-                    { header: 'PO No', key: 'po_no', width: 20 },
-                    { header: 'Status', key: 'status', width: 15 },
-                    { header: 'Created Date', key: 'created_at', width: 25 },
-                ],
-                data: reports.map(r => ({
-                    report_no: r.report_no,
+        const flatData = [];
+        reports.forEach(r => {
+            let currentHeading = "-";
+            r.items.forEach(item => {
+                if (item.is_heading) {
+                    currentHeading = item.heading_text || item.item_no || "HEADING";
+                }
+
+                flatData.push({
                     msn: r.msn,
                     client: r.client,
                     po_no: r.po_no,
-                    status: r.status,
-                    created_at: r.createdAt.toLocaleString(),
-                })),
-            }
-        ];
-
-        // Add detailed items sheet
-        const allItems = [];
-        reports.forEach(r => {
-            r.items.forEach(item => {
-                allItems.push({
+                    project_id: r.project_id || 'N/A',
+                    equipment_name: r.equipment_name || 'N/A',
+                    tag_no: r.tag_no || 'N/A',
+                    code: r.code || 'N/A',
+                    shreno_drg_no: r.shreno_drg_no || 'N/A',
+                    customer_drg_no: r.customer_drg_no || 'N/A',
                     report_no: r.report_no,
+                    inspection_by: r.inspection_by || 'N/A',
+                    status: (r.status || 'draft').toUpperCase(),
+                    // Table Data
+                    heading: currentHeading,
                     item_no: item.item_no || 'N/A',
                     description: item.description || 'N/A',
                     size: item.size || 'N/A',
                     material_spec: item.material_spec || 'N/A',
+                    qty_unit: item.quantity_unit || 'N/A',
                     heat_no: item.heat_no || 'N/A',
                     mtr_no: item.mtr_no || 'N/A',
                     manufacturer: item.manufacturer || 'N/A',
+                    remarks: item.remarks || 'N/A',
+                    created_at: r.createdAt.toLocaleString(),
                 });
             });
+
+            // If no items, include at least one row with header info
+            if (r.items.length === 0) {
+                flatData.push({
+                    msn: r.msn,
+                    client: r.client,
+                    po_no: r.po_no,
+                    project_id: r.project_id || 'N/A',
+                    equipment_name: r.equipment_name || 'N/A',
+                    tag_no: r.tag_no || 'N/A',
+                    code: r.code || 'N/A',
+                    shreno_drg_no: r.shreno_drg_no || 'N/A',
+                    customer_drg_no: r.customer_drg_no || 'N/A',
+                    report_no: r.report_no,
+                    inspection_by: r.inspection_by || 'N/A',
+                    status: (r.status || 'draft').toUpperCase(),
+                    heading: 'N/A',
+                    item_no: 'N/A',
+                    description: 'No items found',
+                    size: 'N/A',
+                    material_spec: 'N/A',
+                    qty_unit: 'N/A',
+                    heat_no: 'N/A',
+                    mtr_no: 'N/A',
+                    manufacturer: 'N/A',
+                    remarks: 'N/A',
+                    created_at: r.createdAt.toLocaleString(),
+                });
+            }
         });
 
-        sheets.push({
-            name: 'MHC Items',
-            columns: [
-                { header: 'Report No', key: 'report_no', width: 20 },
-                { header: 'Item No', key: 'item_no', width: 15 },
-                { header: 'Description', key: 'description', width: 30 },
-                { header: 'Size', key: 'size', width: 20 },
-                { header: 'Material Spec', key: 'material_spec', width: 20 },
-                { header: 'Heat No', key: 'heat_no', width: 20 },
-                { header: 'MTR No', key: 'mtr_no', width: 20 },
-                { header: 'Manufacturer', key: 'manufacturer', width: 25 },
-            ],
-            data: allItems,
-        });
+        const sheets = [
+            {
+                name: 'MHC Full Report',
+                columns: [
+                    { header: 'MSN / JOB NO', key: 'msn', width: 15 },
+                    { header: 'CLIENT', key: 'client', width: 20 },
+                    { header: 'PO NO', key: 'po_no', width: 15 },
+                    { header: 'PROJECT ID', key: 'project_id', width: 15 },
+                    { header: 'EQUIPMENT', key: 'equipment_name', width: 20 },
+                    { header: 'TAG NO', key: 'tag_no', width: 15 },
+                    { header: 'CODE', key: 'code', width: 15 },
+                    { header: 'SHRENO DRG NO', key: 'shreno_drg_no', width: 20 },
+                    { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
+                    { header: 'REPORT NO', key: 'report_no', width: 25 },
+                    { header: 'INSPECTION BY', key: 'inspection_by', width: 15 },
+                    { header: 'HEADING', key: 'heading', width: 20 },
+                    { header: 'ITEM NO./PART NO.', key: 'item_no', width: 20 },
+                    { header: 'DESCRIPTION', key: 'description', width: 30 },
+                    { header: 'SIZE', key: 'size', width: 20 },
+                    { header: 'MATERIAL SPECIFICATION', key: 'material_spec', width: 25 },
+                    { header: 'QUANTITY / UNIT', key: 'qty_unit', width: 15 },
+                    { header: 'HEAT NO. / CAST NO. / PLATE NO.', key: 'heat_no', width: 30 },
+                    { header: 'MTR NO.', key: 'mtr_no', width: 15 },
+                    { header: 'MANUFACTURER NAME', key: 'manufacturer', width: 20 },
+                    { header: 'REMARKS NCR/DCR', key: 'remarks', width: 25 },
+                    { header: 'STATUS', key: 'status', width: 12 },
+                    { header: 'CREATED DATE', key: 'created_at', width: 20 },
+                ],
+                data: flatData,
+            }
+        ];
 
         return await excelGenerator.generateReport(sheets);
     }
@@ -339,29 +383,138 @@ class ExportService {
     async exportHydro(company_id) {
         const reports = await prisma.hydrostatic_test_report.findMany({
             where: { company_id },
-            include: { job: true },
+            include: { 
+                items: { orderBy: { sort_order: 'asc' } },
+                remarks: { orderBy: { sort_order: 'asc' } }
+            },
             orderBy: { createdAt: 'desc' },
+        });
+
+        const flatData = [];
+        reports.forEach(r => {
+            const remarksText = r.remarks.map(rem => rem.text).filter(Boolean).join(' | ');
+
+            r.items.forEach(item => {
+                flatData.push({
+                    msn: r.msn,
+                    client: r.client,
+                    po_no: r.po_no,
+                    project_id: r.project_id || 'N/A',
+                    equipment_name: r.equipment_name || 'N/A',
+                    tag_no: r.tag_no || 'N/A',
+                    code: r.code || 'N/A',
+                    shreno_drg_no: r.shreno_drg_no || 'N/A',
+                    customer_drg_no: r.customer_drg_no || 'N/A',
+                    report_no: r.report_no,
+                    construction_code: r.construction_code || 'N/A',
+                    chlorine_content: r.chlorine_content || 'N/A',
+                    inspection_agency: r.inspection_agency || 'N/A',
+                    test_position: r.test_position || 'N/A',
+                    procedure_no: r.procedure_no || 'N/A',
+                    test_medium: r.test_medium || 'N/A',
+                    metal_temp: r.metal_temp || 'N/A',
+                    status: (r.status || 'draft').toUpperCase(),
+                    // Item Data
+                    particulars: item.particulars || 'N/A',
+                    mawp_int_ext: item.mawp_int_ext || 'N/A',
+                    required_test_pressure: item.required_test_pressure || 'N/A',
+                    actual_test_pressure: item.actual_test_pressure || 'N/A',
+                    holding_time: item.holding_time || 'N/A',
+                    test_result: item.test_result || 'N/A',
+                    // Gauges
+                    pg1_range: item.pg1_range || 'N/A',
+                    pg1_id_no: item.pg1_id_no || 'N/A',
+                    pg1_calib_date: item.pg1_calib_date || 'N/A',
+                    pg1_due_date: item.pg1_due_date || 'N/A',
+                    pg2_range: item.pg2_range || 'N/A',
+                    pg2_id_no: item.pg2_id_no || 'N/A',
+                    pg2_calib_date: item.pg2_calib_date || 'N/A',
+                    pg2_due_date: item.pg2_due_date || 'N/A',
+                    remarks_all: remarksText || 'N/A',
+                    created_at: r.createdAt.toLocaleString(),
+                });
+            });
+
+            if (r.items.length === 0) {
+                flatData.push({
+                    msn: r.msn,
+                    client: r.client,
+                    po_no: r.po_no,
+                    project_id: r.project_id || 'N/A',
+                    equipment_name: r.equipment_name || 'N/A',
+                    tag_no: r.tag_no || 'N/A',
+                    code: r.code || 'N/A',
+                    shreno_drg_no: r.shreno_drg_no || 'N/A',
+                    customer_drg_no: r.customer_drg_no || 'N/A',
+                    report_no: r.report_no,
+                    construction_code: r.construction_code || 'N/A',
+                    chlorine_content: r.chlorine_content || 'N/A',
+                    inspection_agency: r.inspection_agency || 'N/A',
+                    test_position: r.test_position || 'N/A',
+                    procedure_no: r.procedure_no || 'N/A',
+                    test_medium: r.test_medium || 'N/A',
+                    metal_temp: r.metal_temp || 'N/A',
+                    status: (r.status || 'draft').toUpperCase(),
+                    particulars: 'No items found',
+                    mawp_int_ext: 'N/A',
+                    required_test_pressure: 'N/A',
+                    actual_test_pressure: 'N/A',
+                    holding_time: 'N/A',
+                    test_result: 'N/A',
+                    pg1_range: 'N/A',
+                    pg1_id_no: 'N/A',
+                    pg1_calib_date: 'N/A',
+                    pg1_due_date: 'N/A',
+                    pg2_range: 'N/A',
+                    pg2_id_no: 'N/A',
+                    pg2_calib_date: 'N/A',
+                    pg2_due_date: 'N/A',
+                    remarks_all: remarksText || 'N/A',
+                    created_at: r.createdAt.toLocaleString(),
+                });
+            }
         });
 
         const sheets = [
             {
-                name: 'Hydro Reports',
+                name: 'Hydro Full Report',
                 columns: [
-                    { header: 'Report No', key: 'report_no', width: 20 },
-                    { header: 'MSN', key: 'msn', width: 20 },
-                    { header: 'Client', key: 'client', width: 30 },
-                    { header: 'PO No', key: 'po_no', width: 20 },
-                    { header: 'Status', key: 'status', width: 15 },
-                    { header: 'Created Date', key: 'created_at', width: 25 },
+                    { header: 'MSN NUMBER', key: 'msn', width: 15 },
+                    { header: 'CLIENT', key: 'client', width: 20 },
+                    { header: 'PO NO', key: 'po_no', width: 15 },
+                    { header: 'PROJECT ID', key: 'project_id', width: 15 },
+                    { header: 'EQUIPMENT', key: 'equipment_name', width: 20 },
+                    { header: 'TAG NO', key: 'tag_no', width: 15 },
+                    { header: 'CODE', key: 'code', width: 15 },
+                    { header: 'SHRENO DRG NO', key: 'shreno_drg_no', width: 20 },
+                    { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
+                    { header: 'REPORT NO', key: 'report_no', width: 25 },
+                    { header: 'PARTICULARS', key: 'particulars', width: 30 },
+                    { header: 'MAWP (INT/EXT)', key: 'mawp_int_ext', width: 15 },
+                    { header: 'REQ. PRESSURE', key: 'required_test_pressure', width: 15 },
+                    { header: 'ACT. PRESSURE', key: 'actual_test_pressure', width: 15 },
+                    { header: 'HOLDING TIME', key: 'holding_time', width: 15 },
+                    { header: 'TEST RESULT', key: 'test_result', width: 15 },
+                    { header: 'CONSTRUCTION CODE', key: 'construction_code', width: 20 },
+                    { header: 'CHLORINE CONTENT', key: 'chlorine_content', width: 15 },
+                    { header: 'INSPECTION AGENCY', key: 'inspection_agency', width: 20 },
+                    { header: 'TEST POSITION', key: 'test_position', width: 15 },
+                    { header: 'PROCEDURE NO', key: 'procedure_no', width: 15 },
+                    { header: 'TEST MEDIUM', key: 'test_medium', width: 15 },
+                    { header: 'METAL TEMP', key: 'metal_temp', width: 15 },
+                    { header: 'PG1 RANGE', key: 'pg1_range', width: 15 },
+                    { header: 'PG1 ID NO', key: 'pg1_id_no', width: 15 },
+                    { header: 'PG1 CALIB DATE', key: 'pg1_calib_date', width: 15 },
+                    { header: 'PG1 DUE DATE', key: 'pg1_due_date', width: 15 },
+                    { header: 'PG2 RANGE', key: 'pg2_range', width: 15 },
+                    { header: 'PG2 ID NO', key: 'pg2_id_no', width: 15 },
+                    { header: 'PG2 CALIB DATE', key: 'pg2_calib_date', width: 15 },
+                    { header: 'PG2 DUE DATE', key: 'pg2_due_date', width: 15 },
+                    { header: 'REMARKS / NOTES', key: 'remarks_all', width: 40 },
+                    { header: 'STATUS', key: 'status', width: 12 },
+                    { header: 'CREATED DATE', key: 'created_at', width: 20 },
                 ],
-                data: reports.map(r => ({
-                    report_no: r.report_no,
-                    msn: r.msn,
-                    client: r.client,
-                    po_no: r.po_no,
-                    status: r.status,
-                    created_at: r.createdAt.toLocaleString(),
-                })),
+                data: flatData,
             }
         ];
 
