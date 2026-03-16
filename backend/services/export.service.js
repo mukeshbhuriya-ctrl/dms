@@ -1126,6 +1126,102 @@ class ExportService {
     }
 
     /**
+     * Export Weld Joint Plans with all joint details consolidated into single rows.
+     */
+    async exportWeldJointPlan(company_id) {
+        const plans = await prisma.weld_joint_plan.findMany({
+            where: { company_id },
+            include: {
+                job: {
+                    include: {
+                        customer: { select: { customer_name: true } }
+                    }
+                },
+                weld_joints: { orderBy: { createdAt: 'asc' } },
+                creator: { select: { name: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (plans.length === 0) {
+            return await excelGenerator.generateReport([{ name: 'Weld Joint Plans', columns: [{ header: 'WELD PLAN NO', key: 'weld_plan_no' }], data: [] }]);
+        }
+
+        const flatData = plans.map(p => {
+            const joints = p.weld_joints || [];
+            
+            return {
+                weld_plan_no: p.weld_plan_no || 'N/A',
+                job_no: p.job?.job_number || 'N/A',
+                project_id: p.job?.project_id || 'N/A',
+                tag_no: p.job?.tag_number || 'N/A',
+                client_name: p.job?.customer?.customer_name || 'N/A',
+                equipment_name: p.job?.equipement_name || 'N/A',
+                shr_drg_no: p.shreno_drg_no || 'N/A',
+                customer_drg_no: p.customer_drg_no || 'N/A',
+                code_of_construction: p.code_of_construction || 'N/A',
+                created_by: p.creator?.name || 'N/A',
+                created_at: p.createdAt.toLocaleString(),
+
+                // Aggregated Joint details
+                joint_no: joints.map(j => j.joint_no || '-').join('\n'),
+                joint_type: joints.map(j => j.joint_type || '-').join('\n'),
+                joint_description: joints.map(j => j.joint_description || '-').join('\n'),
+                
+                thickness: joints.map(j => `${j.base_metal_thickness_p1 || '-'}/${j.base_metal_thickness_p2 || '-'}`).join('\n'),
+                spec: joints.map(j => `${j.base_metal_spec_p1 || '-'}/${j.base_metal_spec_p2 || '-'}`).join('\n'),
+                
+                consumable: joints.map(j => j.consumable || '-').join('\n'),
+                wps_pqr_no: joints.map(j => j.wps_pqr_no || '-').join('\n'),
+                process: joints.map(j => j.process || '-').join('\n'),
+                impact_test: joints.map(j => j.impact_test || '-').join('\n'),
+                
+                // NDT Flags (Boolean to String)
+                back_chip: joints.map(j => j.back_chip_req ? 'YES' : 'NO').join('\n'),
+                pwht: joints.map(j => j.pwht ? 'YES' : 'NO').join('\n'),
+                rt: joints.map(j => j.rt ? 'YES' : 'NO').join('\n'),
+                pt: joints.map(j => j.pt ? 'YES' : 'NO').join('\n'),
+                
+                remarks: joints.map(j => j.remarks || '-').join('\n')
+            };
+        });
+
+        const columns = [
+            { header: 'WELD PLAN NO', key: 'weld_plan_no', width: 25 },
+            { header: 'JOB NO', key: 'job_no', width: 15 },
+            { header: 'PROJECT ID', key: 'project_id', width: 15 },
+            { header: 'TAG NO', key: 'tag_no', width: 15 },
+            { header: 'CLIENT NAME', key: 'client_name', width: 25 },
+            { header: 'EQUIPMENT NAME', key: 'equipment_name', width: 25 },
+            { header: 'SHRENO DRG NO', key: 'shr_drg_no', width: 20 },
+            { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
+            { header: 'CODE OF CONSTRUCTION', key: 'code_of_construction', width: 20 },
+            
+            { header: 'JOINT NO', key: 'joint_no', width: 15 },
+            { header: 'JOINT TYPE', key: 'joint_type', width: 12 },
+            { header: 'DESCRIPTION', key: 'joint_description', width: 30 },
+            { header: 'THICKNESS (P1/P2)', key: 'thickness', width: 18 },
+            { header: 'SPEC (P1/P2)', key: 'spec', width: 20 },
+            { header: 'CONSUMABLE', key: 'consumable', width: 15 },
+            { header: 'WPS / PQR NO', key: 'wps_pqr_no', width: 20 },
+            { header: 'PROCESS', key: 'process', width: 15 },
+            { header: 'IMPACT TEST', key: 'impact_test', width: 15 },
+            
+            { header: 'BACK CHIP', key: 'back_chip', width: 12 },
+            { header: 'PWHT', key: 'pwht', width: 10 },
+            { header: 'RT', key: 'rt', width: 10 },
+            { header: 'PT', key: 'pt', width: 10 },
+            
+            { header: 'REMARKS', key: 'remarks', width: 30 },
+            { header: 'CREATED BY', key: 'created_by', width: 20 },
+            { header: 'CREATED AT', key: 'created_at', width: 20 }
+        ];
+
+        const sheets = [{ name: 'Weld Joint Plans', columns, data: flatData }];
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
      * Helper to flatten nested objects for Excel columns.
      * Smartly picks display names for relation objects.
      */
@@ -1187,6 +1283,7 @@ class ExportService {
         if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id);
         if (modelName === 'dcr') return this.exportDCR(company_id);
         if (modelName === 'ncr') return this.exportNCR(company_id);
+        if (modelName === 'weld_joint_plan') return this.exportWeldJointPlan(company_id);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
         if (modelName === 'mode_of_enquiry') return this.exportRFQLookup(company_id, 'mode_of_enquiry', 'Mode of Enquiry');
         if (modelName === 'remark') return this.exportRFQLookup(company_id, 'remark', 'Remark Options');

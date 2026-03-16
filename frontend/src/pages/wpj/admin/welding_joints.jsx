@@ -85,7 +85,7 @@ function WeldingJoints() {
 
   const handleExport = async () => {
     try {
-      await exportApi.exportWeldJointPlan();
+      await exportApi.exportModule('weld_joint_plan', 'weld_joint_plan_export.xlsx');
       setRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error("Weld Joint Plan Export failed:", error);
