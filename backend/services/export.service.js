@@ -244,7 +244,7 @@ class ExportService {
         const flatData = reports.map(r => {
             const items = r.items || [];
             let currentHeading = "-";
-            
+
             const itemRows = items.map(item => {
                 if (item.is_heading) {
                     currentHeading = item.heading_text || item.item_no || "HEADING";
@@ -367,7 +367,7 @@ class ExportService {
     async exportHydro(company_id) {
         const reports = await prisma.hydrostatic_test_report.findMany({
             where: { company_id },
-            include: { 
+            include: {
                 items: { orderBy: { sort_order: 'asc' } },
                 remarks: { orderBy: { sort_order: 'asc' } }
             },
@@ -471,7 +471,7 @@ class ExportService {
     async exportDishEnd(company_id) {
         const reports = await prisma.dish_end_inspection_report.findMany({
             where: { company_id },
-            include: { 
+            include: {
                 items: { orderBy: { sr_no: 'asc' } },
                 instruments: true,
                 quality_engineer: true
@@ -551,7 +551,7 @@ class ExportService {
     async exportFinalInspection(company_id) {
         const reports = await prisma.final_inspection_report.findMany({
             where: { company_id },
-            include: { 
+            include: {
                 details: { orderBy: { sr_no: 'asc' } },
                 nozzles: { orderBy: { sr_no: 'asc' } },
                 parts: { orderBy: { sr_no: 'asc' } },
@@ -666,7 +666,7 @@ class ExportService {
     async exportRFQRegister(company_id) {
         const reports = await prisma.rfq_register.findMany({
             where: { company_id },
-            include: { 
+            include: {
                 items: { orderBy: { sr_no: 'asc' } },
                 creator: true
             },
@@ -830,7 +830,7 @@ class ExportService {
 
         const flatData = plans.map(p => {
             const items = p.items || [];
-            
+
             // Helper to aggregate item fields
             const getAggr = (fn) => items.map(i => {
                 if (i.is_heading) return i.heading_text || '-';
@@ -851,7 +851,7 @@ class ExportService {
                 customer_drg_no: p.customer_drg_no || 'N/A',
                 status: (p.status || 'draft').toUpperCase(),
                 created_at: p.createdAt.toLocaleString(),
-                
+
                 // Aggregated Item details
                 sr_no: items.map(i => i.sr_no || '-').join('\n'),
                 activities: getAggr(i => i.activity),
@@ -938,7 +938,7 @@ class ExportService {
         const flatData = dcrs.map(d => {
             const requests = d.dcr_change_request || [];
             const latestStatus = d.dcr_status?.[0] || {};
-            
+
             return {
                 dcr_no: d.dcr_no || 'N/A',
                 job_no: d.job?.job_number || 'N/A',
@@ -947,20 +947,20 @@ class ExportService {
                 inspect_by: d.inspect_by || 'N/A',
                 design_engineer: d.design_engineer?.name || 'N/A',
                 quality_engineer: d.quality_engineer?.name || 'N/A',
-                
+
                 // Aggregated Change Requests
                 item_part_no: requests.map(r => r.item_part_no || '-').join('\n') || 'N/A',
                 change_from: requests.map(r => r.chnage_from || '-').join('\n') || 'N/A',
                 change_to: requests.map(r => r.chnage_to || '-').join('\n') || 'N/A',
                 reasons: requests.map(r => r.reason || '-').join('\n') || 'N/A',
-                
+
                 // Status Details
                 design_status: (latestStatus.design_engineer_status || 'pending').toUpperCase(),
                 design_remarks: latestStatus.design_engineer_remarks || '-',
                 quality_status: (latestStatus.quality_engineer_status || 'pending').toUpperCase(),
                 quality_remarks: latestStatus.quality_engineer_remarks || '-',
                 overall_status: (latestStatus.status || 'pending').toUpperCase(),
-                
+
                 created_at: d.createdAt.toLocaleString(),
             };
         });
@@ -976,24 +976,152 @@ class ExportService {
                     { header: 'INSPECT BY', key: 'inspect_by', width: 20 },
                     { header: 'DESIGN ENGINEER', key: 'design_engineer', width: 25 },
                     { header: 'QUALITY ENGINEER', key: 'quality_engineer', width: 25 },
-                    
+
                     { header: 'ITEM / PART NO', key: 'item_part_no', width: 25 },
                     { header: 'CHANGE FROM', key: 'change_from', width: 30 },
                     { header: 'CHANGE TO', key: 'change_to', width: 30 },
                     { header: 'REASON FOR CHANGE', key: 'reasons', width: 40 },
-                    
+
                     { header: 'DESIGN STATUS', key: 'design_status', width: 15 },
                     { header: 'DESIGN REMARKS', key: 'design_remarks', width: 25 },
                     { header: 'QUALITY STATUS', key: 'quality_status', width: 15 },
                     { header: 'QUALITY REMARKS', key: 'quality_remarks', width: 25 },
                     { header: 'MAIN STATUS', key: 'overall_status', width: 15 },
-                    
+
                     { header: 'CREATED DATE', key: 'created_at', width: 20 },
                 ],
                 data: flatData,
             }
         ];
 
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
+     * Export Non-Conformance Reports (NCR) with all 5 stages.
+     */
+    async exportNCR(company_id) {
+        const reports = await prisma.ncr.findMany({
+            where: { company_id },
+            include: {
+                job: { select: { job_number: true } },
+                initiator: { select: { name: true } },
+                raised_at_user: { select: { name: true } },
+                resolution_user: { select: { name: true } },
+                target_engineer: { select: { name: true } },
+                target_head_design: { select: { name: true } },
+                target_head_welding: { select: { name: true } },
+                target_head_quality: { select: { name: true } },
+                corrective_action_verifier: { select: { name: true } },
+                qce_verifier: { select: { name: true } },
+                head_quality_verifier: { select: { name: true } },
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (reports.length === 0) {
+            return await excelGenerator.generateReport([{ name: 'NCR Reports', columns: [{ header: 'NCR NO', key: 'ncr_no' }], data: [] }]);
+        }
+
+        const flatData = reports.map(r => {
+            return {
+                ncr_no: r.ncr_no || 'N/A',
+                msn: r.msn || 'N/A',
+                job_no: r.job?.job_number || 'N/A',
+                client: r.client || 'N/A',
+                po_no: r.po_no || 'N/A',
+                project_id: r.project_id || 'N/A',
+                tag_no: r.tag_no || 'N/A',
+                drg_no: r.drg_no || 'N/A',
+                rev_no: r.rev_no || 'N/A',
+
+                // Stage 1
+                description: r.description_non_conformance || 'N/A',
+                raised_by: r.initiator?.name || 'N/A',
+                raised_at: r.raised_at_user?.name || 'N/A',
+                raised_date: r.ncr_date ? new Date(r.ncr_date).toLocaleDateString() : 'N/A',
+
+                // Stage 2
+                proposed_resolution: r.proposed_resolution || 'N/A',
+                resolution_by: r.resolution_user?.name || 'N/A',
+                resolution_date: r.resolution_date ? new Date(r.resolution_date).toLocaleDateString() : 'N/A',
+                target_engineer: r.target_engineer?.name || 'N/A',
+                target_head_design: r.target_head_design?.name || 'N/A',
+                target_head_welding: r.target_head_welding?.name || 'N/A',
+                target_head_quality: r.target_head_quality?.name || 'N/A',
+
+                // Stage 3
+                design_status: (r.design_review_status || 'PENDING').toUpperCase(),
+                design_comments: r.head_design_comments || '-',
+                welding_status: (r.welding_review_status || 'PENDING').toUpperCase(),
+                welding_comments: r.head_welding_comments || '-',
+                quality_status: (r.quality_review_status || 'PENDING').toUpperCase(),
+                quality_comments: r.head_quality_comments || '-',
+                acceptance_date: r.acceptance_date ? new Date(r.acceptance_date).toLocaleDateString() : 'N/A',
+
+                // Stage 4
+                ca_verified_by: r.corrective_action_verifier?.name || 'N/A',
+                ca_comments: r.corrective_action_comments || '-',
+                ca_date: r.corrective_action_date ? new Date(r.corrective_action_date).toLocaleDateString() : 'N/A',
+                qce_verifier: r.qce_verifier?.name || 'N/A',
+
+                // Stage 5
+                disposition: r.disposition || 'N/A',
+                disposition_date: r.disposition_date ? new Date(r.disposition_date).toLocaleDateString() : 'N/A',
+                head_quality_verifier: r.head_quality_verifier?.name || 'N/A',
+
+                overall_status: (r.status || 'OPEN').toUpperCase(),
+                ncr_status: (r.ncr_status || 'draft').toUpperCase(),
+                created_at: r.createdAt.toLocaleString(),
+            };
+        });
+
+        const columns = [
+            { header: 'NCR NO', key: 'ncr_no', width: 25 },
+            { header: 'MSN', key: 'msn', width: 15 },
+            { header: 'JOB NO', key: 'job_no', width: 15 },
+            { header: 'CLIENT', key: 'client', width: 20 },
+            { header: 'PO NO', key: 'po_no', width: 15 },
+            { header: 'TAG NO', key: 'tag_no', width: 15 },
+            { header: 'DRG NO', key: 'drg_no', width: 20 },
+
+            // Stage 1
+            { header: 'DESCRIPTION OF NON-CONFORMANCE', key: 'description', width: 40 },
+            { header: 'RAISED BY', key: 'raised_by', width: 20 },
+            { header: 'RAISED AT', key: 'raised_at', width: 20 },
+            { header: 'RAISED DATE', key: 'raised_date', width: 15 },
+
+            // Stage 2
+            { header: 'PROPOSED RESOLUTION', key: 'proposed_resolution', width: 40 },
+            { header: 'RESOLUTION BY', key: 'resolution_by', width: 20 },
+            { header: 'ENGINEER', key: 'target_engineer', width: 20 },
+            { header: 'HEAD DESIGN', key: 'target_head_design', width: 20 },
+            { header: 'HEAD WELDING', key: 'target_head_welding', width: 20 },
+            { header: 'HEAD QUALITY', key: 'target_head_quality', width: 20 },
+
+            // Stage 3
+            { header: 'DESIGN HEAD STATUS', key: 'design_status', width: 15 },
+            { header: 'DESIGN COMMENTS', key: 'design_comments', width: 25 },
+            { header: 'WELDING HEAD STATUS', key: 'welding_status', width: 15 },
+            { header: 'WELDING COMMENTS', key: 'welding_comments', width: 25 },
+            { header: 'QUALITY HEAD STATUS', key: 'quality_status', width: 15 },
+            { header: 'QUALITY COMMENTS', key: 'quality_comments', width: 25 },
+
+            // Stage 4
+            { header: 'CA VERIFIED BY', key: 'ca_verified_by', width: 20 },
+            { header: 'CA COMMENTS', key: 'ca_comments', width: 25 },
+            { header: 'QCE VERIFIER', key: 'qce_verifier', width: 20 },
+
+            // Stage 5
+            { header: 'DISPOSITION', key: 'disposition', width: 30 },
+            { header: 'HEAD QUALITY VERIFIER', key: 'head_quality_verifier', width: 20 },
+
+            { header: 'OVERALL STATUS', key: 'overall_status', width: 15 },
+            { header: 'NCR STATUS', key: 'ncr_status', width: 15 },
+            { header: 'CREATED DATE', key: 'created_at', width: 20 }
+        ];
+
+        const sheets = [{ name: 'NCR Reports', columns, data: flatData }];
         return await excelGenerator.generateReport(sheets);
     }
 
@@ -1009,31 +1137,31 @@ class ExportService {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
                 const keyLower = key.toLowerCase();
                 const val = obj[key];
-                
+
                 // Skip technical IDs and meta fields
                 const skipList = [
-                    'id', '_id', 'company_id', 'group_id', 'created_by', 'updated_by', 
+                    'id', '_id', 'company_id', 'group_id', 'created_by', 'updated_by',
                     'createdat', 'updatedat', 'deletedat', 'password',
-                    'ncr_raised_at', 'ncr_raised_by', 'resolution_by', 'assigned_engineer', 
+                    'ncr_raised_at', 'ncr_raised_by', 'resolution_by', 'assigned_engineer',
                     'design_head', 'welding_head', 'quality_head', 'corrective_action_verified_by',
-                    'target_engineer_id', 'target_head_design_id', 'target_head_welding_id', 
+                    'target_engineer_id', 'target_head_design_id', 'target_head_welding_id',
                     'target_head_quality_id', 'verified_by_qce_id', 'verified_by_head_quality_id',
                     'resolution_approval'
                 ];
                 if (skipList.includes(keyLower) || keyLower.endsWith('_id')) continue;
-                
+
                 const propName = prefix ? (keyLower.startsWith(prefix.toLowerCase()) ? key : `${prefix}_${key}`) : key;
-                
+
                 if (val && typeof val === 'object' && !(val instanceof Date) && !Array.isArray(val)) {
                     // Smart resolve: if this is a relation object, try to pick its display field
                     const displayFields = [
-                        'name', 'customer_name', 'location_name', 'po_number', 'job_number', 
+                        'name', 'customer_name', 'location_name', 'po_number', 'job_number',
                         'document_number', 'document_name', 'report_no', 'title', 'label'
                     ];
-                    
+
                     const foundField = displayFields.find(f => val[f] !== undefined && val[f] !== null);
-                    
-                    if (foundField && Object.keys(val).length < 15) { 
+
+                    if (foundField && Object.keys(val).length < 15) {
                         // If it has a display field and isn't too many-to-many, just use that value
                         flattened[propName] = val[foundField];
                     } else {
@@ -1053,11 +1181,12 @@ class ExportService {
      */
     async exportModule(moduleName, company_id) {
         const modelName = moduleName.replace(/-/g, '_');
-        
+
         // SPECIAL HANDLING FOR RFQ LOOKUPS & USERS
         if (modelName === 'rfq_register') return this.exportRFQRegister(company_id);
         if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id);
         if (modelName === 'dcr') return this.exportDCR(company_id);
+        if (modelName === 'ncr') return this.exportNCR(company_id);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
         if (modelName === 'mode_of_enquiry') return this.exportRFQLookup(company_id, 'mode_of_enquiry', 'Mode of Enquiry');
         if (modelName === 'remark') return this.exportRFQLookup(company_id, 'remark', 'Remark Options');
@@ -1163,11 +1292,11 @@ class ExportService {
 
         const sheets = [];
         const mainSheetData = [];
-        const childSheets = {}; 
+        const childSheets = {};
 
         data.forEach(item => {
             const mainRow = this.flattenObject(item);
-            
+
             // Special handling for group_document to include Job Numbers and URL
             if (modelName === 'group_document') {
                 if (item.group?.job_group) {
@@ -1204,14 +1333,14 @@ class ExportService {
 
                 // Handle Resolution Approval (could be string or array)
                 if (item.resolution_approval) {
-                    mainRow['Resolution Approval'] = Array.isArray(item.resolution_approval) 
-                        ? item.resolution_approval[0] 
+                    mainRow['Resolution Approval'] = Array.isArray(item.resolution_approval)
+                        ? item.resolution_approval[0]
                         : item.resolution_approval;
                 }
             }
 
             mainSheetData.push(mainRow);
-            
+
             // Handle array relations (child sheets)
             for (const key in item) {
                 const val = item[key];
@@ -1229,12 +1358,12 @@ class ExportService {
             // Collect all unique keys from all rows to ensure no columns are missed
             const allKeys = new Set();
             mainSheetData.forEach(row => Object.keys(row).forEach(key => allKeys.add(key)));
-            
+
             const mainColumns = Array.from(allKeys).map(key => {
                 let header = key.split(/_|\./)
                     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
                     .join(' ');
-                
+
                 // Remove redundant suffixes
                 const cleanHeaders = ['Id', 'Name', 'Number', 'Date'];
                 cleanHeaders.forEach(suffix => {
@@ -1245,10 +1374,10 @@ class ExportService {
 
                 // Special case for PO / Document numbers which are better with the suffix
                 if (key.toLowerCase().includes('number')) {
-                   const original = key.split(/_|\./).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                   if (original.includes('Number')) header = original.replace('Number', 'No');
+                    const original = key.split(/_|\./).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    if (original.includes('Number')) header = original.replace('Number', 'No');
                 }
-                
+
                 return { header, key, width: 25 };
             });
 

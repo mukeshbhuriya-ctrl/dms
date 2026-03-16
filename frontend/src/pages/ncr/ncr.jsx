@@ -291,7 +291,7 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
 
     const handleExport = async () => {
         try {
-            await exportApi.exportModule('ncr');
+            await exportApi.exportModule('ncr', 'ncr_export.xlsx');
             setRefreshKey(prev => prev + 1);
         } catch (error) {
             console.error("NCR Export failed:", error);
