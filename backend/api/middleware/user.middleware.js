@@ -92,7 +92,7 @@ function authenticateUser(requiredRoles, options = {}) {
 
       // Attach user information to request object
       req.user = {
-        userid: decoded.userid,
+        userid: decoded.userid || decoded.id, // Handle both userid and id for robustness
         company_id: decoded.company_id,
         role: userRoles, // Array of user's roles
       };
@@ -183,7 +183,7 @@ async function authenticateUserOnly(req, res, next) {
 
     // Attach user information to request object
     req.user = {
-      userid: decoded.userid,
+      userid: decoded.userid || decoded.id, // Handle both userid and id for robustness
       company_id: decoded.company_id,
       role: Array.isArray(decoded.role) ? decoded.role : (decoded.role ? [decoded.role] : []),
     };

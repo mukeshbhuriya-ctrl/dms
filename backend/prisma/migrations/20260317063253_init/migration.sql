@@ -1,87 +1,13 @@
-/*
-  Warnings:
+-- CreateTable
+CREATE TABLE "company" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "logo_url" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-  - You are about to drop the column `reponce_due_days` on the `group_document` table. All the data in the column will be lost.
-  - You are about to drop the column `reponce_due_days` on the `single_document` table. All the data in the column will be lost.
-  - You are about to drop the column `s1_completed_at` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s2_completed_at` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s3_completed_at` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s3_welder_no` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s4_completed_at` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s4_ndt_eng_id` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s5_completed_at` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s5_ndt_eng_id` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s6_completed_at` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s6_post_pt_status` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s6_post_rt_status` on the `weld_joint_inspection` table. All the data in the column will be lost.
-  - You are about to drop the column `s7_completed_at` on the `weld_joint_inspection` table. All the data in the column will be lost.
-
-*/
--- DropForeignKey
-ALTER TABLE "single_document" DROP CONSTRAINT "single_document_user_id_fkey";
-
--- AlterTable
-ALTER TABLE "group_document" DROP COLUMN "reponce_due_days",
-ADD COLUMN     "response_due_days" INTEGER,
-ADD COLUMN     "status" TEXT NOT NULL DEFAULT 'Pending';
-
--- AlterTable
-ALTER TABLE "single_document" DROP COLUMN "reponce_due_days",
-ADD COLUMN     "response_due_days" INTEGER,
-ADD COLUMN     "status" TEXT NOT NULL DEFAULT 'Pending',
-ALTER COLUMN "user_id" DROP NOT NULL;
-
--- AlterTable
-ALTER TABLE "weld_joint_inspection" DROP COLUMN "s1_completed_at",
-DROP COLUMN "s2_completed_at",
-DROP COLUMN "s3_completed_at",
-DROP COLUMN "s3_welder_no",
-DROP COLUMN "s4_completed_at",
-DROP COLUMN "s4_ndt_eng_id",
-DROP COLUMN "s5_completed_at",
-DROP COLUMN "s5_ndt_eng_id",
-DROP COLUMN "s6_completed_at",
-DROP COLUMN "s6_post_pt_status",
-DROP COLUMN "s6_post_rt_status",
-DROP COLUMN "s7_completed_at",
-ADD COLUMN     "data_json" JSONB,
-ADD COLUMN     "s1_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s1_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s1_submitted_at" TIMESTAMP(3),
-ADD COLUMN     "s2_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s2_data" JSONB,
-ADD COLUMN     "s2_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s2_submitted_at" TIMESTAMP(3),
-ADD COLUMN     "s3_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s3_data" JSONB,
-ADD COLUMN     "s3_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s3_submitted_at" TIMESTAMP(3),
-ADD COLUMN     "s4_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s4_data" JSONB,
-ADD COLUMN     "s4_qc_eng_id" TEXT,
-ADD COLUMN     "s4_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s4_submitted_at" TIMESTAMP(3),
-ADD COLUMN     "s5_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s5_data" JSONB,
-ADD COLUMN     "s5_qc_eng_id" TEXT,
-ADD COLUMN     "s5_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s5_submitted_at" TIMESTAMP(3),
-ADD COLUMN     "s6_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s6_data" JSONB,
-ADD COLUMN     "s6_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s6_submitted_at" TIMESTAMP(3),
-ADD COLUMN     "s7_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s7_prod_eng_id" TEXT,
-ADD COLUMN     "s7_qc_eng_id" TEXT,
-ADD COLUMN     "s7_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s7_submitted_at" TIMESTAMP(3),
-ADD COLUMN     "s8_approved_at" TIMESTAMP(3),
-ADD COLUMN     "s8_data" JSONB,
-ADD COLUMN     "s8_prod_eng_id" TEXT,
-ADD COLUMN     "s8_qc_eng_id" TEXT,
-ADD COLUMN     "s8_rejected_at" TIMESTAMP(3),
-ADD COLUMN     "s8_status" TEXT NOT NULL DEFAULT 'pending',
-ADD COLUMN     "s8_submitted_at" TIMESTAMP(3);
+    CONSTRAINT "company_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "department" (
@@ -92,6 +18,334 @@ CREATE TABLE "department" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "department_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "role" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "role_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "empid" TEXT NOT NULL,
+    "mobile" TEXT,
+    "password" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "department" TEXT,
+    "designation" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "user_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user_roles" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "role_id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "user_roles_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "siteadmin" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "siteadmin_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "customer_name" TEXT NOT NULL,
+    "customer_short_name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "mobile" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "customer_location" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "customer_id" TEXT NOT NULL,
+    "location_name" TEXT NOT NULL,
+    "customer_number_as_per_sap" TEXT NOT NULL,
+    "gst_number" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "customer_location_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "po" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "customer_id" TEXT NOT NULL,
+    "customer_location_id" TEXT NOT NULL,
+    "po_number" TEXT NOT NULL,
+    "po_date" TIMESTAMP(3) NOT NULL,
+    "po_doc_url" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "po_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "po_communication_matrix" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "po_id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "po_communication_matrix_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "job" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "customer_id" TEXT NOT NULL,
+    "customer_location_id" TEXT NOT NULL,
+    "po_id" TEXT NOT NULL,
+    "job_number" TEXT NOT NULL,
+    "project_id" TEXT NOT NULL,
+    "equipement_name" TEXT NOT NULL,
+    "tag_number" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "job_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "document_type" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "document_type_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "document_master" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "document_number" TEXT NOT NULL,
+    "document_name" TEXT NOT NULL,
+    "document_type_id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "document_master_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "single_document" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "customer_id" TEXT NOT NULL,
+    "customer_location_id" TEXT NOT NULL,
+    "po_id" TEXT NOT NULL,
+    "job_id" TEXT NOT NULL,
+    "document_id" TEXT NOT NULL,
+    "shreno_doc_no" TEXT,
+    "shreno_reference_no" TEXT,
+    "client_doc_no" TEXT,
+    "client_reference_no" TEXT,
+    "upload_due_days" INTEGER,
+    "response_due_days" INTEGER,
+    "user_id" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'Pending',
+
+    CONSTRAINT "single_document_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "group" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "group_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "job_group" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "group_id" TEXT NOT NULL,
+    "job_id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "job_group_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "group_document" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "customer_id" TEXT NOT NULL,
+    "customer_location_id" TEXT NOT NULL,
+    "po_id" TEXT NOT NULL,
+    "group_id" TEXT NOT NULL,
+    "document_id" TEXT NOT NULL,
+    "shreno_doc_no" TEXT,
+    "shreno_reference_no" TEXT,
+    "client_doc_no" TEXT,
+    "client_reference_no" TEXT,
+    "upload_due_days" INTEGER,
+    "response_due_days" INTEGER,
+    "user_id" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'Pending',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "group_document_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "weld_joint_plan" (
+    "id" TEXT NOT NULL,
+    "company_id" TEXT NOT NULL,
+    "job_id" TEXT NOT NULL,
+    "shreno_drg_no" TEXT NOT NULL,
+    "customer_drg_no" TEXT,
+    "code_of_construction" TEXT NOT NULL,
+    "weld_plan_no" TEXT NOT NULL,
+    "serial_no" INTEGER NOT NULL,
+    "created_by" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "weld_joint_plan_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "weld_joint" (
+    "id" TEXT NOT NULL,
+    "weld_joint_plan_id" TEXT NOT NULL,
+    "joint_no" TEXT NOT NULL,
+    "joint_type" TEXT NOT NULL,
+    "joint_description" TEXT NOT NULL,
+    "base_metal_thickness_p1" TEXT,
+    "base_metal_thickness_p2" TEXT,
+    "base_metal_spec_p1" TEXT,
+    "base_metal_spec_p2" TEXT,
+    "consumable" TEXT,
+    "wps_pqr_no" TEXT,
+    "process" TEXT,
+    "impact_test" TEXT,
+    "back_chip_req" BOOLEAN,
+    "pwht" BOOLEAN,
+    "rt" BOOLEAN,
+    "pt" BOOLEAN,
+    "remarks" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "weld_joint_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "weld_joint_inspection" (
+    "id" TEXT NOT NULL,
+    "weld_joint_id" TEXT NOT NULL,
+    "data_json" JSONB,
+    "s1_status" TEXT NOT NULL DEFAULT 'pending',
+    "s1_data" JSONB,
+    "s1_prod_eng_id" TEXT,
+    "s1_qc_eng_id" TEXT,
+    "s1_submitted_at" TIMESTAMP(3),
+    "s1_approved_at" TIMESTAMP(3),
+    "s1_rejected_at" TIMESTAMP(3),
+    "s2_status" TEXT NOT NULL DEFAULT 'pending',
+    "s2_data" JSONB,
+    "s2_prod_eng_id" TEXT,
+    "s2_qc_eng_id" TEXT,
+    "s2_submitted_at" TIMESTAMP(3),
+    "s2_approved_at" TIMESTAMP(3),
+    "s2_rejected_at" TIMESTAMP(3),
+    "s3_status" TEXT NOT NULL DEFAULT 'pending',
+    "s3_data" JSONB,
+    "s3_prod_eng_id" TEXT,
+    "s3_qc_eng_id" TEXT,
+    "s3_submitted_at" TIMESTAMP(3),
+    "s3_approved_at" TIMESTAMP(3),
+    "s3_rejected_at" TIMESTAMP(3),
+    "s4_status" TEXT NOT NULL DEFAULT 'pending',
+    "s4_data" JSONB,
+    "s4_prod_eng_id" TEXT,
+    "s4_qc_eng_id" TEXT,
+    "s4_submitted_at" TIMESTAMP(3),
+    "s4_approved_at" TIMESTAMP(3),
+    "s4_rejected_at" TIMESTAMP(3),
+    "s5_status" TEXT NOT NULL DEFAULT 'pending',
+    "s5_data" JSONB,
+    "s5_prod_eng_id" TEXT,
+    "s5_qc_eng_id" TEXT,
+    "s5_submitted_at" TIMESTAMP(3),
+    "s5_approved_at" TIMESTAMP(3),
+    "s5_rejected_at" TIMESTAMP(3),
+    "s6_status" TEXT NOT NULL DEFAULT 'pending',
+    "s6_data" JSONB,
+    "s6_prod_eng_id" TEXT,
+    "s6_qc_eng_id" TEXT,
+    "s6_submitted_at" TIMESTAMP(3),
+    "s6_approved_at" TIMESTAMP(3),
+    "s6_rejected_at" TIMESTAMP(3),
+    "s7_status" TEXT NOT NULL DEFAULT 'pending',
+    "s7_data" JSONB,
+    "s7_prod_eng_id" TEXT,
+    "s7_qc_eng_id" TEXT,
+    "s7_submitted_at" TIMESTAMP(3),
+    "s7_approved_at" TIMESTAMP(3),
+    "s7_rejected_at" TIMESTAMP(3),
+    "s8_status" TEXT NOT NULL DEFAULT 'pending',
+    "s8_data" JSONB,
+    "s8_prod_eng_id" TEXT,
+    "s8_qc_eng_id" TEXT,
+    "s8_submitted_at" TIMESTAMP(3),
+    "s8_approved_at" TIMESTAMP(3),
+    "s8_rejected_at" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "weld_joint_inspection_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -619,6 +873,21 @@ CREATE TABLE "ncr" (
 CREATE UNIQUE INDEX "department_company_id_name_key" ON "department"("company_id", "name");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "user_email_key" ON "user"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_empid_key" ON "user"("empid");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_mobile_key" ON "user"("mobile");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "siteadmin_email_key" ON "siteadmin"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "weld_joint_inspection_weld_joint_id_key" ON "weld_joint_inspection"("weld_joint_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "transmission_transmission_number_key" ON "transmission"("transmission_number");
 
 -- CreateIndex
@@ -628,10 +897,133 @@ CREATE UNIQUE INDEX "rfq_lookup_company_id_type_name_key" ON "rfq_lookup"("compa
 ALTER TABLE "department" ADD CONSTRAINT "department_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "role" ADD CONSTRAINT "role_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "user" ADD CONSTRAINT "user_department_fkey" FOREIGN KEY ("department") REFERENCES "department"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "user" ADD CONSTRAINT "user_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "user_roles" ADD CONSTRAINT "user_roles_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "role"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer" ADD CONSTRAINT "customer_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_location" ADD CONSTRAINT "customer_location_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "customer_location" ADD CONSTRAINT "customer_location_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "po" ADD CONSTRAINT "po_customer_location_id_fkey" FOREIGN KEY ("customer_location_id") REFERENCES "customer_location"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "po" ADD CONSTRAINT "po_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "po" ADD CONSTRAINT "po_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "po_communication_matrix" ADD CONSTRAINT "po_communication_matrix_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "po_communication_matrix" ADD CONSTRAINT "po_communication_matrix_po_id_fkey" FOREIGN KEY ("po_id") REFERENCES "po"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "job" ADD CONSTRAINT "job_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "job" ADD CONSTRAINT "job_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "job" ADD CONSTRAINT "job_customer_location_id_fkey" FOREIGN KEY ("customer_location_id") REFERENCES "customer_location"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "job" ADD CONSTRAINT "job_po_id_fkey" FOREIGN KEY ("po_id") REFERENCES "po"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "document_type" ADD CONSTRAINT "document_type_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "document_master" ADD CONSTRAINT "document_master_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "document_master" ADD CONSTRAINT "document_master_document_type_id_fkey" FOREIGN KEY ("document_type_id") REFERENCES "document_type"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "single_document" ADD CONSTRAINT "single_document_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "single_document" ADD CONSTRAINT "single_document_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "document_master"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "single_document" ADD CONSTRAINT "single_document_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "single_document" ADD CONSTRAINT "single_document_customer_location_id_fkey" FOREIGN KEY ("customer_location_id") REFERENCES "customer_location"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "single_document" ADD CONSTRAINT "single_document_po_id_fkey" FOREIGN KEY ("po_id") REFERENCES "po"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "single_document" ADD CONSTRAINT "single_document_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "job"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "single_document" ADD CONSTRAINT "single_document_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group" ADD CONSTRAINT "group_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "job_group" ADD CONSTRAINT "job_group_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "job_group" ADD CONSTRAINT "job_group_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "job_group" ADD CONSTRAINT "job_group_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "job"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group_document" ADD CONSTRAINT "group_document_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group_document" ADD CONSTRAINT "group_document_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "group"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group_document" ADD CONSTRAINT "group_document_document_id_fkey" FOREIGN KEY ("document_id") REFERENCES "document_master"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group_document" ADD CONSTRAINT "group_document_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group_document" ADD CONSTRAINT "group_document_customer_id_fkey" FOREIGN KEY ("customer_id") REFERENCES "customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group_document" ADD CONSTRAINT "group_document_customer_location_id_fkey" FOREIGN KEY ("customer_location_id") REFERENCES "customer_location"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "group_document" ADD CONSTRAINT "group_document_po_id_fkey" FOREIGN KEY ("po_id") REFERENCES "po"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "weld_joint_plan" ADD CONSTRAINT "weld_joint_plan_company_id_fkey" FOREIGN KEY ("company_id") REFERENCES "company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "weld_joint_plan" ADD CONSTRAINT "weld_joint_plan_job_id_fkey" FOREIGN KEY ("job_id") REFERENCES "job"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "weld_joint_plan" ADD CONSTRAINT "weld_joint_plan_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "user"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "weld_joint" ADD CONSTRAINT "weld_joint_weld_joint_plan_id_fkey" FOREIGN KEY ("weld_joint_plan_id") REFERENCES "weld_joint_plan"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "weld_joint_inspection" ADD CONSTRAINT "weld_joint_inspection_weld_joint_id_fkey" FOREIGN KEY ("weld_joint_id") REFERENCES "weld_joint"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "document_version" ADD CONSTRAINT "document_version_single_document_id_fkey" FOREIGN KEY ("single_document_id") REFERENCES "single_document"("id") ON DELETE SET NULL ON UPDATE CASCADE;
