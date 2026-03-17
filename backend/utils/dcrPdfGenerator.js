@@ -130,7 +130,7 @@ class DcrPdfGenerator {
 
     drawApprovalGrid(doc, x, y, width, data) {
         const titleH = 22;
-        const gridH = 80;
+        const gridH = 120;
         const colW = width / 4;
 
         // Change Requested By
@@ -215,17 +215,16 @@ class DcrPdfGenerator {
         changeRequests.forEach(renderItem);
 
         // Filling empty rows to match SS and occupy space
-        const approvalH = 105; 
+        const approvalH = 145; 
         const bottomLimit = doc.page.height - 40 - approvalH;
         
-        while (curY < bottomLimit) {
-            const h = 30; // Slightly smaller filler rows
-            if (curY + h > bottomLimit) break;
-            doc.rect(startX, curY, colWs.item, h).stroke();
-            doc.rect(startX + colWs.item, curY, colWs.from, h).stroke();
-            doc.rect(startX + colWs.item + colWs.from, curY, colWs.to, h).stroke();
-            doc.rect(startX + colWs.item + colWs.from + colWs.to, curY, colWs.reason, h).stroke();
-            curY += h;
+        const remainingH = bottomLimit - curY;
+        if (remainingH > 0) {
+            doc.rect(startX, curY, colWs.item, remainingH).stroke();
+            doc.rect(startX + colWs.item, curY, colWs.from, remainingH).stroke();
+            doc.rect(startX + colWs.item + colWs.from, curY, colWs.to, remainingH).stroke();
+            doc.rect(startX + colWs.item + colWs.from + colWs.to, curY, colWs.reason, remainingH).stroke();
+            curY += remainingH;
         }
 
         // Approval Grid
