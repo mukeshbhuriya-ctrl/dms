@@ -6,16 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { 
-  FileDown, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Filter, 
-  FileText, 
-  ClipboardCheck, 
-  Layers, 
-  Droplets, 
-  Settings2, 
+import {
+  FileDown,
+  Calendar as CalendarIcon,
+  Clock,
+  Filter,
+  FileText,
+  ClipboardCheck,
+  Layers,
+  Droplets,
+  Settings2,
   Search,
   CheckCircle2,
   Users,
@@ -108,7 +108,7 @@ const Reports = () => {
 
   const handleDownload = async (module, title) => {
     const count = summary[module] || 0;
-    
+
     if (count === 0) {
       toast.warning(`No data found for ${title} in the selected range.`);
       return;
@@ -118,7 +118,7 @@ const Reports = () => {
       setIsDownloading(true);
       const params = { startDate, endDate };
       let res;
-      
+
       switch (module) {
         case 'ncr': res = await exportApi.exportModule('ncr', params, 'ncr_report.xlsx'); break;
         case 'dcr': res = await exportApi.exportModule('dcr', params, 'dcr_report.xlsx'); break;
@@ -137,7 +137,7 @@ const Reports = () => {
         case 'departments': res = await exportApi.exportDepartments(params); break;
         default: break;
       }
-      
+
       if (res?.success) {
         toast.success(`${title} downloaded successfully`);
       }
@@ -176,12 +176,12 @@ const Reports = () => {
             <SidebarTrigger className="-ml-1" />
             <h1 className="text-xl font-bold tracking-tight">Reports</h1>
           </div>
-          
+
           <div className="relative" ref={filterRef}>
-            <Button 
-                variant="outline" 
-                className="flex items-center gap-2 border-slate-200"
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
+            <Button
+              variant="outline"
+              className="flex items-center gap-2 border-slate-200"
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
             >
               <Filter className="h-4 w-4" />
               <span>{startDate && endDate ? `${startDate} to ${endDate}` : 'Filter by Date'}</span>
@@ -190,78 +190,78 @@ const Reports = () => {
 
             {isFilterOpen && (
               <div className="absolute right-0 mt-2 w-[400px] bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-6 space-y-6">
-                 <div className="flex items-center justify-between border-b pb-3">
-                    <h3 className="font-bold text-slate-800">Date Filtering</h3>
-                    <Button variant="ghost" size="icon" onClick={() => setIsFilterOpen(false)}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                 </div>
+                <div className="flex items-center justify-between border-b pb-3">
+                  <h3 className="font-bold text-slate-800">Date Filtering</h3>
+                  <Button variant="ghost" size="icon" onClick={() => setIsFilterOpen(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
 
-                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2">
-                      {['today', 'yesterday', 'thisWeek', 'thisMonth', 'lastMonth'].map((p) => (
-                        <Button 
-                          key={p} 
-                          variant="ghost" 
-                          size="sm"
-                          className="justify-start font-medium text-xs uppercase tracking-wider h-9"
-                          onClick={() => setDatePreset(p)}
-                        >
-                          {p.replace(/([A-Z])/g, ' $1')}
-                        </Button>
-                      ))}
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    {['today', 'yesterday', 'thisWeek', 'thisMonth', 'lastMonth'].map((p) => (
+                      <Button
+                        key={p}
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start font-medium text-xs uppercase tracking-wider h-9"
+                        onClick={() => setDatePreset(p)}
+                      >
+                        {p.replace(/([A-Z])/g, ' $1')}
+                      </Button>
+                    ))}
+                  </div>
+
+                  <div className="h-px bg-slate-100" />
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-400">START DATE</Label>
+                        <Input
+                          type="date"
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-bold text-slate-400">END DATE</Label>
+                        <Input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
                     </div>
-
-                    <div className="h-px bg-slate-100" />
-
-                    <div className="space-y-4">
-                       <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-400">START DATE</Label>
-                            <Input 
-                              type="date" 
-                              value={startDate} 
-                              onChange={(e) => setStartDate(e.target.value)}
-                              className="h-9 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[10px] font-bold text-slate-400">END DATE</Label>
-                            <Input 
-                              type="date" 
-                              value={endDate} 
-                              onChange={(e) => setEndDate(e.target.value)}
-                              className="h-9 text-sm"
-                            />
-                          </div>
-                       </div>
-                       <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="link" 
-                            size="sm"
-                            className="text-red-500 font-bold text-[10px] uppercase h-8"
-                            onClick={() => { setStartDate(''); setEndDate(''); }}
-                          >
-                            Reset
-                          </Button>
-                          <Button 
-                             size="sm" 
-                             className="bg-slate-900 h-8 text-xs font-bold"
-                             onClick={() => setIsFilterOpen(false)}
-                          >
-                            Apply
-                          </Button>
-                       </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="text-red-500 font-bold text-[10px] uppercase h-8"
+                        onClick={() => { setStartDate(''); setEndDate(''); }}
+                      >
+                        Reset
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="bg-slate-900 h-8 text-xs font-bold"
+                        onClick={() => setIsFilterOpen(false)}
+                      >
+                        Apply
+                      </Button>
                     </div>
-                 </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-8 bg-slate-50/30">
-          <div className="max-w-7xl mx-auto space-y-6">
-            
+        <main className="flex-1 overflow-auto p-6 flex flex-col">
+          <div className="flex-1 flex flex-col w-full">
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {reportModules.map((module) => {
                 const count = summary[module.id] || 0;
@@ -283,15 +283,14 @@ const Reports = () => {
                       <CardTitle className="mt-4 text-base font-bold text-slate-900 tracking-tight">{module.title}</CardTitle>
                       <CardDescription className="text-xs text-slate-500 mt-1">{module.description}</CardDescription>
                     </CardHeader>
-                    
+
                     <CardFooter className="p-5 pt-4 mt-auto">
-                      <Button 
+                      <Button
                         variant="outline"
-                        className={`w-full h-10 font-bold text-xs uppercase tracking-wider transition-all ${
-                          count > 0 
-                            ? 'border-slate-300 hover:bg-slate-900 hover:text-white' 
+                        className={`w-full h-10 font-bold text-xs uppercase tracking-wider transition-all ${count > 0
+                            ? 'border-slate-300 hover:bg-slate-900 hover:text-white'
                             : 'opacity-50 cursor-not-allowed bg-slate-50 text-slate-400'
-                        }`}
+                          }`}
                         onClick={() => handleDownload(module.id, module.title)}
                         disabled={isDownloading || (!isLoadingSummary && count === 0)}
                       >
