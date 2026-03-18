@@ -24,7 +24,13 @@ import {
   AlertCircle,
   ChevronDown,
   RefreshCw,
-  X
+  X,
+  Database,
+  UserPlus,
+  History,
+  FolderLock,
+  Send,
+  LayoutGrid
 } from "lucide-react";
 import { exportApi } from "@/api/export.api";
 import { toast } from "react-toastify";
@@ -42,6 +48,7 @@ const Reports = () => {
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [summary, setSummary] = useState({});
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('Engineering/Quality');
   const filterRef = useRef(null);
 
   // Fetch summary whenever dates change
@@ -81,7 +88,6 @@ const Reports = () => {
 
     switch (preset) {
       case 'today':
-        // Values already set to today
         break;
       case 'yesterday':
         start.setDate(today.getDate() - 1);
@@ -130,6 +136,14 @@ const Reports = () => {
         case 'dishend': res = await exportApi.exportDishEnd(params); break;
         case 'final': res = await exportApi.exportFinalInspection(params); break;
         case 'rfq': res = await exportApi.exportModule('rfq-register', params, 'rfq_register_report.xlsx'); break;
+        
+        // DMS Modules
+        case 'doc_master': res = await exportApi.exportModule('document-master', params, 'document_master_list.xlsx'); break;
+        case 'doc_assign': res = await exportApi.exportModule('document-assign', params, 'document_assignment_register.xlsx'); break;
+        case 'doc_upload': res = await exportApi.exportModule('document-version', params, 'document_upload_log.xlsx'); break;
+        case 'doc_approver': res = await exportApi.exportModule('document-approver', params, 'document_approver_register.xlsx'); break;
+        case 'doc_transmission': res = await exportApi.exportModule('transmission', params, 'transmission_log.xlsx'); break;
+
         case 'users': res = await exportApi.exportUsers(params); break;
         case 'customers': res = await exportApi.exportCustomers(params); break;
         case 'jobs': res = await exportApi.exportJobs(params); break;
@@ -149,23 +163,47 @@ const Reports = () => {
     }
   };
 
-  const reportModules = [
-    { id: 'ncr', title: 'NCR Report', description: 'Non-Conformance Reports', icon: FileText },
-    { id: 'dcr', title: 'DCR Report', description: 'Design Change Request reports', icon: Settings2 },
-    { id: 'wjp', title: 'Weld Joint Plan', description: 'Consolidated Weld Joint Plans', icon: Layers },
-    { id: 'wjd', title: 'Weld Joint Details', description: 'Detailed individual joint inspection data', icon: CheckCircle2 },
-    { id: 'mhc', title: 'Material Heat Chart', description: 'Full Material Heat Chart data', icon: ClipboardCheck },
-    { id: 'qap', title: 'QAP Report', description: 'Quality Assurance Plan reports', icon: FileDown },
-    { id: 'hydro', title: 'Hydro Test', description: 'Hydrostatic Test Inspection reports', icon: Droplets },
-    { id: 'dishend', title: 'Dish End Report', description: 'Dish End Inspection reports', icon: Layers },
-    { id: 'final', title: 'Final Inspection', description: 'Final Inspection reports', icon: ClipboardCheck },
-    { id: 'rfq', title: 'RFQ Register', description: 'Quotation and Enquiry Register', icon: Search },
-    { id: 'users', title: 'User List', description: 'Export all system users and roles', icon: Users },
-    { id: 'customers', title: 'Customer List', description: 'Export all customers and contact info', icon: Building2 },
-    { id: 'jobs', title: 'Job Register', description: 'Export all jobs and status', icon: Briefcase },
-    { id: 'locations', title: 'Locations', description: 'Export all customer locations', icon: Search },
-    { id: 'departments', title: 'Departments', description: 'Export all departments', icon: Building2 },
+  const categories = [
+    { name: 'Engineering/Quality', icon: FileText },
+    { name: 'DMS Core', icon: Database },
+    { name: 'Operations', icon: LayoutGrid },
+    { name: 'Marketing', icon: Search },
+    { name: 'Admin', icon: Settings2 },
   ];
+
+  const reportModules = [
+    // Engineering/Quality
+    { id: 'ncr', title: 'NCR Report', description: 'Non-Conformance Reports', icon: FileText, category: 'Engineering/Quality' },
+    { id: 'dcr', title: 'DCR Report', description: 'Design Change Request reports', icon: Settings2, category: 'Engineering/Quality' },
+    { id: 'wjp', title: 'Weld Joint Plan', description: 'Consolidated Weld Joint Plans', icon: Layers, category: 'Engineering/Quality' },
+    { id: 'wjd', title: 'Weld Joint Details', description: 'Detailed individual joint inspection data', icon: CheckCircle2, category: 'Engineering/Quality' },
+    { id: 'mhc', title: 'Material Heat Chart', description: 'Full Material Heat Chart data', icon: ClipboardCheck, category: 'Engineering/Quality' },
+    { id: 'qap', title: 'QAP Report', description: 'Quality Assurance Plan reports', icon: FileDown, category: 'Engineering/Quality' },
+    
+    // DMS Core
+    { id: 'doc_master', title: 'Document Master', description: 'Standard Document List & Templates', icon: Database, category: 'DMS Core' },
+    { id: 'doc_assign', title: 'Assign Document', description: 'Document Assignment Tracking', icon: UserPlus, category: 'DMS Core' },
+    { id: 'doc_upload', title: 'Upload Documents', description: 'Activity log of all document uploads', icon: History, category: 'DMS Core' },
+    { id: 'doc_approver', title: 'Document Approver', description: 'Internal approval status and history', icon: FolderLock, category: 'DMS Core' },
+    { id: 'doc_transmission', title: 'Transmissions', description: 'Transmission creation logs', icon: Send, category: 'DMS Core' },
+
+    // Operations
+    { id: 'hydro', title: 'Hydro Test', description: 'Hydrostatic Test Inspection reports', icon: Droplets, category: 'Operations' },
+    { id: 'dishend', title: 'Dish End Report', description: 'Dish End Inspection reports', icon: Layers, category: 'Operations' },
+    { id: 'final', title: 'Final Inspection', description: 'Final Inspection reports', icon: ClipboardCheck, category: 'Operations' },
+    
+    // Marketing
+    { id: 'rfq', title: 'RFQ Register', description: 'Quotation and Enquiry Register', icon: Search, category: 'Marketing' },
+    
+    // Admin
+    { id: 'users', title: 'User List', description: 'Export all system users and roles', icon: Users, category: 'Admin' },
+    { id: 'customers', title: 'Customer List', description: 'Export all customers and contact info', icon: Building2, category: 'Admin' },
+    { id: 'jobs', title: 'Job Register', description: 'Export all jobs and status', icon: Briefcase, category: 'Admin' },
+    { id: 'locations', title: 'Locations', description: 'Export all customer locations', icon: Search, category: 'Admin' },
+    { id: 'departments', title: 'Departments', description: 'Export all departments', icon: Building2, category: 'Admin' },
+  ];
+
+  const filteredModules = reportModules.filter(m => m.category === activeTab);
 
   return (
     <SidebarProvider>
@@ -174,7 +212,7 @@ const Reports = () => {
         <header className="flex h-16 shrink-0 items-center justify-between border-b px-6 bg-white shadow-sm">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
-            <h1 className="text-xl font-bold tracking-tight">Reports</h1>
+            <h1 className="text-xl font-bold tracking-tight">Report Dashboard</h1>
           </div>
 
           <div className="relative" ref={filterRef}>
@@ -259,11 +297,29 @@ const Reports = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
+        <main className="flex-1 overflow-auto p-6 flex flex-col gap-6">
+          <div className="flex-1 flex flex-col w-full gap-6">
+            
+            {/* Simple Tab Switcher */}
+            <div className="flex items-center gap-2 border-b border-gray-200">
+              {categories.map((cat) => (
+                <button
+                  key={cat.name}
+                  onClick={() => setActiveTab(cat.name)}
+                  className={`flex items-center gap-2 px-4 py-3 text-sm font-bold transition-all border-b-2 ${
+                    activeTab === cat.name 
+                      ? 'border-slate-900 text-slate-900' 
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-gray-300'
+                  }`}
+                >
+                  <cat.icon className="h-4 w-4" />
+                  {cat.name}
+                </button>
+              ))}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {reportModules.map((module) => {
+              {filteredModules.map((module) => {
                 const count = summary[module.id] || 0;
                 return (
                   <Card key={module.id} className="border border-slate-200 shadow-none hover:shadow-sm transition-shadow bg-white flex flex-col">

@@ -43,6 +43,11 @@ class ExportService {
             { key: 'dishend', model: 'dish_end_inspection_report', dateField: 'createdAt' },
             { key: 'final', model: 'final_inspection_report', dateField: 'createdAt' },
             { key: 'rfq', model: 'rfq_register', dateField: 'enq_date' },
+            { key: 'doc_master', model: 'document_master', dateField: 'createdAt', relationFilter: { document_type: { company_id } } },
+            { key: 'doc_assign', model: 'group_document', dateField: 'createdAt' },
+            { key: 'doc_upload', model: 'document_version', dateField: 'createdAt', relationFilter: { group_document: { company_id } } },
+            { key: 'doc_approver', model: 'group_document', dateField: 'createdAt' },
+            { key: 'doc_transmission', model: 'transmission', dateField: 'createdAt' },
             { key: 'users', model: 'user', dateField: 'createdAt' },
             { key: 'customers', model: 'customer', dateField: 'createdAt' },
             { key: 'jobs', model: 'job', dateField: 'createdAt' },
@@ -1622,14 +1627,45 @@ class ExportService {
             customer_location: {
                 customer: true
             },
+            document_version: {
+                uploader: true,
+                group_document: { include: { document: true } }
+            },
+            group_document: {
+                document: true,
+                customer: true,
+                customer_location: true,
+                group: { include: { job_group: { include: { job: true } } } },
+                versions: { take: 1, orderBy: { createdAt: 'desc' } }
+            },
+            transmission: {
+                customer: true,
+                location: true,
+                creator: true
+            },
             document_master: {
                 document_type: true
             }
         };
 
         const include = RELATIONS_CONFIG[modelName] || {};
-        let data = await model.findMany({
-            where: { company_id },
+        
+        // Dynamic where clause for relation-based filtering
+        const modulesConfig = [
+            { key: 'document-master', model: 'document_master', relationFilter: { document_type: { company_id } } },
+            { key: 'document-version', model: 'document_version', relationFilter: { group_document: { company_id } } },
+            { key: 'document-assign', model: 'group_document' },
+            { key: 'document-approver', model: 'group_document' }
+        ];
+
+        const config = modulesConfig.find(c => c.key === moduleName);
+        const whereClause = config && config.relationFilter ? config.relationFilter : { company_id };
+
+        // Add date filtering
+        const dateFilter = this._getDateFilter(startDate, endDate, config?.dateField || 'createdAt');
+
+        const data = await model.findMany({
+            where: { ...whereClause, ...dateFilter },
             include: Object.keys(include).length > 0 ? include : undefined,
             orderBy: { createdAt: 'desc' },
         });
