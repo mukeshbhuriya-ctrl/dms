@@ -30,8 +30,14 @@ import { exportApi } from "@/api/export.api";
 import { toast } from "react-toastify";
 
 const Reports = () => {
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    return new Date().toISOString().split('T')[0];
+  });
   const [isDownloading, setIsDownloading] = useState(false);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [summary, setSummary] = useState({});
@@ -74,6 +80,9 @@ const Reports = () => {
     let end = new Date();
 
     switch (preset) {
+      case 'today':
+        // Values already set to today
+        break;
       case 'yesterday':
         start.setDate(today.getDate() - 1);
         end.setDate(today.getDate() - 1);
@@ -190,7 +199,7 @@ const Reports = () => {
 
                  <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-2">
-                      {['yesterday', 'thisWeek', 'thisMonth', 'lastMonth'].map((p) => (
+                      {['today', 'yesterday', 'thisWeek', 'thisMonth', 'lastMonth'].map((p) => (
                         <Button 
                           key={p} 
                           variant="ghost" 
