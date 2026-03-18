@@ -1631,13 +1631,6 @@ class ExportService {
                 uploader: true,
                 group_document: { include: { document: true } }
             },
-            group_document: {
-                document: true,
-                customer: true,
-                customer_location: true,
-                group: { include: { job_group: { include: { job: true } } } },
-                versions: { take: 1, orderBy: { createdAt: 'desc' } }
-            },
             transmission: {
                 customer: true,
                 location: true,
