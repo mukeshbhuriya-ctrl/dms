@@ -27,6 +27,7 @@ import {
   CreateUser,
   DepartmentManagement,
   FinalInspectionReports,
+  Reports,
 } from "@/pages/admin"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
@@ -140,6 +141,10 @@ const adminRoutes = [
   {
     path: "/admin/dashboard",
     element: protect(<AdminDashboard />, [ROLES.ADMIN, ROLES.PRODUCTION]),
+  },
+  {
+    path: "/admin/reports",
+    element: protect(<Reports />, [ROLES.ADMIN]),
   },
   {
     path: "/users",

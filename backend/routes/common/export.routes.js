@@ -3,6 +3,7 @@ const router = express.Router();
 const ExportController = require('../../controllers/export.controller');
 const { authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 
+router.get('/summary', authenticateUserOnly, ExportController.getReportSummary);
 router.get('/locations', authenticateUserOnly, ExportController.exportLocations);
 router.get('/customers', authenticateUserOnly, ExportController.exportCustomers);
 router.get('/jobs', authenticateUserOnly, ExportController.exportJobs);

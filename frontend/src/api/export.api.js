@@ -3,8 +3,8 @@ import apiClient from "./api.client";
 /**
  * Reusable helper to handle binary file downloads.
  */
-const downloadFile = async (endpoint, filename) => {
-    return exportApi.download(`/api/export${endpoint}`, filename);
+const downloadFile = async (endpoint, filename, params = {}) => {
+    return exportApi.download(`/api/export${endpoint}`, filename, params);
 };
 
 /**
@@ -41,16 +41,27 @@ export const exportApi = {
         }
     },
 
-    exportLocations: () => downloadFile('/locations', 'locations_export.xlsx'),
-    exportCustomers: () => downloadFile('/customers', 'customers_export.xlsx'),
-    exportJobs: () => downloadFile('/jobs', 'jobs_export.xlsx'),
-    exportDepartments: () => downloadFile('/departments', 'departments_export.xlsx'),
-    exportUsers: () => downloadFile('/users', 'users_export.xlsx'),
-    exportMHC: () => downloadFile('/mhc', 'mhc_export.xlsx'),
-    exportQAP: () => downloadFile('/qap', 'qap_export.xlsx'),
-    exportHydro: () => downloadFile('/hydro', 'hydro_test_export.xlsx'),
-    exportDishEnd: () => downloadFile('/dish-end', 'dish_end_inspection_export.xlsx'),
-    exportFinalInspection: () => downloadFile('/final-inspection', 'final_inspection_export.xlsx'),
-    exportModule: (moduleName, customFilename) => downloadFile(`/module/${moduleName}`, customFilename || `${moduleName}_export.xlsx`),
+    exportLocations: (params) => downloadFile('/locations', 'locations_export.xlsx', params),
+    exportCustomers: (params) => downloadFile('/customers', 'customers_export.xlsx', params),
+    exportJobs: (params) => downloadFile('/jobs', 'jobs_export.xlsx', params),
+    exportDepartments: (params) => downloadFile('/departments', 'departments_export.xlsx', params),
+    exportUsers: (params) => downloadFile('/users', 'users_export.xlsx', params),
+    exportMHC: (params) => downloadFile('/mhc', 'mhc_export.xlsx', params),
+    exportQAP: (params) => downloadFile('/qap', 'qap_export.xlsx', params),
+    exportHydro: (params) => downloadFile('/hydro', 'hydro_test_export.xlsx', params),
+    exportDishEnd: (params) => downloadFile('/dish-end', 'dish_end_inspection_export.xlsx', params),
+    exportFinalInspection: (params) => downloadFile('/final-inspection', 'final_inspection_export.xlsx', params),
+    exportModule: async (moduleName, params, filename) => {
+        return await downloadFile(`/module/${moduleName}`, filename, params);
+    },
 
+    getReportSummary: async (params = {}) => {
+        try {
+            const response = await apiClient.get('/api/export/summary', params);
+            return response;
+        } catch (error) {
+            console.error("exportApi.getReportSummary error:", error);
+            return { success: false, data: {} };
+        }
+    }
 };

@@ -3,11 +3,87 @@ const excelGenerator = require('../utils/excelGenerator');
 
 class ExportService {
     /**
+     * Helper to create date filter for Prisma where clause.
+     */
+    _getDateFilter(startDate, endDate, dateField = 'createdAt') {
+        if (!startDate && !endDate) return {};
+        
+        const filter = {};
+        if (startDate && startDate !== '') {
+            const start = new Date(startDate);
+            if (!isNaN(start.getTime())) filter.gte = start;
+        }
+        if (endDate && endDate !== '') {
+            const end = new Date(endDate);
+            if (!isNaN(end.getTime())) {
+                end.setHours(23, 59, 59, 999);
+                filter.lte = end;
+            }
+        }
+        
+        if (Object.keys(filter).length === 0) return {};
+        return { [dateField]: filter };
+    }
+
+    /**
+     * Get record counts for all report modules.
+     */
+    async getReportSummary(company_id, startDate, endDate) {
+        const summary = {};
+        
+        // Define modules and their primary date fields
+        const modules = [
+            { key: 'ncr', model: 'ncr', dateField: 'date' },
+            { key: 'dcr', model: 'dcr', dateField: 'createdAt' },
+            { key: 'wjp', model: 'weld_joint_plan', dateField: 'createdAt' },
+            { key: 'wjd', model: 'weld_joint', dateField: 'createdAt', relationFilter: { weld_joint_plan: { company_id } } },
+            { key: 'mhc', model: 'material_heat_chart', dateField: 'createdAt' },
+            { key: 'qap', model: 'quality_assurance_plan', dateField: 'createdAt' },
+            { key: 'hydro', model: 'hydrostatic_test_report', dateField: 'createdAt' },
+            { key: 'dishend', model: 'dish_end_inspection_report', dateField: 'createdAt' },
+            { key: 'final', model: 'final_inspection_report', dateField: 'createdAt' },
+            { key: 'rfq', model: 'rfq_register', dateField: 'enq_date' },
+            { key: 'users', model: 'user', dateField: 'createdAt' },
+            { key: 'customers', model: 'customer', dateField: 'createdAt' },
+            { key: 'jobs', model: 'job', dateField: 'createdAt' },
+            { key: 'locations', model: 'customer_location', dateField: 'createdAt' },
+            { key: 'departments', model: 'department', dateField: 'createdAt' },
+        ];
+
+        for (const mod of modules) {
+            try {
+                const whereClause = {
+                    ...this._getDateFilter(startDate, endDate, mod.dateField)
+                };
+
+                if (mod.relationFilter) {
+                    Object.assign(whereClause, mod.relationFilter);
+                } else {
+                    whereClause.company_id = company_id;
+                }
+
+                const count = await prisma[mod.model].count({
+                    where: whereClause
+                });
+                summary[mod.key] = count;
+            } catch (err) {
+                console.error(`Error counting ${mod.key}:`, err.message);
+                summary[mod.key] = 0;
+            }
+        }
+
+        return summary;
+    }
+
+    /**
      * Export Locations for a company.
      */
-    async exportLocations(company_id) {
+    async exportLocations(company_id, startDate, endDate) {
         const locations = await prisma.customer_location.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 customer: true,
             },
@@ -66,9 +142,12 @@ class ExportService {
     /**
      * Export Customers for a company.
      */
-    async exportCustomers(company_id) {
+    async exportCustomers(company_id, startDate, endDate) {
         const customers = await prisma.customer.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 customer_locations: true,
                 pos: true,
@@ -115,9 +194,12 @@ class ExportService {
     /**
      * Export Jobs for a company.
      */
-    async exportJobs(company_id) {
+    async exportJobs(company_id, startDate, endDate) {
         const jobs = await prisma.job.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 customer: { select: { customer_name: true } },
                 customer_location: { select: { location_name: true } },
@@ -164,9 +246,12 @@ class ExportService {
     /**
      * Export Departments for a company.
      */
-    async exportDepartments(company_id) {
+    async exportDepartments(company_id, startDate, endDate) {
         const departments = await prisma.department.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             orderBy: { createdAt: 'desc' },
         });
 
@@ -234,9 +319,12 @@ class ExportService {
     /**
      * Export MHC reports.
      */
-    async exportMHC(company_id) {
+    async exportMHC(company_id, startDate, endDate) {
         const reports = await prisma.material_heat_chart.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: { items: { orderBy: { sort_order: 'asc' } } },
             orderBy: { createdAt: 'desc' },
         });
@@ -326,47 +414,16 @@ class ExportService {
         return await excelGenerator.generateReport(sheets);
     }
 
-    /**
-     * Export QAP reports.
-     */
-    async exportQAP(company_id) {
-        const reports = await prisma.quality_assurance_plan.findMany({
-            where: { company_id },
-            include: { job: true },
-            orderBy: { createdAt: 'desc' },
-        });
-
-        const sheets = [
-            {
-                name: 'QAP Reports',
-                columns: [
-                    { header: 'Report No', key: 'report_no', width: 20 },
-                    { header: 'MSN', key: 'msn', width: 20 },
-                    { header: 'Client', key: 'client', width: 30 },
-                    { header: 'PO No', key: 'po_no', width: 20 },
-                    { header: 'Status', key: 'status', width: 15 },
-                    { header: 'Created Date', key: 'created_at', width: 25 },
-                ],
-                data: reports.map(r => ({
-                    report_no: r.report_no,
-                    msn: r.msn,
-                    client: r.client || 'N/A',
-                    po_no: r.po_no || 'N/A',
-                    status: r.status,
-                    created_at: r.createdAt.toLocaleString(),
-                })),
-            }
-        ];
-
-        return await excelGenerator.generateReport(sheets);
-    }
 
     /**
      * Export Hydro Test reports.
      */
-    async exportHydro(company_id) {
+    async exportHydro(company_id, startDate, endDate) {
         const reports = await prisma.hydrostatic_test_report.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 items: { orderBy: { sort_order: 'asc' } },
                 remarks: { orderBy: { sort_order: 'asc' } }
@@ -468,9 +525,12 @@ class ExportService {
     /**
      * Export Dish End Inspection reports.
      */
-    async exportDishEnd(company_id) {
+    async exportDishEnd(company_id, startDate, endDate) {
         const reports = await prisma.dish_end_inspection_report.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 items: { orderBy: { sr_no: 'asc' } },
                 instruments: true,
@@ -548,9 +608,12 @@ class ExportService {
     /**
      * Export Final Inspection reports.
      */
-    async exportFinalInspection(company_id) {
+    async exportFinalInspection(company_id, startDate, endDate) {
         const reports = await prisma.final_inspection_report.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 details: { orderBy: { sr_no: 'asc' } },
                 nozzles: { orderBy: { sr_no: 'asc' } },
@@ -663,9 +726,12 @@ class ExportService {
     /**
      * Export RFQ Register reports.
      */
-    async exportRFQRegister(company_id) {
+    async exportRFQRegister(company_id, startDate, endDate) {
         const reports = await prisma.rfq_register.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate, 'enq_date')
+            },
             include: {
                 items: { orderBy: { sr_no: 'asc' } },
                 creator: true
@@ -805,9 +871,12 @@ class ExportService {
     /**
      * Export Quality Assurance Plan (QAP) reports.
      */
-    async exportQAP(company_id) {
+    async exportQAP(company_id, startDate, endDate) {
         const plans = await prisma.quality_assurance_plan.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 items: { orderBy: { sort_order: 'asc' } }
             },
@@ -915,9 +984,12 @@ class ExportService {
     /**
      * Export Design Change Request (DCR) reports.
      */
-    async exportDCR(company_id) {
+    async exportDCR(company_id, startDate, endDate) {
         const dcrs = await prisma.dcr.findMany({
-            where: { company_id },
+            where: {
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 job: { select: { job_number: true } },
                 design_engineer: { select: { name: true } },
@@ -1000,9 +1072,12 @@ class ExportService {
     /**
      * Export Non-Conformance Reports (NCR) with all 5 stages.
      */
-    async exportNCR(company_id) {
+    async exportNCR(company_id, startDate, endDate) {
         const reports = await prisma.ncr.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate, 'date')
+            },
             include: {
                 job: { select: { job_number: true } },
                 initiator: { select: { name: true } },
@@ -1128,9 +1203,12 @@ class ExportService {
     /**
      * Export Weld Joint Plans with all joint details consolidated into single rows.
      */
-    async exportWeldJointPlan(company_id) {
+    async exportWeldJointPlan(company_id, startDate, endDate) {
         const plans = await prisma.weld_joint_plan.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
             include: {
                 job: {
                     include: {
@@ -1224,9 +1302,14 @@ class ExportService {
     /**
      * Export individual Weld Joints with full specifications and parent metadata.
      */
-    async exportWeldJoint(company_id) {
+    async exportWeldJoint(company_id, startDate, endDate) {
         const joints = await prisma.weld_joint.findMany({
-            where: { weld_joint_plan: { company_id } },
+            where: { 
+                weld_joint_plan: { 
+                    company_id,
+                    ...this._getDateFilter(startDate, endDate)
+                } 
+            },
             include: {
                 weld_joint_plan: {
                     include: {
@@ -1446,16 +1529,16 @@ class ExportService {
     /**
      * Generic Export with relationship awareness.
      */
-    async exportModule(moduleName, company_id) {
+    async exportModule(moduleName, company_id, startDate, endDate) {
         const modelName = moduleName.replace(/-/g, '_');
 
         // SPECIAL HANDLING FOR RFQ LOOKUPS & USERS
-        if (modelName === 'rfq_register') return this.exportRFQRegister(company_id);
-        if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id);
-        if (modelName === 'dcr') return this.exportDCR(company_id);
-        if (modelName === 'ncr') return this.exportNCR(company_id);
-        if (modelName === 'weld_joint_plan') return this.exportWeldJointPlan(company_id);
-        if (modelName === 'weld_joint') return this.exportWeldJoint(company_id);
+        if (modelName === 'rfq_register') return this.exportRFQRegister(company_id, startDate, endDate);
+        if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id, startDate, endDate);
+        if (modelName === 'dcr') return this.exportDCR(company_id, startDate, endDate);
+        if (modelName === 'ncr') return this.exportNCR(company_id, startDate, endDate);
+        if (modelName === 'weld_joint_plan') return this.exportWeldJointPlan(company_id, startDate, endDate);
+        if (modelName === 'weld_joint') return this.exportWeldJoint(company_id, startDate, endDate);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
         if (modelName === 'mode_of_enquiry') return this.exportRFQLookup(company_id, 'mode_of_enquiry', 'Mode of Enquiry');
         if (modelName === 'remark') return this.exportRFQLookup(company_id, 'remark', 'Remark Options');

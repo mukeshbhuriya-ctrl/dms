@@ -37,6 +37,12 @@ export const MENU_CONFIG = [
         roles: [ROLES.ADMIN],
     },
     {
+        title: "Reports Management",
+        icon: FileText,
+        path: "/admin/reports",
+        roles: [ROLES.ADMIN],
+    },
+    {
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",

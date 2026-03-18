@@ -2,12 +2,28 @@ const ExportService = require('../services/export.service');
 
 class ExportController {
     /**
+     * Get record count summary for all report modules.
+     */
+    async getReportSummary(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { startDate, endDate } = req.query;
+            const summary = await ExportService.getReportSummary(company_id, startDate, endDate);
+            res.status(200).json({ success: true, data: summary });
+        } catch (error) {
+            console.error("ExportController.getReportSummary Error:", error);
+            res.status(500).json({ success: false, message: "Failed to get report summary", error: error.message });
+        }
+    }
+
+    /**
      * Export Locations to Excel.
      */
     async exportLocations(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportLocations(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportLocations(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=locations_export.xlsx');
@@ -24,7 +40,8 @@ class ExportController {
     async exportCustomers(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportCustomers(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportCustomers(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=customers_export.xlsx');
@@ -41,7 +58,8 @@ class ExportController {
     async exportJobs(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportJobs(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportJobs(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=jobs_export.xlsx');
@@ -58,7 +76,8 @@ class ExportController {
     async exportDepartments(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportDepartments(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportDepartments(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=departments_export.xlsx');
@@ -75,7 +94,8 @@ class ExportController {
     async exportUsers(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportUsers(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportUsers(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=users_export.xlsx');
@@ -92,7 +112,8 @@ class ExportController {
     async exportMHC(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportMHC(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportMHC(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=mhc_export.xlsx');
@@ -109,7 +130,8 @@ class ExportController {
     async exportQAP(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportQAP(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportQAP(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=qap_export.xlsx');
@@ -126,7 +148,8 @@ class ExportController {
     async exportHydro(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportHydro(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportHydro(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=hydro_test_export.xlsx');
@@ -143,7 +166,8 @@ class ExportController {
     async exportDishEnd(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportDishEnd(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportDishEnd(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=dish_end_inspection_export.xlsx');
@@ -160,7 +184,8 @@ class ExportController {
     async exportFinalInspection(req, res) {
         try {
             const { company_id } = req.user;
-            const buffer = await ExportService.exportFinalInspection(company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportFinalInspection(company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', 'attachment; filename=final_inspection_export.xlsx');
@@ -178,7 +203,8 @@ class ExportController {
         try {
             const { moduleName } = req.params;
             const { company_id } = req.user;
-            const buffer = await ExportService.exportModule(moduleName, company_id);
+            const { startDate, endDate } = req.query;
+            const buffer = await ExportService.exportModule(moduleName, company_id, startDate, endDate);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename=${moduleName}_export.xlsx`);
