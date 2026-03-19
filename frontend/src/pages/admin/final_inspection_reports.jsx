@@ -95,16 +95,18 @@ function ListView({ onCreateClick, onEditClick }) {
   }
 
   const getStatusBadge = (status) => {
-    const s = status || "Pending"
+    const s = status?.trim()?.toLowerCase() || "pending"
     switch (s) {
-      case "Approved":
-        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Approved</span>
-      case "Rejected":
-        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">Rejected</span>
-      case "Pending":
-        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Pending</span>
+      case "approved":
+        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800 shadow-sm border border-green-200">Approved</span>
+      case "rejected":
+        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 shadow-sm border border-red-200">Rejected</span>
+      case "pending":
+        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800 shadow-sm border border-yellow-200">Pending</span>
+      case "draft":
+        return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 shadow-sm border border-blue-200">Draft</span>
       default:
-        return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">{s}</span>
+        return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800 shadow-sm border border-gray-200">{status || "Pending"}</span>
     }
   }
 
@@ -180,7 +182,8 @@ function ListView({ onCreateClick, onEditClick }) {
               variant="outline"
               size="sm"
               onClick={() => onEditClick(row.id)}
-              title="Edit">
+              disabled={row.status?.trim()?.toLowerCase() === "approved"}
+              title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
               <Edit className="h-4 w-4 mr-2" /> Edit
             </Button>
             {row.status === "Approved" && (
@@ -192,26 +195,6 @@ function ListView({ onCreateClick, onEditClick }) {
                 title="Download">
                 <Download className="h-4 w-4 mr-2" /> Download
               </Button>
-            )}
-            {canReview && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
-                  onClick={() => handleReviewClick(row, "Approved")}
-                  title="Approve">
-                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
-                  onClick={() => handleReviewClick(row, "Rejected")}
-                  title="Reject">
-                  <XCircle className="h-4 w-4 mr-2" /> Reject
-                </Button>
-              </>
             )}
           </div>
         )
