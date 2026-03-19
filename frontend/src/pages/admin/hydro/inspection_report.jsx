@@ -47,6 +47,8 @@ function ListView({ onCreateClick, onEditClick }) {
   const [error, setError] = useState("")
 
   const { user, roles } = useAuth()
+  const isAdmin = roles?.includes("ADMIN");
+  const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // Review Dialog State
@@ -160,7 +162,7 @@ function ListView({ onCreateClick, onEditClick }) {
       header: "Actions",
       cell: (row) => {
         const isAssignedQE = row.quality_engineer_id === user?.id
-        const isQE = roles?.includes("QE") || roles?.includes("QUALITY_ENGINEER")
+        const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER")
         const canReview = (isQE || isAssignedQE) && row.status !== "Approved" && row.status !== "Rejected"
 
         return (
@@ -239,10 +241,12 @@ function ListView({ onCreateClick, onEditClick }) {
           <h1 className="text-3xl font-bold mb-1">Dish End Inspection Reports</h1>
           <p className="text-muted-foreground">View and manage all dish end inspection reports.</p>
         </div>
-        <Button onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create
-        </Button>
+        {(isAdmin || !isQE) && (
+          <Button onClick={onCreateClick}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create
+          </Button>
+        )}
       </div>
 
       {error && (
