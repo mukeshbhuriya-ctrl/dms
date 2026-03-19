@@ -542,46 +542,7 @@ class DccService {
             })
         ]);
 
-        // Calculate Dynamic Status (Upload Due / Response Due)
-        const EnhancedData = data.map(doc => {
-            // If filtering by rejected, expose the rejected version details
-            if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
-                const rejectedVersion = doc.versions[0];
-                if (rejectedVersion) {
-                    doc.status = rejectedVersion.status;
-                    doc.updatedAt = rejectedVersion.createdAt; // Use version date
-                }
-            }
-
-            const now = new Date();
-            const created = new Date(doc.createdAt);
-
-            // Logic for "Upload Due"
-            // If status is "Pending" (not uploaded) and time since creation > upload_due_days
-            if (doc.status === 'Pending' && doc.upload_due_days) {
-                const uploadDeadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
-                if (now > uploadDeadline) {
-                    doc.status = 'Upload Due';
-                    // Optional: doc.isOverdue = true;
-                }
-            }
-
-            // Logic for "Response Due"
-            // If status is "Uploaded" (waiting for approval) and time since upload > response_due_days
-            // We need the date of the last upload (version creation date)
-            if (doc.status === 'Uploaded' && doc.response_due_days) {
-                const lastVersion = doc.versions[0];
-                if (lastVersion) {
-                    const uploadedAt = new Date(lastVersion.createdAt);
-                    const responseDeadline = new Date(uploadedAt.getTime() + (doc.response_due_days * 24 * 60 * 60 * 1000));
-                    if (now > responseDeadline) {
-                        doc.status = 'Response Due';
-                    }
-                }
-            }
-
-            return doc;
-        });
+        const EnhancedData = this._enhanceWithDueStatuses(data, params);
 
         return { data: EnhancedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
@@ -647,7 +608,8 @@ class DccService {
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const EnhancedData = this._enhanceWithDueStatuses(data, params);
+        return { data: EnhancedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
 
@@ -832,43 +794,7 @@ class DccService {
             });
         }
 
-        // Calculate Dynamic Status (Upload Due / Response Due)
-        const EnhancedData = processingData.map(doc => {
-            // If filtering by rejected, expose the rejected version details
-            if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
-                const rejectedVersion = doc.versions[0];
-                if (rejectedVersion) {
-                    doc.status = rejectedVersion.status;
-                    doc.updatedAt = rejectedVersion.createdAt; // Use version date
-                    // Note: Remarks are already pulled from versions[0] in frontend
-                }
-            }
-
-            const now = new Date();
-            const created = new Date(doc.createdAt); // Assignment date
-
-            // Logic for "Upload Due"
-            if (doc.status === 'Pending' && doc.upload_due_days) {
-                const uploadDeadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
-                if (now > uploadDeadline) {
-                    doc.status = 'Upload Due';
-                }
-            }
-
-            // Logic for "Response Due"
-            if (doc.status === 'Uploaded' && doc.response_due_days) {
-                const lastVersion = doc.versions[0];
-                if (lastVersion) {
-                    const uploadedAt = new Date(lastVersion.createdAt);
-                    const responseDeadline = new Date(uploadedAt.getTime() + (doc.response_due_days * 24 * 60 * 60 * 1000));
-                    if (now > responseDeadline) {
-                        doc.status = 'Response Due';
-                    }
-                }
-            }
-
-            return doc;
-        });
+        const EnhancedData = this._enhanceWithDueStatuses(processingData, params);
 
         // Note: total might optionally be adjusted if we want precise pagination metadata, 
         // but since this is usually limited to 1000/one-page for creation, keeping original count is acceptable or we accept slight mismatch.
@@ -1421,6 +1347,51 @@ class DccService {
             }
 
             return updatedGroupDoc;
+        });
+    }
+
+    /**
+     * Helper to calculate "Upload Due" and "Response Due" statuses
+     * @private
+     */
+    _enhanceWithDueStatuses(docs, params = {}) {
+        const { approver_status_filter } = params;
+        const now = new Date();
+
+        return docs.map(doc => {
+            // 1. Handle Rejected status (flatten version status if filtering by rejected)
+            if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
+                const rejectedVersion = doc.versions[0];
+                if (rejectedVersion) {
+                    doc.status = rejectedVersion.status;
+                    doc.updatedAt = rejectedVersion.createdAt; 
+                }
+            }
+
+            // 2. Logic for "Upload Due"
+            // If Pending and deadline passed since assignment (createdAt)
+            if (doc.status === 'Pending' && doc.upload_due_days) {
+                const created = new Date(doc.createdAt);
+                const uploadDeadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
+                if (now > uploadDeadline) {
+                    doc.status = 'Upload Due';
+                }
+            }
+
+            // 3. Logic for "Response Due"
+            // If Uploaded and deadline passed since the last upload
+            if (doc.status === 'Uploaded' && doc.response_due_days) {
+                const lastVersion = doc.versions[0];
+                if (lastVersion) {
+                    const uploadedAt = new Date(lastVersion.createdAt);
+                    const responseDeadline = new Date(uploadedAt.getTime() + (doc.response_due_days * 24 * 60 * 60 * 1000));
+                    if (now > responseDeadline) {
+                        doc.status = 'Response Due';
+                    }
+                }
+            }
+
+            return doc;
         });
     }
 }

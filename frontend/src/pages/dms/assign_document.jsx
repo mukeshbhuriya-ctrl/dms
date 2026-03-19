@@ -78,6 +78,21 @@ function AssignDocument() {
       cell: (row) => row.user?.name || "Unassigned",
     },
     {
+      accessorKey: "createdAt",
+      header: "Created At",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+    {
+      accessorKey: "upload_due_days",
+      header: "Upload Due Days",
+      cell: (row) => row.upload_due_days || "-",
+    },
+    {
+      accessorKey: "response_due_days",
+      header: "Response Due Days",
+      cell: (row) => row.response_due_days || "-",
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: (row) => (
@@ -85,7 +100,9 @@ function AssignDocument() {
           ${row.status === 'Approved' ? 'bg-green-100 text-green-800' :
             row.status === 'Rejected' ? 'bg-red-100 text-red-800' :
               row.status === 'Uploaded' ? 'bg-blue-100 text-blue-800' :
-                'bg-yellow-100 text-yellow-800'}`}>
+                row.status === 'Upload Due' ? 'bg-red-100 text-red-800 border border-red-200' :
+                  row.status === 'Response Due' ? 'bg-orange-100 text-orange-800 border border-orange-200' :
+                    'bg-yellow-100 text-yellow-800'}`}>
           {row.status}
         </span>
       ),
@@ -340,24 +357,24 @@ function AssignDocument() {
       if (isSelected) {
         // Remove from details too
         setDocumentDetails(detailsPrev => {
-            const next = { ...detailsPrev };
-            delete next[document.id];
-            return next;
+          const next = { ...detailsPrev };
+          delete next[document.id];
+          return next;
         });
         return prev.filter((doc) => doc.id !== document.id)
       } else {
         // Add to details with defaults
         setDocumentDetails(detailsPrev => ({
-            ...detailsPrev,
-            [document.id]: {
-                shrenoDocumentNo: "",
-                shrenoReferenceNo: "",
-                clientDocumentNo: "",
-                clientReferenceNo: "",
-                assignUserId: "",
-                uploadDueDays: "",
-                responseDueDays: "",
-            }
+          ...detailsPrev,
+          [document.id]: {
+            shrenoDocumentNo: "",
+            shrenoReferenceNo: "",
+            clientDocumentNo: "",
+            clientReferenceNo: "",
+            assignUserId: "",
+            uploadDueDays: "",
+            responseDueDays: "",
+          }
         }));
         return [...prev, document]
       }
@@ -372,21 +389,21 @@ function AssignDocument() {
     } else {
       setSelectedDocuments([...filteredDocuments])
       setDocumentDetails(prev => {
-          const next = { ...prev };
-          filteredDocuments.forEach(doc => {
-              if (!next[doc.id]) {
-                  next[doc.id] = {
-                    shrenoDocumentNo: "",
-                    shrenoReferenceNo: "",
-                    clientDocumentNo: "",
-                    clientReferenceNo: "",
-                    assignUserId: "",
-                    uploadDueDays: "",
-                    responseDueDays: "",
-                  };
-              }
-          });
-          return next;
+        const next = { ...prev };
+        filteredDocuments.forEach(doc => {
+          if (!next[doc.id]) {
+            next[doc.id] = {
+              shrenoDocumentNo: "",
+              shrenoReferenceNo: "",
+              clientDocumentNo: "",
+              clientReferenceNo: "",
+              assignUserId: "",
+              uploadDueDays: "",
+              responseDueDays: "",
+            };
+          }
+        });
+        return next;
       });
     }
   }
@@ -394,7 +411,7 @@ function AssignDocument() {
   const handleEditAssign = (row) => {
     setEditingId(row.id)
     setView("assign")
-    
+
     // Set form data
     setFormData({
       customerId: row.customer_id,
@@ -405,23 +422,23 @@ function AssignDocument() {
 
     // Set selected document
     const doc = {
-        ...row.document,
-        // Ensure properties match expected structure in step 2
-        id: row.document_id 
+      ...row.document,
+      // Ensure properties match expected structure in step 2
+      id: row.document_id
     }
     setSelectedDocuments([doc])
 
     // Set document details
     setDocumentDetails({
-        [doc.id]: {
-            shrenoDocumentNo: row.shreno_doc_no || "",
-            shrenoReferenceNo: row.shreno_reference_no || "",
-            clientDocumentNo: row.client_doc_no || "",
-            clientReferenceNo: row.client_reference_no || "",
-            assignUserId: row.user_id || "",
-            uploadDueDays: row.upload_due_days || "",
-            responseDueDays: row.response_due_days || "",
-        }
+      [doc.id]: {
+        shrenoDocumentNo: row.shreno_doc_no || "",
+        shrenoReferenceNo: row.shreno_reference_no || "",
+        clientDocumentNo: row.client_doc_no || "",
+        clientReferenceNo: row.client_reference_no || "",
+        assignUserId: row.user_id || "",
+        uploadDueDays: row.upload_due_days || "",
+        responseDueDays: row.response_due_days || "",
+      }
     });
 
     // View switch is enough
@@ -442,10 +459,10 @@ function AssignDocument() {
 
   // Handle back to selection
   const handleBack = () => {
-      setView("list")
-      setEditingId(null)
-      setSelectedDocuments([])
-      setDocumentDetails({})
+    setView("list")
+    setEditingId(null)
+    setSelectedDocuments([])
+    setDocumentDetails({})
   }
 
   // Handle customer change
@@ -575,15 +592,15 @@ function AssignDocument() {
         headers,
         credentials: "include",
         body: JSON.stringify(editingId ? {
-            ...requestBody,
-            document_id: documents[0].document_id,
-            assign_user_id: documents[0].assign_user_id,
-            shreno_document_no: documents[0].shreno_document_no,
-            shreno_reference_no: documents[0].shreno_reference_no,
-            client_document_no: documents[0].client_document_no,
-            client_reference_no: documents[0].client_reference_no,
-            upload_due_days: documents[0].upload_due_days,
-            response_due_days: documents[0].response_due_days
+          ...requestBody,
+          document_id: documents[0].document_id,
+          assign_user_id: documents[0].assign_user_id,
+          shreno_document_no: documents[0].shreno_document_no,
+          shreno_reference_no: documents[0].shreno_reference_no,
+          client_document_no: documents[0].client_document_no,
+          client_reference_no: documents[0].client_reference_no,
+          upload_due_days: documents[0].upload_due_days,
+          response_due_days: documents[0].response_due_days
         } : requestBody),
       })
 
@@ -665,8 +682,8 @@ function AssignDocument() {
               <div>
                 {view === "list" ? (
                   <Button onClick={() => {
-                      setEditingId(null)
-                      setView("assign")
+                    setEditingId(null)
+                    setView("assign")
                   }}>
                     <Plus className="mr-2 h-4 w-4" /> Assign Documents
                   </Button>
@@ -914,37 +931,37 @@ function AssignDocument() {
                                 />
                               </TableHead>
                               <TableHead className="w-[50px]">S.No</TableHead>
-                                <TableHead>Document Code</TableHead>
-                                <TableHead>Document Name</TableHead>
-                                <TableHead>Document Type</TableHead>
+                              <TableHead>Document Code</TableHead>
+                              <TableHead>Document Name</TableHead>
+                              <TableHead>Document Type</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {filteredDocuments.length > 0 ? (
-                                filteredDocuments.map((doc, idx) => (
-                                  <TableRow key={doc.id} className={selectedDocuments.some(s => s.id === doc.id) ? "bg-muted/50" : ""}>
-                                    <TableCell>
-                                      <Checkbox
-                                        checked={selectedDocuments.some(s => s.id === doc.id)}
-                                        onCheckedChange={() => handleDocumentToggle(doc)}
-                                      />
-                                    </TableCell>
-                                    <TableCell>{idx + 1}</TableCell>
-                                    <TableCell className="font-medium">{doc.document_number || doc.documentCode}</TableCell>
-                                    <TableCell>{doc.document_name || doc.documentName}</TableCell>
-                                    <TableCell>
-                                      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                        {doc.document_type?.name || doc.documentType || "N/A"}
-                                      </span>
-                                    </TableCell>
-                                  </TableRow>
-                                ))
-                              ) : (
-                                <TableRow>
-                                  <TableCell colSpan={5} className="h-24 text-center">
-                                    No documents found matching your search criteria.
+                              filteredDocuments.map((doc, idx) => (
+                                <TableRow key={doc.id} className={selectedDocuments.some(s => s.id === doc.id) ? "bg-muted/50" : ""}>
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedDocuments.some(s => s.id === doc.id)}
+                                      onCheckedChange={() => handleDocumentToggle(doc)}
+                                    />
+                                  </TableCell>
+                                  <TableCell>{idx + 1}</TableCell>
+                                  <TableCell className="font-medium">{doc.document_number || doc.documentCode}</TableCell>
+                                  <TableCell>{doc.document_name || doc.documentName}</TableCell>
+                                  <TableCell>
+                                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                                      {doc.document_type?.name || doc.documentType || "N/A"}
+                                    </span>
                                   </TableCell>
                                 </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">
+                                  No documents found matching your search criteria.
+                                </TableCell>
+                              </TableRow>
                             )}
                           </TableBody>
                         </Table>
@@ -982,8 +999,8 @@ function AssignDocument() {
                             {selectedDocuments.map((doc, idx) => {
                               const details = documentDetails[doc.id] || {}
                               const userSearch = userSearchQueries[doc.id] || ""
-                              const filteredUsers = users.filter(u => 
-                                u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
+                              const filteredUsers = users.filter(u =>
+                                u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
                                 u.email?.toLowerCase().includes(userSearch.toLowerCase())
                               )
 
@@ -998,53 +1015,53 @@ function AssignDocument() {
                                     </span>
                                   </TableCell>
                                   <TableCell>
-                                    <Input 
-                                      placeholder="Enter Shreno Doc No" 
-                                      value={details.shrenoDocumentNo} 
-                                      onChange={e => handleDetailChange(doc.id, 'shrenoDocumentNo', e.target.value)} 
+                                    <Input
+                                      placeholder="Enter Shreno Doc No"
+                                      value={details.shrenoDocumentNo}
+                                      onChange={e => handleDetailChange(doc.id, 'shrenoDocumentNo', e.target.value)}
                                       className="w-full"
                                     />
                                   </TableCell>
                                   <TableCell>
-                                    <Input 
-                                      placeholder="Enter Shreno Ref No" 
-                                      value={details.shrenoReferenceNo} 
-                                      onChange={e => handleDetailChange(doc.id, 'shrenoReferenceNo', e.target.value)} 
+                                    <Input
+                                      placeholder="Enter Shreno Ref No"
+                                      value={details.shrenoReferenceNo}
+                                      onChange={e => handleDetailChange(doc.id, 'shrenoReferenceNo', e.target.value)}
                                       className="w-full"
                                     />
                                   </TableCell>
                                   <TableCell>
-                                    <Input 
-                                      placeholder="Enter Client Doc No" 
-                                      value={details.clientDocumentNo} 
-                                      onChange={e => handleDetailChange(doc.id, 'clientDocumentNo', e.target.value)} 
+                                    <Input
+                                      placeholder="Enter Client Doc No"
+                                      value={details.clientDocumentNo}
+                                      onChange={e => handleDetailChange(doc.id, 'clientDocumentNo', e.target.value)}
                                       className="w-full"
                                     />
                                   </TableCell>
                                   <TableCell>
-                                    <Input 
-                                      placeholder="Enter Client Ref No" 
-                                      value={details.clientReferenceNo} 
-                                      onChange={e => handleDetailChange(doc.id, 'clientReferenceNo', e.target.value)} 
+                                    <Input
+                                      placeholder="Enter Client Ref No"
+                                      value={details.clientReferenceNo}
+                                      onChange={e => handleDetailChange(doc.id, 'clientReferenceNo', e.target.value)}
                                       className="w-full"
                                     />
                                   </TableCell>
                                   <TableCell>
-                                    <Input 
-                                      type="number" 
-                                      placeholder="Enter days" 
-                                      value={details.uploadDueDays} 
-                                      onChange={e => handleDetailChange(doc.id, 'uploadDueDays', e.target.value)} 
+                                    <Input
+                                      type="number"
+                                      placeholder="Enter days"
+                                      value={details.uploadDueDays}
+                                      onChange={e => handleDetailChange(doc.id, 'uploadDueDays', e.target.value)}
                                       className="w-full"
                                       min="0"
                                     />
                                   </TableCell>
                                   <TableCell>
-                                    <Input 
-                                      type="number" 
-                                      placeholder="Enter days" 
-                                      value={details.responseDueDays} 
-                                      onChange={e => handleDetailChange(doc.id, 'responseDueDays', e.target.value)} 
+                                    <Input
+                                      type="number"
+                                      placeholder="Enter days"
+                                      value={details.responseDueDays}
+                                      onChange={e => handleDetailChange(doc.id, 'responseDueDays', e.target.value)}
                                       className="w-full"
                                       min="0"
                                     />
@@ -1058,8 +1075,8 @@ function AssignDocument() {
                                         <div className="p-2">
                                           <div className="relative mb-2">
                                             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input 
-                                              placeholder="Search users..." 
+                                            <Input
+                                              placeholder="Search users..."
                                               value={userSearch}
                                               onChange={e => setUserSearchQueries(prev => ({ ...prev, [doc.id]: e.target.value }))}
                                               onKeyDown={e => e.stopPropagation()}

@@ -75,6 +75,21 @@ function UploadDocument() {
             accessorKey: "jobNo"
         },
         {
+            header: "Created At",
+            accessorKey: "createdAt",
+            cell: (row) => new Date(row.createdAt).toLocaleDateString()
+        },
+        {
+            header: "Upload Due Days",
+            accessorKey: "upload_due_days",
+            cell: (row) => row.upload_due_days || "-"
+        },
+        {
+            header: "Response Due Days",
+            accessorKey: "response_due_days",
+            cell: (row) => row.response_due_days || "-"
+        },
+        {
             header: "Status",
             accessorKey: "status",
             cell: (row) => getStatusBadge(row.status)
@@ -164,6 +179,9 @@ function UploadDocument() {
                     else if (doc.status === 'Rejected') approverStatus = 'rejected';
 
                     const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+                    
+                    // Business Logic: If backend says "Upload Due" or "Response Due", use that for the main status display
+                    const displayStatus = (doc.status === 'Upload Due' || doc.status === 'Response Due') ? doc.status : status;
 
                     return {
                         id: doc.id,
@@ -171,8 +189,11 @@ function UploadDocument() {
                         documentName: doc.document.document_name,
                         documentNumber: doc.document.document_number,
                         jobNo: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || doc.job?.job_number || 'N/A',
-                        status: status,
+                        status: displayStatus,
                         approverStatus: approverStatus,
+                        createdAt: doc.createdAt,
+                        upload_due_days: doc.upload_due_days,
+                        response_due_days: doc.response_due_days,
                         originalStatus: doc.status,
                         doc: doc,
                         remarks: latestVersion?.remarks || '-'
@@ -195,6 +216,20 @@ function UploadDocument() {
             return (
                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                     Done
+                </span>
+            )
+        }
+        if (status === "Upload Due") {
+            return (
+                <span className="inline-flex items-center rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-600 dark:text-red-400">
+                    Upload Due
+                </span>
+            )
+        }
+        if (status === "Response Due") {
+            return (
+                <span className="inline-flex items-center rounded-full bg-orange-500/10 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:text-orange-400">
+                    Response Due
                 </span>
             )
         }
