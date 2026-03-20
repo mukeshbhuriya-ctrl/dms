@@ -210,7 +210,34 @@ async function me(req, res) {
   }
 }
 
+/**
+ * Logout API - Clear authentication cookie
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function logout(req, res) {
+  try {
+    res.clearCookie('token', {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful',
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+}
+
 module.exports = {
   login,
   me,
+  logout,
 };
