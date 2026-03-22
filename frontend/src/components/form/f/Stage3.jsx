@@ -134,7 +134,7 @@ function Stage3F({ initialData, inspectionData, isReview = false, stage = "stage
         fetchNdtEngineers()
     }, [])
 
-    const getCategoryKey = () => 'f';
+    const getCategoryKey = () => initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'f';
 
     useEffect(() => {
         if (inspectionData) {

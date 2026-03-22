@@ -133,7 +133,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                     const rawBasic = typeof inspData.data_json === 'string'
                         ? JSON.parse(inspData.data_json)
                         : inspData.data_json;
-                    const basicInfo = rawBasic?.cd || {};
+                    const basicInfo = rawBasic?.[initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd'] || {};
 
                     setInputFields(prev => ({
                         ...prev,
@@ -151,10 +151,14 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
 
             if (inspData.s4_qc_eng_id) setQcEngineer(inspData.s4_qc_eng_id);
 
+            // Flat columns from reconstructed inspection object (new schema)
+            if (inspData.s4_prod_eng_name) setProductionEngineerName(inspData.s4_prod_eng_name);
+
             if (inspData.s4_data) {
                 try {
                     const rawData = typeof inspData.s4_data === 'string' ? JSON.parse(inspData.s4_data) : inspData.s4_data;
-                    const s4Data = rawData?.cd?.s4 || rawData?.cd || rawData || {}; // Nested key s4
+                    const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
+                    const s4Data = rawData?.[catKey]?.s4 || rawData?.[catKey] || rawData || {};
 
                     if (s4Data.productionEngineerName) setProductionEngineerName(s4Data.productionEngineerName);
                     if (s4Data.submissionDate) setTodayDate(s4Data.submissionDate);
@@ -162,16 +166,16 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
 
                     setFormData(prev => ({
                         ...prev,
-                        tackWelder: s4Data.tackWelder || "TW-001",
+                        tackWelder: s4Data.tackWelder || "",
                         materialId: s4Data.materialId || "",
-                        lSeamNdt: s4Data.lSeamNdt || "Not Applicable",
-                        cleaning: s4Data.cleaning || "OK",
-                        grooveAngle: s4Data.grooveAngle || "35°",
-                        rootFace: s4Data.rootFace || "2mm",
-                        rootGap: s4Data.rootGap || "3mm",
-                        projection: s4Data.projection || "10mm",
-                        pcdHole: s4Data.pcdHole || "ON center",
-                        rfPad: s4Data.rfPad || "Not Applicable",
+                        lSeamNdt: s4Data.lSeamNdt || "",
+                        cleaning: s4Data.cleaning || "",
+                        grooveAngle: s4Data.grooveAngle || "",
+                        rootFace: s4Data.rootFace || "",
+                        rootGap: s4Data.rootGap || "",
+                        projection: s4Data.projection || "",
+                        pcdHole: s4Data.pcdHole || "",
+                        rfPad: s4Data.rfPad || "",
                         date: s4Data.date || prev.date
                     }));
                 } catch (e) { console.error("Error parsing s4_data", e) }
@@ -225,7 +229,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
 
             const finalData = {
                 ...existingData,
-                cd: {
+                [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                     ...existingData?.cd,
                     s4: currentStageData
                 }
@@ -295,7 +299,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                 };
                 const finalData = {
                     ...existingData,
-                    cd: {
+                    [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                         ...existingData?.cd,
                         s4: currentStageData
                     }

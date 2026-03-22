@@ -129,7 +129,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                     const rawBasic = typeof inspData.data_json === 'string'
                         ? JSON.parse(inspData.data_json)
                         : inspData.data_json;
-                    const basicInfo = rawBasic?.cd || {}; // Key is 'cd' for this category
+                    const basicInfo = rawBasic?.[initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd'] || {}; // Key is 'cd' for this category
 
                     setInputFields(prev => ({
                         ...prev,
@@ -147,12 +147,16 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
 
             if (inspData.s3_qc_eng_id) setQcEngineer(inspData.s3_qc_eng_id);
 
+            // Flat columns from reconstructed inspection object (new schema)
+            if (inspData.s3_prod_eng_name) setProductionEngineerName(inspData.s3_prod_eng_name);
+
             if (inspData.s3_data) {
                 try {
                     const rawData = typeof inspData.s3_data === 'string' ? JSON.parse(inspData.s3_data) : inspData.s3_data;
-                    // Nested key: { cd: { s3: ... } }
-                    const s3Data = rawData?.cd?.s3 || rawData?.cd || rawData || {};
+                    const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
+                    const s3Data = rawData?.[catKey]?.s3 || rawData?.[catKey] || rawData || {};
 
+                    // Override with JSON values if present (they take precedence for review display)
                     if (s3Data.productionEngineerName) setProductionEngineerName(s3Data.productionEngineerName);
                     if (s3Data.submissionDate) setTodayDate(s3Data.submissionDate);
                     // Legacy check if saved inside JSON
@@ -218,10 +222,10 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                 existingData = typeof inspData.s3_data === 'string' ? JSON.parse(inspData.s3_data) : inspData.s3_data;
             }
 
-            // Structure: { cd: { s3: ... } }
+            // Structure: { [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: { s3: ... } }
             const finalData = {
                 ...existingData,
-                cd: {
+                [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                     ...existingData?.cd,
                     s3: currentStageData
                 }
@@ -294,7 +298,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                 };
                 const finalData = {
                     ...existingData,
-                    cd: {
+                    [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                         ...existingData?.cd,
                         s3: currentStageData
                     }

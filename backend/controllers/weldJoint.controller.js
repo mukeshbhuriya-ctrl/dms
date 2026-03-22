@@ -12,28 +12,8 @@ async function generateStageReport(req, res) {
     try {
         const { jointId, stage } = req.params;
 
-        // Fetch Joint Details with Inspection Data
-        const joint = await prisma.weld_joint.findUnique({
-            where: { id: jointId },
-            include: {
-                weld_joint_plan: {
-                    include: {
-                        job: {
-                            select: {
-                                job_number: true,
-                                project_id: true,
-                                equipement_name: true,
-                                tag_number: true,
-                                code: true,
-                                customer: { select: { customer_name: true } },
-                                po: { select: { po_number: true } }
-                            }
-                        }
-                    }
-                },
-                weld_joint_inspection: true
-            }
-        });
+        // Fetch Joint Details with Inspection Data reconstructed functionally
+        const joint = await weldJointService.getWeldJointWithInspection(jointId);
 
         if (!joint) {
             return res.status(404).json({ success: false, message: 'Weld Joint not found' });
@@ -42,18 +22,34 @@ async function generateStageReport(req, res) {
         const insp = joint.weld_joint_inspection || {};
         const plan = joint.weld_joint_plan || {};
         const job = plan.job || {};
-        const categoryKey = (joint.joint_type === 'C' || joint.joint_type === 'D') ? 'cd' :
-            (joint.joint_type === 'F') ? 'f' : 'ab';
+        const jt = joint.joint_type ? joint.joint_type.toUpperCase() : 'A';
+
+        // Data lookup key: individual key stored in JSON (a, b, c, d, f)
+        const categoryKey = jt.toLowerCase();
+
+        // PDF template group: determines which generator and stage template to use
+        const jointTypeGroup = ['C', 'D'].includes(jt) ? 'cd' : (jt === 'F' ? 'f' : 'ab');
+
+        // Stage list per category: must match pdfGeneratorCD's stageOrder logic
+        // C: stage1, 2, 7, 8 (no nozzle/set-up stages - skips 3-6)
+        // D: all 8 stages
+        // F: stage1-4
+        // A/B: stage1-7 (no stage8)
+        const stagesByCategory = {
+            'c': ['stage1', 'stage2', 'stage7', 'stage8'],
+            'd': ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'],
+            'f': ['stage1', 'stage2', 'stage3', 'stage4'],
+            'a': ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'],
+            'b': ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'],
+        };
 
         if (stage === 'all') {
             const allStagesData = {};
-            const stages = categoryKey === 'f'
-                ? ['stage1', 'stage2', 'stage3', 'stage4']
-                : ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'];
+            const stages = stagesByCategory[categoryKey] || stagesByCategory['a'];
 
             await Promise.all(stages.map(async (sKey) => {
                 const sPrefix = sKey.replace('stage', 's');
-                // Only include if status exists (meaning started) or if it's stage 1 (always)
+                // Only include if status exists (meaning stage was started) or it's stage 1 (always)
                 if (insp[`${sPrefix}_status`] || sKey === 'stage1') {
                     allStagesData[sKey] = await extractStageData(insp, plan, job, joint, sKey, categoryKey);
                 }
@@ -63,9 +59,9 @@ async function generateStageReport(req, res) {
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${joint.joint_no}_${dateTime}.pdf`);
 
-            if (categoryKey === 'cd') {
+            if (jointTypeGroup === 'cd') {
                 pdfGeneratorCD.generateReport(allStagesData, res);
-            } else if (categoryKey === 'f') {
+            } else if (jointTypeGroup === 'f') {
                 pdfGeneratorF.generateReport(allStagesData, res);
             } else {
                 pdfGenerator.generateCompleteReport(allStagesData, res);

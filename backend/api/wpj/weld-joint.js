@@ -285,64 +285,32 @@ async function getWeldJointPlanDetails(req, res) {
     }
 }
 
+const weldJointService = require('../../services/weldJoint.service.js');
+
 /**
  * Get All Weld Joints API
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getWeldJoints(req, res) {
     try {
         const company_id = req.user.company_id;
+        const { page, limit, search, status, sortBy, sortOrder } = req.query;
 
-        const joints = await prisma.weld_joint.findMany({
-            where: {
-                weld_joint_plan: {
-                    company_id: company_id
-                }
-            },
-            include: {
-                weld_joint_plan: {
-                    include: {
-                        job: {
-                            select: {
-                                job_number: true,
-                                project_id: true,
-                                equipement_name: true,
-                                tag_number: true,
-                                code: true,
-                                customer: {
-                                    select: {
-                                        customer_name: true
-                                    }
-                                },
-                                po: {
-                                    select: {
-                                        po_number: true
-                                    }
-                                }
-                            }
-                        },
-                    }
-                },
-                weld_joint_inspection: true
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
+        const result = await weldJointService.findAll(company_id, {
+            page, limit, search, status, sortBy, sortOrder
+        }, {
+            userId: req.user.userid || req.user.id,
+            roles: req.user.role || req.user.roles || []
         });
 
         res.status(200).json({
             success: true,
             message: 'Weld Joints fetched successfully',
-            data: joints
+            data: result.data,
+            meta: result.meta
         });
     } catch (error) {
         console.error('Get weld joints error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        });
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 }
 
@@ -351,179 +319,21 @@ async function getWeldJoints(req, res) {
  */
 async function updateStageStatus(req, res) {
     try {
-        const { jointId, stage, status, data, engineerId, role, basicInfo } = req.body; // role: 'PROD', 'QC', 'NDT'
-
-        // Basic validation
-        if (!jointId || !stage || !status) {
-            return res.status(400).json({ success: false, message: 'Missing required fields' });
-        }
-
-        // Map stage to DB fields
-        const stagePrefix = {
-            'stage1': 's1',
-            'stage2': 's2',
-            'stage3': 's3',
-            'stage4': 's4',
-            'stage5': 's5',
-            'stage6': 's6',
-            'stage7': 's7',
-            'stage8': 's8'
-        }[stage];
-
-        if (!stagePrefix) {
-            return res.status(400).json({ success: false, message: 'Invalid stage' });
-        }
-
-        // Construct update data
-        const updateData = {
-            [`${stagePrefix}_status`]: status,
-        };
-
-        if (data) {
-            // Save Stage Data (Nested JSON: { ab: { s1: ... }, cd: { s1: ... } })
-            updateData[`${stagePrefix}_data`] = data;
-        }
-
-        // Handle Basic Info for data_json
-        if (basicInfo) {
-            const currentInspection = await prisma.weld_joint_inspection.findUnique({
-                where: { weld_joint_id: jointId },
-                select: { data_json: true }
-            });
-
-            const existingDataJson = currentInspection?.data_json || {};
-            const newDataJson = { ...existingDataJson };
-
-            // Merge Basic Info ({ ab: { ... }, cd: { ... } })
-            // We assume basicInfo is structured as { ab: {...}, cd: {...} }
-            ['ab', 'cd', 'f'].forEach(category => {
-                if (basicInfo[category]) {
-                    newDataJson[category] = {
-                        ...(newDataJson[category] || {}),
-                        ...basicInfo[category]
-                    };
-                }
-            });
-
-            updateData.data_json = newDataJson;
-        }
-
-        if (status === 'approved' || status === 'completed') {
-            updateData[`${stagePrefix}_approved_at`] = new Date();
-        }
-
-        if (status === 'rejected') {
-            updateData[`${stagePrefix}_rejected_at`] = new Date();
-            updateData[`${stagePrefix}_approved_at`] = null;
-        }
-
-        if (status === 'pending') {
-            updateData[`${stagePrefix}_submitted_at`] = new Date();
-        }
-
-        // Handle Engineer IDs based on role/stage
-        if (role === 'PROD') {
-            updateData[`${stagePrefix}_prod_eng_id`] = engineerId;
-        } else if (role === 'QC' || role === 'NDT') {
-            // All non-PROD roles now write to qc_eng_id as per request
-            // "update schema x_ndt_eng_id to x_qc_eng_id"
-            updateData[`${stagePrefix}_qc_eng_id`] = engineerId;
-        }
-
-        // Map Assigned Engineers from data if present (for stages where PROD assigns NDT/QC)
-        if (data) {
-            // We need to look inside the nested structure { ab: { ... } }
-            // This is a bit tricky as 'data' keys are dynamic ('ab', 'cd').
-            // Helper to find assigned IDs in any category
-            const findAssignedId = (key) => {
-                if (data.ab && data.ab[key]) return data.ab[key];
-                if (data.cd && data.cd[key]) return data.cd[key];
-                if (data.f && data.f[key]) return data.f[key]; // Added support for Category F
-
-                const checkObj = (obj) => {
-                    if (!obj) return null;
-                    if (obj[key]) return obj[key];
-                    // Check stage sub-key if exists
-                    if (obj[stagePrefix] && obj[stagePrefix][key]) return obj[stagePrefix][key];
-                    return null;
-                };
-                return checkObj(data.ab) || checkObj(data.cd) || checkObj(data.f); // Added check for f
-            };
-
-            const assignedNdt = findAssignedId('assignedNdtEngineerId');
-            const assignedQc = findAssignedId('assignedQcEngineerId');
-
-            // Map both assignedNdt and assignedQc to qc_eng_id column
-            if (['stage4', 'stage5', 'stage6', 'stage7', 'stage8'].includes(stage)) {
-                if (assignedNdt) updateData[`${stagePrefix}_qc_eng_id`] = assignedNdt;
-                else if (assignedQc) updateData[`${stagePrefix}_qc_eng_id`] = assignedQc;
-            } else {
-                if (assignedQc) updateData[`${stagePrefix}_qc_eng_id`] = assignedQc;
-            }
-        }
-
-        // Use upsert to create if not exists
-        const inspection = await prisma.weld_joint_inspection.upsert({
-            where: { weld_joint_id: jointId },
-            update: updateData,
-            create: {
-                weld_joint_id: jointId,
-                ...updateData
-            }
-        });
-
-        res.status(200).json({ success: true, message: 'Stage status updated successfully', data: inspection });
-
+        const result = await weldJointService.updateStatus(req.body);
+        res.status(200).json({ success: true, message: 'Stage status updated successfully', data: result });
     } catch (error) {
         console.error('Update stage status error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        });
+        res.status(error.message === 'Missing required fields' || error.message === 'Invalid stage' ? 400 : 500).json({ success: false, message: error.message || 'Internal server error' });
     }
 }
 
 /**
- * Review Stage Status API - Separate endpoint for Approve/Reject to prevent data overwrite
+ * Review Stage Status API
  */
 async function reviewStageStatus(req, res) {
     try {
-        const { jointId, stage, status } = req.body;
-
-        if (!jointId || !stage || !status) {
-            return res.status(400).json({ success: false, message: 'Missing required fields' });
-        }
-
-        const stagePrefix = {
-            'stage1': 's1', 'stage2': 's2', 'stage3': 's3',
-            'stage4': 's4', 'stage5': 's5', 'stage6': 's6', 'stage7': 's7', 'stage8': 's8'
-        }[stage];
-
-        if (!stagePrefix) return res.status(400).json({ success: false, message: 'Invalid stage' });
-
-        const updateData = {
-            [`${stagePrefix}_status`]: status
-        };
-
-        if (status === 'approved') {
-            updateData[`${stagePrefix}_approved_at`] = new Date();
-        } else if (status === 'rejected') {
-            // Simply mark as rejected. The frontend will show "Open Stage X" for Prod to resubmit.
-            // Do NOT rollback previous stages.
-            updateData[`${stagePrefix}_rejected_at`] = new Date();
-            // Optional: reset approved_at if it was approved before? safely yes.
-            updateData[`${stagePrefix}_approved_at`] = null;
-            // set status to 'rejected' which is passed in args.
-        }
-
-        // Update Inspection Table
-        await prisma.weld_joint_inspection.update({
-            where: { weld_joint_id: jointId },
-            data: updateData
-        });
-
-        res.status(200).json({ success: true, message: `Stage ${status} successfully` });
+        const result = await weldJointService.reviewStatus(req.body);
+        res.status(200).json({ success: true, message: 'Stage status reviewed successfully', data: result });
     } catch (error) {
         console.error('Review stage error:', error);
         res.status(500).json({ success: false, message: 'Internal server error' });
@@ -532,15 +342,6 @@ async function reviewStageStatus(req, res) {
 
 /**
  * Get Assigned Weld Joints API - For QC/NDT Engineers
- * Retrieves only joints that have a pending stage assigned to the authenticated user.
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- */
-/**
- * Get Assigned Weld Joints API - For QC/NDT Engineers
- * Retrieves only joints that have a pending stage assigned to the authenticated user.
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
  */
 async function getAssignedWeldJoints(req, res) {
     try {
@@ -548,155 +349,24 @@ async function getAssignedWeldJoints(req, res) {
         const user_id = req.user.id;
         const { page = 1, limit = 50, search = '' } = req.query;
 
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
-
-        // Base Where Clause
-        const where = {
-            weld_joint_plan: {
-                company_id: company_id
-            },
-            weld_joint_inspection: {
-                OR: [
-                    { s1_status: 'pending', s1_qc_eng_id: user_id },
-                    { s2_status: 'pending', s2_qc_eng_id: user_id },
-                    { s3_status: 'pending', s3_qc_eng_id: user_id },
-                    { s4_status: 'pending', s4_qc_eng_id: user_id }, // Stage 4 is RT (now QC column)
-                    { s5_status: 'pending', s5_qc_eng_id: user_id }, // Stage 5 is PT (now QC column)
-                    { s6_status: 'pending', s6_qc_eng_id: user_id }, // Stage 6 (PWHT - RT) (now QC column)
-                    { s7_status: 'pending', s7_qc_eng_id: user_id }, // Stage 7 (PWHT - PT) (now QC column)
-                    { s8_status: 'pending', s8_qc_eng_id: user_id }, // Stage 8 (PWHT PT CD) (now QC column)
-                ]
-            }
-        };
-
-        // Add Search Logic
-        if (search) {
-            where.AND = {
-                OR: [
-                    { joint_no: { contains: search, mode: 'insensitive' } },
-                    {
-                        weld_joint_plan: {
-                            OR: [
-                                { weld_plan_no: { contains: search, mode: 'insensitive' } },
-                                {
-                                    job: {
-                                        OR: [
-                                            { job_number: { contains: search, mode: 'insensitive' } },
-                                            { equipement_name: { contains: search, mode: 'insensitive' } },
-                                            {
-                                                customer: {
-                                                    customer_name: { contains: search, mode: 'insensitive' }
-                                                }
-                                            },
-                                            {
-                                                po: {
-                                                    po_number: { contains: search, mode: 'insensitive' }
-                                                }
-                                            }
-                                        ]
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                ]
-            };
-        }
-
-        const [total, joints] = await prisma.$transaction([
-            prisma.weld_joint.count({ where }),
-            prisma.weld_joint.findMany({
-                where,
-                include: {
-                    weld_joint_plan: {
-                        include: {
-                            job: {
-                                select: {
-                                    job_number: true,
-                                    project_id: true,
-                                    equipement_name: true,
-                                    tag_number: true,
-                                    code: true,
-                                    customer: {
-                                        select: {
-                                            customer_name: true
-                                        }
-                                    },
-                                    po: {
-                                        select: {
-                                            po_number: true
-                                        }
-                                    }
-                                }
-                            },
-                        }
-                    },
-                    weld_joint_inspection: true
-                },
-                orderBy: {
-                    createdAt: 'desc'
-                },
-                skip,
-                take
-            })
-        ]);
-
-        // Extract all User IDs to fetch names
-        const userIds = new Set();
-        joints.forEach(joint => {
-            const insp = joint.weld_joint_inspection;
-            if (insp) {
-                // Collect IDs from all stages
-                ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(stage => {
-                    if (insp[`${stage}_prod_eng_id`]) userIds.add(insp[`${stage}_prod_eng_id`]);
-                    if (insp[`${stage}_qc_eng_id`]) userIds.add(insp[`${stage}_qc_eng_id`]);
-                    // No ndt_eng_id anymore
-                });
-            }
-        });
-
-        // Fetch User Names
-        let userMap = {};
-        if (userIds.size > 0) {
-            const users = await prisma.user.findMany({
-                where: { id: { in: Array.from(userIds) } },
-                select: { id: true, name: true }
-            });
-            users.forEach(u => userMap[u.id] = u.name);
-        }
-
-        // Inject Names into Joints
-        const assignedJoints = joints.map(joint => {
-            if (joint.weld_joint_inspection) {
-                const insp = { ...joint.weld_joint_inspection };
-                ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(stage => {
-                    if (insp[`${stage}_prod_eng_id`]) insp[`${stage}_prod_eng_name`] = userMap[insp[`${stage}_prod_eng_id`]];
-                    if (insp[`${stage}_qc_eng_id`]) insp[`${stage}_qc_eng_name`] = userMap[insp[`${stage}_qc_eng_id`]];
-                });
-                return { ...joint, weld_joint_inspection: insp };
-            }
-            return joint;
+        // Custom call to service passing strict constraint
+        const result = await weldJointService.findAll(company_id, {
+            page, limit, search
+        }, {
+            // Force it to act like QC looking for their assigned joints
+            userId: user_id,
+            roles: ['QC_ENGINEER'] 
         });
 
         res.status(200).json({
             success: true,
             message: 'Assigned Weld Joints fetched successfully',
-            data: assignedJoints,
-            meta: {
-                total,
-                page: parseInt(page),
-                limit: take,
-                totalPages: Math.ceil(total / take)
-            }
+            data: result.data,
+            meta: result.meta
         });
     } catch (error) {
         console.error('Get assigned weld joints error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Internal server error',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-        });
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 }
 
