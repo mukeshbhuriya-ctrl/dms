@@ -3,6 +3,10 @@ const path = require('path');
 const archiver = require('archiver');
 
 const uploadsDir = path.join(__dirname, '../uploads');
+const generatedDir = path.join(uploadsDir, 'generated');
+
+// Ensure generated dir exists
+if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
 
 // Ensure uploads dir exists
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -15,7 +19,7 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
  */
 const createTransmissionZip = (zipName, docs) => {
     return new Promise((resolve, reject) => {
-        const zipPath = path.join(uploadsDir, zipName);
+        const zipPath = path.join(generatedDir, zipName);
         const output = fs.createWriteStream(zipPath);
         const archive = archiver('zip', { zlib: { level: 9 } });
 
@@ -65,7 +69,7 @@ const createTransmissionZip = (zipName, docs) => {
  * @returns {string|null} - Absolute path if exists, null otherwise
  */
 const getZipPath = (zipName) => {
-    const zipPath = path.join(uploadsDir, zipName);
+    const zipPath = path.join(generatedDir, zipName);
     return fs.existsSync(zipPath) ? zipPath : null;
 };
 
