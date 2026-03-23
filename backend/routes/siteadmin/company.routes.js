@@ -1,7 +1,7 @@
 const express = require('express');
 const { createCompany } = require('#api/siteadmin/company.js');
 const { authenticateSiteAdmin } = require('#api/middleware/siteadmin.middleware.js');
-const upload = require('#utils/upload');
+const { upload } = require('#utils/upload');
 
 const router = express.Router();
 

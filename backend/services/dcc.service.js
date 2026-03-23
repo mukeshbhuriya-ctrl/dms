@@ -1,6 +1,8 @@
 const prisma = require('#prisma');
 const EmailService = require('./email.service');
 const { generateTransmittalPDF } = require('../utils/pdfGeneratorTransmittal');
+const fileService = require('./file.service');
+const logService = require('./log.service');
 
 class DccService {
     /**
@@ -171,8 +173,8 @@ class DccService {
 
         let finalPoDocUrl = null;
         if (file) {
-            const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-            finalPoDocUrl = `${backendUrl}/uploads/${file.filename}`;
+            // Use relative API path for PO download
+            finalPoDocUrl = `/api/pos/download/${file.filename}`;
         } else if (data.po_doc_url) {
             finalPoDocUrl = data.po_doc_url;
         }
@@ -203,6 +205,12 @@ class DccService {
                     po_doc_url: finalPoDocUrl,
                 }
             });
+
+            // Expand URL for immediate return
+            const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+            if (po.po_doc_url && po.po_doc_url.startsWith('/') && !po.po_doc_url.startsWith('http')) {
+                po.po_doc_url = `${backendUrl}${po.po_doc_url}`;
+            }
 
             // Create communication matrix entries
             if (parsedCommunicationMatrix) {
@@ -268,7 +276,16 @@ class DccService {
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        // Expand PO URLs for UI use
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        const expandedData = data.map(po => {
+            if (po.po_doc_url && po.po_doc_url.startsWith('/') && !po.po_doc_url.startsWith('http')) {
+                return { ...po, po_doc_url: `${backendUrl}${po.po_doc_url}` };
+            }
+            return po;
+        });
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
     /**
@@ -543,8 +560,10 @@ class DccService {
         ]);
 
         const EnhancedData = this._enhanceWithDueStatuses(data, params);
+        const enrichedData = await this._enrichWithVersionContext(EnhancedData);
+        const expandedData = this._expandFileUrls(enrichedData);
 
-        return { data: EnhancedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
     /**
      * Get all assigned documents (Admin View)
@@ -609,7 +628,9 @@ class DccService {
         ]);
 
         const EnhancedData = this._enhanceWithDueStatuses(data, params);
-        return { data: EnhancedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const enrichedData = await this._enrichWithVersionContext(EnhancedData);
+        const expandedData = this._expandFileUrls(enrichedData);
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
 
@@ -625,31 +646,26 @@ class DccService {
 
         if (!groupDoc) throw new Error('Document assignment not found');
 
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-        const fileUrl = `${backendUrl}/uploads/${file.filename}`;
-
-        const lastVersion = await prisma.document_version.findFirst({
-            where: { group_document_id: document_id },
-            orderBy: { version_no: 'desc' }
-        });
-        const versionNo = lastVersion ? lastVersion.version_no + 1 : 1;
-
         return await prisma.$transaction(async (tx) => {
-            const version = await tx.document_version.create({
-                data: {
-                    group_document_id: document_id,
-                    version_no: versionNo,
-                    file_url: fileUrl,
-                    remarks,
-                    status: 'Uploaded',
-                    uploaded_by: user_id
-                }
+            // Get last version for folder naming
+            const lastVersion = await tx.document_version.findFirst({
+                where: { group_document_id: document_id },
+                orderBy: { version_no: 'desc' }
             });
+            const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 1;
 
-            await tx.group_document.update({
-                where: { id: document_id },
-                data: { status: 'Uploaded' }
-            });
+            // 1. Process storage (move to structured directory, calculate hash/size)
+            const storageData = await fileService.processStorage(file, document_id, nextVersionNo);
+
+            // 2. Create new version in DB and update document status
+            const version = await fileService.createNewVersion(tx, document_id, user_id, storageData, remarks);
+
+            // 3. Log the upload action
+            // Prepend BACKEND_URL for immediate use in UI
+            const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+            if (version.file_url && version.file_url.startsWith('/') && !version.file_url.startsWith('http')) {
+                version.file_url = `${backendUrl}${version.file_url}`;
+            }
 
             return version;
         });
@@ -795,6 +811,8 @@ class DccService {
         }
 
         const EnhancedData = this._enhanceWithDueStatuses(processingData, params);
+        const enrichedData = await this._enrichWithVersionContext(EnhancedData);
+        const expandedData = this._expandFileUrls(enrichedData);
 
         // Note: total might optionally be adjusted if we want precise pagination metadata, 
         // but since this is usually limited to 1000/one-page for creation, keeping original count is acceptable or we accept slight mismatch.
@@ -802,7 +820,7 @@ class DccService {
         // Actually total is DB count. We can't easily adjust typical pagination.
         // But for 'Create Transmission' we generally pull all.
 
-        return { data: EnhancedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
     /**
@@ -870,23 +888,15 @@ class DccService {
             throw new Error('No documents selected');
         }
 
-        // Fetch documents to verify they are Approved
+        // 1. Fetch group documents
         const docs = await prisma.group_document.findMany({
-            where: {
-                id: { in: document_ids },
-                company_id
-            },
+            where: { id: { in: document_ids }, company_id },
             include: {
-                // Use versions relation to get the latest version
-                versions: { orderBy: { version_no: 'desc' }, take: 1 },
                 document: true,
-                // Fetch related jobs via group -> job_group -> job
                 group: {
                     include: {
                         job_group: {
-                            include: {
-                                job: true
-                            }
+                            include: { job: true }
                         }
                     }
                 }
@@ -895,7 +905,40 @@ class DccService {
 
         if (docs.length !== document_ids.length) throw new Error('Some documents not found');
 
-        const invalidDocs = docs.filter(d => d.status !== 'Approved');
+        // 2. Fetch the latest version for each of these group_documents
+        // We need the specific version associated with each group_document for the transmission.
+        // The `versions` relation on `group_document` is the correct way to get the versions belonging to that specific group_document.
+        // We need the *latest* version of each selected group_document.
+        const docsWithVersions = await prisma.group_document.findMany({
+            where: { id: { in: document_ids }, company_id },
+            include: {
+                document: true,
+                group: {
+                    include: {
+                        job_group: {
+                            include: { job: true }
+                        }
+                    }
+                },
+                versions: {
+                    orderBy: { version_no: 'desc' },
+                    take: 1,
+                    include: { uploader: true } // Include uploader for potential use in ZIP creation or logging
+                }
+            }
+        });
+
+        // Map to ensure each doc has its latest version attached
+        const finalDocs = docsWithVersions.map(doc => {
+            if (!doc.versions || doc.versions.length === 0) {
+                throw new Error(`No versions found for document ID: ${doc.id}`);
+            }
+            // Attach the latest version directly to the doc object for easier access
+            doc.latestVersion = doc.versions[0];
+            return doc;
+        });
+
+        const invalidDocs = finalDocs.filter(d => d.status !== 'Approved');
         if (invalidDocs.length > 0) {
             throw new Error(`Documents not approved: ${invalidDocs.map(d => d.document.document_number).join(', ')}`);
         }
@@ -909,14 +952,15 @@ class DccService {
         // 2. Generate ZIP File
         const transmissionZipName = `${transNum}.zip`;
         const ZipUtils = require('../utils/zip.utils');
-        await ZipUtils.createTransmissionZip(transmissionZipName, docs); // Now stored in uploads/generated
+        await ZipUtils.createTransmissionZip(transmissionZipName, finalDocs); // Now stored in uploads/generated
 
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
 
         // Generate UUID first.
         const transmissionId = require('crypto').randomUUID();
         // Use PUBLIC route
-        const zipDownloadLink = `${backendUrl}/api/secure/download/${transmissionId}`;
+        // Use relative link for storage
+        const zipDownloadLink = `/api/secure/download/${transmissionId}`;
 
         return await prisma.$transaction(async (tx) => {
             const transmission = await tx.transmission.create({
@@ -935,7 +979,7 @@ class DccService {
             });
 
             // Create items
-            for (const doc of docs) {
+            for (const doc of finalDocs) {
                 await tx.transmission_document.create({
                     data: {
                         transmission_id: transmission.id,
@@ -988,8 +1032,16 @@ class DccService {
             prisma.transmission.count({ where })
         ]);
 
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        const expandedData = data.map(trans => {
+            if (trans.zip_url && trans.zip_url.startsWith('/') && !trans.zip_url.startsWith('http')) {
+                trans.zip_url = `${backendUrl}${trans.zip_url}`;
+            }
+            return trans;
+        });
+
         return {
-            data,
+            data: expandedData,
             meta: {
                 total,
                 page: pageNum,
@@ -1000,7 +1052,7 @@ class DccService {
     }
 
     async getTransmissionDocuments(company_id, transmission_id) {
-        return await prisma.transmission_document.findMany({
+        const data = await prisma.transmission_document.findMany({
             where: {
                 transmission: {
                     id: transmission_id,
@@ -1032,6 +1084,14 @@ class DccService {
                     }
                 }
             }
+        });
+
+        // Enrich with version context
+        return data.map(item => {
+            if (item.version) {
+                item.display_version_no = item.version.version_no;
+            }
+            return item;
         });
     }
 
@@ -1076,13 +1136,19 @@ class DccService {
 
         // 4. Send Email using EmailService and attach the PDF
         // Client -> To, Shreno -> CC
+        // CC to Shreno, To Client
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        const absoluteZipUrl = (transmission.zip_url && transmission.zip_url.startsWith('/') && !transmission.zip_url.startsWith('http'))
+            ? `${backendUrl}${transmission.zip_url}`
+            : transmission.zip_url;
+
         await EmailService.sendTransmissionEmail(client_emails, shreno_emails, {
             transmission_number: transmission.transmission_number,
             po_number: transmission.po?.po_number || 'N/A',
             customer_name: transmission.customer?.customer_name || 'N/A',
             document_count: transmission.documents?.length || 0,
             password: transmission.password,
-            zip_url: transmission.zip_url || '#'
+            zip_url: absoluteZipUrl || '#'
         }, attachments);
 
         // Update status to 'Sent'
@@ -1139,7 +1205,7 @@ class DccService {
                         }
                     });
                 }
-
+ 
                 // 3c. Create NEW Group Documents (Re-entry)
                 // Fetch full details of the rejected group documents to clone them
                 const rejectedGroupDocs = await prisma.group_document.findMany({
@@ -1391,6 +1457,43 @@ class DccService {
                 }
             }
 
+            return doc;
+        });
+    }
+
+    /**
+     * Helper to show version context (v1, v2, v3...) only for uploaded documents
+     * @private
+     */
+    async _enrichWithVersionContext(docs) {
+        if (!docs || docs.length === 0) return docs;
+
+        return docs.map(doc => {
+            // If the task has a version, use it. Otherwise, return null (for Pending tasks)
+            if (doc.versions && doc.versions.length > 0) {
+                doc.display_version_no = doc.versions[0].version_no;
+            } else {
+                doc.display_version_no = null;
+            }
+            return doc;
+        });
+    }
+
+    /**
+     * Helper to expand relative file_urls to full URLs for Frontend
+     * @private
+     */
+    _expandFileUrls(docs) {
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        return docs.map(doc => {
+            if (doc.versions && doc.versions.length > 0) {
+                doc.versions = doc.versions.map(v => {
+                    if (v.file_url && v.file_url.startsWith('/') && !v.file_url.startsWith('http')) {
+                        v.file_url = `${backendUrl}${v.file_url}`;
+                    }
+                    return v;
+                });
+            }
             return doc;
         });
     }

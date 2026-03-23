@@ -480,6 +480,11 @@ function CreateTransmission() {
         return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
       }
     },
+    {
+      header: "Version No",
+      accessorKey: "display_version_no",
+      cell: ({ row }) => row.original.display_version_no ? `v${row.original.display_version_no}` : '-'
+    },
     { header: "Status", accessorKey: "status" }
   ], [selectedDocuments, filteredDocuments]);
 
@@ -657,6 +662,7 @@ function CreateTransmission() {
                                   <TableHead>Document Name</TableHead>
                                   <TableHead>Document Type</TableHead>
                                   <TableHead>Job Number</TableHead>
+                                  <TableHead>Version No</TableHead>
                                   <TableHead>Status</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -679,6 +685,9 @@ function CreateTransmission() {
                                         const jobs = doc.group?.job_group;
                                         return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
                                       })()}
+                                    </TableCell>
+                                    <TableCell>
+                                      {doc.display_version_no ? `v${doc.display_version_no}` : '-'}
                                     </TableCell>
                                     <TableCell>{doc.status}</TableCell>
                                   </TableRow>

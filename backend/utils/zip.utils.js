@@ -2,14 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
 
-const uploadsDir = path.join(__dirname, '../uploads');
-const generatedDir = path.join(uploadsDir, 'generated');
+const { UPLOAD_DIR, ROOT_DIR } = require('./upload');
+
+const generatedDir = path.join(UPLOAD_DIR, 'generated');
 
 // Ensure generated dir exists
-if (!fs.existsSync(generatedDir)) fs.mkdirSync(generatedDir, { recursive: true });
-
-// Ensure uploads dir exists
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(generatedDir)) {
+    fs.mkdirSync(generatedDir, { recursive: true });
+}
 
 /**
  * Create a ZIP file for a transmission from a list of documents.
@@ -29,15 +29,32 @@ const createTransmissionZip = (zipName, docs) => {
         archive.pipe(output);
 
         docs.forEach(doc => {
-            const version = doc.versions[0];
-            if (version && version.file_url) {
-                // version.file_url is like http://localhost:3000/uploads/filename.ext
-                // We need the physical path: ../uploads/filename.ext
-                const filename = version.file_url.split('/').pop();
-                const filePath = path.join(uploadsDir, filename);
-
-                if (fs.existsSync(filePath)) {
-                    const ext = path.extname(filename);
+            const version = doc.versions && doc.versions[0];
+            if (version) {
+                // Use the physical path stored in the DB if available, 
+                // fallback to UPLOAD_DIR + filename if not (for legacy files)
+                let filePath = version.file_path;
+                
+                // Handle relative paths from DB (e.g. \uploads\...)
+                // On Windows, \uploads... is considered absolute but lacks the drive letter (C:).
+                // We must join it with ROOT_DIR unless it already contains the ROOT_DIR prefix.
+                if (filePath && (!path.isAbsolute(filePath) || filePath.startsWith('\\') || filePath.startsWith('/'))) {
+                    // Strip any leading slashes to prevent path.join from treating it as a drive-root path
+                    const cleanRelativePart = filePath.replace(/^[\\\/]+/, '');
+                    
+                    // Only join if it doesn't already start with ROOT_DIR (safety check)
+                    if (!filePath.toLowerCase().includes(ROOT_DIR.toLowerCase().replace(/^[\\\/]+/, ''))) {
+                        filePath = path.join(ROOT_DIR, cleanRelativePart);
+                    }
+                }
+                
+                if (!filePath && version.file_url) {
+                    const filename = version.file_url.split('/').pop();
+                    filePath = path.join(UPLOAD_DIR, filename);
+                }
+                
+                if (filePath && fs.existsSync(filePath)) {
+                    const ext = path.extname(filePath);
                     const docName = `${doc.document.document_number}-${doc.document.document_name}${ext}`;
 
                     // Check for associated jobs

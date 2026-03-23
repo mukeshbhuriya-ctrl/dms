@@ -117,6 +117,16 @@ function DocumentApprover() {
       accessorKey: "documentType"
     },
     {
+      header: "Version No",
+      accessorKey: "versionNo",
+      cell: (row) => (
+        <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
+          {row.versionNo ? `v${row.versionNo}` : '-'}
+        </span>
+      ),
+      className: "w-[80px]"
+    },
+    {
       header: "Uploaded By",
       accessorKey: "uploadedBy"
     },
@@ -201,6 +211,7 @@ function DocumentApprover() {
 
             status: doc.status, // Keep original status for badge display
             statusDisplay: doc.status,
+            versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,
             remarks: latestVersion?.remarks || '-',
             originalDoc: doc

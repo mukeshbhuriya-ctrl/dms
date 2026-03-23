@@ -2,6 +2,8 @@ const prisma = require('#prisma');
 const path = require('path');
 const fs = require('fs');
 
+const { UPLOAD_DIR } = require('./upload');
+
 /**
  * Utility to fetch company information for PDF branding
  * @param {string} company_id - The ID of the company
@@ -19,21 +21,13 @@ async function getCompanyInfo(company_id) {
 
         let localLogoPath = null;
         if (company.logo_url) {
-            // logo_url is usually stored as a full URL: http://.../uploads/filename
-            // For backend PDF generation, we need the local file system path.
             try {
                 const urlParts = company.logo_url.split('/');
                 const filename = urlParts[urlParts.length - 1];
-                const potentialPath = path.join(process.cwd(), 'uploads', filename);
+                const potentialPath = path.join(UPLOAD_DIR, filename);
                 
                 if (fs.existsSync(potentialPath)) {
                     localLogoPath = potentialPath;
-                } else {
-                    // Try alternative path if process.cwd() is different
-                    const altPath = path.join(__dirname, '../uploads', filename);
-                    if (fs.existsSync(altPath)) {
-                        localLogoPath = altPath;
-                    }
                 }
             } catch (e) {
                 console.warn('Could not resolve local logo path from URL:', company.logo_url);

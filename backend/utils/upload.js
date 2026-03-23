@@ -1,46 +1,71 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// Centralized base directory for all DMS data
+const ROOT_DIR = process.env.ROOT_DIR || 'C:/dms-data';
+const UPLOAD_DIR = path.join(ROOT_DIR, 'uploads');
+const LOGS_DIR = path.join(ROOT_DIR, 'logs');
 
-// Configure storage
+// Ensure base directories exist
+[ROOT_DIR, UPLOAD_DIR, LOGS_DIR].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
+
+// Storage configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadsDir);
+    // Note: documentId and versionNumber will be used to create subdirectories
+    // This logic is best handled in the service layer, but for now we provide a default
+    cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
-    // Generate random number
-    const randomNumber = Math.floor(Math.random() * 1000000);
-    // Get original file extension
-    const ext = path.extname(file.originalname);
-    // Create filename with random number
-    const filename = `logo_${randomNumber}${Date.now()}${ext}`;
-    cb(null, filename);
+    // Secure filename generation: file_timestamp_random.ext
+    const timestamp = Date.now();
+    const randomHex = crypto.randomBytes(8).toString('hex');
+    const ext = path.extname(file.originalname).toLowerCase();
+    const secureFilename = `file_${timestamp}_${randomHex}${ext}`;
+    cb(null, secureFilename);
   },
 });
 
-// File filter - only allow images
+// File filter for validation
 const fileFilter = (req, file, cb) => {
-  // Check if file is an image
-  if (file.mimetype.startsWith('image/')) {
+  const allowedMimeTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    'text/plain',
+    'image/jpeg',
+    'image/png',
+    'image/jpg',
+  ];
+
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed'), false);
+    cb(new Error(`File type ${file.mimetype} is not allowed.`), false);
   }
 };
 
-// Configure multer
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   },
 });
 
-module.exports = upload;
+module.exports = {
+  upload,
+  UPLOAD_DIR,
+  ROOT_DIR,
+  LOGS_DIR,
+};

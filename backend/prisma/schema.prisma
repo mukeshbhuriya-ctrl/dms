@@ -510,6 +510,11 @@ model document_version {
   group_document_id  String?
   version_no         Int
   file_url           String
+  file_path          String?   // User requirement: filePath
+  file_hash          String?   // User requirement: fileHash
+  file_size          Int?      // User requirement: fileSize
+  mime_type          String?   // User requirement: mimeType
+  is_active          Boolean  @default(true) // User requirement: isActive
   remarks            String?
   status             String   @default("Uploaded") // Uploaded, Approved, Rejected
   uploaded_by        String
@@ -520,6 +525,14 @@ model document_version {
   group_document  group_document?  @relation(fields: [group_document_id], references: [id])
   uploader        user             @relation(fields: [uploaded_by], references: [id])
   transmission_items transmission_document[]
+}
+
+model document_access_log {
+  id          String   @id @default(uuid())
+  document_id String
+  action      String   // UPLOAD, DOWNLOAD, VIEW
+  user_id     String?
+  timestamp   DateTime @default(now())
 }
 
 model transmission {

@@ -205,6 +205,7 @@ function SendDocumentToClient() {
               documentType: docSource.document?.document_type?.name || 'Document',
               uploadedBy: uploaderName,
               uploadedDate: new Date(docSource.createdAt).toLocaleDateString(),
+              versionNo: item.display_version_no,
               status: item.version?.status || 'Approved'
             };
           }).filter(Boolean);
@@ -502,6 +503,7 @@ function SendDocumentToClient() {
                           <TableHead>Document Type</TableHead>
                           <TableHead>Uploaded By</TableHead>
                           <TableHead>Uploaded Date</TableHead>
+                          <TableHead>Version No</TableHead>
                           <TableHead>Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -522,6 +524,9 @@ function SendDocumentToClient() {
                               <TableCell>{document.uploadedBy}</TableCell>
                               <TableCell>{document.uploadedDate}</TableCell>
                               <TableCell>
+                                {document.versionNo ? `v${document.versionNo}` : '-'}
+                              </TableCell>
+                              <TableCell>
                                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                                   Approved
                                 </span>
@@ -531,7 +536,7 @@ function SendDocumentToClient() {
                         ) : (
                           <TableRow>
                             <TableCell
-                              colSpan={7}
+                              colSpan={8}
                               className="h-24 text-center"
                             >
                               No approved documents found for the selected transmission.

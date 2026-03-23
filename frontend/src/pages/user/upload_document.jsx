@@ -71,6 +71,16 @@ function UploadDocument() {
             )
         },
         {
+            header: "Version No",
+            accessorKey: "versionNo",
+            cell: (row) => (
+                <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
+                    {row.versionNo ? `v${row.versionNo}` : '-'}
+                </span>
+            ),
+            className: "w-[80px]"
+        },
+        {
             header: "Job No",
             accessorKey: "jobNo"
         },
@@ -194,6 +204,7 @@ function UploadDocument() {
                         createdAt: doc.createdAt,
                         upload_due_days: doc.upload_due_days,
                         response_due_days: doc.response_due_days,
+                        versionNo: doc.display_version_no || 0,
                         originalStatus: doc.status,
                         doc: doc,
                         remarks: latestVersion?.remarks || '-'

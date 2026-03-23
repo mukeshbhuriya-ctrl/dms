@@ -1728,7 +1728,12 @@ class ExportService {
                 }
 
                 if (item.versions && item.versions.length > 0) {
-                    mainRow['Document URL'] = item.versions[0].file_url;
+                    const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+                    const relUrl = item.versions[0].file_url;
+                    // Prepend baseUrl if relUrl is a relative API path
+                    mainRow['Document URL'] = (relUrl && relUrl.startsWith('/') && !relUrl.startsWith('http')) 
+                        ? `${baseUrl}${relUrl}` 
+                        : relUrl;
                 }
             }
 

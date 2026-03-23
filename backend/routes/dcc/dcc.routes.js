@@ -4,7 +4,8 @@ const { getDocumentType, createDocumentType, getDocumentMaster, createDocumentMa
 const { getUsers } = require('#api/users/user.js');
 
 const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
-const documentUpload = require('#utils/document-upload');
+const { upload } = require('#utils/upload');
+const documentController = require('../../controllers/document.controller');
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ const DccController = require('../../controllers/dcc.controller');
 // Routes accessible to all authenticated users
 router.get('/get-assigned-documents', authenticateUserOnly, DccController.getAllAssignedDocuments);
 router.get('/upload-documents', authenticateUserOnly, DccController.getMyAssignedDocuments);
-router.post('/upload-document-version', authenticateUserOnly, documentUpload.single('file'), DccController.uploadDocumentVersion);
+router.post('/upload-document-version', authenticateUserOnly, upload.single('file'), DccController.uploadDocumentVersion);
 
 
 // Apply authentication middleware to all routes in this router
@@ -28,8 +29,14 @@ router.post('/create-customer-location', createCustomerLocation);
 router.put('/update-customer-location/:id', updateCustomerLocation);
 
 router.get('/get-pos', DccController.getPos);
-router.post('/create-po', documentUpload.single('po_document'), createPo);
-router.put('/update-po/:id', documentUpload.single('po_document'), updatePo);
+router.post('/create-po', upload.single('po_document'), createPo);
+router.put('/update-po/:id', upload.single('po_document'), updatePo);
+router.get('/pos/download/:filename', documentController.downloadPo);
+
+// Document Versioning and Secure Access
+router.get('/document/:documentId/download', authenticateUserOnly, documentController.downloadDocument);
+router.get('/document/:documentId/versions', authenticateUserOnly, documentController.getVersionList);
+router.get('/document/:documentId/versions/:versionNumber', authenticateUserOnly, documentController.getSpecificVersion);
 
 router.get('/get-jobs', DccController.getJobs);
 router.post('/create-job', createJob);
@@ -54,6 +61,7 @@ router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
 // Client Approval Status
 router.post('/transmission/client-status', DccController.updateTransmissionClientStatus);
+router.post('/document/:documentId/rollback', documentController.rollbackVersion);
 router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), DccController.updateAssignedDocument);
 
 module.exports = router;
