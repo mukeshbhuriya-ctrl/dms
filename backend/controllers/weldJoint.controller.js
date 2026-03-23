@@ -4,6 +4,7 @@ const pdfGeneratorCD = require('#utils/pdfGeneratorCD');
 const pdfGeneratorF = require('#utils/pdfGeneratorF');
 const prisma = require('#prisma');
 const { extractStageData } = require('../utils/weldJointData');
+const { getCompanyInfo } = require('../utils/companyInfo');
 
 /**
  * Generate Stage Report PDF API
@@ -14,6 +15,7 @@ async function generateStageReport(req, res) {
 
         // Fetch Joint Details with Inspection Data reconstructed functionally
         const joint = await weldJointService.getWeldJointWithInspection(jointId);
+        const companyInfo = await getCompanyInfo(req.user.company_id);
 
         if (!joint) {
             return res.status(404).json({ success: false, message: 'Weld Joint not found' });
@@ -60,11 +62,11 @@ async function generateStageReport(req, res) {
             res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${joint.joint_no}_${dateTime}.pdf`);
 
             if (jointTypeGroup === 'cd') {
-                pdfGeneratorCD.generateReport(allStagesData, res);
+                pdfGeneratorCD.generateReport(allStagesData, res, companyInfo);
             } else if (jointTypeGroup === 'f') {
-                pdfGeneratorF.generateReport(allStagesData, res);
+                pdfGeneratorF.generateReport(allStagesData, res, companyInfo);
             } else {
-                pdfGenerator.generateCompleteReport(allStagesData, res);
+                pdfGenerator.generateCompleteReport(allStagesData, res, companyInfo);
             }
             return;
         }
@@ -77,10 +79,10 @@ async function generateStageReport(req, res) {
         res.setHeader('Content-Disposition', `attachment; filename=${stage}_${joint.joint_no}_${dateTime}.pdf`);
 
         if (stage === 'stage1') {
-            pdfGenerator.generateStage1Report(reportData, res);
+            pdfGenerator.generateStage1Report(reportData, res, companyInfo);
         } else {
             // Fallback or generic for single download if needed
-            pdfGenerator.generateCompleteReport({ [stage]: reportData }, res);
+            pdfGenerator.generateCompleteReport({ [stage]: reportData }, res, companyInfo);
         }
 
     } catch (error) {

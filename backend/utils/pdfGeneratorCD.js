@@ -20,33 +20,27 @@ class PDFGeneratorCD {
     // SHARED LAYOUT METHODS (Match A/B)
     // ==========================================
 
-    drawLogo(doc, x, y, width, height) {
-        const paths = [
-            path.join(__dirname, '../../frontend/public/lego_logo.png'),
-            path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png'),
-            path.join(__dirname, '../public/lego_logo.png')
-        ];
+    drawLogo(doc, x, y, width, height, companyInfo) {
+        if (companyInfo && companyInfo.logoPath && fs.existsSync(companyInfo.logoPath)) {
+            doc.image(companyInfo.logoPath, x, y, { fit: [width, height], align: 'center', valign: 'center' });
+            return;
+        }
 
-        for (const p of paths) {
-            if (fs.existsSync(p)) {
-                const imgW = 80;
-                const imgH = 40;
-                const ix = x + (width - imgW) / 2;
-                const iy = y + (height - imgH) / 2;
-                doc.image(p, ix, iy, { width: imgW, height: imgH });
-                break;
-            }
+        // Fallback to dynamic Company Name only (no static fallback)
+        if (companyInfo && companyInfo.name) {
+            doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.darkBlue)
+                .text(companyInfo.name, x, y + height / 2 - 6, { width: width, align: 'center' });
         }
     }
 
-    drawHeader(doc, x, y, width, data, titleText) {
+    drawHeader(doc, x, y, width, data, titleText, companyInfo) {
         const headerH = 70;
         doc.lineWidth(0.5).strokeColor(this.colors.black);
 
         // Logo Box (Left)
         const logoW = 160;
         doc.rect(x, y, logoW, headerH).stroke();
-        this.drawLogo(doc, x, y, logoW, headerH);
+        this.drawLogo(doc, x, y, logoW, headerH, companyInfo);
 
         // Title Box (Right)
         const titleBoxW = width - logoW;
@@ -162,7 +156,7 @@ class PDFGeneratorCD {
         doc.text(signs[2] || '', x + 2 * colW + pad, curY + 3 * rowH + tY);
     }
 
-    drawSubStage(doc, data, drawContentFn) {
+    drawSubStage(doc, data, drawContentFn, companyInfo) {
         const startX = 25;
         const startY = 25;
         const pageW = doc.page.width - 50;
@@ -175,7 +169,7 @@ class PDFGeneratorCD {
         let currentY = startY + 5;
 
         const title = data.title || 'WELDING JOINT REPORT';
-        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, title);
+        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, title, companyInfo);
         currentY = this.drawInfoGrid(doc, innerX, currentY, innerW, data);
 
         const footerH = 130;
@@ -192,7 +186,7 @@ class PDFGeneratorCD {
     // SPECIFIC STAGE IMPLEMENTATIONS
     // ==========================================
 
-    drawStage1(doc, data) {
+    drawStage1(doc, data, companyInfo) {
         data.title = 'MATERIAL IDENTIFICATION & SET UP REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 10;
@@ -255,10 +249,10 @@ class PDFGeneratorCD {
             doc.font(this.fonts.regular).fillColor(this.colors.black);
             doc.text(data.nozzleSize || '-', x + 5, curY + 10);
             doc.text(data.totalLength || '-', x + dimColW + 5, curY + 10);
-        });
+        }, companyInfo);
     }
 
-    drawStage2(doc, data) {
+    drawStage2(doc, data, companyInfo) {
         data.title = 'WELD VISUAL REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
@@ -276,10 +270,10 @@ class PDFGeneratorCD {
             doc.font(this.fonts.regular).fillColor(this.colors.black);
             doc.text(data.welderNumber || '-', x + 5, curY + 10);
             doc.text(data.overlayPt || '-', x + colW + 5, curY + 10);
-        });
+        }, companyInfo);
     }
 
-    drawStage3(doc, data) {
+    drawStage3(doc, data, companyInfo) {
         data.title = 'NOZZLE OPENING INSPECTION REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
@@ -322,10 +316,10 @@ class PDFGeneratorCD {
 
                 curY += (rowH + 10);
             }
-        });
+        }, companyInfo);
     }
 
-    drawStage4(doc, data) {
+    drawStage4(doc, data, companyInfo) {
         data.title = 'NOZZLE SET-UP REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
@@ -364,10 +358,10 @@ class PDFGeneratorCD {
 
                 curY += (rowH + 5);
             }
-        });
+        }, companyInfo);
     }
 
-    drawStage5(doc, data) {
+    drawStage5(doc, data, companyInfo) {
         data.title = 'INSPECTION AFTER FULL WELDING REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
@@ -400,10 +394,10 @@ class PDFGeneratorCD {
 
                 curY += (rowH + 10);
             }
-        });
+        }, companyInfo);
     }
 
-    drawStage6(doc, data) {
+    drawStage6(doc, data, companyInfo) {
         data.title = 'RF PAD SETUP REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
@@ -417,10 +411,10 @@ class PDFGeneratorCD {
             doc.rect(x, curY, width, rowH).stroke();
             doc.font(this.fonts.regular).fillColor(this.colors.black);
             doc.text(data.rfPadPneumatic || '-', x + 5, curY + 10);
-        });
+        }, companyInfo);
     }
 
-    drawStage7(doc, data) {
+    drawStage7(doc, data, companyInfo) {
         data.title = 'PWHT & RADIOGRAPHY REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
@@ -460,10 +454,10 @@ class PDFGeneratorCD {
             doc.text('YES / No', x + colW + 5, tY);
             doc.font(this.fonts.bold).fillColor(this.colors.black)
                 .text((data.pwht) ? 'YES' : 'NO', x + 2 * colW + 5, tY); // Using PWHT status as proxy for RT/PT requirement as in A/B
-        });
+        }, companyInfo);
     }
 
-    drawStage8(doc, data) {
+    drawStage8(doc, data, companyInfo) {
         data.title = 'PWHT & LIQUID PENETRANT REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
@@ -503,10 +497,10 @@ class PDFGeneratorCD {
             doc.text('YES / No', x + colW + 5, tY);
             doc.font(this.fonts.bold).fillColor(this.colors.black)
                 .text((data.pwht) ? 'YES' : 'NO', x + 2 * colW + 5, tY); // Using PWHT status as proxy
-        });
+        }, companyInfo);
     }
 
-    generateReport(allStagesData, res) {
+    generateReport(allStagesData, res, companyInfo) {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
@@ -535,14 +529,14 @@ class PDFGeneratorCD {
             isFirstPage = false;
 
             switch (stageNum) {
-                case 1: this.drawStage1(doc, data); break;
-                case 2: this.drawStage2(doc, data); break;
-                case 3: this.drawStage3(doc, data); break;
-                case 4: this.drawStage4(doc, data); break;
-                case 5: this.drawStage5(doc, data); break;
-                case 6: this.drawStage6(doc, data); break;
-                case 7: this.drawStage7(doc, data); break;
-                case 8: this.drawStage8(doc, data); break;
+                case 1: this.drawStage1(doc, data, companyInfo); break;
+                case 2: this.drawStage2(doc, data, companyInfo); break;
+                case 3: this.drawStage3(doc, data, companyInfo); break;
+                case 4: this.drawStage4(doc, data, companyInfo); break;
+                case 5: this.drawStage5(doc, data, companyInfo); break;
+                case 6: this.drawStage6(doc, data, companyInfo); break;
+                case 7: this.drawStage7(doc, data, companyInfo); break;
+                case 8: this.drawStage8(doc, data, companyInfo); break;
                 default:
                     doc.text(`Stage ${stageNum} not implemented`, 50, 50);
             }

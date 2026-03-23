@@ -21,7 +21,7 @@ class PDFGenerator {
      * @param {Object} allStagesData - Keys are 'stage1', 'stage2', etc., values are the report data for that stage.
      * @param {Object} res - Express response object
      */
-    generateCompleteReport(allStagesData, res) {
+    generateCompleteReport(allStagesData, res, companyInfo) {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
@@ -45,14 +45,14 @@ class PDFGenerator {
 
             if (stage === 'stage1') {
                 if (data.categoryKey === 'cd' || (data.jointType && ['C', 'D'].includes(data.jointType))) {
-                    this.drawStage1_CD(doc, data);
+                    this.drawStage1_CD(doc, data, companyInfo);
                 } else if (data.categoryKey === 'f' || (data.jointType && ['F'].includes(data.jointType))) {
-                    this.drawStage1_F(doc, data);
+                    this.drawStage1_F(doc, data, companyInfo);
                 } else {
-                    this.drawStage1(doc, data); // A/B Default
+                    this.drawStage1(doc, data, companyInfo); // A/B Default
                 }
             } else {
-                this.drawStandardStage(doc, data, stage);
+                this.drawStandardStage(doc, data, stage, companyInfo);
             }
         });
 
@@ -62,16 +62,16 @@ class PDFGenerator {
     /**
      * Generates a single page report for Stage 1 (Backwards compatibility)
      */
-    generateStage1Report(data, res) {
+    generateStage1Report(data, res, companyInfo) {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
         if (data.categoryKey === 'cd' || (data.jointType && ['C', 'D'].includes(data.jointType))) {
-            this.drawStage1_CD(doc, data);
+            this.drawStage1_CD(doc, data, companyInfo);
         } else if (data.categoryKey === 'f' || (data.jointType && ['F'].includes(data.jointType))) {
-            this.drawStage1_F(doc, data);
+            this.drawStage1_F(doc, data, companyInfo);
         } else {
-            this.drawStage1(doc, data);
+            this.drawStage1(doc, data, companyInfo);
         }
 
         doc.end();
@@ -83,7 +83,7 @@ class PDFGenerator {
     // ==========================================
     // STAGE 1 LAYOUT (Category A/B - Exact Replica)
     // ==========================================
-    drawStage1(doc, data) {
+    drawStage1(doc, data, companyInfo) {
         // ... (Existing Logic for A/B)
         const startX = 25;
         const startY = 25;
@@ -96,7 +96,7 @@ class PDFGenerator {
         const innerW = pageW - 10;
         const innerX = startX + 5;
 
-        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'SET UP & WELD VISUAL INSPECTION REPORT');
+        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'SET UP & WELD VISUAL INSPECTION REPORT', companyInfo);
         currentY = this.drawInfoGrid(doc, innerX, currentY, innerW, data);
 
         const footerH = 130;
@@ -112,7 +112,7 @@ class PDFGenerator {
     // ==========================================
     // STAGE 1 LAYOUT (Category C/D)
     // ==========================================
-    drawStage1_CD(doc, data) {
+    drawStage1_CD(doc, data, companyInfo) {
         const startX = 25;
         const startY = 25;
         const pageW = doc.page.width - 50;
@@ -124,7 +124,7 @@ class PDFGenerator {
         const innerW = pageW - 10;
         const innerX = startX + 5;
 
-        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'MATERIAL IDENTIFICATION & SET UP REPORT');
+        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'MATERIAL IDENTIFICATION & SET UP REPORT', companyInfo);
         currentY = this.drawInfoGrid(doc, innerX, currentY, innerW, data);
 
         const footerH = 130;
@@ -185,7 +185,7 @@ class PDFGenerator {
     // ==========================================
     // STAGE 1 LAYOUT (Category F)
     // ==========================================
-    drawStage1_F(doc, data) {
+    drawStage1_F(doc, data, companyInfo) {
         const startX = 25;
         const startY = 25;
         const pageW = doc.page.width - 50;
@@ -197,7 +197,7 @@ class PDFGenerator {
         const innerW = pageW - 10;
         const innerX = startX + 5;
 
-        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'STAGE 1: SET UP REPORT');
+        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'STAGE 1: SET UP REPORT', companyInfo);
         currentY = this.drawInfoGrid(doc, innerX, currentY, innerW, data);
 
         const footerH = 130;
@@ -253,7 +253,7 @@ class PDFGenerator {
     // ==========================================
     // STANDARD STAGE LAYOUT (Stage 2-8)
     // ==========================================
-    drawStandardStage(doc, data, stageKey) {
+    drawStandardStage(doc, data, stageKey, companyInfo) {
         const stageNum = stageKey.replace('stage', '');
         const titleMap = {
             '2': 'BACK CHIP INSPECTION REPORT',
@@ -277,7 +277,7 @@ class PDFGenerator {
         const innerW = pageW - 10;
         const innerX = startX + 5;
 
-        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, titleText);
+        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, titleText, companyInfo);
         currentY = this.drawInfoGrid(doc, innerX, currentY, innerW, data);
 
         const footerH = 130;
@@ -526,7 +526,7 @@ class PDFGenerator {
     // SHARED COMPONENTS
     // ==========================================
 
-    drawHeader(doc, x, y, width, data, titleText) {
+    drawHeader(doc, x, y, width, data, titleText, companyInfo) {
         const headerH = 70;
         doc.lineWidth(0.5).strokeColor(this.colors.black);
 
@@ -535,7 +535,7 @@ class PDFGenerator {
         doc.rect(x, y, logoW, headerH).stroke();
 
         // Try to draw logo
-        this.drawLogo(doc, x, y, logoW, headerH);
+        this.drawLogo(doc, x, y, logoW, headerH, companyInfo);
 
         // Title Box (Right) - Split into Title and Report No
         const titleBoxW = width - logoW;
@@ -798,22 +798,17 @@ class PDFGenerator {
         doc.text(signs[2] || '', x + 2 * colW + pad, curY + 3 * rowH + tY);
     }
 
-    drawLogo(doc, x, y, w, h) {
-        try {
-            // Attempt to find logo in uploads
-            const uploadDir = path.join(__dirname, '../uploads');
-            if (fs.existsSync(uploadDir)) {
-                const files = fs.readdirSync(uploadDir);
-                const logoFile = files.find(f => f.toLowerCase().startsWith('logo') && (f.endsWith('.png') || f.endsWith('.jpg')));
-                if (logoFile) {
-                    doc.image(path.join(uploadDir, logoFile), x + 5, y + 5, { fit: [w - 10, h - 10], align: 'center', valign: 'center' });
-                    return;
-                }
-            }
-        } catch (e) { }
-        // Fallback Text Logo
-        doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.darkBlue)
-            .text('Shreno Engineering Limited', x, y + h / 2 - 6, { width: w, align: 'center' });
+    drawLogo(doc, x, y, w, h, companyInfo) {
+        if (companyInfo && companyInfo.logoPath && fs.existsSync(companyInfo.logoPath)) {
+            doc.image(companyInfo.logoPath, x + 5, y + 5, { fit: [w - 10, h - 10], align: 'center', valign: 'center' });
+            return;
+        }
+
+        // Fallback to dynamic Company Name only (no static fallback)
+        if (companyInfo && companyInfo.name) {
+            doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.darkBlue)
+                .text(companyInfo.name, x, y + h / 2 - 6, { width: w, align: 'center' });
+        }
     }
 }
 
