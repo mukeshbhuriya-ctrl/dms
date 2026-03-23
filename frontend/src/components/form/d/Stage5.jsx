@@ -127,7 +127,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                     const rawBasic = typeof inspData.data_json === 'string'
                         ? JSON.parse(inspData.data_json)
                         : inspData.data_json;
-                    const basicInfo = rawBasic?.cd || {};
+                    const basicInfo = rawBasic?.[initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd'] || {};
 
                     setInputFields(prev => ({
                         ...prev,
@@ -145,10 +145,14 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
             if (inspData.s5_qc_eng_id) setQcEngineer(inspData.s5_qc_eng_id);
 
+            // Flat columns from reconstructed inspection object (new schema)
+            if (inspData.s5_prod_eng_name) setProductionEngineerName(inspData.s5_prod_eng_name);
+
             if (inspData.s5_data) {
                 try {
                     const rawData = typeof inspData.s5_data === 'string' ? JSON.parse(inspData.s5_data) : inspData.s5_data;
-                    const s5Data = rawData?.cd?.s5 || rawData?.cd || rawData || {}; // Nested key s5
+                    const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
+                    const s5Data = rawData?.[catKey]?.s5 || rawData?.[catKey] || rawData || {};
 
                     if (s5Data.productionEngineerName) setProductionEngineerName(s5Data.productionEngineerName);
                     if (s5Data.submissionDate) setTodayDate(s5Data.submissionDate);
@@ -156,10 +160,10 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
                     setFormData(prev => ({
                         ...prev,
-                        visualInspection: s5Data.visualInspection || "OK",
-                        welderNo: s5Data.welderNo || "W-888",
-                        weldingProcess: s5Data.weldingProcess || "GTAW",
-                        filletSize: s5Data.filletSize || "5mm",
+                        visualInspection: s5Data.visualInspection || "",
+                        welderNo: s5Data.welderNo || "",
+                        weldingProcess: s5Data.weldingProcess || "",
+                        filletSize: s5Data.filletSize || "",
                         date: s5Data.date || prev.date
                     }));
                 } catch (e) { console.error("Error parsing s5_data", e) }
@@ -214,7 +218,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
             const finalData = {
                 ...existingData,
-                cd: {
+                [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                     ...existingData?.cd,
                     s5: currentStageData
                 }
@@ -284,7 +288,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                 };
                 const finalData = {
                     ...existingData,
-                    cd: {
+                    [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                         ...existingData?.cd,
                         s5: currentStageData
                     }

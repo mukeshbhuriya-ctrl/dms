@@ -909,7 +909,7 @@ class DccService {
         // 2. Generate ZIP File
         const transmissionZipName = `${transNum}.zip`;
         const ZipUtils = require('../utils/zip.utils');
-        await ZipUtils.createTransmissionZip(transmissionZipName, docs);
+        await ZipUtils.createTransmissionZip(transmissionZipName, docs); // Now stored in uploads/generated
 
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
 

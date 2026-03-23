@@ -51,7 +51,20 @@ export const exportApi = {
     exportHydro: (params) => downloadFile('/hydro', 'hydro_test_export.xlsx', params),
     exportDishEnd: (params) => downloadFile('/dish-end', 'dish_end_inspection_export.xlsx', params),
     exportFinalInspection: (params) => downloadFile('/final-inspection', 'final_inspection_export.xlsx', params),
-    exportModule: async (moduleName, params, filename) => {
+    exportModule: async (moduleName, arg2, arg3) => {
+        let params = {};
+        let filename = `${moduleName}_export.xlsx`;
+
+        if (typeof arg2 === 'string') {
+            // Pattern: exportModule(moduleName, filename, params)
+            filename = arg2;
+            params = arg3 || {};
+        } else if (arg2 && typeof arg2 === 'object') {
+            // Pattern: exportModule(moduleName, params, filename)
+            params = arg2;
+            filename = arg3 || filename;
+        }
+
         return await downloadFile(`/module/${moduleName}`, filename, params);
     },
 

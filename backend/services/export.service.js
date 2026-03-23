@@ -1308,6 +1308,8 @@ class ExportService {
      * Export individual Weld Joints with full specifications and parent metadata.
      */
     async exportWeldJoint(company_id, startDate, endDate) {
+        const weldJointService = require('./weldJoint.service.js');
+
         const joints = await prisma.weld_joint.findMany({
             where: { 
                 weld_joint_plan: { 
@@ -1325,7 +1327,13 @@ class ExportService {
                         }
                     }
                 },
-                weld_joint_inspection: true
+                weld_joint_report_info: true,
+                weld_joint_stages: {
+                    include: {
+                        stage_data: true,
+                        stage_rows: true
+                    }
+                }
             },
             orderBy: { createdAt: 'desc' }
         });
@@ -1334,7 +1342,37 @@ class ExportService {
             return await excelGenerator.generateReport([{ name: 'Weld Joints', columns: [{ header: 'JOINT NO', key: 'joint_no' }], data: [] }]);
         }
 
-        const flatData = joints.map(j => {
+        // Gather users once to bulk-fetch names for proper JSON reconstruction
+        const userIds = new Set();
+        joints.forEach(j => {
+            j.weld_joint_stages?.forEach(s => {
+                if (s.prod_eng_id) userIds.add(s.prod_eng_id);
+                if (s.qc_eng_id) userIds.add(s.qc_eng_id);
+            });
+        });
+
+        let userMap = {};
+        if (userIds.size > 0) {
+            const users = await prisma.user.findMany({
+                where: { id: { in: Array.from(userIds) } },
+                select: { id: true, name: true }
+            });
+            users.forEach(u => userMap[u.id] = u.name);
+        }
+
+        const flatData = joints.map(joint => {
+            // Reconstruct the legacy standard object format perfectly!
+            const monolithicInsp = weldJointService._reconstructMonolithicInspection(
+                joint.id, 
+                joint.joint_type, 
+                joint.weld_joint_report_info, 
+                joint.weld_joint_stages, 
+                userMap
+            );
+
+            // Temporarily assign it back to mimic the legacy object structure for mapping
+            const j = { ...joint, weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null };
+            
             const p = j.weld_joint_plan || {};
             const job = p.job || {};
             const insp = j.weld_joint_inspection || {};

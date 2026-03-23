@@ -412,95 +412,96 @@ model weld_joint {
   remarks                 String?
   
   weld_joint_plan weld_joint_plan @relation(fields: [weld_joint_plan_id], references: [id], onDelete: Cascade)
-  weld_joint_inspection weld_joint_inspection?
+  weld_joint_report_info weld_joint_report_info?
+  weld_joint_stages weld_joint_stage[]
   
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 }
 
-model weld_joint_inspection {
+model weld_joint_report_info {
   id              String   @id @default(uuid())
   weld_joint_id   String   @unique
   weld_joint      weld_joint @relation(fields: [weld_joint_id], references: [id], onDelete: Cascade)
 
-  // --- Common Data store for all stages based on {ab: {...}. cd: {...}}---
-  data_json         Json?    
+  report_no       String?
+  tag_no          String?
+  equipment       String?
+  projects_id     String?
+  linde_drg_no    String?
+  drg_no          String?
+  code            String?
+  insp_agency     String?
+}
 
+model weld_joint_stage {
+  id              String   @id @default(uuid())
+  weld_joint_id   String   
+  weld_joint      weld_joint @relation(fields: [weld_joint_id], references: [id], onDelete: Cascade)
 
-  // --- Stage 1: Seam Inspection ---
-  s1_status       String   @default("pending") // pending, submitted, approved, rejected
-  s1_data         Json?    
-  s1_prod_eng_id  String?
-  s1_qc_eng_id    String?
-  s1_submitted_at DateTime?
-  s1_approved_at  DateTime?
-  s1_rejected_at  DateTime?
+  stage_name      String   // e.g. "s1", "s2", "s3"
+  status          String   @default("pending") // pending, submitted, approved, rejected
+  
+  prod_eng_id     String?
+  qc_eng_id       String?
+  
+  submitted_at    DateTime?
+  approved_at     DateTime?
+  rejected_at     DateTime?
 
-  // --- Stage 2: Back Chip ---
-  s2_status       String   @default("pending")
-  s2_data         Json?
-  s2_prod_eng_id  String?
-  s2_qc_eng_id    String?
-  s2_submitted_at DateTime?
-  s2_approved_at  DateTime?
-  s2_rejected_at  DateTime?
-
-  // --- Stage 3: Weld Visual ---
-  s3_status       String   @default("pending")
-  s3_data         Json?
-  s3_prod_eng_id  String?
-  s3_qc_eng_id    String?
-  s3_submitted_at DateTime?
-  s3_approved_at  DateTime?
-  s3_rejected_at  DateTime?
-
-  // --- Stage 4: RT ---
-  s4_status       String   @default("pending")
-  s4_data         Json?
-  s4_prod_eng_id  String?
-  s4_qc_eng_id    String?
-  s4_submitted_at DateTime?
-  s4_approved_at  DateTime?
-  s4_rejected_at  DateTime?
-
-  // --- Stage 5: PT ---
-  s5_status       String   @default("pending")
-  s5_data         Json?
-  s5_prod_eng_id  String?
-  s5_qc_eng_id    String?
-  s5_submitted_at DateTime?
-  s5_approved_at  DateTime?
-  s5_rejected_at  DateTime?
-
-  // --- Stage 6: PWHT - Radiography Testing (RT) (After PWHT) ---
-  s6_status       String   @default("pending")
-  s6_data         Json?
-  s6_prod_eng_id  String?
-  s6_qc_eng_id    String?
-  s6_submitted_at DateTime?
-  s6_approved_at  DateTime?
-  s6_rejected_at  DateTime?
-
-  // --- Stage 7: PWHT - Penetrant Testing (PT) (After PWHT) ---
-  s7_status       String   @default("pending")
-  s7_data         Json?
-  s7_prod_eng_id  String?
-  s7_qc_eng_id    String?
-  s7_submitted_at DateTime?
-  s7_approved_at  DateTime?
-  s7_rejected_at  DateTime?
-
-  // --- Stage 8: Final Inspection (CD) ---
-  s8_status       String   @default("pending")
-  s8_data         Json?
-  s8_prod_eng_id  String?
-  s8_qc_eng_id    String?
-  s8_submitted_at DateTime?
-  s8_approved_at  DateTime?
-  s8_rejected_at  DateTime?
+  stage_data      weld_joint_stage_data?
+  stage_rows      weld_joint_stage_row[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@unique([weld_joint_id, stage_name])
+}
+
+model weld_joint_stage_data {
+  id                      String   @id @default(uuid())
+  weld_joint_stage_id     String   @unique
+  weld_joint_stage        weld_joint_stage @relation(fields: [weld_joint_stage_id], references: [id], onDelete: Cascade)
+
+  material_id_marks       String?
+  nozzle_number           String?
+  tack_welder             String?
+  visual_inspection       String?
+  l_seam_rt               String?
+  nozzle_size             String?
+  total_length            String?
+  welder_number           String?
+  overlay_pt              String?
+  opening_size            String?
+  orientation             String?
+  elevation               String?
+  edge_preparation        String?
+  material_id             String?
+  l_seam_ndt              String?
+  cleaning                String?
+  groove_angle            String?
+  root_face               String?
+  root_gap                String?
+  projection              String?
+  pcd_hole                String?
+  rf_pad                  String?
+  fillet_size             String?
+  welding_process         String?
+  rf_pad_pneumatic        String?
+  post_rt_status          String?
+  post_pt_status          String?
+  date                    String?
+  assigned_ndt_engineer_id String?
+}
+
+model weld_joint_stage_row {
+  id                      String   @id @default(uuid())
+  weld_joint_stage_id     String   
+  weld_joint_stage        weld_joint_stage @relation(fields: [weld_joint_stage_id], references: [id], onDelete: Cascade)
+
+  sr_no                   Int
+  row_name                String
+  row_value               String?
 }
 
 model document_version {

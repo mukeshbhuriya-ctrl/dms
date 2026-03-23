@@ -124,7 +124,7 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
                     const rawBasic = typeof inspData.data_json === 'string'
                         ? JSON.parse(inspData.data_json)
                         : inspData.data_json;
-                    const basicInfo = rawBasic?.cd || {};
+                    const basicInfo = rawBasic?.[initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd'] || {};
 
                     setInputFields(prev => ({
                         ...prev,
@@ -142,10 +142,14 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
 
             if (inspData.s6_qc_eng_id) setQcEngineer(inspData.s6_qc_eng_id);
 
+            // Flat columns from reconstructed inspection object (new schema)
+            if (inspData.s6_prod_eng_name) setProductionEngineerName(inspData.s6_prod_eng_name);
+
             if (inspData.s6_data) {
                 try {
                     const rawData = typeof inspData.s6_data === 'string' ? JSON.parse(inspData.s6_data) : inspData.s6_data;
-                    const s6Data = rawData?.cd?.s6 || rawData?.cd || rawData || {}; // Nested key s6
+                    const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
+                    const s6Data = rawData?.[catKey]?.s6 || rawData?.[catKey] || rawData || {};
 
                     if (s6Data.productionEngineerName) setProductionEngineerName(s6Data.productionEngineerName);
                     if (s6Data.submissionDate) setTodayDate(s6Data.submissionDate);
@@ -153,7 +157,7 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
 
                     setFormData(prev => ({
                         ...prev,
-                        rfPadPneumatic: s6Data.rfPadPneumatic || "Not Applicable",
+                        rfPadPneumatic: s6Data.rfPadPneumatic || "",
                         date: s6Data.date || prev.date
                     }));
                 } catch (e) { console.error("Error parsing s6_data", e) }
@@ -207,7 +211,7 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
 
             const finalData = {
                 ...existingData,
-                cd: {
+                [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                     ...existingData?.cd,
                     s6: currentStageData
                 }
@@ -277,7 +281,7 @@ const Stage6D = ({ initialData, inspectionData, isReview = false }) => {
                 };
                 const finalData = {
                     ...existingData,
-                    cd: {
+                    [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                         ...existingData?.cd,
                         s6: currentStageData
                     }

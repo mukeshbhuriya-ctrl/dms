@@ -121,9 +121,8 @@ function Stage1({ initialData, isReview = false }) {
   }, [])
 
   const getCategoryKey = () => {
-    if (initialData?.jointCategory === 'C' || initialData?.jointCategory === 'D') return 'cd';
-    return 'ab';
-  }
+        return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'a';
+    }
 
   // Populate Data
   useEffect(() => {

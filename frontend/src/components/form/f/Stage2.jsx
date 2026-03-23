@@ -76,7 +76,7 @@ const Stage2F = ({ initialData, inspectionData, isReview }) => {
         fetchQeEngineers()
     }, [])
 
-    const getCategoryKey = () => 'f';
+    const getCategoryKey = () => initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'f';
 
     useEffect(() => {
         if (inspectionData) {

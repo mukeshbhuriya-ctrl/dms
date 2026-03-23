@@ -51,10 +51,16 @@ export function AuthProvider({ children }) {
         fetchAuth()
     }, [fetchAuth])
 
-    const logout = useCallback(() => {
-        localStorage.removeItem("user_auth")
-        setUser(null)
-        setIsAuthenticated(false)
+    const logout = useCallback(async () => {
+        try {
+            await apiClient.post("/api/users/auth/logout")
+        } catch (error) {
+            console.error("Logout API failed:", error)
+        } finally {
+            localStorage.removeItem("user_auth")
+            setUser(null)
+            setIsAuthenticated(false)
+        }
     }, [])
 
     const value = {

@@ -152,8 +152,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
 
     // Helper to determine category key
     const getCategoryKey = () => {
-        if (initialData?.jointCategory === 'C' || initialData?.jointCategory === 'D') return 'cd';
-        return 'ab';
+        return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd';
     }
 
     useEffect(() => {

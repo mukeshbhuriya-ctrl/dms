@@ -157,9 +157,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
   // Helper to determine category key
   const getCategoryKey = () => {
-    if (initialData?.jointCategory === 'C' || initialData?.jointCategory === 'D') return 'cd';
-    return 'ab';
-  }
+        return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'a';
+    }
 
   useEffect(() => {
     // autofill data if available in inspectionData

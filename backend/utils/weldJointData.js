@@ -112,10 +112,10 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         qcDate,
         qcStatus: insp[`${sPrefix}_status`] || 'pending',
 
-        // Stage 1 - A/B
+        // Stage 1 - A/B: inspection rows table
         inspectionRows: stageData.inspectionRows || [],
 
-        // Stage 1 - C/D Specifics
+        // Stage 1 - C/D/F Specifics
         materialIdMarks: stageData.materialIdMarks || '',
         nozzleNumber: stageData.nozzleNumber || '',
         tackWelder: stageData.tackWelder || '',
@@ -123,56 +123,48 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         lSeamRt: stageData.lSeamRt || '',
         nozzleSize: stageData.nozzleSize || '',
         totalLength: stageData.totalLength || '',
-        date: stageData.date || '', // Date in C/D form
+        date: stageData.date || '',
 
-        // Stage 2 - C/D Specifics
+        // Stage 2 - Welding Details (Back chip)
         welderNumber: stageData.welderNumber || '',
         overlayPt: stageData.overlayPt || '',
 
-        // Stage 3 - C/D (Nozzle Opening)
-        nozzleNumber: stageData.nozzleNumber || '',
+        // Stage 3 - A/B Weld Visual Inspection
+        welderNo: stageData.welderNo || stageData.welderNumber || '',
+        weldingProcess: stageData.weldingProcess || '',
+
+        // Stage 3 - C/D Nozzle Opening
         openingSize: stageData.openingSize || '',
         orientation: stageData.orientation || '',
         elevation: stageData.elevation || '',
         edgePreparation: stageData.edgePreparation || '',
 
-        // Stage 4 - C/D (Nozzle Set-Up)
-        tackWelder: stageData.tackWelder || 'TW-001',
+        // Stage 4 - C/D Nozzle Set-Up
         materialId: stageData.materialId || '',
-        lSeamNdt: stageData.lSeamNdt || 'Not Applicable',
-        cleaning: stageData.cleaning || 'OK',
-        grooveAngle: stageData.grooveAngle || '35°',
-        rootFace: stageData.rootFace || '2mm',
-        rootGap: stageData.rootGap || '3mm',
-        projection: stageData.projection || '10mm',
-        pcdHole: stageData.pcdHole || 'ON center',
-        rfPad: stageData.rfPad || 'Not Applicable',
+        lSeamNdt: stageData.lSeamNdt || '',
+        cleaning: stageData.cleaning || '',
+        grooveAngle: stageData.grooveAngle || '',
+        rootFace: stageData.rootFace || '',
+        rootGap: stageData.rootGap || '',
+        projection: stageData.projection || '',
+        pcdHole: stageData.pcdHole || '',
+        rfPad: stageData.rfPad || '',
 
-        // Stage 5 - C/D (Inspection after full Welding)
-        visualInspection: stageData.visualInspection || 'OK',
-        filletSize: stageData.filletSize || '5mm',
-        weldingProcess: stageData.weldingProcess || 'GTAW',
-        // welderNo reused from Stage 3 if name conflict? Stage 3 uses welderNo? No, Stage 2 has welderNumber. Stage 5 has welderNo.
-        welderNo: stageData.welderNo || 'W-888',
+        // Stage 5 - Inspection after full Welding
+        filletSize: stageData.filletSize || '',
 
-        // Stage 6 - C/D (RF Pad)
-        rfPadPneumatic: stageData.rfPadPneumatic || 'Not Applicable',
+        // Stage 6 - RF Pad
+        rfPadPneumatic: stageData.rfPadPneumatic || '',
 
-        // Stage 7/8 - C/D (PWHT/NDT)
+        // Stage 7/8 - PWHT/NDT
         postRtStatus: stageData.postRtStatus || 'NA',
         postPtStatus: stageData.postPtStatus || 'NA',
 
-        // Stage 3 Specifics
-        welderNo: stageData.welderNo || '',
-        weldingProcess: stageData.weldingProcess || '',
-
-        // Stage 4 Specifics
+        // NDT Engineer
         ndtEngineerId: stageData.assignedNdtEngineerId || stageData.assignedQcEngineerId || '',
 
-        // Stage 6/7 Specifics
-        pwht: joint.pwht || false, // Boolean or truthy value from joint table
-
-        // Stage 4/5 Specifics
+        // Joint flags (from joint record directly)
+        pwht: joint.pwht || false,
         rt: joint.rt || false,
         pt: joint.pt || false,
     };

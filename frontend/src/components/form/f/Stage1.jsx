@@ -79,8 +79,7 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
 
 
     const getCategoryKey = () => {
-        if (initialData?.jointCategory === 'F') return 'f';
-        return 'f';
+        return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'f';
     }
 
     useEffect(() => {
