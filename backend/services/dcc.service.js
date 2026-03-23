@@ -173,8 +173,8 @@ class DccService {
 
         let finalPoDocUrl = null;
         if (file) {
-            // Use relative API path for PO download
-            finalPoDocUrl = `/api/pos/download/${file.filename}`;
+            // Store ONLY the bare filename
+            finalPoDocUrl = file.filename;
         } else if (data.po_doc_url) {
             finalPoDocUrl = data.po_doc_url;
         }
@@ -207,9 +207,11 @@ class DccService {
             });
 
             // Expand URL for immediate return
-            const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-            if (po.po_doc_url && po.po_doc_url.startsWith('/') && !po.po_doc_url.startsWith('http')) {
-                po.po_doc_url = `${backendUrl}${po.po_doc_url}`;
+            const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+            if (po.po_doc_url && !po.po_doc_url.startsWith('http')) {
+                const rawUrl = po.po_doc_url;
+                const pathUrl = rawUrl.startsWith('/') ? rawUrl : `/api/files/${rawUrl}`;
+                po.po_doc_url = `${backendUrl}${pathUrl}`;
             }
 
             // Create communication matrix entries
@@ -277,10 +279,12 @@ class DccService {
         ]);
 
         // Expand PO URLs for UI use
-        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
         const expandedData = data.map(po => {
-            if (po.po_doc_url && po.po_doc_url.startsWith('/') && !po.po_doc_url.startsWith('http')) {
-                return { ...po, po_doc_url: `${backendUrl}${po.po_doc_url}` };
+            if (po.po_doc_url && !po.po_doc_url.startsWith('http')) {
+                const rawUrl = po.po_doc_url;
+                const pathUrl = rawUrl.startsWith('/') ? rawUrl : `/api/files/${rawUrl}`;
+                return { ...po, po_doc_url: `${backendUrl}${pathUrl}` };
             }
             return po;
         });

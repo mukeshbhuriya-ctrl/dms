@@ -116,7 +116,7 @@ async function createCompany(req, res) {
     let logoUrl = null;
     if (uploadedFile) {
       const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-      logoUrl = `${backendUrl}/uploads/${uploadedFile.filename}`;
+      logoUrl = uploadedFile.filename;
     } else if (req.body.logo_url) {
       logoUrl = req.body.logo_url.trim();
     }
@@ -198,7 +198,12 @@ async function createCompany(req, res) {
         company: {
           id: result.company.id,
           name: result.company.name,
-          logo_url: result.company.logo_url,
+          logo_url: result.company.logo_url ? (() => {
+            const rawUrl = result.company.logo_url;
+            if (rawUrl.startsWith('http') || rawUrl.startsWith('/')) return rawUrl;
+            const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+            return `${backendUrl}/api/files/${rawUrl}`;
+          })() : null,
           createdAt: result.company.createdAt,
           updatedAt: result.company.updatedAt,
         },

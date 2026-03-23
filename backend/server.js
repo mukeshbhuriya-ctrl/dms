@@ -42,6 +42,9 @@ app.use('/api/departments', departmentRoutes);
 const commonRoutes = require('./routes/common/common.routes.js');
 app.use('/api/common', commonRoutes);
 
+const downloadRoutes = require('./routes/common/download.routes.js');
+app.use('/api/files', downloadRoutes);
+
 const exportRoutes = require('./routes/common/export.routes.js');
 app.use('/api/export', exportRoutes);
 

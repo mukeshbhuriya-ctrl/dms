@@ -22,8 +22,8 @@ async function getCompanyInfo(company_id) {
         let localLogoPath = null;
         if (company.logo_url) {
             try {
-                const urlParts = company.logo_url.split('/');
-                const filename = urlParts[urlParts.length - 1];
+                // Handle both absolute URLs and bare filenames
+                const filename = path.basename(company.logo_url);
                 const potentialPath = path.join(UPLOAD_DIR, filename);
                 
                 if (fs.existsSync(potentialPath)) {

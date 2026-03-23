@@ -31,7 +31,6 @@ router.put('/update-customer-location/:id', updateCustomerLocation);
 router.get('/get-pos', DccController.getPos);
 router.post('/create-po', upload.single('po_document'), createPo);
 router.put('/update-po/:id', upload.single('po_document'), updatePo);
-router.get('/pos/download/:filename', documentController.downloadPo);
 
 // Document Versioning and Secure Access
 router.get('/document/:documentId/download', authenticateUserOnly, documentController.downloadDocument);

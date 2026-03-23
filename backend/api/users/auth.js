@@ -189,14 +189,24 @@ async function me(req, res) {
         company: user.company ? {
           id: user.company.id,
           name: user.company.name,
-          logo_url: user.company.logo_url
+          logo_url: user.company.logo_url ? (() => {
+            const rawUrl = user.company.logo_url;
+            if (rawUrl.startsWith('http') || rawUrl.startsWith('/')) return rawUrl;
+            const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+            return `${backendUrl}/api/files/${rawUrl}`;
+          })() : null
         } : null
       },
       role: user.user_roles.map(ur => ur.role.name), // Keep for backward compatibility
       name: user.name,
       company: user.company ? {
         name: user.company.name,
-        logo_url: user.company.logo_url
+        logo_url: user.company.logo_url ? (() => {
+          const rawUrl = user.company.logo_url;
+          if (rawUrl.startsWith('http') || rawUrl.startsWith('/')) return rawUrl;
+          const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+          return `${backendUrl}/api/files/${rawUrl}`;
+        })() : null
       } : null
     });
   }

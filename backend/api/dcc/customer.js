@@ -266,9 +266,8 @@ async function createPo(req, res) {
     // Handle PO document URL - either from uploaded file or from body
     let finalPoDocUrl = null;
     if (uploadedFile) {
-      // Generate URL for the uploaded file
-      const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-      finalPoDocUrl = `${backendUrl}/uploads/${uploadedFile.filename}`;
+      // Store ONLY the bare filename
+      finalPoDocUrl = uploadedFile.filename;
     } else if (po_doc_url && po_doc_url.trim() !== '') {
       // Use URL from request body if no file uploaded
       finalPoDocUrl = po_doc_url.trim();
@@ -442,7 +441,12 @@ async function createPo(req, res) {
         customer_location_id: result.po.customer_location_id,
         po_number: result.po.po_number,
         po_date: result.po.po_date,
-        po_doc_url: result.po.po_doc_url,
+        po_doc_url: result.po.po_doc_url ? (() => {
+          const rawUrl = result.po.po_doc_url;
+          if (rawUrl.startsWith('http') || rawUrl.startsWith('/')) return rawUrl;
+          const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+          return `${backendUrl}/api/files/${rawUrl}`;
+        })() : null,
         createdAt: result.po.createdAt,
         updatedAt: result.po.updatedAt,
         communication_matrix: result.communicationMatrixEntries,
@@ -738,7 +742,17 @@ async function getPos(req, res) {
       },
       orderBy: { createdAt: 'desc' }
     });
-    res.status(200).json({ success: true, data: pos });
+    const formattedPos = pos.map(po => ({
+      ...po,
+      po_doc_url: po.po_doc_url ? (() => {
+        const rawUrl = po.po_doc_url;
+        if (rawUrl.startsWith('http') || rawUrl.startsWith('/')) return rawUrl;
+        const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+        return `${backendUrl}/api/files/${rawUrl}`;
+      })() : null
+    }));
+
+    res.status(200).json({ success: true, data: formattedPos });
   } catch (error) {
     console.error('Get POs error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -857,8 +871,8 @@ async function updatePo(req, res) {
 
     let finalPoDocUrl = existingPo.po_doc_url;
     if (uploadedFile) {
-      const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-      finalPoDocUrl = `${backendUrl}/uploads/${uploadedFile.filename}`;
+      // Store ONLY the bare filename
+      finalPoDocUrl = uploadedFile.filename;
     } else if (po_doc_url && po_doc_url.trim() !== '') {
       finalPoDocUrl = po_doc_url.trim();
     }
@@ -907,6 +921,14 @@ async function updatePo(req, res) {
 
       return { po: updatedPo, communicationMatrixEntries: newMatrix };
     });
+
+    // Expand the PO document URL for the response
+    const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    if (result.po.po_doc_url && !result.po.po_doc_url.startsWith('http')) {
+      const rawUrl = result.po.po_doc_url;
+      const pathUrl = rawUrl.startsWith('/') ? rawUrl : `/api/files/${rawUrl}`;
+      result.po.po_doc_url = `${backendUrl}${pathUrl}`;
+    }
 
     res.status(200).json({ success: true, message: 'PO updated successfully', data: result });
   } catch (error) {

@@ -205,20 +205,19 @@ class DocumentController {
     }
 
     /**
-     * Download a PO document (generic file download)
+     * General file download within /uploads directory
      */
-    async downloadPo(req, res) {
+    async downloadFile(req, res) {
         try {
             const { filename } = req.params;
-            // For simplicity, we assume POs are in the root UPLOAD_DIR or a 'pos' subdirectory
-            // Adjust based on where they are stored.
-            const filePath = path.join(UPLOAD_DIR, filename);
+            const safeFilename = path.basename(filename || "");
+            const filePath = path.join(UPLOAD_DIR, safeFilename);
 
             if (!fs.existsSync(filePath)) {
-                return res.status(404).json({ success: false, message: 'PO document not found' });
+                return res.status(404).json({ success: false, message: 'File not found on server' });
             }
 
-            res.download(filePath);
+            res.sendFile(path.resolve(filePath));
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
