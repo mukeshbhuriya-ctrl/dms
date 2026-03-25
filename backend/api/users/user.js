@@ -1,5 +1,6 @@
 const prisma = require('#prisma');
 const { hashPassword } = require('#utils/hashpassword');
+const emailService = require('../../services/email.service');
 
 /**
  * Get Users API - Get all users for the authenticated user's company
@@ -234,6 +235,11 @@ async function createUser(req, res) {
         name: ur.role.name,
       })),
     };
+
+    // Send welcome email asynchronously (don't block the response)
+    emailService.sendWelcomeEmail(result.user, password).catch((err) => {
+      console.error("[API User] Failed to send welcome email to:", result.user.email, err);
+    });
 
     // Return success response
     res.status(201).json({
