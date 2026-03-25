@@ -46,6 +46,8 @@ model company{
   dcr_change_request dcr_change_request[]
   rfq_registers rfq_register[]
   rfq_lookups rfq_lookup[]
+  estimators estimator[]
+  mediators mediator[]
   ncr ncr[]
 }
 
@@ -926,6 +928,28 @@ model rfq_lookup {
   updatedAt  DateTime @updatedAt
 
   @@unique([company_id, type, name])
+}
+
+model estimator {
+  id         String   @id @default(uuid())
+  company_id String
+  name       String
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    company  @relation(fields: [company_id], references: [id])
+}
+
+model mediator {
+  id         String   @id @default(uuid())
+  company_id String
+  name       String
+  email      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    company  @relation(fields: [company_id], references: [id])
 }
 
 model hydrostatic_test_report {

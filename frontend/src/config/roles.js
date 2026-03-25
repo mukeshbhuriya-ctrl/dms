@@ -171,7 +171,6 @@ export const MENU_CONFIG = [
             { title: "RFQ Register", path: "/marketing/rfq-register", roles: [ROLES.ADMIN, ROLES.MARKETING] },
             { title: "RFQ Types", path: "/marketing/lookups/rfq_type", roles: [ROLES.ADMIN, ROLES.MARKETING] },
             { title: "Mode of Enquiry", path: "/marketing/lookups/mode_of_enquiry", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-            { title: "Remark Options", path: "/marketing/lookups/remark", roles: [ROLES.ADMIN, ROLES.MARKETING] },
             { title: "Mediators", path: "/marketing/lookups/mediator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
             { title: "Estimators", path: "/marketing/lookups/estimator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
         ],

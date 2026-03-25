@@ -147,6 +147,92 @@ class RfqController {
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
+
+    // ─── Estimator & Mediator Endpoints ─────────────────────────────────────
+    
+    async getEstimators(req, res) {
+        try {
+            const data = await RfqService.getPersons(req.user.company_id, 'estimator');
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('RFQ getEstimators error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async createEstimator(req, res) {
+        try {
+            const data = await RfqService.createPerson(req.user.company_id, 'estimator', req.body);
+            res.status(201).json({ success: true, message: 'Estimator created successfully', data });
+        } catch (error) {
+            console.error('RFQ createEstimator error:', error);
+            res.status(400).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async updateEstimator(req, res) {
+        try {
+            const data = await RfqService.updatePerson(req.user.company_id, 'estimator', req.params.id, req.body);
+            res.status(200).json({ success: true, message: 'Estimator updated successfully', data });
+        } catch (error) {
+            console.error('RFQ updateEstimator error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async deleteEstimator(req, res) {
+        try {
+            await RfqService.deletePerson(req.user.company_id, 'estimator', req.params.id);
+            res.status(200).json({ success: true, message: 'Estimator deleted successfully' });
+        } catch (error) {
+            console.error('RFQ deleteEstimator error:', error);
+            const status = error.message.includes('not found') ? 404 : 500;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async getMediators(req, res) {
+        try {
+            const data = await RfqService.getPersons(req.user.company_id, 'mediator');
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error('RFQ getMediators error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async createMediator(req, res) {
+        try {
+            const data = await RfqService.createPerson(req.user.company_id, 'mediator', req.body);
+            res.status(201).json({ success: true, message: 'Mediator created successfully', data });
+        } catch (error) {
+            console.error('RFQ createMediator error:', error);
+            res.status(400).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async updateMediator(req, res) {
+        try {
+            const data = await RfqService.updatePerson(req.user.company_id, 'mediator', req.params.id, req.body);
+            res.status(200).json({ success: true, message: 'Mediator updated successfully', data });
+        } catch (error) {
+            console.error('RFQ updateMediator error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async deleteMediator(req, res) {
+        try {
+            await RfqService.deletePerson(req.user.company_id, 'mediator', req.params.id);
+            res.status(200).json({ success: true, message: 'Mediator deleted successfully' });
+        } catch (error) {
+            console.error('RFQ deleteMediator error:', error);
+            const status = error.message.includes('not found') ? 404 : 500;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new RfqController();
