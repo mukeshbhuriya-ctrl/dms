@@ -41,6 +41,17 @@ class EmailService {
 
         return this.sendEmail({ to, cc, subject, html, attachments });
     }
+
+    // Template for Welcome Email
+    async sendWelcomeEmail(userData, password) {
+        const { getWelcomeEmailTemplate } = require('../utils/email-templates/welcome.template');
+        const companyUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+        const subject = `Welcome to DMS - Your Account Credentials`;
+        const html = getWelcomeEmailTemplate(userData, password, companyUrl);
+
+        return this.sendEmail({ to: userData.email, subject, html });
+    }
 }
 
 module.exports = new EmailService();
