@@ -542,11 +542,10 @@ function CreateJob() {
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Project ID <span className="text-destructive">*</span></Label>
+                                  <Label>Project ID <span className="text">*</span></Label>
                                   <Input
                                     value={job.project_id}
                                     onChange={(e) => handleJobChange(job.id, "project_id", e.target.value)}
-                                    required
                                   />
                                 </div>
                                 <div className="space-y-2">
@@ -566,11 +565,10 @@ function CreateJob() {
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>Code <span className="text-destructive">*</span></Label>
+                                  <Label>Code <span className="text">*</span></Label>
                                   <Input
                                     value={job.code}
                                     onChange={(e) => handleJobChange(job.id, "code", e.target.value)}
-                                    required
                                   />
                                 </div>
                               </div>

@@ -38,6 +38,7 @@ function CreatePO() {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [poDocument, setPoDocument] = useState(null)
   const [existingDocUrl, setExistingDocUrl] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true)
   const [isLoadingLocations, setIsLoadingLocations] = useState(false)
@@ -72,6 +73,7 @@ function CreatePO() {
 
     setExistingDocUrl(po.po_doc_url)
     setPoDocument(null)
+    setPreviewUrl(null)
 
     // Parse matrix
     const shreno = []
@@ -249,13 +251,19 @@ function CreatePO() {
   const handleDocumentUpload = (e) => {
     const file = e.target.files[0]
     if (file) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPoDocument(file)
+      setPreviewUrl(URL.createObjectURL(file))
       setError("")
     }
   }
 
   const handleRemoveDocument = () => {
     setPoDocument(null)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+    }
     const fileInput = document.getElementById("documentUpload")
     if (fileInput) {
       fileInput.value = ""
@@ -357,6 +365,10 @@ function CreatePO() {
       setSelectedLocation(null)
       setPoDocument(null)
       setExistingDocUrl(null)
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+        setPreviewUrl(null)
+      }
       setShrenoCommunication([{ name: "", email: "" }])
       setClientCommunication([{ name: "", email: "" }])
       setEditingId(null)
@@ -418,6 +430,10 @@ function CreatePO() {
                     setSelectedLocation(null)
                     setPoDocument(null)
                     setExistingDocUrl(null)
+                    if (previewUrl) {
+                      URL.revokeObjectURL(previewUrl)
+                      setPreviewUrl(null)
+                    }
                     setShrenoCommunication([{ name: "", email: "" }])
                     setClientCommunication([{ name: "", email: "" }])
                     setView("create")
@@ -574,19 +590,46 @@ function CreatePO() {
                               className="hidden"
                             />
                             {existingDocUrl && !poDocument && (
-                              <div className="flex items-center gap-2 p-2 border rounded">
-                                <span className="text-sm">Current Document</span>
-                                <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
-                                  <FileText className="h-3 w-3 mr-1" /> View
-                                </a>
+                              <div className="flex flex-col gap-2 p-4 border rounded">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">Current Document</span>
+                                  <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
+                                    <FileText className="h-3 w-3 mr-1" /> Open in new tab
+                                  </a>
+                                </div>
+                                {existingDocUrl.toLowerCase().endsWith('.pdf') ? (
+                                  <iframe
+                                    src={existingDocUrl}
+                                    className="w-full h-[500px] border rounded"
+                                    title="Current Document Preview"
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center h-32 bg-muted/50 rounded border-dashed border-2">
+                                    <span className="text-muted-foreground text-sm">Preview not available for this file type.</span>
+                                  </div>
+                                )}
                               </div>
                             )}
                             {poDocument && (
-                              <div className="flex items-center gap-2 p-2 border rounded">
-                                <span className="text-sm">{poDocument.name}</span>
-                                <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
-                                  <X className="h-4 w-4" />
-                                </Button>
+                              <div className="flex flex-col gap-2 p-4 border rounded">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">{poDocument.name}</span>
+                                  <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                {poDocument.type === "application/pdf" ? (
+                                  <iframe
+                                    src={previewUrl}
+                                    className="w-full h-[500px] border rounded"
+                                    title="Document Preview"
+                                  />
+                                ) : (
+                                  <div className="flex flex-col items-center justify-center h-32 bg-muted/50 rounded border-dashed border-2 gap-2">
+                                    <FileText className="h-8 w-8 text-muted-foreground" />
+                                    <span className="text-muted-foreground text-sm">Preview only available for PDF files.</span>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -691,6 +734,10 @@ function CreatePO() {
                             setSelectedLocation(null)
                           }
                           setPoDocument(null)
+                          if (previewUrl) {
+                            URL.revokeObjectURL(previewUrl)
+                            setPreviewUrl(null)
+                          }
                           if (editingId) {
                             setEditingId(null)
                             setView("list")
