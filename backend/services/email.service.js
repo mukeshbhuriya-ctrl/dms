@@ -1,32 +1,15 @@
-require('dotenv/config');
 const nodemailer = require('nodemailer');
 
 class EmailService {
     constructor() {
-        const isGmail = (process.env.SMTP_HOST || 'smtp.gmail.com').includes('gmail.com');
-        
-        const config = {
-            host: isGmail ? 'smtp.gmail.com' : process.env.SMTP_HOST,
-            port: isGmail ? 587 : (process.env.SMTP_PORT || 587),
-            secure: isGmail ? false : (process.env.SMTP_SECURE === 'true'),
+        this.transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: process.env.SMTP_PORT || 587,
+            secure: false, // true for 465, false for other ports
             auth: {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
-            tls: {
-                rejectUnauthorized: false
-            }
-        };
-
-        this.transporter = nodemailer.createTransport(config);
-        
-        // Verify connection
-        this.transporter.verify((error, success) => {
-            if (error) {
-                console.error("SMTP Connection Error:", error);
-            } else {
-                console.log("SMTP Server is ready");
-            }
         });
     }
 

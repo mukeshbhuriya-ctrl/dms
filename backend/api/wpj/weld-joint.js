@@ -50,7 +50,7 @@ async function getjobInfo(req, res) {
                 ...job,
                 next_serial_no: nextSerial,
                 // Generate the dynamic Weld Plan No: SHR/JobNo/WTP/SerialNo
-                next_weld_plan_no: `SHR/job${job.job_number}/WTP/${nextSerial}`
+                next_weld_plan_no: `SHR/${job.job_number}/WTP/${nextSerial}`
             };
         });
 
