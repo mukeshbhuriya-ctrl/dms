@@ -536,7 +536,7 @@ class DccService {
                     po: true,
                     versions: versionsInclude
                 },
-                orderBy: { updatedAt: 'desc' }
+                orderBy: { createdAt: 'desc' }
             })
         ]);
 
@@ -554,7 +554,10 @@ class DccService {
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
-        const where = { company_id };
+        const where = { 
+            company_id,
+            status: status ? status : { in: ['Pending', 'Uploaded'] }
+        };
 
         if (customer_id) where.customer_id = customer_id;
         if (location_id) where.customer_location_id = location_id;
@@ -568,8 +571,6 @@ class DccService {
                 }
             };
         }
-
-        if (status) where.status = status;
 
         if (search) {
             where.OR = [

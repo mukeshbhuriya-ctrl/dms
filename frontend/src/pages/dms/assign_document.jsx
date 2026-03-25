@@ -138,16 +138,20 @@ function AssignDocument() {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleEditAssign(row)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
-      ),
+      cell: (row) => {
+        const isEditable = row.status === 'Pending' || row.status === 'Upload Due';
+        return (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleEditAssign(row)}
+            disabled={!isEditable}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        );
+      },
     },
   ], [])
 
@@ -287,7 +291,7 @@ function AssignDocument() {
   }
 
   const handleAssignmentChange = (tempId, field, value) => {
-    setAssignments(prev => prev.map(row => 
+    setAssignments(prev => prev.map(row =>
       row.tempId === tempId ? { ...row, [field]: value } : row
     ))
   }
@@ -691,11 +695,11 @@ function AssignDocument() {
                               return (
                                 <TableRow key={assignment.tempId}>
                                   <TableCell className="font-medium">{idx + 1}</TableCell>
-                                  
+
                                   {/* MSN/JOB No Select */}
                                   <TableCell>
                                     <Select
-                                      value={assignment.jobId} 
+                                      value={assignment.jobId}
                                       onValueChange={val => handleAssignmentChange(assignment.tempId, 'jobId', val)}
                                       required
                                     >
@@ -796,8 +800,8 @@ function AssignDocument() {
 
                                   {/* User Select */}
                                   <TableCell>
-                                    <Select 
-                                      value={assignment.assignUserId} 
+                                    <Select
+                                      value={assignment.assignUserId}
                                       onValueChange={val => handleAssignmentChange(assignment.tempId, 'assignUserId', val)}
                                       required
                                     >
@@ -819,18 +823,18 @@ function AssignDocument() {
 
                                   <TableCell>
                                     <div className="flex items-center gap-1">
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm" 
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
                                         className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                         onClick={() => copyRow(assignment)}
                                         title="Copy Row"
                                       >
                                         <Copy className="h-4 w-4" />
                                       </Button>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm" 
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
                                         onClick={() => removeRow(assignment.tempId)}
                                         className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                         title="Remove Row"
