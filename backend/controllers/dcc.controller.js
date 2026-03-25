@@ -198,6 +198,16 @@ class DccController {
         }
     }
 
+    async bulkAssignDocuments(req, res) {
+        try {
+            const result = await DccService.bulkAssignDocuments(req.user.company_id, req.body);
+            res.status(201).json({ success: true, data: result, message: 'Documents assigned successfully' });
+        } catch (error) {
+            console.error('Bulk assign document error:', error);
+            res.status(400).json({ success: false, message: error.message || 'Failed to assign documents' });
+        }
+    }
+
     async getTransmissionDocuments(req, res) {
         try {
             const result = await DccService.getTransmissionDocuments(req.user.company_id, req.query.transmission_id);

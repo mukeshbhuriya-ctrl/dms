@@ -49,6 +49,7 @@ router.get('/document-type', getDocumentType);
 router.get('/get-users', getUsers);
 router.post('/create-document-type', createDocumentType);
 router.post('/assign-document', DccController.assignDocument);
+router.post('/bulk-assign-documents', DccController.bulkAssignDocuments);
 
 
 // Document Workflow

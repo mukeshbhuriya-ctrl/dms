@@ -358,13 +358,7 @@ class DccService {
     async createDocumentMaster(company_id, data) {
         const { document_number, document_name, document_type_id } = data;
 
-        if (!document_number || !document_name || !document_type_id) throw new Error('Missing required fields');
-
-        // Verify document type exists
-        const documentType = await prisma.document_type.findFirst({
-            where: { id: document_type_id, company_id }
-        });
-        if (!documentType) throw new Error('Document type not found');
+        if (!document_number || !document_name) throw new Error('Missing required fields');
 
         // Check duplicates
         const existing = await prisma.document_master.findFirst({
@@ -377,7 +371,7 @@ class DccService {
                 company_id,
                 document_number,
                 document_name,
-                document_type_id: document_type_id
+                document_type_id: document_type_id || null
             }
         });
     }
@@ -453,9 +447,7 @@ class DccService {
             prisma.document_master.count({ where }),
             prisma.document_master.findMany({
                 where, skip, take,
-                include: {
-                    document_type: true
-                },
+                include: { document_type: true },
                 orderBy: { createdAt: 'desc' }
             })
         ]);
@@ -463,20 +455,7 @@ class DccService {
         return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
-    // Document Types Helper
-    async getDocumentTypes(company_id) {
-        return await prisma.document_type.findMany({
-            where: { company_id },
-            orderBy: { name: 'asc' }
-        });
-    }
 
-    async createDocumentType(company_id, name) {
-        if (!name) throw new Error('Name is required');
-        return await prisma.document_type.create({
-            data: { company_id, name }
-        });
-    }
 
     /**
      * Get documents assigned to user (for Upload)
@@ -543,9 +522,7 @@ class DccService {
             prisma.group_document.findMany({
                 where, skip, take,
                 include: {
-                    document: {
-                        include: { document_type: true }
-                    },
+                    document: { include: { document_type: true } },
                     group: {
                         include: {
                             job_group: {
@@ -607,9 +584,7 @@ class DccService {
             prisma.group_document.findMany({
                 where, skip, take,
                 include: {
-                    document: {
-                        include: { document_type: true }
-                    },
+                    document: { include: { document_type: true } },
                     group: {
                         include: {
                             job_group: {
@@ -780,9 +755,7 @@ class DccService {
             prisma.group_document.findMany({
                 where, skip, take,
                 include: {
-                    document: {
-                        include: { document_type: true }
-                    },
+                    document: { include: { document_type: true } },
                     group: {
                         include: {
                             job_group: {
@@ -1066,9 +1039,7 @@ class DccService {
             include: {
                 group_document: {
                     include: {
-                        document: {
-                            include: { document_type: true }
-                        },
+                        document: { include: { document_type: true } },
                         group: {
                             include: {
                                 job_group: {
@@ -1361,7 +1332,7 @@ class DccService {
             data: {
                 document_number: document_number ? document_number.trim() : undefined,
                 document_name: document_name ? document_name.trim() : undefined,
-                document_type_id: document_type_id || undefined
+                document_type_id: document_type_id !== undefined ? document_type_id : undefined
             }
         });
     }
@@ -1499,6 +1470,99 @@ class DccService {
                 });
             }
             return doc;
+        });
+    }
+
+    /**
+     * Bulk Assign Documents
+     */
+    async bulkAssignDocuments(company_id, data) {
+        const { customer_id, customer_location_id, po_id, assignments } = data;
+
+        if (!customer_id || !customer_location_id || !po_id || !assignments || !Array.isArray(assignments)) {
+            throw new Error('Invalid assignment data');
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            const results = [];
+
+            for (const assign of assignments) {
+                const { 
+                    job_id, 
+                    document_name, 
+                    document_type_id,
+                    assign_user_id, 
+                    upload_due_days, 
+                    response_due_days, 
+                    actual_due_days,
+                    shreno_document_no, 
+                    shreno_reference_no, 
+                    client_document_no, 
+                    client_reference_no 
+                } = assign;
+
+                if (!job_id || !document_name || !assign_user_id) continue;
+
+                // 1. Find or Create Document Master for this name and type
+                let documentMaster = await tx.document_master.findFirst({
+                    where: { 
+                        company_id, 
+                        document_name: document_name.trim()
+                    }
+                });
+
+                if (!documentMaster) {
+                    // Generate a unique document number
+                    const docCount = await tx.document_master.count({ where: { company_id } });
+                    const document_number = `DOC-${Date.now()}-${docCount + 1}`;
+
+                    documentMaster = await tx.document_master.create({
+                        data: {
+                            company_id,
+                            document_name: document_name.trim(),
+                            document_number: document_number
+                        }
+                    });
+                }
+
+                // 2. Create a unique Group for this specific assignment
+                const group = await tx.group.create({
+                    data: { company_id }
+                });
+
+                await tx.job_group.create({
+                    data: {
+                        company_id,
+                        group_id: group.id,
+                        job_id: job_id
+                    }
+                });
+
+                const groupDoc = await tx.group_document.create({
+                    data: {
+                        company_id,
+                        customer_id,
+                        customer_location_id,
+                        po_id,
+                        group_id: group.id,
+                        document_id: documentMaster.id,
+                        user_id: assign_user_id,
+
+                        status: 'Pending',
+                        upload_due_days: upload_due_days ? parseInt(upload_due_days) : null,
+                        response_due_days: response_due_days ? parseInt(response_due_days) : null,
+                        actual_due_days: actual_due_days ? parseInt(actual_due_days) : null,
+                        shreno_doc_no: shreno_document_no || null,
+                        shreno_reference_no: shreno_reference_no || null,
+                        client_doc_no: client_document_no || null,
+                        client_reference_no: client_reference_no || null
+                    }
+                });
+
+                results.push(groupDoc);
+            }
+
+            return results;
         });
     }
 }

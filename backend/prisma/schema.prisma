@@ -266,12 +266,12 @@ model document_master{
   company_id String
   document_number String
   document_name String
-  document_type_id String
+  document_type_id String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   company company @relation(fields: [company_id], references: [id])
-  document_type document_type @relation(fields: [document_type_id], references: [id])
+  document_type document_type? @relation(fields: [document_type_id], references: [id])
   single_document single_document[]
   group_document group_document[]
 }
@@ -346,6 +346,7 @@ model group_document{
   client_reference_no String?
   upload_due_days Int?
   response_due_days Int?
+  actual_due_days Int?
   user_id String
   status String @default("Pending") // Pending, Uploaded, Approved, Rejected
   createdAt DateTime @default(now())
@@ -929,7 +930,6 @@ model rfq_lookup {
 
   @@unique([company_id, type, name])
 }
-
 model estimator {
   id         String   @id @default(uuid())
   company_id String
@@ -951,7 +951,6 @@ model mediator {
 
   company    company  @relation(fields: [company_id], references: [id])
 }
-
 model hydrostatic_test_report {
   id               String   @id @default(uuid())
   company_id       String

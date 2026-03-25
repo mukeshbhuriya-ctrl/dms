@@ -138,7 +138,6 @@ const Reports = () => {
         case 'rfq': res = await exportApi.exportModule('rfq-register', params, 'rfq_register_report.xlsx'); break;
         
         // DMS Modules
-        case 'doc_master': res = await exportApi.exportModule('document-master', params, 'document_master_list.xlsx'); break;
         case 'doc_assign': res = await exportApi.exportModule('document-assign', params, 'document_assignment_register.xlsx'); break;
         case 'doc_upload': res = await exportApi.exportModule('document-version', params, 'document_upload_log.xlsx'); break;
         case 'doc_approver': res = await exportApi.exportModule('document-approver', params, 'document_approver_register.xlsx'); break;
@@ -181,7 +180,6 @@ const Reports = () => {
     { id: 'qap', title: 'QAP Report', description: 'Quality Assurance Plan reports', icon: FileDown, category: 'Engineering/Quality' },
     
     // DMS Core
-    { id: 'doc_master', title: 'Document Master', description: 'Standard Document List & Templates', icon: Database, category: 'DMS Core' },
     { id: 'doc_assign', title: 'Assign Document', description: 'Document Assignment Tracking', icon: UserPlus, category: 'DMS Core' },
     { id: 'doc_upload', title: 'Upload Documents', description: 'Activity log of all document uploads', icon: History, category: 'DMS Core' },
     { id: 'doc_approver', title: 'Document Approver', description: 'Internal approval status and history', icon: FolderLock, category: 'DMS Core' },

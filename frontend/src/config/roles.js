@@ -92,7 +92,6 @@ export const MENU_CONFIG = [
         title: "DMS",
         icon: Folder,
         items: [
-            { title: "Document Master", path: "/dcc/document-master", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Assign Document", path: "/dcc/assign-document", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER] },
             { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },

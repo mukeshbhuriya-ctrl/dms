@@ -15,7 +15,6 @@ import {
   CreatePO,
   CreateTransmission,
   DocumentApprover,
-  DocumentMaster,
   SendDocumentToClient,
   CreateCustomer,
   CreateLocation,
@@ -109,10 +108,6 @@ const dccRoutes = [
   {
     path: "/dcc/create-job",
     element: protect(<CreateJob />, [ROLES.ADMIN, ROLES.DCC]),
-  },
-  {
-    path: "/dcc/document-master",
-    element: protect(<DocumentMaster />, [ROLES.ADMIN, ROLES.DCC]),
   },
   {
     path: "/dcc/assign-document",

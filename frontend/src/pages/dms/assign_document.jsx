@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, ArrowRight, Plus, ArrowLeft, Edit } from "lucide-react"
+import { Search, ArrowRight, Plus, ArrowLeft, Edit, Copy } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -43,18 +43,26 @@ function AssignDocument() {
     customerId: "",
     locationId: "",
     poId: "",
-    jobIds: [], // Changed to array for multiple jobs
   })
+  const [assignments, setAssignments] = useState([
+    {
+      tempId: Date.now(),
+      jobId: "",
+      documentName: "",
+      shrenoDocumentNo: "",
+      shrenoReferenceNo: "",
+      clientDocumentNo: "",
+      clientReferenceNo: "",
+      assignUserId: "",
+      upload_due_days: "",
+      response_due_days: "",
+      actual_due_days: "",
+    }
+  ])
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [customers, setCustomers] = useState([])
   const [users, setUsers] = useState([])
-  const [allDocuments, setAllDocuments] = useState([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [documentTypeFilter, setDocumentTypeFilter] = useState("all")
-  const [selectedDocuments, setSelectedDocuments] = useState([])
-  const [documentDetails, setDocumentDetails] = useState({})
-  const [userSearchQueries, setUserSearchQueries] = useState({})
   const [error, setError] = useState("")
 
   // --- List View Columns ---
@@ -64,9 +72,19 @@ function AssignDocument() {
       header: "Document No",
     },
     {
+      id: "job_number",
+      header: "Job Number",
+      cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+    },
+    {
       accessorKey: "shreno_doc_no",
       header: "Shreno Doc No",
       cell: (row) => row.shreno_doc_no || "-",
+    },
+    {
+      accessorKey: "client_doc_no",
+      header: "Client Doc No",
+      cell: (row) => row.client_doc_no || "-",
     },
     {
       accessorKey: "document.document_name",
@@ -91,6 +109,11 @@ function AssignDocument() {
       accessorKey: "response_due_days",
       header: "Response Due Days",
       cell: (row) => row.response_due_days || "-",
+    },
+    {
+      accessorKey: "actual_due_days",
+      header: "Actual Due Days",
+      cell: (row) => row.actual_due_days || "-",
     },
     {
       accessorKey: "status",
@@ -131,42 +154,19 @@ function AssignDocument() {
   // --- Fetch Data for List View ---
   const fetchAssignedDocuments = useCallback(async ({ page, limit, search, sorting }) => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
-
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const params = new URLSearchParams()
-      params.append("page", page)
-      params.append("limit", limit)
-      if (search) params.append("search", search)
+      const params = { page, limit }
+      if (search) params.search = search
       if (sorting && sorting.length > 0) {
-        params.append("sortBy", sorting[0].id)
-        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+        params.sortBy = sorting[0].id
+        params.sortOrder = sorting[0].desc ? "desc" : "asc"
       }
 
-      const res = await fetch(`${backendUrl}/api/dcc/get-assigned-documents?${params.toString()}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
+      const response = await apiClient.get("/api/dcc/get-assigned-documents", params)
 
-      const responseData = await res.json()
-
-      if (res.ok && responseData.success) {
+      if (response.success) {
         return {
-          data: responseData.data || [],
-          meta: responseData.meta || {}
+          data: response.data || [],
+          meta: response.meta || {}
         }
       }
       return { data: [], meta: {} }
@@ -176,98 +176,23 @@ function AssignDocument() {
     }
   }, [])
 
-  // Fetch customers and documents from API
+  // Fetch customers and users
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-
-        // Get auth token
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch {
-            // If parsing fails, continue without token
-          }
-        }
-
-        const headers = {
-          "Content-Type": "application/json",
-        }
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`
-        }
-
-        // Fetch customers, documents, and users in parallel
-        const [customersRes, documentsRes, usersRes] = await Promise.all([
-          fetch(`${backendUrl}/api/dcc/get-customers?limit=1000`, {
-            method: "GET",
-            headers,
-            credentials: "include",
-          }),
-          fetch(`${backendUrl}/api/dcc/document?limit=1000&exclude_transmitted=true&exclude_assigned=${editingId ? 'true' : 'true'}${editingId && selectedDocuments[0] ? `&include_id=${selectedDocuments[0].id}` : ''}`, {
-            method: "GET",
-            headers,
-            credentials: "include",
-          }),
-          fetch(`${backendUrl}/api/users/get-users?limit=1000`, {
-            method: "GET",
-            headers,
-            credentials: "include",
-          }),
+        setIsLoadingData(true)
+        // Fetch customers and users in parallel using apiClient
+        const [customersRes, usersRes] = await Promise.all([
+          apiClient.get("/api/dcc/get-customers", { limit: 1000 }),
+          apiClient.get("/api/users/get-users", { limit: 1000 }),
         ])
 
-        const customersContentType = customersRes.headers.get("content-type") || ""
-        const customersPayload = customersContentType.includes("application/json")
-          ? await customersRes.json()
-          : await customersRes.text()
-
-        const documentsContentType = documentsRes.headers.get("content-type") || ""
-        const documentsPayload = documentsContentType.includes("application/json")
-          ? await documentsRes.json()
-          : await documentsRes.text()
-
-        const usersContentType = usersRes.headers.get("content-type") || ""
-        const usersPayload = usersContentType.includes("application/json")
-          ? await usersRes.json()
-          : await usersRes.text()
-
-        if (!customersRes.ok) {
-          const message =
-            typeof customersPayload === "string"
-              ? customersPayload
-              : customersPayload?.message || "Failed to fetch customers"
-          throw new Error(message)
-        }
-
-        if (!documentsRes.ok) {
-          const message =
-            typeof documentsPayload === "string"
-              ? documentsPayload
-              : documentsPayload?.message || "Failed to fetch documents"
-          throw new Error(message)
-        }
-
-        if (!usersRes.ok) {
-          console.error("Failed to fetch users", usersPayload);
-          // Don't throw, just warn? Or maybe throw if users are essential.
-          // For now, let's log.
-        }
-
-        // Extract data from responses
-        const customersData = customersPayload?.data || customersPayload?.customers || []
-        const documentsData = documentsPayload?.data || documentsPayload?.documents || []
-        const usersData = usersPayload?.data || []
-
-        setCustomers(customersData)
-        setAllDocuments(documentsData)
-        setUsers(usersData)
+        setCustomers(customersRes?.data || [])
+        setUsers(usersRes?.data || [])
       } catch (err) {
         console.error("Error fetching data:", err)
         setError(err?.message || "Failed to load data")
+        toast.error(err?.message || "Failed to load initial data")
       } finally {
         setIsLoadingData(false)
       }
@@ -323,89 +248,48 @@ function AssignDocument() {
     ? getJobsForPO(formData.poId)
     : []
 
-  // Get unique document types for filter
-  const documentTypes = [
-    "all",
-    ...new Set(
-      allDocuments.map((doc) =>
-        doc.document_type?.name || doc.documentType || "Unknown"
-      )
-    ),
-  ]
-
-  // Filter documents based on search and document type
-  const filteredDocuments = allDocuments.filter((doc) => {
-    const docCode = doc.document_number || doc.documentCode || ""
-    const docName = doc.document_name || doc.documentName || ""
-    const docType = doc.document_type?.name || doc.documentType || ""
-
-    const matchesSearch =
-      searchQuery === "" ||
-      docCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      docName.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const matchesType =
-      documentTypeFilter === "all" || docType === documentTypeFilter
-
-    return matchesSearch && matchesType
-  })
-
-  // Handle document selection
-  const handleDocumentToggle = (document) => {
-    setSelectedDocuments((prev) => {
-      const isSelected = prev.some((doc) => doc.id === document.id)
-      if (isSelected) {
-        // Remove from details too
-        setDocumentDetails(detailsPrev => {
-          const next = { ...detailsPrev };
-          delete next[document.id];
-          return next;
-        });
-        return prev.filter((doc) => doc.id !== document.id)
-      } else {
-        // Add to details with defaults
-        setDocumentDetails(detailsPrev => ({
-          ...detailsPrev,
-          [document.id]: {
-            shrenoDocumentNo: "",
-            shrenoReferenceNo: "",
-            clientDocumentNo: "",
-            clientReferenceNo: "",
-            assignUserId: "",
-            uploadDueDays: "",
-            responseDueDays: "",
-          }
-        }));
-        return [...prev, document]
+  // --- Helpers for Dynamic Rows ---
+  const addRow = () => {
+    setAssignments(prev => [
+      ...prev,
+      {
+        tempId: Date.now(),
+        jobId: "",
+        documentName: "",
+        shrenoDocumentNo: "",
+        shrenoReferenceNo: "",
+        clientDocumentNo: "",
+        clientReferenceNo: "",
+        assignUserId: "",
+        upload_due_days: "",
+        response_due_days: "",
+        actual_due_days: "",
       }
-    })
+    ])
   }
 
-  // Handle select all
-  const handleSelectAll = () => {
-    if (selectedDocuments.length === filteredDocuments.length) {
-      setSelectedDocuments([])
-      setDocumentDetails({})
-    } else {
-      setSelectedDocuments([...filteredDocuments])
-      setDocumentDetails(prev => {
-        const next = { ...prev };
-        filteredDocuments.forEach(doc => {
-          if (!next[doc.id]) {
-            next[doc.id] = {
-              shrenoDocumentNo: "",
-              shrenoReferenceNo: "",
-              clientDocumentNo: "",
-              clientReferenceNo: "",
-              assignUserId: "",
-              uploadDueDays: "",
-              responseDueDays: "",
-            };
-          }
-        });
-        return next;
-      });
+  const removeRow = (tempId) => {
+    if (assignments.length === 1) {
+      toast.warn("At least one row is required")
+      return
     }
+    setAssignments(prev => prev.filter(row => row.tempId !== tempId))
+  }
+
+  const copyRow = (row) => {
+    setAssignments(prev => [
+      ...prev,
+      {
+        ...row,
+        tempId: Date.now() + Math.random(), // Ensure unique tempId
+      }
+    ])
+  }
+
+  const handleAssignmentChange = (tempId, field, value) => {
+    setAssignments(prev => prev.map(row => 
+      row.tempId === tempId ? { ...row, [field]: value } : row
+    ))
   }
 
   const handleEditAssign = (row) => {
@@ -417,31 +301,24 @@ function AssignDocument() {
       customerId: row.customer_id,
       locationId: row.customer_location_id,
       poId: row.po_id,
-      jobIds: row.group?.job_group?.map(jg => jg.job_id) || []
     })
 
-    // Set selected document
-    const doc = {
-      ...row.document,
-      // Ensure properties match expected structure in step 2
-      id: row.document_id
-    }
-    setSelectedDocuments([doc])
-
-    // Set document details
-    setDocumentDetails({
-      [doc.id]: {
+    // Set assignments (just one for edit for now, as simple merge)
+    setAssignments([
+      {
+        tempId: Date.now(),
+        jobId: row.group?.job_group?.[0]?.job_id || "",
+        documentName: row.document?.document_name || "",
         shrenoDocumentNo: row.shreno_doc_no || "",
         shrenoReferenceNo: row.shreno_reference_no || "",
         clientDocumentNo: row.client_doc_no || "",
         clientReferenceNo: row.client_reference_no || "",
         assignUserId: row.user_id || "",
-        uploadDueDays: row.upload_due_days || "",
-        responseDueDays: row.response_due_days || "",
+        upload_due_days: row.upload_due_days || "",
+        response_due_days: row.response_due_days || "",
+        actual_due_days: row.actual_due_days || "",
       }
-    });
-
-    // View switch is enough
+    ])
   }
 
   // handleNext removed during streamlining
@@ -457,12 +334,30 @@ function AssignDocument() {
     }))
   }
 
-  // Handle back to selection
+  // Handle back to selection and reset form
   const handleBack = () => {
     setView("list")
     setEditingId(null)
-    setSelectedDocuments([])
-    setDocumentDetails({})
+    setFormData({
+      customerId: "",
+      locationId: "",
+      poId: "",
+    })
+    setAssignments([
+      {
+        tempId: Date.now(),
+        jobId: "",
+        documentName: "",
+        shrenoDocumentNo: "",
+        shrenoReferenceNo: "",
+        clientDocumentNo: "",
+        clientReferenceNo: "",
+        assignUserId: "",
+        upload_due_days: "",
+        response_due_days: "",
+        actual_due_days: "",
+      }
+    ])
   }
 
   // Handle customer change
@@ -531,117 +426,47 @@ function AssignDocument() {
 
   const handleAssign = async () => {
     if (!formData.customerId || !formData.locationId || !formData.poId) {
-      toast.error("Missing required selection (Customer, Location, or PO). Please go back and select.");
+      toast.error("Missing required selection (Customer, Location, or PO).");
+      return;
+    }
+
+    const validAssignments = assignments.filter(a => a.jobId && a.documentName && a.assignUserId)
+    if (validAssignments.length === 0) {
+      toast.error("Please complete at least one assignment row (Job, Name, User).");
       return;
     }
 
     setIsLoading(true)
 
-    // Create variable with all selected job IDs
-    const jobIds = formData.jobIds || []
-
-    console.log("Selected Job IDs:", jobIds)
-    console.log("Total jobs selected:", jobIds.length)
-
-    // Prepare documents array with all document details
-    const documents = selectedDocuments.map((doc) => {
-      const details = documentDetails[doc.id] || {}
-      return {
-        document_id: doc.id,
-        shreno_document_no: details.shrenoDocumentNo || "",
-        shreno_reference_no: details.shrenoReferenceNo || "",
-        client_document_no: details.clientDocumentNo || "",
-        client_reference_no: details.clientReferenceNo || "",
-        assign_user_id: details.assignUserId || "",
-        upload_due_days: details.uploadDueDays ? parseInt(details.uploadDueDays) : null,
-        response_due_days: details.responseDueDays ? parseInt(details.responseDueDays) : null,
-      }
-    })
-
-    // Request body structure
     const requestBody = {
       customer_id: formData.customerId,
       customer_location_id: formData.locationId,
       po_id: formData.poId,
-      job_ids: jobIds,
-      documents: documents,
+      assignments: validAssignments.map(a => ({
+        job_id: a.jobId,
+        document_name: a.documentName,
+        shreno_document_no: a.shrenoDocumentNo,
+        shreno_reference_no: a.shrenoReferenceNo,
+        client_document_no: a.clientDocumentNo,
+        client_reference_no: a.clientReferenceNo,
+        assign_user_id: a.assignUserId,
+        upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
+        response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
+        actual_due_days: a.actual_due_days ? parseInt(a.actual_due_days) : null,
+      })),
     }
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch {
-          // If parsing fails, continue without token
-        }
+      const response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody)
+
+      if (response.success) {
+        toast.success("Documents assigned successfully!")
+        handleBack()
+        setRefreshKey(prev => prev + 1)
       }
-
-      const headers = {
-        "Content-Type": "application/json",
-      }
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`
-      }
-
-      const res = await fetch(`${backendUrl}/api/dcc/${editingId ? `update-assigned-document/${editingId}` : 'assign-document'}`, {
-        method: editingId ? "PUT" : "POST",
-        headers,
-        credentials: "include",
-        body: JSON.stringify(editingId ? {
-          ...requestBody,
-          document_id: documents[0].document_id,
-          assign_user_id: documents[0].assign_user_id,
-          shreno_document_no: documents[0].shreno_document_no,
-          shreno_reference_no: documents[0].shreno_reference_no,
-          client_document_no: documents[0].client_document_no,
-          client_reference_no: documents[0].client_reference_no,
-          upload_due_days: documents[0].upload_due_days,
-          response_due_days: documents[0].response_due_days
-        } : requestBody),
-      })
-
-      const contentType = res.headers.get("content-type") || ""
-      const payload = contentType.includes("application/json")
-        ? await res.json()
-        : await res.text()
-
-      if (!res.ok) {
-        const message =
-          typeof payload === "string"
-            ? payload
-            : payload?.message || "Failed to assign documents"
-        throw new Error(message)
-      }
-
-      // Success
-      toast.success(editingId ? "Assignment updated successfully!" : "Documents assigned successfully!")
-      // Reset form
-      setFormData({
-        customerId: "",
-        locationId: "",
-        poId: "",
-        jobIds: [],
-      })
-      setEditingId(null)
-      setSelectedDocuments([])
-      setDocumentDetails({})
-      setUserSearchQueries({})
-      setSearchQuery("")
-      setDocumentTypeFilter("all")
-
-      // Switch back to list view and refresh
-      setView("list")
-      setRefreshKey(prev => prev + 1)
-      setTimeout(() => window.location.reload(), 1000);
-
     } catch (err) {
       console.error("Error assigning documents:", err)
-      // Display simplified error message
-      toast.error(err.message || "Failed to assign documents. Please check inputs and try again.")
+      toast.error(err.message || "Failed to assign documents.")
     } finally {
       setIsLoading(false)
     }
@@ -656,6 +481,8 @@ function AssignDocument() {
       console.error("Export failed:", error)
     }
   }
+
+  const isSubmitDisabled = isLoading || !formData.poId || assignments.some(a => !a.jobId || !a.documentName || !a.assignUserId)
 
   return (
     <SidebarProvider>
@@ -682,7 +509,7 @@ function AssignDocument() {
               <div>
                 {view === "list" ? (
                   <Button onClick={() => {
-                    setEditingId(null)
+                    handleBack()
                     setView("assign")
                   }}>
                     <Plus className="mr-2 h-4 w-4" /> Assign Documents
@@ -824,158 +651,21 @@ function AssignDocument() {
                           </Select>
                         </div>
                       </div>
-
-                      {/* Row 3: Multiple Jobs Selection */}
-                      {formData.poId && availableJobs.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label>
-                              Jobs <span className="text-destructive">*</span>
-                            </Label>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleSelectAllJobs}
-                              disabled={isLoading}
-                              className="h-auto py-1 text-xs"
-                            >
-                              {formData.jobIds?.length === availableJobs.length
-                                ? "Deselect All"
-                                : "Select All"}
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 p-4 border rounded-lg">
-                            {availableJobs.map((job) => {
-                              const isSelected = formData.jobIds?.includes(job.id) || false
-                              return (
-                                <div
-                                  key={job.id}
-                                  className="flex items-center space-x-2 p-2 rounded hover:bg-muted/50"
-                                >
-                                  <Checkbox
-                                    id={`job-${job.id}`}
-                                    checked={isSelected}
-                                    onCheckedChange={() => handleJobToggle(job.id)}
-                                    disabled={isLoading}
-                                  />
-                                  <Label
-                                    htmlFor={`job-${job.id}`}
-                                    className="text-sm font-normal cursor-pointer flex-1"
-                                  >
-                                    {job.job_number || job.jobNumber}
-                                  </Label>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 </form>
 
-                {/* Available Documents Section */}
-                {formData.jobIds?.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Available Documents</CardTitle>
-                      <CardDescription>Search and filter documents to assign to this job</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Search and Filter */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="search">Search Documents</Label>
-                          <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              id="search"
-                              type="text"
-                              placeholder="Search by code or name..."
-                              value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
-                              className="pl-9"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="documentTypeFilter">Filter by Type</Label>
-                          <Select
-                            value={documentTypeFilter}
-                            onValueChange={setDocumentTypeFilter}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="All Types" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {documentTypes.map((type) => (
-                                <SelectItem key={type} value={type}>
-                                  {type === "all" ? "All Types" : type}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* Documents Table */}
-                      <div className="rounded-md border max-h-80 overflow-y-auto">
-                        <Table>
-                          <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-                            <TableRow>
-                              <TableHead className="w-[50px]">
-                                <Checkbox
-                                  checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
-                                  onCheckedChange={handleSelectAll}
-                                />
-                              </TableHead>
-                              <TableHead className="w-[50px]">S.No</TableHead>
-                              <TableHead>Document Code</TableHead>
-                              <TableHead>Document Name</TableHead>
-                              <TableHead>Document Type</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredDocuments.length > 0 ? (
-                              filteredDocuments.map((doc, idx) => (
-                                <TableRow key={doc.id} className={selectedDocuments.some(s => s.id === doc.id) ? "bg-muted/50" : ""}>
-                                  <TableCell>
-                                    <Checkbox
-                                      checked={selectedDocuments.some(s => s.id === doc.id)}
-                                      onCheckedChange={() => handleDocumentToggle(doc)}
-                                    />
-                                  </TableCell>
-                                  <TableCell>{idx + 1}</TableCell>
-                                  <TableCell className="font-medium">{doc.document_number || doc.documentCode}</TableCell>
-                                  <TableCell>{doc.document_name || doc.documentName}</TableCell>
-                                  <TableCell>
-                                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                      {doc.document_type?.name || doc.documentType || "N/A"}
-                                    </span>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
-                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                  No documents found matching your search criteria.
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
                 {/* Document Details Section */}
-                {selectedDocuments.length > 0 && (
+                {formData.poId && (
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Document Details</CardTitle>
-                      <CardDescription>Enter details for the selected documents</CardDescription>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                      <div>
+                        <CardTitle>Document Details</CardTitle>
+                        <CardDescription>Enter details for the documents to be assigned</CardDescription>
+                      </div>
+                      <Button type="button" size="sm" onClick={addRow}>
+                        <Plus className="mr-2 h-4 w-4" /> Add Row
+                      </Button>
                     </CardHeader>
                     <CardContent>
                       <div className="rounded-md border overflow-x-auto">
@@ -983,121 +673,171 @@ function AssignDocument() {
                           <TableHeader>
                             <TableRow className="bg-muted/50 whitespace-nowrap">
                               <TableHead className="w-[50px]">S.No</TableHead>
-                              <TableHead>Document Code</TableHead>
-                              <TableHead>Document Name</TableHead>
-                              <TableHead>Document Type</TableHead>
-                              <TableHead>Shreno Document No</TableHead>
-                              <TableHead>Shreno Reference No</TableHead>
-                              <TableHead>Client Document No</TableHead>
-                              <TableHead>Client Reference No</TableHead>
-                              <TableHead>Upload Due Days</TableHead>
-                              <TableHead>Response Due Days</TableHead>
-                              <TableHead>Assign User</TableHead>
+                              <TableHead className="min-w-[250px]">Job Number *</TableHead>
+                              <TableHead className="min-w-[200px]">Document Name *</TableHead>
+                              <TableHead className="min-w-[150px]">Shreno Document No</TableHead>
+                              <TableHead className="min-w-[150px]">Shreno Reference No</TableHead>
+                              <TableHead className="min-w-[150px]">Client Document No</TableHead>
+                              <TableHead className="min-w-[150px]">Client Reference No</TableHead>
+                              <TableHead className="min-w-[100px]">Upload Due Days</TableHead>
+                              <TableHead className="min-w-[100px]">Response Due Days</TableHead>
+                              <TableHead className="min-w-[100px]">Actual Due Days</TableHead>
+                              <TableHead className="min-w-[180px]">Assign User *</TableHead>
+                              <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {selectedDocuments.map((doc, idx) => {
-                              const details = documentDetails[doc.id] || {}
-                              const userSearch = userSearchQueries[doc.id] || ""
-                              const filteredUsers = users.filter(u =>
-                                u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-                                u.email?.toLowerCase().includes(userSearch.toLowerCase())
-                              )
-
+                            {assignments.map((assignment, idx) => {
                               return (
-                                <TableRow key={doc.id}>
+                                <TableRow key={assignment.tempId}>
                                   <TableCell className="font-medium">{idx + 1}</TableCell>
-                                  <TableCell>{doc.document_number || doc.documentCode}</TableCell>
-                                  <TableCell>{doc.document_name || doc.documentName}</TableCell>
+                                  
+                                  {/* MSN/JOB No Select */}
                                   <TableCell>
-                                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                      {doc.document_type?.name || doc.documentType || "N/A"}
-                                    </span>
+                                    <Select
+                                      value={assignment.jobId} 
+                                      onValueChange={val => handleAssignmentChange(assignment.tempId, 'jobId', val)}
+                                      required
+                                    >
+                                      <SelectTrigger className="w-full font-bold">
+                                        <SelectValue placeholder="Select Job" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {availableJobs.map(job => (
+                                          <SelectItem key={job.id} value={job.id} className="font-bold">
+                                            {job.job_number}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
                                   </TableCell>
+
+                                  {/* Document Name Input */}
                                   <TableCell>
                                     <Input
-                                      placeholder="Enter Shreno Doc No"
-                                      value={details.shrenoDocumentNo}
-                                      onChange={e => handleDetailChange(doc.id, 'shrenoDocumentNo', e.target.value)}
+                                      placeholder="Document Name"
+                                      value={assignment.documentName}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'documentName', e.target.value)}
                                       className="w-full"
+                                      required
+                                    />
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <Input
+                                      placeholder="Shreno Doc No"
+                                      value={assignment.shrenoDocumentNo}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'shrenoDocumentNo', e.target.value)}
+                                      className="w-full"
+                                      required
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Enter Shreno Ref No"
-                                      value={details.shrenoReferenceNo}
-                                      onChange={e => handleDetailChange(doc.id, 'shrenoReferenceNo', e.target.value)}
+                                      placeholder="Shreno Ref No"
+                                      value={assignment.shrenoReferenceNo}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'shrenoReferenceNo', e.target.value)}
                                       className="w-full"
+                                      required
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Enter Client Doc No"
-                                      value={details.clientDocumentNo}
-                                      onChange={e => handleDetailChange(doc.id, 'clientDocumentNo', e.target.value)}
+                                      placeholder="Client Doc No"
+                                      value={assignment.clientDocumentNo}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'clientDocumentNo', e.target.value)}
                                       className="w-full"
+                                      required
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
-                                      placeholder="Enter Client Ref No"
-                                      value={details.clientReferenceNo}
-                                      onChange={e => handleDetailChange(doc.id, 'clientReferenceNo', e.target.value)}
+                                      placeholder="Client Ref No"
+                                      value={assignment.clientReferenceNo}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'clientReferenceNo', e.target.value)}
                                       className="w-full"
+                                      required
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
                                       type="number"
-                                      placeholder="Enter days"
-                                      value={details.uploadDueDays}
-                                      onChange={e => handleDetailChange(doc.id, 'uploadDueDays', e.target.value)}
+                                      placeholder="Days"
+                                      value={assignment.upload_due_days}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'upload_due_days', e.target.value)}
                                       className="w-full"
                                       min="0"
+                                      required
                                     />
                                   </TableCell>
                                   <TableCell>
                                     <Input
                                       type="number"
-                                      placeholder="Enter days"
-                                      value={details.responseDueDays}
-                                      onChange={e => handleDetailChange(doc.id, 'responseDueDays', e.target.value)}
+                                      placeholder="Days"
+                                      value={assignment.response_due_days}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'response_due_days', e.target.value)}
                                       className="w-full"
                                       min="0"
+                                      required
                                     />
                                   </TableCell>
+
                                   <TableCell>
-                                    <Select value={details.assignUserId} onValueChange={val => handleDetailChange(doc.id, 'assignUserId', val)}>
+                                    <Input
+                                      type="number"
+                                      placeholder="Days"
+                                      value={assignment.actual_due_days}
+                                      onChange={e => handleAssignmentChange(assignment.tempId, 'actual_due_days', e.target.value)}
+                                      className="w-full"
+                                      min="0"
+                                      required
+                                    />
+                                  </TableCell>
+
+                                  {/* User Select */}
+                                  <TableCell>
+                                    <Select 
+                                      value={assignment.assignUserId} 
+                                      onValueChange={val => handleAssignmentChange(assignment.tempId, 'assignUserId', val)}
+                                      required
+                                    >
                                       <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select user" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <div className="p-2">
-                                          <div className="relative mb-2">
-                                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input
-                                              placeholder="Search users..."
-                                              value={userSearch}
-                                              onChange={e => setUserSearchQueries(prev => ({ ...prev, [doc.id]: e.target.value }))}
-                                              onKeyDown={e => e.stopPropagation()}
-                                              className="pl-8"
-                                            />
-                                          </div>
-                                        </div>
-                                        {filteredUsers.length > 0 ? (
-                                          filteredUsers.map(u => (
-                                            <SelectItem key={u.id} value={u.id}>
-                                              <div className="flex flex-col">
-                                                <span>{u.name}</span>
-                                                <span className="text-xs text-muted-foreground">{u.email}</span>
-                                              </div>
-                                            </SelectItem>
-                                          ))
-                                        ) : (
-                                          <div className="p-2 text-sm text-muted-foreground">No users found</div>
-                                        )}
+                                        {users.map(u => (
+                                          <SelectItem key={u.id} value={u.id}>
+                                            <div className="flex flex-col">
+                                              <span>{u.name}</span>
+                                              <span className="text-xs text-muted-foreground">{u.email}</span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
+                                  </TableCell>
+
+                                  <TableCell>
+                                    <div className="flex items-center gap-1">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                        onClick={() => copyRow(assignment)}
+                                        title="Copy Row"
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={() => removeRow(assignment.tempId)}
+                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        title="Remove Row"
+                                      >
+                                        <Plus className="h-4 w-4 rotate-45" />
+                                      </Button>
+                                    </div>
                                   </TableCell>
                                 </TableRow>
                               )
@@ -1107,8 +847,8 @@ function AssignDocument() {
                       </div>
                       <div className="flex justify-end gap-3 mt-6">
                         <Button variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
-                        <Button onClick={handleAssign} disabled={isLoading}>
-                          {isLoading ? (editingId ? "Updating..." : "Assigning...") : editingId ? "Update Assignment" : "Assign Documents"}
+                        <Button onClick={handleAssign} disabled={isSubmitDisabled}>
+                          {isLoading ? "Assigning..." : "Assign Documents"}
                         </Button>
                       </div>
                     </CardContent>
