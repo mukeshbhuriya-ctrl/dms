@@ -315,7 +315,7 @@ function CreateUser() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Users List" : (editingId ? "Edit User" : "Create User")}
+                  {view === "list" ? "Manage Users" : (editingId ? "Edit User" : "Create User")}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"

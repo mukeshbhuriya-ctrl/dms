@@ -367,7 +367,7 @@ function CreateJob() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Jobs List" : (editingId ? "Update Job" : "Create Job")}
+                  {view === "list" ? "Manage Jobs" : (editingId ? "Update Job" : "Create Job")}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"

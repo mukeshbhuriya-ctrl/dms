@@ -7,6 +7,7 @@ import {
     Wrench,
     Briefcase,
     Folder,
+    ShieldCheck,
 } from "lucide-react"
 
 // ─── Role Constants ────────────────────────────────────────────────
@@ -37,16 +38,29 @@ export const MENU_CONFIG = [
         roles: [ROLES.ADMIN],
     },
     {
-        title: "Reports Management",
-        icon: FileText,
-        path: "/admin/reports",
-        roles: [ROLES.ADMIN],
-    },
-    {
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",
         roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER],
+    },
+
+    // ── User & Department Management ──
+    // ─── Administration ──
+    {
+        title: "Administration",
+        icon: ShieldCheck,
+        items: [
+            { title: "User Management", path: "/users", roles: [ROLES.ADMIN] },
+            { title: "Department Management", path: "/departments", roles: [ROLES.ADMIN] },
+        ],
+    },
+
+        // ── Report Management ──
+    {
+        title: "Reports Management",
+        icon: FileText,
+        path: "/admin/reports",
+        roles: [ROLES.ADMIN],
     },
 
     // ── Customer Management ──
@@ -57,20 +71,6 @@ export const MENU_CONFIG = [
             { title: "Customer", path: "/dcc/create-customer", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Location", path: "/dcc/create-location", roles: [ROLES.ADMIN, ROLES.DCC] },
         ],
-    },
-
-    // ── User & Department Management ──
-    {
-        title: "User Management",
-        icon: Users,
-        path: "/users",
-        roles: [ROLES.ADMIN],
-    },
-    {
-        title: "Department Management",
-        icon: Building2,
-        path: "/departments",
-        roles: [ROLES.ADMIN],
     },
 
     // ── Purchase Orders & Jobs ──
