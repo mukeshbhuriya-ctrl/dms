@@ -83,11 +83,11 @@ function UploadDocument() {
             )
         },
         {
-            header: "Version No",
+            header: "Revision/Version No",
             accessorKey: "versionNo",
             cell: (row) => (
                 <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
-                    {row.versionNo ? `v${row.versionNo}` : '-'}
+                    {row.versionNo ? `Rev ${row.versionNo}` : '-'}
                 </span>
             ),
             className: "w-[80px]"

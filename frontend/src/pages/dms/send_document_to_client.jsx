@@ -502,7 +502,7 @@ function SendDocumentToClient() {
                           <TableHead>Document Name</TableHead>
                           <TableHead>Uploaded By</TableHead>
                           <TableHead>Uploaded Date</TableHead>
-                          <TableHead>Version No</TableHead>
+                          <TableHead>Revision/Version No</TableHead>
                           <TableHead>Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -518,7 +518,7 @@ function SendDocumentToClient() {
                               <TableCell>{document.uploadedBy}</TableCell>
                               <TableCell>{document.uploadedDate}</TableCell>
                               <TableCell>
-                                {document.versionNo ? `v${document.versionNo}` : '-'}
+                                {document.versionNo ? `Rev ${document.versionNo}` : '-'}
                               </TableCell>
                               <TableCell>
                                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">

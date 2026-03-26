@@ -508,9 +508,9 @@ function CreateTransmission() {
       }
     },
     {
-      header: "Version No",
+      header: "Revision/Version No",
       accessorKey: "display_version_no",
-      cell: ({ row }) => row.original.display_version_no ? `v${row.original.display_version_no}` : '-'
+      cell: ({ row }) => row.original.display_version_no ? `Rev ${row.original.display_version_no}` : '-'
     },
     { header: "Status", accessorKey: "status" }
   ], [selectedDocuments, filteredDocuments]);
@@ -688,7 +688,7 @@ function CreateTransmission() {
                                   <TableHead>Generated Document No</TableHead>
                                   <TableHead>Document Name</TableHead>
                                   <TableHead>Job Number</TableHead>
-                                  <TableHead>Version No</TableHead>
+                                  <TableHead>Revision/Version No</TableHead>
                                   <TableHead>Status</TableHead>
                                 </TableRow>
                               </TableHeader>
