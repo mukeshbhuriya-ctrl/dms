@@ -678,7 +678,11 @@ class DccService {
                 user_id,
                 action: 'Uploaded',
                 remarks: `Version ${nextVersionNo} uploaded`,
-                metadata: { version_no: nextVersionNo, file_name: file.originalname }
+                metadata: { 
+                    version_no: nextVersionNo, 
+                    file_name: file.originalname,
+                    file_url: version.file_url // Added for trail download
+                }
             }, tx);
 
             // Prepend BACKEND_URL for immediate use in UI
@@ -880,7 +884,10 @@ class DccService {
                 user_id,
                 action: status === 'Approved' ? 'Internal Approved' : 'Internal Rejected',
                 remarks: remarks || null,
-                metadata: { version_no: latestVersion.version_no }
+                metadata: { 
+                    version_no: latestVersion.version_no,
+                    file_url: latestVersion.file_url // Added for trail download
+                }
             }, tx);
 
             return { id: document_id, status };

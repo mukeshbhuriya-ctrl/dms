@@ -50,12 +50,45 @@ class ActivityService {
         const model = prisma.document_activity || prisma.documentActivity;
         if (!model) return [];
         
-        return await model.findMany({
-            where: { company_id, group_document_id },
-            include: {
-                user: { select: { name: true, email: true } }
-            },
-            orderBy: { createdAt: 'desc' }
+        // 1. Fetch activities and versions in parallel for enrichment
+        const [activities, versions] = await Promise.all([
+            model.findMany({
+                where: { company_id, group_document_id },
+                include: {
+                    user: { select: { name: true, email: true } }
+                },
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.document_version.findMany({
+                where: { group_document_id },
+                select: { version_no: true, file_url: true }
+            })
+        ]);
+
+        // Create a lookup map for versions
+        const versionMap = {};
+        versions.forEach(v => {
+            versionMap[v.version_no] = v.file_url;
+        });
+
+        // Expand file URLs in metadata for frontend use
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        return activities.map(activity => {
+            if (activity.metadata) {
+                // Backfill file_url from versions table if missing in metadata
+                if (activity.metadata.version_no && !activity.metadata.file_url) {
+                    activity.metadata.file_url = versionMap[activity.metadata.version_no];
+                }
+
+                // Expand relative paths to full URLs
+                if (activity.metadata.file_url) {
+                    let url = activity.metadata.file_url;
+                    if (url.startsWith('/') && !url.startsWith('http')) {
+                        activity.metadata.file_url = `${backendUrl}${url}`;
+                    }
+                }
+            }
+            return activity;
         });
     }
 

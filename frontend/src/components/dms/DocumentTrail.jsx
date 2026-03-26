@@ -7,7 +7,8 @@ import {
     Send, 
     User, 
     FileText,
-    History
+    History,
+    Download
 } from 'lucide-react';
 import { dccService } from '../../services/dcc.service';
 import { format } from 'date-fns';
@@ -111,10 +112,25 @@ const DocumentTrail = ({ documentId }) => {
                                     {activity.metadata && (
                                         <div className="flex items-center gap-3">
                                             {activity.metadata.version_no && (
-                                                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded">
-                                                    <FileText className="w-3 h-3" />
-                                                    <span>Rev {activity.metadata.version_no}</span>
-                                                </div>
+                                                activity.metadata.file_url ? (
+                                                    <a 
+                                                        href={activity.metadata.file_url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        download
+                                                        className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded hover:bg-primary/10 hover:shadow-sm border border-primary/20 transition-all cursor-pointer group/dl"
+                                                        title="Download this version"
+                                                    >
+                                                        <FileText className="w-3 h-3" />
+                                                        <span>Rev {activity.metadata.version_no}</span>
+                                                        <Download className="w-3.5 h-3.5 ml-1 text-primary group-hover/dl:scale-110 transition-transform" />
+                                                    </a>
+                                                ) : (
+                                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded">
+                                                        <FileText className="w-3 h-3" />
+                                                        <span>Rev {activity.metadata.version_no}</span>
+                                                    </div>
+                                                )
                                             )}
                                             {activity.metadata.transmission_no && (
                                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
