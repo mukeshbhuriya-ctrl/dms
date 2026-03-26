@@ -1312,9 +1312,10 @@ class DccService {
 
             if (groupDocIds.length > 0) {
                 // Update and Log for each Group Document
+                // Logic Change: If client rejected, we reset to Pending to allow new revision uploads.
                 await tx.group_document.updateMany({
                     where: { id: { in: groupDocIds } },
-                    data: { status }
+                    data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
                 });
 
                 for (const gId of groupDocIds) {
