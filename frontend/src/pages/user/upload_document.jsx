@@ -126,8 +126,8 @@ function UploadDocument() {
             accessorKey: "id",
             cell: (row) => {
                 const isUploading = uploadingIds[row.id];
-                // Disable if already approved or pending approval (uploaded)
-                const isDisabled = row.approverStatus === "approved" || row.approverStatus === "rejected" || row.approverStatus === "pending for approval";
+                // Disable if already approved or pending approval (currently being reviewed)
+                const isDisabled = row.approverStatus === "approved" || row.approverStatus === "pending for approval";
 
                 return (
                     <div className="flex items-center gap-2">
@@ -208,12 +208,12 @@ function UploadDocument() {
                     }
                     if (doc.status === 'Rejected') status = 'pending';
 
+                    const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+
                     let approverStatus = 'NA';
                     if (doc.status === 'Uploaded' || doc.status === 'Pending for Approval') approverStatus = 'pending for approval';
                     else if (doc.status === 'Approved') approverStatus = 'approved';
-                    else if (doc.status === 'Rejected') approverStatus = 'rejected';
-
-                    const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+                    else if (doc.status === 'Rejected' || (doc.status === 'Pending' && latestVersion?.status === 'Rejected')) approverStatus = 'rejected';
                     
                     // Business Logic: If backend says "Upload Due" or "Response Due", use that for the main status display
                     const displayStatus = (doc.status === 'Upload Due' || doc.status === 'Response Due') ? doc.status : status;

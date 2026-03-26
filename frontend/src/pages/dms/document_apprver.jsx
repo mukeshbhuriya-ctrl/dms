@@ -229,7 +229,7 @@ function DocumentApprover() {
             uploadedBy: uploaderName,
             uploadedDate: new Date(doc.updatedAt).toLocaleDateString(),
 
-            status: doc.status, // Keep original status for badge display
+            status: latestVersion?.status || doc.status, // Use version status for accuracy in consolidated view
             statusDisplay: doc.status,
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,

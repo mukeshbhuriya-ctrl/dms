@@ -20,7 +20,7 @@ class StorageUtils {
             this._sanitize(job_number),
             'documents',
             this._sanitize(document_number),
-            `rev_${version}`
+            version.toString()
         );
         this._ensureDir(dir);
         return dir;

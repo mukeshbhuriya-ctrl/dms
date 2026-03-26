@@ -708,34 +708,34 @@ class DccService {
 
         if (status_filter && status_filter !== 'all') {
             if (status_filter === 'pending') {
-                where.status = { in: ['Pending', 'Rejected'] };
+                where.status = 'Pending for Approval';
             } else if (status_filter === 'done') {
-                where.status = { in: ['Approved', 'Uploaded', 'Pending'] };
+                where.status = 'Approved';
             }
         } else {
-            // Default: Show Uploaded, Approved, and Rejected.
-            // Explicitly exclude 'Pending' (not uploaded) to declutter.
-            if (!where.status) {
-                where.status = { in: ['Uploaded', 'Approved', 'Rejected'] };
+            // Default: Show documents that have been uploaded, approved, or rejected (Pending with versions).
+            // strictly exclude 'Pending' documents that have NO versions (newly assigned but not yet uploaded).
+            if (!approver_status_filter || approver_status_filter === 'all') {
+                where.status = { in: ['Pending for Approval', 'Approved', 'Pending'] };
+                where.versions = { some: {} }; // Crucial: Only show documents with at least one upload/version
             }
         }
 
         if (approver_status_filter && approver_status_filter !== 'all') {
             const filterVal = approver_status_filter.toLowerCase();
             if (filterVal === 'pending for approval' || filterVal === 'pending') {
-                where.status = { in: ['Uploaded', 'Pending'] };
+                where.status = 'Pending for Approval';
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                // Filter by version history: Check if ANY version has been rejected.
-                // This allows retrieving documents that were rejected and then re-uploaded (currently 'Uploaded').
+                // Documents that have been rejected in their history.
+                // Since they are now 'Pending', we MUST allow 'Pending' status here.
+                where.status = 'Pending'; 
                 where.versions = {
                     some: {
                         status: { in: ['Rejected', 'rejected'] }
                     }
                 };
-            } else if (filterVal === 'na') {
-                where.status = { notIn: ['Uploaded', 'Pending', 'Approved', 'Rejected'] }; // Likely just 'Pending'
             }
         }
 
@@ -810,7 +810,10 @@ class DccService {
                     po: true,
                     versions: versionsInclude
                 },
-                orderBy: { updatedAt: 'desc' }
+                orderBy: [
+                    { status: 'desc' },
+                    { updatedAt: 'desc' }
+                ]
             })
         ]);
 
@@ -867,7 +870,7 @@ class DccService {
             // 2. Update Group Document Status
             await tx.group_document.update({
                 where: { id: document_id },
-                data: { status }
+                data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
             });
 
             // 3. Log Activity
@@ -879,28 +882,6 @@ class DccService {
                 remarks: remarks || null,
                 metadata: { version_no: latestVersion.version_no }
             }, tx);
-
-            // 4. Handle Re-entry on Rejection
-            if (status === 'Rejected') {
-                await tx.group_document.create({
-                    data: {
-                        company_id: groupDoc.company_id,
-                        customer_id: groupDoc.customer_id,
-                        customer_location_id: groupDoc.customer_location_id,
-                        po_id: groupDoc.po_id,
-                        group_id: groupDoc.group_id,
-                        document_id: groupDoc.document_id,
-                        shreno_doc_no: groupDoc.shreno_doc_no,
-                        shreno_reference_no: groupDoc.shreno_reference_no,
-                        client_doc_no: groupDoc.client_doc_no,
-                        client_reference_no: groupDoc.client_reference_no,
-                        upload_due_days: groupDoc.upload_due_days,
-                        response_due_days: groupDoc.response_due_days,
-                        user_id: groupDoc.user_id,
-                        status: 'Pending' // Reset for re-upload
-                    }
-                });
-            }
 
             return { id: document_id, status };
         });

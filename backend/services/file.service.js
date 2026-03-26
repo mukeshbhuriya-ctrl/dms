@@ -93,7 +93,7 @@ class FileService {
     // 4. Update the document's main status
     await tx.group_document.update({
       where: { id: documentId },
-      data: { status: 'Uploaded' },
+      data: { status: 'Pending for Approval' },
     });
 
     return version;
