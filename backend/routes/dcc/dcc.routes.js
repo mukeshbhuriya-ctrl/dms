@@ -15,6 +15,8 @@ const DccController = require('../../controllers/dcc.controller');
 router.get('/get-assigned-documents', authenticateUserOnly, DccController.getAllAssignedDocuments);
 router.get('/upload-documents', authenticateUserOnly, DccController.getMyAssignedDocuments);
 router.post('/upload-document-version', authenticateUserOnly, upload.single('file'), DccController.uploadDocumentVersion);
+router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumentTrail);
+router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);
 
 
 // Apply authentication middleware to all routes in this router
@@ -64,9 +66,7 @@ router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF
 router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
 router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);
 
-// Activity Trail
-router.get('/document-trail/:id', DccController.getDocumentTrail);
-router.get('/transmission-trail/:id', DccController.getTransmissionTrail);
+// Activity Trail (Moved to public section)
 router.post('/document/:documentId/rollback', documentController.rollbackVersion);
 router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), DccController.updateAssignedDocument);
 
