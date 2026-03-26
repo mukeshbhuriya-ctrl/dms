@@ -438,6 +438,14 @@ function CreateTransmission() {
             }}>
               Copy Password
             </Button>
+            {row.zip_url && (
+              <Button variant="outline" size="sm" onClick={() => {
+                navigator.clipboard.writeText(row.zip_url);
+                toast.success("Zip URL copied to clipboard");
+              }}>
+                Copy Zip URL
+              </Button>
+            )}
           </div>
         );
       }
