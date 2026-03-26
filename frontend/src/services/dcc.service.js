@@ -139,5 +139,15 @@ export const dccService = {
             body: JSON.stringify({ transmission_id, status, remarks })
         });
         return handleResponse(response);
+    },
+
+    downloadTransmittalPDF: async (id) => {
+        const response = await fetch(`${BACKEND_URL}/api/dcc/download-transmittal-pdf/${id}`, {
+            method: 'GET',
+            headers: getHeaders(),
+            credentials: "include"
+        });
+        if (!response.ok) throw new Error("Failed to download PDF");
+        return response.blob();
     }
 };

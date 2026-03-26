@@ -62,7 +62,7 @@ function UploadDocument() {
             className: "w-[50px]"
         },
         {
-            header: "Upload Document Name",
+            header: "Document Name",
             accessorKey: "documentName",
             cell: (row) => (
                 <div>

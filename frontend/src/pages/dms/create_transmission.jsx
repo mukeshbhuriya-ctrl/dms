@@ -19,7 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, ArrowLeft, Mail } from "lucide-react"
+import { Search, Plus, ArrowLeft, Mail, Download } from "lucide-react"
 import { toast } from 'react-toastify';
 import { dccService } from "../../services/dcc.service";
 import { useNavigate } from "react-router-dom";
@@ -446,6 +446,30 @@ function CreateTransmission() {
                 Copy Zip URL
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+              onClick={async () => {
+                try {
+                  const blob = await dccService.downloadTransmittalPDF(row.id);
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `Transmittal_${row.transmission_number}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                  toast.success("PDF downloaded successfully");
+                } catch (error) {
+                  toast.error("Failed to download PDF");
+                }
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Document Transmittal
+            </Button>
           </div>
         );
       }
@@ -475,11 +499,6 @@ function CreateTransmission() {
     { header: "S.No", accessorKey: "s_no" },
     { header: "Document Code", accessorKey: "document.document_number" },
     { header: "Document Name", accessorKey: "document.document_name" },
-    {
-      header: "Document Type",
-      accessorKey: "document.document_type.name",
-      cell: ({ row }) => row.original.document?.document_type?.name || '-'
-    },
     {
       header: "Job Number",
       accessorKey: "group.job_group.0.job.job_number",
@@ -668,7 +687,6 @@ function CreateTransmission() {
                                   <TableHead>S.No</TableHead>
                                   <TableHead>Document Code</TableHead>
                                   <TableHead>Document Name</TableHead>
-                                  <TableHead>Document Type</TableHead>
                                   <TableHead>Job Number</TableHead>
                                   <TableHead>Version No</TableHead>
                                   <TableHead>Status</TableHead>
@@ -687,7 +705,6 @@ function CreateTransmission() {
                                     <TableCell>{doc.s_no}</TableCell>
                                     <TableCell>{doc.document.document_number}</TableCell>
                                     <TableCell>{doc.document.document_name}</TableCell>
-                                    <TableCell>{doc.document?.document_type?.name || '-'}</TableCell>
                                     <TableCell>
                                       {(() => {
                                         const jobs = doc.group?.job_group;

@@ -554,10 +554,22 @@ class DccService {
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
-        const where = { 
-            company_id,
-            status: status ? status : { in: ['Pending', 'Uploaded'] }
-        };
+        const { status_filter } = params;
+        const where = { company_id };
+
+        if (status_filter && status_filter !== 'all') {
+            const filterVal = status_filter.toLowerCase();
+            if (filterVal === 'pending') {
+                where.status = { in: ['Pending', 'Rejected', 'Upload Due'] };
+            } else if (filterVal === 'done') {
+                where.status = { in: ['Approved', 'Uploaded', 'Response Due'] };
+            } else {
+                // Literal match (e.g., 'Approved', 'Uploaded', 'Upload Due')
+                where.status = status_filter;
+            }
+        } else if (status) {
+            where.status = status;
+        }
 
         if (customer_id) where.customer_id = customer_id;
         if (location_id) where.customer_location_id = location_id;
@@ -1071,6 +1083,38 @@ class DccService {
         });
     }
 
+    async getTransmissionTransmittalPDF(company_id, transmission_id) {
+        // 1. Fetch transmission details
+        const transmission = await prisma.transmission.findFirst({
+            where: { id: transmission_id, company_id },
+            include: {
+                po: true,
+                customer: true,
+                location: true,
+                creator: true,
+                documents: true
+            }
+        });
+
+        if (!transmission) throw new Error('Transmission not found');
+
+        // 2. Fetch full document details
+        const documentsData = await this.getTransmissionDocuments(company_id, transmission_id);
+
+        // 3. Generate the PDF Buffer
+        const pdfBuffer = await generateTransmittalPDF(
+            transmission,
+            transmission.customer,
+            transmission.location,
+            transmission.po,
+            documentsData,
+            transmission.creator
+        );
+
+        const filename = `Document_Transmittal_${transmission.transmission_number}.pdf`;
+        return { filename, buffer: pdfBuffer };
+    }
+
     async sendTransmissionEmail(company_id, data) {
         const { transmission_id, shreno_emails, client_emails } = data;
 
@@ -1515,13 +1559,14 @@ class DccService {
                 if (!documentMaster) {
                     // Generate a unique document number
                     const docCount = await tx.document_master.count({ where: { company_id } });
-                    const document_number = `DOC-${Date.now()}-${docCount + 1}`;
+                    const document_number = `DOC-${docCount + 1}`;
 
                     documentMaster = await tx.document_master.create({
                         data: {
                             company_id,
                             document_name: document_name.trim(),
-                            document_number: document_number
+                            document_number: document_number,
+                            document_type_id: document_type_id || null
                         }
                     });
                 }

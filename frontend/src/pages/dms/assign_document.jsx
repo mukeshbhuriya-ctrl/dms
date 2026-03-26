@@ -37,6 +37,7 @@ function AssignDocument() {
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
+  const [statusFilter, setStatusFilter] = useState("all")
 
   // --- Assign Form State ---
   const [formData, setFormData] = useState({
@@ -160,6 +161,7 @@ function AssignDocument() {
     try {
       const params = { page, limit }
       if (search) params.search = search
+      if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter
       if (sorting && sorting.length > 0) {
         params.sortBy = sorting[0].id
         params.sortOrder = sorting[0].desc ? "desc" : "asc"
@@ -178,7 +180,7 @@ function AssignDocument() {
       console.error("Error fetching documents:", err)
       return { data: [], meta: {} }
     }
-  }, [])
+  }, [statusFilter])
 
   // Fetch customers and users
   useEffect(() => {
@@ -529,9 +531,30 @@ function AssignDocument() {
             {/* List View */}
             {view === 'list' && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Assigned Documents List</CardTitle>
-                  <CardDescription>All documents assigned to jobs.</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Assigned Documents List</CardTitle>
+                    <CardDescription>All documents assigned to jobs.</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="statusFilter" className="whitespace-nowrap">Filter by Status:</Label>
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="Pending">Pending</SelectItem>
+                          <SelectItem value="Uploaded">Uploaded</SelectItem>
+                          <SelectItem value="Approved">Approved</SelectItem>
+                          <SelectItem value="Rejected">Rejected</SelectItem>
+                          <SelectItem value="Upload Due">Upload Due</SelectItem>
+                          <SelectItem value="Response Due">Response Due</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <DataTable

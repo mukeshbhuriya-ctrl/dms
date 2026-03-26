@@ -113,11 +113,7 @@ function DocumentApprover() {
       accessorKey: "documentName"
     },
     {
-      header: "Document Type",
-      accessorKey: "documentType"
-    },
-    {
-      header: "Version No",
+      header: "Version No/Revision",
       accessorKey: "versionNo",
       cell: (row) => (
         <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>

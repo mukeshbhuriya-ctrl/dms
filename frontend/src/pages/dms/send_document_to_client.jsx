@@ -500,7 +500,6 @@ function SendDocumentToClient() {
                           <TableHead className="w-[50px]">S.No</TableHead>
                           <TableHead>Document Code</TableHead>
                           <TableHead>Document Name</TableHead>
-                          <TableHead>Document Type</TableHead>
                           <TableHead>Uploaded By</TableHead>
                           <TableHead>Uploaded Date</TableHead>
                           <TableHead>Version No</TableHead>
@@ -516,11 +515,6 @@ function SendDocumentToClient() {
                               </TableCell>
                               <TableCell>{document.documentCode}</TableCell>
                               <TableCell>{document.documentName}</TableCell>
-                              <TableCell>
-                                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                                  {document.documentType}
-                                </span>
-                              </TableCell>
                               <TableCell>{document.uploadedBy}</TableCell>
                               <TableCell>{document.uploadedDate}</TableCell>
                               <TableCell>
