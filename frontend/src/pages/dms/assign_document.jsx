@@ -27,17 +27,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, ArrowRight, Plus, ArrowLeft, Edit, Copy } from "lucide-react"
+import { Search, ArrowRight, Plus, ArrowLeft, Edit, Copy, History } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+import DocumentTrail from "../../components/dms/DocumentTrail"
 
 function AssignDocument() {
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
   const [statusFilter, setStatusFilter] = useState("all")
+  
+  // Trail State
+  const [isTrailOpen, setIsTrailOpen] = useState(false)
+  const [activeDocId, setActiveDocId] = useState(null)
 
   // --- Assign Form State ---
   const [formData, setFormData] = useState({
@@ -142,15 +153,29 @@ function AssignDocument() {
       cell: (row) => {
         const isEditable = row.status === 'Pending' || row.status === 'Upload Due';
         return (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleEditAssign(row)}
-            disabled={!isEditable}
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleEditAssign(row)}
+              disabled={!isEditable}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-slate-200 text-slate-600"
+              onClick={() => {
+                setActiveDocId(row.id);
+                setIsTrailOpen(true);
+              }}
+            >
+              <History className="h-4 w-4 mr-2" />
+              Trail
+            </Button>
+          </div>
         );
       },
     },
@@ -883,6 +908,21 @@ function AssignDocument() {
                 )}
               </div>
             )}
+
+            {/* Trail Sidebar Drawer */}
+            <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+              <SheetContent side="right" className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+                <SheetHeader className="p-6 pb-2 border-b">
+                  <SheetTitle className="flex items-center gap-2">
+                    <History className="w-5 h-5 text-primary" />
+                    Document Audit Trail
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                  <DocumentTrail documentId={activeDocId} />
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </main>
       </SidebarInset>

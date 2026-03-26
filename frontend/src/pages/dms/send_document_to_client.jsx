@@ -498,7 +498,7 @@ function SendDocumentToClient() {
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-[50px]">S.No</TableHead>
-                          <TableHead>Document Code</TableHead>
+                          <TableHead>Generated Document No</TableHead>
                           <TableHead>Document Name</TableHead>
                           <TableHead>Uploaded By</TableHead>
                           <TableHead>Uploaded Date</TableHead>

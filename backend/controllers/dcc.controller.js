@@ -1,4 +1,9 @@
 const DccService = require('../services/dcc.service');
+const fs = require('fs');
+const path = require('path');
+const prisma = require('#prisma');
+const StorageUtils = require('../utils/storage.utils');
+const ActivityService = require('../services/activity.service');
 
 class DccController {
     async createCustomer(req, res) {
@@ -248,10 +253,36 @@ class DccController {
     async updateTransmissionClientStatus(req, res) {
         try {
             const { transmission_id, status, remarks } = req.body;
-            const result = await DccService.updateTransmissionClientStatus(req.user.company_id, transmission_id, status, remarks);
+            const files = req.files || [];
+            const result = await DccService.updateTransmissionClientStatus(req.user.company_id, transmission_id, status, remarks, files);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async downloadTransmissionFeedback(req, res) {
+        try {
+            const { id } = req.params;
+            const transmission = await prisma.transmission.findFirst({
+                where: { id, company_id: req.user.company_id }
+            });
+
+            if (!transmission || !transmission.client_archive_url) {
+                return res.status(404).json({ success: false, message: 'Feedback archive not found' });
+            }
+
+            const { baseDir } = StorageUtils.getTransmissionFeedbackDir(req.user.company_id, transmission.transmission_number);
+            const feedbackZipName = `Feedback_${transmission.transmission_number}.zip`;
+            const filePath = path.join(baseDir, feedbackZipName);
+
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ success: false, message: 'File not found on server' });
+            }
+
+            res.download(filePath, feedbackZipName);
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 
@@ -266,6 +297,25 @@ class DccController {
         } catch (error) {
             console.error('Update assignment error:', error);
             res.status(400).json({ success: false, message: error.message });
+        }
+    }
+    async getDocumentTrail(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await ActivityService.getDocumentTrail(req.user.company_id, id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async getTransmissionTrail(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await ActivityService.getTransmissionTrail(req.user.company_id, id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 }

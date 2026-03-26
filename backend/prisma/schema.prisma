@@ -49,6 +49,7 @@ model company{
   estimators estimator[]
   mediators mediator[]
   ncr ncr[]
+  document_activities document_activity[]
 }
 
 model department {
@@ -97,6 +98,7 @@ model user{
   user_roles user_roles[]
   single_document single_document[]
   group_document group_document[]
+  document_activities document_activity[]
   weld_joint_plans_created weld_joint_plan[]
   uploaded_versions document_version[]
   created_transmissions transmission[]
@@ -264,6 +266,7 @@ model document_type{
 model document_master{
   id String @id @default(uuid())
   company_id String
+  serial_no Int @default(0)
   document_number String
   document_name String
   document_type_id String?
@@ -361,6 +364,7 @@ model group_document{
   po po @relation(fields: [po_id], references: [id])
   versions document_version[]
   transmission_items transmission_document[]
+  activities document_activity[]
 }
 
 
@@ -546,6 +550,7 @@ model transmission {
   customer_location_id String
   po_id                String
   zip_url              String?
+  client_archive_url   String?
   password             String
   status               String @default("Pending") // Pending, Sent
   client_status        String @default("Pending") // Pending, Approved, Rejected
@@ -560,6 +565,24 @@ model transmission {
   po        po                @relation(fields: [po_id], references: [id])
   creator   user              @relation(fields: [created_by], references: [id])
   documents transmission_document[]
+  activities document_activity[]
+}
+
+model document_activity {
+  id                String   @id @default(uuid())
+  company_id        String
+  group_document_id String?
+  transmission_id   String?
+  user_id          String
+  action           String   // Assigned, Uploaded, Internal Approved, Internal Rejected, Transmitted, Client Approved, Client Rejected
+  remarks          String?
+  metadata         Json?
+  createdAt        DateTime @default(now())
+
+  company          company          @relation(fields: [company_id], references: [id])
+  group_document  group_document? @relation(fields: [group_document_id], references: [id])
+  transmission    transmission?    @relation(fields: [transmission_id], references: [id])
+  user            user             @relation(fields: [user_id], references: [id])
 }
 
 model transmission_document {

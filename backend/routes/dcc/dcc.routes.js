@@ -61,7 +61,12 @@ router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
 router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF);
 // Client Approval Status
-router.post('/transmission/client-status', DccController.updateTransmissionClientStatus);
+router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
+router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);
+
+// Activity Trail
+router.get('/document-trail/:id', DccController.getDocumentTrail);
+router.get('/transmission-trail/:id', DccController.getTransmissionTrail);
 router.post('/document/:documentId/rollback', documentController.rollbackVersion);
 router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), DccController.updateAssignedDocument);
 

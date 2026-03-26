@@ -6,21 +6,18 @@ const { generateFileHash } = require('../utils/hash');
 
 class FileService {
   /**
-   * Processes an uploaded file and stores it in a structured directory
+   * Processes an uploaded file and stores it in a specified directory
    * @param {Object} file - The file object from multer
-   * @param {string} documentId - ID of the group_document or single_document
-   * @param {number} versionNumber - The version number
+   * @param {string} targetDir - The absolute path to the target directory
    * @returns {Promise<Object>} - Metadata including path, hash, and size
    */
-  async processStorage(file, documentId, versionNumber) {
-    const versionDir = path.join(UPLOAD_DIR, documentId, versionNumber.toString());
-    
+  async processStorage(file, targetDir) {
     // Ensure directory exists
-    if (!fs.existsSync(versionDir)) {
-      fs.mkdirSync(versionDir, { recursive: true });
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
     }
 
-    const newPath = path.join(versionDir, file.filename);
+    const newPath = path.join(targetDir, file.filename);
     const oldPath = file.path;
 
     // Move file to structured directory
@@ -30,7 +27,7 @@ class FileService {
     const stats = fs.statSync(newPath);
     const hash = await generateFileHash(newPath);
 
-    // Store relative path (e.g., \uploads\...)
+    // Store relative path (calculated from ROOT_DIR)
     const relativePath = path.sep + path.relative(ROOT_DIR, newPath);
 
     return {

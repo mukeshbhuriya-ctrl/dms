@@ -10,7 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Download, CheckCircle, XCircle } from "lucide-react"
+import { Download, CheckCircle, XCircle, History } from "lucide-react"
+import DocumentTrail from "../../components/dms/DocumentTrail"
 import { toast } from 'react-toastify';
 import {
   Dialog,
@@ -20,6 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { dccService } from "../../services/dcc.service";
@@ -28,6 +35,10 @@ import { exportApi } from "@/api/export.api"
 
 function DocumentApprover() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Trail State
+  const [isTrailOpen, setIsTrailOpen] = useState(false)
+  const [activeDocId, setActiveDocId] = useState(null)
 
   // Review Dialog State
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
@@ -105,7 +116,7 @@ function DocumentApprover() {
       className: "w-[50px]"
     },
     {
-      header: "Document Code",
+      header: "Generated Document No",
       accessorKey: "documentNumber"
     },
     {
@@ -160,6 +171,19 @@ function DocumentApprover() {
             disabled={row.status === 'Rejected' || row.status === 'Approved'}
           >
             <XCircle className="w-4 h-4 mr-1" /> Reject
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-slate-200 text-slate-600"
+            onClick={() => {
+              setActiveDocId(row.id);
+              setIsTrailOpen(true);
+            }}
+          >
+            <History className="h-4 w-4 mr-1" />
+            Trail
           </Button>
         </div>
       ),
@@ -345,6 +369,21 @@ function DocumentApprover() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Trail Sidebar Drawer */}
+      <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+        <SheetContent side="right" className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+          <SheetHeader className="p-6 pb-2 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              Document Audit Trail
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <DocumentTrail documentId={activeDocId} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </SidebarProvider>
   )
 }

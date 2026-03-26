@@ -497,7 +497,7 @@ function CreateTransmission() {
       className: "w-[50px]"
     },
     { header: "S.No", accessorKey: "s_no" },
-    { header: "Document Code", accessorKey: "document.document_number" },
+    { header: "Generated Document No", accessorKey: "document.document_number" },
     { header: "Document Name", accessorKey: "document.document_name" },
     {
       header: "Job Number",
@@ -685,7 +685,7 @@ function CreateTransmission() {
                                     />
                                   </TableHead>
                                   <TableHead>S.No</TableHead>
-                                  <TableHead>Document Code</TableHead>
+                                  <TableHead>Generated Document No</TableHead>
                                   <TableHead>Document Name</TableHead>
                                   <TableHead>Job Number</TableHead>
                                   <TableHead>Version No</TableHead>
