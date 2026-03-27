@@ -192,10 +192,6 @@ function SendDocumentToClient() {
             const docSource = item.group_document;
             if (!docSource) return null;
 
-            console.log("Processing item:", item);
-            console.log("Version:", item.version);
-            console.log("Uploader:", item.version?.uploader);
-
             const uploaderName = item.version?.uploader?.name || docSource.user?.name || '';
 
             return {
@@ -210,10 +206,8 @@ function SendDocumentToClient() {
             };
           }).filter(Boolean);
 
-          console.log("Mapped Documents:", mappedDocs);
           setDocuments(mappedDocs);
         } else {
-          console.error("Failed to fetch transmission documents:", resDocs);
           setDocuments([]);
         }
 
@@ -345,6 +339,10 @@ function SendDocumentToClient() {
       setIsLoading(false);
     }
   };
+
+  const selectedTransmission = transmissions.find(t => t.id === formData.jobId);
+  const transmittalStatus = selectedTransmission?.status || 'Pending';
+  const isSent = transmittalStatus === 'Sent';
 
   return (
     <SidebarProvider>
@@ -487,7 +485,7 @@ function SendDocumentToClient() {
                         disabled={isLoading}
                       >
                         <Send className="h-4 w-4 mr-2" />
-                        Send Mail
+                        {isSent ? "Resend Mail" : "Send Mail"}
                       </Button>
                     )}
                   </div>
@@ -504,6 +502,7 @@ function SendDocumentToClient() {
                           <TableHead>Uploaded Date</TableHead>
                           <TableHead>Revision/Version No</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Transmittal Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -523,6 +522,15 @@ function SendDocumentToClient() {
                               <TableCell>
                                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                                   Approved
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                  isSent 
+                                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' 
+                                    : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                                }`}>
+                                  {transmittalStatus}
                                 </span>
                               </TableCell>
                             </TableRow>
@@ -657,7 +665,7 @@ function SendDocumentToClient() {
                       Object.values(selectedEmails).filter(Boolean).length === 0
                     }
                   >
-                    {isLoading ? "Sending..." : "Send Mail"}
+                    {isLoading ? "Sending..." : (isSent ? "Resend Mail" : "Send Mail")}
                   </Button>
                 </DialogFooter>
               </DialogContent>
