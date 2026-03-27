@@ -80,11 +80,12 @@ class ActivityService {
                     activity.metadata.file_url = versionMap[activity.metadata.version_no];
                 }
 
-                // Expand relative paths to full URLs
-                if (activity.metadata.file_url) {
-                    let url = activity.metadata.file_url;
+                if (activity.metadata.file_url || activity.metadata.feedback_url) {
+                    let url = activity.metadata.file_url || activity.metadata.feedback_url;
                     if (url.startsWith('/') && !url.startsWith('http')) {
-                        activity.metadata.file_url = `${backendUrl}${url}`;
+                        const fullUrl = `${backendUrl}${url}`;
+                        if (activity.metadata.file_url) activity.metadata.file_url = fullUrl;
+                        if (activity.metadata.feedback_url) activity.metadata.feedback_url = fullUrl;
                     }
                 }
             }
@@ -99,12 +100,24 @@ class ActivityService {
         const model = prisma.document_activity || prisma.documentActivity;
         if (!model) return [];
 
-        return await model.findMany({
+        const activities = await model.findMany({
             where: { company_id, transmission_id },
             include: {
                 user: { select: { name: true, email: true } }
             },
             orderBy: { createdAt: 'desc' }
+        });
+
+        // Expand feedback URLs
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+        return activities.map(activity => {
+            if (activity.metadata && activity.metadata.feedback_url) {
+                let url = activity.metadata.feedback_url;
+                if (url.startsWith('/') && !url.startsWith('http')) {
+                    activity.metadata.feedback_url = `${backendUrl}${url}`;
+                }
+            }
+            return activity;
         });
     }
 }

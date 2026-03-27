@@ -362,7 +362,7 @@ const ClientApprovalStatus = () => {
                                                         <TableCell className="text-muted-foreground">{td.group_document?.document?.document_name || '-'}</TableCell>
                                                         <TableCell>
                                                             <Badge variant="outline" className="font-mono">
-                                                                Rev {td.document_version?.version_no || '-'}
+                                                                Rev {td.version?.version_no || '-'}
                                                             </Badge>
                                                         </TableCell>
                                                     </TableRow>

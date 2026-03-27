@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const prisma = require('#prisma');
 const EmailService = require('./email.service');
 const { generateTransmittalPDF } = require('../utils/pdfGeneratorTransmittal');
@@ -1061,7 +1063,8 @@ class DccService {
                         include: {
                             group_document: { // Use group_document
                                 include: { document: true }
-                            }
+                            },
+                            version: true // Include version for display
                         }
                     }
                 }
@@ -1241,13 +1244,13 @@ class DccService {
         if (!transmission) throw new Error('Transmission not found');
 
         let client_archive_url = null;
+        const savedFiles = [];
 
         // 1. Process Client Feedback Files
         if (files && files.length > 0) {
             const { baseDir, uploadDir } = StorageUtils.getTransmissionFeedbackDir(company_id, transmission.transmission_number);
             
             // Move files to feedback directory
-            const savedFiles = [];
             for (const file of files) {
                 const targetPath = path.join(uploadDir, file.filename);
                 fs.renameSync(file.path, targetPath);
@@ -1294,7 +1297,12 @@ class DccService {
                 user_id: updatedTransmission.created_by,
                 action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
                 remarks: remarks || null,
-                metadata: { file_count: files.length, transmission_no: updatedTransmission.transmission_number }
+                metadata: { 
+                    file_count: files.length, 
+                    transmission_no: updatedTransmission.transmission_number,
+                    feedback_files: savedFiles.map(f => f.name),
+                    feedback_url: client_archive_url
+                }
             }, tx);
 
             // 4. Update Document Statuses & Log for each document
@@ -1326,7 +1334,7 @@ class DccService {
                         user_id: updatedTransmission.created_by,
                         action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
                         remarks: `Transmission ${updatedTransmission.transmission_number} reviewed by client`,
-                        metadata: { status }
+                        metadata: { status, feedback_url: client_archive_url }
                     }, tx);
                 }
             }

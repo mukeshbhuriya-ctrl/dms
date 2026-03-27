@@ -138,6 +138,19 @@ const DocumentTrail = ({ documentId }) => {
                                                     <span>TR: {activity.metadata.transmission_no}</span>
                                                 </div>
                                             )}
+                                            {activity.metadata.feedback_url && (
+                                                <a 
+                                                    href={activity.metadata.feedback_url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    download
+                                                    className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 hover:shadow-sm border border-emerald-200 transition-all cursor-pointer group/fb"
+                                                    title="Download Feedback/Stamps"
+                                                >
+                                                    <Download className="w-3.5 h-3.5 mr-1" />
+                                                    <span>Feedback ZIP</span>
+                                                </a>
+                                            )}
                                         </div>
                                     )}
                                 </div>
