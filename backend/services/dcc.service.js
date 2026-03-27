@@ -1350,34 +1350,7 @@ class DccService {
                 });
             }
 
-            // 5. Cascade Rejection Re-entry Logic
-            if (status === 'Rejected' && groupDocIds.length > 0) {
-                const rejectedGroupDocs = await tx.group_document.findMany({
-                    where: { id: { in: groupDocIds } }
-                });
-
-                const newGroupDocsData = rejectedGroupDocs.map(doc => ({
-                    company_id: doc.company_id,
-                    customer_id: doc.customer_id,
-                    customer_location_id: doc.customer_location_id,
-                    po_id: doc.po_id,
-                    group_id: doc.group_id,
-                    document_id: doc.document_id,
-                    shreno_doc_no: doc.shreno_doc_no,
-                    shreno_reference_no: doc.shreno_reference_no,
-                    client_doc_no: doc.client_doc_no,
-                    client_reference_no: doc.client_reference_no,
-                    upload_due_days: doc.upload_due_days,
-                    response_due_days: doc.response_due_days,
-                    user_id: doc.user_id,
-                    status: 'Pending' // Reset for re-upload
-                }));
-
-                await tx.group_document.createMany({
-                    data: newGroupDocsData
-                });
-            }
-
+            // (Already handled in Step 4 above: existing group_document status reset to Pending)
             return updatedTransmission;
         });
     }

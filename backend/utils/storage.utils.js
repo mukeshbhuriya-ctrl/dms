@@ -38,9 +38,9 @@ class StorageUtils {
             this._sanitize(transmission_number),
             'client_feedback'
         );
-        const originalUploadsDir = path.join(dir, 'original_uploads');
-        this._ensureDir(originalUploadsDir);
-        return { baseDir: dir, uploadDir: originalUploadsDir };
+        const feedbackDocsDir = path.join(dir, 'feedback_documents');
+        this._ensureDir(feedbackDocsDir);
+        return { baseDir: dir, uploadDir: feedbackDocsDir };
     }
 
     /**
