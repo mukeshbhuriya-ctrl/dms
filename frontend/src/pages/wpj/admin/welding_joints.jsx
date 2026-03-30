@@ -39,7 +39,7 @@ import { exportApi } from "@/api/export.api"
 
 function WeldingJoints() {
   const [formData, setFormData] = useState({
-    weldPlanNo: "SHR/job1/WTP/1",
+    weldPlanNo: "",
     jobNo: "",
     tagId: "",
     projectId: "",
@@ -379,7 +379,7 @@ function WeldingJoints() {
 
   const handleReset = () => {
     setFormData({
-      weldPlanNo: "SHR/job1/WTP/1",
+      weldPlanNo: "",
       jobNo: "",
       tagId: "",
       projectId: "",
@@ -528,19 +528,6 @@ function WeldingJoints() {
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="weldPlanNo">
-                          Weld Plan No. <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="weldPlanNo"
-                          name="weldPlanNo"
-                          type="text"
-                          placeholder="Enter weld plan number"
-                          value={formData.weldPlanNo}
-                          disabled={true}
-                        />
-                      </div>
-                      <div className="space-y-2">
                         <Label htmlFor="jobNo">
                           Job No <span className="text-destructive">*</span>
                         </Label>
@@ -562,6 +549,20 @@ function WeldingJoints() {
                         </Select>
                       </div>
                       <div className="space-y-2">
+                        <Label htmlFor="weldPlanNo">
+                          Weld Plan No. <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="weldPlanNo"
+                          name="weldPlanNo"
+                          type="text"
+                          placeholder="weld plan number"
+                          value={formData.weldPlanNo}
+                          disabled={true}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
                         <Label htmlFor="tagId">Tag ID</Label>
                         <Input
                           id="tagId"
@@ -579,9 +580,8 @@ function WeldingJoints() {
                           id="projectId"
                           name="projectId"
                           type="text"
-                          placeholder="Auto-filled project ID"
+                          placeholder="project ID"
                           value={formData.projectId}
-                          readOnly
                           disabled={isLoading}
                         />
                       </div>

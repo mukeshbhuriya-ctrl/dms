@@ -226,10 +226,10 @@ model job{
   customer_location_id String
   po_id String
   job_number String
-  project_id String
+  project_id String?
   equipement_name String
   tag_number String
-  code String
+  code String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
