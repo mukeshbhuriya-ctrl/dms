@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage2C = ({ initialData, isReview }) => {
+const Stage2C = ({ initialData, isReview, stage = "stage2" }) => {
+    const sPrefix = stage.replace('stage', 's');
     const [formData, setFormData] = useState({
         welderNumber: "",
         overlayPt: "",
@@ -86,29 +87,29 @@ const Stage2C = ({ initialData, isReview }) => {
             const categoryKey = getCategoryKey();
             const insp = initialData.inspectionData;
 
-            if (insp.s2_data) {
+            if (insp[`${sPrefix}_data`]) {
                 try {
-                    const rawData = typeof insp.s2_data === 'string' ? JSON.parse(insp.s2_data) : insp.s2_data;
-                    const s2Data = rawData?.[categoryKey]?.s2 || rawData?.[categoryKey] || rawData || {};
+                    const rawData = typeof insp[`${sPrefix}_data`] === 'string' ? JSON.parse(insp[`${sPrefix}_data`]) : insp[`${sPrefix}_data`];
+                    const sData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
 
                     setFormData(prev => ({
                         ...prev,
-                        welderNumber: s2Data.welderNumber || prev.welderNumber,
-                        overlayPt: s2Data.overlayPt || prev.overlayPt,
-                        date: s2Data.date || prev.date,
+                        welderNumber: sData.welderNumber || prev.welderNumber,
+                        overlayPt: sData.overlayPt || prev.overlayPt,
+                        date: sData.date || prev.date,
                     }));
 
-                    if (s2Data.productionEngineerName) setProductionEngineerName(s2Data.productionEngineerName);
-                    if (s2Data.submissionDate) setTodayDate(s2Data.submissionDate);
-                    if (s2Data.assignedQcEngineerId) setQeEngineer(s2Data.assignedQcEngineerId);
+                    if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
+                    if (sData.submissionDate) setTodayDate(sData.submissionDate);
+                    if (sData.assignedQcEngineerId) setQeEngineer(sData.assignedQcEngineerId);
 
                 } catch (e) {
-                    console.error("Error parsing s2_data", e)
+                    console.error(`Error parsing ${sPrefix}_data`, e)
                 }
             }
             // Fallback / Override from columns if JSON missing/incomplete
-            if (insp.s2_qc_eng_id && !qeEngineer) setQeEngineer(insp.s2_qc_eng_id);
-            if (insp.s2_prod_eng_name) setProductionEngineerName(insp.s2_prod_eng_name);
+            if (insp[`${sPrefix}_qc_eng_id`] && !qeEngineer) setQeEngineer(insp[`${sPrefix}_qc_eng_id`]);
+            if (insp[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(insp[`${sPrefix}_prod_eng_name`]);
         }
     }, [initialData])
 
@@ -142,10 +143,10 @@ const Stage2C = ({ initialData, isReview }) => {
 
             // Fetch existing Stage Data
             let existingStageData = {};
-            if (initialData?.inspectionData?.s2_data) {
-                existingStageData = typeof initialData.inspectionData.s2_data === 'string'
-                    ? JSON.parse(initialData.inspectionData.s2_data)
-                    : initialData.inspectionData.s2_data;
+            if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
+                existingStageData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
+                    ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
+                    : initialData.inspectionData[`${sPrefix}_data`];
             }
 
             const currentStageInnerData = {
@@ -159,13 +160,13 @@ const Stage2C = ({ initialData, isReview }) => {
                 ...existingStageData,
                 [categoryKey]: {
                     ...existingStageData[categoryKey],
-                    s2: currentStageInnerData
+                    [sPrefix]: currentStageInnerData
                 }
             };
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage2",
+                stage: stage,
                 status: "pending",
                 engineerId: userId,
                 role: role,
@@ -184,7 +185,7 @@ const Stage2C = ({ initialData, isReview }) => {
 
             const data = await res.json();
             if (res.ok) {
-                setAlert({ show: true, type: 'success', message: "Stage 2 submitted successfully" });
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} submitted successfully` });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
@@ -218,10 +219,10 @@ const Stage2C = ({ initialData, isReview }) => {
                 const categoryKey = getCategoryKey();
 
                 let existingStageData = {};
-                if (initialData?.inspectionData?.s2_data) {
-                    existingStageData = typeof initialData.inspectionData.s2_data === 'string'
-                        ? JSON.parse(initialData.inspectionData.s2_data)
-                        : initialData.inspectionData.s2_data;
+                if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
+                    existingStageData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
+                        ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
+                        : initialData.inspectionData[`${sPrefix}_data`];
                 }
 
                 const currentStageInnerData = {
@@ -235,7 +236,7 @@ const Stage2C = ({ initialData, isReview }) => {
                     ...existingStageData,
                     [categoryKey]: {
                         ...existingStageData[categoryKey],
-                        s2: currentStageInnerData
+                        [sPrefix]: currentStageInnerData
                     }
                 };
 
@@ -244,7 +245,7 @@ const Stage2C = ({ initialData, isReview }) => {
                     headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
                     body: JSON.stringify({
                         jointId: initialData?.id,
-                        stage: "stage2",
+                        stage: stage,
                         status: status,
                         engineerId: userId,
                         role: 'QC',
@@ -256,7 +257,7 @@ const Stage2C = ({ initialData, isReview }) => {
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage2",
+                stage: stage,
                 status: status,
                 engineerId: userId,
                 role: role,
@@ -275,7 +276,7 @@ const Stage2C = ({ initialData, isReview }) => {
 
             const data = await res.json();
             if (res.ok) {
-                setAlert({ show: true, type: 'success', message: `Stage 2 ${status} successfully` });
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} successfully` });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
@@ -353,7 +354,7 @@ const Stage2C = ({ initialData, isReview }) => {
                             <div className="space-y-2">
                                 <Label>Date:</Label>
                                 <Input
-                                    value={initialData?.inspectionData?.s2_submitted_at ? new Date(initialData.inspectionData.s2_submitted_at).toLocaleDateString() : todayDate}
+                                    value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
                                     readOnly
                                     className="bg-muted"
                                 />
@@ -379,14 +380,14 @@ const Stage2C = ({ initialData, isReview }) => {
                         <div className="flex justify-end gap-2 items-center pt-4">
                             {!isReview ? (
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : "Save & Complete Stage 2"}
+                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
                                 </Button>
                             ) : (
                                 <>
-                                    {(isReview || initialData?.inspectionData?.s2_approved_at) && (
+                                    {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
                                         <Input
                                             type="text"
-                                            value={`Approve Date: ${initialData?.inspectionData?.s2_approved_at ? new Date(initialData.inspectionData.s2_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                            value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
                                             readOnly
                                             className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
                                             placeholder="Approve Date"

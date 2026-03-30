@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage7", }) {
+function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage7", type }) {
+    const sPrefix = stage.replace('stage', 's');
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [ndtEngineer, setNdtEngineer] = useState("")
@@ -158,10 +159,9 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
     useEffect(() => {
         if (inspectionData) {
             const categoryKey = getCategoryKey();
-            const stagePrefix = stage === 'stage7' ? 's7' : 's8';
-            const dataKey = `${stagePrefix}_data`;
-            const ndtEngIdKey = `${stagePrefix}_qc_eng_id`;
-            const prodEngNameKey = `${stagePrefix}_prod_eng_name`;
+            const dataKey = `${sPrefix}_data`;
+            const ndtEngIdKey = `${sPrefix}_qc_eng_id`;
+            const prodEngNameKey = `${sPrefix}_prod_eng_name`;
             // Note: s7 might not have post_rt_status fields in DB schema columns, 
             // but s6 has s6_post_rt_status. We should check if s7 has them or if they rely on JSON.
             // Assuming s7 relies on JSON or reuses s6 columns (unlikely for different stages).
@@ -189,7 +189,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
 
             if (inspectionData[ndtEngIdKey]) setNdtEngineer(inspectionData[ndtEngIdKey]);
             // Check for QC Eng ID if NDT not found (new schema)
-            const qcEngIdKey = `${stagePrefix}_qc_eng_id`;
+            const qcEngIdKey = `${sPrefix}_qc_eng_id`;
             if (!inspectionData[ndtEngIdKey] && inspectionData[qcEngIdKey]) {
                 setNdtEngineer(inspectionData[qcEngIdKey]);
             }
@@ -203,7 +203,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
                 try {
                     const rawData = typeof inspectionData[dataKey] === 'string' ? JSON.parse(inspectionData[dataKey]) : inspectionData[dataKey];
                     // Check nested key: { ab: { s7: ... } }
-                    const stageData = rawData?.[categoryKey]?.[stagePrefix] || rawData?.[categoryKey] || rawData || {};
+                    const stageData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
 
                     if (stageData?.productionEngineerName) setProductionEngineerName(stageData.productionEngineerName);
                     if (stageData?.submissionDate) setTodayDate(stageData.submissionDate);
@@ -252,8 +252,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
             }
 
             const categoryKey = getCategoryKey();
-            const stagePrefix = stage === 'stage7' ? 's7' : 's8';
-            const dataKey = `${stagePrefix}_data`;
+            const dataKey = `${sPrefix}_data`;
 
             let existingData = {};
             if (initialData?.inspectionData?.[dataKey]) {
@@ -275,7 +274,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
                 ...existingData,
                 [categoryKey]: {
                     ...existingData[categoryKey],
-                    [stagePrefix]: currentStageData
+                    [sPrefix]: currentStageData
                 }
             };
 
@@ -302,7 +301,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
 
             const data = await res.json();
             if (res.ok) {
-                const stageName = stage === 'stage8' ? 'Stage 8' : 'Stage 7';
+                const stageName = stage.replace('stage', 'Stage ');
                 setSuccess(`${stageName} submitted successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
@@ -337,8 +336,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
             if (userRole === 'QC' && status === 'approved') {
                 // Save data before approving if edits made
                 const categoryKey = getCategoryKey();
-                const stagePrefix = stage === 'stage8' ? 's8' : 's7';
-                const dataKey = `${stagePrefix}_data`;
+                const dataKey = `${sPrefix}_data`;
 
                 let existingData = {};
                 if (initialData?.inspectionData?.[dataKey]) {
@@ -360,7 +358,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
                     ...existingData,
                     [categoryKey]: {
                         ...existingData[categoryKey],
-                        [stagePrefix]: currentStageData
+                        [sPrefix]: currentStageData
                     }
                 };
 
@@ -402,7 +400,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
 
             const data = await res.json();
             if (res.ok) {
-                const stageName = stage === 'stage8' ? 'Stage 8' : 'Stage 7';
+                const stageName = stage.replace('stage', 'Stage ');
                 setSuccess(`${stageName} ${status} successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
@@ -439,28 +437,29 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
             </div>
 
             <Card>
-                <CardHeader>
-                    <CardTitle>Post Weld Heat Treatment (PWHT) {initialData?.pwht && (
+                <CardHeader className="space-y-4 px-6 pt-6 pb-0">
+                    <CardTitle className="flex items-center gap-2">
+                        Post Weld Heat Treatment (PWHT) 
                         <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                             Yes
                         </span>
-                    )}</CardTitle>
-                </CardHeader>
-                <CardHeader>
-                    {stage === "stage7" && initialData?.pwht && (
-                        <CardTitle>Radiography Testing (RT) <span className="ml-2 text-xs text-muted-foreground">
-                            (After PWHT)
-                        </span></CardTitle>
+                    </CardTitle>
+
+                    {type === "RT" && (
+                        <CardTitle className="flex items-center gap-2">
+                            Radiography Testing (RT) 
+                            <span className="ml-2 text-xs text-muted-foreground">(After PWHT)</span>
+                        </CardTitle>
                     )}
 
-                    {stage === "stage8" && initialData?.pwht && (
-                        <CardTitle>Penetrant Testing (PT) <span className="ml-2 text-xs text-muted-foreground">
-                            (After PWHT)
-                        </span></CardTitle>
+                    {type === "PT" && (
+                        <CardTitle className="flex items-center gap-2">
+                            Penetrant Testing (PT) 
+                            <span className="ml-2 text-xs text-muted-foreground">(After PWHT)</span>
+                        </CardTitle>
                     )}
-                </CardHeader>
-                <CardHeader>
-                    <CardTitle>Set Up Inspection by</CardTitle>
+
+                    <CardTitle className="pt-4">Set Up Inspection by</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -478,7 +477,7 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
                             <Label>Date:</Label>
                             <Input
                                 type="text"
-                                value={initialData?.inspectionData?.[`${stage === 'stage8' ? 's8' : 's7'}_submitted_at`] ? new Date(initialData.inspectionData[`${stage === 'stage8' ? 's8' : 's7'}_submitted_at`]).toLocaleDateString() : todayDate}
+                                value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
                                 readOnly
                                 className="bg-muted"
                             />
@@ -502,23 +501,22 @@ function Stage7D({ initialData, inspectionData, isReview = false, stage = "stage
                     </div>
                     <div className="mt-6 flex justify-end gap-2 items-center">
                         {(() => {
-                            const stagePrefix = stage === 'stage8' ? 's8' : 's7';
-                            const isStageApproved = initialData?.inspectionData?.[`${stagePrefix}_status`] === 'approved';
+                            const isStageApproved = initialData?.inspectionData?.[`${sPrefix}_status`] === 'approved';
 
                             if (!isReview) {
                                 if (isStageApproved) return null; // Hide save button if approved
                                 return (
                                     <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                        {isSubmitting ? "Saving..." : `Save & Complete ${stage === 'stage8' ? 'Stage 8' : 'Stage 7'}`}
+                                        {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
                                     </Button>
                                 )
                             } else {
                                 return (
                                     <>
-                                        {(isReview || initialData?.inspectionData?.[`${stagePrefix}_approved_at`]) && (
+                                        {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
                                             <Input
                                                 type="text"
-                                                value={`Approve Date: ${initialData?.inspectionData?.[`${stagePrefix}_approved_at`] ? new Date(initialData.inspectionData[`${stagePrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                                value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
                                                 readOnly
                                                 className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
                                                 placeholder="Approve Date"

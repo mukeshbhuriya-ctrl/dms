@@ -185,70 +185,54 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         } catch (e) { console.error("Error parsing data_json", e) }
       }
 
-      if (stage === 'stage2') {
-        if (inspectionData.s2_qc_eng_id) {
-          setBackChipQcEngineer(inspectionData.s2_qc_eng_id);
-        }
-        if (inspectionData.s2_prod_eng_name) {
-          setProductionEngineerName(inspectionData.s2_prod_eng_name);
-        }
+      const stagePrefix = stage === 'stage2' ? 's2' : 's3';
 
-        if (inspectionData.s2_data) {
-          try {
-            const rawData = typeof inspectionData.s2_data === 'string' ? JSON.parse(inspectionData.s2_data) : inspectionData.s2_data;
-            // Check nested s2 key: { ab: { s2: ... } } or legacy
-            const s2Data = rawData?.[categoryKey]?.s2 || rawData?.[categoryKey] || rawData || {};
-
-            if (s2Data?.productionEngineerName) setProductionEngineerName(s2Data.productionEngineerName);
-            if (s2Data?.submissionDate) setTodayDate(s2Data.submissionDate);
-            if (!inspectionData.s2_qc_eng_id && s2Data?.assignedQcEngineerId) {
-              setBackChipQcEngineer(s2Data.assignedQcEngineerId);
-            }
-            // Legacy fallback for inputFields if NOT in data_json
-            if (s2Data?.inputFields && !inspectionData.data_json) {
-              setInputFields(prev => ({ ...prev, ...s2Data.inputFields }));
-            }
-          } catch (e) { console.error("Error parsing s2_data", e) }
-        }
+      if (inspectionData[`${stagePrefix}_prod_eng_name`]) {
+        setProductionEngineerName(inspectionData[`${stagePrefix}_prod_eng_name`]);
       }
 
-      if (stage === 'stage3') {
-        if (inspectionData.s3_qc_eng_id) setWeldVisualQcEngineer(inspectionData.s3_qc_eng_id);
-        if (inspectionData.s3_prod_eng_name) {
-          setProductionEngineerName(inspectionData.s3_prod_eng_name);
-        }
+      if (inspectionData[`${stagePrefix}_data`]) {
+        try {
+          const rawData = typeof inspectionData[`${stagePrefix}_data`] === 'string'
+            ? JSON.parse(inspectionData[`${stagePrefix}_data`])
+            : inspectionData[`${stagePrefix}_data`];
+          
+          const savedData = rawData?.[categoryKey]?.[stagePrefix] || rawData?.[categoryKey] || rawData || {};
 
-        let loadedWelderNo = inspectionData.s3_welder_no || "";
-        let loadedWeldingProcess = inspectionData.s3_welding_process || "";
+          if (savedData?.productionEngineerName) setProductionEngineerName(savedData.productionEngineerName);
+          if (savedData?.submissionDate) setTodayDate(savedData.submissionDate);
 
-        if (inspectionData.s3_data) {
-          try {
-            const rawData = typeof inspectionData.s3_data === 'string'
-              ? JSON.parse(inspectionData.s3_data)
-              : inspectionData.s3_data;
+          const isBackChipActive = stage === "stage2" && backChip === true;
+          const isWeldVisualActive = (stage === "stage2" && backChip === false) || (stage === "stage3" && backChip === true);
 
-            // Check nested s3 key: { ab: { s3: ... } } or legacy
-            const savedData = rawData?.[categoryKey]?.s3 || rawData?.[categoryKey] || rawData || {};
+          if (isBackChipActive) {
+            if (inspectionData[`${stagePrefix}_qc_eng_id`]) {
+              setBackChipQcEngineer(inspectionData[`${stagePrefix}_qc_eng_id`]);
+            } else if (savedData?.assignedQcEngineerId) {
+              setBackChipQcEngineer(savedData.assignedQcEngineerId);
+            }
+          }
 
-            if (savedData?.welderNo) loadedWelderNo = savedData.welderNo;
-            if (savedData?.weldingProcess) loadedWeldingProcess = savedData.weldingProcess;
-            if (savedData?.productionEngineerName) setProductionEngineerName(savedData.productionEngineerName);
-            if (savedData?.submissionDate) setTodayDate(savedData.submissionDate);
+          if (isWeldVisualActive) {
+            if (inspectionData[`${stagePrefix}_welder_no`]) setWelderNo(inspectionData[`${stagePrefix}_welder_no`]);
+            else if (savedData?.welderNo) setWelderNo(savedData.welderNo);
 
-            if (!inspectionData.s3_qc_eng_id && savedData?.assignedQcEngineerId) {
+            if (inspectionData[`${stagePrefix}_welding_process`]) setWeldingProcess(inspectionData[`${stagePrefix}_welding_process`]);
+            else if (savedData?.weldingProcess) setWeldingProcess(savedData.weldingProcess);
+
+            if (inspectionData[`${stagePrefix}_qc_eng_id`]) {
+              setWeldVisualQcEngineer(inspectionData[`${stagePrefix}_qc_eng_id`]);
+            } else if (savedData?.assignedQcEngineerId) {
               setWeldVisualQcEngineer(savedData.assignedQcEngineerId);
             }
-            // Legacy fallback
-            if (savedData?.inputFields && !inspectionData.data_json) {
-              setInputFields(prev => ({ ...prev, ...savedData.inputFields }));
-            }
-          } catch (e) {
-            console.error("Error parsing s3_data", e);
           }
-        }
 
-        if (loadedWelderNo) setWelderNo(loadedWelderNo);
-        if (loadedWeldingProcess) setWeldingProcess(loadedWeldingProcess);
+          if (savedData?.inputFields && !inspectionData.data_json) {
+            setInputFields(prev => ({ ...prev, ...savedData.inputFields }));
+          }
+        } catch (e) {
+          console.error(`Error parsing ${stagePrefix}_data`, e);
+        }
       }
     }
   }, [inspectionData, stage, initialData]);
@@ -262,7 +246,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
     (stage === "stage2" && backChip === false) ||
     (stage === "stage3" && backChip === true)
 
-  const handleSubmit = async (currentStage) => {
+  const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
@@ -277,11 +261,11 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
 
+      const currentStage = stage; // Dynamic stage2 or stage3
       const categoryKey = getCategoryKey();
       const stagePrefix = currentStage === 'stage2' ? 's2' : 's3';
       const stageKey = `${stagePrefix}_data`;
 
-      // Get existing data to preserve other category
       let existingData = {};
       if (initialData?.inspectionData?.[stageKey]) {
         existingData = typeof initialData.inspectionData[stageKey] === 'string'
@@ -290,12 +274,11 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       }
 
       const currentStageData = {
-        // inputFields removed
         productionEngineerName,
         submissionDate: todayDate,
       };
 
-      if (currentStage === 'stage2') {
+      if (shouldShowBackChipSection) {
         if (!backChipQcEngineer) {
           alert("Please select QC Engineer");
           setIsSubmitting(false);
@@ -304,13 +287,17 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         currentStageData.assignedQcEngineerId = backChipQcEngineer;
       }
 
-      if (currentStage === 'stage3') {
+      if (shouldShowWeldVisualSection) {
+        if (!weldVisualQcEngineer) {
+          alert("Please select QC Engineer for Weld Visual");
+          setIsSubmitting(false);
+          return;
+        }
         currentStageData.welderNo = welderNo;
         currentStageData.weldingProcess = weldingProcess;
         currentStageData.assignedQcEngineerId = weldVisualQcEngineer;
       }
 
-      // Nest the data: { ab: { s2: ... } }
       const finalData = {
         ...existingData,
         [categoryKey]: {
@@ -357,7 +344,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
     }
   }
 
-  const handleReviewAction = async (status, currentStage) => {
+  const handleReviewAction = async (status) => {
     setIsSubmitting(true);
     setError("");
     setSuccess("");
@@ -374,6 +361,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
 
+      const currentStage = stage; // Dynamic stage2 or stage3
+
       if (userRole === 'QC' && status === 'approved') {
         const categoryKey = getCategoryKey();
         const stagePrefix = currentStage === 'stage2' ? 's2' : 's3';
@@ -387,12 +376,14 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         }
 
         const currentStageData = {
-          // inputFields removed
           productionEngineerName,
           submissionDate: todayDate,
         };
-        if (currentStage === 'stage2') currentStageData.assignedQcEngineerId = backChipQcEngineer;
-        if (currentStage === 'stage3') {
+        
+        if (shouldShowBackChipSection) {
+          currentStageData.assignedQcEngineerId = backChipQcEngineer;
+        }
+        if (shouldShowWeldVisualSection) {
           currentStageData.welderNo = welderNo;
           currentStageData.weldingProcess = weldingProcess;
           currentStageData.assignedQcEngineerId = weldVisualQcEngineer;
@@ -405,8 +396,6 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
             [stagePrefix]: currentStageData
           }
         };
-
-
 
         await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
           method: "POST",
@@ -680,8 +669,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
             </div>
             <div className="mt-6 flex justify-end gap-2 items-center">
               {!isReview ? (
-                <Button onClick={() => handleSubmit('stage2')} disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Save & Complete Stage 2"}
+                <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : `Save & Complete ${stage === 'stage2' ? 'Stage 2' : 'Stage 3'}`}
                 </Button>
               ) : (
                 <>
@@ -694,10 +683,10 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                       placeholder="Approve Date"
                     />
                   )}
-                  <Button onClick={() => handleReviewAction('rejected', 'stage2')} variant="outline" disabled={isSubmitting}>
+                  <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
                     {isSubmitting ? "Processing..." : "Reject"}
                   </Button>
-                  <Button onClick={() => handleReviewAction('approved', 'stage2')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                  <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
                     {isSubmitting ? "Processing..." : "Approve"}
                   </Button>
                 </>
@@ -786,8 +775,8 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
             </div>
             <div className="mt-6 flex justify-end gap-2 items-center">
               {!isReview ? (
-                <Button onClick={() => handleSubmit('stage3')} disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : "Save & Complete Stage 3"}
+                <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : `Save & Complete ${stage === 'stage2' ? 'Stage 2' : 'Stage 3'}`}
                 </Button>
               ) : (
                 <>
@@ -800,10 +789,10 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                       placeholder="Approve Date"
                     />
                   )}
-                  <Button onClick={() => handleReviewAction('rejected', 'stage3')} variant="outline" disabled={isSubmitting}>
+                  <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
                     {isSubmitting ? "Processing..." : "Reject"}
                   </Button>
-                  <Button onClick={() => handleReviewAction('approved', 'stage3')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                  <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
                     {isSubmitting ? "Processing..." : "Approve"}
                   </Button>
                 </>

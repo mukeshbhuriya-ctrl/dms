@@ -101,10 +101,10 @@ function WeldingJoints() {
       accessorKey: "job.job_number",
       header: "Job No",
     },
-    {
-      accessorKey: "job.project_id",
-      header: "Project ID",
-    },
+    // {
+    //   accessorKey: "job.project_id",
+    //   header: "Project ID",
+    // },
     {
       accessorKey: "job.equipement_name",
       header: "Equipment Name",
@@ -259,13 +259,10 @@ function WeldingJoints() {
         if (row.id === id) {
           const updatedRow = { ...row, [field]: value }
 
-          // Clear Back Chip Req, PWHT, PT, RT if jointType is not A or B
+          // Clear Back Chip Req if jointType is F
           if (field === "jointType") {
-            if (value !== "A" && value !== "B") {
+            if (value === "F") {
               updatedRow.backChipReq = ""
-              updatedRow.pwht = ""
-              updatedRow.pt = ""
-              updatedRow.rt = ""
             }
           }
 
@@ -728,7 +725,7 @@ function WeldingJoints() {
                                 rowSpan={2}
                                 className="min-w-[120px] align-middle"
                               >
-                                Consu- -mable
+                                Consumable
                               </TableHead>
                               <TableHead
                                 rowSpan={2}
@@ -979,7 +976,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "backChipReq", value)
                                       }
-                                      disabled={isLoading || (row.jointType !== "A" && row.jointType !== "B")}
+                                      disabled={isLoading || row.jointType === "F"}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -1189,6 +1186,7 @@ function WeldingJoints() {
                             <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>WPS No/PQR No</th>
                             <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Process</th>
                             <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Impact Test</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Back Chip<br/>Req.</th>
                             <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>PWHT</th>
 
                             <th className="border border-black p-2 font-bold align-middle" colSpan={2}>NDT</th>
@@ -1225,11 +1223,12 @@ function WeldingJoints() {
                               <td className="border border-black p-2">{joint.wps_pqr_no || joint.wpsNoPqrNo}</td>
                               <td className="border border-black p-2">{joint.process}</td>
                               <td className="border border-black p-2">{joint.impact_test || joint.impactTest}</td>
-                              <td className="border border-black p-2">{joint.pwht ? 'YES' : ''}</td>
+                              <td className="border border-black p-2">{joint.back_chip_req === true ? 'YES' : (joint.back_chip_req === false ? 'NO' : '-')}</td>
+                              <td className="border border-black p-2">{joint.pwht === true ? 'YES' : (joint.pwht === false ? 'NO' : '-')}</td>
 
                               {/* NDT */}
-                              <td className="border border-black p-2">{joint.rt ? 'YES' : ''}</td>
-                              <td className="border border-black p-2">{joint.pt ? 'YES' : ''}</td>
+                              <td className="border border-black p-2">{joint.rt === true ? 'YES' : (joint.rt === false ? 'NO' : '-')}</td>
+                              <td className="border border-black p-2">{joint.pt === true ? 'YES' : (joint.pt === false ? 'NO' : '-')}</td>
 
                               <td className="border border-black p-2 min-w-[150px]">{joint.remarks}</td>
                             </tr>

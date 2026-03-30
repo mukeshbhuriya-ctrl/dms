@@ -32,22 +32,57 @@ async function generateStageReport(req, res) {
         // PDF template group: determines which generator and stage template to use
         const jointTypeGroup = ['C', 'D'].includes(jt) ? 'cd' : (jt === 'F' ? 'f' : 'ab');
 
-        // Stage list per category: must match pdfGeneratorCD's stageOrder logic
-        // C: stage1, 2, 7, 8 (no nozzle/set-up stages - skips 3-6)
-        // D: all 8 stages
-        // F: stage1-4
-        // A/B: stage1-7 (no stage8)
-        const stagesByCategory = {
-            'c': ['stage1', 'stage2', 'stage7', 'stage8'],
-            'd': ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'],
-            'f': ['stage1', 'stage2', 'stage3', 'stage4'],
-            'a': ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'],
-            'b': ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7'],
+        // Dynamic stage list per category based on joint's boolean flags
+        // Skipped stages (backchip/pwht/rt/pt = false) are excluded from PDF
+        const getStagesForJoint = (catKey, j) => {
+            if (catKey === 'c') {
+                const stages = ['stage1'];
+                if (j.back_chip_req) {
+                    stages.push('stage2', 'stage3'); // S2=BC, S3=WV
+                } else {
+                    stages.push('stage2'); // S2=WV
+                }
+                if (j.pwht && j.rt) stages.push('stage7');
+                if (j.pwht && j.pt) stages.push('stage8');
+                return stages;
+            }
+            if (catKey === 'd') {
+                const stages = ['stage1'];
+                if (j.back_chip_req) {
+                    // S2=BC, S3=NO, S4=NS, S5=Insp, S6=RF, S7=Pneumatic
+                    stages.push('stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7');
+                    if (j.pwht && j.rt) stages.push('stage8');
+                    if (j.pwht && j.pt) stages.push('stage9');
+                } else {
+                    // S2=NO, S3=NS, S4=Insp, S5=RF, S6=Pneumatic
+                    stages.push('stage2', 'stage3', 'stage4', 'stage5', 'stage6');
+                    if (j.pwht && j.rt) stages.push('stage7');
+                    if (j.pwht && j.pt) stages.push('stage8');
+                }
+                return stages;
+            }
+            if (catKey === 'f') {
+                const stages = ['stage1', 'stage2'];
+                if (j.pwht && j.rt) stages.push('stage3');
+                if (j.pwht && j.pt) stages.push('stage4');
+                return stages;
+            }
+            // A/B
+            const stages = ['stage1'];
+            if (j.back_chip_req) {
+                stages.push('stage2', 'stage3'); // stage2=backchip, stage3=weld visual
+            } else {
+                stages.push('stage2'); // stage2=weld visual (backchip skipped)
+            }
+            if (j.rt) stages.push('stage4');
+            if (j.pt) stages.push('stage5');
+            if (j.pwht) stages.push('stage6', 'stage7');
+            return stages;
         };
 
         if (stage === 'all') {
             const allStagesData = {};
-            const stages = stagesByCategory[categoryKey] || stagesByCategory['a'];
+            const stages = getStagesForJoint(categoryKey, joint);
 
             await Promise.all(stages.map(async (sKey) => {
                 const sPrefix = sKey.replace('stage', 's');

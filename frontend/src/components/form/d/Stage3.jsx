@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { FormAlert } from "@/components/ui/form-alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
+const Stage3D = ({ initialData, inspectionData, isReview = false, stage = "stage3" }) => {
+    const sPrefix = stage.replace('stage', 's');
     // Stage 3D: Nozzle Opening Inspection
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-    const [qcEngineer, setQcEngineer] = useState("") // s3_qc_eng_id
+    const [qcEngineer, setQcEngineer] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
@@ -148,31 +149,32 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
             if (inspData.s3_qc_eng_id) setQcEngineer(inspData.s3_qc_eng_id);
 
             // Flat columns from reconstructed inspection object (new schema)
-            if (inspData.s3_prod_eng_name) setProductionEngineerName(inspData.s3_prod_eng_name);
+            if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
-            if (inspData.s3_data) {
+            if (inspData[`${sPrefix}_data`]) {
                 try {
-                    const rawData = typeof inspData.s3_data === 'string' ? JSON.parse(inspData.s3_data) : inspData.s3_data;
+                    const rawData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
                     const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
-                    const s3Data = rawData?.[catKey]?.s3 || rawData?.[catKey] || rawData || {};
+                    const sData = rawData?.[catKey]?.[sPrefix] || rawData?.[catKey] || rawData || {};
 
                     // Override with JSON values if present (they take precedence for review display)
-                    if (s3Data.productionEngineerName) setProductionEngineerName(s3Data.productionEngineerName);
-                    if (s3Data.submissionDate) setTodayDate(s3Data.submissionDate);
+                    if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
+                    if (sData.submissionDate) setTodayDate(sData.submissionDate);
                     // Legacy check if saved inside JSON
-                    if (!inspData.s3_qc_eng_id && s3Data.assignedQcEngineerId) setQcEngineer(s3Data.assignedQcEngineerId);
+                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setQcEngineer(sData.assignedQcEngineerId);
 
                     setFormData(prev => ({
                         ...prev,
-                        nozzleNumber: s3Data.nozzleNumber || "",
-                        openingSize: s3Data.openingSize || "",
-                        orientation: s3Data.orientation || "",
-                        elevation: s3Data.elevation || "",
-                        edgePreparation: s3Data.edgePreparation || "",
-                        date: s3Data.date || prev.date
+                        nozzleNumber: sData.nozzleNumber || "",
+                        openingSize: sData.openingSize || "",
+                        orientation: sData.orientation || "",
+                        elevation: sData.elevation || "",
+                        edgePreparation: sData.edgePreparation || "",
+                        date: sData.date || prev.date
                     }));
-                } catch (e) { console.error("Error parsing s3_data", e) }
+                } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
             }
+            if (inspData[`${sPrefix}_qc_eng_id`] && !qcEngineer) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
         }
     }, [initialData, inspectionData]);
 
@@ -218,8 +220,8 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
             // Need to merge with existing C/D data structure
             const inspData = inspectionData || initialData?.inspectionData;
             let existingData = {};
-            if (inspData?.s3_data) {
-                existingData = typeof inspData.s3_data === 'string' ? JSON.parse(inspData.s3_data) : inspData.s3_data;
+            if (inspData?.[`${sPrefix}_data`]) {
+                existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
             }
 
             // Structure: { [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: { s3: ... } }
@@ -227,13 +229,13 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                 ...existingData,
                 [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                     ...existingData?.cd,
-                    s3: currentStageData
+                    [sPrefix]: currentStageData
                 }
             };
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage3",
+                stage: stage,
                 status: "pending",
                 engineerId: userId,
                 role: 'PROD',
@@ -300,7 +302,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                     ...existingData,
                     [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                         ...existingData?.cd,
-                        s3: currentStageData
+                        [sPrefix]: currentStageData
                     }
                 };
                 // Silent save
@@ -309,7 +311,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                     headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
                     body: JSON.stringify({
                         jointId: initialData?.id,
-                        stage: "stage3",
+                        stage: stage,
                         status: status,
                         engineerId: userId,
                         role: 'QC',
@@ -322,7 +324,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage3",
+                stage: stage,
                 status: status,
                 engineerId: userId,
                 role: 'QC',
@@ -340,7 +342,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
             });
             const data = await res.json();
             if (res.ok) {
-                setSuccess(`Stage 3 ${status} Successfully`);
+                setSuccess(`${stage.replace('stage', 'Stage ')} ${status} Successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setError(data.message || "Review action failed");
@@ -377,9 +379,10 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
 
             <Card className="w-full">
                 <CardHeader>
-                    <CardTitle>Stage 3: Nozzle Opening Inspection</CardTitle>
+                    <CardTitle>{stage.replace('stage', 'Stage ')}: Nozzle Opening Inspection</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                    {alert.show && <FormAlert type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <Label>Nozzle Number</Label>
@@ -444,7 +447,7 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                             <div className="space-y-2">
                                 <Label>Date:</Label>
                                 <Input
-                                    value={inspectionData?.s3_submitted_at ? new Date(inspectionData.s3_submitted_at).toLocaleDateString() : todayDate}
+                                    value={inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
                                     readOnly
                                     className="bg-muted"
                                 />
@@ -468,13 +471,13 @@ const Stage3D = ({ initialData, inspectionData, isReview = false }) => {
                         <div className="flex justify-end gap-2 items-center pt-4">
                             {!isReview ? (
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : "Save & Complete Stage 3"}
+                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
                                 </Button>
                             ) : (
                                 <>
-                                    {(isReview || inspectionData?.s3_approved_at) && (
+                                    {(isReview || inspectionData?.[`${sPrefix}_approved_at`]) && (
                                         <Input
-                                            value={`Approve Date: ${inspectionData?.s3_approved_at ? new Date(inspectionData.s3_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                            value={`Approve Date: ${inspectionData?.[`${sPrefix}_approved_at`] ? new Date(inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
                                             readOnly
                                             className="bg-muted w-auto min-w-[200px] text-center"
                                         />

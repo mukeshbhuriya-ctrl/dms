@@ -30,6 +30,7 @@ import Stage7D from "@/components/form/d/Stage7"
 import Stage1F from "@/components/form/f/Stage1"
 import Stage2F from "@/components/form/f/Stage2"
 import Stage3F from "@/components/form/f/Stage3"
+import StageBackChip from "@/components/form/shared/StageBackChip"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
@@ -112,6 +113,7 @@ function ViewWeldingJoints() {
       'stage6': 's6_status',
       'stage7': 's7_status',
       'stage8': 's8_status',
+      'stage9': 's9_status',
     };
 
     const qcIdKeyMap = {
@@ -123,6 +125,7 @@ function ViewWeldingJoints() {
       'stage6': 's6_qc_eng_id',
       'stage7': 's7_qc_eng_id',
       'stage8': 's8_qc_eng_id',
+      'stage9': 's9_qc_eng_id',
     };
 
     const statusKey = statusKeyMap[currentStage];
@@ -172,35 +175,72 @@ function ViewWeldingJoints() {
         if (insp.s1_status !== 'approved') return 'stage1';
 
         if (joint.joint_type === 'C') {
-          if (insp.s2_status !== 'approved') return 'stage2';
-          if (insp.s7_status !== 'approved') return 'stage7';
-          if (insp.s8_status !== 'approved') return 'stage8';
+          if (joint.back_chip_req) {
+            if (insp.s2_status !== 'approved') return 'stage2';
+            if (insp.s3_status !== 'approved') return 'stage3';
+          } else {
+            if (insp.s2_status !== 'approved') return 'stage2';
+          }
+
+          if (joint.pwht && joint.rt) {
+            if (insp.s7_status !== 'approved') return 'stage7';
+          }
+          if (joint.pwht && joint.pt) {
+            if (insp.s8_status !== 'approved') return 'stage8';
+          }
           return 'completed';
         }
 
         if (joint.joint_type === 'D') {
-          if (insp.s2_status !== 'approved') return 'stage2';
-          if (insp.s3_status !== 'approved') return 'stage3';
-          if (insp.s4_status !== 'approved') return 'stage4';
-          if (insp.s5_status !== 'approved') return 'stage5';
-          if (insp.s6_status !== 'approved') return 'stage6';
-          if (insp.s7_status !== 'approved') return 'stage7';
-          if (insp.s8_status !== 'approved') return 'stage8';
+          if (joint.back_chip_req) {
+            if (insp.s2_status !== 'approved') return 'stage2';
+            if (insp.s3_status !== 'approved') return 'stage3';
+            if (insp.s4_status !== 'approved') return 'stage4';
+            if (insp.s5_status !== 'approved') return 'stage5';
+            if (insp.s6_status !== 'approved') return 'stage6';
+            if (insp.s7_status !== 'approved') return 'stage7';
+            if (joint.pwht && joint.rt) {
+                if (insp.s8_status !== 'approved') return 'stage8';
+            }
+            if (joint.pwht && joint.pt) {
+                if (insp.s9_status !== 'approved') return 'stage9';
+            }
+          } else {
+            if (insp.s2_status !== 'approved') return 'stage2';
+            if (insp.s3_status !== 'approved') return 'stage3';
+            if (insp.s4_status !== 'approved') return 'stage4';
+            if (insp.s5_status !== 'approved') return 'stage5';
+            if (insp.s6_status !== 'approved') return 'stage6';
+            if (joint.pwht && joint.rt) {
+              if (insp.s7_status !== 'approved') return 'stage7';
+            }
+            if (joint.pwht && joint.pt) {
+              if (insp.s8_status !== 'approved') return 'stage8';
+            }
+          }
           return 'completed';
         }
 
         if (joint.joint_type === 'F') {
           if (insp.s2_status !== 'approved') return 'stage2';
-          if (insp.s3_status !== 'approved') return 'stage3';
-          if (insp.s4_status !== 'approved') return 'stage4';
+
+          if (joint.pwht && joint.rt) {
+            if (insp.s3_status !== 'approved') return 'stage3';
+          }
+          if (joint.pwht && joint.pt) {
+            if (insp.s4_status !== 'approved') return 'stage4';
+          }
           return 'completed';
         }
 
         if (joint.joint_type === 'A' || joint.joint_type === 'B') {
           if (joint.back_chip_req) {
             if (insp.s2_status !== 'approved') return 'stage2';
+            if (insp.s3_status !== 'approved') return 'stage3';
+          } else {
+            if (insp.s2_status !== 'approved') return 'stage2';
           }
-          if (insp.s3_status !== 'approved') return 'stage3';
+
           if (joint.rt) {
             if (insp.s4_status !== 'approved') return 'stage4';
           }
@@ -291,7 +331,9 @@ function ViewWeldingJoints() {
                   : row.status === "stage6" ? "Stage 6"
                     : row.status === "stage7" ? "Stage 7"
                       : row.status === "stage8" ? "Stage 8"
-                        : row.status;
+                        : row.status === "stage9" ? "Stage 9"
+                        : row.status === "stage_bc" ? "Back Chip"
+                          : row.status;
 
         const actionButton = (() => {
           if (row.status === 'completed') {
@@ -391,14 +433,15 @@ function ViewWeldingJoints() {
         <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {selectedStage === "stage1" && "Stage 1 Form"}
-              {selectedStage === "stage2" && "Stage 2 Form"}
-              {selectedStage === "stage3" && "Stage 3 Form"}
-              {selectedStage === "stage4" && "Stage 4 Form"}
-              {selectedStage === "stage5" && "Stage 5 Form"}
-              {selectedStage === "stage6" && "Stage 6 Form"}
-              {selectedStage === "stage7" && "Stage 7 Form"}
-              {selectedStage === "stage8" && "Stage 8 Form"}
+              {(() => {
+                if (!selectedStage) return "Form";
+                if (selectedStage === "stage_bc") return "Back Chip Form";
+                if ((selectedJoint?.joint_type === 'A' || selectedJoint?.joint_type === 'B') && !selectedJoint?.back_chip_req && selectedStage === "stage2")
+                  return "Stage 2 Form (Weld Visual)";
+                if (selectedStage?.startsWith("stage"))
+                  return `Stage ${selectedStage.replace("stage", "")} Form`;
+                return selectedStage;
+              })()}
             </DialogTitle>
           </DialogHeader>
 
@@ -415,48 +458,93 @@ function ViewWeldingJoints() {
             }
 
             if (selectedJoint?.jointCategory === 'C' || selectedJoint?.jointCategory === 'D') {
+              const hasBC = selectedJoint?.back_chip_req;
               return (
                 <>
                   {selectedStage === "stage1" && (
                     <Stage1C initialData={selectedJoint} isReview={isReviewMode} />
                   )}
 
+                  {/* Stage 2 Handling */}
                   {selectedStage === "stage2" && (
-                    <Stage2C initialData={selectedJoint} isReview={isReviewMode} />
+                    hasBC ? (
+                      <StageBackChip initialData={selectedJoint} isReview={isReviewMode} stage="stage2" />
+                    ) : (
+                      selectedJoint.jointCategory === 'C' ? (
+                        <Stage2C initialData={selectedJoint} isReview={isReviewMode} stage="stage2" />
+                      ) : (
+                        <Stage3D initialData={selectedJoint} isReview={isReviewMode} stage="stage2" />
+                      )
+                    )
                   )}
+
+                  {/* Stage 3 Handling */}
+                  {selectedStage === "stage3" && (
+                    hasBC ? (
+                      selectedJoint.jointCategory === 'C' ? (
+                        <Stage2C initialData={selectedJoint} isReview={isReviewMode} stage="stage3" />
+                      ) : (
+                        <Stage3D initialData={selectedJoint} isReview={isReviewMode} stage="stage3" />
+                      )
+                    ) : (
+                      selectedJoint.jointCategory === 'D' && (
+                        <Stage3D initialData={selectedJoint} isReview={isReviewMode} stage="stage3" />
+                      )
+                    )
+                  )}
+
+                  {/* Shifting stages for D */}
                   {selectedJoint.jointCategory === 'D' && (
                     <>
-                      {selectedStage === "stage3" && (
-                        <Stage3D initialData={selectedJoint} isReview={isReviewMode} />
-                      )}
                       {selectedStage === "stage4" && (
-                        <Stage4D initialData={selectedJoint} isReview={isReviewMode} />
+                        hasBC ? (
+                          <Stage3D initialData={selectedJoint} isReview={isReviewMode} stage="stage4" />
+                        ) : (
+                          <Stage4D initialData={selectedJoint} isReview={isReviewMode} stage="stage4" />
+                        )
                       )}
                       {selectedStage === "stage5" && (
-                        <Stage5D initialData={selectedJoint} isReview={isReviewMode} />
+                        hasBC ? (
+                          <Stage4D initialData={selectedJoint} isReview={isReviewMode} stage="stage5" />
+                        ) : (
+                          <Stage5D initialData={selectedJoint} isReview={isReviewMode} stage="stage5" />
+                        )
                       )}
                       {selectedStage === "stage6" && (
-                        <Stage6D initialData={selectedJoint} isReview={isReviewMode} />
+                        hasBC ? (
+                          <Stage5D initialData={selectedJoint} isReview={isReviewMode} stage="stage6" />
+                        ) : (
+                          <Stage6D initialData={selectedJoint} isReview={isReviewMode} stage="stage6" />
+                        )
+                      )}
+                      {selectedStage === "stage7" && (
+                        hasBC ? (
+                          <Stage6D initialData={selectedJoint} isReview={isReviewMode} stage="stage7" />
+                        ) : (
+                          <Stage7D initialData={selectedJoint} inspectionData={selectedJoint.inspectionData} isReview={isReviewMode} stage="stage7" type="RT" />
+                        )
+                      )}
+                      {selectedStage === "stage8" && (
+                        hasBC ? (
+                          <Stage7D initialData={selectedJoint} inspectionData={selectedJoint.inspectionData} isReview={isReviewMode} stage="stage8" type="RT" />
+                        ) : (
+                          <Stage7D initialData={selectedJoint} inspectionData={selectedJoint.inspectionData} isReview={isReviewMode} stage="stage8" type="PT" />
+                        )
+                      )}
+                      {selectedStage === "stage9" && (
+                         <Stage7D initialData={selectedJoint} inspectionData={selectedJoint.inspectionData} isReview={isReviewMode} stage="stage9" type="PT" />
                       )}
                     </>
                   )}
-                  {(selectedJoint.jointCategory === 'C' || selectedJoint.jointCategory === 'D') && (
+
+                  {/* Stage 7/8 for C (Fixed if not shifting) */}
+                  {selectedJoint.jointCategory === 'C' && (
                     <>
                       {selectedStage === "stage7" && (
-                        <Stage7D
-                          initialData={selectedJoint}
-                          inspectionData={selectedJoint.inspectionData}
-                          isReview={isReviewMode}
-                          stage="stage7"
-                        />
+                        <Stage7D initialData={selectedJoint} inspectionData={selectedJoint.inspectionData} isReview={isReviewMode} stage="stage7" type="RT" />
                       )}
                       {selectedStage === "stage8" && (
-                        <Stage7D
-                          initialData={selectedJoint}
-                          inspectionData={selectedJoint.inspectionData}
-                          isReview={isReviewMode}
-                          stage="stage8"
-                        />
+                        <Stage7D initialData={selectedJoint} inspectionData={selectedJoint.inspectionData} isReview={isReviewMode} stage="stage8" type="PT" />
                       )}
                     </>
                   )}
