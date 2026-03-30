@@ -112,6 +112,11 @@ function UploadDocument() {
             cell: (row) => row.response_due_days || "-"
         },
         {
+            header: "Actual Due Days",
+            accessorKey: "actual_due_days",
+            cell: (row) => row.actual_due_days || "-"
+        },
+        {
             header: "Assigner Status",
             accessorKey: "assigner_status",
             cell: () => (
@@ -294,6 +299,7 @@ function UploadDocument() {
                         createdAt: doc.createdAt,
                         upload_due_days: doc.upload_due_days,
                         response_due_days: doc.response_due_days,
+                        actual_due_days: doc.actual_due_days,
                         versionNo: doc.display_version_no || 0,
                         originalStatus: doc.status,
                         doc: doc,
