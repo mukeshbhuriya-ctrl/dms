@@ -127,18 +127,7 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             currentY += rowHeight;
 
             // Determine versions to list
-            let docsToList = documents || [];
-
-            // Add minimum rows if empty
-            if (docsToList.length === 0) {
-                docsToList = [{}, {}, {}, {}];
-            } else if (docsToList.length < 4) {
-                // Pad with empty rows to match screenshot aesthetic
-                const toAdd = 4 - docsToList.length;
-                for (let i = 0; i < toAdd; i++) {
-                    docsToList.push({});
-                }
-            }
+            let docsToList = (documents || []).filter(d => d.group_document);
 
             // Draw Data Rows
             docsToList.forEach((docItem, index) => {
@@ -153,17 +142,9 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
 
                 const srNo = (index + 1).toString();
                 // Extract relevant doc fields.
-                // Assuming docItem maps to group_document -> document_version -> document_master logic
-                // For 'Rev', use 'version_no'
-
-                let docNumber = '';
+                let docNumber = docItem.group_document.document?.document_number || '';
                 let rev = '';
-                let title = '';
-
-                if (docItem.group_document) {
-                    docNumber = docItem.group_document.document?.document_number || '';
-                    title = docItem.group_document.document?.document_name || '';
-                }
+                let title = docItem.group_document.document?.document_name || '';
 
                 if (docItem.version) {
                     rev = docItem.version.version_no !== undefined ? docItem.version.version_no.toString() : '';

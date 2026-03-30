@@ -136,7 +136,7 @@ class WeldJointService {
         }
 
         // Initialize empty pending stages to mimic old behavior if needed
-        ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(s => {
+        ['s_bc', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(s => {
             if (!insp[`${s}_status`]) insp[`${s}_status`] = 'pending';
         });
 

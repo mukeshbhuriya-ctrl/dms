@@ -1,5 +1,6 @@
 const prisma = require('#prisma');
 const { hashPassword } = require('#utils/hashpassword');
+const emailService = require('./email.service');
 
 class UserService {
     /**
@@ -133,6 +134,11 @@ class UserService {
             return newUser;
         });
 
+        // Send welcome email asynchronously (don't block the response)
+        emailService.sendWelcomeEmail(result, password).catch((err) => {
+            console.error("Failed to send welcome email to:", result.email, err);
+        });
+
         return result;
     }
 
@@ -162,6 +168,7 @@ class UserService {
                 id: true,
                 name: true,
                 email: true,
+                empid: true,
                 // Add other fields as needed
             },
         });

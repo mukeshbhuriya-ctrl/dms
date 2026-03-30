@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
+const Stage5D = ({ initialData, inspectionData, isReview = false, stage = "stage5" }) => {
+    const sPrefix = stage.replace('stage', 's');
     // Stage 5D: Inspection after full Welding
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
@@ -105,7 +106,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                 client: initialData.client || "",
                 poNo: initialData.poNo || "",
             })
-            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/5`;
+            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/${sPrefix.replace('s', '')}`;
             setInputFields((prev) => ({
                 ...prev,
                 reportNo: prev.reportNo || generatedReportNo,
@@ -143,31 +144,32 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                 } catch (e) { console.error("Error parsing data_json", e) }
             }
 
-            if (inspData.s5_qc_eng_id) setQcEngineer(inspData.s5_qc_eng_id);
+            if (inspData[`${sPrefix}_qc_eng_id`]) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
 
             // Flat columns from reconstructed inspection object (new schema)
-            if (inspData.s5_prod_eng_name) setProductionEngineerName(inspData.s5_prod_eng_name);
+            if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
-            if (inspData.s5_data) {
+            if (inspData[`${sPrefix}_data`]) {
                 try {
-                    const rawData = typeof inspData.s5_data === 'string' ? JSON.parse(inspData.s5_data) : inspData.s5_data;
+                    const rawData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
                     const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
-                    const s5Data = rawData?.[catKey]?.s5 || rawData?.[catKey] || rawData || {};
+                    const sData = rawData?.[catKey]?.[sPrefix] || rawData?.[catKey] || rawData || {};
 
-                    if (s5Data.productionEngineerName) setProductionEngineerName(s5Data.productionEngineerName);
-                    if (s5Data.submissionDate) setTodayDate(s5Data.submissionDate);
-                    if (!inspData.s5_qc_eng_id && s5Data.assignedQcEngineerId) setQcEngineer(s5Data.assignedQcEngineerId);
+                    if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
+                    if (sData.submissionDate) setTodayDate(sData.submissionDate);
+                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setQcEngineer(sData.assignedQcEngineerId);
 
                     setFormData(prev => ({
                         ...prev,
-                        visualInspection: s5Data.visualInspection || "",
-                        welderNo: s5Data.welderNo || "",
-                        weldingProcess: s5Data.weldingProcess || "",
-                        filletSize: s5Data.filletSize || "",
-                        date: s5Data.date || prev.date
+                        visualInspection: sData.visualInspection || "",
+                        welderNo: sData.welderNo || "",
+                        weldingProcess: sData.weldingProcess || "",
+                        filletSize: sData.filletSize || "",
+                        date: sData.date || prev.date
                     }));
-                } catch (e) { console.error("Error parsing s5_data", e) }
+                } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
             }
+            if (inspData[`${sPrefix}_status`] && !qcEngineer) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
         }
     }, [initialData, inspectionData]);
 
@@ -212,21 +214,21 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
             const inspData = inspectionData || initialData?.inspectionData;
             let existingData = {};
-            if (inspData?.s5_data) {
-                existingData = typeof inspData.s5_data === 'string' ? JSON.parse(inspData.s5_data) : inspData.s5_data;
+            if (inspData?.[`${sPrefix}_data`]) {
+                existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
             }
 
             const finalData = {
                 ...existingData,
                 [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                     ...existingData?.cd,
-                    s5: currentStageData
+                    [sPrefix]: currentStageData
                 }
             };
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage5",
+                stage: stage,
                 status: "pending",
                 engineerId: userId,
                 role: 'PROD',
@@ -245,7 +247,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
             const data = await res.json();
             if (res.ok) {
-                setSuccess("Stage 5 Submitted Successfully");
+                setSuccess(`${stage.replace('stage', 'Stage ')} Submitted Successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setError(data.message || "Submission failed");
@@ -277,8 +279,8 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
             const inspData = inspectionData || initialData?.inspectionData;
             if (userRole === 'QC' && status === 'approved') {
                 let existingData = {};
-                if (inspData?.s5_data) {
-                    existingData = typeof inspData.s5_data === 'string' ? JSON.parse(inspData.s5_data) : inspData.s5_data;
+                if (inspData?.[`${sPrefix}_data`]) {
+                    existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
                 }
                 const currentStageData = {
                     assignedQcEngineerId: qcEngineer,
@@ -290,7 +292,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                     ...existingData,
                     [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                         ...existingData?.cd,
-                        s5: currentStageData
+                        [sPrefix]: currentStageData
                     }
                 };
                 await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -298,7 +300,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                     headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
                     body: JSON.stringify({
                         jointId: initialData?.id,
-                        stage: "stage5",
+                        stage: stage,
                         status: status,
                         engineerId: userId,
                         role: 'QC',
@@ -310,7 +312,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage5",
+                stage: stage,
                 status: status,
                 engineerId: userId,
                 role: 'QC',
@@ -328,7 +330,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
             });
             const data = await res.json();
             if (res.ok) {
-                setSuccess(`Stage 5 ${status} Successfully`);
+                setSuccess(`${stage.replace('stage', 'Stage ')} ${status} Successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setError(data.message || "Review action failed");
@@ -365,7 +367,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
 
             <Card className="w-full">
                 <CardHeader>
-                    <CardTitle>Inspection after full Welding</CardTitle>
+                    <CardTitle>{stage.replace('stage', 'Stage ')}: Inspection after full Welding</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -430,7 +432,7 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                             <div className="space-y-2">
                                 <Label>Date:</Label>
                                 <Input
-                                    value={inspectionData?.s5_submitted_at ? new Date(inspectionData.s5_submitted_at).toLocaleDateString() : todayDate}
+                                    value={inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
                                     readOnly
                                     className="bg-muted"
                                 />
@@ -454,13 +456,13 @@ const Stage5D = ({ initialData, inspectionData, isReview = false }) => {
                         <div className="flex justify-end gap-2 items-center pt-4">
                             {!isReview ? (
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : "Save & Complete Stage 5"}
+                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
                                 </Button>
                             ) : (
                                 <>
-                                    {(isReview || inspectionData?.s5_approved_at) && (
+                                    {(isReview || inspectionData?.[`${sPrefix}_approved_at`]) && (
                                         <Input
-                                            value={`Approve Date: ${inspectionData?.s5_approved_at ? new Date(inspectionData.s5_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                            value={`Approve Date: ${inspectionData?.[`${sPrefix}_approved_at`] ? new Date(inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
                                             readOnly
                                             className="bg-muted w-auto min-w-[200px] text-center"
                                         />

@@ -1,4 +1,10 @@
 const DccService = require('../services/dcc.service');
+const fs = require('fs');
+const path = require('path');
+const prisma = require('#prisma');
+const StorageUtils = require('../utils/storage.utils');
+const ActivityService = require('../services/activity.service');
+const { ROOT_DIR } = require('../utils/upload');
 
 class DccController {
     async createCustomer(req, res) {
@@ -198,6 +204,16 @@ class DccController {
         }
     }
 
+    async bulkAssignDocuments(req, res) {
+        try {
+            const result = await DccService.bulkAssignDocuments(req.user.company_id, req.body);
+            res.status(201).json({ success: true, data: result, message: 'Documents assigned successfully' });
+        } catch (error) {
+            console.error('Bulk assign document error:', error);
+            res.status(400).json({ success: false, message: error.message || 'Failed to assign documents' });
+        }
+    }
+
     async getTransmissionDocuments(req, res) {
         try {
             const result = await DccService.getTransmissionDocuments(req.user.company_id, req.query.transmission_id);
@@ -224,13 +240,50 @@ class DccController {
             res.status(400).json({ success: false, message: error.message });
         }
     }
+
+    async downloadTransmittalPDF(req, res) {
+        try {
+            const { filename, buffer } = await DccService.getTransmissionTransmittalPDF(req.user.company_id, req.params.id);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.send(buffer);
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
     async updateTransmissionClientStatus(req, res) {
         try {
             const { transmission_id, status, remarks } = req.body;
-            const result = await DccService.updateTransmissionClientStatus(req.user.company_id, transmission_id, status, remarks);
+            const files = req.files || [];
+            const result = await DccService.updateTransmissionClientStatus(req.user.company_id, transmission_id, status, remarks, files);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async downloadTransmissionFeedback(req, res) {
+        try {
+            const { id } = req.params;
+            const transmission = await prisma.transmission.findFirst({
+                where: { id, company_id: req.user.company_id }
+            });
+
+            if (!transmission || !transmission.client_archive_url) {
+                return res.status(404).json({ success: false, message: 'Feedback archive not found' });
+            }
+
+            const { baseDir } = StorageUtils.getTransmissionFeedbackDir(req.user.company_id, transmission.transmission_number);
+            const feedbackZipName = `Feedback_${transmission.transmission_number}.zip`;
+            const filePath = path.join(baseDir, feedbackZipName);
+
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ success: false, message: 'File not found on server' });
+            }
+
+            res.download(filePath, feedbackZipName);
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 
@@ -245,6 +298,72 @@ class DccController {
         } catch (error) {
             console.error('Update assignment error:', error);
             res.status(400).json({ success: false, message: error.message });
+        }
+    }
+    async getDocumentTrail(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await ActivityService.getDocumentTrail(req.user.company_id, id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async getTransmissionTrail(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await ActivityService.getTransmissionTrail(req.user.company_id, id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async previewDocument(req, res) {
+        try {
+            const { versionId } = req.params;
+            const version = await DccService.getDocumentVersionById(req.user.company_id, versionId);
+
+            if (!version || !version.file_path) {
+                return res.status(404).json({ success: false, message: 'Document version or file path not found' });
+            }
+
+            // Normalize path to ensure it's relative (remove leading slash if present for Windows compatibility)
+            // path.join('C:\base', '\uploads\file') results in 'C:\uploads\file' which is wrong.
+            // We need to remove the leading slash.
+            const relativePath = version.file_path.replace(/^[\\/]+/, '');
+            const absolutePath = path.join(ROOT_DIR, relativePath);
+
+            if (!fs.existsSync(absolutePath)) {
+                console.error(`Preview file not found: ${absolutePath}`);
+                return res.status(404).json({ success: false, message: 'Document file not found on server' });
+            }
+
+            // Get file stats for Content-Length
+            const stats = fs.statSync(absolutePath);
+
+            // Determine content type
+            let contentType = version.mime_type;
+            if (!contentType || contentType === 'application/octet-stream') {
+                const ext = path.extname(absolutePath).toLowerCase();
+                if (ext === '.pdf') contentType = 'application/pdf';
+                else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+                else if (ext === '.png') contentType = 'image/png';
+                else if (ext === '.webp') contentType = 'image/webp';
+            }
+
+            // Standardize headers for browser preview
+            res.setHeader('Content-Type', contentType || 'application/octet-stream');
+            res.setHeader('Content-Length', stats.size);
+            res.setHeader('Content-Disposition', 'inline');
+
+            // Stream the file
+            const fileStream = fs.createReadStream(absolutePath);
+            fileStream.pipe(res);
+        } catch (error) {
+            console.error('Preview document error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }
 }

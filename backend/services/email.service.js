@@ -16,7 +16,7 @@ class EmailService {
     async sendEmail({ to, cc, subject, text, html, attachments }) {
         try {
             const info = await this.transporter.sendMail({
-                from: process.env.SMTP_USER || '"DMS System" <no-reply@dms.com>',
+                from: `"DMS System" <${process.env.SMTP_USER || 'no-reply@dms.com'}>`,
                 to, // list of receivers
                 cc, // list of cc receivers
                 subject,
@@ -40,6 +40,18 @@ class EmailService {
         const html = getTransmissionEmailTemplate(transmissionDetails);
 
         return this.sendEmail({ to, cc, subject, html, attachments });
+    }
+
+    // Template for Welcome Email
+    async sendWelcomeEmail(userData, password) {
+        console.log(`[EmailService] Preparing welcome email for: ${userData.email}`);
+        const { getWelcomeEmailTemplate } = require('../utils/email-templates/welcome.template');
+        const companyUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+        const subject = `Welcome to DMS - Your Account Credentials`;
+        const html = getWelcomeEmailTemplate(userData, password, companyUrl);
+
+        return this.sendEmail({ to: userData.email, subject, html });
     }
 }
 

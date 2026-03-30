@@ -7,6 +7,7 @@ import {
     Wrench,
     Briefcase,
     Folder,
+    ShieldCheck,
 } from "lucide-react"
 
 // ─── Role Constants ────────────────────────────────────────────────
@@ -37,16 +38,29 @@ export const MENU_CONFIG = [
         roles: [ROLES.ADMIN],
     },
     {
-        title: "Reports Management",
-        icon: FileText,
-        path: "/admin/reports",
-        roles: [ROLES.ADMIN],
-    },
-    {
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",
         roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER],
+    },
+
+    // ── User & Department Management ──
+    // ─── Administration ──
+    {
+        title: "Administration",
+        icon: ShieldCheck,
+        items: [
+            { title: "User Management", path: "/users", roles: [ROLES.ADMIN] },
+            { title: "Department Management", path: "/departments", roles: [ROLES.ADMIN] },
+        ],
+    },
+
+        // ── Report Management ──
+    {
+        title: "Reports Management",
+        icon: FileText,
+        path: "/admin/reports",
+        roles: [ROLES.ADMIN],
     },
 
     // ── Customer Management ──
@@ -57,20 +71,6 @@ export const MENU_CONFIG = [
             { title: "Customer", path: "/dcc/create-customer", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Location", path: "/dcc/create-location", roles: [ROLES.ADMIN, ROLES.DCC] },
         ],
-    },
-
-    // ── User & Department Management ──
-    {
-        title: "User Management",
-        icon: Users,
-        path: "/users",
-        roles: [ROLES.ADMIN],
-    },
-    {
-        title: "Department Management",
-        icon: Building2,
-        path: "/departments",
-        roles: [ROLES.ADMIN],
     },
 
     // ── Purchase Orders & Jobs ──
@@ -92,12 +92,11 @@ export const MENU_CONFIG = [
         title: "DMS",
         icon: Folder,
         items: [
-            { title: "Document Master", path: "/dcc/document-master", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Assign Document", path: "/dcc/assign-document", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER] },
             { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Create Transmission", path: "/dcc/create-transmission", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Send Document to Client", path: "/dcc/send-document-to-client", roles: [ROLES.ADMIN, ROLES.DCC] },
+            // { title: "Send Document to Client", path: "/dcc/send-document-to-client", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Client Approval Status", path: "/dcc/client-approval-status", roles: [ROLES.ADMIN, ROLES.DCC] },
         ],
     },
@@ -168,12 +167,17 @@ export const MENU_CONFIG = [
         icon: Folder,
         items: [
             { title: "Dashboard", path: "/marketing/dashboard", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+            {
+                title: "Master",
+                roles: [ROLES.ADMIN, ROLES.MARKETING],
+                items: [
+                    { title: "RFQ Types", path: "/marketing/lookups/rfq_type", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+                    { title: "Mode of Enquiry", path: "/marketing/lookups/mode_of_enquiry", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+                    { title: "Mediators", path: "/marketing/lookups/mediator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+                    { title: "Estimators", path: "/marketing/lookups/estimator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+                ],
+            },
             { title: "RFQ Register", path: "/marketing/rfq-register", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-            { title: "RFQ Types", path: "/marketing/lookups/rfq_type", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-            { title: "Mode of Enquiry", path: "/marketing/lookups/mode_of_enquiry", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-            { title: "Remark Options", path: "/marketing/lookups/remark", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-            { title: "Mediators", path: "/marketing/lookups/mediator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-            { title: "Estimators", path: "/marketing/lookups/estimator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
         ],
     },
 
@@ -193,47 +197,26 @@ export const MENU_CONFIG = [
  */
 export function getFilteredMenu(userRoles = []) {
     if (!userRoles || userRoles.length === 0) return []
-
     const roleSet = new Set(userRoles)
+    const hasAccess = (itemRoles) => itemRoles?.some((r) => roleSet.has(r))
 
-    const hasAccess = (itemRoles) => {
-        if (!itemRoles || itemRoles.length === 0) return false
-        return itemRoles.some((r) => roleSet.has(r))
+    const filterItems = (items) => {
+        return items.reduce((acc, item) => {
+            if (item.path === "/user/dashboard" && roleSet.has(ROLES.ADMIN)) return acc
+
+            if (item.items) {
+                const visibleSubItems = filterItems(item.items)
+                if (visibleSubItems.length > 0) {
+                    acc.push({ ...item, items: visibleSubItems })
+                }
+            } else if (hasAccess(item.roles)) {
+                acc.push(item)
+            }
+            return acc
+        }, [])
     }
 
-    const filtered = []
-
-    for (const item of MENU_CONFIG) {
-        // Simple item (no sub-items)
-        if (!item.items) {
-            // ── Skip /user/dashboard for ADMIN ──
-            if (item.path === "/user/dashboard" && roleSet.has(ROLES.ADMIN)) {
-                continue
-            }
-            if (hasAccess(item.roles)) {
-                filtered.push(item)
-            }
-            continue
-        }
-
-        // Group item — filter sub-items
-        // const visibleSubItems = item.items.filter((sub) => hasAccess(sub.roles))
-
-        const visibleSubItems = item.items.filter((sub) => {
-            // ── Skip /user/dashboard sub-item for ADMIN ──
-            if (sub.path === "/user/dashboard" && roleSet.has(ROLES.ADMIN)) return false
-            return hasAccess(sub.roles)
-        })
-        
-        if (visibleSubItems.length > 0) {
-            filtered.push({
-                ...item,
-                items: visibleSubItems,
-            })
-        }
-    }
-
-    return filtered
+    return filterItems(MENU_CONFIG)
 }
 
 // ─── Utility: Build a Set of all allowed paths for given roles ─────
@@ -245,20 +228,16 @@ export function getAllowedPaths(userRoles = []) {
     const roleSet = new Set(userRoles)
     const paths = new Set()
 
-    for (const item of MENU_CONFIG) {
-        if (!item.items) {
-            if (item.roles?.some((r) => roleSet.has(r)) && item.path) {
+    const collectPaths = (items) => {
+        for (const item of items) {
+            if (item.path && item.roles?.some((r) => roleSet.has(r))) {
                 paths.add(item.path)
             }
-        } else {
-            for (const sub of item.items) {
-                if (sub.roles?.some((r) => roleSet.has(r)) && sub.path) {
-                    paths.add(sub.path)
-                }
-            }
+            if (item.items) collectPaths(item.items)
         }
     }
 
+    collectPaths(MENU_CONFIG)
     return paths
 }
 

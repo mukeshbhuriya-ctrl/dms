@@ -1,8 +1,12 @@
+const fs = require('fs');
+const path = require('path');
 const prisma = require('#prisma');
 const EmailService = require('./email.service');
 const { generateTransmittalPDF } = require('../utils/pdfGeneratorTransmittal');
 const fileService = require('./file.service');
 const logService = require('./log.service');
+const ActivityService = require('./activity.service');
+const StorageUtils = require('../utils/storage.utils');
 
 class DccService {
     /**
@@ -356,28 +360,25 @@ class DccService {
      * Document Master
      */
     async createDocumentMaster(company_id, data) {
-        const { document_number, document_name, document_type_id } = data;
+        const { document_name, document_type_id } = data;
 
-        if (!document_number || !document_name || !document_type_id) throw new Error('Missing required fields');
+        if (!document_name) throw new Error('Document name is required');
 
-        // Verify document type exists
-        const documentType = await prisma.document_type.findFirst({
-            where: { id: document_type_id, company_id }
+        // Generate System Document Number: DOC-1
+        const maxDoc = await prisma.document_master.findFirst({
+            where: { company_id },
+            orderBy: { serial_no: 'desc' }
         });
-        if (!documentType) throw new Error('Document type not found');
-
-        // Check duplicates
-        const existing = await prisma.document_master.findFirst({
-            where: { company_id, document_number }
-        });
-        if (existing) throw new Error('Document number already exists');
+        const serial_no = (maxDoc?.serial_no || 0) + 1;
+        const document_number = `DOC-${serial_no}`;
 
         return await prisma.document_master.create({
             data: {
                 company_id,
+                serial_no,
                 document_number,
-                document_name,
-                document_type_id: document_type_id
+                document_name: document_name.trim(),
+                document_type_id: document_type_id || null
             }
         });
     }
@@ -453,9 +454,7 @@ class DccService {
             prisma.document_master.count({ where }),
             prisma.document_master.findMany({
                 where, skip, take,
-                include: {
-                    document_type: true
-                },
+                include: { document_type: true },
                 orderBy: { createdAt: 'desc' }
             })
         ]);
@@ -463,20 +462,7 @@ class DccService {
         return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
-    // Document Types Helper
-    async getDocumentTypes(company_id) {
-        return await prisma.document_type.findMany({
-            where: { company_id },
-            orderBy: { name: 'asc' }
-        });
-    }
 
-    async createDocumentType(company_id, name) {
-        if (!name) throw new Error('Name is required');
-        return await prisma.document_type.create({
-            data: { company_id, name }
-        });
-    }
 
     /**
      * Get documents assigned to user (for Upload)
@@ -543,9 +529,7 @@ class DccService {
             prisma.group_document.findMany({
                 where, skip, take,
                 include: {
-                    document: {
-                        include: { document_type: true }
-                    },
+                    document: { include: { document_type: true } },
                     group: {
                         include: {
                             job_group: {
@@ -559,7 +543,7 @@ class DccService {
                     po: true,
                     versions: versionsInclude
                 },
-                orderBy: { updatedAt: 'desc' }
+                orderBy: { createdAt: 'desc' }
             })
         ]);
 
@@ -577,7 +561,22 @@ class DccService {
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
+        const { status_filter } = params;
         const where = { company_id };
+
+        if (status_filter && status_filter !== 'all') {
+            const filterVal = status_filter.toLowerCase();
+            if (filterVal === 'pending') {
+                where.status = { in: ['Pending', 'Rejected', 'Upload Due'] };
+            } else if (filterVal === 'done') {
+                where.status = { in: ['Approved', 'Uploaded', 'Response Due'] };
+            } else {
+                // Literal match (e.g., 'Approved', 'Uploaded', 'Upload Due')
+                where.status = status_filter;
+            }
+        } else if (status) {
+            where.status = status;
+        }
 
         if (customer_id) where.customer_id = customer_id;
         if (location_id) where.customer_location_id = location_id;
@@ -592,8 +591,6 @@ class DccService {
             };
         }
 
-        if (status) where.status = status;
-
         if (search) {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
@@ -607,9 +604,7 @@ class DccService {
             prisma.group_document.findMany({
                 where, skip, take,
                 include: {
-                    document: {
-                        include: { document_type: true }
-                    },
+                    document: { include: { document_type: true } },
                     group: {
                         include: {
                             job_group: {
@@ -645,7 +640,17 @@ class DccService {
         if (!file) throw new Error('File is required');
 
         const groupDoc = await prisma.group_document.findFirst({
-            where: { id: document_id, company_id }
+            where: { id: document_id, company_id },
+            include: {
+                document: true,
+                group: {
+                    include: {
+                        job_group: {
+                            include: { job: true }
+                        }
+                    }
+                }
+            }
         });
 
         if (!groupDoc) throw new Error('Document assignment not found');
@@ -658,13 +663,30 @@ class DccService {
             });
             const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 1;
 
-            // 1. Process storage (move to structured directory, calculate hash/size)
-            const storageData = await fileService.processStorage(file, document_id, nextVersionNo);
+            // 1. Process storage (move to structured directory)
+            const job_number = groupDoc.group?.job_group[0]?.job?.job_number || 'NA';
+            const document_number = groupDoc.document?.document_number || 'NA';
+            
+            const targetDir = StorageUtils.getDocRevisionDir(company_id, job_number, document_number, nextVersionNo);
+            const storageData = await fileService.processStorage(file, targetDir);
 
             // 2. Create new version in DB and update document status
             const version = await fileService.createNewVersion(tx, document_id, user_id, storageData, remarks);
 
-            // 3. Log the upload action
+            // 3. Log Activity
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: document_id,
+                user_id,
+                action: 'Uploaded',
+                remarks: `Version ${nextVersionNo} uploaded`,
+                metadata: { 
+                    version_no: nextVersionNo, 
+                    file_name: file.originalname,
+                    file_url: version.file_url // Added for trail download
+                }
+            }, tx);
+
             // Prepend BACKEND_URL for immediate use in UI
             const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
             if (version.file_url && version.file_url.startsWith('/') && !version.file_url.startsWith('http')) {
@@ -692,34 +714,34 @@ class DccService {
 
         if (status_filter && status_filter !== 'all') {
             if (status_filter === 'pending') {
-                where.status = { in: ['Pending', 'Rejected'] };
+                where.status = 'Pending for Approval';
             } else if (status_filter === 'done') {
-                where.status = { in: ['Approved', 'Uploaded', 'Pending'] };
+                where.status = 'Approved';
             }
         } else {
-            // Default: Show Uploaded, Approved, and Rejected.
-            // Explicitly exclude 'Pending' (not uploaded) to declutter.
-            if (!where.status) {
-                where.status = { in: ['Uploaded', 'Approved', 'Rejected'] };
+            // Default: Show documents that have been uploaded, approved, or rejected (Pending with versions).
+            // strictly exclude 'Pending' documents that have NO versions (newly assigned but not yet uploaded).
+            if (!approver_status_filter || approver_status_filter === 'all') {
+                where.status = { in: ['Pending for Approval', 'Approved', 'Pending'] };
+                where.versions = { some: {} }; // Crucial: Only show documents with at least one upload/version
             }
         }
 
         if (approver_status_filter && approver_status_filter !== 'all') {
             const filterVal = approver_status_filter.toLowerCase();
             if (filterVal === 'pending for approval' || filterVal === 'pending') {
-                where.status = { in: ['Uploaded', 'Pending'] };
+                where.status = 'Pending for Approval';
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                // Filter by version history: Check if ANY version has been rejected.
-                // This allows retrieving documents that were rejected and then re-uploaded (currently 'Uploaded').
+                // Documents that have been rejected in their history.
+                // Since they are now 'Pending', we MUST allow 'Pending' status here.
+                where.status = 'Pending'; 
                 where.versions = {
                     some: {
                         status: { in: ['Rejected', 'rejected'] }
                     }
                 };
-            } else if (filterVal === 'na') {
-                where.status = { notIn: ['Uploaded', 'Pending', 'Approved', 'Rejected'] }; // Likely just 'Pending'
             }
         }
 
@@ -780,9 +802,7 @@ class DccService {
             prisma.group_document.findMany({
                 where, skip, take,
                 include: {
-                    document: {
-                        include: { document_type: true }
-                    },
+                    document: { include: { document_type: true } },
                     group: {
                         include: {
                             job_group: {
@@ -796,7 +816,10 @@ class DccService {
                     po: true,
                     versions: versionsInclude
                 },
-                orderBy: { updatedAt: 'desc' }
+                orderBy: [
+                    { status: 'desc' },
+                    { updatedAt: 'desc' }
+                ]
             })
         ]);
 
@@ -853,30 +876,21 @@ class DccService {
             // 2. Update Group Document Status
             await tx.group_document.update({
                 where: { id: document_id },
-                data: { status }
+                data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
             });
 
-            // 3. Handle Re-entry on Rejection
-            if (status === 'Rejected') {
-                await tx.group_document.create({
-                    data: {
-                        company_id: groupDoc.company_id,
-                        customer_id: groupDoc.customer_id,
-                        customer_location_id: groupDoc.customer_location_id,
-                        po_id: groupDoc.po_id,
-                        group_id: groupDoc.group_id,
-                        document_id: groupDoc.document_id,
-                        shreno_doc_no: groupDoc.shreno_doc_no,
-                        shreno_reference_no: groupDoc.shreno_reference_no,
-                        client_doc_no: groupDoc.client_doc_no,
-                        client_reference_no: groupDoc.client_reference_no,
-                        upload_due_days: groupDoc.upload_due_days,
-                        response_due_days: groupDoc.response_due_days,
-                        user_id: groupDoc.user_id,
-                        status: 'Pending' // Reset for re-upload
-                    }
-                });
-            }
+            // 3. Log Activity
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: document_id,
+                user_id,
+                action: status === 'Approved' ? 'Internal Approved' : 'Internal Rejected',
+                remarks: remarks || null,
+                metadata: { 
+                    version_no: latestVersion.version_no,
+                    file_url: latestVersion.file_url // Added for trail download
+                }
+            }, tx);
 
             return { id: document_id, status };
         });
@@ -991,7 +1005,28 @@ class DccService {
                         version_id: doc.versions[0].id
                     }
                 });
+
+                // Log Activity for each document
+                await ActivityService.logActivity({
+                    company_id,
+                    group_document_id: doc.id,
+                    transmission_id: transmission.id,
+                    user_id,
+                    action: 'Transmitted',
+                    remarks: `Document transmitted in ${transNum}`,
+                    metadata: { transmission_no: transNum, version_no: doc.versions[0].version_no }
+                }, tx);
             }
+
+            // Log Activity for the transmission itself
+            await ActivityService.logActivity({
+                company_id,
+                transmission_id: transmission.id,
+                user_id,
+                action: 'Transmitted',
+                remarks: `Transmission ${transNum} created and ready for client`,
+                metadata: { transmission_no: transNum, document_count: finalDocs.length }
+            }, tx);
 
             // Return transmission details for UI
             return transmission;
@@ -1028,7 +1063,8 @@ class DccService {
                         include: {
                             group_document: { // Use group_document
                                 include: { document: true }
-                            }
+                            },
+                            version: true // Include version for display
                         }
                     }
                 }
@@ -1066,9 +1102,7 @@ class DccService {
             include: {
                 group_document: {
                     include: {
-                        document: {
-                            include: { document_type: true }
-                        },
+                        document: { include: { document_type: true } },
                         group: {
                             include: {
                                 job_group: {
@@ -1097,6 +1131,38 @@ class DccService {
             }
             return item;
         });
+    }
+
+    async getTransmissionTransmittalPDF(company_id, transmission_id) {
+        // 1. Fetch transmission details
+        const transmission = await prisma.transmission.findFirst({
+            where: { id: transmission_id, company_id },
+            include: {
+                po: true,
+                customer: true,
+                location: true,
+                creator: true,
+                documents: true
+            }
+        });
+
+        if (!transmission) throw new Error('Transmission not found');
+
+        // 2. Fetch full document details
+        const documentsData = await this.getTransmissionDocuments(company_id, transmission_id);
+
+        // 3. Generate the PDF Buffer
+        const pdfBuffer = await generateTransmittalPDF(
+            transmission,
+            transmission.customer,
+            transmission.location,
+            transmission.po,
+            documentsData,
+            transmission.creator
+        );
+
+        const filename = `Document_Transmittal_${transmission.transmission_number}.pdf`;
+        return { filename, buffer: pdfBuffer };
     }
 
     async sendTransmissionEmail(company_id, data) {
@@ -1167,83 +1233,140 @@ class DccService {
         return { success: true, message: 'Email sent successfully via EmailService' };
     }
 
-    async updateTransmissionClientStatus(company_id, transmission_id, status, remarks) {
+    async updateTransmissionClientStatus(company_id, transmission_id, status, remarks, files = []) {
         if (!['Approved', 'Rejected'].includes(status)) throw new Error('Invalid status');
 
-        const result = await prisma.transmission.update({
+        const transmission = await prisma.transmission.findFirst({
             where: { id: transmission_id, company_id },
-            data: {
-                client_status: status,
-                client_remarks: remarks
-            }
+            include: { documents: true }
         });
 
-        // 3. Cascade Rejection to Documents
-        if (status === 'Rejected') {
-            const transmissionDocs = await prisma.transmission_document.findMany({
+        if (!transmission) throw new Error('Transmission not found');
+
+        let client_archive_url = null;
+        const savedFiles = [];
+
+        // 1. Process Client Feedback Files
+        if (files && files.length > 0) {
+            const { baseDir, uploadDir } = StorageUtils.getTransmissionFeedbackDir(company_id, transmission.transmission_number);
+            
+            // Move files to feedback directory
+            for (const file of files) {
+                const targetPath = path.join(uploadDir, file.filename);
+                fs.renameSync(file.path, targetPath);
+                savedFiles.push({ name: file.originalname, path: targetPath });
+            }
+
+            // Generate ZIP of feedback files
+            const feedbackZipName = `Feedback_${transmission.transmission_number}.zip`;
+            const zipPath = path.join(baseDir, feedbackZipName);
+            
+            const archiver = require('archiver');
+            const output = fs.createWriteStream(zipPath);
+            const archive = archiver('zip', { zlib: { level: 9 } });
+
+            await new Promise((resolve, reject) => {
+                output.on('close', resolve);
+                archive.on('error', reject);
+                archive.pipe(output);
+                for (const sf of savedFiles) {
+                    archive.file(sf.path, { name: sf.name });
+                }
+                archive.finalize();
+            });
+
+            // Store relative path for download
+            client_archive_url = `/api/dcc/transmission/${transmission_id}/download-feedback`;
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            // 2. Update Transmission Record
+            const updatedTransmission = await tx.transmission.update({
+                where: { id: transmission_id },
+                data: {
+                    client_status: status,
+                    client_remarks: remarks,
+                    client_archive_url: client_archive_url
+                }
+            });
+
+            // 3. Log Activity for Transmission
+            await ActivityService.logActivity({
+                company_id,
+                transmission_id,
+                user_id: updatedTransmission.created_by,
+                action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
+                remarks: remarks || null,
+                metadata: { 
+                    file_count: files.length, 
+                    transmission_no: updatedTransmission.transmission_number,
+                    feedback_files: savedFiles.map(f => f.name),
+                    feedback_url: client_archive_url
+                }
+            }, tx);
+
+            // 4. Update Document Statuses & Log for each document
+            const transmissionDocs = await tx.transmission_document.findMany({
                 where: { transmission_id }
             });
 
             const groupDocIds = transmissionDocs
                 .map(td => td.group_document_id)
-                .filter(id => id); // Filter out nulls
+                .filter(id => id);
+
+            const versionIds = transmissionDocs
+                .map(td => td.version_id)
+                .filter(id => id);
 
             if (groupDocIds.length > 0) {
-                // 3a. Update Old Group Documents to Rejected
-                await prisma.group_document.updateMany({
+                // Update and Log for each Group Document
+                // Logic Change: If client rejected, we reset to Pending to allow new revision uploads.
+                await tx.group_document.updateMany({
                     where: { id: { in: groupDocIds } },
-                    data: { status: 'Rejected' }
+                    data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
                 });
 
-                // 3b. Update Old Document Versions to Rejected
-                const versionIds = transmissionDocs
-                    .map(td => td.version_id)
-                    .filter(id => id);
-
-                if (versionIds.length > 0) {
-                    await prisma.document_version.updateMany({
-                        where: { id: { in: versionIds } },
-                        data: {
-                            status: 'Rejected',
-                            remarks: remarks || 'Rejected by Client'
-                        }
-                    });
+                for (const gId of groupDocIds) {
+                    await ActivityService.logActivity({
+                        company_id,
+                        group_document_id: gId,
+                        transmission_id,
+                        user_id: updatedTransmission.created_by,
+                        action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
+                        remarks: `Transmission ${updatedTransmission.transmission_number} reviewed by client`,
+                        metadata: { status, feedback_url: client_archive_url }
+                    }, tx);
                 }
- 
-                // 3c. Create NEW Group Documents (Re-entry)
-                // Fetch full details of the rejected group documents to clone them
-                const rejectedGroupDocs = await prisma.group_document.findMany({
-                    where: { id: { in: groupDocIds } }
-                });
-
-                const newGroupDocsData = rejectedGroupDocs.map(doc => ({
-                    company_id: doc.company_id,
-                    customer_id: doc.customer_id,
-                    customer_location_id: doc.customer_location_id,
-                    po_id: doc.po_id,
-                    group_id: doc.group_id,
-                    document_id: doc.document_id,
-                    shreno_doc_no: doc.shreno_doc_no,
-                    shreno_reference_no: doc.shreno_reference_no,
-                    client_doc_no: doc.client_doc_no,
-                    client_reference_no: doc.client_reference_no,
-                    upload_due_days: doc.upload_due_days,
-                    response_due_days: doc.response_due_days,
-                    user_id: doc.user_id,
-                    status: 'Pending' // Reset status for re-upload
-                }));
-
-                if (newGroupDocsData.length > 0) {
-                    await prisma.group_document.createMany({
-                        data: newGroupDocsData
-                    });
-                }
-
-                console.log(`Cascaded rejection: Updated ${groupDocIds.length} docs, ${versionIds.length} versions, and created ${newGroupDocsData.length} new pending entries.`);
             }
-        }
 
-        return result;
+            if (versionIds.length > 0) {
+                // Update Versions to match client status
+                await tx.document_version.updateMany({
+                    where: { id: { in: versionIds } },
+                    data: {
+                        status,
+                        remarks: remarks || `Reviewed by Client as ${status}`
+                    }
+                });
+            }
+
+            // (Already handled in Step 4 above: existing group_document status reset to Pending)
+            return updatedTransmission;
+        });
+    }
+
+    async getDocumentVersionById(company_id, version_id) {
+        return await prisma.document_version.findFirst({
+            where: {
+                id: version_id,
+                group_document: {
+                    company_id: company_id
+                }
+            },
+            include: {
+                group_document: true
+            }
+        });
     }
 
     async verifyZipPassword(transmissionId, password) {
@@ -1361,7 +1484,7 @@ class DccService {
             data: {
                 document_number: document_number ? document_number.trim() : undefined,
                 document_name: document_name ? document_name.trim() : undefined,
-                document_type_id: document_type_id || undefined
+                document_type_id: document_type_id !== undefined ? document_type_id : undefined
             }
         });
     }
@@ -1499,6 +1622,130 @@ class DccService {
                 });
             }
             return doc;
+        });
+    }
+
+    /**
+     * Bulk Assign Documents
+     */
+    async bulkAssignDocuments(company_id, data) {
+        const { assignments } = data;
+
+        if (!assignments || !Array.isArray(assignments)) {
+            throw new Error('Invalid assignment data');
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            const results = [];
+
+            // Fetch all job details for the assignments to get Customer, Location, PO, and Job Number
+            const jobIds = [...new Set(assignments.map(a => a.job_id).filter(Boolean))];
+            const foundJobs = await tx.job.findMany({
+                where: { id: { in: jobIds } },
+                select: { id: true, job_number: true, customer_id: true, customer_location_id: true, po_id: true }
+            });
+            const jobMap = Object.fromEntries(foundJobs.map(j => [j.id, j]));
+
+            for (const assign of assignments) {
+                const { 
+                    job_id, 
+                    document_name, 
+                    document_type_id,
+                    assign_user_id, 
+                    upload_due_days, 
+                    response_due_days, 
+                    actual_due_days,
+                    shreno_document_no, 
+                    shreno_reference_no, 
+                    client_document_no, 
+                    client_reference_no 
+                } = assign;
+
+                if (!job_id || !document_name || !assign_user_id) continue;
+
+                // Extract customer, location, and po from the verified job mapping
+                const targetJob = jobMap[job_id];
+                if (!targetJob) continue;
+
+                const customer_id = targetJob.customer_id;
+                const customer_location_id = targetJob.customer_location_id;
+                const po_id = targetJob.po_id;
+
+                // 1. Find or Create Document Master for this name and type
+                let documentMaster = await tx.document_master.findFirst({
+                    where: { 
+                        company_id, 
+                        document_name: document_name.trim()
+                    }
+                });
+
+                if (!documentMaster) {
+                    // Generate a unique sequential document number
+                    const maxDoc = await tx.document_master.findFirst({
+                        where: { company_id },
+                        orderBy: { serial_no: 'desc' }
+                    });
+                    const serial_no = (maxDoc?.serial_no || 0) + 1;
+                    const document_number = `DOC-${serial_no}`;
+
+                    documentMaster = await tx.document_master.create({
+                        data: {
+                            company_id,
+                            serial_no,
+                            document_name: document_name.trim(),
+                            document_number: document_number,
+                            document_type_id: document_type_id || null
+                        }
+                    });
+                }
+
+                // 2. Create a unique Group for this specific assignment
+                const group = await tx.group.create({
+                    data: { company_id }
+                });
+
+                await tx.job_group.create({
+                    data: {
+                        company_id,
+                        group_id: group.id,
+                        job_id: job_id
+                    }
+                });
+
+                const groupDoc = await tx.group_document.create({
+                    data: {
+                        company_id,
+                        customer_id,
+                        customer_location_id,
+                        po_id,
+                        group_id: group.id,
+                        document_id: documentMaster.id,
+                        user_id: assign_user_id,
+
+                        status: 'Pending',
+                        upload_due_days: upload_due_days ? parseInt(upload_due_days) : null,
+                        response_due_days: response_due_days ? parseInt(response_due_days) : null,
+                        actual_due_days: actual_due_days ? parseInt(actual_due_days) : null,
+                        shreno_doc_no: shreno_document_no || null,
+                        shreno_reference_no: shreno_reference_no || null,
+                        client_doc_no: client_document_no || null,
+                        client_reference_no: client_reference_no || null
+                    }
+                });
+
+                results.push(groupDoc);
+
+                // 3. Log Activity
+                await ActivityService.logActivity({
+                    company_id,
+                    group_document_id: groupDoc.id,
+                    user_id: assign_user_id, // Logged against destination user
+                    action: 'Assigned',
+                    remarks: `Document assigned for job ${targetJob.job_number || job_id}`
+                }, tx);
+            }
+
+            return results;
         });
     }
 }

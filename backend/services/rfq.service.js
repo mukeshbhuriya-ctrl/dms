@@ -339,6 +339,46 @@ class RfqService {
         return { deleted: true };
     }
 
+    // ─── Estimator & Mediator Management ─────────────────────────────────────
+
+    async getPersons(company_id, modelName) {
+        return await prisma[modelName].findMany({
+            where: { company_id },
+            select: { id: true, name: true, email: true },
+            orderBy: { name: 'asc' },
+        });
+    }
+
+    async createPerson(company_id, modelName, body) {
+        const { name, email } = body;
+        return await prisma[modelName].create({
+            data: { company_id, name, email: email || null },
+        });
+    }
+
+    async updatePerson(company_id, modelName, id, body) {
+        const { name, email } = body;
+        const existing = await prisma[modelName].findFirst({
+            where: { id, company_id },
+        });
+        if (!existing) throw new Error(`${modelName} not found`);
+
+        return await prisma[modelName].update({
+            where: { id },
+            data: { name, email: email || null },
+        });
+    }
+
+    async deletePerson(company_id, modelName, id) {
+        const existing = await prisma[modelName].findFirst({
+            where: { id, company_id },
+        });
+        if (!existing) throw new Error(`${modelName} not found`);
+
+        await prisma[modelName].delete({ where: { id } });
+        return { deleted: true };
+    }
+
     // ─── Dashboard Aggregation ───────────────────────────────────────────────
 
     /**

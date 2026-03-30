@@ -1,261 +1,84 @@
 const prisma = require('#prisma');
 
 /**
- * Get Document Type API - Get all document types for the authenticated user's company
- * @param {Object} req - Express request object (must have req.user from middleware)
- * @param {Object} res - Express response object
+ * Get Document Type API
  */
 async function getDocumentType(req, res) {
   try {
-    const company_id = req.user.company_id; // Get company_id from authenticated user
-
-    // Fetch all document types for the company
+    const company_id = req.user.company_id;
     const documentTypes = await prisma.document_type.findMany({
-      where: {
-        company_id: company_id, // Only fetch document types for the authenticated user's company
-      },
-      orderBy: {
-        createdAt: 'desc', // Order by creation date, newest first
-      },
+      where: { company_id },
+      orderBy: { createdAt: 'desc' },
     });
-
-    res.status(200).json({
-      success: true,
-      message: 'Document types fetched successfully',
-      data: documentTypes,
-    });
+    res.status(200).json({ success: true, data: documentTypes });
   } catch (error) {
-    console.error('Get document type error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 
 /**
- * Create Document Type API - Create a new document type
- * @param {Object} req - Express request object (must have req.user from middleware)
- * @param {Object} res - Express response object
+ * Create Document Type API
  */
 async function createDocumentType(req, res) {
   try {
     const { name } = req.body;
-    const company_id = req.user.company_id; // Get company_id from authenticated user
-
-    // Validate required fields
-    if (!name || name.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Document type name is required',
-      });
-    }
-
-    // Check if document type with same name already exists in this company
-    const existingDocumentType = await prisma.document_type.findFirst({
-      where: {
-        company_id: company_id,
-        name: {
-          equals: name.trim(),
-          mode: 'insensitive',
-        },
-      },
-    });
-
-    if (existingDocumentType) {
-      return res.status(409).json({
-        success: false,
-        message: 'Document type with this name already exists in your company',
-      });
-    }
-
-    // Create the document type
+    const company_id = req.user.company_id;
+    if (!name) return res.status(400).json({ success: false, message: 'Name required' });
     const documentType = await prisma.document_type.create({
-      data: {
-        company_id: company_id,
-        name: name.trim(),
-      },
-      select: {
-        id: true,
-        company_id: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      data: { company_id, name: name.trim() }
     });
-
-    // Return success response
-    res.status(201).json({
-      success: true,
-      message: 'Document type created successfully',
-      data: documentType,
-    });
+    res.status(201).json({ success: true, data: documentType });
   } catch (error) {
-    console.error('Create document type error:', error);
-    
-    // Handle Prisma unique constraint errors
-    if (error.code === 'P2002') {
-      const field = error.meta?.target?.[0] || 'field';
-      return res.status(409).json({
-        success: false,
-        message: `${field} already exists`,
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 
 /**
- * Get Document Master API - Get all document masters for the authenticated user's company
- * @param {Object} req - Express request object (must have req.user from middleware)
- * @param {Object} res - Express response object
+ * Get Document Master API
  */
 async function getDocumentMaster(req, res) {
   try {
-    const company_id = req.user.company_id; // Get company_id from authenticated user
-
-    // Fetch all document masters for the company
+    const company_id = req.user.company_id;
     const documents = await prisma.document_master.findMany({
-      where: {
-        company_id: company_id, // Only fetch documents for the authenticated user's company
-      },
+      where: { company_id },
       include: {
-        document_type: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        document_type: { select: { id: true, name: true } },
       },
-      orderBy: {
-        createdAt: 'desc', // Order by creation date, newest first
-      },
+      orderBy: { createdAt: 'desc' },
     });
-
-    res.status(200).json({
-      success: true,
-      message: 'Document masters fetched successfully',
-      data: documents,
-    });
+    res.status(200).json({ success: true, data: documents });
   } catch (error) {
-    console.error('Get document master error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 
 /**
- * Create Document Master API - Create a new document master
- * @param {Object} req - Express request object (must have req.user from middleware)
- * @param {Object} res - Express response object
+ * Create Document Master API
  */
 async function createDocumentMaster(req, res) {
   try {
     const { document_number, document_name, document_type_id } = req.body;
-    const company_id = req.user.company_id; // Get company_id from authenticated user
+    const company_id = req.user.company_id;
 
-    // Validate required fields
-    if (!document_number || document_number.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Document number is required',
-      });
+    if (!document_number || !document_name) {
+      return res.status(400).json({ success: false, message: 'Missing fields' });
     }
 
-    if (!document_name || document_name.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Document name is required',
-      });
-    }
-
-    if (!document_type_id || document_type_id.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Document type ID is required',
-      });
-    }
-
-    // Verify document type exists and belongs to the company
-    const documentType = await prisma.document_type.findFirst({
-      where: {
-        id: document_type_id.trim(),
-        company_id: company_id,
-      },
-    });
-
-    if (!documentType) {
-      return res.status(404).json({
-        success: false,
-        message: 'Document type not found or does not belong to your company',
-      });
-    }
-
-    // Check if document with same document_number already exists in this company
-    const existingDocument = await prisma.document_master.findFirst({
-      where: {
-        company_id: company_id,
-        document_number: document_number.trim(),
-      },
-    });
-
-    if (existingDocument) {
-      return res.status(409).json({
-        success: false,
-        message: 'Document with this document number already exists in your company',
-      });
-    }
-
-    // Create the document master
     const document = await prisma.document_master.create({
       data: {
-        company_id: company_id,
+        company_id,
         document_number: document_number.trim(),
         document_name: document_name.trim(),
-        document_type_id: document_type_id.trim(),
+        document_type_id: document_type_id || null,
       },
       include: {
-        document_type: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+        document_type: { select: { id: true, name: true } }
+      }
     });
 
-    // Return success response
-    res.status(201).json({
-      success: true,
-      message: 'Document master created successfully',
-      data: document,
-    });
+    res.status(201).json({ success: true, data: document });
   } catch (error) {
-    console.error('Create document master error:', error);
-    
-    // Handle Prisma unique constraint errors
-    if (error.code === 'P2002') {
-      const field = error.meta?.target?.[0] || 'field';
-      return res.status(409).json({
-        success: false,
-        message: `${field} already exists`,
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 

@@ -43,7 +43,7 @@ class ExportService {
             { key: 'dishend', model: 'dish_end_inspection_report', dateField: 'createdAt' },
             { key: 'final', model: 'final_inspection_report', dateField: 'createdAt' },
             { key: 'rfq', model: 'rfq_register', dateField: 'enq_date' },
-            { key: 'doc_master', model: 'document_master', dateField: 'createdAt', relationFilter: { document_type: { company_id } } },
+            { key: 'doc_master', model: 'document_master', dateField: 'createdAt' },
             { key: 'doc_assign', model: 'group_document', dateField: 'createdAt' },
             { key: 'doc_upload', model: 'document_version', dateField: 'createdAt', relationFilter: { group_document: { company_id } } },
             { key: 'doc_approver', model: 'group_document', dateField: 'createdAt' },
@@ -1618,9 +1618,7 @@ class ExportService {
                     }
                 },
                 document: {
-                    include: {
                         document_type: true
-                    }
                 },
                 user: {
                     include: {
@@ -1675,7 +1673,7 @@ class ExportService {
                 creator: true
             },
             document_master: {
-                document_type: true
+                include: { document_type: true }
             }
         };
 
@@ -1683,7 +1681,7 @@ class ExportService {
         
         // Dynamic where clause for relation-based filtering
         const modulesConfig = [
-            { key: 'document-master', model: 'document_master', relationFilter: { document_type: { company_id } } },
+            { key: 'document-master', model: 'document_master' },
             { key: 'document-version', model: 'document_version', relationFilter: { group_document: { company_id } } },
             { key: 'document-assign', model: 'group_document' },
             { key: 'document-approver', model: 'group_document' }

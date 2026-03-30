@@ -10,7 +10,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Download, CheckCircle, XCircle } from "lucide-react"
+import { Download, CheckCircle, XCircle, History } from "lucide-react"
+import DocumentTrail from "../../components/dms/DocumentTrail"
 import { toast } from 'react-toastify';
 import {
   Dialog,
@@ -20,6 +21,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { dccService } from "../../services/dcc.service";
@@ -28,6 +35,10 @@ import { exportApi } from "@/api/export.api"
 
 function DocumentApprover() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Trail State
+  const [isTrailOpen, setIsTrailOpen] = useState(false)
+  const [activeDocId, setActiveDocId] = useState(null)
 
   // Review Dialog State
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
@@ -105,7 +116,7 @@ function DocumentApprover() {
       className: "w-[50px]"
     },
     {
-      header: "Document Code",
+      header: "Doc Generated No",
       accessorKey: "documentNumber"
     },
     {
@@ -113,15 +124,11 @@ function DocumentApprover() {
       accessorKey: "documentName"
     },
     {
-      header: "Document Type",
-      accessorKey: "documentType"
-    },
-    {
-      header: "Version No",
+      header: "Revision/Version No",
       accessorKey: "versionNo",
       cell: (row) => (
         <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
-          {row.versionNo ? `v${row.versionNo}` : '-'}
+          {row.versionNo ? `Rev ${row.versionNo}` : '-'}
         </span>
       ),
       className: "w-[80px]"
@@ -135,9 +142,78 @@ function DocumentApprover() {
       accessorKey: "uploadedDate"
     },
     {
-      header: "Status",
-      accessorKey: "statusDisplay",
-      cell: (row) => getStatusBadge(row.status)
+      header: "Assigner Status",
+      accessorKey: "assigner_status",
+      cell: () => (
+        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+          Assigned
+        </span>
+      ),
+    },
+    {
+      header: "Uploader Status",
+      accessorKey: "uploader_status",
+      cell: (row) => {
+        const docStatus = row.originalDoc?.status || row.status;
+        const isPending = docStatus === 'Pending' || docStatus === 'Upload Due' || docStatus === 'Response Due';
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+            {isPending ? 'Pending' : 'Uploaded'}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Approver Status",
+      accessorKey: "approver_status",
+      cell: (row) => {
+        const docStatus = row.originalDoc?.status || row.status;
+        const isUploaderPending = docStatus === 'Pending' || docStatus === 'Upload Due' || docStatus === 'Response Due';
+        let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval";
+        let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
+        
+        if (docStatus === 'Approved') {
+          text = "Approved";
+          colorClass = "bg-green-100 text-green-800";
+        } else if (docStatus === 'Rejected') {
+          text = "Rejected";
+          colorClass = "bg-red-100 text-red-800";
+        }
+
+        return (
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Client Status",
+      accessorKey: "client_status_display",
+      cell: (row) => {
+        const docStatus = row.originalDoc?.status || row.status;
+        let text = "Awaiting Internal Approval";
+        let colorClass = "bg-gray-100 text-gray-800";
+        
+        if (docStatus === 'Approved') {
+          if (row.client_status === 'Approved') {
+            text = "Approved";
+            colorClass = "bg-green-100 text-green-800";
+          } else if (row.client_status === 'Rejected') {
+            text = "Rejected";
+            colorClass = "bg-red-100 text-red-800";
+          } else {
+            text = "Pending for Client";
+            colorClass = "bg-yellow-100 text-yellow-800";
+          }
+        }
+
+        return (
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
+          </span>
+        );
+      },
     },
     {
       header: "Action",
@@ -164,6 +240,19 @@ function DocumentApprover() {
             disabled={row.status === 'Rejected' || row.status === 'Approved'}
           >
             <XCircle className="w-4 h-4 mr-1" /> Reject
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-slate-200 text-slate-600"
+            onClick={() => {
+              setActiveDocId(row.id);
+              setIsTrailOpen(true);
+            }}
+          >
+            <History className="h-4 w-4 mr-1" />
+            Trail
           </Button>
         </div>
       ),
@@ -209,8 +298,9 @@ function DocumentApprover() {
             uploadedBy: uploaderName,
             uploadedDate: new Date(doc.updatedAt).toLocaleDateString(),
 
-            status: doc.status, // Keep original status for badge display
+            status: latestVersion?.status || doc.status, // Use version status for accuracy in consolidated view
             statusDisplay: doc.status,
+            client_status: doc.client_status,
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,
             remarks: latestVersion?.remarks || '-',
@@ -270,15 +360,15 @@ function DocumentApprover() {
                   {/* Filters */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 px-2">
                     <div className="space-y-2">
-                      <Label htmlFor="statusFilter">Filter by Status</Label>
+                      <Label htmlFor="statusFilter">Filter by Uploader Status</Label>
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Status" />
+                          <SelectValue placeholder="All Uploader Status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="all">All Uploader Status</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="done">Done</SelectItem>
+                          <SelectItem value="done">Uploaded</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -295,7 +385,7 @@ function DocumentApprover() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">All Approver Status</SelectItem>
-                          <SelectItem value="NA">NA</SelectItem>
+                          <SelectItem value="NA">Awaiting Upload</SelectItem>
                           <SelectItem value="pending">
                             Pending for Approval
                           </SelectItem>
@@ -349,6 +439,21 @@ function DocumentApprover() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Trail Sidebar Drawer */}
+      <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+        <SheetContent side="right" className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+          <SheetHeader className="p-6 pb-2 border-b">
+            <SheetTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              Document Audit Trail
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <DocumentTrail documentId={activeDocId} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </SidebarProvider>
   )
 }

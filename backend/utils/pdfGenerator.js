@@ -25,18 +25,9 @@ class PDFGenerator {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
-        let stages = Object.keys(allStagesData).sort();
-
-        // Filter out Stage 8 for Category A/B (Default)
-        // Check Category from Stage 1 data
-        const s1Data = allStagesData['stage1'] || {};
-        const isCatCD = s1Data.categoryKey === 'cd' || (s1Data.jointType && ['C', 'D'].includes(s1Data.jointType));
-        const isCatF = s1Data.categoryKey === 'f' || (s1Data.jointType && ['F'].includes(s1Data.jointType));
-        const isCatAB = !isCatCD && !isCatF;
-
-        if (isCatAB) {
-            stages = stages.filter(s => s !== 'stage8');
-        }
+        // Stage filtering is now handled by the controller based on
+        // joint's back_chip_req/pwht/rt/pt flags. We just render whatever is provided.
+        const stages = Object.keys(allStagesData).sort();
 
         stages.forEach((stage, index) => {
             if (index > 0) doc.addPage();
@@ -332,9 +323,10 @@ class PDFGenerator {
         // YES / No - Red Bold
         doc.text('YES / No', x + colW + pad, tY);
 
-        // YES - Black Regular (Static as per request "keep like this")
+        // Dynamic value based on back_chip_req from DB
         doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text('YES', x + 2 * colW + pad, tY);
+        const backChipText = data.backChipReq ? 'YES' : 'NO';
+        doc.text(backChipText, x + 2 * colW + pad, tY);
 
         // Vertical lines helper for visual clarity (already drawn by rects but good to be sure)
     }
@@ -677,7 +669,6 @@ class PDFGenerator {
         const fields = [
             { label: 'Welder No / ID:', value: data.welderNo || '-' },
             { label: 'Welding Process:', value: data.weldingProcess || '-' },
-            { label: 'Visual Inspection Result:', value: data.qcStatus === 'approved' ? 'ACCEPTED' : (data.qcStatus || 'PENDING') }
         ];
 
         const col1W = width * 0.40;

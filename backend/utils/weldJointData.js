@@ -20,13 +20,28 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
     if (rawData) {
         try {
             const parsed = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
-            // Check nested structure: { ab: { s1: ... } } vs { s1: ... }
-            if (parsed[categoryKey] && parsed[categoryKey][sPrefix]) {
-                stageData = parsed[categoryKey][sPrefix];
-            } else if (parsed[categoryKey]) {
-                stageData = parsed[categoryKey]; // Fallback if direct under category
-            } else {
-                stageData = parsed; // Fallback if flat or legacy
+            
+            // Refined lookup: handles sPrefix nested under categoryKey or 'cd'
+            const catKeys = [categoryKey];
+            if (['c', 'd'].includes(categoryKey)) catKeys.push('cd');
+            
+            let found = false;
+            for (const ck of catKeys) {
+                if (parsed[ck] && parsed[ck][sPrefix]) {
+                    stageData = parsed[ck][sPrefix];
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                if (parsed[categoryKey]) {
+                    stageData = parsed[categoryKey];
+                } else if (parsed['cd'] && ['c', 'd'].includes(categoryKey)) {
+                    stageData = parsed['cd'];
+                } else {
+                    stageData = parsed;
+                }
             }
         } catch (e) {
             console.error(`Error parsing ${dataKey}:`, e);
@@ -164,9 +179,11 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         ndtEngineerId: stageData.assignedNdtEngineerId || stageData.assignedQcEngineerId || '',
 
         // Joint flags (from joint record directly)
+        backChipReq: joint.back_chip_req || false,
         pwht: joint.pwht || false,
         rt: joint.rt || false,
         pt: joint.pt || false,
+        rawData: stageData
     };
 };
 

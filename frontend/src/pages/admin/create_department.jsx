@@ -199,7 +199,7 @@ function CreateDepartment() {
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h1 className="text-3xl font-bold mb-2">
-                                    {view === "list" ? "Department Management" : (editingId ? "Edit Department" : "Create Department")}
+                                    {view === "list" ? "Manage Departments" : (editingId ? "Edit Department" : "Create Department")}
                                 </h1>
                                 <p className="text-muted-foreground">
                                     {view === "list"

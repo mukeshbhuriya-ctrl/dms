@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { FormAlert } from "@/components/ui/form-alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
+const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage4" }) => {
+    const sPrefix = stage.replace('stage', 's');
     // Stage 4D: Nozzle Set-Up
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
@@ -111,7 +112,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                 client: initialData.client || "",
                 poNo: initialData.poNo || "",
             })
-            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/4`;
+            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/${sPrefix.replace('s', '')}`;
             setInputFields((prev) => ({
                 ...prev,
                 reportNo: prev.reportNo || generatedReportNo,
@@ -149,37 +150,38 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                 } catch (e) { console.error("Error parsing data_json", e) }
             }
 
-            if (inspData.s4_qc_eng_id) setQcEngineer(inspData.s4_qc_eng_id);
+            if (inspData[`${sPrefix}_qc_eng_id`]) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
 
             // Flat columns from reconstructed inspection object (new schema)
-            if (inspData.s4_prod_eng_name) setProductionEngineerName(inspData.s4_prod_eng_name);
+            if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
-            if (inspData.s4_data) {
+            if (inspData[`${sPrefix}_data`]) {
                 try {
-                    const rawData = typeof inspData.s4_data === 'string' ? JSON.parse(inspData.s4_data) : inspData.s4_data;
+                    const rawData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
                     const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
-                    const s4Data = rawData?.[catKey]?.s4 || rawData?.[catKey] || rawData || {};
+                    const sData = rawData?.[catKey]?.[sPrefix] || rawData?.[catKey] || rawData || {};
 
-                    if (s4Data.productionEngineerName) setProductionEngineerName(s4Data.productionEngineerName);
-                    if (s4Data.submissionDate) setTodayDate(s4Data.submissionDate);
-                    if (!inspData.s4_qc_eng_id && s4Data.assignedQcEngineerId) setQcEngineer(s4Data.assignedQcEngineerId);
+                    if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
+                    if (sData.submissionDate) setTodayDate(sData.submissionDate);
+                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setQcEngineer(sData.assignedQcEngineerId);
 
                     setFormData(prev => ({
                         ...prev,
-                        tackWelder: s4Data.tackWelder || "",
-                        materialId: s4Data.materialId || "",
-                        lSeamNdt: s4Data.lSeamNdt || "",
-                        cleaning: s4Data.cleaning || "",
-                        grooveAngle: s4Data.grooveAngle || "",
-                        rootFace: s4Data.rootFace || "",
-                        rootGap: s4Data.rootGap || "",
-                        projection: s4Data.projection || "",
-                        pcdHole: s4Data.pcdHole || "",
-                        rfPad: s4Data.rfPad || "",
-                        date: s4Data.date || prev.date
+                        tackWelder: sData.tackWelder || "",
+                        materialId: sData.materialId || "",
+                        lSeamNdt: sData.lSeamNdt || "",
+                        cleaning: sData.cleaning || "",
+                        grooveAngle: sData.grooveAngle || "",
+                        rootFace: sData.rootFace || "",
+                        rootGap: sData.rootGap || "",
+                        projection: sData.projection || "",
+                        pcdHole: sData.pcdHole || "",
+                        rfPad: sData.rfPad || "",
+                        date: sData.date || prev.date
                     }));
-                } catch (e) { console.error("Error parsing s4_data", e) }
+                } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
             }
+            if (inspData[`${sPrefix}_status`] && !qcEngineer) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
         }
     }, [initialData, inspectionData]);
 
@@ -223,21 +225,21 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
 
             const inspData = inspectionData || initialData?.inspectionData;
             let existingData = {};
-            if (inspData?.s4_data) {
-                existingData = typeof inspData.s4_data === 'string' ? JSON.parse(inspData.s4_data) : inspData.s4_data;
+            if (inspData?.[`${sPrefix}_data`]) {
+                existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
             }
 
             const finalData = {
                 ...existingData,
                 [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                     ...existingData?.cd,
-                    s4: currentStageData
+                    [sPrefix]: currentStageData
                 }
             };
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage4",
+                stage: stage,
                 status: "pending",
                 engineerId: userId,
                 role: 'PROD',
@@ -256,7 +258,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
 
             const data = await res.json();
             if (res.ok) {
-                setSuccess("Stage 4 Submitted Successfully");
+                setSuccess(`${stage.replace('stage', 'Stage ')} Submitted Successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setError(data.message || "Submission failed");
@@ -288,8 +290,8 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
             const inspData = inspectionData || initialData?.inspectionData;
             if (userRole === 'QC' && status === 'approved') {
                 let existingData = {};
-                if (inspData?.s4_data) {
-                    existingData = typeof inspData.s4_data === 'string' ? JSON.parse(inspData.s4_data) : inspData.s4_data;
+                if (inspData?.[`${sPrefix}_data`]) {
+                    existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
                 }
                 const currentStageData = {
                     assignedQcEngineerId: qcEngineer,
@@ -301,7 +303,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                     ...existingData,
                     [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
                         ...existingData?.cd,
-                        s4: currentStageData
+                        [sPrefix]: currentStageData
                     }
                 };
                 await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -309,7 +311,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                     headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
                     body: JSON.stringify({
                         jointId: initialData?.id,
-                        stage: "stage4",
+                        stage: stage,
                         status: status,
                         engineerId: userId,
                         role: 'QC',
@@ -321,7 +323,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage4",
+                stage: stage,
                 status: status,
                 engineerId: userId,
                 role: 'QC',
@@ -339,7 +341,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
             });
             const data = await res.json();
             if (res.ok) {
-                setSuccess(`Stage 4 ${status} Successfully`);
+                setSuccess(`${stage.replace('stage', 'Stage ')} ${status} Successfully`);
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 setError(data.message || "Review action failed");
@@ -376,7 +378,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
 
             <Card className="w-full">
                 <CardHeader>
-                    <CardTitle>Nozzle Set-Up</CardTitle>
+                    <CardTitle>{stage.replace('stage', 'Stage ')}: Nozzle Set-Up</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -520,7 +522,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                             <div className="space-y-2">
                                 <Label>Date:</Label>
                                 <Input
-                                    value={inspectionData?.s4_submitted_at ? new Date(inspectionData.s4_submitted_at).toLocaleDateString() : todayDate}
+                                    value={inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
                                     readOnly
                                     className="bg-muted"
                                 />
@@ -544,13 +546,13 @@ const Stage4D = ({ initialData, inspectionData, isReview = false }) => {
                         <div className="flex justify-end gap-2 items-center pt-4">
                             {!isReview ? (
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : "Save & Complete Stage 4"}
+                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
                                 </Button>
                             ) : (
                                 <>
-                                    {(isReview || inspectionData?.s4_approved_at) && (
+                                    {(isReview || inspectionData?.[`${sPrefix}_approved_at`]) && (
                                         <Input
-                                            value={`Approve Date: ${inspectionData?.s4_approved_at ? new Date(inspectionData.s4_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                            value={`Approve Date: ${inspectionData?.[`${sPrefix}_approved_at`] ? new Date(inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
                                             readOnly
                                             className="bg-muted w-auto min-w-[200px] text-center"
                                         />

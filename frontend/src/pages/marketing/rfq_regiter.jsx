@@ -3,6 +3,7 @@ import { AdminSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import {
     Select,
@@ -345,26 +346,24 @@ function CreateView({ onBack, editId = null }) {
         modesOfEnquiry: [],
         mediators: [],
         estimators: [],
-        remarks: [],
     })
 
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const [rfqTypesRes, moeRes, remarkRes, usersRes, customersRes] = await Promise.all([
+                const [rfqTypesRes, moeRes, estimatorsRes, mediatorsRes, customersRes] = await Promise.all([
                     apiClient.get("/api/rfq/lookups/rfq_type"),
                     apiClient.get("/api/rfq/lookups/mode_of_enquiry"),
-                    apiClient.get("/api/rfq/lookups/remark"),
-                    apiClient.get("/api/rfq/users"),
+                    apiClient.get("/api/rfq/estimators"),
+                    apiClient.get("/api/rfq/mediators"),
                     apiClient.get("/api/common/customers"),
                 ])
                 setDropdownOptions({
                     rfqTypes: (rfqTypesRes.data || []).map((d) => d.name),
                     clientNames: (customersRes.data || []).map((c) => c.customer_name),
                     modesOfEnquiry: (moeRes.data || []).map((d) => d.name),
-                    mediators: (usersRes.data || []).map((u) => u.name),
-                    estimators: (usersRes.data || []).map((u) => u.name),
-                    remarks: (remarkRes.data || []).map((d) => d.name),
+                    estimators: (estimatorsRes.data || []).map((u) => u.name),
+                    mediators: (mediatorsRes.data || []).map((u) => u.name),
                 })
             } catch (error) {
                 console.error("Failed to load dropdown options:", error)
@@ -373,24 +372,31 @@ function CreateView({ onBack, editId = null }) {
         fetchOptions()
     }, [])
 
-    const [formData, setFormData] = useState({
-        quotationNo: "",
-        clientRef: "",
-        rfqType: "",
-        clientName: "",
-        consultancy: "",
-        contactPerson: "",
-        modeOfEnquiry: "",
-        enqDate: "",
-        targetDate: "",
-        actualSubmissionDate: "",
-        timeTaken: "",
-        mediator: "",
-        estimator: "",
-        shrenoStatus: "Quoted",
-        clientStatus: "Under Review",
-        remark: "",
-        madeBy: "",
+    const [formData, setFormData] = useState(() => {
+        const authData = localStorage.getItem("user_auth")
+        const parsedAuth = authData ? JSON.parse(authData) : null
+        const loggedInUser = parsedAuth?.user?.name || parsedAuth?.payload?.user?.name || ""
+        const today = new Date().toISOString().split("T")[0]
+        
+        return {
+            quotationNo: "",
+            clientRef: "",
+            rfqType: "",
+            clientName: "",
+            consultancy: "",
+            contactPerson: "",
+            modeOfEnquiry: "",
+            enqDate: "",
+            targetDate: today,
+            actualSubmissionDate: "",
+            timeTaken: "",
+            mediator: "",
+            estimator: "",
+            shrenoStatus: "Quoted",
+            clientStatus: "Under Review",
+            remark: "",
+            madeBy: loggedInUser,
+        }
     })
 
     const [tableRows, setTableRows] = useState([
@@ -844,16 +850,14 @@ function CreateView({ onBack, editId = null }) {
                     <div className="mt-4">
                         <div className="space-y-2">
                             <Label htmlFor="remark">Remark</Label>
-                            <Select value={formData.remark} onValueChange={(v) => handleSelectChange("remark", v)}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Remark" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dropdownOptions.remarks.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Textarea
+                                id="remark"
+                                name="remark"
+                                value={formData.remark}
+                                onChange={handleInputChange}
+                                placeholder="Enter Remark"
+                                className="min-h-[100px]"
+                            />
                         </div>
                     </div>
                 </CardContent>

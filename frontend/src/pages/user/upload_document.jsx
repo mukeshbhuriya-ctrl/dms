@@ -2,6 +2,7 @@
 import { useState, useCallback, useMemo } from "react"
 import { UserSidebar } from "@/components"
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -12,11 +13,18 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, Loader2 } from "lucide-react"
+import { Upload, Loader2, History } from "lucide-react"
 import { dccService } from "../../services/dcc.service"
 import { toast } from "react-toastify"
 import { DataTable } from "@/components/shared/DataTable"
 import { exportApi } from "@/api/export.api"
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet"
+import DocumentTrail from "../../components/dms/DocumentTrail"
 
 function UploadDocument() {
     const [uploadingIds, setUploadingIds] = useState({}) // Track uploading state per document ID
@@ -25,6 +33,10 @@ function UploadDocument() {
 
     // Trigger for refreshing table data
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    // Trail State
+    const [isTrailOpen, setIsTrailOpen] = useState(false)
+    const [activeDocId, setActiveDocId] = useState(null)
 
     const handleDirectUpload = async (documentId, file) => {
         if (!file) return;
@@ -62,7 +74,7 @@ function UploadDocument() {
             className: "w-[50px]"
         },
         {
-            header: "Upload Document Name",
+            header: "Document Name",
             accessorKey: "documentName",
             cell: (row) => (
                 <div>
@@ -71,11 +83,11 @@ function UploadDocument() {
             )
         },
         {
-            header: "Version No",
+            header: "Revision/Version No",
             accessorKey: "versionNo",
             cell: (row) => (
                 <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
-                    {row.versionNo ? `v${row.versionNo}` : '-'}
+                    {row.versionNo ? `Rev ${row.versionNo}` : '-'}
                 </span>
             ),
             className: "w-[80px]"
@@ -100,22 +112,86 @@ function UploadDocument() {
             cell: (row) => row.response_due_days || "-"
         },
         {
-            header: "Status",
-            accessorKey: "status",
-            cell: (row) => getStatusBadge(row.status)
+            header: "Assigner Status",
+            accessorKey: "assigner_status",
+            cell: () => (
+                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                    Assigned
+                </span>
+            )
+        },
+        {
+            header: "Uploader Status",
+            accessorKey: "uploader_status",
+            cell: (row) => {
+                const status = row.originalStatus || row.status;
+                const isPending = status === 'Pending' || status === 'Upload Due' || status === 'Response Due';
+                return (
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                        {isPending ? 'Pending' : 'Uploaded'}
+                    </span>
+                );
+            }
         },
         {
             header: "Approver Status",
-            accessorKey: "approverStatus",
-            cell: (row) => getApproverStatusBadge(row.approverStatus)
+            accessorKey: "approver_status",
+            cell: (row) => {
+                const status = row.originalStatus || row.status;
+                const isUploaderPending = status === 'Pending' || status === 'Upload Due' || status === 'Response Due';
+                let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval";
+                let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
+                
+                if (status === 'Approved') {
+                    text = "Approved";
+                    colorClass = "bg-green-100 text-green-800";
+                } else if (status === 'Rejected') {
+                    text = "Rejected";
+                    colorClass = "bg-red-100 text-red-800";
+                }
+
+                return (
+                    <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+                        {text}
+                    </span>
+                );
+            }
+        },
+        {
+            header: "Client Status",
+            accessorKey: "client_status_display",
+            cell: (row) => {
+                const status = row.originalStatus || row.status;
+                let text = "Awaiting Internal Approval";
+                let colorClass = "bg-gray-100 text-gray-800";
+                
+                if (status === 'Approved') {
+                    if (row.client_status === 'Approved') {
+                        text = "Approved";
+                        colorClass = "bg-green-100 text-green-800";
+                    } else if (row.client_status === 'Rejected') {
+                        text = "Rejected";
+                        colorClass = "bg-red-100 text-red-800";
+                    } else {
+                        text = "Pending for Client";
+                        colorClass = "bg-yellow-100 text-yellow-800";
+                    }
+                }
+
+                return (
+                    <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+                        {text}
+                    </span>
+                );
+            }
         },
         {
             header: "Action",
             accessorKey: "id",
             cell: (row) => {
                 const isUploading = uploadingIds[row.id];
-                // Disable if already approved or pending approval (uploaded)
-                const isDisabled = row.approverStatus === "approved" || row.approverStatus === "rejected" || row.approverStatus === "pending for approval";
+                // Disable if already approved or pending approval (currently being reviewed)
+                const isDisabled = row.approverStatus === "approved" || row.approverStatus === "pending for approval";
 
                 return (
                     <div className="flex items-center gap-2">
@@ -143,6 +219,19 @@ function UploadDocument() {
                             )}
                             {isUploading ? 'Uploading...' : (row.approverStatus === "rejected" ? 'Upload' : 'Upload')}
                         </Label>
+                        
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-slate-200 text-slate-600"
+                            onClick={() => {
+                                setActiveDocId(row.id);
+                                setIsTrailOpen(true);
+                            }}
+                        >
+                            <History className="h-4 w-4 mr-2" />
+                            Trail
+                        </Button>
                     </div>
                 );
             },
@@ -183,12 +272,12 @@ function UploadDocument() {
                     }
                     if (doc.status === 'Rejected') status = 'pending';
 
+                    const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+
                     let approverStatus = 'NA';
                     if (doc.status === 'Uploaded' || doc.status === 'Pending for Approval') approverStatus = 'pending for approval';
                     else if (doc.status === 'Approved') approverStatus = 'approved';
-                    else if (doc.status === 'Rejected') approverStatus = 'rejected';
-
-                    const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+                    else if (doc.status === 'Rejected' || (doc.status === 'Pending' && latestVersion?.status === 'Rejected')) approverStatus = 'rejected';
                     
                     // Business Logic: If backend says "Upload Due" or "Response Due", use that for the main status display
                     const displayStatus = (doc.status === 'Upload Due' || doc.status === 'Response Due') ? doc.status : status;
@@ -201,6 +290,7 @@ function UploadDocument() {
                         jobNo: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || doc.job?.job_number || 'N/A',
                         status: displayStatus,
                         approverStatus: approverStatus,
+                        client_status: doc.client_status,
                         createdAt: doc.createdAt,
                         upload_due_days: doc.upload_due_days,
                         response_due_days: doc.response_due_days,
@@ -320,15 +410,15 @@ function UploadDocument() {
                                 {/* Filters */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                     <div className="space-y-2">
-                                        <Label htmlFor="statusFilter">Filter by Status</Label>
+                                        <Label htmlFor="statusFilter">Filter by Uploader Status</Label>
                                         <Select value={statusFilter} onValueChange={setStatusFilter}>
                                             <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Status" />
+                                                <SelectValue placeholder="All Uploader Status" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All Status</SelectItem>
+                                                <SelectItem value="all">All Uploader Status</SelectItem>
                                                 <SelectItem value="pending">Pending</SelectItem>
-                                                <SelectItem value="done">Done</SelectItem>
+                                                <SelectItem value="done">Uploaded</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -345,7 +435,7 @@ function UploadDocument() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">All Approver Status</SelectItem>
-                                                <SelectItem value="NA">NA</SelectItem>
+                                                <SelectItem value="NA">Awaiting Upload</SelectItem>
                                                 <SelectItem value="pending">
                                                     Pending for Approval
                                                 </SelectItem>
@@ -367,6 +457,21 @@ function UploadDocument() {
                             </CardContent>
                         </Card>
                     </div>
+
+                    {/* Trail Sidebar Drawer */}
+                    <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+                        <SheetContent side="right" className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+                            <SheetHeader className="p-6 pb-2 border-b">
+                                <SheetTitle className="flex items-center gap-2">
+                                    <History className="w-5 h-5 text-primary" />
+                                    Document Audit Trail
+                                </SheetTitle>
+                            </SheetHeader>
+                            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                                <DocumentTrail documentId={activeDocId} />
+                            </div>
+                        </SheetContent>
+                    </Sheet>
                 </main>
             </SidebarInset>
         </SidebarProvider>

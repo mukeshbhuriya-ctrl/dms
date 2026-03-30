@@ -15,6 +15,10 @@ const DccController = require('../../controllers/dcc.controller');
 router.get('/get-assigned-documents', authenticateUserOnly, DccController.getAllAssignedDocuments);
 router.get('/upload-documents', authenticateUserOnly, DccController.getMyAssignedDocuments);
 router.post('/upload-document-version', authenticateUserOnly, upload.single('file'), DccController.uploadDocumentVersion);
+router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumentTrail);
+router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);
+router.get('/document-preview/:versionId', authenticateUserOnly, DccController.previewDocument);
+router.get('/document-preview/:versionId/:filename', authenticateUserOnly, DccController.previewDocument);
 
 
 // Apply authentication middleware to all routes in this router
@@ -49,6 +53,7 @@ router.get('/document-type', getDocumentType);
 router.get('/get-users', getUsers);
 router.post('/create-document-type', createDocumentType);
 router.post('/assign-document', DccController.assignDocument);
+router.post('/bulk-assign-documents', DccController.bulkAssignDocuments);
 
 
 // Document Workflow
@@ -58,8 +63,12 @@ router.get('/get-transmissions', DccController.getTransmissions);
 router.get('/get-transmission-documents', DccController.getTransmissionDocuments);
 router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
+router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF);
 // Client Approval Status
-router.post('/transmission/client-status', DccController.updateTransmissionClientStatus);
+router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
+router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);
+
+// Activity Trail (Moved to public section)
 router.post('/document/:documentId/rollback', documentController.rollbackVersion);
 router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), DccController.updateAssignedDocument);
 

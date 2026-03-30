@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
 import {
   LogOut,
@@ -50,7 +50,7 @@ function UserSidebar() {
   }
 
   // Get filtered menu items based on user's roles
-  const menuItems = getFilteredMenu(userRoles)
+  const menuItems = useMemo(() => getFilteredMenu(userRoles), [userRoles])
 
   // Initialize open state based on active route
   useEffect(() => {
@@ -64,16 +64,18 @@ function UserSidebar() {
       })
     }
 
-    menuItems.forEach((item) => {
-      if (item.items) {
-        if (checkActive(item.items)) {
+    const setNestedOpen = (items) => {
+      items.forEach((item) => {
+        if (item.items && checkActive(item.items)) {
           newOpenItems[item.title] = true
+          setNestedOpen(item.items)
         }
-      }
-    })
+      })
+    }
 
+    setNestedOpen(menuItems)
     setOpenItems((prev) => ({ ...prev, ...newOpenItems }))
-  }, [location.pathname, userRoles])
+  }, [location.pathname, menuItems])
 
   const handleLogout = () => {
     logout()
@@ -154,6 +156,46 @@ function UserSidebar() {
                 const hasSubMenu = item.items && item.items.length > 0
                 const itemPath = item.path
 
+                const renderSubMenu = (subItem) => {
+                  if (subItem.items) {
+                    return (
+                      <Collapsible
+                        key={subItem.title}
+                        open={openItems[subItem.title]}
+                        onOpenChange={() => toggleOpen(subItem.title)}
+                        className="group/sub-collapsible"
+                      >
+                        <SidebarMenuSubItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuSubButton 
+                              className="cursor-pointer"
+                              isActive={subItem.items.some(deep => deep.path === location.pathname)}
+                            >
+                              <span>{subItem.title}</span>
+                              <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/sub-collapsible:rotate-90" />
+                            </SidebarMenuSubButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {subItem.items.map(deepItem => renderSubMenu(deepItem))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuSubItem>
+                      </Collapsible>
+                    )
+                  }
+                  return (
+                    <SidebarMenuSubItem key={subItem.title}>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={subItem.path === location.pathname}
+                      >
+                        <Link to={subItem.path}>{subItem.title}</Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  )
+                }
+
                 if (hasSubMenu) {
                   return (
                     <Collapsible
@@ -167,7 +209,7 @@ function UserSidebar() {
                           <SidebarMenuButton
                             tooltip={item.title}
                             isActive={item.items.some(
-                              (subItem) => subItem.path === location.pathname
+                              (subItem) => subItem.path === location.pathname || (subItem.items && subItem.items.some(deep => deep.path === location.pathname))
                             )}
                           >
                             {item.icon && <item.icon />}
@@ -177,16 +219,7 @@ function UserSidebar() {
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <SidebarMenuSub>
-                            {item.items.map((subItem) => (
-                              <SidebarMenuSubItem key={subItem.title}>
-                                <SidebarMenuSubButton
-                                  asChild
-                                  isActive={subItem.path === location.pathname}
-                                >
-                                  <Link to={subItem.path}>{subItem.title}</Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
+                            {item.items.map((subItem) => renderSubMenu(subItem))}
                           </SidebarMenuSub>
                         </CollapsibleContent>
                       </SidebarMenuItem>

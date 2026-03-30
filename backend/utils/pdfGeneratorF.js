@@ -319,14 +319,16 @@ class PDFGeneratorF {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
-        const stageOrder = ['stage1', 'stage2', 'stage3', 'stage4'];
+        // Dynamic stage order from controller-filtered allStagesData
+        const stageOrder = Object.keys(allStagesData).sort((a, b) => {
+            const order = ['stage1', 'stage2', 'stage3', 'stage4'];
+            return order.indexOf(a) - order.indexOf(b);
+        });
         let isFirstPage = true;
 
         stageOrder.forEach(key => {
-            // Note: Controller might not strictly enforce existing keys, so check if allStagesData has it
-            // Or just iterate 1 to 4
-            if (!allStagesData[key]) return;
             const data = allStagesData[key];
+            if (!data) return;
             const stageNum = parseInt(key.replace('stage', ''));
 
             if (!isFirstPage) doc.addPage();
