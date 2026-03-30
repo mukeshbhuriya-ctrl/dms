@@ -17,6 +17,8 @@ router.get('/upload-documents', authenticateUserOnly, DccController.getMyAssigne
 router.post('/upload-document-version', authenticateUserOnly, upload.single('file'), DccController.uploadDocumentVersion);
 router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumentTrail);
 router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);
+router.get('/document-preview/:versionId', authenticateUserOnly, DccController.previewDocument);
+router.get('/document-preview/:versionId/:filename', authenticateUserOnly, DccController.previewDocument);
 
 
 // Apply authentication middleware to all routes in this router

@@ -116,7 +116,7 @@ function DocumentApprover() {
       className: "w-[50px]"
     },
     {
-      header: "Generated Document No",
+      header: "Doc Generated No",
       accessorKey: "documentNumber"
     },
     {

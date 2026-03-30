@@ -19,12 +19,28 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, ArrowLeft, Mail, Download } from "lucide-react"
+import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle } from "lucide-react"
 import { toast } from 'react-toastify';
 import { dccService } from "../../services/dcc.service";
 import { useNavigate } from "react-router-dom";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 import { DataTable } from "@/components/shared/DataTable";
 import { exportApi } from "@/api/export.api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import {
   Table,
   TableBody,
@@ -57,8 +73,21 @@ function CreateTransmission() {
   const [selectedDocuments, setSelectedDocuments] = useState([])
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
   const [successData, setSuccessData] = useState(null) // { zip_url, password }
-  const [refreshKey, setRefreshKey] = useState(0);
+  
+  // --- Preview State ---
+  const [previewUrl, setPreviewUrl] = useState(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+
+  // --- Send View State ---
+  const [activeTransmission, setActiveTransmission] = useState(null)
+  const [sendDocuments, setSendDocuments] = useState([])
+  const [isSendMailDialogOpen, setIsSendMailDialogOpen] = useState(false)
+  const [selectedEmails, setSelectedEmails] = useState({})
+  const [communicationMatrix, setCommunicationMatrix] = useState({ shreno: [], client: [] })
+  const [isLoadingSend, setIsLoadingSend] = useState(false)
 
   // --- Job Selection Logic ---
   const [selectedJobs, setSelectedJobs] = useState([]);
@@ -359,6 +388,147 @@ function CreateTransmission() {
     }
   }, []);
 
+  // --- Integrated Send View Logic (Ported from SendDocumentToClient) ---
+
+  const getCommunicationMatrixForPO = (poId, customerId, locationId) => {
+    if (!poId || !customerId) return { shreno: [], client: [] }
+
+    const customer = customers.find(c => c.id === customerId)
+    if (!customer) return { shreno: [], client: [] }
+
+    const location = customer.customer_locations?.find(l => l.id === locationId)
+    if (!location) return { shreno: [], client: [] }
+
+    const po = location.pos?.find(p => p.id === poId)
+    if (!po || !po.po_communication_matrix) return { shreno: [], client: [] }
+
+    const matrix = Array.isArray(po.po_communication_matrix) ? po.po_communication_matrix : []
+    const shreno = matrix.filter(m => m.type === 'shreno' || m.type === 'Internal')
+    const client = matrix.filter(m => m.type === 'client' || m.type === 'External')
+
+    return { shreno, client }
+  }
+
+  const fetchTransmissionDetailsForSend = async (transmission) => {
+    setLoadingDocs(true);
+    try {
+      const resDocs = await dccService.getTransmissionDocuments({ transmission_id: transmission.id });
+      
+      if (resDocs.success) {
+        const mappedDocs = (resDocs.data || []).map(item => {
+          const docSource = item.group_document;
+          if (!docSource) return null;
+          const uploaderName = item.version?.uploader?.name || docSource.user?.name || '';
+
+          return {
+            id: docSource.id,
+            documentCode: docSource.document?.document_number,
+            documentName: docSource.document?.document_name,
+            documentType: docSource.document?.document_type?.name || 'Document',
+            uploadedBy: uploaderName,
+            uploadedDate: new Date(docSource.createdAt).toLocaleDateString(),
+            versionNo: item.display_version_no,
+            status: item.version?.status || 'Approved',
+            // Pre-calculate document type for robust preview routing
+            mimeType: item.version?.mime_type || '', 
+            filePath: item.version?.file_path || '',
+            file_url: item.version?.id 
+              ? `${BACKEND_URL}/api/dcc/document-preview/${item.version.id}/${encodeURIComponent(item.version.file_path.split('/').pop())}`
+              : null
+          };
+        }).filter(Boolean);
+
+        setSendDocuments(mappedDocs);
+      } else {
+        setSendDocuments([]);
+      }
+
+      const matrix = getCommunicationMatrixForPO(transmission.po_id, transmission.customer_id, transmission.customer_location_id)
+      setCommunicationMatrix(matrix);
+
+    } catch (error) {
+      console.error("Error fetching transmission details", error);
+      setSendDocuments([]);
+    } finally {
+      setLoadingDocs(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isSendMailDialogOpen && activeTransmission) {
+      const matrix = getCommunicationMatrixForPO(activeTransmission.po_id, activeTransmission.customer_id, activeTransmission.customer_location_id)
+      const initialSelection = {}
+      matrix.shreno.forEach((contact) => {
+        initialSelection[contact.id] = true
+      })
+      matrix.client.forEach((contact) => {
+        initialSelection[contact.id] = true
+      })
+      setSelectedEmails(initialSelection)
+    } else if (!isSendMailDialogOpen) {
+      setSelectedEmails({})
+    }
+  }, [isSendMailDialogOpen, activeTransmission, customers])
+
+  const handleEmailToggle = (contactId) => {
+    setSelectedEmails((prev) => ({
+      ...prev,
+      [contactId]: !prev[contactId],
+    }))
+  }
+
+  const handleSendMail = async () => {
+    const selectedIds = Object.keys(selectedEmails).filter(id => selectedEmails[id]);
+
+    if (selectedIds.length === 0) {
+      toast.error("Please select at least one recipient");
+      return;
+    }
+
+    setIsLoadingSend(true);
+
+    try {
+      const clientEmails = [];
+      const shrenoEmails = [];
+
+      selectedIds.forEach(id => {
+        const contactIdNum = parseInt(id);
+        const contactIdStr = id;
+
+        let clientContact = communicationMatrix.client.find(c => c.id === contactIdNum || c.id == contactIdStr);
+        if (clientContact) {
+            clientEmails.push(clientContact.email);
+            return;
+        }
+
+        let shrenoContact = communicationMatrix.shreno.find(c => c.id === contactIdNum || c.id == contactIdStr);
+        if (shrenoContact) {
+            shrenoEmails.push(shrenoContact.email);
+            return;
+        }
+      });
+
+      const response = await dccService.sendTransmissionEmail({
+        transmission_id: activeTransmission.id,
+        client_emails: clientEmails,
+        shreno_emails: shrenoEmails
+      });
+
+      if (response && response.success) {
+        toast.success("Email sent successfully!");
+        setIsSendMailDialogOpen(false);
+        setActiveTransmission(prev => ({ ...prev, status: 'Sent' }));
+        setRefreshKey(prev => prev + 1);
+      } else {
+        toast.error(response?.message || "Failed to send email");
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to send email");
+    } finally {
+      setIsLoadingSend(false);
+    }
+  };
+
   // --- Helper for Status Badge ---
   const getStatusBadge = (status) => {
     switch (status) {
@@ -470,16 +640,45 @@ function CreateTransmission() {
               <Download className="h-4 w-4" />
               Document Transmittal
             </Button>
+            {row.client_status === 'Approved' || row.client_status === 'Rejected' ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={() => {
+                  setActiveTransmission(row);
+                  fetchTransmissionDetailsForSend(row);
+                  setView("send");
+                }}
+              >
+                <Eye className="h-4 w-4" />
+                View
+              </Button>
+            ) : (
+              <Button
+                variant={row.status === 'Sent' ? "secondary" : "default"}
+                size="sm"
+                className="flex items-center gap-2"
+                onClick={() => {
+                  setActiveTransmission(row);
+                  fetchTransmissionDetailsForSend(row);
+                  setView("send");
+                }}
+              >
+                <Mail className="h-4 w-4" />
+                {row.status === 'Sent' ? "Resend Mail" : "Send Mail"}
+              </Button>
+            )}
           </div>
         );
       }
     }
-  ], [navigate]);
+  ], [navigate, customers]);
 
   // Create View Document Columns
   const documentColumns = useMemo(() => [
     {
-      header: ({ table }) => (
+      header: () => (
         <Checkbox
           checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
           onCheckedChange={(value) => handleSelectAllDocs(!!value)}
@@ -487,11 +686,11 @@ function CreateTransmission() {
         />
       ),
       accessorKey: "select",
-      cell: ({ row }) => (
+      cell: (item) => (
         <Checkbox
-          checked={selectedDocuments.includes(row.original.id)}
-          onCheckedChange={(checked) => handleSelectOneDoc(row.original.id, checked)}
-          aria-label={`Select ${row.original.document.document_number}`}
+          checked={selectedDocuments.includes(item.id)}
+          onCheckedChange={(checked) => handleSelectOneDoc(item.id, checked)}
+          aria-label={`Select ${item.document?.document_number}`}
         />
       ),
       className: "w-[50px]"
@@ -502,16 +701,12 @@ function CreateTransmission() {
     {
       header: "Job Number",
       accessorKey: "group.job_group.0.job.job_number",
-      cell: ({ row }) => {
-        const jobs = row.original.group?.job_group;
+      cell: (item) => {
+        const jobs = item.group?.job_group;
         return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
       }
     },
-    {
-      header: "Revision/Version No",
-      accessorKey: "display_version_no",
-      cell: ({ row }) => row.original.display_version_no ? `Rev ${row.original.display_version_no}` : '-'
-    },
+    { header: "Revision/Version No", accessorKey: "display_version_no", cell: (item) => item.display_version_no ? `Rev ${item.display_version_no}` : '-' },
     { header: "Status", accessorKey: "status" }
   ], [selectedDocuments, filteredDocuments]);
 
@@ -530,10 +725,14 @@ function CreateTransmission() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === 'list' ? 'Transmissions' : 'Create Transmission'}
+                  {view === 'list' ? 'Transmissions' : view === 'send' ? 'Send Documents' : 'Create Transmission'}
                 </h1>
                 <p className="text-muted-foreground">
-                  {view === 'list' ? 'Manage and view existing transmissions.' : 'Select approved documents to create a new transmission.'}
+                  {view === 'list' 
+                    ? 'Manage and view existing transmissions.' 
+                    : view === 'send' 
+                      ? 'Review documents and send to client.'
+                      : 'Select approved documents to create a new transmission.'}
                 </p>
               </div>
               <div>
@@ -542,7 +741,11 @@ function CreateTransmission() {
                     <Plus className="mr-2 h-4 w-4" /> Create Transmission
                   </Button>
                 ) : (
-                  <Button variant="outline" onClick={() => setView('list')}>
+                  <Button variant="outline" onClick={() => {
+                      setView('list');
+                      setActiveTransmission(null);
+                      setSendDocuments([]);
+                  }}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
                 )}
@@ -559,9 +762,115 @@ function CreateTransmission() {
                     fetchData={fetchTransmissions}
                     pageCount={0}
                     onExport={handleExport}
+                    refreshKey={refreshKey}
                   />
                 </CardContent>
               </Card>
+            ) : view === 'send' ? (
+               <Card>
+                 <CardHeader>
+                   <div className="flex items-center justify-between">
+                     <div>
+                       <CardTitle>Approved Documents</CardTitle>
+                       <CardDescription>
+                         List of approved documents for Transmission {activeTransmission?.transmission_number}
+                       </CardDescription>
+                     </div>
+                     {activeTransmission?.client_status !== 'Approved' && activeTransmission?.client_status !== 'Rejected' && (
+                       <Button
+                         type="button"
+                         onClick={() => setIsSendMailDialogOpen(true)}
+                         disabled={isLoadingSend}
+                       >
+                         <Send className="h-4 w-4 mr-2" />
+                         {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
+                       </Button>
+                     )}
+                   </div>
+                 </CardHeader>
+                 <CardContent className="pt-6">
+                   <div className="rounded-md border bg-white">
+                     <Table>
+                       <TableHeader>
+                         <TableRow>
+                           <TableHead className="w-[60px]">S.No</TableHead>
+                           <TableHead>Doc Generated No</TableHead>
+                           <TableHead>Document Name</TableHead>
+                           <TableHead>Uploaded By</TableHead>
+                           <TableHead>Uploaded Date</TableHead>
+                           <TableHead>Revision</TableHead>
+                           <TableHead>Status</TableHead>
+                           <TableHead>Transmittal Status</TableHead>
+                           <TableHead className="text-right">Actions</TableHead>
+                         </TableRow>
+                       </TableHeader>
+                       <TableBody>
+                         {sendDocuments.length > 0 ? (
+                           sendDocuments.map((document, index) => (
+                             <TableRow key={document.id}>
+                               <TableCell className="font-medium text-slate-500">
+                                 {index + 1}
+                               </TableCell>
+                               <TableCell>{document.documentCode}</TableCell>
+                               <TableCell>{document.documentName}</TableCell>
+                               <TableCell>{document.uploadedBy}</TableCell>
+                               <TableCell>{document.uploadedDate}</TableCell>
+                               <TableCell>
+                                 {document.versionNo ? `Rev ${document.versionNo}` : '-'}
+                               </TableCell>
+                               <TableCell>
+                                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                                   Approved
+                                 </span>
+                               </TableCell>
+                               <TableCell>
+                                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                   activeTransmission?.status === 'Sent' 
+                                     ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' 
+                                     : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                                 }`}>
+                                   {activeTransmission?.status || 'Pending'}
+                                 </span>
+                               </TableCell>
+                               <TableCell className="text-right">
+                                 {document.file_url && (
+                                   <Button
+                                     variant="ghost"
+                                     size="sm"
+                                     className="h-8 gap-1"
+                                     onClick={() => {
+                                       setActivePreviewDoc({
+                                         documentName: document.documentName,
+                                         versionNo: document.versionNo ? `Rev ${document.versionNo}` : '',
+                                         mimeType: document.mimeType,
+                                         filePath: document.filePath
+                                       });
+                                       setPreviewUrl(document.file_url);
+                                       setIsPreviewOpen(true);
+                                     }}
+                                   >
+                                     <Eye className="h-3.5 w-3.5" />
+                                     Preview
+                                   </Button>
+                                 )}
+                               </TableCell>
+                             </TableRow>
+                           ))
+                         ) : (
+                           <TableRow>
+                             <TableCell
+                               colSpan={9}
+                               className="h-24 text-center"
+                             >
+                               {loadingDocs ? "Loading documents..." : "No approved documents found for this transmission."}
+                             </TableCell>
+                           </TableRow>
+                         )}
+                       </TableBody>
+                     </Table>
+                   </div>
+                 </CardContent>
+               </Card>
             ) : (
               <div className="grid gap-6">
                 {/* Selection Context */}
@@ -745,6 +1054,193 @@ function CreateTransmission() {
             )}
           </div>
         </main>
+        
+        {/* Send Mail Dialog */}
+        <Dialog open={isSendMailDialogOpen} onOpenChange={setIsSendMailDialogOpen}>
+          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Send Documents via Email</DialogTitle>
+              <DialogDescription>
+                Select email addresses to send the approved documents for {activeTransmission?.transmission_number}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              {/* Shreno Communication */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Shreno Communication</h3>
+                </div>
+                {communicationMatrix.shreno.length > 0 ? (
+                  <div className="space-y-3 pl-7">
+                    {communicationMatrix.shreno.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="flex items-center space-x-3 p-3 border rounded-lg"
+                      >
+                        <Checkbox
+                          id={`shreno-${contact.id}`}
+                          checked={selectedEmails[contact.id] || false}
+                          onCheckedChange={() => handleEmailToggle(contact.id)}
+                        />
+                        <Label
+                          htmlFor={`shreno-${contact.id}`}
+                          className="flex-1 cursor-pointer"
+                        >
+                          <div className="font-medium">{contact.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {contact.email}
+                          </div>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground pl-7">
+                    No Shreno contacts found.
+                  </p>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t"></div>
+
+              {/* Client Side Communication */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Client Side Communication</h3>
+                </div>
+                {communicationMatrix.client.length > 0 ? (
+                  <div className="space-y-3 pl-7">
+                    {communicationMatrix.client.map((contact) => (
+                      <div
+                        key={contact.id}
+                        className="flex items-center space-x-3 p-3 border rounded-lg"
+                      >
+                        <Checkbox
+                          id={`client-${contact.id}`}
+                          checked={selectedEmails[contact.id] || false}
+                          onCheckedChange={() => handleEmailToggle(contact.id)}
+                        />
+                        <Label
+                          htmlFor={`client-${contact.id}`}
+                          className="flex-1 cursor-pointer"
+                        >
+                          <div className="font-medium">{contact.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {contact.email}
+                          </div>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground pl-7">
+                    No client contacts found.
+                  </p>
+                )}
+              </div>
+
+              {/* Documents Summary */}
+              <div className="space-y-2 pt-2 border-t">
+                <h4 className="font-semibold">Documents to Send:</h4>
+                <div className="text-sm text-muted-foreground">
+                  {sendDocuments.length} approved document(s) will be sent
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsSendMailDialogOpen(false)}
+                disabled={isLoadingSend}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSendMail}
+                disabled={
+                  isLoadingSend ||
+                  Object.values(selectedEmails).filter(Boolean).length === 0
+                }
+              >
+                {isLoadingSend ? "Sending..." : (activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Document Preview Dialog */}
+        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+          <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
+            <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
+              {/* Floating Close Button (Optional if the default X is not enough) */}
+              {/* <Button 
+                variant="secondary" 
+                size="icon" 
+                className="absolute top-4 right-12 z-50 rounded-full shadow-lg"
+                onClick={() => setIsPreviewOpen(false)}
+              >
+                <Plus className="h-6 w-6 rotate-45" />
+              </Button> */}
+
+              {previewUrl ? (
+                // Determine support based on MIME type or version's file path extension
+                (
+                  activePreviewDoc?.mimeType === 'application/pdf' || 
+                  activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
+                  previewUrl.toLowerCase().includes('pdf')
+                ) ? (
+                  <iframe
+                    src={`${previewUrl}#toolbar=0`}
+                    className="w-full h-full border-0"
+                    title="PDF Preview"
+                  />
+                ) : (
+                  activePreviewDoc?.mimeType?.startsWith('image/') || 
+                  /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
+                  /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
+                ) ? (
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      e.target.src = "";
+                      e.target.onerror = null;
+                      toast.error("Failed to load image preview");
+                    }}
+                  />
+                ) : (
+                  // Fallback UI for Excel, Word, etc.
+                  <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
+                    <div className="bg-slate-100 p-4 rounded-full mb-4">
+                      <FileText className="h-12 w-12 text-slate-400" />
+                    </div>
+                    <p className="text-slate-500 font-medium">
+                      Preview not available for this file type.
+                    </p>
+                    <Button 
+                      variant="link" 
+                      className="mt-2 text-primary"
+                      onClick={() => window.open(previewUrl, '_blank')}
+                    >
+                      Open in New Tab
+                    </Button>
+                  </div>
+                )
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">
+                  <Plus className="h-10 w-10 rotate-45" />
+                  <p>No preview available</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </SidebarInset>
     </SidebarProvider >
   )

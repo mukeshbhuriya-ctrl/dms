@@ -1355,6 +1355,20 @@ class DccService {
         });
     }
 
+    async getDocumentVersionById(company_id, version_id) {
+        return await prisma.document_version.findFirst({
+            where: {
+                id: version_id,
+                group_document: {
+                    company_id: company_id
+                }
+            },
+            include: {
+                group_document: true
+            }
+        });
+    }
+
     async verifyZipPassword(transmissionId, password) {
         if (!transmissionId || !password) return { isValid: false };
 
