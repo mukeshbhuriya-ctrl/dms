@@ -1,3 +1,5 @@
+// Load environment variables first
+require('dotenv/config');
 // Enable module aliases for CommonJS (#api, #utils, etc.)
 require('module-alias/register');
 // Enable tsx for TypeScript support
@@ -84,6 +86,29 @@ app.use('/api/ncr', ncrRoutes);
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  if (err instanceof require('multer').MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: `File too large. Maximum limit is ${process.env.MAX_FILE_SIZE ? parseInt(process.env.MAX_FILE_SIZE) / (1024 * 1024) : 50}MB.`,
+      });
+    }
+    return res.status(400).json({
+      success: false,
+      message: `File upload error: ${err.message}`,
+    });
+  }
+
+  // Generic Error Handler
+  console.error('Unhandled Error:', err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
+  });
 });
 
 // Initialize server
