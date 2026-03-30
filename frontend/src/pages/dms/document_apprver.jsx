@@ -138,8 +138,12 @@ function DocumentApprover() {
       accessorKey: "uploadedBy"
     },
     {
-      header: "Uploaded Date",
       accessorKey: "uploadedDate"
+    },
+    {
+      header: "Actual Due Days",
+      accessorKey: "actual_due_days",
+      cell: (row) => row.actual_due_days || "-"
     },
     {
       header: "Assigner Status",
@@ -301,6 +305,7 @@ function DocumentApprover() {
             status: latestVersion?.status || doc.status, // Use version status for accuracy in consolidated view
             statusDisplay: doc.status,
             client_status: doc.client_status,
+            actual_due_days: doc.actual_due_days,
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,
             remarks: latestVersion?.remarks || '-',
