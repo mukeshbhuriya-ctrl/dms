@@ -1629,22 +1629,22 @@ class DccService {
      * Bulk Assign Documents
      */
     async bulkAssignDocuments(company_id, data) {
-        const { customer_id, customer_location_id, po_id, assignments } = data;
+        const { assignments } = data;
 
-        if (!customer_id || !customer_location_id || !po_id || !assignments || !Array.isArray(assignments)) {
+        if (!assignments || !Array.isArray(assignments)) {
             throw new Error('Invalid assignment data');
         }
 
         return await prisma.$transaction(async (tx) => {
             const results = [];
 
-            // Fetch all job numbers for the assignments to use in logging
+            // Fetch all job details for the assignments to get Customer, Location, PO, and Job Number
             const jobIds = [...new Set(assignments.map(a => a.job_id).filter(Boolean))];
             const foundJobs = await tx.job.findMany({
                 where: { id: { in: jobIds } },
-                select: { id: true, job_number: true }
+                select: { id: true, job_number: true, customer_id: true, customer_location_id: true, po_id: true }
             });
-            const jobMap = Object.fromEntries(foundJobs.map(j => [j.id, j.job_number]));
+            const jobMap = Object.fromEntries(foundJobs.map(j => [j.id, j]));
 
             for (const assign of assignments) {
                 const { 
@@ -1662,6 +1662,14 @@ class DccService {
                 } = assign;
 
                 if (!job_id || !document_name || !assign_user_id) continue;
+
+                // Extract customer, location, and po from the verified job mapping
+                const targetJob = jobMap[job_id];
+                if (!targetJob) continue;
+
+                const customer_id = targetJob.customer_id;
+                const customer_location_id = targetJob.customer_location_id;
+                const po_id = targetJob.po_id;
 
                 // 1. Find or Create Document Master for this name and type
                 let documentMaster = await tx.document_master.findFirst({
@@ -1733,7 +1741,7 @@ class DccService {
                     group_document_id: groupDoc.id,
                     user_id: assign_user_id, // Logged against destination user
                     action: 'Assigned',
-                    remarks: `Document assigned for job ${jobMap[job_id] || job_id}`
+                    remarks: `Document assigned for job ${targetJob.job_number || job_id}`
                 }, tx);
             }
 

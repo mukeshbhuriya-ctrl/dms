@@ -51,15 +51,12 @@ function AssignDocument() {
   const [activeDocId, setActiveDocId] = useState(null)
 
   // --- Assign Form State ---
-  const [formData, setFormData] = useState({
-    customerId: "",
-    locationId: "",
-    poId: "",
-  })
+  const [jobs, setJobs] = useState([])
   const [assignments, setAssignments] = useState([
     {
       tempId: Date.now(),
       jobId: "",
+      searchQuery: "",
       documentName: "",
       shrenoDocumentNo: "",
       shrenoReferenceNo: "",
@@ -105,7 +102,11 @@ function AssignDocument() {
     {
       accessorKey: "user.name",
       header: "Assigned To",
-      cell: (row) => row.user?.name || "Unassigned",
+      cell: (row) => {
+        const name = String(row.user?.name || row.user?.full_name || row.user?.email || "Unassigned")
+        const empid = String(row.user?.empid || row.user?.employeeId || "")
+        return (name !== "Unassigned" && empid) ? `${name} (${empid})` : name;
+      },
     },
     {
       accessorKey: "createdAt",
@@ -212,14 +213,16 @@ function AssignDocument() {
     const fetchData = async () => {
       try {
         setIsLoadingData(true)
-        // Fetch customers and users in parallel using apiClient
-        const [customersRes, usersRes] = await Promise.all([
+        // Fetch customers, users, and jobs in parallel using apiClient
+        const [customersRes, usersRes, jobsRes] = await Promise.all([
           apiClient.get("/api/dcc/get-customers", { limit: 1000 }),
-          apiClient.get("/api/users/get-users", { limit: 1000 }),
+          apiClient.get("/api/users/by-role/USER", { limit: 1000 }),
+          apiClient.get("/api/dcc/get-jobs", { limit: 1000 }),
         ])
 
         setCustomers(customersRes?.data || [])
         setUsers(usersRes?.data || [])
+        setJobs(jobsRes?.data || [])
       } catch (err) {
         console.error("Error fetching data:", err)
         setError(err?.message || "Failed to load data")
@@ -234,50 +237,8 @@ function AssignDocument() {
     }
   }, [view])
 
-
-  // Get locations for selected customer
-  const getLocationsForCustomer = (customerId) => {
-    const customer = customers.find((c) => c.id === customerId)
-    return customer?.customer_locations || []
-  }
-
-  // Get POs for selected location
-  const getPOsForLocation = (locationId) => {
-    if (!formData.customerId || !locationId) return []
-    const customer = customers.find((c) => c.id === formData.customerId)
-    if (!customer) return []
-
-    const location = customer.customer_locations?.find((loc) => loc.id === locationId)
-    return location?.pos || []
-  }
-
-  // Get jobs for selected PO
-  const getJobsForPO = (poId) => {
-    if (!formData.locationId || !poId) return []
-    const customer = customers.find((c) => c.id === formData.customerId)
-    if (!customer) return []
-
-    const location = customer.customer_locations?.find((loc) => loc.id === formData.locationId)
-    if (!location) return []
-
-    const po = location.pos?.find((p) => p.id === poId)
-    return po?.jobs || []
-  }
-
-  // Get available locations based on selected customer
-  const availableLocations = formData.customerId
-    ? getLocationsForCustomer(formData.customerId)
-    : []
-
-  // Get available POs based on selected location
-  const availablePOs = formData.locationId
-    ? getPOsForLocation(formData.locationId)
-    : []
-
-  // Get available jobs based on selected PO
-  const availableJobs = formData.poId
-    ? getJobsForPO(formData.poId)
-    : []
+  // Get available jobs
+  const availableJobs = jobs || []
 
   // --- Helpers for Dynamic Rows ---
   const addRow = () => {
@@ -286,6 +247,7 @@ function AssignDocument() {
       {
         tempId: Date.now(),
         jobId: "",
+        searchQuery: "",
         documentName: "",
         shrenoDocumentNo: "",
         shrenoReferenceNo: "",
@@ -327,12 +289,7 @@ function AssignDocument() {
     setEditingId(row.id)
     setView("assign")
 
-    // Set form data
-    setFormData({
-      customerId: row.customer_id,
-      locationId: row.customer_location_id,
-      poId: row.po_id,
-    })
+    // Set form data removed
 
     // Set assignments (just one for edit for now, as simple merge)
     setAssignments([
@@ -369,11 +326,7 @@ function AssignDocument() {
   const handleBack = () => {
     setView("list")
     setEditingId(null)
-    setFormData({
-      customerId: "",
-      locationId: "",
-      poId: "",
-    })
+    // Reset form data removed
     setAssignments([
       {
         tempId: Date.now(),
@@ -391,75 +344,9 @@ function AssignDocument() {
     ])
   }
 
-  // Handle customer change
-  const handleCustomerChange = (customerId) => {
-    setFormData({
-      customerId,
-      locationId: "",
-      poId: "",
-      jobIds: [],
-    })
-  }
-
-  // Handle location change
-  const handleLocationChange = (locationId) => {
-    setFormData((prev) => ({
-      ...prev,
-      locationId,
-      poId: "",
-      jobIds: [],
-    }))
-  }
-
-  // Handle PO change
-  const handlePOChange = (poId) => {
-    setFormData((prev) => ({
-      ...prev,
-      poId,
-      jobIds: [],
-    }))
-  }
-
-  // Handle job selection (multiple jobs)
-  const handleJobToggle = (jobId) => {
-    setFormData((prev) => {
-      const currentJobIds = prev.jobIds || []
-      const isSelected = currentJobIds.includes(jobId)
-
-      if (isSelected) {
-        return {
-          ...prev,
-          jobIds: currentJobIds.filter((id) => id !== jobId),
-        }
-      } else {
-        return {
-          ...prev,
-          jobIds: [...currentJobIds, jobId],
-        }
-      }
-    })
-  }
-
-  // Handle select all jobs
-  const handleSelectAllJobs = () => {
-    if (formData.jobIds?.length === availableJobs.length) {
-      setFormData((prev) => ({
-        ...prev,
-        jobIds: [],
-      }))
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        jobIds: availableJobs.map((job) => job.id),
-      }))
-    }
-  }
+  // Unused handlers removed
 
   const handleAssign = async () => {
-    if (!formData.customerId || !formData.locationId || !formData.poId) {
-      toast.error("Missing required selection (Customer, Location, or PO).");
-      return;
-    }
 
     const validAssignments = assignments.filter(a => a.jobId && a.documentName && a.assignUserId)
     if (validAssignments.length === 0) {
@@ -470,9 +357,6 @@ function AssignDocument() {
     setIsLoading(true)
 
     const requestBody = {
-      customer_id: formData.customerId,
-      customer_location_id: formData.locationId,
-      po_id: formData.poId,
       assignments: validAssignments.map(a => ({
         job_id: a.jobId,
         document_name: a.documentName,
@@ -513,7 +397,7 @@ function AssignDocument() {
     }
   }
 
-  const isSubmitDisabled = isLoading || !formData.poId || assignments.some(a => !a.jobId || !a.documentName || !a.assignUserId)
+  const isSubmitDisabled = isLoading || assignments.some(a => !a.jobId || !a.documentName || !a.assignUserId)
 
   return (
     <SidebarProvider>
@@ -593,122 +477,8 @@ function AssignDocument() {
 
             {view === 'assign' && (
               <div className="flex-1 flex flex-col w-full space-y-6">
-                <form>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Selection</CardTitle>
-                      <CardDescription>
-                        Select customer, location, PO, and job in sequence
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {/* Row 1: Customer and Location */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="customerId">
-                            Customer Name <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={formData.customerId}
-                            onValueChange={handleCustomerChange}
-                            disabled={isLoading || isLoadingData}
-                            required
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder={
-                                isLoadingData ? "Loading customers..." : "Select a customer"
-                              } />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {customers.length > 0 ? (
-                                customers.map((customer) => (
-                                  <SelectItem key={customer.id} value={customer.id}>
-                                    {customer.customer_name || customer.name}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="no-customers" disabled>
-                                  No customers found
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="locationId">
-                            Location <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={formData.locationId}
-                            onValueChange={handleLocationChange}
-                            disabled={isLoading || !formData.customerId}
-                            required
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select a location" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableLocations.length > 0 ? (
-                                availableLocations.map((location) => (
-                                  <SelectItem key={location.id} value={location.id}>
-                                    <div className="flex flex-col">
-                                      <span>{location.location_name || location.name}</span>
-                                      {location.gst_number && (
-                                        <span className="text-xs text-muted-foreground">
-                                          GST: {location.gst_number}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="no-location" disabled>
-                                  No locations available
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* Row 2: PO Number */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="poId">
-                            PO Number <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={formData.poId}
-                            onValueChange={handlePOChange}
-                            disabled={isLoading || !formData.locationId}
-                            required
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Select a PO" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availablePOs.length > 0 ? (
-                                availablePOs.map((po) => (
-                                  <SelectItem key={po.id} value={po.id}>
-                                    {po.po_number || po.poNumber}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="no-po" disabled>
-                                  No purchase orders available
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </form>
-
                 {/* Document Details Section */}
-                {formData.poId && (
+
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between">
                       <div>
@@ -726,6 +496,9 @@ function AssignDocument() {
                             <TableRow className="bg-muted/50 whitespace-nowrap">
                               <TableHead className="w-[50px]">S.No</TableHead>
                               <TableHead className="min-w-[250px]">Job Number *</TableHead>
+                              <TableHead className="min-w-[150px]">Customer</TableHead>
+                              <TableHead className="min-w-[150px]">Location</TableHead>
+                              <TableHead className="min-w-[150px]">PO Number</TableHead>
                               <TableHead className="min-w-[200px]">Document Name *</TableHead>
                               <TableHead className="min-w-[150px]">Shreno Document No</TableHead>
                               <TableHead className="min-w-[150px]">Shreno Reference No</TableHead>
@@ -740,6 +513,7 @@ function AssignDocument() {
                           </TableHeader>
                           <TableBody>
                             {assignments.map((assignment, idx) => {
+                              const jobDetails = availableJobs.find(j => j.id === assignment.jobId);
                               return (
                                 <TableRow key={assignment.tempId}>
                                   <TableCell className="font-medium">{idx + 1}</TableCell>
@@ -755,13 +529,56 @@ function AssignDocument() {
                                         <SelectValue placeholder="Select Job" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {availableJobs.map(job => (
-                                          <SelectItem key={job.id} value={job.id} className="font-bold">
-                                            {job.job_number}
-                                          </SelectItem>
-                                        ))}
+                                        <div className="p-2 sticky top-0 bg-popover z-10 w-full mb-1">
+                                          <Input
+                                            placeholder="Search Job Number..."
+                                            value={assignment.searchQuery || ""}
+                                            onChange={e => handleAssignmentChange(assignment.tempId, 'searchQuery', e.target.value)}
+                                            onKeyDown={e => e.stopPropagation()}
+                                            onClick={e => e.stopPropagation()}
+                                            autoFocus
+                                            className="h-8 shadow-none"
+                                          />
+                                        </div>
+                                        <div className="max-h-[200px] overflow-y-auto">
+                                          {availableJobs
+                                            .filter(job => !assignment.searchQuery || job.job_number.toLowerCase().includes(assignment.searchQuery.toLowerCase()))
+                                            .map(job => (
+                                              <SelectItem key={job.id} value={job.id} className="font-bold">
+                                                {job.job_number}
+                                              </SelectItem>
+                                          ))}
+                                          {availableJobs.filter(job => !assignment.searchQuery || job.job_number.toLowerCase().includes(assignment.searchQuery.toLowerCase())).length === 0 && (
+                                            <div className="py-6 text-center text-sm text-muted-foreground">
+                                              No jobs found.
+                                            </div>
+                                          )}
+                                        </div>
                                       </SelectContent>
                                     </Select>
+                                  </TableCell>
+
+                                  {/* Read-Only Columns */}
+                                  <TableCell>
+                                    <Input
+                                      value={jobDetails?.customer?.customer_name || "-"}
+                                      className="w-full bg-slate-50 text-slate-500 cursor-not-allowed"
+                                      readOnly
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      value={jobDetails?.customer_location?.location_name || "-"}
+                                      className="w-full bg-slate-50 text-slate-500 cursor-not-allowed"
+                                      readOnly
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      value={jobDetails?.po?.po_number || "-"}
+                                      className="w-full bg-slate-50 text-slate-500 cursor-not-allowed"
+                                      readOnly
+                                    />
                                   </TableCell>
 
                                   {/* Document Name Input */}
@@ -857,14 +674,18 @@ function AssignDocument() {
                                         <SelectValue placeholder="Select user" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {users.map(u => (
-                                          <SelectItem key={u.id} value={u.id}>
-                                            <div className="flex flex-col">
-                                              <span>{u.name}</span>
-                                              <span className="text-xs text-muted-foreground">{u.email}</span>
-                                            </div>
-                                          </SelectItem>
-                                        ))}
+                                        {users.map(user => {
+                                          const id = String(user?.id || "")
+                                          const name = String(user?.name || user?.full_name || user?.email || "User")
+                                          const empid = String(user?.empid || user?.employeeId || "")
+                                          const displayName = empid ? `${name} (${empid})` : name
+
+                                          return (
+                                            <SelectItem key={id} value={id}>
+                                              {displayName}
+                                            </SelectItem>
+                                          )
+                                        })}
                                       </SelectContent>
                                     </Select>
                                   </TableCell>
@@ -905,7 +726,6 @@ function AssignDocument() {
                       </div>
                     </CardContent>
                   </Card>
-                )}
               </div>
             )}
 

@@ -168,6 +168,7 @@ class UserService {
                 id: true,
                 name: true,
                 email: true,
+                empid: true,
                 // Add other fields as needed
             },
         });
