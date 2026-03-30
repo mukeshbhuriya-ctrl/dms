@@ -142,9 +142,78 @@ function DocumentApprover() {
       accessorKey: "uploadedDate"
     },
     {
-      header: "Status",
-      accessorKey: "statusDisplay",
-      cell: (row) => getStatusBadge(row.status)
+      header: "Assigner Status",
+      accessorKey: "assigner_status",
+      cell: () => (
+        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+          Assigned
+        </span>
+      ),
+    },
+    {
+      header: "Uploader Status",
+      accessorKey: "uploader_status",
+      cell: (row) => {
+        const docStatus = row.originalDoc?.status || row.status;
+        const isPending = docStatus === 'Pending' || docStatus === 'Upload Due' || docStatus === 'Response Due';
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+            {isPending ? 'Pending' : 'Uploaded'}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Approver Status",
+      accessorKey: "approver_status",
+      cell: (row) => {
+        const docStatus = row.originalDoc?.status || row.status;
+        const isUploaderPending = docStatus === 'Pending' || docStatus === 'Upload Due' || docStatus === 'Response Due';
+        let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval";
+        let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
+        
+        if (docStatus === 'Approved') {
+          text = "Approved";
+          colorClass = "bg-green-100 text-green-800";
+        } else if (docStatus === 'Rejected') {
+          text = "Rejected";
+          colorClass = "bg-red-100 text-red-800";
+        }
+
+        return (
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Client Status",
+      accessorKey: "client_status_display",
+      cell: (row) => {
+        const docStatus = row.originalDoc?.status || row.status;
+        let text = "Awaiting Internal Approval";
+        let colorClass = "bg-gray-100 text-gray-800";
+        
+        if (docStatus === 'Approved') {
+          if (row.client_status === 'Approved') {
+            text = "Approved";
+            colorClass = "bg-green-100 text-green-800";
+          } else if (row.client_status === 'Rejected') {
+            text = "Rejected";
+            colorClass = "bg-red-100 text-red-800";
+          } else {
+            text = "Pending for Client";
+            colorClass = "bg-yellow-100 text-yellow-800";
+          }
+        }
+
+        return (
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
+          </span>
+        );
+      },
     },
     {
       header: "Action",
@@ -231,6 +300,7 @@ function DocumentApprover() {
 
             status: latestVersion?.status || doc.status, // Use version status for accuracy in consolidated view
             statusDisplay: doc.status,
+            client_status: doc.client_status,
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,
             remarks: latestVersion?.remarks || '-',

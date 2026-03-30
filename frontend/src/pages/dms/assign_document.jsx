@@ -129,19 +129,75 @@ function AssignDocument() {
       cell: (row) => row.actual_due_days || "-",
     },
     {
-      accessorKey: "status",
-      header: "Status",
-      cell: (row) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-          ${row.status === 'Approved' ? 'bg-green-100 text-green-800' :
-            row.status === 'Rejected' ? 'bg-red-100 text-red-800' :
-              row.status === 'Uploaded' ? 'bg-blue-100 text-blue-800' :
-                row.status === 'Upload Due' ? 'bg-red-100 text-red-800 border border-red-200' :
-                  row.status === 'Response Due' ? 'bg-orange-100 text-orange-800 border border-orange-200' :
-                    'bg-yellow-100 text-yellow-800'}`}>
-          {row.status}
+      accessorKey: "assigner_status",
+      header: "Assigner Status",
+      cell: () => (
+        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+          Assigned
         </span>
       ),
+    },
+    {
+      accessorKey: "uploader_status",
+      header: "Uploader Status",
+      cell: (row) => {
+        const isPending = row.status === 'Pending' || row.status === 'Upload Due' || row.status === 'Response Due';
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+            {isPending ? 'Pending' : 'Uploaded'}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "approver_status",
+      header: "Approver Status",
+      cell: (row) => {
+        const isUploaderPending = row.status === 'Pending' || row.status === 'Upload Due' || row.status === 'Response Due';
+        let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval";
+        let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
+        
+        if (row.status === 'Approved') {
+          text = "Approved";
+          colorClass = "bg-green-100 text-green-800";
+        } else if (row.status === 'Rejected') {
+          text = "Rejected";
+          colorClass = "bg-red-100 text-red-800";
+        }
+
+        return (
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
+          </span>
+        );
+      },
+    },
+    {
+      accessorKey: "client_status",
+      header: "Client Status",
+      cell: (row) => {
+        let text = "Awaiting Internal Approval";
+        let colorClass = "bg-gray-100 text-gray-800";
+        
+        if (row.status === 'Approved') {
+          if (row.client_status === 'Approved') {
+            text = "Approved";
+            colorClass = "bg-green-100 text-green-800";
+          } else if (row.client_status === 'Rejected') {
+            text = "Rejected";
+            colorClass = "bg-red-100 text-red-800";
+          } else {
+            text = "Pending for Client";
+            colorClass = "bg-yellow-100 text-yellow-800";
+          }
+        }
+
+        return (
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
+          </span>
+        );
+      },
     },
     {
       accessorKey: "updatedAt",
