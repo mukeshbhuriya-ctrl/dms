@@ -410,15 +410,15 @@ function UploadDocument() {
                                 {/* Filters */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                     <div className="space-y-2">
-                                        <Label htmlFor="statusFilter">Filter by Status</Label>
+                                        <Label htmlFor="statusFilter">Filter by Uploader Status</Label>
                                         <Select value={statusFilter} onValueChange={setStatusFilter}>
                                             <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Status" />
+                                                <SelectValue placeholder="All Uploader Status" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All Status</SelectItem>
+                                                <SelectItem value="all">All Uploader Status</SelectItem>
                                                 <SelectItem value="pending">Pending</SelectItem>
-                                                <SelectItem value="done">Done</SelectItem>
+                                                <SelectItem value="done">Uploaded</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -435,7 +435,7 @@ function UploadDocument() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">All Approver Status</SelectItem>
-                                                <SelectItem value="NA">NA</SelectItem>
+                                                <SelectItem value="NA">Awaiting Upload</SelectItem>
                                                 <SelectItem value="pending">
                                                     Pending for Approval
                                                 </SelectItem>
