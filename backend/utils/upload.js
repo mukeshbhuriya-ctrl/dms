@@ -11,7 +11,12 @@ const LOGS_DIR = path.join(ROOT_DIR, 'logs');
 // Ensure base directories exist
 [ROOT_DIR, UPLOAD_DIR, LOGS_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch (err) {
+      // Failed to create directory
+      console.error(`Failed to create directory ${dir}:`, err);
+    }
   }
 });
 
@@ -59,7 +64,7 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: parseInt(process.env.MAX_FILE_SIZE || 52428800), // Default to 50MB
   },
 });
 

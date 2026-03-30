@@ -42,6 +42,7 @@ export const MENU_CONFIG = [
         icon: LayoutDashboard,
         path: "/user/dashboard",
         roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER],
+        hideFor: [ROLES.ADMIN],
     },
 
     // ── User & Department Management ──
@@ -55,7 +56,7 @@ export const MENU_CONFIG = [
         ],
     },
 
-        // ── Report Management ──
+    // ── Report Management ──
     {
         title: "Reports Management",
         icon: FileText,
@@ -93,7 +94,7 @@ export const MENU_CONFIG = [
         icon: Folder,
         items: [
             { title: "Assign Document", path: "/dcc/assign-document", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER] },
+            { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER], hideFor: [ROLES.ADMIN] },
             { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Create Transmission", path: "/dcc/create-transmission", roles: [ROLES.ADMIN, ROLES.DCC] },
             // { title: "Send Document to Client", path: "/dcc/send-document-to-client", roles: [ROLES.ADMIN, ROLES.DCC] },
@@ -202,7 +203,8 @@ export function getFilteredMenu(userRoles = []) {
 
     const filterItems = (items) => {
         return items.reduce((acc, item) => {
-            if (item.path === "/user/dashboard" && roleSet.has(ROLES.ADMIN)) return acc
+            // Blacklist check: hide item if user has a role in hideFor
+            if (item.hideFor?.some((role) => roleSet.has(role))) return acc
 
             if (item.items) {
                 const visibleSubItems = filterItems(item.items)
@@ -230,7 +232,10 @@ export function getAllowedPaths(userRoles = []) {
 
     const collectPaths = (items) => {
         for (const item of items) {
-            if (item.path && item.roles?.some((r) => roleSet.has(r))) {
+            const isAllowed = item.roles?.some((r) => roleSet.has(r))
+            const isHidden = item.hideFor?.some((r) => roleSet.has(r))
+
+            if (item.path && isAllowed && !isHidden) {
                 paths.add(item.path)
             }
             if (item.items) collectPaths(item.items)
