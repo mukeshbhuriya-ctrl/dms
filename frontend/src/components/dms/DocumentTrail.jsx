@@ -8,12 +8,13 @@ import {
     User, 
     FileText,
     History,
-    Download
+    Download,
+    Eye
 } from 'lucide-react';
 import { dccService } from '../../services/dcc.service';
 import { format } from 'date-fns';
 
-const DocumentTrail = ({ documentId }) => {
+const DocumentTrail = ({ documentId, onPreview }) => {
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -111,8 +112,8 @@ const DocumentTrail = ({ documentId }) => {
                                     
                                     {activity.metadata && (
                                         <div className="flex items-center gap-3">
-                                            {activity.metadata.version_no && (
-                                                activity.metadata.file_url ? (
+                                            {activity.metadata.file_url ? (
+                                                <div className="flex items-center gap-2">
                                                     <a 
                                                         href={activity.metadata.file_url} 
                                                         target="_blank" 
@@ -125,12 +126,29 @@ const DocumentTrail = ({ documentId }) => {
                                                         <span>Rev {activity.metadata.version_no}</span>
                                                         <Download className="w-3.5 h-3.5 ml-1 text-primary group-hover/dl:scale-110 transition-transform" />
                                                     </a>
-                                                ) : (
-                                                    <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded">
-                                                        <FileText className="w-3 h-3" />
-                                                        <span>Rev {activity.metadata.version_no}</span>
-                                                    </div>
-                                                )
+                                                    
+                                                    {onPreview && activity.metadata.preview_url && (
+                                                        <button
+                                                            onClick={() => onPreview({
+                                                                documentName: `Version ${activity.metadata.version_no}`,
+                                                                versionNo: activity.metadata.version_no,
+                                                                mimeType: activity.metadata.mime_type,
+                                                                filePath: activity.metadata.file_path,
+                                                                previewUrl: activity.metadata.preview_url
+                                                            })}
+                                                            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 hover:shadow-sm border border-blue-200 transition-all cursor-pointer"
+                                                            title="Preview this version"
+                                                        >
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                            <span>Preview</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded">
+                                                    <FileText className="w-3 h-3" />
+                                                    <span>Rev {activity.metadata.version_no}</span>
+                                                </div>
                                             )}
                                             {activity.metadata.transmission_no && (
                                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
