@@ -226,16 +226,6 @@ const ClientApprovalStatus = () => {
                             </Button>
                         ) : (
                             <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                        setActiveDocumentId(row.id);
-                                        setIsTrailOpen(true);
-                                    }}
-                                >
-                                    <History className="w-4 h-4 mr-1" /> History
-                                </Button>
                                 {row.client_archive_url && (
                                     <Button 
                                         variant="outline" 

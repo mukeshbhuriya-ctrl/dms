@@ -513,6 +513,11 @@ class WeldJointService {
                             job_number: true, project_id: true, equipement_name: true,
                             customer: { select: { customer_name: true } }
                         }
+                    },
+                    weld_joints: {
+                        select: {
+                            joint_type: true
+                        }
                     }
                 },
                 orderBy: { [sortBy]: sortOrder },

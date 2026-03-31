@@ -101,6 +101,15 @@ function WeldingJoints() {
       accessorKey: "job.job_number",
       header: "Job No",
     },
+    {
+      id: "joint_type",
+      header: "Joint Type",
+      cell: (row) => {
+        const types = row.weld_joints?.map(j => j.joint_type).filter(Boolean) || [];
+        const uniqueTypes = [...new Set(types)].sort();
+        return uniqueTypes.join(", ") || "-";
+      }
+    },
     // {
     //   accessorKey: "job.project_id",
     //   header: "Project ID",
@@ -807,6 +816,7 @@ function WeldingJoints() {
                                       }
                                       disabled={isLoading}
                                       className="w-full"
+                                      required
                                     />
                                   </TableCell>
                                   <TableCell>
@@ -846,6 +856,7 @@ function WeldingJoints() {
                                       }
                                       disabled={isLoading}
                                       className="w-[150px] min-w-[150px]"
+                                      required
                                     />
                                   </TableCell>
                                   <TableCell>
@@ -1140,10 +1151,10 @@ function WeldingJoints() {
                         <span className="font-semibold text-muted-foreground text-xs">Client:</span>
                         <span>{selectedPlanDetails.job?.customer?.customer_name}</span>
                       </div>
-                      <div className="flex flex-col">
+                      {/* <div className="flex flex-col">
                         <span className="font-semibold text-muted-foreground text-xs">Project ID:</span>
                         <span>{selectedPlanDetails.job?.project_id}</span>
-                      </div>
+                      </div> */}
                       <div className="flex flex-col">
                         <span className="font-semibold text-muted-foreground text-xs">Equipment:</span>
                         <span>{selectedPlanDetails.job?.equipement_name}</span>
@@ -1174,6 +1185,7 @@ function WeldingJoints() {
                           {/* Row 2: Main Headers */}
                           <tr className="bg-gray-50">
                             <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint No</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint Type</th>
                             <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint</th>
 
                             {/* Thickness Group */}
@@ -1209,6 +1221,7 @@ function WeldingJoints() {
                           {selectedPlanDetails.weld_joints?.map((joint) => (
                             <tr key={joint.id} className="hover:bg-muted/5">
                               <td className="border border-black p-2 whitespace-nowrap">{joint.joint_no}</td>
+                              <td className="border border-black p-2 font-bold">{joint.joint_type}</td>
                               <td className="border border-black p-2">{joint.joint_description || joint.joint}</td>
 
                               {/* Thickness */}
