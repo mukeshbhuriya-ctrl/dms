@@ -61,28 +61,41 @@ class ActivityService {
             }),
             prisma.document_version.findMany({
                 where: { group_document_id },
-                select: { version_no: true, file_url: true }
+                select: { id: true, version_no: true, file_url: true, mime_type: true, file_path: true }
             })
         ]);
 
         // Create a lookup map for versions
         const versionMap = {};
         versions.forEach(v => {
-            versionMap[v.version_no] = v.file_url;
+            versionMap[v.version_no] = { 
+                file_url: v.file_url,
+                mime_type: v.mime_type,
+                file_path: v.file_path,
+                id: v.id
+            };
         });
 
         // Expand file URLs in metadata for frontend use
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
         return activities.map(activity => {
             if (activity.metadata) {
-                // Backfill file_url from versions table if missing in metadata
-                if (activity.metadata.version_no && !activity.metadata.file_url) {
-                    activity.metadata.file_url = versionMap[activity.metadata.version_no];
+                // Backfill details from versions table if missing in metadata
+                if (activity.metadata.version_no && versionMap[activity.metadata.version_no]) {
+                    const vInfo = versionMap[activity.metadata.version_no];
+                    if (!activity.metadata.file_url) activity.metadata.file_url = vInfo.file_url;
+                    if (!activity.metadata.mime_type) activity.metadata.mime_type = vInfo.mime_type;
+                    if (!activity.metadata.file_path) activity.metadata.file_path = vInfo.file_path;
+                    
+                    if (vInfo.id && vInfo.file_path) {
+                        const fileName = vInfo.file_path.split('/').pop() || vInfo.file_path.split('\\').pop();
+                        activity.metadata.preview_url = `${backendUrl}/api/dcc/document-preview/${vInfo.id}/${encodeURIComponent(fileName)}`;
+                    }
                 }
 
                 if (activity.metadata.file_url || activity.metadata.feedback_url) {
                     let url = activity.metadata.file_url || activity.metadata.feedback_url;
-                    if (url.startsWith('/') && !url.startsWith('http')) {
+                    if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('http')) {
                         const fullUrl = `${backendUrl}${url}`;
                         if (activity.metadata.file_url) activity.metadata.file_url = fullUrl;
                         if (activity.metadata.feedback_url) activity.metadata.feedback_url = fullUrl;
