@@ -17,382 +17,298 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function Stage2({ initialData, isReview = false, stage = "stage2" }) {
-  const [productionEngineerName, setProductionEngineerName] = useState("")
-  const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-  const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [userRole, setUserRole] = useState("")
-  const [qcEngineers, setQcEngineers] = useState([])
+const Stage2D = ({ initialData, inspectionData, isReview = false, stage = "stage2" }) => {
+    const sPrefix = stage.replace('stage', 's');
+    
+    const [productionEngineerName, setProductionEngineerName] = useState("")
+    const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
+    const [qcEngineer, setQcEngineer] = useState("") 
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [userRole, setUserRole] = useState("")
+    const [qcEngineers, setQcEngineers] = useState([])
+    const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
 
-  const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
-
-  const sPrefix = stage.replace('stage', 's');
-
-  useEffect(() => {
-    const authData = localStorage.getItem("user_auth")
-    if (authData) {
-      try {
-        const parsed = JSON.parse(authData)
-        const user = parsed?.payload?.user || parsed?.user
-        if (user?.name) {
-          if (!isReview) setProductionEngineerName(user.name)
-        }
-        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
-        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
-        if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
-          setUserRole('QC')
-        } else {
-          setUserRole('PROD')
-        }
-      } catch (e) {
-        console.error("Error parsing auth data", e)
-      }
-    }
-  }, [isReview])
-
-  useEffect(() => {
-    const fetchQcEngineers = async () => {
-      try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+    useEffect(() => {
         const authData = localStorage.getItem("user_auth")
-        let token = null
         if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
+            try {
+                const parsed = JSON.parse(authData)
+                const user = parsed?.payload?.user || parsed?.user
+                if (user?.name) {
+                    if (!isReview) setProductionEngineerName(user.name)
+                }
+                const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+                const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
+                if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
+                    setUserRole('QC')
+                } else {
+                    setUserRole('PROD')
+                }
+            } catch (e) { console.error(e) }
         }
+    }, [isReview])
 
-        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          setQcEngineers(data.data || [])
-        } else {
-          console.error("Failed to fetch QC Engineers:", data.message)
+    useEffect(() => {
+        const fetchQeEngineers = async () => {
+            try {
+                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+                const authData = localStorage.getItem("user_auth")
+                let token = null
+                if (authData) {
+                    try {
+                        const parsed = JSON.parse(authData)
+                        token = parsed?.payload?.token || parsed?.token
+                    } catch { }
+                }
+
+                const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": token ? `Bearer ${token}` : ""
+                    },
+                    credentials: "include",
+                })
+                const data = await res.json()
+                if (res.ok && data.success) {
+                    setQcEngineers(data.data || [])
+                }
+            } catch (error) {
+                console.error("Error fetching QE Engineers:", error)
+            }
         }
-      } catch (error) {
-        console.error("Error fetching QC Engineers:", error)
-      }
-    }
+        fetchQeEngineers()
+    }, [])
 
-    fetchQcEngineers()
-  }, [])
+    useEffect(() => {
+        const inspData = inspectionData || initialData?.inspectionData;
+        if (inspData) {
+            if (inspData[`${sPrefix}_qc_eng_id`]) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
+            if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
-  const getCategoryKey = () => {
-    return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'c';
-  }
+            if (inspData[`${sPrefix}_data`]) {
+                try {
+                    const rawData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
+                    const sData = rawData?.d?.[sPrefix] || rawData?.d || rawData || {};
 
-  useEffect(() => {
-    if (initialData?.inspectionData) {
-      const categoryKey = getCategoryKey();
-      const inspectionData = initialData.inspectionData;
+                    if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
+                    if (sData.submissionDate) setTodayDate(sData.submissionDate);
+                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setQcEngineer(sData.assignedQcEngineerId);
+                } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
+            }
+        }
+    }, [initialData, inspectionData, stage]);
 
-      if (inspectionData[`${sPrefix}_qc_eng_id`]) {
-        setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
-      }
-      if (inspectionData[`${sPrefix}_prod_eng_name`]) {
-        setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
-      }
-
-      if (inspectionData[`${sPrefix}_data`]) {
+    const handleSubmit = async () => {
+        setIsSubmitting(true)
+        setAlert({ show: false, type: '', message: '' })
         try {
-          const rawData = typeof inspectionData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspectionData[`${sPrefix}_data`]) : inspectionData[`${sPrefix}_data`];
-          const sbcData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+            const authData = localStorage.getItem("user_auth")
+            let token = null
+            let userId = null;
 
-          if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
-          if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
-          if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
-            setBackChipQcEngineer(sbcData.assignedQcEngineerId);
-          }
-        } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
-      }
-    }
-  }, [initialData])
+            if (authData) {
+                const parsed = JSON.parse(authData)
+                token = parsed?.payload?.token || parsed?.token
+                userId = parsed?.payload?.user?.id || parsed?.user?.id
+            }
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setAlert({ show: false, type: '', message: '' });
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      let userId = null;
-      let role = 'PROD';
+            if (!qcEngineer) {
+                setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
+                setIsSubmitting(false);
+                return;
+            }
 
-      if (authData) {
-        const parsed = JSON.parse(authData)
-        token = parsed?.payload?.token || parsed?.token
-        userId = parsed?.payload?.user?.id || parsed?.user?.id
-      }
+            const currentStageData = {
+                assignedQcEngineerId: qcEngineer,
+                productionEngineerName,
+                submissionDate: todayDate,
+            };
 
-      if (!backChipQcEngineer) {
-        setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
-        setIsSubmitting(false);
-        return;
-      }
+            const inspData = inspectionData || initialData?.inspectionData;
+            let existingData = {};
+            if (inspData?.[`${sPrefix}_data`]) {
+                existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
+            }
 
-      const categoryKey = getCategoryKey();
+            const finalData = {
+                ...existingData,
+                d: {
+                    ...existingData?.d,
+                    [sPrefix]: currentStageData
+                }
+            };
 
-      let existingData = {};
-      if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
-        existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
-          ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
-          : initialData.inspectionData[`${sPrefix}_data`];
-      }
+            const payload = {
+                jointId: initialData?.id,
+                stage: stage,
+                status: "pending",
+                engineerId: userId,
+                role: 'PROD',
+                data: finalData
+            }
 
-      const currentStageData = {
-        productionEngineerName,
-        submissionDate: todayDate,
-        assignedQcEngineerId: backChipQcEngineer
-      };
+            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": token ? `Bearer ${token}` : ""
+                },
+                body: JSON.stringify(payload),
+                credentials: "include",
+            });
 
-      const finalData = {
-        ...existingData,
-        [categoryKey]: {
-          ...existingData[categoryKey],
-          [sPrefix]: currentStageData
+            if (res.ok) {
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} Submitted Successfully` });
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const data = await res.json();
+                setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
+            }
+        } catch (error) {
+            console.error(error);
+            setAlert({ show: true, type: 'error', message: "Error submitting form" });
+        } finally {
+            setIsSubmitting(false);
         }
-      };
-
-      const payload = {
-        jointId: initialData?.id,
-        stage: stage,
-        status: "pending",
-        engineerId: userId,
-        role: role,
-        data: finalData
-      }
-
-      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : ""
-        },
-        body: JSON.stringify(payload),
-        credentials: "include",
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setAlert({ show: true, type: 'success', message: "Back Chip submitted successfully" });
-        setTimeout(() => window.location.reload(), 1500);
-      } else {
-        setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
-      }
-
-    } catch (error) {
-      console.error(error);
-      setAlert({ show: true, type: 'error', message: "Error submitting form" });
-    } finally {
-      setIsSubmitting(false);
     }
-  }
 
-  const handleReviewAction = async (status) => {
-    setIsSubmitting(true);
-    setAlert({ show: false, type: '', message: '' });
-    try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      let userId = null;
-      const role = 'QC';
+    const handleReviewAction = async (status) => {
+        setIsSubmitting(true)
+        setAlert({ show: false, type: '', message: '' })
+        try {
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+            const authData = localStorage.getItem("user_auth")
+            let token = null
+            let userId = null;
 
-      if (authData) {
-        const parsed = JSON.parse(authData)
-        token = parsed?.payload?.token || parsed?.token
-        userId = parsed?.payload?.user?.id || parsed?.user?.id
-      }
+            if (authData) {
+                const parsed = JSON.parse(authData)
+                token = parsed?.payload?.token || parsed?.token
+                userId = parsed?.payload?.user?.id || parsed?.user?.id
+            }
 
-      if (userRole === 'QC' && status === 'approved') {
-        const categoryKey = getCategoryKey();
+            const payload = {
+                jointId: initialData?.id,
+                stage: stage,
+                status: status,
+                engineerId: userId,
+                role: 'QC'
+            }
 
-        let existingData = {};
-        if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
-          existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
-            ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
-            : initialData.inspectionData[`${sPrefix}_data`];
+            const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": token ? `Bearer ${token}` : ""
+                },
+                body: JSON.stringify(payload),
+                credentials: "include",
+            });
+            if (res.ok) {
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} Successfully` });
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                const data = await res.json();
+                setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
+            }
+        } catch (error) {
+            console.error(error);
+            setAlert({ show: true, type: 'error', message: "Error processing review" });
+        } finally {
+            setIsSubmitting(false);
         }
-
-        const currentStageData = {
-          productionEngineerName,
-          submissionDate: todayDate,
-          assignedQcEngineerId: backChipQcEngineer
-        };
-
-        const finalData = {
-          ...existingData,
-          [categoryKey]: {
-            ...existingData[categoryKey],
-            [sPrefix]: currentStageData
-          }
-        };
-
-        await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-          body: JSON.stringify({
-            jointId: initialData?.id,
-            stage: stage,
-            status: status,
-            engineerId: userId,
-            role: 'QC',
-            data: finalData
-          }),
-          credentials: "include",
-        });
-      }
-
-      const payload = {
-        jointId: initialData?.id,
-        stage: stage,
-        status: status,
-        engineerId: userId,
-        role: role
-      }
-
-      const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : ""
-        },
-        body: JSON.stringify(payload),
-        credentials: "include",
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setAlert({ show: true, type: 'success', message: `Back Chip ${status} successfully` });
-        setTimeout(() => window.location.reload(), 1500);
-      } else {
-        setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
-      }
-    } catch (error) {
-      console.error(error);
-      setAlert({ show: true, type: 'error', message: "Error processing review" });
-    } finally {
-      setIsSubmitting(false);
     }
-  }
 
-  return (
-    <div className="w-full mx-auto p-6 space-y-6">
-      <Card>
-        <CardContent className="space-y-6">
-          {/* Basic Information Section */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="font-semibold text-lg">Basic Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label>Shreno Manufacturer sr. no.:</Label>
-                <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
-              </div>
-              <div className="space-y-2">
-                <Label>Equipment Name & Tag Number:</Label>
-                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label>Drawing no. :</Label>
-                <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
-              </div>
+    return (
+        <div className="w-full mx-auto p-6 space-y-6">
+            {alert.show && <FormAlert type={alert.type} message={alert.message} />}
+
+            {/* Basic Information Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold text-lg">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                        <Label>Shreno Manufacturer sr. no.:</Label>
+                        <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Equipment Name & Tag Number:</Label>
+                        <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Drawing no. :</Label>
+                        <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
+                    </div>
+                </div>
             </div>
-          </div>
 
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Back chip
-              {initialData?.back_chip_req && (
-                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                  Yes
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          {/* Back chip Status Update Section */}
-          <div className="space-y-4 pt-4 border-t">
+            <Card className="w-full">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        Back chip
+                        {initialData?.back_chip_req && (
+                            <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                                Required
+                            </span>
+                        )}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-4 pt-4 border-t">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label>Production Engineer Name:</Label>
+                                <Input value={productionEngineerName} readOnly className="bg-muted uppercase" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Date:</Label>
+                                <Input value={todayDate} readOnly className="bg-muted" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>QC Engineer Name:</Label>
+                                <Select value={qcEngineer} onValueChange={setQcEngineer} disabled={isReview}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select QC Engineer" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {qcEngineers.map(eng => (
+                                            <SelectItem key={eng.id} value={eng.id}>{eng.name?.toUpperCase()}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Production Engineer Name:</Label>
-                <Input
-                  type="text"
-                  value={productionEngineerName}
-                  readOnly
-                  className="bg-muted uppercase"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Date:</Label>
-                <Input
-                  type="text"
-                  value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
-                  readOnly
-                  className="bg-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="backChipQcEngineer">QC Engineer Name:</Label>
-                <Select
-                  value={backChipQcEngineer}
-                  onValueChange={setBackChipQcEngineer}
-                  disabled={isReview}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select QC Engineer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {qcEngineers.map((engineer) => (
-                      <SelectItem key={engineer.id} value={engineer.id}>
-                        {engineer.name?.toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-end gap-2 items-center">
-            {!isReview ? (
-              <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
-              </Button>
-            ) : (
-              <>
-                {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
-                  <Input
-                    type="text"
-                    value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                    readOnly
-                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                    placeholder="Approve Date"
-                  />
-                )}
-                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Reject"}
-                </Button>
-                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Approve"}
-                </Button>
-              </>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
+                        <div className="flex justify-end gap-2 items-center pt-4">
+                            {!isReview ? (
+                                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+                                </Button>
+                            ) : (
+                                <>
+                                    {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
+                                        <Input
+                                            value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                            readOnly
+                                            className="bg-muted w-auto min-w-[200px] text-center font-medium"
+                                        />
+                                    )}
+                                    <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                                        Reject
+                                    </Button>
+                                    <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                                        Approve
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    )
 }
 
-export default Stage2;
+export default Stage2D

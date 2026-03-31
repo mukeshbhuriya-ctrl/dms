@@ -123,7 +123,7 @@ class PDFGeneratorCD {
             doc.moveTo(x, curY + i * rowH).lineTo(x + width, curY + i * rowH).stroke();
         }
 
-        const isNdtStage = ['stage4', 'stage5', 'stage6', 'stage7', 'stage8'].includes(data.stageKey || '');
+        const isNdtStage = ['stage4', 'stage5', 'stage6', 'stage7', 'stage8', 'stage9'].includes(data.stageKey || '');
         const secondTitle = isNdtStage ? 'NDT Engineer' : 'QC Engineer';
 
         const titles = ['Production Engineer', secondTitle, 'AI / CLIENT / TPIA'];
@@ -488,7 +488,7 @@ class PDFGeneratorCD {
     }
 
     drawStage8(doc, data, companyInfo) {
-        data.title = data.label || 'PWHT & PENETRANT TESTING REPORT';
+        data.title = data.label || 'PWHT & LIQUID PENETRANT REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const headerH = 25;
@@ -554,38 +554,35 @@ class PDFGeneratorCD {
             // Label-based Template Selection
             if (label.includes('back chip') || label === 'back-chip') {
                 this.drawBackChip(doc, data, companyInfo);
-            } else if (label.includes('identification') || label.includes('set up')) {
-                // If it's Stage 1, use Stage 1 layout
-                if (stageNum === 1) this.drawStage1(doc, data, companyInfo);
-                else if (label.includes('nozzle')) this.drawStage4(doc, data, companyInfo);
-                else this.drawStage1(doc, data, companyInfo);
-            } else if (label.includes('visual')) {
+            } else if (label.includes('identification') || (label.includes('set up') && stageNum === 1)) {
+                this.drawStage1(doc, data, companyInfo);
+            } else if (label.includes('weld visual')) {
                 this.drawStage2(doc, data, companyInfo);
-            } else if (label.includes('opening')) {
+            } else if (label.includes('opening inspection')) {
                 this.drawStage3(doc, data, companyInfo);
-            } else if (label.includes('pcd') || label.includes('cleaning') || label.includes('nozzle set-up')) {
+            } else if (label.includes('set-up inspection')) {
                 this.drawStage4(doc, data, companyInfo);
             } else if (label.includes('full welding')) {
                 this.drawStage5(doc, data, companyInfo);
-            } else if (label.includes('rf pad')) {
+            } else if (label.includes('rf pad setup') || label.includes('rf pad pneumatic')) {
                 this.drawStage6(doc, data, companyInfo);
-            } else if (label.includes('pwht') && (label.includes('radiography') || label.includes('(rt)'))) {
+            } else if (label.includes('radiography') || label.includes('(rt)')) {
                 this.drawStage7(doc, data, companyInfo);
-            } else if (label.includes('pwht') && (label.includes('penetrant') || label.includes('(pt)'))) {
+            } else if (label.includes('penetrant') || label.includes('(pt)')) {
                 this.drawStage8(doc, data, companyInfo);
             } else {
-                // Fallback to number-based as legacy
-                switch (stageNum) {
-                    case 1: this.drawStage1(doc, data, companyInfo); break;
-                    case 2: this.drawStage2(doc, data, companyInfo); break;
-                    case 3: this.drawStage3(doc, data, companyInfo); break;
-                    case 4: this.drawStage4(doc, data, companyInfo); break;
-                    case 5: this.drawStage5(doc, data, companyInfo); break;
-                    case 6: this.drawStage6(doc, data, companyInfo); break;
-                    case 7: this.drawStage7(doc, data, companyInfo); break;
-                    case 8: this.drawStage8(doc, data, companyInfo); break;
-                    default:
-                        doc.text(`Stage ${stageNum}: ${data.label || 'N/A'} not implemented`, 50, 50);
+                // Fallback to label-contained keywords if above didn't match perfectly
+                if (label.includes('setup')) {
+                    if (stageNum === 1) this.drawStage1(doc, data, companyInfo);
+                    else if (stageNum === 5) this.drawStage4(doc, data, companyInfo);
+                    else if (stageNum === 7) this.drawStage6(doc, data, companyInfo);
+                    else this.drawStage1(doc, data, companyInfo);
+                } else if (label.includes('pwht')) {
+                    if (label.includes('radiography') || label.includes('rt')) this.drawStage7(doc, data, companyInfo);
+                    else if (label.includes('penetrant') || label.includes('pt')) this.drawStage8(doc, data, companyInfo);
+                    else this.drawStage7(doc, data, companyInfo);
+                } else {
+                    doc.text(`Stage ${stageNum}: ${data.label || 'N/A'} not implemented`, 50, 50);
                 }
             }
         });

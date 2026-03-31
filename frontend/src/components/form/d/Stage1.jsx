@@ -6,7 +6,17 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage1C = ({ initialData, isReview }) => {
+const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage1" }) => {
+    const sPrefix = stage.replace('stage', 's');
+    
+    const [productionEngineerName, setProductionEngineerName] = useState("")
+    const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
+    const [qcEngineer, setQcEngineer] = useState("") 
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [userRole, setUserRole] = useState("")
+    const [qcEngineers, setQcEngineers] = useState([])
+    const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
+
     const [formData, setFormData] = useState({
         materialIdMarks: "",
         nozzleNumber: "",
@@ -18,23 +28,14 @@ const Stage1C = ({ initialData, isReview }) => {
         date: new Date().toLocaleDateString()
     })
 
-    const [productionEngineerName, setProductionEngineerName] = useState("")
-    const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-    const [qeEngineer, setQeEngineer] = useState("")
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [qeEngineers, setQeEngineers] = useState([])
-    const [userRole, setUserRole] = useState("")
-
-    const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
-
     useEffect(() => {
         const authData = localStorage.getItem("user_auth")
         if (authData) {
             try {
                 const parsed = JSON.parse(authData)
                 const user = parsed?.payload?.user || parsed?.user
-                if (user?.name && !isReview) {
-                    setProductionEngineerName(user.name)
+                if (user?.name) {
+                    if (!isReview) setProductionEngineerName(user.name)
                 }
                 const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
                 const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
@@ -43,13 +44,10 @@ const Stage1C = ({ initialData, isReview }) => {
                 } else {
                     setUserRole('PROD')
                 }
-            } catch (e) {
-                console.error("Error parsing auth data", e)
-            }
+            } catch (e) { console.error(e) }
         }
     }, [isReview])
 
-    // Fetch QC Engineers
     useEffect(() => {
         const fetchQeEngineers = async () => {
             try {
@@ -73,7 +71,7 @@ const Stage1C = ({ initialData, isReview }) => {
                 })
                 const data = await res.json()
                 if (res.ok && data.success) {
-                    setQeEngineers(data.data || [])
+                    setQcEngineers(data.data || [])
                 }
             } catch (error) {
                 console.error("Error fetching QE Engineers:", error)
@@ -82,59 +80,51 @@ const Stage1C = ({ initialData, isReview }) => {
         fetchQeEngineers()
     }, [])
 
-    const getCategoryKey = () => {
-        return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'c';
-    }
-
     useEffect(() => {
-        if (initialData?.inspectionData) {
-            const categoryKey = getCategoryKey();
-            const insp = initialData.inspectionData;
+        const inspData = inspectionData || initialData?.inspectionData;
+        if (inspData) {
+            if (inspData[`${sPrefix}_qc_eng_id`]) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
+            if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
-            if (insp.s1_data) {
+            if (inspData[`${sPrefix}_data`]) {
                 try {
-                    const rawData = typeof insp.s1_data === 'string' ? JSON.parse(insp.s1_data) : insp.s1_data;
-                    const s1Data = rawData?.[categoryKey]?.s1 || rawData?.[categoryKey] || rawData || {};
+                    const rawData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
+                    const sData = rawData?.d?.[sPrefix] || rawData?.d || rawData || {};
+
+                    if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
+                    if (sData.submissionDate) setTodayDate(sData.submissionDate);
+                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setQcEngineer(sData.assignedQcEngineerId);
 
                     setFormData(prev => ({
                         ...prev,
-                        materialIdMarks: s1Data.materialIdMarks || prev.materialIdMarks,
-                        nozzleNumber: s1Data.nozzleNumber || prev.nozzleNumber,
-                        tackWelder: s1Data.tackWelder || prev.tackWelder,
-                        visualInspection: s1Data.visualInspection || prev.visualInspection,
-                        lSeamRt: s1Data.lSeamRt || prev.lSeamRt,
-                        nozzleSize: s1Data.nozzleSize || prev.nozzleSize,
-                        totalLength: s1Data.totalLength || prev.totalLength,
-                        date: s1Data.date || prev.date,
+                        materialIdMarks: sData.materialIdMarks || "",
+                        nozzleNumber: sData.nozzleNumber || "",
+                        tackWelder: sData.tackWelder || "",
+                        visualInspection: sData.visualInspection || "",
+                        lSeamRt: sData.lSeamRt || "",
+                        nozzleSize: sData.nozzleSize || "",
+                        totalLength: sData.totalLength || "",
+                        date: sData.date || prev.date
                     }));
-
-                    if (s1Data.productionEngineerName) setProductionEngineerName(s1Data.productionEngineerName);
-                    if (s1Data.submissionDate) setTodayDate(s1Data.submissionDate);
-                    if (s1Data.assignedQcEngineerId) setQeEngineer(s1Data.assignedQcEngineerId);
-
-                } catch (e) {
-                    console.error("Error parsing s1_data", e)
-                }
+                } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
             }
-            // Fallback / Override from columns if JSON missing/incomplete
-            if (insp.s1_qc_eng_id && !qeEngineer) setQeEngineer(insp.s1_qc_eng_id);
-            if (insp.s1_prod_eng_name) setProductionEngineerName(insp.s1_prod_eng_name);
         }
-    }, [initialData])
+    }, [initialData, inspectionData, stage]);
 
-    const handleChange = (field, value) => {
+    const isReadOnly = isReview && userRole !== 'QC';
+
+    const handleFormChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }))
     }
 
     const handleSubmit = async () => {
         setIsSubmitting(true)
-        setAlert({ show: false, type: 'success', message: '' })
+        setAlert({ show: false, type: '', message: '' })
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
             let token = null
             let userId = null;
-            let role = 'PROD';
 
             if (authData) {
                 const parsed = JSON.parse(authData)
@@ -142,53 +132,40 @@ const Stage1C = ({ initialData, isReview }) => {
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            if (!qeEngineer) {
-                setAlert({ show: true, type: "error", message: "Please select QE Engineer" });
+            if (!qcEngineer) {
+                setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
                 setIsSubmitting(false);
                 return;
             }
 
-            const categoryKey = getCategoryKey();
+            const currentStageData = {
+                assignedQcEngineerId: qcEngineer,
+                productionEngineerName,
+                submissionDate: todayDate,
+                ...formData
+            };
 
-            // Fetch existing Stage Data
-            let existingStageData = {};
-            if (initialData?.inspectionData?.s1_data) {
-                existingStageData = typeof initialData.inspectionData.s1_data === 'string'
-                    ? JSON.parse(initialData.inspectionData.s1_data)
-                    : initialData.inspectionData.s1_data;
+            const inspData = inspectionData || initialData?.inspectionData;
+            let existingData = {};
+            if (inspData?.[`${sPrefix}_data`]) {
+                existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
             }
 
-            const currentStageInnerData = {
-                ...formData,
-                assignedQcEngineerId: qeEngineer,
-                productionEngineerName: productionEngineerName,
-                submissionDate: todayDate
-            };
-
-            const stageData = {
-                ...existingStageData,
-                [categoryKey]: {
-                    ...existingStageData[categoryKey],
-                    s1: currentStageInnerData
-                }
-            };
-
-            const basicInfo = {
-                [categoryKey]: {
-                    msnNumber: initialData?.msnNumber,
-                    equipment: initialData?.equipment,
-                    drgNo: initialData?.drgNo,
+            const finalData = {
+                ...existingData,
+                d: {
+                    ...existingData?.d,
+                    [sPrefix]: currentStageData
                 }
             };
 
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage1",
+                stage: stage,
                 status: "pending",
                 engineerId: userId,
-                role: role,
-                data: stageData,
-                basicInfo: basicInfo
+                role: 'PROD',
+                data: finalData
             }
 
             const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -201,11 +178,11 @@ const Stage1C = ({ initialData, isReview }) => {
                 credentials: "include",
             });
 
-            const data = await res.json();
             if (res.ok) {
-                setAlert({ show: true, type: 'success', message: "Stage 1 submitted successfully" });
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} Submitted Successfully` });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
+                const data = await res.json();
                 setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
             }
         } catch (error) {
@@ -217,14 +194,13 @@ const Stage1C = ({ initialData, isReview }) => {
     }
 
     const handleReviewAction = async (status) => {
-        setIsSubmitting(true);
-        setAlert({ show: false, type: 'success', message: '' })
+        setIsSubmitting(true)
+        setAlert({ show: false, type: '', message: '' })
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
             let token = null
             let userId = null;
-            const role = 'QC';
 
             if (authData) {
                 const parsed = JSON.parse(authData)
@@ -232,54 +208,12 @@ const Stage1C = ({ initialData, isReview }) => {
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            // If Approved by QC, save changes first
-            if (userRole === 'QC' && status === 'approved') {
-                const categoryKey = getCategoryKey();
-
-                let existingStageData = {};
-                if (initialData?.inspectionData?.s1_data) {
-                    existingStageData = typeof initialData.inspectionData.s1_data === 'string'
-                        ? JSON.parse(initialData.inspectionData.s1_data)
-                        : initialData.inspectionData.s1_data;
-                }
-
-                const currentStageInnerData = {
-                    ...formData,
-                    assignedQcEngineerId: qeEngineer,
-                    productionEngineerName,
-                    submissionDate: todayDate
-                };
-
-                const stageData = {
-                    ...existingStageData,
-                    [categoryKey]: {
-                        ...existingStageData[categoryKey],
-                        s1: currentStageInnerData
-                    }
-                };
-
-                await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-                    body: JSON.stringify({
-                        jointId: initialData?.id,
-                        stage: "stage1",
-                        status: status,
-                        engineerId: userId,
-                        role: 'QC',
-                        data: stageData
-                    }),
-                    credentials: "include",
-                });
-            }
-
             const payload = {
                 jointId: initialData?.id,
-                stage: "stage1",
+                stage: stage,
                 status: status,
                 engineerId: userId,
-                role: role,
-                data: {}
+                role: 'QC'
             }
 
             const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
@@ -291,12 +225,11 @@ const Stage1C = ({ initialData, isReview }) => {
                 body: JSON.stringify(payload),
                 credentials: "include",
             });
-
-            const data = await res.json();
             if (res.ok) {
-                setAlert({ show: true, type: 'success', message: `Stage 1 ${status} successfully` });
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} Successfully` });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
+                const data = await res.json();
                 setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
             }
         } catch (error) {
@@ -307,211 +240,199 @@ const Stage1C = ({ initialData, isReview }) => {
         }
     }
 
-
     return (
-        <Card className="w-full">
-            <CardHeader>
-                <CardTitle>Material Identification Marks & Setup</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                {alert.show && <FormAlert type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />}
+        <div className="w-full mx-auto p-6 space-y-6">
+            {alert.show && <FormAlert type={alert.type} message={alert.message} />}
 
-                <div className="border rounded-lg p-4 space-y-4">
-                    <h3 className="font-semibold text-lg">Basic Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                            <Label>Shreno Manufacturer sr. no.:</Label>
-                            <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Equipment Name & Tag Number:</Label>
-                            <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Drawing no. :</Label>
-                            <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
-                        </div>
+            {/* Basic Information Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-semibold text-lg">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                        <Label>Shreno Manufacturer sr. no.:</Label>
+                        <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Equipment Name & Tag Number:</Label>
+                        <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Drawing no. :</Label>
+                        <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
                     </div>
                 </div>
+            </div>
 
-                {/* Stage 1: Material Identification Section */}
-                <div className="space-y-4 border-t pt-4">
-                    <h3 className="font-semibold text-lg">I. Material Identification</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label>Characteristics to be checked</Label>
-                            <Input value={initialData?.jointNo || ""} readOnly className="bg-muted font-bold" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Nozzle Number</Label>
-                            <Input
-                                value={formData.nozzleNumber}
-                                placeholder='Enter Nozzle Number'
-                                onChange={(e) => handleChange('nozzleNumber', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Material identification Marks</Label>
-                            <Select
-                                value={formData.materialIdMarks}
-                                onValueChange={(val) => handleChange('materialIdMarks', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Available">Available</SelectItem>
-                                    <SelectItem value="Not Available">Not Available</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Stage 2: Setup Section */}
-                <div className="space-y-4 border-t pt-4">
-                    <h3 className="font-semibold text-lg">II. Set Up</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                            <Label>Tack Welder</Label>
-                            <Input
-                                value={formData.tackWelder}
-                                placeholder='Enter Tack Welder'
-                                onChange={(e) => handleChange('tackWelder', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Visual Inspection</Label>
-                            <Select
-                                value={formData.visualInspection}
-                                onValueChange={(val) => handleChange('visualInspection', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="Not OK">Not OK</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Acceptance of L-Seam RT</Label>
-                            <Select
-                                value={formData.lSeamRt}
-                                onValueChange={(val) => handleChange('lSeamRt', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="Not OK">Not OK</SelectItem>
-                                    <SelectItem value="Not Applicable">Not Applicable</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="border p-4 rounded-md space-y-4">
-                        <h4 className="font-medium text-sm text-muted-foreground mb-2">Dimensions</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="w-full">
+                <CardHeader>
+                    <CardTitle>Material Identification Marks & Setup</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    {/* I. Material Identification Section */}
+                    <div className="space-y-4 border-t pt-4">
+                        <h3 className="font-semibold text-lg">I. Material Identification</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label>Nozzle Size</Label>
+                                <Label>Characteristics to be checked</Label>
+                                <Input value={initialData?.jointNo || ""} readOnly className="bg-muted font-bold" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Nozzle Number</Label>
                                 <Input
-                                    value={formData.nozzleSize}
-                                    placeholder='Enter Nozzle Size'
-                                    onChange={(e) => handleChange('nozzleSize', e.target.value)}
-                                    disabled={isReview && userRole !== 'QC'}
+                                    value={formData.nozzleNumber}
+                                    placeholder='Enter Nozzle Number'
+                                    onChange={(e) => handleFormChange('nozzleNumber', e.target.value)}
+                                    disabled={isReadOnly}
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Total Length</Label>
-                                <Input
-                                    value={formData.totalLength}
-                                    placeholder='Enter Total Length'
-                                    onChange={(e) => handleChange('totalLength', e.target.value)}
-                                    disabled={isReview && userRole !== 'QC'}
-                                />
+                                <Label>Material identification Marks</Label>
+                                <Select
+                                    value={formData.materialIdMarks}
+                                    onValueChange={(val) => handleFormChange('materialIdMarks', val)}
+                                    disabled={isReadOnly}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Available">Available</SelectItem>
+                                        <SelectItem value="Not Available">Not Available</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="space-y-4 pt-4 border-t">
-                    <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label>Production Engineer Name:</Label>
-                            <Input
-                                value={productionEngineerName}
-                                readOnly
-                                className="bg-muted uppercase"
-                            />
+                    {/* II. Set Up Section */}
+                    <div className="space-y-4 border-t pt-4">
+                        <h3 className="font-semibold text-lg">II. Set Up</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-2">
+                                <Label>Tack Welder</Label>
+                                <Input
+                                    value={formData.tackWelder}
+                                    placeholder='Enter Tack Welder'
+                                    onChange={(e) => handleFormChange('tackWelder', e.target.value)}
+                                    disabled={isReadOnly}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Visual Inspection</Label>
+                                <Select
+                                    value={formData.visualInspection}
+                                    onValueChange={(val) => handleFormChange('visualInspection', val)}
+                                    disabled={isReadOnly}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="OK">OK</SelectItem>
+                                        <SelectItem value="Not OK">Not OK</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Acceptance of L-Seam RT</Label>
+                                <Select
+                                    value={formData.lSeamRt}
+                                    onValueChange={(val) => handleFormChange('lSeamRt', val)}
+                                    disabled={isReadOnly}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="OK">OK</SelectItem>
+                                        <SelectItem value="Not OK">Not OK</SelectItem>
+                                        <SelectItem value="Not Applicable">Not Applicable</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Date:</Label>
-                            <Input
-                                value={initialData?.inspectionData?.s1_submitted_at ? new Date(initialData.inspectionData.s1_submitted_at).toLocaleDateString() : todayDate}
-                                readOnly
-                                className="bg-muted"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>QE Engineer:</Label>
-                            <Select value={qeEngineer} onValueChange={setQeEngineer} disabled={isReview}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select QE Engineer" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {qeEngineers.map((engineer) => (
-                                        <SelectItem key={engineer.id} value={engineer.id}>
-                                            {engineer.name?.toUpperCase()}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 items-center pt-4">
-                        {!isReview ? (
-                            <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
-                            </Button>
-                        ) : (
-                            <>
-                                {(isReview || initialData?.inspectionData?.s1_approved_at) && (
+                        <div className="border p-4 rounded-md space-y-4">
+                            <h4 className="font-medium text-sm text-muted-foreground mb-2">Dimensions</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Nozzle Size</Label>
                                     <Input
-                                        type="text"
-                                        value={`Approve Date: ${initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                                        readOnly
-                                        className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                                        placeholder="Approve Date"
+                                        value={formData.nozzleSize}
+                                        placeholder='Enter Nozzle Size'
+                                        onChange={(e) => handleFormChange('nozzleSize', e.target.value)}
+                                        disabled={isReadOnly}
                                     />
-                                )}
-                                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : "Reject"}
-                                </Button>
-                                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : "Approve"}
-                                </Button>
-                            </>
-                        )}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Total Length</Label>
+                                    <Input
+                                        value={formData.totalLength}
+                                        placeholder='Enter Total Length'
+                                        onChange={(e) => handleFormChange('totalLength', e.target.value)}
+                                        disabled={isReadOnly}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+
+                    <div className="space-y-4 pt-4 border-t">
+                        <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label>Production Engineer Name:</Label>
+                                <Input value={productionEngineerName} readOnly className="bg-muted uppercase" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Date:</Label>
+                                <Input value={todayDate} readOnly className="bg-muted" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>QC Engineer:</Label>
+                                <Select value={qcEngineer} onValueChange={setQcEngineer} disabled={isReview}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select QC Engineer" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {qcEngineers.map(eng => (
+                                            <SelectItem key={eng.id} value={eng.id}>{eng.name?.toUpperCase()}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2 items-center pt-4">
+                            {!isReview ? (
+                                <Button onClick={handleSubmit} disabled={isSubmitting}>
+                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+                                </Button>
+                            ) : (
+                                <>
+                                    {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
+                                        <Input
+                                            value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                            readOnly
+                                            className="bg-muted w-auto min-w-[200px] text-center font-medium"
+                                        />
+                                    )}
+                                    <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                                        Reject
+                                    </Button>
+                                    <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                                        Approve
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     )
 }
 
-export default Stage1C
+export default Stage1D

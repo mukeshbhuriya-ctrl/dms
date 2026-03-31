@@ -39,6 +39,7 @@ import Stage5D from "@/components/form/d/Stage5"
 import Stage6D from "@/components/form/d/Stage6"
 import Stage7D from "@/components/form/d/Stage7"
 import Stage8D from "@/components/form/d/Stage8"
+import Stage9D from "@/components/form/d/Stage9"
 
 // Category F Components
 import Stage1F from "@/components/form/f/Stage1"
@@ -66,7 +67,7 @@ function ViewWeldingJoints() {
     // Category C
     Stage1C, Stage2C, Stage3C, Stage4C, Stage5C,
     // Category D
-    Stage1D, Stage2D, Stage3D, Stage4D, Stage5D, Stage6D, Stage7D, Stage8D,
+    Stage1D, Stage2D, Stage3D, Stage4D, Stage5D, Stage6D, Stage7D, Stage8D, Stage9D,
     // Category F
     Stage1F, Stage2F, Stage3F, Stage4F
   };
