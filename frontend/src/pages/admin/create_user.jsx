@@ -249,6 +249,13 @@ function CreateUser() {
     setSuccess("")
     setIsLoading(true)
 
+    // Manual validation for department since Select might not trigger native validation
+    if (!formData.department || formData.department === "") {
+      setError("Please select a department")
+      setIsLoading(false)
+      return
+    }
+
     try {
       const requestBody = {
         name: formData.fullName,

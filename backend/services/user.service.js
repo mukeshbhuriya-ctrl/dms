@@ -95,6 +95,11 @@ class UserService {
 
         const hashedPassword = await hashPassword(password);
 
+        // Validate department
+        if (!trimmedDepartmentId) {
+            throw new Error('Department is required');
+        }
+
         // Create user with transaction to handle roles
         const result = await prisma.$transaction(async (tx) => {
             const newUser = await tx.user.create({
@@ -205,6 +210,11 @@ class UserService {
 
         return await prisma.$transaction(async (tx) => {
             // Update User
+            const trimmedDepartmentId = department?.trim();
+            if (!trimmedDepartmentId) {
+                throw new Error('Department is required');
+            }
+
             const updatedUser = await tx.user.update({
                 where: { id },
                 data: {
@@ -212,7 +222,7 @@ class UserService {
                     email,
                     empid,
                     mobile,
-                    department_id: department,
+                    department_id: trimmedDepartmentId,
                     designation,
                     ...(hashedPassword && { password: hashedPassword }),
                 },
