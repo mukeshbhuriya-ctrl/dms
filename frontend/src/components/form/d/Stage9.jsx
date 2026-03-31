@@ -288,7 +288,7 @@ const Stage9D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 </CardHeader>
                 <CardHeader className="pt-0 pb-4">
                     <CardTitle className="text-lg flex items-center gap-2">
-                        PWHT & LIQUID PENETRANT REPORT
+                        Penetrant Testing (PT)
                         {initialData?.pwht && (
                             <span className="text-xs text-muted-foreground font-normal">
                                 (After PWHT)
