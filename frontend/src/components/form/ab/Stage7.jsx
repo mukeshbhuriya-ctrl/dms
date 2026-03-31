@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6", }) {
+function Stage7({ initialData, inspectionData, isReview = false, stage = "stage7", }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [ndtEngineer, setNdtEngineer] = useState("")
@@ -80,7 +80,7 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
                 poNo: initialData.poNo || "",
             })
 
-            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/6`;
+            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/7`;
 
             setInputFields((prev) => ({
                 ...prev,
@@ -690,4 +690,4 @@ function Stage6({ initialData, inspectionData, isReview = false, stage = "stage6
     )
 }
 
-export default Stage6
+export default Stage7

@@ -26,6 +26,23 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
   const [qcEngineers, setQcEngineers] = useState([])
 
   const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
+  const [displayFields, setDisplayFields] = useState({
+    msn: "",
+    client: "",
+    poNo: "",
+  })
+
+  // First section - Input fields
+  const [inputFields, setInputFields] = useState({
+    reportNo: "",
+    tagNo: "",
+    equipment: "",
+    projectsId: "",
+    lindeDrgNo: "",
+    drgNo: "",
+    code: "",
+    inspAgency: "",
+  })
 
   const sPrefix = stage.replace('stage', 's');
 
@@ -86,36 +103,100 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
     fetchQcEngineers()
   }, [])
 
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setInputFields((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
+  const handleDisplayFieldChange = (e) => {
+    const { name, value } = e.target
+    setDisplayFields((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
   const getCategoryKey = () => {
     return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'c';
   }
 
   useEffect(() => {
-    if (initialData?.inspectionData) {
-      const categoryKey = getCategoryKey();
-      const inspectionData = initialData.inspectionData;
+    if (initialData) {
+      setDisplayFields({
+        msn: initialData.msnNumber || "",
+        client: initialData.client || "",
+        poNo: initialData.poNo || "",
+      })
 
-      if (inspectionData[`${sPrefix}_qc_eng_id`]) {
-        setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
-      }
-      if (inspectionData[`${sPrefix}_prod_eng_name`]) {
-        setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
-      }
+      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/2`;
 
-      if (inspectionData[`${sPrefix}_data`]) {
-        try {
-          const rawData = typeof inspectionData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspectionData[`${sPrefix}_data`]) : inspectionData[`${sPrefix}_data`];
-          const sbcData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
+      setInputFields((prev) => ({
+        ...prev,
+        reportNo: prev.reportNo || generatedReportNo,
+        tagNo: initialData.tagNo || "",
+        equipment: initialData.equipment || "",
+        projectsId: initialData.projectsId || "",
+        lindeDrgNo: initialData.lindeDrgNo || "",
+        drgNo: initialData.drgNo || "",
+        code: initialData.code || "",
+      }))
 
-          if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
-          if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
-          if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
-            setBackChipQcEngineer(sbcData.assignedQcEngineerId);
-          }
-        } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
+      if (initialData.inspectionData) {
+        const categoryKey = getCategoryKey();
+        const inspectionData = initialData.inspectionData;
+
+        if (inspectionData[`${sPrefix}_qc_eng_id`]) {
+          setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
+        }
+        if (inspectionData[`${sPrefix}_prod_eng_name`]) {
+          setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
+        }
+
+        // Load Basic Info (from data_json)
+        if (inspectionData.data_json) {
+          try {
+            const rawBasic = typeof inspectionData.data_json === 'string' ? JSON.parse(inspectionData.data_json) : inspectionData.data_json;
+            const basicInfo = rawBasic?.[categoryKey] || {};
+
+            setInputFields(prev => ({
+              ...prev,
+              reportNo: basicInfo.reportNo || prev.reportNo,
+              tagNo: basicInfo.tagNo || prev.tagNo,
+              equipment: basicInfo.equipment || prev.equipment,
+              projectsId: basicInfo.projectsId || prev.projectsId,
+              lindeDrgNo: basicInfo.lindeDrgNo || prev.lindeDrgNo,
+              drgNo: basicInfo.drgNo || prev.drgNo,
+              code: basicInfo.code || prev.code,
+              inspAgency: basicInfo.inspAgency || prev.inspAgency,
+            }));
+          } catch (e) { console.error("Error parsing data_json", e) }
+        }
+
+        if (inspectionData[`${sPrefix}_data`]) {
+          try {
+            const rawData = typeof inspectionData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspectionData[`${sPrefix}_data`]) : inspectionData[`${sPrefix}_data`];
+            const sbcData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
+
+            if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
+            if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
+            if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
+              setBackChipQcEngineer(sbcData.assignedQcEngineerId);
+            }
+            // Legacy fallback check for inputFields in stage data if data_json missing
+            if (sbcData?.inputFields && !inspectionData.data_json) {
+              setInputFields(prev => ({ ...prev, ...sbcData.inputFields }));
+            }
+          } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
+        }
       }
     }
   }, [initialData])
+
+  // ReadOnly Condition: Review mode AND not QC
+  const isReadOnly = isReview && userRole !== 'QC';
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -162,13 +243,21 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
         }
       };
 
+      const basicInfo = {
+        [categoryKey]: {
+          ...displayFields,
+          ...inputFields
+        }
+      };
+
       const payload = {
         jointId: initialData?.id,
         stage: stage,
         status: "pending",
         engineerId: userId,
         role: role,
-        data: finalData
+        data: finalData,
+        basicInfo: basicInfo
       }
 
       const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
@@ -237,6 +326,13 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
           }
         };
 
+        const basicInfo = {
+          [categoryKey]: {
+            ...displayFields,
+            ...inputFields
+          }
+        };
+
         await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
@@ -246,7 +342,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
             status: status,
             engineerId: userId,
             role: 'QC',
-            data: finalData
+            data: finalData,
+            basicInfo: basicInfo
           }),
           credentials: "include",
         });
@@ -288,45 +385,185 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
   return (
     <div className="w-full mx-auto p-6 space-y-6">
       <Card>
-        <CardContent className="space-y-6">
-          {/* Basic Information Section */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="font-semibold text-lg">Basic Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label>Shreno Manufacturer sr. no.:</Label>
-                <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
-              </div>
-              <div className="space-y-2">
-                <Label>Equipment Name & Tag Number:</Label>
-                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label>Drawing no. :</Label>
-                <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
-              </div>
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Display Fields (Read-only) */}
+            <div className="space-y-2">
+              <Label htmlFor="msn">MSN:</Label>
+              <Input
+                id="msn"
+                name="msn"
+                type="text"
+                value={displayFields.msn}
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="client">CLIENT:</Label>
+              <Input
+                id="client"
+                name="client"
+                type="text"
+                value={displayFields.client}
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="poNo">P.O. NO.:</Label>
+              <Input
+                id="poNo"
+                name="poNo"
+                type="text"
+                value={displayFields.poNo}
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+
+            {/* Input Fields */}
+            <div className="space-y-2">
+              <Label htmlFor="reportNo">Report No:</Label>
+              <Input
+                id="reportNo"
+                name="reportNo"
+                type="text"
+                value={inputFields.reportNo}
+                onChange={handleInputChange}
+                placeholder="Enter Report No"
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tagNo">TAG NO.:</Label>
+              <Input
+                id="tagNo"
+                name="tagNo"
+                type="text"
+                value={inputFields.tagNo}
+                onChange={handleInputChange}
+                placeholder="Enter TAG NO."
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="equipment">EQUIPMENT:</Label>
+              <Input
+                id="equipment"
+                name="equipment"
+                type="text"
+                value={inputFields.equipment}
+                onChange={handleInputChange}
+                placeholder="Enter EQUIPMENT"
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="projectsId">Projects ID:</Label>
+              <Input
+                id="projectsId"
+                name="projectsId"
+                type="text"
+                value={inputFields.projectsId}
+                onChange={handleInputChange}
+                placeholder="Enter Projects ID"
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lindeDrgNo">CLIENT DRG.:</Label>
+              <Input
+                id="lindeDrgNo"
+                name="lindeDrgNo"
+                type="text"
+                value={inputFields.lindeDrgNo}
+                onChange={handleInputChange}
+                placeholder="Enter CLIENT DRG."
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="drgNo">SHRENO DRG NO.:</Label>
+              <Input
+                id="drgNo"
+                name="drgNo"
+                type="text"
+                value={inputFields.drgNo}
+                onChange={handleInputChange}
+                placeholder="Enter SHRENO DRG NO."
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="code">CODE:</Label>
+              <Input
+                id="code"
+                name="code"
+                type="text"
+                value={inputFields.code}
+                onChange={handleInputChange}
+                placeholder="Enter CODE"
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="inspAgency">INSP. AGENCY:</Label>
+              <Input
+                id="inspAgency"
+                name="inspAgency"
+                type="text"
+                value={inputFields.inspAgency}
+                onChange={handleInputChange}
+                placeholder="Enter INSP. AGENCY"
+                readOnly={isReadOnly}
+                className={isReadOnly ? "bg-muted" : ""}
+              />
             </div>
           </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="space-y-6">
+          <FormAlert type={alert.type} message={alert.message} />
 
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Back chip
+          {/* Back chip section */}
+          <div className="space-y-6 pt-6 border-t mt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-lg font-semibold">Back chip</h3>
               {initialData?.back_chip_req && (
-                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600 ring-1 ring-inset ring-green-600/20">
                   Yes
                 </span>
               )}
-            </CardTitle>
-          </CardHeader>
-          {/* Back chip Status Update Section */}
-          <div className="space-y-4 pt-4 border-t">
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label>Production Engineer Name:</Label>
                 <Input
                   type="text"
                   value={productionEngineerName}
+                  placeholder="Production Engineer Name"
                   readOnly
                   className="bg-muted uppercase"
                 />
