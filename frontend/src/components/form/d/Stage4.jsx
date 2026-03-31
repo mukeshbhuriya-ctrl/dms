@@ -1,56 +1,41 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import React, { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage4" }) => {
     const sPrefix = stage.replace('stage', 's');
-    // Stage 4D: Nozzle Set-Up
+    
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-    const [qcEngineer, setQcEngineer] = useState("") // s4_qc_eng_id
+    const [qcEngineer, setQcEngineer] = useState("") 
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [error, setError] = useState("")
-    const [success, setSuccess] = useState("")
     const [userRole, setUserRole] = useState("")
     const [qcEngineers, setQcEngineers] = useState([])
+    const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
 
     const [formData, setFormData] = useState({
-        tackWelder: "",
-        materialId: "",
-        lSeamNdt: "",
-        cleaning: "",
-        grooveAngle: "",
-        rootFace: "",
-        rootGap: "",
-        projection: "",
-        pcdHole: "",
-        rfPad: "",
-        date: new Date().toLocaleDateString()
+        nozzleNumber: "",
+        openingSize: "",
+        orientation: "",
+        elevation: "",
+        edgePreparation: ""
     })
 
-    // Basic Info State
-    const [displayFields, setDisplayFields] = useState({
-        msn: "",
-        client: "",
-        poNo: "",
-    })
-
-    const [inputFields, setInputFields] = useState({
-        reportNo: "",
-        tagNo: "",
-        equipment: "",
-        projectsId: "",
-        lindeDrgNo: "",
-        drgNo: "",
-        code: "",
-        inspAgency: "",
-    })
-
-    // Auth & Role Check
     useEffect(() => {
         const authData = localStorage.getItem("user_auth")
         if (authData) {
@@ -71,7 +56,6 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
         }
     }, [isReview])
 
-    // Fetch QC Engineers
     useEffect(() => {
         const fetchQeEngineers = async () => {
             try {
@@ -104,62 +88,16 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
         fetchQeEngineers()
     }, [])
 
-    // Load Data
     useEffect(() => {
-        if (initialData) {
-            setDisplayFields({
-                msn: initialData.msnNumber || "",
-                client: initialData.client || "",
-                poNo: initialData.poNo || "",
-            })
-            const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/${sPrefix.replace('s', '')}`;
-            setInputFields((prev) => ({
-                ...prev,
-                reportNo: prev.reportNo || generatedReportNo,
-                tagNo: initialData.tagNo || "",
-                equipment: initialData.equipment || "",
-                projectsId: initialData.projectsId || "",
-                lindeDrgNo: initialData.lindeDrgNo || "",
-                drgNo: initialData.drgNo || "",
-                code: initialData.code || "",
-            }))
-        }
-
         const inspData = inspectionData || initialData?.inspectionData;
-
         if (inspData) {
-            // Basic Info from data_json (CD)
-            if (inspData.data_json) {
-                try {
-                    const rawBasic = typeof inspData.data_json === 'string'
-                        ? JSON.parse(inspData.data_json)
-                        : inspData.data_json;
-                    const basicInfo = rawBasic?.[initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd'] || {};
-
-                    setInputFields(prev => ({
-                        ...prev,
-                        reportNo: basicInfo.reportNo || prev.reportNo,
-                        tagNo: basicInfo.tagNo || prev.tagNo,
-                        equipment: basicInfo.equipment || prev.equipment,
-                        projectsId: basicInfo.projectsId || prev.projectsId,
-                        lindeDrgNo: basicInfo.lindeDrgNo || prev.lindeDrgNo,
-                        drgNo: basicInfo.drgNo || prev.drgNo,
-                        code: basicInfo.code || prev.code,
-                        inspAgency: basicInfo.inspAgency || prev.inspAgency,
-                    }));
-                } catch (e) { console.error("Error parsing data_json", e) }
-            }
-
             if (inspData[`${sPrefix}_qc_eng_id`]) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
-
-            // Flat columns from reconstructed inspection object (new schema)
             if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
             if (inspData[`${sPrefix}_data`]) {
                 try {
                     const rawData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
-                    const catKey = initialData?.joint_type?.toLowerCase() || initialData?.jointCategory?.toLowerCase() || 'd';
-                    const sData = rawData?.[catKey]?.[sPrefix] || rawData?.[catKey] || rawData || {};
+                    const sData = rawData?.d?.[sPrefix] || rawData?.d || rawData || {};
 
                     if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
                     if (sData.submissionDate) setTodayDate(sData.submissionDate);
@@ -167,37 +105,26 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
                     setFormData(prev => ({
                         ...prev,
-                        tackWelder: sData.tackWelder || "",
-                        materialId: sData.materialId || "",
-                        lSeamNdt: sData.lSeamNdt || "",
-                        cleaning: sData.cleaning || "",
-                        grooveAngle: sData.grooveAngle || "",
-                        rootFace: sData.rootFace || "",
-                        rootGap: sData.rootGap || "",
-                        projection: sData.projection || "",
-                        pcdHole: sData.pcdHole || "",
-                        rfPad: sData.rfPad || "",
-                        date: sData.date || prev.date
+                        nozzleNumber: sData.nozzleNumber || "",
+                        openingSize: sData.openingSize || "",
+                        orientation: sData.orientation || "",
+                        elevation: sData.elevation || "",
+                        edgePreparation: sData.edgePreparation || ""
                     }));
                 } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
             }
-            if (inspData[`${sPrefix}_status`] && !qcEngineer) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
         }
-    }, [initialData, inspectionData]);
+    }, [initialData, inspectionData, stage]);
+
+    const isReadOnly = isReview && userRole !== 'QC';
 
     const handleFormChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }))
     }
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target
-        setInputFields((prev) => ({ ...prev, [name]: value }))
-    }
-
     const handleSubmit = async () => {
         setIsSubmitting(true)
-        setError("")
-        setSuccess("")
+        setAlert({ show: false, type: '', message: '' })
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
@@ -211,7 +138,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
             }
 
             if (!qcEngineer) {
-                setError("Please select QC Engineer");
+                setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
                 setIsSubmitting(false);
                 return;
             }
@@ -231,8 +158,8 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
             const finalData = {
                 ...existingData,
-                [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
-                    ...existingData?.cd,
+                d: {
+                    ...existingData?.d,
                     [sPrefix]: currentStageData
                 }
             };
@@ -256,16 +183,16 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 credentials: "include",
             });
 
-            const data = await res.json();
             if (res.ok) {
-                setSuccess(`${stage.replace('stage', 'Stage ')} Submitted Successfully`);
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} Submitted Successfully` });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                setError(data.message || "Submission failed");
+                const data = await res.json();
+                setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
             }
         } catch (error) {
             console.error(error);
-            setError("Error submitting form");
+            setAlert({ show: true, type: 'error', message: "Error submitting form" });
         } finally {
             setIsSubmitting(false);
         }
@@ -273,8 +200,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
     const handleReviewAction = async (status) => {
         setIsSubmitting(true)
-        setError("")
-        setSuccess("")
+        setAlert({ show: false, type: '', message: '' })
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
@@ -287,47 +213,12 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            const inspData = inspectionData || initialData?.inspectionData;
-            if (userRole === 'QC' && status === 'approved') {
-                let existingData = {};
-                if (inspData?.[`${sPrefix}_data`]) {
-                    existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
-                }
-                const currentStageData = {
-                    assignedQcEngineerId: qcEngineer,
-                    productionEngineerName,
-                    submissionDate: todayDate,
-                    ...formData
-                };
-                const finalData = {
-                    ...existingData,
-                    [initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'd']: {
-                        ...existingData?.cd,
-                        [sPrefix]: currentStageData
-                    }
-                };
-                await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-                    body: JSON.stringify({
-                        jointId: initialData?.id,
-                        stage: stage,
-                        status: status,
-                        engineerId: userId,
-                        role: 'QC',
-                        data: finalData
-                    }),
-                    credentials: "include",
-                });
-            }
-
             const payload = {
                 jointId: initialData?.id,
                 stage: stage,
                 status: status,
                 engineerId: userId,
-                role: 'QC',
-                data: {}
+                role: 'QC'
             }
 
             const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
@@ -339,16 +230,16 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 body: JSON.stringify(payload),
                 credentials: "include",
             });
-            const data = await res.json();
             if (res.ok) {
-                setSuccess(`${stage.replace('stage', 'Stage ')} ${status} Successfully`);
+                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} Successfully` });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                setError(data.message || "Review action failed");
+                const data = await res.json();
+                setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
             }
-
         } catch (error) {
-            setError("Error processing review");
+            console.error(error);
+            setAlert({ show: true, type: 'error', message: "Error processing review" });
         } finally {
             setIsSubmitting(false);
         }
@@ -356,8 +247,9 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
     return (
         <div className="w-full mx-auto p-6 space-y-6">
-            <FormAlert type="error" message={error} />
-            <FormAlert type="success" message={success} />
+            {alert.show && <FormAlert type={alert.type} message={alert.message} />}
+
+            {/* Basic Information Section */}
             <div className="border rounded-lg p-4 space-y-4">
                 <h3 className="font-semibold text-lg">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -378,158 +270,69 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
             <Card className="w-full">
                 <CardHeader>
-                    <CardTitle>{stage.replace('stage', 'Stage ')}: Nozzle Set-Up</CardTitle>
+                    <CardTitle>Nozzle Opening Inspection Report</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                         <div className="space-y-2">
-                            <Label>Tack Welder</Label>
+                            <Label>Nozzle Number:</Label>
                             <Input
-                                value={formData.tackWelder}
-                                placeholder='Enter Tack Welder'
-                                onChange={(e) => handleFormChange('tackWelder', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                value={formData.nozzleNumber}
+                                placeholder='Enter Nozzle Number'
+                                onChange={(e) => handleFormChange('nozzleNumber', e.target.value)}
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Material identification of Shell / Dish / Nozzle / RF Pad</Label>
-                            <Select
-                                value={formData.materialId}
-                                onValueChange={(val) => handleFormChange('materialId', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Available">Available</SelectItem>
-                                    <SelectItem value="Not Available">Not Available</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>L-Seam NDT (if applicable)</Label>
-                            <Select
-                                value={formData.lSeamNdt}
-                                onValueChange={(val) => handleFormChange('lSeamNdt', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="Not OK">Not OK</SelectItem>
-                                    <SelectItem value="Not Applicable">Not Applicable</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Cleaning of Nozzle & Weld Area</Label>
-                            <Select
-                                value={formData.cleaning}
-                                onValueChange={(val) => handleFormChange('cleaning', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OK">OK</SelectItem>
-                                    <SelectItem value="Not OK">Not OK</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Groove Angle</Label>
+                            <Label>Opening size:</Label>
                             <Input
-                                value={formData.grooveAngle}
-                                placeholder='Enter Groove Angle'
-                                onChange={(e) => handleFormChange('grooveAngle', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                value={formData.openingSize}
+                                placeholder='Enter Opening Size'
+                                onChange={(e) => handleFormChange('openingSize', e.target.value)}
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Root face</Label>
+                            <Label>Orientation:</Label>
                             <Input
-                                value={formData.rootFace}
-                                placeholder='Enter Root Face'
-                                onChange={(e) => handleFormChange('rootFace', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                value={formData.orientation}
+                                placeholder='Enter Orientation'
+                                onChange={(e) => handleFormChange('orientation', e.target.value)}
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Root Gap</Label>
+                            <Label>Elevation:</Label>
                             <Input
-                                value={formData.rootGap}
-                                placeholder='Enter Root Gap'
-                                onChange={(e) => handleFormChange('rootGap', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                value={formData.elevation}
+                                placeholder='Enter Elevation'
+                                onChange={(e) => handleFormChange('elevation', e.target.value)}
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Projection from Reference line to Flange face</Label>
+                            <Label>Edge preparation:</Label>
                             <Input
-                                value={formData.projection}
-                                placeholder='Enter Projection'
-                                onChange={(e) => handleFormChange('projection', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                value={formData.edgePreparation}
+                                placeholder='Enter Edge Preparation'
+                                onChange={(e) => handleFormChange('edgePreparation', e.target.value)}
+                                disabled={isReadOnly}
                             />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>PCD hole OFF center / ON center</Label>
-                            <Select
-                                value={formData.pcdHole}
-                                onValueChange={(val) => handleFormChange('pcdHole', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="OFF center">OFF center</SelectItem>
-                                    <SelectItem value="ON center">ON center</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>RF pad setup as applicable</Label>
-                            <Select
-                                value={formData.rfPad}
-                                onValueChange={(val) => handleFormChange('rfPad', val)}
-                                disabled={isReview && userRole !== 'QC'}
-                            >
-                                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Applicable">Applicable</SelectItem>
-                                    <SelectItem value="Not Applicable">Not Applicable</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                     </div>
 
                     <div className="space-y-4 pt-4 border-t">
-                        <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label>Production Engineer Name:</Label>
-                                <Input
-                                    value={productionEngineerName}
-                                    readOnly
-                                    className="bg-muted uppercase"
-                                />
+                                <Input value={productionEngineerName} readOnly className="bg-muted uppercase" />
                             </div>
-
                             <div className="space-y-2">
                                 <Label>Date:</Label>
-                                <Input
-                                    value={inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
-                                    readOnly
-                                    className="bg-muted"
-                                />
+                                <Input value={todayDate} readOnly className="bg-muted" />
                             </div>
-
                             <div className="space-y-2">
-                                <Label>QC Engineer:</Label>
+                                <Label>QC Engineer Name:</Label>
                                 <Select value={qcEngineer} onValueChange={setQcEngineer} disabled={isReview}>
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select QC Engineer" />
@@ -550,18 +353,18 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
                                 </Button>
                             ) : (
                                 <>
-                                    {(isReview || inspectionData?.[`${sPrefix}_approved_at`]) && (
+                                    {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
                                         <Input
-                                            value={`Approve Date: ${inspectionData?.[`${sPrefix}_approved_at`] ? new Date(inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                                            value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
                                             readOnly
-                                            className="bg-muted w-auto min-w-[200px] text-center"
+                                            className="bg-muted w-auto min-w-[200px] text-center font-medium"
                                         />
                                     )}
                                     <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                                        {isSubmitting ? "Processing..." : "Reject"}
+                                        Reject
                                     </Button>
                                     <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                                        {isSubmitting ? "Processing..." : "Approve"}
+                                        Approve
                                     </Button>
                                 </>
                             )}
@@ -569,7 +372,7 @@ const Stage4D = ({ initialData, inspectionData, isReview = false, stage = "stage
                     </div>
                 </CardContent>
             </Card>
-        </div >
+        </div>
     )
 }
 

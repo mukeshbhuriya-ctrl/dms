@@ -5,6 +5,7 @@ const pdfGeneratorF = require('#utils/pdfGeneratorF');
 const prisma = require('#prisma');
 const { extractStageData } = require('../utils/weldJointData');
 const { getCompanyInfo } = require('../utils/companyInfo');
+const WELD_STAGES_CONFIG = require('../config/weldStagesConfig');
 
 /**
  * Generate Stage Report PDF API
@@ -33,62 +34,29 @@ async function generateStageReport(req, res) {
         const jointTypeGroup = ['C', 'D'].includes(jt) ? 'cd' : (jt === 'F' ? 'f' : 'ab');
 
         // Dynamic stage list per category based on joint's boolean flags
-        // Skipped stages (backchip/pwht/rt/pt = false) are excluded from PDF
-        const getStagesForJoint = (catKey, j) => {
-            if (catKey === 'c') {
-                const stages = ['stage1'];
-                if (j.back_chip_req) {
-                    stages.push('stage2', 'stage3'); // S2=BC, S3=WV
-                } else {
-                    stages.push('stage2'); // S2=WV
-                }
-                if (j.pwht && j.rt) stages.push('stage7');
-                if (j.pwht && j.pt) stages.push('stage8');
-                return stages;
-            }
-            if (catKey === 'd') {
-                const stages = ['stage1'];
-                if (j.back_chip_req) {
-                    // S2=BC, S3=NO, S4=NS, S5=Insp, S6=RF, S7=Pneumatic
-                    stages.push('stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7');
-                    if (j.pwht && j.rt) stages.push('stage8');
-                    if (j.pwht && j.pt) stages.push('stage9');
-                } else {
-                    // S2=NO, S3=NS, S4=Insp, S5=RF, S6=Pneumatic
-                    stages.push('stage2', 'stage3', 'stage4', 'stage5', 'stage6');
-                    if (j.pwht && j.rt) stages.push('stage7');
-                    if (j.pwht && j.pt) stages.push('stage8');
-                }
-                return stages;
-            }
-            if (catKey === 'f') {
-                const stages = ['stage1', 'stage2'];
-                if (j.pwht && j.rt) stages.push('stage3');
-                if (j.pwht && j.pt) stages.push('stage4');
-                return stages;
-            }
-            // A/B
-            const stages = ['stage1'];
-            if (j.back_chip_req) {
-                stages.push('stage2', 'stage3'); // stage2=backchip, stage3=weld visual
-            } else {
-                stages.push('stage2'); // stage2=weld visual (backchip skipped)
-            }
-            if (j.rt) stages.push('stage4');
-            if (j.pt) stages.push('stage5');
-            if (j.pwht) stages.push('stage6', 'stage7');
-            return stages;
+        const getStagesForJoint = (jt, j) => {
+            const config = WELD_STAGES_CONFIG[jt] || [];
+            return config
+                .filter(stage => {
+                    if (!stage.condition) return true;
+                    return !!j[stage.condition];
+                })
+                .map(stage => stage.id);
         };
 
         if (stage === 'all') {
             const allStagesData = {};
-            const stages = getStagesForJoint(categoryKey, joint);
-
-            await Promise.all(stages.map(async (sKey) => {
+            const config = WELD_STAGES_CONFIG[jt] || [];
+            
+            await Promise.all(config.map(async (stageObj) => {
+                const sKey = stageObj.id;
                 const sPrefix = sKey.replace('stage', 's');
-                // Only include if status exists (meaning stage was started) or it's stage 1 (always)
-                if (insp[`${sPrefix}_status`] || sKey === 'stage1') {
-                    allStagesData[sKey] = await extractStageData(insp, plan, job, joint, sKey, categoryKey);
+                const isRequired = !stageObj.condition || !!joint[stageObj.condition];
+                const hasStatus = !!insp[`${sPrefix}_status`];
+
+                if (isRequired || hasStatus || sKey === 'stage1') {
+                    const sData = await extractStageData(insp, plan, job, joint, sKey, categoryKey);
+                    allStagesData[sKey] = { ...sData, label: stageObj.label };
                 }
             }));
 
@@ -107,7 +75,9 @@ async function generateStageReport(req, res) {
         }
 
         // Single Stage Report
-        const reportData = await extractStageData(insp, plan, job, joint, stage, categoryKey);
+        const stageConfig = (WELD_STAGES_CONFIG[jt] || []).find(s => s.id === stage);
+        const sData = await extractStageData(insp, plan, job, joint, stage, categoryKey);
+        const reportData = { ...sData, label: stageConfig?.label };
 
         const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
         res.setHeader('Content-Type', 'application/pdf');
@@ -187,10 +157,26 @@ async function reviewStageStatus(req, res) {
     }
 }
 
+async function getStageConfig(req, res) {
+    try {
+        const config = weldJointService.getStageConfig();
+        res.status(200).json({
+            success: true,
+            data: config
+        });
+    } catch (error) {
+        console.error('Get stage config error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+}
+
 async function getWeldJointPlans(req, res) {
     try {
         const company_id = req.user.company_id;
-        const { page, limit, search, sortBy, sortOrder } = req.query;
+        const { page = 1, limit = 50, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
 
         const result = await weldJointService.getWeldJointPlans(company_id, {
             page,
@@ -221,5 +207,6 @@ module.exports = {
     updateStageStatus,
     reviewStageStatus,
     getWeldJointPlans,
-    generateStageReport
+    generateStageReport,
+    getStageConfig
 };

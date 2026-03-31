@@ -1,6 +1,10 @@
 const prisma = require('#prisma');
+const WELD_STAGES_CONFIG = require('../config/weldStagesConfig');
 
 class WeldJointService {
+    getStageConfig() {
+        return WELD_STAGES_CONFIG;
+    }
 
     _mapDbStageDataToCamelCase(dbData) {
         if (!dbData) return {};
@@ -136,7 +140,7 @@ class WeldJointService {
         }
 
         // Initialize empty pending stages to mimic old behavior if needed
-        ['s_bc', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8'].forEach(s => {
+        ['s_bc', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9'].forEach(s => {
             if (!insp[`${s}_status`]) insp[`${s}_status`] = 'pending';
         });
 

@@ -123,7 +123,7 @@ class PDFGeneratorCD {
             doc.moveTo(x, curY + i * rowH).lineTo(x + width, curY + i * rowH).stroke();
         }
 
-        const isNdtStage = ['stage4', 'stage5', 'stage6', 'stage7', 'stage8'].includes(data.stageKey || '');
+        const isNdtStage = ['stage4', 'stage5', 'stage6', 'stage7', 'stage8', 'stage9'].includes(data.stageKey || '');
         const secondTitle = isNdtStage ? 'NDT Engineer' : 'QC Engineer';
 
         const titles = ['Production Engineer', secondTitle, 'AI / CLIENT / TPIA'];
@@ -252,8 +252,38 @@ class PDFGeneratorCD {
         }, companyInfo);
     }
 
+    drawBackChip(doc, data, companyInfo) {
+        data.title = data.label || 'BACK CHIP REPORT';
+        this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
+            const headerH = 25;
+            const title = 'Back chip – Required / not required';
+            doc.rect(x, y, width, headerH).stroke();
+            doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+                .text(title, x, y + 8, { width: width, align: 'center' });
+
+            let curY = y + headerH;
+            const rowH = 30;
+            const colW = width / 3;
+
+            doc.rect(x, curY, colW, rowH).stroke();
+            doc.rect(x + colW, curY, colW, rowH).stroke();
+            doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
+
+            const tY = curY + 10;
+            const pad = 5;
+
+            doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+            doc.text('Back Chip PT', x + pad, tY);
+            doc.text('YES / No', x + colW + pad, tY);
+
+            doc.font(this.fonts.bold).fillColor(this.colors.black);
+            const backChipText = data.backChipReq ? 'YES' : 'NO';
+            doc.text(backChipText, x + 2 * colW + pad, tY);
+        }, companyInfo);
+    }
+
     drawStage2(doc, data, companyInfo) {
-        data.title = 'WELD VISUAL REPORT';
+        data.title = data.label || 'WELD VISUAL REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const rowH = 30;
@@ -274,7 +304,7 @@ class PDFGeneratorCD {
     }
 
     drawStage3(doc, data, companyInfo) {
-        data.title = 'NOZZLE OPENING INSPECTION REPORT';
+        data.title = data.label || 'NOZZLE OPENING INSPECTION REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const rowH = 30;
@@ -320,7 +350,7 @@ class PDFGeneratorCD {
     }
 
     drawStage4(doc, data, companyInfo) {
-        data.title = 'NOZZLE SET-UP REPORT';
+        data.title = data.label || 'NOZZLE SET-UP REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const rowH = 30;
@@ -362,7 +392,7 @@ class PDFGeneratorCD {
     }
 
     drawStage5(doc, data, companyInfo) {
-        data.title = 'INSPECTION AFTER FULL WELDING REPORT';
+        data.title = data.label || 'INSPECTION AFTER FULL WELDING REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const rowH = 30;
@@ -398,7 +428,7 @@ class PDFGeneratorCD {
     }
 
     drawStage6(doc, data, companyInfo) {
-        data.title = 'RF PAD SETUP REPORT';
+        data.title = data.label || 'RF PAD SETUP REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const rowH = 30;
@@ -415,7 +445,7 @@ class PDFGeneratorCD {
     }
 
     drawStage7(doc, data, companyInfo) {
-        data.title = 'PWHT & RADIOGRAPHY REPORT';
+        data.title = data.label || 'PWHT & RADIOGRAPHY REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const headerH = 25;
@@ -458,7 +488,7 @@ class PDFGeneratorCD {
     }
 
     drawStage8(doc, data, companyInfo) {
-        data.title = 'PWHT & LIQUID PENETRANT REPORT';
+        data.title = data.label || 'PWHT & LIQUID PENETRANT REPORT';
         this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
             let curY = y + 20;
             const headerH = 25;
@@ -504,19 +534,10 @@ class PDFGeneratorCD {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
-        // Determine Category (C or D)
-        const firstStage = Object.values(allStagesData)[0];
-        const category = firstStage?.jointType || 'D'; // Default to D if unknown
-
-        let stageOrder = [];
-        if (category === 'C') {
-            stageOrder = ['stage1', 'stage2', 'stage7', 'stage8'];
-        } else if (category === 'D') {
-            stageOrder = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'];
-        } else {
-            // Fallback for others (should not reach here based on controller logic, but safe fallback)
-            stageOrder = Object.keys(allStagesData).sort();
-        }
+        // Dynamic stage order from controller-filtered allStagesData
+        const stageOrder = Object.keys(allStagesData).sort((a, b) => {
+            return parseInt(a.replace('stage', '')) - parseInt(b.replace('stage', ''));
+        });
 
         let isFirstPage = true;
 
@@ -528,17 +549,41 @@ class PDFGeneratorCD {
             if (!isFirstPage) doc.addPage();
             isFirstPage = false;
 
-            switch (stageNum) {
-                case 1: this.drawStage1(doc, data, companyInfo); break;
-                case 2: this.drawStage2(doc, data, companyInfo); break;
-                case 3: this.drawStage3(doc, data, companyInfo); break;
-                case 4: this.drawStage4(doc, data, companyInfo); break;
-                case 5: this.drawStage5(doc, data, companyInfo); break;
-                case 6: this.drawStage6(doc, data, companyInfo); break;
-                case 7: this.drawStage7(doc, data, companyInfo); break;
-                case 8: this.drawStage8(doc, data, companyInfo); break;
-                default:
-                    doc.text(`Stage ${stageNum} not implemented`, 50, 50);
+            const label = (data.label || '').toLowerCase();
+
+            // Label-based Template Selection
+            if (label.includes('back chip') || label === 'back-chip') {
+                this.drawBackChip(doc, data, companyInfo);
+            } else if (label.includes('identification') || (label.includes('set up') && stageNum === 1)) {
+                this.drawStage1(doc, data, companyInfo);
+            } else if (label.includes('weld visual')) {
+                this.drawStage2(doc, data, companyInfo);
+            } else if (label.includes('opening inspection')) {
+                this.drawStage3(doc, data, companyInfo);
+            } else if (label.includes('set-up inspection')) {
+                this.drawStage4(doc, data, companyInfo);
+            } else if (label.includes('full welding')) {
+                this.drawStage5(doc, data, companyInfo);
+            } else if (label.includes('rf pad setup') || label.includes('rf pad pneumatic')) {
+                this.drawStage6(doc, data, companyInfo);
+            } else if (label.includes('radiography') || label.includes('(rt)')) {
+                this.drawStage7(doc, data, companyInfo);
+            } else if (label.includes('penetrant') || label.includes('(pt)')) {
+                this.drawStage8(doc, data, companyInfo);
+            } else {
+                // Fallback to label-contained keywords if above didn't match perfectly
+                if (label.includes('setup')) {
+                    if (stageNum === 1) this.drawStage1(doc, data, companyInfo);
+                    else if (stageNum === 5) this.drawStage4(doc, data, companyInfo);
+                    else if (stageNum === 7) this.drawStage6(doc, data, companyInfo);
+                    else this.drawStage1(doc, data, companyInfo);
+                } else if (label.includes('pwht')) {
+                    if (label.includes('radiography') || label.includes('rt')) this.drawStage7(doc, data, companyInfo);
+                    else if (label.includes('penetrant') || label.includes('pt')) this.drawStage8(doc, data, companyInfo);
+                    else this.drawStage7(doc, data, companyInfo);
+                } else {
+                    doc.text(`Stage ${stageNum}: ${data.label || 'N/A'} not implemented`, 50, 50);
+                }
             }
         });
 

@@ -1,412 +1,464 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import React, { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage2C = ({ initialData, isReview, stage = "stage2" }) => {
-    const sPrefix = stage.replace('stage', 's');
-    const [formData, setFormData] = useState({
-        welderNumber: "",
-        overlayPt: "",
-        date: new Date().toLocaleDateString()
-    })
+function Stage2({ initialData, isReview = false, stage = "stage2" }) {
+  const [productionEngineerName, setProductionEngineerName] = useState("")
+  const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
+  const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [userRole, setUserRole] = useState("")
+  const [qcEngineers, setQcEngineers] = useState([])
+  const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
 
-    const [productionEngineerName, setProductionEngineerName] = useState("")
-    const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-    const [qeEngineer, setQeEngineer] = useState("")
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [qeEngineers, setQeEngineers] = useState([])
-    const [userRole, setUserRole] = useState("")
+  // Although only 3 fields are shown, we keep the state structure for consistent payloads and synchronization with initialData
+  const [displayFields, setDisplayFields] = useState({
+    msn: "",
+    client: "",
+    poNo: "",
+  })
 
-    const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
+  const [inputFields, setInputFields] = useState({
+    reportNo: "",
+    tagNo: "",
+    equipment: "",
+    projectsId: "",
+    lindeDrgNo: "",
+    drgNo: "",
+    code: "",
+    inspAgency: "",
+  })
 
-    useEffect(() => {
+  const sPrefix = stage.replace('stage', 's');
+
+  useEffect(() => {
+    const authData = localStorage.getItem("user_auth")
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData)
+        const user = parsed?.payload?.user || parsed?.user
+        if (user?.name) {
+          if (!isReview) setProductionEngineerName(user.name)
+        }
+        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
+        if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
+          setUserRole('QC')
+        } else {
+          setUserRole('PROD')
+        }
+      } catch (e) { console.error(e) }
+    }
+  }, [isReview])
+
+  useEffect(() => {
+    const fetchQcEngineers = async () => {
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
         const authData = localStorage.getItem("user_auth")
+        let token = null
         if (authData) {
-            try {
-                const parsed = JSON.parse(authData)
-                const user = parsed?.payload?.user || parsed?.user
-                if (user?.name && !isReview) {
-                    setProductionEngineerName(user.name)
-                }
-                const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
-                const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
-                if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
-                    setUserRole('QC')
-                } else {
-                    setUserRole('PROD')
-                }
-            } catch (e) {
-                console.error("Error parsing auth data", e)
-            }
+          try {
+            const parsed = JSON.parse(authData)
+            token = parsed?.payload?.token || parsed?.token
+          } catch { }
         }
-    }, [isReview])
 
-    // Fetch QC Engineers
-    useEffect(() => {
-        const fetchQeEngineers = async () => {
-            try {
-                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-                const authData = localStorage.getItem("user_auth")
-                let token = null
-                if (authData) {
-                    try {
-                        const parsed = JSON.parse(authData)
-                        token = parsed?.payload?.token || parsed?.token
-                    } catch { }
-                }
-
-                const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": token ? `Bearer ${token}` : ""
-                    },
-                    credentials: "include",
-                })
-                const data = await res.json()
-                if (res.ok && data.success) {
-                    setQeEngineers(data.data || [])
-                }
-            } catch (error) {
-                console.error("Error fetching QE Engineers:", error)
-            }
+        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : ""
+          },
+          credentials: "include",
+        })
+        const data = await res.json()
+        if (res.ok && data.success) {
+          setQcEngineers(data.data || [])
         }
-        fetchQeEngineers()
-    }, [])
-
-    const getCategoryKey = () => {
-        return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'c';
+      } catch (error) { console.error(error) }
     }
+    fetchQcEngineers()
+  }, [])
 
-    useEffect(() => {
-        if (initialData?.inspectionData) {
-            const categoryKey = getCategoryKey();
-            const insp = initialData.inspectionData;
+  const getCategoryKey = () => {
+    return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'c';
+  }
 
-            if (insp[`${sPrefix}_data`]) {
-                try {
-                    const rawData = typeof insp[`${sPrefix}_data`] === 'string' ? JSON.parse(insp[`${sPrefix}_data`]) : insp[`${sPrefix}_data`];
-                    const sData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
+  useEffect(() => {
+    if (initialData) {
+      setDisplayFields({
+        msn: initialData.msnNumber || "",
+        client: initialData.client || "",
+        poNo: initialData.poNo || "",
+      })
 
-                    setFormData(prev => ({
-                        ...prev,
-                        welderNumber: sData.welderNumber || prev.welderNumber,
-                        overlayPt: sData.overlayPt || prev.overlayPt,
-                        date: sData.date || prev.date,
-                    }));
+      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/2`;
 
-                    if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
-                    if (sData.submissionDate) setTodayDate(sData.submissionDate);
-                    if (sData.assignedQcEngineerId) setQeEngineer(sData.assignedQcEngineerId);
+      setInputFields((prev) => ({
+        ...prev,
+        reportNo: prev.reportNo || generatedReportNo,
+        tagNo: initialData.tagNo || "",
+        equipment: initialData.equipment || "",
+        projectsId: initialData.projectsId || "",
+        lindeDrgNo: initialData.lindeDrgNo || "",
+        drgNo: initialData.drgNo || "",
+        code: initialData.code || "",
+      }))
 
-                } catch (e) {
-                    console.error(`Error parsing ${sPrefix}_data`, e)
-                }
-            }
-            // Fallback / Override from columns if JSON missing/incomplete
-            if (insp[`${sPrefix}_qc_eng_id`] && !qeEngineer) setQeEngineer(insp[`${sPrefix}_qc_eng_id`]);
-            if (insp[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(insp[`${sPrefix}_prod_eng_name`]);
+      if (initialData.inspectionData) {
+        const categoryKey = getCategoryKey();
+        const inspectionData = initialData.inspectionData;
+
+        if (inspectionData[`${sPrefix}_qc_eng_id`]) {
+          setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
         }
-    }, [initialData])
-
-    const handleChange = (field, value) => {
-        setFormData(prev => ({ ...prev, [field]: value }))
-    }
-
-    const handleSubmit = async () => {
-        setIsSubmitting(true)
-        setAlert({ show: false, type: 'success', message: '' })
-        try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-            const authData = localStorage.getItem("user_auth")
-            let token = null
-            let userId = null;
-            let role = 'PROD';
-
-            if (authData) {
-                const parsed = JSON.parse(authData)
-                token = parsed?.payload?.token || parsed?.token
-                userId = parsed?.payload?.user?.id || parsed?.user?.id
-            }
-
-            if (!qeEngineer) {
-                setAlert({ show: true, type: "error", message: "Please select QE Engineer" });
-                setIsSubmitting(false);
-                return;
-            }
-
-            const categoryKey = getCategoryKey();
-
-            // Fetch existing Stage Data
-            let existingStageData = {};
-            if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
-                existingStageData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
-                    ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
-                    : initialData.inspectionData[`${sPrefix}_data`];
-            }
-
-            const currentStageInnerData = {
-                ...formData,
-                assignedQcEngineerId: qeEngineer,
-                productionEngineerName: productionEngineerName,
-                submissionDate: todayDate
-            };
-
-            const stageData = {
-                ...existingStageData,
-                [categoryKey]: {
-                    ...existingStageData[categoryKey],
-                    [sPrefix]: currentStageInnerData
-                }
-            };
-
-            const payload = {
-                jointId: initialData?.id,
-                stage: stage,
-                status: "pending",
-                engineerId: userId,
-                role: role,
-                data: stageData,
-            }
-
-            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": token ? `Bearer ${token}` : ""
-                },
-                body: JSON.stringify(payload),
-                credentials: "include",
-            });
-
-            const data = await res.json();
-            if (res.ok) {
-                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} submitted successfully` });
-                setTimeout(() => window.location.reload(), 1500);
-            } else {
-                setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
-            }
-        } catch (error) {
-            console.error(error);
-            setAlert({ show: true, type: 'error', message: "Error submitting form" });
-        } finally {
-            setIsSubmitting(false);
+        if (inspectionData[`${sPrefix}_prod_eng_name`]) {
+          setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
         }
-    }
 
-    const handleReviewAction = async (status) => {
-        setIsSubmitting(true);
-        setAlert({ show: false, type: 'success', message: '' })
-        try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-            const authData = localStorage.getItem("user_auth")
-            let token = null
-            let userId = null;
-            const role = 'QC';
+        if (inspectionData.data_json) {
+          try {
+            const rawBasic = typeof inspectionData.data_json === 'string' ? JSON.parse(inspectionData.data_json) : inspectionData.data_json;
+            const basicInfo = rawBasic?.[categoryKey] || {};
 
-            if (authData) {
-                const parsed = JSON.parse(authData)
-                token = parsed?.payload?.token || parsed?.token
-                userId = parsed?.payload?.user?.id || parsed?.user?.id
-            }
-
-            // If Approved by QC, save changes first
-            if (userRole === 'QC' && status === 'approved') {
-                const categoryKey = getCategoryKey();
-
-                let existingStageData = {};
-                if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
-                    existingStageData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
-                        ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
-                        : initialData.inspectionData[`${sPrefix}_data`];
-                }
-
-                const currentStageInnerData = {
-                    ...formData,
-                    assignedQcEngineerId: qeEngineer,
-                    productionEngineerName,
-                    submissionDate: todayDate
-                };
-
-                const stageData = {
-                    ...existingStageData,
-                    [categoryKey]: {
-                        ...existingStageData[categoryKey],
-                        [sPrefix]: currentStageInnerData
-                    }
-                };
-
-                await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-                    body: JSON.stringify({
-                        jointId: initialData?.id,
-                        stage: stage,
-                        status: status,
-                        engineerId: userId,
-                        role: 'QC',
-                        data: stageData
-                    }),
-                    credentials: "include",
-                });
-            }
-
-            const payload = {
-                jointId: initialData?.id,
-                stage: stage,
-                status: status,
-                engineerId: userId,
-                role: role,
-                data: {}
-            }
-
-            const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": token ? `Bearer ${token}` : ""
-                },
-                body: JSON.stringify(payload),
-                credentials: "include",
-            });
-
-            const data = await res.json();
-            if (res.ok) {
-                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} successfully` });
-                setTimeout(() => window.location.reload(), 1500);
-            } else {
-                setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
-            }
-        } catch (error) {
-            console.error(error);
-            setAlert({ show: true, type: 'error', message: "Error processing review" });
-        } finally {
-            setIsSubmitting(false);
+            setInputFields(prev => ({
+              ...prev,
+              reportNo: basicInfo.reportNo || prev.reportNo,
+              tagNo: basicInfo.tagNo || prev.tagNo,
+              equipment: basicInfo.equipment || prev.equipment,
+              projectsId: basicInfo.projectsId || prev.projectsId,
+              lindeDrgNo: basicInfo.lindeDrgNo || prev.lindeDrgNo,
+              drgNo: basicInfo.drgNo || prev.drgNo,
+              code: basicInfo.code || prev.code,
+              inspAgency: basicInfo.inspAgency || prev.inspAgency,
+            }));
+          } catch (e) { console.error(e) }
         }
+
+        if (inspectionData[`${sPrefix}_data`]) {
+          try {
+            const rawData = typeof inspectionData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspectionData[`${sPrefix}_data`]) : inspectionData[`${sPrefix}_data`];
+            const sbcData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
+
+            if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
+            if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
+            if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
+              setBackChipQcEngineer(sbcData.assignedQcEngineerId);
+            }
+          } catch (e) { console.error(e) }
+        }
+      }
     }
+  }, [initialData])
 
+  const isReadOnly = isReview && userRole !== 'QC';
 
-    return (
-        <div className="space-y-6">
-            <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>Weld Visual</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    {alert.show && <FormAlert type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />}
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setAlert({ show: false, type: '', message: '' });
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null, userId = null;
 
-                    <div className="border rounded-lg p-4 space-y-4">
-                        <h3 className="font-semibold text-lg">Basic Information</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-2">
-                                <Label>Shreno Manufacturer sr. no.:</Label>
-                                <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Equipment Name & Tag Number:</Label>
-                                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Drawing no. :</Label>
-                                <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
-                            </div>
-                        </div>
-                    </div>
+      if (authData) {
+        const parsed = JSON.parse(authData)
+        token = parsed?.payload?.token || parsed?.token
+        userId = parsed?.payload?.user?.id || parsed?.user?.id
+      }
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <Label>Welder Number</Label>
-                            <Input
-                                value={formData.welderNumber}
-                                placeholder='Enter Welder Number'
-                                onChange={(e) => handleChange('welderNumber', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Overlay PT (If applicable)</Label>
-                            <Input
-                                value={formData.overlayPt}
-                                placeholder='Enter Overlay PT (If applicable)'
-                                onChange={(e) => handleChange('overlayPt', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
-                            />
-                        </div>
-                    </div>
+      if (!backChipQcEngineer) {
+        setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
+        setIsSubmitting(false);
+        return;
+      }
 
-                    {/* Set Up Inspection Section Matching Stage1.jsx */}
-                    <div className="space-y-4 pt-4 border-t">
-                        <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label>Production Engineer Name:</Label>
-                                <Input
-                                    value={productionEngineerName}
-                                    readOnly
-                                    className="bg-muted uppercase"
-                                />
-                            </div>
+      const categoryKey = getCategoryKey();
+      let existingData = {};
+      if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
+        existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
+          ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
+          : initialData.inspectionData[`${sPrefix}_data`];
+      }
 
-                            <div className="space-y-2">
-                                <Label>Date:</Label>
-                                <Input
-                                    value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
-                                    readOnly
-                                    className="bg-muted"
-                                />
-                            </div>
+      const currentStageData = {
+        productionEngineerName,
+        submissionDate: todayDate,
+        assignedQcEngineerId: backChipQcEngineer
+      };
 
-                            <div className="space-y-2">
-                                <Label>QE Engineer:</Label>
-                                <Select value={qeEngineer} onValueChange={setQeEngineer} disabled={isReview}>
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select QE Engineer" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {qeEngineers.map((engineer) => (
-                                            <SelectItem key={engineer.id} value={engineer.id}>
-                                                {engineer.name?.toUpperCase()}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+      const finalData = {
+        ...existingData,
+        [categoryKey]: {
+          ...existingData[categoryKey],
+          [sPrefix]: currentStageData
+        }
+      };
 
-                        <div className="flex justify-end gap-2 items-center pt-4">
-                            {!isReview ? (
-                                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
-                                </Button>
-                            ) : (
-                                <>
-                                    {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
-                                        <Input
-                                            type="text"
-                                            value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                                            readOnly
-                                            className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                                            placeholder="Approve Date"
-                                        />
-                                    )}
-                                    <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                                        {isSubmitting ? "Processing..." : "Reject"}
-                                    </Button>
-                                    <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                                        {isSubmitting ? "Processing..." : "Approve"}
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+      const basicInfo = {
+        [categoryKey]: {
+          ...displayFields,
+          ...inputFields
+        }
+      };
+
+      const payload = {
+        jointId: initialData?.id,
+        stage: stage,
+        status: "pending",
+        engineerId: userId,
+        role: 'PROD',
+        data: finalData,
+        basicInfo: basicInfo
+      }
+
+      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+        body: JSON.stringify(payload),
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        setAlert({ show: true, type: 'success', message: "Back Chip submitted successfully" });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        const data = await res.json();
+        setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
+      }
+    } catch (error) {
+      console.error(error);
+      setAlert({ show: true, type: 'error', message: "Error submitting form" });
+    } finally { setIsSubmitting(false); }
+  }
+
+  const handleReviewAction = async (status) => {
+    setIsSubmitting(true);
+    setAlert({ show: false, type: '', message: '' });
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+      const authData = localStorage.getItem("user_auth")
+      let token = null, userId = null;
+
+      if (authData) {
+        const parsed = JSON.parse(authData)
+        token = parsed?.payload?.token || parsed?.token
+        userId = parsed?.payload?.user?.id || parsed?.user?.id
+      }
+
+      if (userRole === 'QC' && status === 'approved') {
+        const categoryKey = getCategoryKey();
+        let existingData = {};
+        if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
+          existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
+            ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
+            : initialData.inspectionData[`${sPrefix}_data`];
+        }
+
+        const currentStageData = {
+          productionEngineerName,
+          submissionDate: todayDate,
+          assignedQcEngineerId: backChipQcEngineer
+        };
+
+        const finalData = {
+          ...existingData,
+          [categoryKey]: {
+            ...existingData[categoryKey],
+            [sPrefix]: currentStageData
+          }
+        };
+
+        const basicInfo = {
+          [categoryKey]: {
+            ...displayFields,
+            ...inputFields
+          }
+        };
+
+        await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+          body: JSON.stringify({
+            jointId: initialData?.id,
+            stage: stage,
+            status: status,
+            engineerId: userId,
+            role: 'QC',
+            data: finalData,
+            basicInfo: basicInfo
+          }),
+          credentials: "include",
+        });
+      }
+
+      const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+        body: JSON.stringify({
+          jointId: initialData?.id,
+          stage: stage,
+          status: status,
+          engineerId: userId,
+          role: 'QC'
+        }),
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        setAlert({ show: true, type: 'success', message: `Back Chip ${status} successfully` });
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        const data = await res.json();
+        setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
+      }
+    } catch (error) {
+      console.error(error);
+      setAlert({ show: true, type: 'error', message: "Error processing review" });
+    } finally { setIsSubmitting(false); }
+  }
+
+  return (
+    <div className="w-full mx-auto p-6 space-y-6">
+      <FormAlert type={alert.type} message={alert.message} />
+
+      {/* Basic Information Section */}
+      <div className="border rounded-lg p-4 space-y-4 shadow-sm bg-card">
+        <h3 className="font-semibold text-lg border-b pb-2">Basic Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <Label>Shreno Manufacturer sr. no.:</Label>
+            <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+          </div>
+          <div className="space-y-2">
+            <Label>Equipment Name & Tag Number:</Label>
+            <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
+          </div>
+          <div className="space-y-2">
+            <Label>Drawing no. :</Label>
+            <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
+          </div>
         </div>
-    )
+      </div>
+
+      <Card className="shadow-md">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl flex items-center gap-2">
+            Back chip
+            {initialData?.back_chip_req && (
+              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                True
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-0">
+          <div className="space-y-6 pt-6 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <Label>Production Engineer Name:</Label>
+                <Input
+                  type="text"
+                  value={productionEngineerName}
+                  placeholder="Production Engineer Name"
+                  readOnly
+                  className="bg-muted uppercase font-medium"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Date:</Label>
+                <Input
+                  type="text"
+                  value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] 
+                    ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() 
+                    : todayDate}
+                  readOnly
+                  className="bg-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="backChipQcEngineer">QC Engineer Name:</Label>
+                <Select
+                  value={backChipQcEngineer}
+                  onValueChange={setBackChipQcEngineer}
+                  disabled={isReview}
+                >
+                  <SelectTrigger className="w-full focus:ring-2 focus:ring-primary">
+                    <SelectValue placeholder="Select QC Engineer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {qcEngineers.map((engineer) => (
+                      <SelectItem key={engineer.id} value={engineer.id}>
+                        {engineer.name?.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex justify-end gap-3 items-center border-t pt-6">
+            {!isReview ? (
+              <Button 
+                onClick={handleSubmit} 
+                className="min-w-[150px] shadow-sm hover:translate-y-[-1px] transition-all" 
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+              </Button>
+            ) : (
+              <>
+                {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
+                  <div className="flex items-center gap-2 mr-auto">
+                    <Label className="text-muted-foreground">Status:</Label>
+                    <span className="font-semibold text-green-600">
+                      Approved on {initialData?.inspectionData?.[`${sPrefix}_approved_at`] 
+                        ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() 
+                        : new Date().toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+                <Button 
+                  onClick={() => handleReviewAction('rejected')} 
+                  variant="outline" 
+                  className="min-w-[100px] hover:bg-destructive/10"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Processing..." : "Reject"}
+                </Button>
+                <Button 
+                  onClick={() => handleReviewAction('approved')} 
+                  className="min-w-[100px] bg-primary hover:opacity-90 shadow-md"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Processing..." : "Approve"}
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
 
-export default Stage2C
+export default Stage2;

@@ -27,7 +27,9 @@ class PDFGenerator {
 
         // Stage filtering is now handled by the controller based on
         // joint's back_chip_req/pwht/rt/pt flags. We just render whatever is provided.
-        const stages = Object.keys(allStagesData).sort();
+        const stages = Object.keys(allStagesData).sort((a, b) => {
+            return parseInt(a.replace('stage', '')) - parseInt(b.replace('stage', ''));
+        });
 
         stages.forEach((stage, index) => {
             if (index > 0) doc.addPage();
@@ -255,7 +257,7 @@ class PDFGenerator {
             '7': 'HARDNESS TEST REPORT',
             '8': 'FINAL INSPECTION REPORT'
         };
-        const titleText = titleMap[stageNum] || `STAGE ${stageNum} INSPECTION REPORT`;
+        const titleText = (data.label || titleMap[stageNum] || `STAGE ${stageNum} INSPECTION REPORT`).toUpperCase();
 
         const startX = 25;
         const startY = 25;
