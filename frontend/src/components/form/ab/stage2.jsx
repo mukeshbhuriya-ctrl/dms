@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -17,33 +17,17 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-
-function Stage2({ backChip = false, stage = "stage2", initialData, inspectionData, isReview = false }) {
-  // Back chip section
+function Stage2({ initialData, isReview = false, stage = "stage2" }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [userRole, setUserRole] = useState("")
+  const [qcEngineers, setQcEngineers] = useState([])
 
-  // Basic Info State
-  const [displayFields, setDisplayFields] = useState({
-    msn: "",
-    client: "",
-    poNo: "",
-  })
+  const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
 
-  const [inputFields, setInputFields] = useState({
-    reportNo: "",
-    tagNo: "",
-    equipment: "",
-    projectsId: "",
-    lindeDrgNo: "", // storing CLIENT DRG here
-    drgNo: "",      // storing SHRENO DRG NO here
-    code: "",
-    inspAgency: "",
-  })
+  const sPrefix = stage.replace('stage', 's');
 
   useEffect(() => {
     const authData = localStorage.getItem("user_auth")
@@ -54,7 +38,6 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         if (user?.name) {
           if (!isReview) setProductionEngineerName(user.name)
         }
-        // Extract role for QC check
         const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
         const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
         if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
@@ -67,58 +50,6 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
       }
     }
   }, [isReview])
-
-  // Populate Basic Info
-  useEffect(() => {
-    if (initialData) {
-      setDisplayFields({
-        msn: initialData.msnNumber || "",
-        client: initialData.client || "",
-        poNo: initialData.poNo || "",
-      })
-
-      // Auto-generate Report No logic (Placeholder pattern)
-      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/${stage.replace('stage', '')}`;
-
-      setInputFields((prev) => ({
-        ...prev,
-        reportNo: prev.reportNo || generatedReportNo, // Only set if empty? Or overwrite? User said "auto generate and auto fill".
-        tagNo: initialData.tagNo || "",
-        equipment: initialData.equipment || "",
-        projectsId: initialData.projectsId || "",
-        lindeDrgNo: initialData.lindeDrgNo || "", // Client DRG
-        drgNo: initialData.drgNo || "",       // Shreno DRG
-        code: initialData.code || "",
-        // inspAgency not in initialData, leave empty or prev
-      }))
-    }
-  }, [initialData, stage])
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target
-    setInputFields((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  const handleDisplayFieldChange = (e) => {
-    const { name, value } = e.target
-    setDisplayFields((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  // Weld Visual Inspection section
-  const [weldVisualQcEngineer, setWeldVisualQcEngineer] = useState("")
-  const [welderNo, setWelderNo] = useState("")
-  const [weldingProcess, setWeldingProcess] = useState("")
-
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  // Mock QC Engineers data
-  const [qcEngineers, setQcEngineers] = useState([])
 
   useEffect(() => {
     const fetchQcEngineers = async () => {
@@ -155,99 +86,40 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
     fetchQcEngineers()
   }, [])
 
-  // Helper to determine category key
   const getCategoryKey = () => {
-        return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'a';
-    }
+    return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'c';
+  }
 
   useEffect(() => {
-    // autofill data if available in inspectionData
-    if (inspectionData) {
+    if (initialData?.inspectionData) {
       const categoryKey = getCategoryKey();
+      const inspectionData = initialData.inspectionData;
 
-      // 1. Load Basic Info (from data_json)
-      if (inspectionData.data_json) {
-        try {
-          const rawBasic = typeof inspectionData.data_json === 'string' ? JSON.parse(inspectionData.data_json) : inspectionData.data_json;
-          const basicInfo = rawBasic?.[categoryKey] || {};
-
-          setInputFields(prev => ({
-            ...prev,
-            reportNo: basicInfo.reportNo || prev.reportNo,
-            tagNo: basicInfo.tagNo || prev.tagNo,
-            equipment: basicInfo.equipment || prev.equipment,
-            projectsId: basicInfo.projectsId || prev.projectsId,
-            lindeDrgNo: basicInfo.lindeDrgNo || prev.lindeDrgNo,
-            drgNo: basicInfo.drgNo || prev.drgNo,
-            code: basicInfo.code || prev.code,
-            inspAgency: basicInfo.inspAgency || prev.inspAgency,
-          }));
-        } catch (e) { console.error("Error parsing data_json", e) }
+      if (inspectionData[`${sPrefix}_qc_eng_id`]) {
+        setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
+      }
+      if (inspectionData[`${sPrefix}_prod_eng_name`]) {
+        setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
       }
 
-      const stagePrefix = stage === 'stage2' ? 's2' : 's3';
-
-      if (inspectionData[`${stagePrefix}_prod_eng_name`]) {
-        setProductionEngineerName(inspectionData[`${stagePrefix}_prod_eng_name`]);
-      }
-
-      if (inspectionData[`${stagePrefix}_data`]) {
+      if (inspectionData[`${sPrefix}_data`]) {
         try {
-          const rawData = typeof inspectionData[`${stagePrefix}_data`] === 'string'
-            ? JSON.parse(inspectionData[`${stagePrefix}_data`])
-            : inspectionData[`${stagePrefix}_data`];
-          
-          const savedData = rawData?.[categoryKey]?.[stagePrefix] || rawData?.[categoryKey] || rawData || {};
+          const rawData = typeof inspectionData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspectionData[`${sPrefix}_data`]) : inspectionData[`${sPrefix}_data`];
+          const sbcData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
 
-          if (savedData?.productionEngineerName) setProductionEngineerName(savedData.productionEngineerName);
-          if (savedData?.submissionDate) setTodayDate(savedData.submissionDate);
-
-          const isBackChipActive = stage === "stage2" && backChip === true;
-          const isWeldVisualActive = (stage === "stage2" && backChip === false) || (stage === "stage3" && backChip === true);
-
-          if (isBackChipActive) {
-            if (inspectionData[`${stagePrefix}_qc_eng_id`]) {
-              setBackChipQcEngineer(inspectionData[`${stagePrefix}_qc_eng_id`]);
-            } else if (savedData?.assignedQcEngineerId) {
-              setBackChipQcEngineer(savedData.assignedQcEngineerId);
-            }
+          if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
+          if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
+          if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
+            setBackChipQcEngineer(sbcData.assignedQcEngineerId);
           }
-
-          if (isWeldVisualActive) {
-            if (inspectionData[`${stagePrefix}_welder_no`]) setWelderNo(inspectionData[`${stagePrefix}_welder_no`]);
-            else if (savedData?.welderNo) setWelderNo(savedData.welderNo);
-
-            if (inspectionData[`${stagePrefix}_welding_process`]) setWeldingProcess(inspectionData[`${stagePrefix}_welding_process`]);
-            else if (savedData?.weldingProcess) setWeldingProcess(savedData.weldingProcess);
-
-            if (inspectionData[`${stagePrefix}_qc_eng_id`]) {
-              setWeldVisualQcEngineer(inspectionData[`${stagePrefix}_qc_eng_id`]);
-            } else if (savedData?.assignedQcEngineerId) {
-              setWeldVisualQcEngineer(savedData.assignedQcEngineerId);
-            }
-          }
-
-          if (savedData?.inputFields && !inspectionData.data_json) {
-            setInputFields(prev => ({ ...prev, ...savedData.inputFields }));
-          }
-        } catch (e) {
-          console.error(`Error parsing ${stagePrefix}_data`, e);
-        }
+        } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
       }
     }
-  }, [inspectionData, stage, initialData]);
-
-  // ReadOnly Condition: Review mode AND not QC
-  const isReadOnly = isReview && userRole !== 'QC';
-
-  const shouldShowBackChipSection =
-    stage === "stage2" && backChip === true
-  const shouldShowWeldVisualSection =
-    (stage === "stage2" && backChip === false) ||
-    (stage === "stage3" && backChip === true)
+  }, [initialData])
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setAlert({ show: false, type: '', message: '' });
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -261,57 +133,38 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
 
-      const currentStage = stage; // Dynamic stage2 or stage3
+      if (!backChipQcEngineer) {
+        setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
+        setIsSubmitting(false);
+        return;
+      }
+
       const categoryKey = getCategoryKey();
-      const stagePrefix = currentStage === 'stage2' ? 's2' : 's3';
-      const stageKey = `${stagePrefix}_data`;
 
       let existingData = {};
-      if (initialData?.inspectionData?.[stageKey]) {
-        existingData = typeof initialData.inspectionData[stageKey] === 'string'
-          ? JSON.parse(initialData.inspectionData[stageKey])
-          : initialData.inspectionData[stageKey];
+      if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
+        existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
+          ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
+          : initialData.inspectionData[`${sPrefix}_data`];
       }
 
       const currentStageData = {
         productionEngineerName,
         submissionDate: todayDate,
+        assignedQcEngineerId: backChipQcEngineer
       };
-
-      if (shouldShowBackChipSection) {
-        if (!backChipQcEngineer) {
-          alert("Please select QC Engineer");
-          setIsSubmitting(false);
-          return;
-        }
-        currentStageData.assignedQcEngineerId = backChipQcEngineer;
-      }
-
-      if (shouldShowWeldVisualSection) {
-        if (!weldVisualQcEngineer) {
-          alert("Please select QC Engineer for Weld Visual");
-          setIsSubmitting(false);
-          return;
-        }
-        currentStageData.welderNo = welderNo;
-        currentStageData.weldingProcess = weldingProcess;
-        currentStageData.assignedQcEngineerId = weldVisualQcEngineer;
-      }
 
       const finalData = {
         ...existingData,
         [categoryKey]: {
           ...existingData[categoryKey],
-          [stagePrefix]: currentStageData
+          [sPrefix]: currentStageData
         }
       };
 
-      // Construct Basic Info
-
-
       const payload = {
         jointId: initialData?.id,
-        stage: currentStage,
+        stage: stage,
         status: "pending",
         engineerId: userId,
         role: role,
@@ -330,15 +183,15 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
       const data = await res.json();
       if (res.ok) {
-        setSuccess(`${currentStage} submitted successfully`);
+        setAlert({ show: true, type: 'success', message: "Back Chip submitted successfully" });
         setTimeout(() => window.location.reload(), 1500);
       } else {
-        setError(data.message || "Submission failed");
+        setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
       }
 
     } catch (error) {
       console.error(error);
-      setError("Error submitting form");
+      setAlert({ show: true, type: 'error', message: "Error submitting form" });
     } finally {
       setIsSubmitting(false);
     }
@@ -346,8 +199,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
   const handleReviewAction = async (status) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
+    setAlert({ show: false, type: '', message: '' });
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -361,39 +213,27 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
 
-      const currentStage = stage; // Dynamic stage2 or stage3
-
       if (userRole === 'QC' && status === 'approved') {
         const categoryKey = getCategoryKey();
-        const stagePrefix = currentStage === 'stage2' ? 's2' : 's3';
-        const stageKey = `${stagePrefix}_data`;
 
         let existingData = {};
-        if (initialData?.inspectionData?.[stageKey]) {
-          existingData = typeof initialData.inspectionData[stageKey] === 'string'
-            ? JSON.parse(initialData.inspectionData[stageKey])
-            : initialData.inspectionData[stageKey];
+        if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
+          existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
+            ? JSON.parse(initialData.inspectionData[`${sPrefix}_data`])
+            : initialData.inspectionData[`${sPrefix}_data`];
         }
 
         const currentStageData = {
           productionEngineerName,
           submissionDate: todayDate,
+          assignedQcEngineerId: backChipQcEngineer
         };
-        
-        if (shouldShowBackChipSection) {
-          currentStageData.assignedQcEngineerId = backChipQcEngineer;
-        }
-        if (shouldShowWeldVisualSection) {
-          currentStageData.welderNo = welderNo;
-          currentStageData.weldingProcess = weldingProcess;
-          currentStageData.assignedQcEngineerId = weldVisualQcEngineer;
-        }
 
         const finalData = {
           ...existingData,
           [categoryKey]: {
             ...existingData[categoryKey],
-            [stagePrefix]: currentStageData
+            [sPrefix]: currentStageData
           }
         };
 
@@ -402,7 +242,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
           headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
           body: JSON.stringify({
             jointId: initialData?.id,
-            stage: currentStage,
+            stage: stage,
             status: status,
             engineerId: userId,
             role: 'QC',
@@ -414,7 +254,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
       const payload = {
         jointId: initialData?.id,
-        stage: currentStage,
+        stage: stage,
         status: status,
         engineerId: userId,
         role: role
@@ -432,14 +272,14 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
       const data = await res.json();
       if (res.ok) {
-        setSuccess(`${currentStage} ${status} successfully`);
+        setAlert({ show: true, type: 'success', message: `Back Chip ${status} successfully` });
         setTimeout(() => window.location.reload(), 1500);
       } else {
-        setError(data.message || "Review action failed");
+        setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
       }
     } catch (error) {
       console.error(error);
-      setError("Error processing review");
+      setAlert({ show: true, type: 'error', message: "Error processing review" });
     } finally {
       setIsSubmitting(false);
     }
@@ -447,185 +287,40 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
 
   return (
     <div className="w-full mx-auto p-6 space-y-6">
-      {/* Basic Information Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Display Fields (Read-only) */}
-            <div className="space-y-2">
-              <Label htmlFor="msn">MSN:</Label>
-              <Input
-                id="msn"
-                name="msn"
-                type="text"
-                value={displayFields.msn}
-                onChange={handleDisplayFieldChange}
-                placeholder="MSN"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="client">CLIENT:</Label>
-              <Input
-                id="client"
-                name="client"
-                type="text"
-                value={displayFields.client}
-                onChange={handleDisplayFieldChange}
-                placeholder="CLIENT"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="poNo">P.O. NO.:</Label>
-              <Input
-                id="poNo"
-                name="poNo"
-                type="text"
-                value={displayFields.poNo}
-                onChange={handleDisplayFieldChange}
-                placeholder="P.O. NO."
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            {/* Input Fields */}
-            <div className="space-y-2">
-              <Label htmlFor="reportNo">Report No:</Label>
-              <Input
-                id="reportNo"
-                name="reportNo"
-                type="text"
-                value={inputFields.reportNo}
-                onChange={handleInputChange}
-                placeholder="Enter Report No"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tagNo">TAG NO.:</Label>
-              <Input
-                id="tagNo"
-                name="tagNo"
-                type="text"
-                value={inputFields.tagNo}
-                onChange={handleInputChange}
-                placeholder="Enter TAG NO."
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="equipment">EQUIPMENT:</Label>
-              <Input
-                id="equipment"
-                name="equipment"
-                type="text"
-                value={inputFields.equipment}
-                onChange={handleInputChange}
-                placeholder="Enter EQUIPMENT"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="projectsId">Projects ID:</Label>
-              <Input
-                id="projectsId"
-                name="projectsId"
-                type="text"
-                value={inputFields.projectsId}
-                onChange={handleInputChange}
-                placeholder="Enter Projects ID"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="lindeDrgNo">CLIENT DRG.:</Label>
-              <Input
-                id="lindeDrgNo"
-                name="lindeDrgNo"
-                type="text"
-                value={inputFields.lindeDrgNo}
-                onChange={handleInputChange}
-                placeholder="Enter CLIENT DRG."
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="drgNo">SHRENO DRG NO.:</Label>
-              <Input
-                id="drgNo"
-                name="drgNo"
-                type="text"
-                value={inputFields.drgNo}
-                onChange={handleInputChange}
-                placeholder="Enter SHRENO DRG NO."
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="code">CODE:</Label>
-              <Input
-                id="code"
-                name="code"
-                type="text"
-                value={inputFields.code}
-                onChange={handleInputChange}
-                placeholder="Enter CODE"
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="inspAgency">INSP. AGENCY:</Label>
-              <Input
-                id="inspAgency"
-                name="inspAgency"
-                type="text"
-                value={inputFields.inspAgency}
-                onChange={handleInputChange}
-                placeholder="Enter INSP. AGENCY"
-                readOnly
-                className="bg-muted"
-              />
+        <CardContent className="space-y-6">
+          {/* Basic Information Section */}
+          <div className="border rounded-lg p-4 space-y-4">
+            <h3 className="font-semibold text-lg">Basic Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <Label>Shreno Manufacturer sr. no.:</Label>
+                <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+              </div>
+              <div className="space-y-2">
+                <Label>Equipment Name & Tag Number:</Label>
+                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
+              </div>
+              <div className="space-y-2">
+                <Label>Drawing no. :</Label>
+                <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-      {/* Section 1: Back chip - Only show for stage2 with backChip = true */}
-      {shouldShowBackChipSection && (
-        <Card>
+
           <CardHeader>
-            <CardTitle>
-              Back chip{" "}
-              {backChip && (
+            <CardTitle className="flex items-center gap-2">
+              Back chip
+              {initialData?.back_chip_req && (
                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                   Yes
                 </span>
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {/* Back chip Status Update Section */}
+          <div className="space-y-4 pt-4 border-t">
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Production Engineer Name:</Label>
@@ -641,7 +336,7 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 <Label>Date:</Label>
                 <Input
                   type="text"
-                  value={initialData?.inspectionData?.s2_submitted_at ? new Date(initialData.inspectionData.s2_submitted_at).toLocaleDateString() : todayDate}
+                  value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
                   readOnly
                   className="bg-muted"
                 />
@@ -667,142 +362,37 @@ function Stage2({ backChip = false, stage = "stage2", initialData, inspectionDat
                 </Select>
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2 items-center">
-              {!isReview ? (
-                <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : `Save & Complete ${stage === 'stage2' ? 'Stage 2' : 'Stage 3'}`}
+          </div>
+
+          <div className="mt-6 flex justify-end gap-2 items-center">
+            {!isReview ? (
+              <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+              </Button>
+            ) : (
+              <>
+                {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
+                  <Input
+                    type="text"
+                    value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
+                    readOnly
+                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
+                    placeholder="Approve Date"
+                  />
+                )}
+                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                  {isSubmitting ? "Processing..." : "Reject"}
                 </Button>
-              ) : (
-                <>
-                  {(isReview || initialData?.inspectionData?.s2_approved_at) && (
-                    <Input
-                      type="text"
-                      value={`Approve Date: ${initialData?.inspectionData?.s2_approved_at ? new Date(initialData.inspectionData.s2_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                      readOnly
-                      className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                      placeholder="Approve Date"
-                    />
-                  )}
-                  <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                    {isSubmitting ? "Processing..." : "Reject"}
-                  </Button>
-                  <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                    {isSubmitting ? "Processing..." : "Approve"}
-                  </Button>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Section 2: Weld Visual Inspection by - Show for stage2 with backChip = false OR stage3 with backChip = true */}
-      {shouldShowWeldVisualSection && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Weld Visual Inspection by</CardTitle>
-          </CardHeader>
-          <CardContent>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className="space-y-2">
-                <Label htmlFor="welderNo">Welder No.:</Label>
-                <Input
-                  id="welderNo"
-                  type="text"
-                  value={welderNo}
-                  onChange={(e) => setWelderNo(e.target.value)}
-                  placeholder="Enter Welder No."
-                  readOnly={isReadOnly}
-                  className={isReadOnly ? "bg-muted" : ""}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="weldingProcess">Welding Process:</Label>
-                <Input
-                  id="weldingProcess"
-                  type="text"
-                  value={weldingProcess}
-                  onChange={(e) => setWeldingProcess(e.target.value)}
-                  placeholder="Enter Welding Process"
-                  readOnly={isReadOnly}
-                  className={isReadOnly ? "bg-muted" : ""}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Production Engineer Name:</Label>
-                <Input
-                  type="text"
-                  value={productionEngineerName}
-                  readOnly
-                  className="bg-muted uppercase"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Date:</Label>
-                <Input
-                  type="text"
-                  value={initialData?.inspectionData?.s3_submitted_at ? new Date(initialData.inspectionData.s3_submitted_at).toLocaleDateString() : todayDate}
-                  readOnly
-                  className="bg-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="weldVisualQcEngineer">QC Engineer Name:</Label>
-                <Select
-                  value={weldVisualQcEngineer}
-                  onValueChange={setWeldVisualQcEngineer}
-                  disabled={isReview}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select QC Engineer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {qcEngineers.map((engineer) => (
-                      <SelectItem key={engineer.id} value={engineer.id}>
-                        {engineer.name?.toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2 items-center">
-              {!isReview ? (
-                <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
-                  {isSubmitting ? "Saving..." : `Save & Complete ${stage === 'stage2' ? 'Stage 2' : 'Stage 3'}`}
+                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                  {isSubmitting ? "Processing..." : "Approve"}
                 </Button>
-              ) : (
-                <>
-                  {(isReview || initialData?.inspectionData?.s3_approved_at) && (
-                    <Input
-                      type="text"
-                      value={`Approve Date: ${initialData?.inspectionData?.s3_approved_at ? new Date(initialData.inspectionData.s3_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                      readOnly
-                      className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                      placeholder="Approve Date"
-                    />
-                  )}
-                  <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                    {isSubmitting ? "Processing..." : "Reject"}
-                  </Button>
-                  <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                    {isSubmitting ? "Processing..." : "Approve"}
-                  </Button>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
-export default Stage2
+export default Stage2;

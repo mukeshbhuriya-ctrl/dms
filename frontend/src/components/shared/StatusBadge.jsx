@@ -14,15 +14,15 @@ const statusConfig = {
     rejected: { label: "Rejected", className: "bg-red-500/10 text-red-600 dark:text-red-400 hover:bg-red-500/20" }
 };
 
-export function StatusBadge({ status, className }) {
+export function StatusBadge({ status, className, label }) {
     const config = statusConfig[status] || {
-        label: status,
+        label: label || status,
         className: "bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20"
     };
 
     return (
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className} ${className || ''}`}>
-            {config.label}
+            {label || config.label}
         </span>
     );
 }

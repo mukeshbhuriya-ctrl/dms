@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function StageBackChip({ initialData, isReview = false, stage = "stage_bc" }) {
+function Stage2({ initialData, isReview = false, stage = "stage2" }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
@@ -395,4 +395,4 @@ function StageBackChip({ initialData, isReview = false, stage = "stage_bc" }) {
   )
 }
 
-export default StageBackChip;
+export default Stage2;

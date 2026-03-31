@@ -321,8 +321,7 @@ class PDFGeneratorF {
 
         // Dynamic stage order from controller-filtered allStagesData
         const stageOrder = Object.keys(allStagesData).sort((a, b) => {
-            const order = ['stage1', 'stage2', 'stage3', 'stage4'];
-            return order.indexOf(a) - order.indexOf(b);
+            return parseInt(a.replace('stage', '')) - parseInt(b.replace('stage', ''));
         });
         let isFirstPage = true;
 

@@ -1,6 +1,10 @@
 const prisma = require('#prisma');
+const WELD_STAGES_CONFIG = require('../config/weldStagesConfig');
 
 class WeldJointService {
+    getStageConfig() {
+        return WELD_STAGES_CONFIG;
+    }
 
     _mapDbStageDataToCamelCase(dbData) {
         if (!dbData) return {};

@@ -504,19 +504,10 @@ class PDFGeneratorCD {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
-        // Determine Category (C or D)
-        const firstStage = Object.values(allStagesData)[0];
-        const category = firstStage?.jointType || 'D'; // Default to D if unknown
-
-        let stageOrder = [];
-        if (category === 'C') {
-            stageOrder = ['stage1', 'stage2', 'stage7', 'stage8'];
-        } else if (category === 'D') {
-            stageOrder = ['stage1', 'stage2', 'stage3', 'stage4', 'stage5', 'stage6', 'stage7', 'stage8'];
-        } else {
-            // Fallback for others (should not reach here based on controller logic, but safe fallback)
-            stageOrder = Object.keys(allStagesData).sort();
-        }
+        // Dynamic stage order from controller-filtered allStagesData
+        const stageOrder = Object.keys(allStagesData).sort((a, b) => {
+            return parseInt(a.replace('stage', '')) - parseInt(b.replace('stage', ''));
+        });
 
         let isFirstPage = true;
 
