@@ -140,8 +140,8 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         totalLength: stageData.totalLength || '',
         date: stageData.date || '',
 
-        // Stage 2 - Welding Details (Back chip)
-        welderNumber: stageData.welderNumber || '',
+        // Stage 2 - Welding Details (Back chip / Weld Visual)
+        welderNumber: stageData.welderNumber || stageData.welderNo || '',
         overlayPt: stageData.overlayPt || '',
 
         // Stage 3 - A/B Weld Visual Inspection

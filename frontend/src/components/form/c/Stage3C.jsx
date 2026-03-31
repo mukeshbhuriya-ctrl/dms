@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage2C = ({ initialData, isReview, stage = "stage2" }) => {
+const Stage3C = ({ initialData, isReview, stage = "stage3" }) => {
     const sPrefix = stage.replace('stage', 's');
     const [formData, setFormData] = useState({
         welderNumber: "",
@@ -409,4 +409,4 @@ const Stage2C = ({ initialData, isReview, stage = "stage2" }) => {
     )
 }
 
-export default Stage2C
+export default Stage3C
