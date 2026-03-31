@@ -22,10 +22,10 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
     
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-    const [qcEngineer, setQcEngineer] = useState("") 
+    const [ndtEngineer, setNdtEngineer] = useState("") 
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [userRole, setUserRole] = useState("")
-    const [qcEngineers, setQcEngineers] = useState([])
+    const [ndtEngineers, setNdtEngineers] = useState([])
     const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
 
     useEffect(() => {
@@ -49,7 +49,7 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
     }, [isReview])
 
     useEffect(() => {
-        const fetchQeEngineers = async () => {
+        const fetchNdtEngineers = async () => {
             try {
                 const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
                 const authData = localStorage.getItem("user_auth")
@@ -71,19 +71,19 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 })
                 const data = await res.json()
                 if (res.ok && data.success) {
-                    setQcEngineers(data.data || [])
+                    setNdtEngineers(data.data || [])
                 }
             } catch (error) {
-                console.error("Error fetching QE Engineers:", error)
+                console.error("Error fetching Engineers:", error)
             }
         }
-        fetchQeEngineers()
+        fetchNdtEngineers()
     }, [])
 
     useEffect(() => {
         const inspData = inspectionData || initialData?.inspectionData;
         if (inspData) {
-            if (inspData[`${sPrefix}_qc_eng_id`]) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
+            if (inspData[`${sPrefix}_qc_eng_id`]) setNdtEngineer(inspData[`${sPrefix}_qc_eng_id`]);
             if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
             if (inspData[`${sPrefix}_data`]) {
@@ -93,7 +93,7 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
                     if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
                     if (sData.submissionDate) setTodayDate(sData.submissionDate);
-                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setQcEngineer(sData.assignedQcEngineerId);
+                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setNdtEngineer(sData.assignedQcEngineerId);
                 } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
             }
         }
@@ -105,8 +105,7 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
-            let token = null
-            let userId = null;
+            let token = null, userId = null;
 
             if (authData) {
                 const parsed = JSON.parse(authData)
@@ -114,14 +113,14 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            if (!qcEngineer) {
-                setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
+            if (!ndtEngineer) {
+                setAlert({ show: true, type: 'error', message: "Please select NDT Engineer" });
                 setIsSubmitting(false);
                 return;
             }
 
             const currentStageData = {
-                assignedQcEngineerId: qcEngineer,
+                assignedQcEngineerId: ndtEngineer,
                 productionEngineerName,
                 submissionDate: todayDate,
             };
@@ -160,7 +159,7 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
             });
 
             if (res.ok) {
-                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} Submitted Successfully` });
+                setAlert({ show: true, type: 'success', message: "Stage submitted successfully" });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 const data = await res.json();
@@ -180,8 +179,7 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
         try {
             const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
-            let token = null
-            let userId = null;
+            let token = null, userId = null;
 
             if (authData) {
                 const parsed = JSON.parse(authData)
@@ -189,12 +187,40 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            const payload = {
-                jointId: initialData?.id,
-                stage: stage,
-                status: status,
-                engineerId: userId,
-                role: 'QC'
+            if (userRole === 'QC' && status === 'approved') {
+                const inspData = inspectionData || initialData?.inspectionData;
+                let existingData = {};
+                if (inspData?.[`${sPrefix}_data`]) {
+                    existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
+                }
+
+                const currentStageData = {
+                    assignedQcEngineerId: ndtEngineer,
+                    productionEngineerName,
+                    submissionDate: todayDate,
+                };
+
+                const finalData = {
+                    ...existingData,
+                    d: {
+                        ...existingData?.d,
+                        [sPrefix]: currentStageData
+                    }
+                };
+
+                await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+                    body: JSON.stringify({
+                        jointId: initialData?.id,
+                        stage: stage,
+                        status: status,
+                        engineerId: userId,
+                        role: 'QC',
+                        data: finalData
+                    }),
+                    credentials: "include",
+                });
             }
 
             const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
@@ -203,11 +229,17 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
                     "Content-Type": "application/json",
                     "Authorization": token ? `Bearer ${token}` : ""
                 },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({
+                    jointId: initialData?.id,
+                    stage: stage,
+                    status: status,
+                    engineerId: userId,
+                    role: 'QC'
+                }),
                 credentials: "include",
             });
             if (res.ok) {
-                setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} Successfully` });
+                setAlert({ show: true, type: 'success', message: `Stage ${status} successfully` });
                 setTimeout(() => window.location.reload(), 1500);
             } else {
                 const data = await res.json();
@@ -225,9 +257,8 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
         <div className="w-full mx-auto p-6 space-y-6">
             {alert.show && <FormAlert type={alert.type} message={alert.message} />}
 
-            {/* Basic Information Section */}
-            <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-semibold text-lg">Basic Information</h3>
+            <div className="border rounded-lg p-4 space-y-4 shadow-sm bg-card">
+                <h3 className="font-semibold text-lg border-b pb-2">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="space-y-2">
                         <Label>Shreno Manufacturer sr. no.:</Label>
@@ -244,29 +275,47 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 </div>
             </div>
 
-            <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>PWHT & RADIOGRAPHY REPORT</CardTitle>
+            <Card className="shadow-md w-full">
+                <CardHeader className="pb-4">
+                    <CardTitle className="text-xl flex items-center gap-2">
+                        Post Weld Heat Treatment (PWHT)
+                        {initialData?.pwht && (
+                            <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                                Yes
+                            </span>
+                        )}
+                    </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-4 pt-4 border-t">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <CardHeader className="pt-0 pb-4">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        PWHT & RADIOGRAPHY REPORT
+                        {initialData?.pwht && (
+                            <span className="text-xs text-muted-foreground font-normal">
+                                (After PWHT)
+                            </span>
+                        )}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-0">
+                    <div className="space-y-6 pt-6 border-t font-medium">
+                        <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
                                 <Label>Production Engineer Name:</Label>
                                 <Input value={productionEngineerName} readOnly className="bg-muted uppercase" />
                             </div>
                             <div className="space-y-2">
                                 <Label>Date:</Label>
-                                <Input value={todayDate} readOnly className="bg-muted" />
+                                <Input value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate} readOnly className="bg-muted" />
                             </div>
                             <div className="space-y-2">
-                                <Label>QC Engineer Name:</Label>
-                                <Select value={qcEngineer} onValueChange={setQcEngineer} disabled={isReview}>
+                                <Label htmlFor="ndtEngineer">NDT Engineer:</Label>
+                                <Select value={ndtEngineer} onValueChange={setNdtEngineer} disabled={isReview}>
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select QC Engineer" />
+                                        <SelectValue placeholder="Select NDT Engineer" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {qcEngineers.map(eng => (
+                                        {ndtEngineers.map(eng => (
                                             <SelectItem key={eng.id} value={eng.id}>{eng.name?.toUpperCase()}</SelectItem>
                                         ))}
                                     </SelectContent>
@@ -274,24 +323,25 @@ const Stage8D = ({ initialData, inspectionData, isReview = false, stage = "stage
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2 items-center pt-4">
+                        <div className="mt-8 flex justify-end gap-3 items-center border-t pt-6">
                             {!isReview ? (
-                                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+                                <Button onClick={handleSubmit} className="min-w-[150px] shadow-sm hover:translate-y-[-1px] transition-all" disabled={isSubmitting}>
+                                    {isSubmitting ? "Saving..." : `Save & Complete Stage 8`}
                                 </Button>
                             ) : (
                                 <>
                                     {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
-                                        <Input
-                                            value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                                            readOnly
-                                            className="bg-muted w-auto min-w-[200px] text-center font-medium"
-                                        />
+                                        <div className="flex items-center gap-2 mr-auto">
+                                            <Label className="text-muted-foreground">Status:</Label>
+                                            <span className="font-semibold text-green-600">
+                                                Approved on {initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}
+                                            </span>
+                                        </div>
                                     )}
-                                    <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                                    <Button onClick={() => handleReviewAction('rejected')} variant="outline" className="min-w-[100px] hover:bg-destructive/10" disabled={isSubmitting}>
                                         Reject
                                     </Button>
-                                    <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                                    <Button onClick={() => handleReviewAction('approved')} className="min-w-[100px] bg-primary hover:opacity-90 shadow-md" disabled={isSubmitting}>
                                         Approve
                                     </Button>
                                 </>

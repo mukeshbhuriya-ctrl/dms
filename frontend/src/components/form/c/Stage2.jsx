@@ -24,8 +24,25 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [userRole, setUserRole] = useState("")
   const [qcEngineers, setQcEngineers] = useState([])
-
   const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
+
+  // Although only 3 fields are shown, we keep the state structure for consistent payloads and synchronization with initialData
+  const [displayFields, setDisplayFields] = useState({
+    msn: "",
+    client: "",
+    poNo: "",
+  })
+
+  const [inputFields, setInputFields] = useState({
+    reportNo: "",
+    tagNo: "",
+    equipment: "",
+    projectsId: "",
+    lindeDrgNo: "",
+    drgNo: "",
+    code: "",
+    inspAgency: "",
+  })
 
   const sPrefix = stage.replace('stage', 's');
 
@@ -45,9 +62,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
         } else {
           setUserRole('PROD')
         }
-      } catch (e) {
-        console.error("Error parsing auth data", e)
-      }
+      } catch (e) { console.error(e) }
     }
   }, [isReview])
 
@@ -75,14 +90,9 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
         const data = await res.json()
         if (res.ok && data.success) {
           setQcEngineers(data.data || [])
-        } else {
-          console.error("Failed to fetch QC Engineers:", data.message)
         }
-      } catch (error) {
-        console.error("Error fetching QC Engineers:", error)
-      }
+      } catch (error) { console.error(error) }
     }
-
     fetchQcEngineers()
   }, [])
 
@@ -91,31 +101,73 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
   }
 
   useEffect(() => {
-    if (initialData?.inspectionData) {
-      const categoryKey = getCategoryKey();
-      const inspectionData = initialData.inspectionData;
+    if (initialData) {
+      setDisplayFields({
+        msn: initialData.msnNumber || "",
+        client: initialData.client || "",
+        poNo: initialData.poNo || "",
+      })
 
-      if (inspectionData[`${sPrefix}_qc_eng_id`]) {
-        setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
-      }
-      if (inspectionData[`${sPrefix}_prod_eng_name`]) {
-        setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
-      }
+      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/2`;
 
-      if (inspectionData[`${sPrefix}_data`]) {
-        try {
-          const rawData = typeof inspectionData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspectionData[`${sPrefix}_data`]) : inspectionData[`${sPrefix}_data`];
-          const sbcData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
+      setInputFields((prev) => ({
+        ...prev,
+        reportNo: prev.reportNo || generatedReportNo,
+        tagNo: initialData.tagNo || "",
+        equipment: initialData.equipment || "",
+        projectsId: initialData.projectsId || "",
+        lindeDrgNo: initialData.lindeDrgNo || "",
+        drgNo: initialData.drgNo || "",
+        code: initialData.code || "",
+      }))
 
-          if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
-          if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
-          if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
-            setBackChipQcEngineer(sbcData.assignedQcEngineerId);
-          }
-        } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
+      if (initialData.inspectionData) {
+        const categoryKey = getCategoryKey();
+        const inspectionData = initialData.inspectionData;
+
+        if (inspectionData[`${sPrefix}_qc_eng_id`]) {
+          setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
+        }
+        if (inspectionData[`${sPrefix}_prod_eng_name`]) {
+          setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
+        }
+
+        if (inspectionData.data_json) {
+          try {
+            const rawBasic = typeof inspectionData.data_json === 'string' ? JSON.parse(inspectionData.data_json) : inspectionData.data_json;
+            const basicInfo = rawBasic?.[categoryKey] || {};
+
+            setInputFields(prev => ({
+              ...prev,
+              reportNo: basicInfo.reportNo || prev.reportNo,
+              tagNo: basicInfo.tagNo || prev.tagNo,
+              equipment: basicInfo.equipment || prev.equipment,
+              projectsId: basicInfo.projectsId || prev.projectsId,
+              lindeDrgNo: basicInfo.lindeDrgNo || prev.lindeDrgNo,
+              drgNo: basicInfo.drgNo || prev.drgNo,
+              code: basicInfo.code || prev.code,
+              inspAgency: basicInfo.inspAgency || prev.inspAgency,
+            }));
+          } catch (e) { console.error(e) }
+        }
+
+        if (inspectionData[`${sPrefix}_data`]) {
+          try {
+            const rawData = typeof inspectionData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspectionData[`${sPrefix}_data`]) : inspectionData[`${sPrefix}_data`];
+            const sbcData = rawData?.[categoryKey]?.[sPrefix] || rawData?.[categoryKey] || rawData || {};
+
+            if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
+            if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
+            if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
+              setBackChipQcEngineer(sbcData.assignedQcEngineerId);
+            }
+          } catch (e) { console.error(e) }
+        }
       }
     }
   }, [initialData])
+
+  const isReadOnly = isReview && userRole !== 'QC';
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -123,9 +175,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
-      let token = null
-      let userId = null;
-      let role = 'PROD';
+      let token = null, userId = null;
 
       if (authData) {
         const parsed = JSON.parse(authData)
@@ -140,7 +190,6 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
       }
 
       const categoryKey = getCategoryKey();
-
       let existingData = {};
       if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
         existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
@@ -162,39 +211,41 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
         }
       };
 
+      const basicInfo = {
+        [categoryKey]: {
+          ...displayFields,
+          ...inputFields
+        }
+      };
+
       const payload = {
         jointId: initialData?.id,
         stage: stage,
         status: "pending",
         engineerId: userId,
-        role: role,
-        data: finalData
+        role: 'PROD',
+        data: finalData,
+        basicInfo: basicInfo
       }
 
       const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : ""
-        },
+        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
         body: JSON.stringify(payload),
         credentials: "include",
       });
 
-      const data = await res.json();
       if (res.ok) {
         setAlert({ show: true, type: 'success', message: "Back Chip submitted successfully" });
         setTimeout(() => window.location.reload(), 1500);
       } else {
+        const data = await res.json();
         setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
       }
-
     } catch (error) {
       console.error(error);
       setAlert({ show: true, type: 'error', message: "Error submitting form" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    } finally { setIsSubmitting(false); }
   }
 
   const handleReviewAction = async (status) => {
@@ -203,9 +254,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
-      let token = null
-      let userId = null;
-      const role = 'QC';
+      let token = null, userId = null;
 
       if (authData) {
         const parsed = JSON.parse(authData)
@@ -215,7 +264,6 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
 
       if (userRole === 'QC' && status === 'approved') {
         const categoryKey = getCategoryKey();
-
         let existingData = {};
         if (initialData?.inspectionData?.[`${sPrefix}_data`]) {
           existingData = typeof initialData.inspectionData[`${sPrefix}_data`] === 'string'
@@ -237,6 +285,13 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
           }
         };
 
+        const basicInfo = {
+          [categoryKey]: {
+            ...displayFields,
+            ...inputFields
+          }
+        };
+
         await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
@@ -246,89 +301,84 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
             status: status,
             engineerId: userId,
             role: 'QC',
-            data: finalData
+            data: finalData,
+            basicInfo: basicInfo
           }),
           credentials: "include",
         });
       }
 
-      const payload = {
-        jointId: initialData?.id,
-        stage: stage,
-        status: status,
-        engineerId: userId,
-        role: role
-      }
-
       const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : ""
-        },
-        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
+        body: JSON.stringify({
+          jointId: initialData?.id,
+          stage: stage,
+          status: status,
+          engineerId: userId,
+          role: 'QC'
+        }),
         credentials: "include",
       });
 
-      const data = await res.json();
       if (res.ok) {
         setAlert({ show: true, type: 'success', message: `Back Chip ${status} successfully` });
         setTimeout(() => window.location.reload(), 1500);
       } else {
+        const data = await res.json();
         setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
       }
     } catch (error) {
       console.error(error);
       setAlert({ show: true, type: 'error', message: "Error processing review" });
-    } finally {
-      setIsSubmitting(false);
-    }
+    } finally { setIsSubmitting(false); }
   }
 
   return (
     <div className="w-full mx-auto p-6 space-y-6">
-      <Card>
-        <CardContent className="space-y-6">
-          {/* Basic Information Section */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="font-semibold text-lg">Basic Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label>Shreno Manufacturer sr. no.:</Label>
-                <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
-              </div>
-              <div className="space-y-2">
-                <Label>Equipment Name & Tag Number:</Label>
-                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
-              </div>
-              <div className="space-y-2">
-                <Label>Drawing no. :</Label>
-                <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
-              </div>
-            </div>
+      <FormAlert type={alert.type} message={alert.message} />
+
+      {/* Basic Information Section */}
+      <div className="border rounded-lg p-4 space-y-4 shadow-sm bg-card">
+        <h3 className="font-semibold text-lg border-b pb-2">Basic Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <Label>Shreno Manufacturer sr. no.:</Label>
+            <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
           </div>
+          <div className="space-y-2">
+            <Label>Equipment Name & Tag Number:</Label>
+            <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
+          </div>
+          <div className="space-y-2">
+            <Label>Drawing no. :</Label>
+            <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
+          </div>
+        </div>
+      </div>
 
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Back chip
-              {initialData?.back_chip_req && (
-                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                  Yes
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          {/* Back chip Status Update Section */}
-          <div className="space-y-4 pt-4 border-t">
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <Card className="shadow-md">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-xl flex items-center gap-2">
+            Back chip
+            {initialData?.back_chip_req && (
+              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                True
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-0">
+          <div className="space-y-6 pt-6 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label>Production Engineer Name:</Label>
                 <Input
                   type="text"
                   value={productionEngineerName}
+                  placeholder="Production Engineer Name"
                   readOnly
-                  className="bg-muted uppercase"
+                  className="bg-muted uppercase font-medium"
                 />
               </div>
 
@@ -336,7 +386,9 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
                 <Label>Date:</Label>
                 <Input
                   type="text"
-                  value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
+                  value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] 
+                    ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() 
+                    : todayDate}
                   readOnly
                   className="bg-muted"
                 />
@@ -349,7 +401,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
                   onValueChange={setBackChipQcEngineer}
                   disabled={isReview}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full focus:ring-2 focus:ring-primary">
                     <SelectValue placeholder="Select QC Engineer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -364,26 +416,40 @@ function Stage2({ initialData, isReview = false, stage = "stage2" }) {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-2 items-center">
+          <div className="mt-8 flex justify-end gap-3 items-center border-t pt-6">
             {!isReview ? (
-              <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
+              <Button 
+                onClick={handleSubmit} 
+                className="min-w-[150px] shadow-sm hover:translate-y-[-1px] transition-all" 
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
               </Button>
             ) : (
               <>
                 {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
-                  <Input
-                    type="text"
-                    value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                    readOnly
-                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                    placeholder="Approve Date"
-                  />
+                  <div className="flex items-center gap-2 mr-auto">
+                    <Label className="text-muted-foreground">Status:</Label>
+                    <span className="font-semibold text-green-600">
+                      Approved on {initialData?.inspectionData?.[`${sPrefix}_approved_at`] 
+                        ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() 
+                        : new Date().toLocaleDateString()}
+                    </span>
+                  </div>
                 )}
-                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                <Button 
+                  onClick={() => handleReviewAction('rejected')} 
+                  variant="outline" 
+                  className="min-w-[100px] hover:bg-destructive/10"
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? "Processing..." : "Reject"}
                 </Button>
-                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                <Button 
+                  onClick={() => handleReviewAction('approved')} 
+                  className="min-w-[100px] bg-primary hover:opacity-90 shadow-md"
+                  disabled={isSubmitting}
+                >
                   {isSubmitting ? "Processing..." : "Approve"}
                 </Button>
               </>
