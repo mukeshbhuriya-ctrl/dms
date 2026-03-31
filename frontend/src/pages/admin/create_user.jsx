@@ -211,7 +211,18 @@ function CreateUser() {
       accessorKey: "roles",
       header: "Role",
       cell: (row) => {
-        return row.user_roles?.map((ur) => ur.role?.name).join(", ") || "No Role"
+        const userRoles = row.user_roles?.map((ur) => ur.role?.name) || []
+        return (
+          <div className="flex flex-col overflow-hidden">
+            <span
+              className="truncate text-xs text-muted-foreground"
+              title={userRoles.join(", ")}
+            >
+              {userRoles.slice(0, 2).join(", ")}
+              {userRoles.length > 2 ? "..." : ""}
+            </span>
+          </div>
+        )
       },
       enableSorting: false,
     },
