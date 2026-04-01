@@ -189,10 +189,13 @@ function UploadDocument() {
             accessorKey: "client_status_display",
             cell: (row) => {
                 const status = row.originalStatus || row.status
-                let text = "Awaiting Internal Approval"
+                let text = "Awaiting for Approval" // Default to awaiting for approval
                 let colorClass = "bg-gray-100 text-gray-800"
 
-                if (status === 'Approved') {
+                if (status === 'Pending' || status === 'Upload Due') {
+                    text = "Awaiting to upload"
+                    colorClass = "bg-gray-100 text-gray-800"
+                } else if (status === 'Approved') {
                     if (row.client_status === 'Approved') {
                         text = "Approved"
                         colorClass = "bg-green-100 text-green-800"
