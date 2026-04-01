@@ -134,7 +134,14 @@ function UploadDocument() {
             accessorKey: "uploader_status",
             cell: (row) => {
                 const status = row.originalStatus || row.status
-                const isPending = status === 'Pending' || status === 'Upload Due' || status === 'Response Due'
+                if (status === 'Upload Due') {
+                    return (
+                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+                            Upload Overdue
+                        </span>
+                    )
+                }
+                const isPending = status === 'Pending' || status === 'Response Due'
                 return (
                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
                         {isPending ? 'Pending' : 'Uploaded'}
@@ -147,7 +154,14 @@ function UploadDocument() {
             accessorKey: "approver_status",
             cell: (row) => {
                 const status = row.originalStatus || row.status
-                const isUploaderPending = status === 'Pending' || status === 'Upload Due' || status === 'Response Due'
+                if (status === 'Response Due') {
+                    return (
+                        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+                            Response Overdue
+                        </span>
+                    )
+                }
+                const isUploaderPending = status === 'Pending' || status === 'Upload Due'
                 let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval"
                 let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200"
                 

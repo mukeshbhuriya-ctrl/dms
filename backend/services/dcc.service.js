@@ -858,7 +858,10 @@ class DccService {
 
         const groupDoc = await prisma.group_document.findFirst({
             where: { id: document_id, company_id },
-            include: { versions: { orderBy: { version_no: 'desc' }, take: 1 } }
+            include: { 
+                versions: { orderBy: { version_no: 'desc' }, take: 1 },
+                document: true
+            }
         });
 
         if (!groupDoc) throw new Error('Document not found');
@@ -866,7 +869,7 @@ class DccService {
         const latestVersion = groupDoc.versions[0];
         if (!latestVersion) throw new Error('No version to review');
 
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             // 1. Update Version Status
             await tx.document_version.update({
                 where: { id: latestVersion.id },
@@ -888,12 +891,44 @@ class DccService {
                 remarks: remarks || null,
                 metadata: { 
                     version_no: latestVersion.version_no,
-                    file_url: latestVersion.file_url // Added for trail download
+                    file_url: latestVersion.file_url 
                 }
             }, tx);
 
             return { id: document_id, status };
         });
+
+        // 4. Trigger Email Notification to Uploader in background
+        this._sendReviewNotification(groupDoc, latestVersion, status, remarks).catch(e => 
+            console.error("[DccService] Review notification error:", e)
+        );
+
+        return result;
+    }
+
+    /**
+     * Helper to send review notification in background
+     * @private
+     */
+    async _sendReviewNotification(groupDoc, latestVersion, status, remarks) {
+        try {
+            const uploader = await prisma.user.findUnique({
+                where: { id: groupDoc.user_id }
+            });
+
+            if (uploader && uploader.email) {
+                await EmailService.sendDocumentReviewNotification(uploader.email, uploader.name, {
+                    documentName: groupDoc.document?.document_name || 'Document',
+                    documentNumber: groupDoc.document?.document_number || 'N/A',
+                    versionNo: latestVersion.version_no,
+                    status: status,
+                    remarks: remarks || ''
+                });
+                console.log(`[DccService] Review email sent to ${uploader.email} for ${groupDoc.document?.document_number}`);
+            }
+        } catch (error) {
+            console.error("[DccService] Failed to send review notification email:", error);
+        }
     }
 
     /**
@@ -1488,6 +1523,13 @@ class DccService {
             }
             return results;
         });
+
+        // Trigger notifications as background task
+        this._sendAssignmentNotifications(company_id, results).catch(e => 
+            console.error("[DccService] Assignment notification error:", e)
+        );
+
+        return results;
     }
 
     async updateDocumentMaster(company_id, id, data) {
@@ -1598,7 +1640,8 @@ class DccService {
             }
 
             // 3. Logic for "Response Due"
-            // If Uploaded and deadline passed since the last upload
+            // 3. Logic for "Response Due"
+            // If Pending for Approval and deadline passed since the last upload
             if (doc.status === 'Uploaded' && doc.response_due_days) {
                 const lastVersion = doc.versions[0];
                 if (lastVersion) {
@@ -1673,7 +1716,8 @@ class DccService {
             throw new Error('Invalid assignment data');
         }
 
-        return await prisma.$transaction(async (tx) => {
+        const results = await prisma.$transaction(async (tx) => {
+        
             const results = [];
 
             // Fetch all job details for the assignments to get Customer, Location, PO, and Job Number
@@ -1785,6 +1829,162 @@ class DccService {
 
             return results;
         });
+
+        // Trigger notifications as background task
+        this._sendAssignmentNotifications(company_id, results).catch(e => 
+            console.error("[DccService] Bulk assignment notification error:", e)
+        );
+
+        return results;
+    }
+
+    /**
+     * Send Assignment Notifications
+     * Groups documents by user and sends a consolidated email.
+     */
+    async _sendAssignmentNotifications(company_id, groupDocuments) {
+        if (!groupDocuments || groupDocuments.length === 0) return;
+
+        try {
+            // Group by User ID
+            const userGroups = {};
+            for (const gd of groupDocuments) {
+                if (!userGroups[gd.user_id]) userGroups[gd.user_id] = [];
+                userGroups[gd.user_id].push(gd.id);
+            }
+
+            for (const userId in userGroups) {
+                const user = await prisma.user.findUnique({ where: { id: userId } });
+                if (!user || !user.email) continue;
+
+                // Fetch full doc details for the email
+                const fullDocs = await prisma.group_document.findMany({
+                    where: { id: { in: userGroups[userId] } },
+                    include: { 
+                        document: true,
+                        group: { include: { job_group: { include: { job: true } } } }
+                    }
+                });
+
+                const emailDocs = fullDocs.map(fd => ({
+                    document_name: fd.document.document_name,
+                    document_number: fd.document.document_number,
+                    job_number: fd.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
+                    upload_due_days: fd.upload_due_days
+                }));
+
+                await EmailService.sendDocumentAssignmentNotification(user.email, user.name, emailDocs);
+                console.log(`[DccService] Assignment email sent to ${user.email} for ${emailDocs.length} items`);
+            }
+        } catch (error) {
+            console.error("[DccService] Error sending assignment notifications:", error);
+        }
+    }
+
+    /**
+     * Periodic check for overdue documents
+     */
+    async checkOverdueDocuments() {
+        console.log(`[DccService] ${new Date().toISOString()} Starting periodic overdue check...`);
+        const now = new Date();
+
+        try {
+            // 1. Check for UPLOAD OVERDUE (Pending docs)
+            const pendingDocs = await prisma.group_document.findMany({
+                where: { 
+                    status: 'Pending',
+                    upload_due_days: { not: null }
+                },
+                include: { user: true, document: true, group: { include: { job_group: { include: { job: true } } } } }
+            });
+
+            const uploadOverdueUsers = {}; // userId -> docs[]
+
+            for (const doc of pendingDocs) {
+                const created = new Date(doc.createdAt);
+                const deadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
+                
+                if (now > deadline) {
+                    if (!uploadOverdueUsers[doc.user_id]) uploadOverdueUsers[doc.user_id] = { user: doc.user, docs: [] };
+                    uploadOverdueUsers[doc.user_id].docs.push({
+                        document_name: doc.document.document_name,
+                        document_number: doc.document.document_number,
+                        job_number: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A'
+                    });
+                }
+            }
+
+            // Send Upload Overdue emails
+            for (const userId in uploadOverdueUsers) {
+                const { user, docs } = uploadOverdueUsers[userId];
+                if (user.email) {
+                    await EmailService.sendDocumentOverdueNotification(user.email, user.name, 'upload', docs);
+                    console.log(`[DccService] Upload Overdue email sent to ${user.email} for ${docs.length} items`);
+                }
+            }
+
+            // 2. Check for RESPONSE OVERDUE (Uploaded docs awaiting approval)
+            const submittedDocs = await prisma.group_document.findMany({
+                where: { 
+                    status: 'Pending for Approval',
+                    response_due_days: { not: null }
+                },
+                include: { 
+                    document: true, 
+                    group: { include: { job_group: { include: { job: true } } } },
+                    versions: { orderBy: { version_no: 'desc' }, take: 1 }
+                }
+            });
+
+            // For response overdue, we usually notify the "Approvers". 
+            // In this system, approvers are typically DCC Admin or specific roles.
+            // For now, let's notify the "Assigner" or a configured admin email if we have one.
+            // Since we don't have a specific "Approver" per document yet, 
+            // we'll fetch users with 'DCC' or 'ADMIN' roles.
+            const dccAdmins = await prisma.user.findMany({
+                where: {
+                    user_roles: {
+                        some: {
+                            role: {
+                                name: { in: ['DCC', 'ADMIN'] }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (dccAdmins.length > 0) {
+                const responseOverdueDocs = [];
+
+                for (const doc of submittedDocs) {
+                    const lastVersion = doc.versions[0];
+                    if (!lastVersion) continue;
+
+                    const uploadedAt = new Date(lastVersion.createdAt);
+                    const deadline = new Date(uploadedAt.getTime() + (doc.response_due_days * 24 * 60 * 60 * 1000));
+
+                    if (now > deadline) {
+                        responseOverdueDocs.push({
+                            document_name: doc.document.document_name,
+                            document_number: doc.document.document_number,
+                            job_number: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A'
+                        });
+                    }
+                }
+
+                if (responseOverdueDocs.length > 0) {
+                    for (const admin of dccAdmins) {
+                        if (admin.email) {
+                            await EmailService.sendDocumentOverdueNotification(admin.email, admin.name, 'response', responseOverdueDocs);
+                            console.log(`[DccService] Response Overdue email sent to Admin ${admin.email} for ${responseOverdueDocs.length} items`);
+                        }
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error("[DccService] Overdue check error:", error);
+        }
     }
 }
 
