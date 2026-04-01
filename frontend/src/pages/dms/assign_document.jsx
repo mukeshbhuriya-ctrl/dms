@@ -78,7 +78,7 @@ function AssignDocument() {
   const columns = useMemo(() => [
     {
       accessorKey: "document.document_number",
-      header: "Doc Generated No",
+      header: "System Doc ID",
     },
     {
       id: "job_number",
