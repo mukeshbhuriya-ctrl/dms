@@ -78,6 +78,10 @@ function UploadDocument() {
             className: "w-[50px]"
         },
         {
+            header: "System Doc ID",
+            accessorKey: "documentNumber"
+        },
+        {
             header: "Document Name",
             accessorKey: "documentName",
             cell: (row) => (
@@ -164,7 +168,7 @@ function UploadDocument() {
                 const isUploaderPending = status === 'Pending' || status === 'Upload Due'
                 let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval"
                 let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200"
-                
+
                 if (status === 'Approved') {
                     text = "Approved"
                     colorClass = "bg-green-100 text-green-800"
@@ -185,10 +189,13 @@ function UploadDocument() {
             accessorKey: "client_status_display",
             cell: (row) => {
                 const status = row.originalStatus || row.status
-                let text = "Awaiting Internal Approval"
+                let text = "Awaiting for Approval" // Default to awaiting for approval
                 let colorClass = "bg-gray-100 text-gray-800"
-                
-                if (status === 'Approved') {
+
+                if (status === 'Pending' || status === 'Upload Due') {
+                    text = "Awaiting to upload"
+                    colorClass = "bg-gray-100 text-gray-800"
+                } else if (status === 'Approved') {
                     if (row.client_status === 'Approved') {
                         text = "Approved"
                         colorClass = "bg-green-100 text-green-800"
@@ -241,7 +248,7 @@ function UploadDocument() {
                             )}
                             {isUploading ? 'Uploading...' : 'Upload'}
                         </Label>
-                        
+
                         <Button
                             variant="outline"
                             size="sm"
@@ -314,7 +321,7 @@ function UploadDocument() {
                     if (doc.status === 'Uploaded' || doc.status === 'Pending for Approval') approverStatus = 'pending for approval'
                     else if (doc.status === 'Approved') approverStatus = 'approved'
                     else if (doc.status === 'Rejected' || (doc.status === 'Pending' && latestVersion?.status === 'Rejected')) approverStatus = 'rejected'
-                    
+
                     const displayStatus = (doc.status === 'Upload Due' || doc.status === 'Response Due') ? doc.status : status
 
                     return {
@@ -333,7 +340,7 @@ function UploadDocument() {
                         versionNo: doc.display_version_no || 0,
                         mimeType: latestVersion?.mime_type,
                         filePath: latestVersion?.file_path,
-                        previewUrl: latestVersion?.id 
+                        previewUrl: latestVersion?.id
                             ? `${backendUrl}/api/dcc/document-preview/${latestVersion.id}/${encodeURIComponent(latestVersion.file_path?.split('/').pop() || latestVersion.file_path?.split('\\').pop() || 'file')}`
                             : null,
                         originalStatus: doc.status,
@@ -436,8 +443,8 @@ function UploadDocument() {
                                 <SheetTitle>Document Audit Trail</SheetTitle>
                             </SheetHeader>
                             <div className="mt-6">
-                                <DocumentTrail 
-                                    documentId={activeDocId} 
+                                <DocumentTrail
+                                    documentId={activeDocId}
                                     onPreview={(previewInfo) => {
                                         setActivePreviewDoc(previewInfo);
                                         setPreviewUrl(previewInfo.previewUrl);
@@ -453,7 +460,7 @@ function UploadDocument() {
                             <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
                                 {previewUrl ? (
                                     (
-                                        activePreviewDoc?.mimeType === 'application/pdf' || 
+                                        activePreviewDoc?.mimeType === 'application/pdf' ||
                                         activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
                                         previewUrl.toLowerCase().includes('pdf')
                                     ) ? (
@@ -463,7 +470,7 @@ function UploadDocument() {
                                             title="PDF Preview"
                                         />
                                     ) : (
-                                        activePreviewDoc?.mimeType?.startsWith('image/') || 
+                                        activePreviewDoc?.mimeType?.startsWith('image/') ||
                                         /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
                                         /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
                                     ) ? (

@@ -794,7 +794,7 @@ function CreateTransmission() {
                        <TableHeader>
                          <TableRow>
                            <TableHead className="w-[60px]">S.No</TableHead>
-                           <TableHead>Doc Generated No</TableHead>
+                           <TableHead>System Doc ID</TableHead>
                            <TableHead>Document Name</TableHead>
                            <TableHead>Uploaded By</TableHead>
                            <TableHead>Uploaded Date</TableHead>

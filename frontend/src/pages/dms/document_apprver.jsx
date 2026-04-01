@@ -121,7 +121,7 @@ function DocumentApprover() {
       className: "w-[50px]"
     },
     {
-      header: "Doc Generated No",
+      header: "System Doc ID",
       accessorKey: "documentNumber"
     },
     {
@@ -143,6 +143,7 @@ function DocumentApprover() {
       accessorKey: "uploadedBy"
     },
     {
+      header: "Uploaded Date",
       accessorKey: "uploadedDate"
     },
     {
@@ -215,10 +216,13 @@ function DocumentApprover() {
       accessorKey: "client_status_display",
       cell: (row) => {
         const docStatus = row.originalDoc?.status || row.status;
-        let text = "Awaiting Internal Approval";
+        let text = "Awaiting for Approval"; // Default to awaiting for approval
         let colorClass = "bg-gray-100 text-gray-800";
         
-        if (docStatus === 'Approved') {
+        if (docStatus === 'Pending' || docStatus === 'Upload Due') {
+          text = "Awaiting to upload";
+          colorClass = "bg-gray-100 text-gray-800";
+        } else if (docStatus === 'Approved') {
           if (row.client_status === 'Approved') {
             text = "Approved";
             colorClass = "bg-green-100 text-green-800";

@@ -78,7 +78,7 @@ function AssignDocument() {
   const columns = useMemo(() => [
     {
       accessorKey: "document.document_number",
-      header: "Doc Generated No",
+      header: "System Doc ID",
     },
     {
       id: "job_number",
@@ -153,7 +153,7 @@ function AssignDocument() {
       accessorKey: "approver_status",
       header: "Approver Status",
       cell: (row) => {
-        const isUploaderPending = row.status === 'Pending' || row.status === 'Upload Due' || row.status === 'Response Due';
+        const isUploaderPending = row.status === 'Pending' || row.status === 'Upload Due';
         let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval";
         let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
         
@@ -163,6 +163,9 @@ function AssignDocument() {
         } else if (row.status === 'Rejected') {
           text = "Rejected";
           colorClass = "bg-red-100 text-red-800";
+        } else if (row.status === 'Response Due') {
+            text = "Response Overdue";
+            colorClass = "bg-red-100 text-red-800 border border-red-200";
         }
 
         return (
@@ -176,10 +179,13 @@ function AssignDocument() {
       accessorKey: "client_status",
       header: "Client Status",
       cell: (row) => {
-        let text = "Awaiting Internal Approval";
+        let text = "Awaiting for Approval"; // Default to awaiting for approval
         let colorClass = "bg-gray-100 text-gray-800";
         
-        if (row.status === 'Approved') {
+        if (row.status === 'Pending' || row.status === 'Upload Due') {
+          text = "Awaiting to upload";
+          colorClass = "bg-gray-100 text-gray-800";
+        } else if (row.status === 'Approved') {
           if (row.client_status === 'Approved') {
             text = "Approved";
             colorClass = "bg-green-100 text-green-800";
@@ -503,9 +509,9 @@ function AssignDocument() {
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                      <Label htmlFor="statusFilter" className="whitespace-nowrap">Filter by Status:</Label>
+                      <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">Filter by Status:</span>
                       <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-[180px] h-9 bg-white border-slate-200">
                           <SelectValue placeholder="All Status" />
                         </SelectTrigger>
                         <SelectContent>
@@ -514,8 +520,6 @@ function AssignDocument() {
                           <SelectItem value="Uploaded">Uploaded</SelectItem>
                           <SelectItem value="Approved">Approved</SelectItem>
                           <SelectItem value="Rejected">Rejected</SelectItem>
-                          <SelectItem value="Upload Due">Upload Due</SelectItem>
-                          <SelectItem value="Response Due">Response Due</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
