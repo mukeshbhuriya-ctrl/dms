@@ -1,5 +1,7 @@
 const prisma = require('#prisma');
 const WELD_STAGES_CONFIG = require('../config/weldStagesConfig');
+const emailService = require('./email.service.js');
+const userService = require('./user.service.js');
 
 class WeldJointService {
     getStageConfig() {
@@ -462,6 +464,32 @@ class WeldJointService {
             }
         }
 
+        // 5. Send notification if status changed to pending (Production submitted to QC)
+        if (status === 'pending' && qc_eng_id) {
+            try {
+                // Background trigger
+                (async () => {
+                    const qcUser = await prisma.user.findUnique({ where: { id: qc_eng_id } });
+                    const prodUser = await prisma.user.findUnique({ where: { id: engineerId } });
+                    const config = WELD_STAGES_CONFIG[joint.joint_type] || [];
+                    const stageConfig = config.find(s => s.id === stage);
+                    const stageLabel = stageConfig ? stageConfig.label : stage;
+
+                    if (qcUser && qcUser.email) {
+                        await emailService.sendWeldStageNotification(qcUser.email, {
+                            jointNo: joint.joint_no,
+                            stageLabel: stageLabel,
+                            status: 'Pending Review',
+                            engineerName: prodUser ? prodUser.name : 'Production Engineer',
+                            actionType: 'submission'
+                        });
+                    }
+                })().catch(err => console.error("Email notification background error:", err));
+            } catch (err) {
+                console.error("Weld Stage Submission Email Error:", err);
+            }
+        }
+
         return stageRecord;
     }
 
@@ -473,7 +501,7 @@ class WeldJointService {
         if (status === 'approved') updateData.approved_at = new Date();
         else if (status === 'rejected') updateData.rejected_at = new Date();
 
-        return await prisma.weld_joint_stage.upsert({
+        const stageRecord = await prisma.weld_joint_stage.upsert({
             where: { weld_joint_id_stage_name: { weld_joint_id: jointId, stage_name: stage } },
             update: updateData,
             create: { // in case reviewing a stage that was somehow never saved gracefully
@@ -483,8 +511,38 @@ class WeldJointService {
                 qc_eng_id: role === 'QC' || role === 'NDT' ? engineerId : undefined,
                 ...(status === 'approved' && { approved_at: new Date() }),
                 ...(status === 'rejected' && { rejected_at: new Date() }),
+            },
+            include: {
+                weld_joint: true
             }
         });
+
+        // Send notification to Production Engineer (approving/rejecting)
+        if ((status === 'approved' || status === 'rejected') && stageRecord.prod_eng_id) {
+            try {
+                (async () => {
+                    const prodUser = await prisma.user.findUnique({ where: { id: stageRecord.prod_eng_id } });
+                    const qcUser = await prisma.user.findUnique({ where: { id: engineerId } });
+                    const config = WELD_STAGES_CONFIG[stageRecord.weld_joint.joint_type] || [];
+                    const stageConfig = config.find(s => s.id === stage);
+                    const stageLabel = stageConfig ? stageConfig.label : stage;
+
+                    if (prodUser && prodUser.email) {
+                        await emailService.sendWeldStageNotification(prodUser.email, {
+                            jointNo: stageRecord.weld_joint.joint_no,
+                            stageLabel: stageLabel,
+                            status: status,
+                            engineerName: qcUser ? qcUser.name : 'QC Engineer',
+                            actionType: 'review'
+                        });
+                    }
+                })().catch(err => console.error("Email notification background error:", err));
+            } catch (err) {
+                console.error("Weld Stage Review Email Error:", err);
+            }
+        }
+
+        return stageRecord;
     }
 
     async getWeldJointPlans(company_id, params = {}) {
