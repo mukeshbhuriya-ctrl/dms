@@ -9,6 +9,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const cors = require('./utils/cors');
 const { setupAdmin } = require('./utils/startup/steup_admin');
+const { initScheduler } = require('./utils/scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -116,6 +117,9 @@ async function startServer() {
   try {
     // Setup admin on startup
     await setupAdmin();
+
+    // Initialize daily overdue checks
+    initScheduler();
 
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

@@ -68,6 +68,29 @@ class EmailService {
 
         return this.sendEmail({ to, subject, html });
     }
+
+    // --- Document Workflow Notifications ---
+
+    async sendDocumentAssignmentNotification(to, user_name, documents) {
+        const { getDocumentAssignedTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[Action Required] New Documents Assigned - DMS`;
+        const html = getDocumentAssignedTemplate(user_name, documents);
+        return this.sendEmail({ to, subject, html });
+    }
+
+    async sendDocumentReviewNotification(to, user_name, details) {
+        const { getDocumentReviewTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `Document Review Update: ${details.documentNumber} is ${details.status}`;
+        const html = getDocumentReviewTemplate(user_name, details);
+        return this.sendEmail({ to, subject, html });
+    }
+
+    async sendDocumentOverdueNotification(to, user_name, type, documents) {
+        const { getDocumentOverdueTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[URGENT] Portfolio Deadline Exceeded - DMS`;
+        const html = getDocumentOverdueTemplate(user_name, type, documents);
+        return this.sendEmail({ to, subject, html });
+    }
 }
 
 module.exports = new EmailService();
