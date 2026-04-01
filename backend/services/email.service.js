@@ -10,6 +10,10 @@ class EmailService {
                 user: process.env.SMTP_USER,
                 pass: process.env.SMTP_PASS,
             },
+            tls: {
+                // Do not fail on invalid certs (common in corporate mail servers)
+                rejectUnauthorized: false
+            }
         });
     }
 
@@ -52,6 +56,17 @@ class EmailService {
         const html = getWelcomeEmailTemplate(userData, password, companyUrl);
 
         return this.sendEmail({ to: userData.email, subject, html });
+    }
+
+    // Template for Weld Stage Notification
+    async sendWeldStageNotification(to, details) {
+        const { getWeldStageEmailTemplate } = require('../utils/email-templates/weld-joint.template');
+
+        const { jointNo, stageLabel, status, actionType } = details;
+        const subject = `Weld Inspection Update: Joint ${jointNo} - ${stageLabel} (${status.toUpperCase()})`;
+        const html = getWeldStageEmailTemplate(details);
+
+        return this.sendEmail({ to, subject, html });
     }
 }
 
