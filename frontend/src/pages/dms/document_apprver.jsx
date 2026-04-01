@@ -143,6 +143,7 @@ function DocumentApprover() {
       accessorKey: "uploadedBy"
     },
     {
+      header: "Uploaded Date",
       accessorKey: "uploadedDate"
     },
     {
