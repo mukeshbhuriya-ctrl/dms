@@ -1,5 +1,6 @@
 import App from "@/App"
 import ProtectedRoute from "@/components/ProtectedRoute"
+import AppLayout from "@/components/layout/AppLayout"
 import { ROLES } from "@/config/roles"
 
 import {
@@ -233,6 +234,16 @@ const ncrRoutes = [
 ]
 
 // ─── All Routes ────────────────────────────────────────────────
+const protectedRoutes = [
+  ...userRoutes,
+  ...dccRoutes,
+  ...adminRoutes,
+  ...weldRoutes,
+  ...dcrRoutes,
+  ...marketingRoutes,
+  ...ncrRoutes,
+]
+
 const appRoutes = [
   {
     path: "/",
@@ -243,13 +254,10 @@ const appRoutes = [
     element: <App />,
   },
   ...siteAdminRoutes,
-  ...userRoutes,
-  ...dccRoutes,
-  ...adminRoutes,
-  ...weldRoutes,
-  ...dcrRoutes,
-  ...marketingRoutes,
-  ...ncrRoutes,
+  {
+    element: <AppLayout />,
+    children: protectedRoutes,
+  }
 ]
 
 export default appRoutes

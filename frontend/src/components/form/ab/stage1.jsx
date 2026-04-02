@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function Stage1({ initialData, isReview = false }) {
+function Stage1({ initialData, isReview = false, onSuccess }) {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [userRole, setUserRole] = useState("")
@@ -290,7 +290,7 @@ function Stage1({ initialData, isReview = false }) {
       const data = await res.json();
       if (res.ok) {
         setSuccess("Stage 1 submitted successfully");
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
         setError(data.message || "Submission failed");
       }
@@ -390,7 +390,7 @@ function Stage1({ initialData, isReview = false }) {
       const data = await res.json();
       if (res.ok) {
         setSuccess(`Stage 1 ${status} successfully`);
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
         setError(data.message || "Review action failed");
       }

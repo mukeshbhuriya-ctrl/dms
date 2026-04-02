@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useLocation } from "react-router-dom"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -345,9 +345,7 @@ function SendDocumentToClient() {
   const isSent = transmittalStatus === 'Sent';
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
+    <>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
@@ -672,8 +670,7 @@ function SendDocumentToClient() {
             </Dialog>
           </div>
         </main>
-      </SidebarInset>
-    </SidebarProvider>
+    </>
   )
 }
 

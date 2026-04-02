@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FormAlert } from "@/components/ui/form-alert"
 import { Checkbox } from "@/components/ui/checkbox"
 
-const Stage1F = ({ initialData, inspectionData, isReview }) => {
+const Stage1F = ({ initialData, inspectionData, isReview, onSuccess  }) => {
     const [formData, setFormData] = useState({
         materialIdMarks: "Available",
         tackWelder: ""
@@ -194,7 +194,7 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
             const data = await res.json();
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: "Stage 1 submitted successfully" });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
             }
@@ -285,7 +285,7 @@ const Stage1F = ({ initialData, inspectionData, isReview }) => {
             const data = await res.json();
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: `Stage 1 ${status} successfully` });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
             }

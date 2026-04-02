@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage2F = ({ initialData, inspectionData, isReview }) => {
+const Stage2F = ({ initialData, inspectionData, isReview, onSuccess  }) => {
     const [formData, setFormData] = useState({
         welderNumber: "",
         weldingProcess: ""
@@ -181,7 +181,7 @@ const Stage2F = ({ initialData, inspectionData, isReview }) => {
             const data = await res.json();
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: "Stage 2 submitted successfully" });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
             }
@@ -272,7 +272,7 @@ const Stage2F = ({ initialData, inspectionData, isReview }) => {
             const data = await res.json();
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: `Stage 2 ${status} successfully` });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
             }

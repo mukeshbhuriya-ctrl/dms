@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage2D = ({ initialData, inspectionData, isReview = false, stage = "stage2" }) => {
+const Stage2D = ({ initialData, inspectionData, isReview = false, stage = "stage2", onSuccess  }) => {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
@@ -220,7 +220,7 @@ const Stage2D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
       if (res.ok) {
         setAlert({ show: true, type: 'success', message: `Back Chip Submitted Successfully` });
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
         const data = await res.json();
         setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
@@ -304,7 +304,7 @@ const Stage2D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
       if (res.ok) {
         setAlert({ show: true, type: 'success', message: `Back Chip ${status} Successfully` });
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
         const data = await res.json();
         setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });

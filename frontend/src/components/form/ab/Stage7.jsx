@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function Stage7({ initialData, inspectionData, isReview = false, stage = "stage7", }) {
+function Stage7({ initialData, inspectionData, isReview = false, stage = "stage7", onSuccess }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [ndtEngineer, setNdtEngineer] = useState("")
@@ -306,7 +306,7 @@ function Stage7({ initialData, inspectionData, isReview = false, stage = "stage7
             if (res.ok) {
                 const stageName = stage === 'stage7' ? 'Stage 7 (Hardness)' : 'Stage 6 (PWHT)';
                 setSuccess(`${stageName} submitted successfully`);
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setError(data.message || "Submission failed");
             }
@@ -406,7 +406,7 @@ function Stage7({ initialData, inspectionData, isReview = false, stage = "stage7
             if (res.ok) {
                 const stageName = stage === 'stage7' ? 'Stage 7' : 'Stage 6';
                 setSuccess(`${stageName} ${status} successfully`);
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setError(data.message || "Review action failed");
             }

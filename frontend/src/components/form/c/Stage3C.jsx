@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage3C = ({ initialData, isReview, stage = "stage3" }) => {
+const Stage3C = ({ initialData, isReview, stage = "stage3", onSuccess  }) => {
     const sPrefix = stage.replace('stage', 's');
     const [formData, setFormData] = useState({
         welderNumber: "",
@@ -186,7 +186,7 @@ const Stage3C = ({ initialData, isReview, stage = "stage3" }) => {
             const data = await res.json();
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} submitted successfully` });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
             }
@@ -277,7 +277,7 @@ const Stage3C = ({ initialData, isReview, stage = "stage3" }) => {
             const data = await res.json();
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} successfully` });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
             }

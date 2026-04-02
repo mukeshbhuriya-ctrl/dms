@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -726,9 +726,7 @@ function MaterialHeatChart() {
   }
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
+    <>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
@@ -748,8 +746,7 @@ function MaterialHeatChart() {
             )}
           </div>
         </main>
-      </SidebarInset>
-    </SidebarProvider>
+    </>
   )
 }
 
