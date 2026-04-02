@@ -111,7 +111,7 @@ const dccRoutes = [
     element: protect(<CreateJob />, [ROLES.ADMIN, ROLES.DCC]),
   },
   {
-    path: "/dcc/assign-document",
+    path: "/dcc/documents",
     element: protect(<AssignDocument />, [ROLES.ADMIN, ROLES.DCC]),
   },
   {

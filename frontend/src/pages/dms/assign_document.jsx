@@ -473,7 +473,7 @@ function AssignDocument() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Assigned Documents" : editingId ? "Edit Assignment" : "Assign Documents"}
+                  {view === "list" ? "Documents" : editingId ? "Edit Assignment" : "Assign Documents"}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
