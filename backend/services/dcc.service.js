@@ -474,45 +474,68 @@ class DccService {
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
-        const where = {
-            company_id,
-            user_id
-        };
+        const { 
+            status_filter, 
+            approver_status_filter, 
+            uploader_status_filter,
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter
+        } = params;
+
+        const where = { company_id, user_id };
+
+        // Standardize status filtering
+        const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null);
+
+        if (activeStatusFilter) {
+            const filterVal = activeStatusFilter.toLowerCase();
+            if (filterVal === 'pending') {
+                where.status = { in: ['Pending', 'Upload Due', 'Rejected'] };
+            } else if (filterVal === 'uploaded' || filterVal === 'done') {
+                where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
+            } else if (filterVal === 'approved') {
+                where.status = 'Approved';
+            } else if (filterVal === 'rejected') {
+                where.versions = { some: { status: { in: ['Rejected', 'rejected'] } } };
+            } else {
+                where.status = activeStatusFilter;
+            }
+        }
+
+        // Explicit Column Filters
+        if (customer_name_filter) {
+            where.customer = { customer_name: { contains: customer_name_filter, mode: 'insensitive' } };
+        }
+        if (po_number_filter) {
+            where.po = { po_number: { contains: po_number_filter, mode: 'insensitive' } };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: { contains: job_number_filter, mode: 'insensitive' } } }
+                }
+            };
+        }
 
         if (search) {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
-                { document: { document_number: { contains: search, mode: 'insensitive' } } }
+                { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                { 
+                    group: { 
+                        job_group: { 
+                            some: { 
+                                job: { 
+                                    job_number: { contains: search, mode: 'insensitive' } 
+                                } 
+                            } 
+                        } 
+                    } 
+                }
             ];
-        }
-
-        // Server-side Filtering Logic
-        const { status_filter, approver_status_filter } = params;
-
-        if (status_filter && status_filter !== 'all') {
-            if (status_filter === 'pending') {
-                where.status = { in: ['Pending', 'Rejected'] };
-            } else if (status_filter === 'done') {
-                where.status = { in: ['Approved', 'Uploaded', 'Pending'] };
-            }
-        }
-
-        if (approver_status_filter && approver_status_filter !== 'all') {
-            const filterVal = approver_status_filter.toLowerCase();
-            if (filterVal === 'pending for approval' || filterVal === 'pending') {
-                where.status = { in: ['Uploaded', 'Pending'] };
-            } else if (filterVal === 'approved') {
-                where.status = 'Approved';
-            } else if (filterVal === 'rejected') {
-                // Filter by version history: Check if ANY version has been rejected.
-                where.versions = {
-                    some: {
-                        status: { in: ['Rejected', 'rejected'] }
-                    }
-                };
-            } else if (filterVal === 'na') {
-                where.status = { notIn: ['Uploaded', 'Pending', 'Approved', 'Rejected'] }; // Likely just 'Pending'
-            }
         }
 
         // Dynamic Version Include
@@ -743,53 +766,60 @@ class DccService {
      * Get Documents for Approval
      */
     async getDocumentsForApproval(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', customer_id, po_id, job_id, status } = params;
+        const { 
+            page = 1, 
+            limit = 50, 
+            search = '', 
+            customer_id, 
+            po_id, 
+            job_id, 
+            status,
+            status_filter,
+            approver_status_filter,
+            uploader_status_filter,
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter
+        } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
-        const where = {
-            company_id
-        };
+        const where = { company_id };
 
-        // Server-side Filtering Logic
-        const { status_filter, approver_status_filter } = params;
+        // Standardize status filtering
+        const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
 
-        if (status_filter && status_filter !== 'all') {
-            if (status_filter === 'pending') {
-                where.status = 'Pending for Approval';
-            } else if (status_filter === 'done') {
-                where.status = 'Approved';
-            }
-        } else {
-            // Default: Show documents that have been uploaded, approved, or rejected (Pending with versions).
-            // strictly exclude 'Pending' documents that have NO versions (newly assigned but not yet uploaded).
-            if (!approver_status_filter || approver_status_filter === 'all') {
-                where.status = { in: ['Pending for Approval', 'Approved', 'Pending'] };
-                where.versions = { some: {} }; // Crucial: Only show documents with at least one upload/version
-            }
-        }
-
-        if (approver_status_filter && approver_status_filter !== 'all') {
-            const filterVal = approver_status_filter.toLowerCase();
-            if (filterVal === 'pending for approval' || filterVal === 'pending') {
-                where.status = 'Pending for Approval';
+        if (activeStatusFilter) {
+            const filterVal = activeStatusFilter.toLowerCase();
+            if (filterVal === 'pending') {
+                where.status = { in: ['Pending', 'Upload Due', 'Rejected'] };
+            } else if (filterVal === 'uploaded' || filterVal === 'done' || filterVal === 'pending for approval') {
+                where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                // Documents that have been rejected in their history.
-                // Since they are now 'Pending', we MUST allow 'Pending' status here.
-                where.status = 'Pending'; 
-                where.versions = {
-                    some: {
-                        status: { in: ['Rejected', 'rejected'] }
-                    }
-                };
+                where.versions = { some: { status: { in: ['Rejected', 'rejected'] } } };
+            } else {
+                where.status = activeStatusFilter;
             }
+        } else {
+            // Default View: Show documents that have at least one version (in review cycle)
+            where.versions = { some: {} };
         }
 
-        // Backward compatibility for direct status filter (if used)
-        if (status && status !== 'All' && !status_filter && !approver_status_filter) {
-            where.status = status;
+        // Explicit Column Filters
+        if (customer_name_filter) {
+            where.customer = { customer_name: { contains: customer_name_filter, mode: 'insensitive' } };
+        }
+        if (po_number_filter) {
+            where.po = { po_number: { contains: po_number_filter, mode: 'insensitive' } };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: { contains: job_number_filter, mode: 'insensitive' } } }
+                }
+            };
         }
 
         if (customer_id) where.customer_id = customer_id.trim();
@@ -821,7 +851,20 @@ class DccService {
         if (search) {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
-                { document: { document_number: { contains: search, mode: 'insensitive' } } }
+                { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                { 
+                    group: { 
+                        job_group: { 
+                            some: { 
+                                job: { 
+                                    job_number: { contains: search, mode: 'insensitive' } 
+                                } 
+                            } 
+                        } 
+                    } 
+                }
             ];
         }
 

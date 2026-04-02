@@ -115,21 +115,36 @@ function DocumentApprover() {
 
   const columns = useMemo(() => [
     {
-      header: "S.No",
-      accessorKey: "s_no",
-      cell: (row) => row.s_no,
-      className: "w-[50px]"
-    },
-    {
       header: "System Doc ID",
       accessorKey: "documentNumber"
     },
+    {
+      id: "customer_name",
+      header: "Client",
+      accessorKey: "customer.customer_name",
+      filterType: "text",
+      cell: (row) => row.customer?.customer_name || "-",
+    },
+    {
+      id: "po_number",
+      header: "PO",
+      accessorKey: "po.po_number",
+      filterType: "text",
+      cell: (row) => row.po?.po_number || "-",
+    },
+    {
+      id: "job_number",
+      header: "Job Number",
+      filterType: "text",
+      cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+    },
+
     {
       header: "Document Name",
       accessorKey: "documentName"
     },
     {
-      header: "Revision/Version No",
+      header: "Rev",
       accessorKey: "versionNo",
       cell: (row) => (
         <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
@@ -143,46 +158,20 @@ function DocumentApprover() {
       accessorKey: "uploadedBy"
     },
     {
-      header: "Uploaded Date",
-      accessorKey: "uploadedDate"
-    },
-    {
       header: "Actual Due Days",
       accessorKey: "actual_due_days",
       cell: (row) => row.actual_due_days || "-"
     },
     {
-      header: "Assigner Status",
-      accessorKey: "assigner_status",
-      cell: () => (
-        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-          Assigned
-        </span>
-      ),
-    },
-    {
-      header: "Uploader Status",
-      accessorKey: "uploader_status",
-      cell: (row) => {
-        const docStatus = row.originalDoc?.status || row.status;
-        if (docStatus === 'Upload Due') {
-          return (
-            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
-              Upload Overdue
-            </span>
-          );
-        }
-        const isPending = docStatus === 'Pending' || docStatus === 'Response Due';
-        return (
-          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-            {isPending ? 'Pending' : 'Uploaded'}
-          </span>
-        );
-      },
-    },
-    {
-      header: "Approver Status",
-      accessorKey: "approver_status",
+      id: "status",
+      header: "Status",
+      filterType: "select",
+      filterOptions: [
+        { label: "Pending Approval", value: "pending" },
+        { label: "Approved", value: "approved" },
+        { label: "Rejected", value: "rejected" },
+        { label: "Awaiting Upload", value: "NA" },
+      ],
       cell: (row) => {
         const docStatus = row.originalDoc?.status || row.status;
         if (docStatus === 'Response Due') {
@@ -195,7 +184,7 @@ function DocumentApprover() {
         const isUploaderPending = docStatus === 'Pending' || docStatus === 'Upload Due';
         let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval";
         let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
-        
+
         if (docStatus === 'Approved') {
           text = "Approved";
           colorClass = "bg-green-100 text-green-800";
@@ -218,7 +207,7 @@ function DocumentApprover() {
         const docStatus = row.originalDoc?.status || row.status;
         let text = "Awaiting for Approval"; // Default to awaiting for approval
         let colorClass = "bg-gray-100 text-gray-800";
-        
+
         if (docStatus === 'Pending' || docStatus === 'Upload Due') {
           text = "Awaiting to upload";
           colorClass = "bg-gray-100 text-gray-800";
@@ -248,9 +237,9 @@ function DocumentApprover() {
       cell: (row) => (
         <div className="flex gap-2">
 
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => {
               setActivePreviewDoc({
                 documentName: row.documentName,
@@ -260,7 +249,7 @@ function DocumentApprover() {
               });
               setPreviewUrl(row.previewUrl);
               setIsPreviewOpen(true);
-            }} 
+            }}
             disabled={!row.fileUrl}
             className="flex items-center gap-1.5"
           >
@@ -283,7 +272,7 @@ function DocumentApprover() {
           >
             <XCircle className="w-4 h-4 mr-1" /> Reject
           </Button>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -311,15 +300,24 @@ function DocumentApprover() {
     }
   ], []);
 
-  const fetchDocuments = useCallback(async ({ page, limit, search }) => {
+  const fetchDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
     try {
-      const response = await dccService.getDocumentsForApproval({
+      const params = {
         page,
         limit,
-        search,
-        status_filter: statusFilter,
-        approver_status_filter: approverStatusFilter
-      });
+        status_filter: statusFilter
+      };
+      if (search) params.search = search;
+
+      // Map column-based filters to API params
+      if (columnFilters) {
+        if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+        if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+        if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+        if (columnFilters.status) params.approver_status_filter = columnFilters.status;
+      }
+
+      const response = await dccService.getDocumentsForApproval(params);
 
       if (response.data) {
         const mappedData = response.data.map((doc, index) => {
@@ -349,9 +347,12 @@ function DocumentApprover() {
             // Preview support fields
             mimeType: latestVersion?.mime_type,
             filePath: latestVersion?.file_path,
-            previewUrl: latestVersion?.id 
+            previewUrl: latestVersion?.id
               ? `${backendUrl}/api/dcc/document-preview/${latestVersion.id}/${encodeURIComponent(latestVersion.file_path?.split('/').pop() || latestVersion.file_path?.split('\\').pop() || 'file')}`
               : null,
+            customer: doc.customer,
+            po: doc.po,
+            group: doc.group,
             remarks: latestVersion?.remarks || '-',
             originalDoc: doc
           };
@@ -385,74 +386,43 @@ function DocumentApprover() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">Document Approver</h1>
-              <p className="text-muted-foreground">View and approve documents uploaded by users.</p>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold mb-2">Document Approver</h1>
+            <p className="text-muted-foreground">View and approve documents uploaded by users.</p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {/* Right-aligned Status Filter */}
+            <div className="flex justify-end mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by Status:</span>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="pending">Pending Approval</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Documents</CardTitle>
-                <CardDescription>
-                  Approve or Reject uploaded documents.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border p-2">
-                  {/* Filters */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 px-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="statusFilter">Filter by Uploader Status</Label>
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Uploader Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Uploader Status</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="done">Uploaded</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="approverStatusFilter">
-                        Filter by Approver Status
-                      </Label>
-                      <Select
-                        value={approverStatusFilter}
-                        onValueChange={setApproverStatusFilter}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="All Approver Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Approver Status</SelectItem>
-                          <SelectItem value="NA">Awaiting Upload</SelectItem>
-                          <SelectItem value="pending">
-                            Pending for Approval
-                          </SelectItem>
-                          <SelectItem value="rejected">Rejected</SelectItem>
-                          <SelectItem value="approved">Approved</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <DataTable
-                    columns={columns}
-                    fetchData={fetchDocumentsWrapper}
-                    onExport={handleExport}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <DataTable
+              columns={columns}
+              fetchData={fetchDocumentsWrapper}
+              onExport={handleExport}
+            />
           </div>
-        </main>
+        </div>
+      </main>
 
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
         <DialogContent className="rounded-[33px]">
@@ -493,8 +463,8 @@ function DocumentApprover() {
             <SheetTitle>Document Audit Trail</SheetTitle>
           </SheetHeader>
           <div className="mt-6">
-            <DocumentTrail 
-              documentId={activeDocId} 
+            <DocumentTrail
+              documentId={activeDocId}
               onPreview={(previewInfo) => {
                 setActivePreviewDoc(previewInfo);
                 setPreviewUrl(previewInfo.previewUrl);
@@ -511,7 +481,7 @@ function DocumentApprover() {
           <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
             {previewUrl ? (
               (
-                activePreviewDoc?.mimeType === 'application/pdf' || 
+                activePreviewDoc?.mimeType === 'application/pdf' ||
                 activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
                 previewUrl.toLowerCase().includes('pdf')
               ) ? (
@@ -521,7 +491,7 @@ function DocumentApprover() {
                   title="PDF Preview"
                 />
               ) : (
-                activePreviewDoc?.mimeType?.startsWith('image/') || 
+                activePreviewDoc?.mimeType?.startsWith('image/') ||
                 /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
                 /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
               ) ? (
@@ -543,8 +513,8 @@ function DocumentApprover() {
                   <p className="text-slate-500 font-medium">
                     Preview not available for this file type.
                   </p>
-                  <Button 
-                    variant="link" 
+                  <Button
+                    variant="link"
                     className="mt-2 text-primary"
                     onClick={() => window.open(previewUrl, '_blank')}
                   >

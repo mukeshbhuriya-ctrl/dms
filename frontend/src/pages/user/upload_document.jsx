@@ -72,26 +72,36 @@ function UploadDocument() {
 
     const columns = useMemo(() => [
         {
-            header: "S.No",
-            accessorKey: "s_no",
-            cell: (row) => row.s_no,
-            className: "w-[50px]"
-        },
-        {
             header: "System Doc ID",
             accessorKey: "documentNumber"
         },
         {
-            header: "Document Name",
-            accessorKey: "documentName",
-            cell: (row) => (
-                <div>
-                    {row.documentName} <span className="text-xs text-muted-foreground">({row.documentNumber})</span>
-                </div>
-            )
+            id: "customer_name",
+            header: "Client",
+            accessorKey: "customer.customer_name",
+            filterType: "text",
+            cell: (row) => row.customer?.customer_name || "-",
         },
         {
-            header: "Revision/Version No",
+            id: "po_number",
+            header: "PO",
+            accessorKey: "po.po_number",
+            filterType: "text",
+            cell: (row) => row.po?.po_number || "-",
+        },
+        {
+            id: "job_number",
+            header: "Job Number",
+            filterType: "text",
+            cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+        },
+
+        {
+            header: "Document Name",
+            accessorKey: "documentName",
+        },
+        {
+            header: "Rev",
             accessorKey: "versionNo",
             cell: (row) => (
                 <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
@@ -99,10 +109,6 @@ function UploadDocument() {
                 </span>
             ),
             className: "w-[80px]"
-        },
-        {
-            header: "Job No",
-            accessorKey: "jobNo"
         },
         {
             header: "Created At",
@@ -123,15 +129,6 @@ function UploadDocument() {
             header: "Actual Due Days",
             accessorKey: "actual_due_days",
             cell: (row) => row.actual_due_days || "-"
-        },
-        {
-            header: "Assigner Status",
-            accessorKey: "assigner_status",
-            cell: () => (
-                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-                    Assigned
-                </span>
-            )
         },
         {
             header: "Uploader Status",
@@ -175,37 +172,6 @@ function UploadDocument() {
                 } else if (status === 'Rejected') {
                     text = "Rejected"
                     colorClass = "bg-red-100 text-red-800"
-                }
-
-                return (
-                    <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
-                        {text}
-                    </span>
-                )
-            }
-        },
-        {
-            header: "Client Status",
-            accessorKey: "client_status_display",
-            cell: (row) => {
-                const status = row.originalStatus || row.status
-                let text = "Awaiting for Approval" // Default to awaiting for approval
-                let colorClass = "bg-gray-100 text-gray-800"
-
-                if (status === 'Pending' || status === 'Upload Due') {
-                    text = "Awaiting to upload"
-                    colorClass = "bg-gray-100 text-gray-800"
-                } else if (status === 'Approved') {
-                    if (row.client_status === 'Approved') {
-                        text = "Approved"
-                        colorClass = "bg-green-100 text-green-800"
-                    } else if (row.client_status === 'Rejected') {
-                        text = "Rejected"
-                        colorClass = "bg-red-100 text-red-800"
-                    } else {
-                        text = "Pending for Client"
-                        colorClass = "bg-yellow-100 text-yellow-800"
-                    }
                 }
 
                 return (
@@ -285,27 +251,27 @@ function UploadDocument() {
                 )
             },
             className: "w-[150px]"
-        },
-        {
-            header: "Remarks",
-            accessorKey: "remarks",
-            cell: (row) => (
-                <div className="max-w-[200px] truncate" title={row.remarks || '-'}>
-                    {row.remarks || '-'}
-                </div>
-            )
         }
     ], [uploadingIds, backendUrl])
 
-    const fetchDocuments = useCallback(async ({ page, limit, search }) => {
+    const fetchDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
         try {
-            const response = await dccService.getMyAssignedDocuments({
+            const params = {
                 page,
                 limit,
-                search,
-                status_filter: statusFilter,
-                approver_status_filter: approverStatusFilter
-            })
+                status_filter: statusFilter
+            }
+            if (search) params.search = search
+
+            // Map column-based filters to API params
+            if (columnFilters) {
+                if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+                if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+                if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+                if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
+            }
+
+            const response = await dccService.getMyAssignedDocuments(params)
 
             if (response.data) {
                 const mappedDocs = response.data.map((doc, index) => {
@@ -344,7 +310,10 @@ function UploadDocument() {
                             ? `${backendUrl}/api/dcc/document-preview/${latestVersion.id}/${encodeURIComponent(latestVersion.file_path?.split('/').pop() || latestVersion.file_path?.split('\\').pop() || 'file')}`
                             : null,
                         originalStatus: doc.status,
-                        remarks: latestVersion?.remarks || '-'
+                        remarks: latestVersion?.remarks || '-',
+                        customer: doc.customer,
+                        po: doc.po,
+                        group: doc.group
                     }
                 })
 
@@ -357,7 +326,7 @@ function UploadDocument() {
             console.error("Error fetching documents:", error)
             return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } }
         }
-    }, [statusFilter, approverStatusFilter, backendUrl])
+    }, [statusFilter, backendUrl])
 
     const fetchDocumentsWrapper = useCallback((params) => {
         return fetchDocuments(params)
@@ -373,136 +342,114 @@ function UploadDocument() {
 
     return (
         <>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                    <SidebarTrigger className="-ml-1" />
-                </header>
-                <main className="flex-1 overflow-auto p-6 flex flex-col">
-                    <div className="flex-1 flex flex-col w-full">
-                        <div className="mb-6">
-                            <h1 className="text-3xl font-bold mb-2">Upload Document</h1>
-                            <p className="text-muted-foreground">
-                                View and upload documents assigned to you.
-                            </p>
-                        </div>
-
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Documents</CardTitle>
-                                <CardDescription>
-                                    Click the upload button to upload documents for each job
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="statusFilter">Filter by Uploader Status</Label>
-                                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Uploader Status" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Uploader Status</SelectItem>
-                                                <SelectItem value="pending">Pending</SelectItem>
-                                                <SelectItem value="done">Uploaded</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="approverStatusFilter">Filter by Approver Status</Label>
-                                        <Select value={approverStatusFilter} onValueChange={setApproverStatusFilter}>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="All Approver Status" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All Approver Status</SelectItem>
-                                                <SelectItem value="NA">Awaiting Upload</SelectItem>
-                                                <SelectItem value="pending">Pending for Approval</SelectItem>
-                                                <SelectItem value="rejected">Rejected</SelectItem>
-                                                <SelectItem value="approved">Approved</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-md border p-2">
-                                    <DataTable
-                                        columns={columns}
-                                        fetchData={fetchDocumentsWrapper}
-                                        onExport={handleExport}
-                                    />
-                                </div>
-                            </CardContent>
-                        </Card>
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger className="-ml-1" />
+            </header>
+            <main className="flex-1 overflow-auto p-6 flex flex-col">
+                <div className="flex-1 flex flex-col w-full">
+                    <div className="mb-6">
+                        <h1 className="text-3xl font-bold mb-2">Upload Document</h1>
+                        <p className="text-muted-foreground">
+                            View and upload documents assigned to you.
+                        </p>
                     </div>
 
-                    <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
-                        <SheetContent className="sm:max-w-xl overflow-y-auto">
-                            <SheetHeader>
-                                <SheetTitle>Document Audit Trail</SheetTitle>
-                            </SheetHeader>
-                            <div className="mt-6">
-                                <DocumentTrail
-                                    documentId={activeDocId}
-                                    onPreview={(previewInfo) => {
-                                        setActivePreviewDoc(previewInfo);
-                                        setPreviewUrl(previewInfo.previewUrl);
-                                        setIsPreviewOpen(true);
-                                    }}
-                                />
+                    <div className="flex flex-col gap-4">
+                        {/* Right-aligned Status Filter */}
+                        <div className="flex justify-end mb-2">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by Status:</span>
+                                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                    <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="All Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Status</SelectItem>
+                                        <SelectItem value="pending">Pending for Approval</SelectItem>
+                                        <SelectItem value="approved">Approved</SelectItem>
+                                        <SelectItem value="rejected">Rejected</SelectItem>
+                                        <SelectItem value="NA">Awaiting Upload</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                        </SheetContent>
-                    </Sheet>
+                        </div>
 
-                    <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                        <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
-                            <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
-                                {previewUrl ? (
-                                    (
-                                        activePreviewDoc?.mimeType === 'application/pdf' ||
-                                        activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
-                                        previewUrl.toLowerCase().includes('pdf')
-                                    ) ? (
-                                        <iframe
-                                            src={`${previewUrl}#toolbar=0`}
-                                            className="w-full h-full border-0"
-                                            title="PDF Preview"
-                                        />
-                                    ) : (
-                                        activePreviewDoc?.mimeType?.startsWith('image/') ||
-                                        /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
-                                        /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
-                                    ) ? (
-                                        <img
-                                            src={previewUrl}
-                                            alt="Preview"
-                                            className="max-w-full max-h-full object-contain"
-                                            onError={(e) => {
-                                                e.target.src = ""
-                                                e.target.onerror = null
-                                                toast.error("Failed to load image preview")
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
-                                            <div className="bg-slate-100 p-4 rounded-full mb-4">
-                                                <FileText className="h-12 w-12 text-slate-400" />
-                                            </div>
-                                            <p className="text-slate-500 font-medium">Preview not available for this file type.</p>
-                                            <Button variant="link" className="mt-2 text-primary" onClick={() => window.open(previewUrl, '_blank')}>
-                                                Open in New Tab
-                                            </Button>
-                                        </div>
-                                    )
+                        <DataTable
+                            columns={columns}
+                            fetchData={fetchDocumentsWrapper}
+                            onExport={handleExport}
+                        />
+                    </div>
+                </div>
+
+                <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+                    <SheetContent className="sm:max-w-xl overflow-y-auto">
+                        <SheetHeader>
+                            <SheetTitle>Document Audit Trail</SheetTitle>
+                        </SheetHeader>
+                        <div className="mt-6">
+                            <DocumentTrail
+                                documentId={activeDocId}
+                                onPreview={(previewInfo) => {
+                                    setActivePreviewDoc(previewInfo);
+                                    setPreviewUrl(previewInfo.previewUrl);
+                                    setIsPreviewOpen(true);
+                                }}
+                            />
+                        </div>
+                    </SheetContent>
+                </Sheet>
+
+                <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+                    <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
+                        <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
+                            {previewUrl ? (
+                                (
+                                    activePreviewDoc?.mimeType === 'application/pdf' ||
+                                    activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
+                                    previewUrl.toLowerCase().includes('pdf')
+                                ) ? (
+                                    <iframe
+                                        src={`${previewUrl}#toolbar=0`}
+                                        className="w-full h-full border-0"
+                                        title="PDF Preview"
+                                    />
                                 ) : (
-                                    <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">
-                                        <Plus className="h-10 w-10 rotate-45" />
-                                        <p>No preview available</p>
+                                    activePreviewDoc?.mimeType?.startsWith('image/') ||
+                                    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
+                                    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
+                                ) ? (
+                                    <img
+                                        src={previewUrl}
+                                        alt="Preview"
+                                        className="max-w-full max-h-full object-contain"
+                                        onError={(e) => {
+                                            e.target.src = ""
+                                            e.target.onerror = null
+                                            toast.error("Failed to load image preview")
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
+                                        <div className="bg-slate-100 p-4 rounded-full mb-4">
+                                            <FileText className="h-12 w-12 text-slate-400" />
+                                        </div>
+                                        <p className="text-slate-500 font-medium">Preview not available for this file type.</p>
+                                        <Button variant="link" className="mt-2 text-primary" onClick={() => window.open(previewUrl, '_blank')}>
+                                            Open in New Tab
+                                        </Button>
                                     </div>
-                                )}
-                            </div>
-                        </DialogContent>
-                    </Dialog>
-                </main>
+                                )
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">
+                                    <Plus className="h-10 w-10 rotate-45" />
+                                    <p>No preview available</p>
+                                </div>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            </main>
         </>
     )
 }
