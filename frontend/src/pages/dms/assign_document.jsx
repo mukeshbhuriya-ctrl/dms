@@ -88,9 +88,28 @@ function AssignDocument() {
       header: "System Doc ID",
     },
     {
+      id: "customer_name",
+      header: "Client",
+      accessorKey: "customer.customer_name",
+      filterType: "text",
+      cell: (row) => row.customer?.customer_name || "-",
+    },
+    {
+      id: "po_number",
+      header: "PO",
+      accessorKey: "po.po_number",
+      filterType: "text",
+      cell: (row) => row.po?.po_number || "-",
+    },
+    {
       id: "job_number",
       header: "Job Number",
+      filterType: "text",
       cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+    },
+    {
+      accessorKey: "document.document_name",
+      header: "Document Name",
     },
     {
       accessorKey: "shreno_doc_no",
@@ -103,10 +122,6 @@ function AssignDocument() {
       cell: (row) => row.client_doc_no || "-",
     },
     {
-      accessorKey: "document.document_name",
-      header: "Document Name",
-    },
-    {
       accessorKey: "user.name",
       header: "Assigned To",
       cell: (row) => {
@@ -114,11 +129,6 @@ function AssignDocument() {
         const empid = String(row.user?.empid || row.user?.employeeId || "")
         return (name !== "Unassigned" && empid) ? `${name} (${empid})` : name;
       },
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Created At",
-      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
     {
       accessorKey: "upload_due_days",
@@ -136,19 +146,15 @@ function AssignDocument() {
       cell: (row) => row.actual_due_days || "-",
     },
     {
-      accessorKey: "assigner_status",
-      header: "Assigner Status",
-      cell: () => (
-        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
-          Assigned
-        </span>
-      ),
-    },
-    {
-      accessorKey: "uploader_status",
-      header: "Uploader Status",
+      id: "status",
+      header: "Status",
+      filterType: "select",
+      filterOptions: [
+        { label: "Pending", value: "pending" },
+        { label: "Uploaded", value: "uploaded" },
+      ],
       cell: (row) => {
-        const isPending = row.status === 'Pending' || row.status === 'Upload Due' || row.status === 'Response Due';
+        const isPending = row.status === 'Pending' || row.status === 'Upload Due' || row.status === 'Response Due' || row.status === 'Rejected';
         return (
           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
             {isPending ? 'Pending' : 'Uploaded'}
@@ -157,65 +163,14 @@ function AssignDocument() {
       },
     },
     {
-      accessorKey: "approver_status",
-      header: "Approver Status",
-      cell: (row) => {
-        const isUploaderPending = row.status === 'Pending' || row.status === 'Upload Due';
-        let text = isUploaderPending ? "Awaiting Upload" : "Pending for Approval";
-        let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
-
-        if (row.status === 'Approved') {
-          text = "Approved";
-          colorClass = "bg-green-100 text-green-800";
-        } else if (row.status === 'Rejected') {
-          text = "Rejected";
-          colorClass = "bg-red-100 text-red-800";
-        } else if (row.status === 'Response Due') {
-          text = "Response Overdue";
-          colorClass = "bg-red-100 text-red-800 border border-red-200";
-        }
-
-        return (
-          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
-            {text}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: "client_status",
-      header: "Client Status",
-      cell: (row) => {
-        let text = "Awaiting for Approval"; // Default to awaiting for approval
-        let colorClass = "bg-gray-100 text-gray-800";
-
-        if (row.status === 'Pending' || row.status === 'Upload Due') {
-          text = "Awaiting to upload";
-          colorClass = "bg-gray-100 text-gray-800";
-        } else if (row.status === 'Approved') {
-          if (row.client_status === 'Approved') {
-            text = "Approved";
-            colorClass = "bg-green-100 text-green-800";
-          } else if (row.client_status === 'Rejected') {
-            text = "Rejected";
-            colorClass = "bg-red-100 text-red-800";
-          } else {
-            text = "Pending for Client";
-            colorClass = "bg-yellow-100 text-yellow-800";
-          }
-        }
-
-        return (
-          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
-            {text}
-          </span>
-        );
-      },
+      accessorKey: "createdAt",
+      header: "Created At",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString("en-GB"),
     },
     {
       accessorKey: "updatedAt",
       header: "Last Updated",
-      cell: (row) => new Date(row.updatedAt).toLocaleDateString(),
+      cell: (row) => new Date(row.updatedAt).toLocaleDateString("en-GB"),
     },
     {
       id: "actions",
@@ -252,14 +207,18 @@ function AssignDocument() {
   ], [])
 
   // --- Fetch Data for List View ---
-  const fetchAssignedDocuments = useCallback(async ({ page, limit, search, sorting }) => {
+  const fetchAssignedDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
     try {
       const params = { page, limit }
       if (search) params.search = search
       if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter
-      if (sorting && sorting.length > 0) {
-        params.sortBy = sorting[0].id
-        params.sortOrder = sorting[0].desc ? "desc" : "asc"
+
+      // Map column-based filters to API params
+      if (columnFilters) {
+        if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+        if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+        if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+        if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
       }
 
       const response = await apiClient.get("/api/dcc/get-assigned-documents", params)
@@ -412,7 +371,7 @@ function AssignDocument() {
       if (['customerSearch', 'poSearch', 'searchQuery'].includes(field)) {
         const key = `${tempId}_${field}`;
         if (searchTimeoutRef.current[key]) clearTimeout(searchTimeoutRef.current[key]);
-        
+
         searchTimeoutRef.current[key] = setTimeout(() => {
           if (field === 'customerSearch') fetchCustomers(value);
           else if (field === 'poSearch') fetchPos(updatedRow.customerId, value);
@@ -448,7 +407,7 @@ function AssignDocument() {
         if (selectedJob) {
           updatedRow.poId = selectedJob.po_id || "";
           updatedRow.customerId = selectedJob.customer_id || "";
-          updatedRow.searchQuery = ""; 
+          updatedRow.searchQuery = "";
           // Ensure we have current PO and Customer details
           if (!allPos.find(p => p.id === selectedJob.po_id)) fetchPos("", "", selectedJob.po_id);
         }
@@ -633,8 +592,6 @@ function AssignDocument() {
                         <SelectItem value="all">All Status</SelectItem>
                         <SelectItem value="Pending">Pending</SelectItem>
                         <SelectItem value="Uploaded">Uploaded</SelectItem>
-                        <SelectItem value="Approved">Approved</SelectItem>
-                        <SelectItem value="Rejected">Rejected</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

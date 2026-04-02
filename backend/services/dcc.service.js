@@ -563,29 +563,55 @@ class DccService {
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
-        const { status_filter } = params;
+        const { 
+            status_filter, 
+            uploader_status_filter,
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter
+        } = params;
+        
         const where = { company_id };
 
-        if (status_filter && status_filter !== 'all') {
-            const filterVal = status_filter.toLowerCase();
+        // Standardize status filtering across global and column-based filters
+        const activeStatusFilter = uploader_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
+
+        if (activeStatusFilter) {
+            const filterVal = activeStatusFilter.toLowerCase();
             if (filterVal === 'pending') {
-                where.status = { in: ['Pending', 'Rejected', 'Upload Due'] };
-            } else if (filterVal === 'done') {
-                where.status = { in: ['Approved', 'Uploaded', 'Response Due'] };
+                // Pending means uploader hasn't successfully shared it yet
+                where.status = { in: ['Pending', 'Upload Due', 'Response Due', 'Rejected'] };
+            } else if (filterVal === 'uploaded' || filterVal === 'done') {
+                // Uploaded means first version has been shared
+                where.status = { notIn: ['Pending', 'Upload Due', 'Response Due', 'Rejected'] };
             } else {
-                // Literal match (e.g., 'Approved', 'Uploaded', 'Upload Due')
-                where.status = status_filter;
+                // Specific direct status (e.g., 'Approved', 'Rejected' literal)
+                where.status = activeStatusFilter;
             }
-        } else if (status) {
-            where.status = status;
         }
 
+        // Explicit Column Filters
+        if (customer_name_filter) {
+            where.customer = { customer_name: { contains: customer_name_filter, mode: 'insensitive' } };
+        }
+        if (po_number_filter) {
+            where.po = { po_number: { contains: po_number_filter, mode: 'insensitive' } };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: { contains: job_number_filter, mode: 'insensitive' } } }
+                }
+            };
+        }
+
+        // ID-based filters (existing)
         if (customer_id) where.customer_id = customer_id;
         if (location_id) where.customer_location_id = location_id;
         if (po_id) where.po_id = po_id;
-
-        // Handle Job filtering
         if (job_id) {
+            // If already set via job_number_filter, this might override or combine
+            // Usually only one is used at a time in the UI
             where.group = {
                 job_group: {
                     some: { job_id: job_id }
@@ -597,7 +623,21 @@ class DccService {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
                 { document: { document_number: { contains: search, mode: 'insensitive' } } },
-                { shreno_doc_no: { contains: search, mode: 'insensitive' } }
+                { shreno_doc_no: { contains: search, mode: 'insensitive' } },
+                { client_doc_no: { contains: search, mode: 'insensitive' } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { 
+                    group: { 
+                        job_group: { 
+                            some: { 
+                                job: { 
+                                    job_number: { contains: search, mode: 'insensitive' } 
+                                } 
+                            } 
+                        } 
+                    } 
+                }
             ];
         }
 
