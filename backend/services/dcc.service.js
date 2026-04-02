@@ -257,10 +257,12 @@ class DccService {
     }
 
     async getPos(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
+        const { page = 1, limit = 50, search = '', customer_id } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
         const where = { company_id };
+
+        if (customer_id) where.customer_id = customer_id.trim();
 
         if (search) {
             where.OR = [
