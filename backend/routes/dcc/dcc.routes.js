@@ -64,6 +64,7 @@ router.get('/get-transmission-documents', DccController.getTransmissionDocuments
 router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
 router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF);
+router.get('/preview-transmittal-pdf/:id', DccController.previewTransmittalPDF);
 // Client Approval Status
 router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
 router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);

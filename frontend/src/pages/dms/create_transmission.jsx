@@ -48,10 +48,23 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 
 function CreateTransmission() {
   const navigate = useNavigate();
   const [view, setView] = useState("list") // 'list' | 'create'
+
+  // --- Transmittal Preview Helper ---
+  const handlePreviewTransmittal = (id) => {
+    if (!id) return;
+    const url = `${BACKEND_URL}/api/dcc/preview-transmittal-pdf/${id}`;
+    setActivePreviewDoc({
+      documentName: "Generated Transmittal Doc",
+      mimeType: "application/pdf"
+    });
+    setPreviewUrl(url);
+    setIsPreviewOpen(true);
+  };
 
   // --- List View State ---
   const [transmissions, setTransmissions] = useState([])
@@ -83,6 +96,7 @@ function CreateTransmission() {
   const [isLoadingSend, setIsLoadingSend] = useState(false)
   const [currentSearchParams, setCurrentSearchParams] = useState({ search: '', columnFilters: {} })
   const [isSelectingAll, setIsSelectingAll] = useState(false)
+  const [includeTransmittalDoc, setIncludeTransmittalDoc] = useState(true)
 
   // --- Initial Data Fetch (Customers & Jobs for metadata lookup/filtering) ---
   useEffect(() => {
@@ -118,7 +132,7 @@ function CreateTransmission() {
   }, [customers]);
 
   const poFilterOptions = useMemo(() => {
-    const pos = customers.flatMap(c => 
+    const pos = customers.flatMap(c =>
       c.customer_locations?.flatMap(l => l.pos?.map(p => p.po_number) || []) || []
     );
     return [...new Set(pos)].map(p => ({ label: p, value: p }));
@@ -169,13 +183,36 @@ function CreateTransmission() {
 
   // --- Helpers for Dropdowns (Used in Send View) ---
   const getCommunicationMatrixForPO = (poId, customerId, locationId) => {
+    // DIAGNOSTIC LOGGING
+    console.log("getCommunicationMatrixForPO inputs:", { poId, customerId, locationId });
+    console.log("Customers in state count:", customers.length);
+
     if (!poId || !customerId) return { shreno: [], client: [] }
-    const customer = customers.find(c => c.id === customerId)
-    if (!customer) return { shreno: [], client: [] }
-    const location = customer.customer_locations?.find(l => l.id === locationId)
-    if (!location) return { shreno: [], client: [] }
-    const po = location.pos?.find(p => p.id === poId)
-    if (!po || !po.po_communication_matrix) return { shreno: [], client: [] }
+
+    // Robust search with string-based ID comparison
+    const customer = customers.find(c => String(c.id) === String(customerId))
+    if (!customer) {
+      console.warn("Customer not found for ID:", customerId);
+      return { shreno: [], client: [] }
+    }
+
+    const location = customer.customer_locations?.find(l => String(l.id) === String(locationId))
+    if (!location) {
+      console.warn("Location not found for ID:", locationId, "in customer locations:", customer.customer_locations?.length);
+      return { shreno: [], client: [] }
+    }
+
+    const po = location.pos?.find(p => String(p.id) === String(poId))
+    if (!po) {
+      console.warn("PO not found for ID:", poId, "in location POs:", location.pos?.length);
+      return { shreno: [], client: [] }
+    }
+
+    if (!po.po_communication_matrix) {
+      console.warn("PO has no communication matrix:", po.po_number);
+      return { shreno: [], client: [] }
+    }
+
     const matrix = Array.isArray(po.po_communication_matrix) ? po.po_communication_matrix : []
     const shreno = matrix.filter(m => m.type === 'shreno' || m.type === 'Internal')
     const client = matrix.filter(m => m.type === 'client' || m.type === 'External')
@@ -188,10 +225,10 @@ function CreateTransmission() {
 
   const handleParamsChange = (params) => {
     const { search, columnFilters } = params;
-    
+
     // Check if meaningful filters changed (ignoring page/pageSize for selection reset)
-    const filtersChanged = 
-      search !== currentSearchParams.search || 
+    const filtersChanged =
+      search !== currentSearchParams.search ||
       JSON.stringify(columnFilters) !== JSON.stringify(currentSearchParams.columnFilters);
 
     if (filtersChanged) {
@@ -242,10 +279,10 @@ function CreateTransmission() {
     setIsSubmitting(true);
     try {
       // Find metadata from the first selected document
-      const docResponse = await dccService.getDocumentsForApproval({ 
-        limit: 1, 
+      const docResponse = await dccService.getDocumentsForApproval({
+        limit: 1,
         document_id: selectedDocuments[0],
-        approver_status_filter: 'approved' 
+        approver_status_filter: 'approved'
       });
 
       if (!docResponse.success || !docResponse.data[0]) {
@@ -354,6 +391,8 @@ function CreateTransmission() {
   useEffect(() => {
     if (isSendMailDialogOpen && activeTransmission) {
       const matrix = getCommunicationMatrixForPO(activeTransmission.po_id, activeTransmission.customer_id, activeTransmission.customer_location_id)
+      setCommunicationMatrix(matrix); // CRITICAL FIX: Update the matrix state for the dialog UI
+
       const initialSelection = {}
       matrix.shreno.forEach((contact) => initialSelection[contact.id] = true)
       matrix.client.forEach((contact) => initialSelection[contact.id] = true)
@@ -384,7 +423,8 @@ function CreateTransmission() {
       const response = await dccService.sendTransmissionEmail({
         transmission_id: activeTransmission.id,
         client_emails: clientEmails,
-        shreno_emails: shrenoEmails
+        shreno_emails: shrenoEmails,
+        include_transmittal: includeTransmittalDoc
       });
       if (response && response.success) {
         toast.success("Email sent successfully!");
@@ -451,7 +491,7 @@ function CreateTransmission() {
       accessorKey: "client_status",
       cell: (row) => (
         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${row.client_status === 'Approved' ? 'bg-green-100 text-green-800' :
-            row.client_status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+          row.client_status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
           }`}>
           {row.client_status || 'Pending'}
         </span>
@@ -582,6 +622,64 @@ function CreateTransmission() {
     }
   ], [selectedDocuments, clientFilterOptions, poFilterOptions, jobFilterOptions]);
 
+  // Send View Columns (DataTable version)
+  const sendDocumentColumns = useMemo(() => [
+    {
+      header: "S.No",
+      id: "s_no",
+      cell: (row, idx) => idx + 1,
+      className: "w-[60px]"
+    },
+    {
+      header: "System Doc ID",
+      accessorKey: "documentCode"
+    },
+    {
+      header: "Document Name",
+      accessorKey: "documentName"
+    },
+    {
+      header: "Uploaded By",
+      accessorKey: "uploadedBy"
+    },
+    {
+      header: "Uploaded Date",
+      accessorKey: "uploadedDate"
+    },
+    {
+      header: "Revision",
+      accessorKey: "versionNo",
+      cell: (row) => (row.versionNo !== null && row.versionNo !== undefined) ? `${row.versionNo}` : '-'
+    },
+    {
+      header: "Status",
+      accessorKey: "status",
+      cell: (row) => (
+        <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+          {row.status}
+        </span>
+      )
+    },
+    {
+      header: "Action",
+      id: "action",
+      cell: (row) => (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setActivePreviewDoc(row);
+            setPreviewUrl(row.file_url);
+            setIsPreviewOpen(true);
+          }}
+        >
+          <Eye className="h-4 w-4 mr-2" />
+          Preview
+        </Button>
+      )
+    }
+  ], []);
+
 
   return (
     <>
@@ -645,68 +743,74 @@ function CreateTransmission() {
                       List of approved documents for Transmission {activeTransmission?.transmission_number}
                     </CardDescription>
                   </div>
-                  {activeTransmission?.client_status !== 'Approved' && activeTransmission?.client_status !== 'Rejected' && (
-                    <Button
-                      type="button"
-                      onClick={() => setIsSendMailDialogOpen(true)}
-                      disabled={isLoadingSend}
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
-                    </Button>
-                  )}
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="rounded-md border bg-white overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[60px]">S.No</TableHead>
-                        <TableHead>System Doc ID</TableHead>
-                        <TableHead>Document Name</TableHead>
-                        <TableHead>Uploaded By</TableHead>
-                        <TableHead>Uploaded Date</TableHead>
-                        <TableHead>Revision</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sendDocuments.map((doc, index) => (
-                        <TableRow key={doc.id}>
-                          <TableCell>{index + 1}</TableCell>
-                          <TableCell>{doc.documentCode}</TableCell>
-                          <TableCell>{doc.documentName}</TableCell>
-                          <TableCell>{doc.uploadedBy}</TableCell>
-                          <TableCell>{doc.uploadedDate}</TableCell>
-                          <TableCell>
-                            {doc.versionNo !== null && doc.versionNo !== undefined ? `${doc.versionNo}` : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-                              {doc.status}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setActivePreviewDoc(doc);
-                                setPreviewUrl(doc.file_url);
-                                setIsPreviewOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <DataTable
+                  columns={sendDocumentColumns}
+                  initialData={sendDocuments}
+                  fetchData={async () => ({ data: sendDocuments, meta: { total: sendDocuments.length, page: 1, totalPages: 1 } })} // Static data for now
+                />
+
+                {activeTransmission?.client_status !== 'Approved' && activeTransmission?.client_status !== 'Rejected' && (
+                  <div className="mt-8 space-y-4 border-t pt-6">
+                    {/* Row 1: Transmittal Row (Pure Neutral Tones) */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border border-slate-200 rounded-2xl">
+                      {/* Left: Metadata */}
+                      <div className="flex items-center gap-3">
+                        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                          <FileText className="h-5 w-5 text-slate-600" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800">Transmittal Documents</h4>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions (Check FIRST, then Preview) */}
+                      <div className="flex items-center gap-3 bg-white p-1.5 pr-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center space-x-3 px-3">
+                          <Checkbox
+                            id="include-transmittal-card"
+                            checked={includeTransmittalDoc}
+                            onCheckedChange={(checked) => setIncludeTransmittalDoc(!!checked)}
+                            className="h-5 w-5 border-slate-300 data-[state=checked]:bg-slate-700 data-[state=checked]:border-slate-700"
+                          />
+                          <Label
+                            htmlFor="include-transmittal-card"
+                            className="cursor-pointer text-sm font-bold text-slate-700"
+                          >
+                            Include PDF
+                          </Label>
+                        </div>
+
+                        <div className="h-6 w-px bg-slate-200"></div>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-3 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg"
+                          onClick={() => handlePreviewTransmittal(activeTransmission?.id)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Final Action (Primary Send) */}
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        type="button"
+                        onClick={() => setIsSendMailDialogOpen(true)}
+                        disabled={isLoadingSend}
+                        className="px-10 h-12 text-base font-bold shadow-[0_10px_20px_-5px_rgba(0,0,0,0.2)] hover:shadow-2xl transition-all rounded-xl"
+                      >
+                        {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
+                        <Send className="h-5 w-5 ml-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -799,7 +903,7 @@ function CreateTransmission() {
             {/* Client Side Communication */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-primary" />
+                <FileText className="h-5 w-5 text-primary" />
                 <h3 className="text-lg font-semibold">Client Side Communication</h3>
               </div>
               {communicationMatrix.client.length > 0 ? (
@@ -828,22 +932,15 @@ function CreateTransmission() {
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground pl-7">
-                  No client contacts found.
+                  No Client contacts found.
                 </p>
               )}
             </div>
-
-            {/* Documents Summary */}
-            <div className="space-y-2 pt-2 border-t">
-              <h4 className="font-semibold">Documents to Send:</h4>
-              <div className="text-sm text-muted-foreground">
-                {sendDocuments.length} approved document(s) will be sent
-              </div>
-            </div>
           </div>
-          <DialogFooter>
+
+
+          <DialogFooter className="bg-gray-50 -mx-6 -mb-6 p-4 rounded-b-lg border-t gap-2 sm:gap-0">
             <Button
-              type="button"
               variant="outline"
               onClick={() => setIsSendMailDialogOpen(false)}
               disabled={isLoadingSend}
@@ -851,83 +948,43 @@ function CreateTransmission() {
               Cancel
             </Button>
             <Button
-              type="button"
               onClick={handleSendMail}
-              disabled={
-                isLoadingSend ||
-                Object.values(selectedEmails).filter(Boolean).length === 0
-              }
+              disabled={isLoadingSend || Object.values(selectedEmails).filter(Boolean).length === 0}
+              className="px-8"
             >
-              {isLoadingSend ? "Sending..." : (activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail")}
+              {isLoadingSend ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Document Preview Dialog */}
-      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
-          <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
-            {previewUrl ? (
-              (
-                activePreviewDoc?.mimeType === 'application/pdf' ||
-                activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
-                previewUrl.toLowerCase().includes('pdf')
-              ) ? (
-                <iframe
-                  src={`${previewUrl}#toolbar=0`}
-                  className="w-full h-full border-0"
-                  title="PDF Preview"
-                />
-              ) : (
-                activePreviewDoc?.mimeType?.startsWith('image/') ||
-                /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
-                /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
-              ) ? (
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="max-w-full max-h-full object-contain"
-                  onError={(e) => {
-                    e.target.src = "";
-                    e.target.onerror = null;
-                    toast.error("Failed to load image preview");
-                  }}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
-                  <div className="bg-slate-100 p-4 rounded-full mb-4">
-                    <FileText className="h-12 w-12 text-slate-400" />
-                  </div>
-                  <p className="text-slate-500 font-medium">预览不可用于此文件类型。Preview not available for this file type.</p>
-                  <Button
-                    variant="link"
-                    className="mt-2 text-primary"
-                    onClick={() => window.open(previewUrl, '_blank')}
-                  >
-                    Open in New Tab
-                  </Button>
-                </div>
-              )
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">
-                <Plus className="h-10 w-10 rotate-45" />
-                <p>No preview available</p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Shared Document Preview Dialog */}
+      <DocumentPreviewDialog
+        isOpen={isPreviewOpen}
+        onOpenChange={setIsPreviewOpen}
+        previewUrl={previewUrl}
+        activePreviewDoc={activePreviewDoc}
+      />
     </>
   )
 }
 
 // --- Local Table Component implementation (Outside to avoid re-mounting) ---
-const DocumentSelectionTable = ({ 
-  columns, 
-  fetchData, 
-  onSelectionReset, 
-  selectedDocuments, 
+const DocumentSelectionTable = ({
+  columns,
+  fetchData,
+  onSelectionReset,
+  selectedDocuments,
   setSelectedDocuments,
   handleToggleSelectAll,
   isSelectingAll
@@ -945,153 +1002,153 @@ const DocumentSelectionTable = ({
 
   // Sync search
   useEffect(() => {
-      if (isFirstRender.current) return;
-      const timer = setTimeout(() => {
-          setDebouncedSearch(search);
-          setPage(1);
-          onSelectionReset(); // RESET SELECTION
-      }, 500);
-      return () => clearTimeout(timer);
+    if (isFirstRender.current) return;
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+      onSelectionReset(); // RESET SELECTION
+    }, 500);
+    return () => clearTimeout(timer);
   }, [search, onSelectionReset]);
 
   // Sync filters
   useEffect(() => {
-      if (isFirstRender.current) {
-          isFirstRender.current = false;
-          return;
-      }
-      const timer = setTimeout(() => {
-          setDebouncedColumnFilters(columnFilters);
-          setPage(1);
-          onSelectionReset(); // RESET SELECTION
-      }, 800);
-      return () => clearTimeout(timer);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedColumnFilters(columnFilters);
+      setPage(1);
+      onSelectionReset(); // RESET SELECTION
+    }, 800);
+    return () => clearTimeout(timer);
   }, [columnFilters, onSelectionReset]);
 
   useEffect(() => {
-      const loadData = async () => {
-          setLoading(true);
-          try {
-              const result = await fetchData({ 
-                  page, 
-                  limit: pageSize, 
-                  search: debouncedSearch,
-                  columnFilters: debouncedColumnFilters 
-              });
-              setData(result.data || []);
-              setMeta(result.meta || {});
-          } catch (error) {
-              console.error("Failed to load local data", error);
-          } finally {
-              setLoading(false);
-          }
-      };
-      loadData();
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        const result = await fetchData({
+          page,
+          limit: pageSize,
+          search: debouncedSearch,
+          columnFilters: debouncedColumnFilters
+        });
+        setData(result.data || []);
+        setMeta(result.meta || {});
+      } catch (error) {
+        console.error("Failed to load local data", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [page, pageSize, debouncedSearch, debouncedColumnFilters, fetchData]);
 
   const resolvePath = (object, path) => {
-      if (!path) return undefined;
-      return path.split('.').reduce((o, p) => (o ? o[p] : undefined), object);
+    if (!path) return undefined;
+    return path.split('.').reduce((o, p) => (o ? o[p] : undefined), object);
   };
 
   return (
-      <div className="space-y-4">
-          <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Input
-                    placeholder="Global Search..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="max-w-sm"
-                />
-              </div>
-          </div>
-
-          <div className="rounded-md border bg-card overflow-x-auto">
-              <Table>
-                  <TableHeader>
-                      <TableRow>
-                          {columns.map((col, idx) => {
-                              const isSelectCol = col.id === 'select';
-                              return (
-                                  <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50`}>
-                                      <div className="flex flex-col gap-1.5 py-1.5">
-                                          <div className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
-                                              {isSelectCol ? (
-                                                <div className="flex items-center gap-2">
-                                                  <Checkbox
-                                                    checked={data.length > 0 && data.every(d => selectedDocuments.includes(d.id))}
-                                                    onCheckedChange={(checked) => handleToggleSelectAll(checked, { search: debouncedSearch, columnFilters: debouncedColumnFilters })}
-                                                  />
-                                                  <span>Select</span>
-                                                </div>
-                                              ) : col.header}
-                                          </div>
-                                          {col.id !== 'select' && col.filterType === 'select' && (
-                                              <Select 
-                                                  value={columnFilters[col.id || col.accessorKey] || "all"} 
-                                                  onValueChange={(val) => setColumnFilters(prev => ({ ...prev, [col.id || col.accessorKey]: val === 'all' ? "" : val }))}
-                                              >
-                                                  <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
-                                                      <SelectValue placeholder="All" />
-                                                  </SelectTrigger>
-                                                  <SelectContent>
-                                                      <SelectItem value="all">All</SelectItem>
-                                                      {col.filterOptions?.map(opt => (
-                                                          <SelectItem key={opt.value} value={opt.value}>
-                                                              {opt.label}
-                                                          </SelectItem>
-                                                      ))}
-                                                  </SelectContent>
-                                              </Select>
-                                          )}
-                                      </div>
-                                  </TableHead>
-                              );
-                          })}
-                      </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                      {loading ? (
-                          <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Loading documents...</TableCell></TableRow>
-                      ) : data.length ? (
-                          data.map((row, rIdx) => (
-                              <TableRow key={rIdx}>
-                                  {columns.map((col, cIdx) => (
-                                      <TableCell key={cIdx} className={col.className}>
-                                          {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
-                                      </TableCell>
-                                  ))}
-                              </TableRow>
-                          ))
-                      ) : (
-                          <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No approved documents found.</TableCell></TableRow>
-                      )}
-                  </TableBody>
-              </Table>
-          </div>
-
-          <div className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium">Rows per page</p>
-                  <Select value={pageSize.toString()} onValueChange={(val) => { setPageSize(parseInt(val)); setPage(1); }}>
-                      <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={pageSize} /></SelectTrigger>
-                      <SelectContent side="top">
-                          {[5, 10, 20, 50, 100].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
-                      </SelectContent>
-                  </Select>
-              </div>
-              <div className="flex items-center gap-4">
-                  <div className="text-sm text-muted-foreground">
-                      Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => setPage(prev => prev - 1)} disabled={page <= 1 || loading}><ChevronLeft className="h-4 w-4" />Previous</Button>
-                      <Button variant="outline" size="sm" onClick={() => setPage(prev => prev + 1)} disabled={page >= (meta.totalPages || 1) || loading}>Next<ChevronRight className="h-4 w-4" /></Button>
-                  </div>
-              </div>
-          </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Input
+            placeholder="Global Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
       </div>
+
+      <div className="rounded-md border bg-card overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns.map((col, idx) => {
+                const isSelectCol = col.id === 'select';
+                return (
+                  <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50`}>
+                    <div className="flex flex-col gap-1.5 py-1.5">
+                      <div className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
+                        {isSelectCol ? (
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={data.length > 0 && data.every(d => selectedDocuments.includes(d.id))}
+                              onCheckedChange={(checked) => handleToggleSelectAll(checked, { search: debouncedSearch, columnFilters: debouncedColumnFilters })}
+                            />
+                            <span>Select</span>
+                          </div>
+                        ) : col.header}
+                      </div>
+                      {col.id !== 'select' && col.filterType === 'select' && (
+                        <Select
+                          value={columnFilters[col.id || col.accessorKey] || "all"}
+                          onValueChange={(val) => setColumnFilters(prev => ({ ...prev, [col.id || col.accessorKey]: val === 'all' ? "" : val }))}
+                        >
+                          <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
+                            <SelectValue placeholder="All" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            {col.filterOptions?.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </TableHead>
+                );
+              })}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Loading documents...</TableCell></TableRow>
+            ) : data.length ? (
+              data.map((row, rIdx) => (
+                <TableRow key={rIdx}>
+                  {columns.map((col, cIdx) => (
+                    <TableCell key={cIdx} className={col.className}>
+                      {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No approved documents found.</TableCell></TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium">Rows per page</p>
+          <Select value={pageSize.toString()} onValueChange={(val) => { setPageSize(parseInt(val)); setPage(1); }}>
+            <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={pageSize} /></SelectTrigger>
+            <SelectContent side="top">
+              {[5, 10, 20, 50, 100].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="text-sm text-muted-foreground">
+            Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setPage(prev => prev - 1)} disabled={page <= 1 || loading}><ChevronLeft className="h-4 w-4" />Previous</Button>
+            <Button variant="outline" size="sm" onClick={() => setPage(prev => prev + 1)} disabled={page >= (meta.totalPages || 1) || loading}>Next<ChevronRight className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -251,6 +251,17 @@ class DccController {
             res.status(400).json({ success: false, message: error.message });
         }
     }
+
+    async previewTransmittalPDF(req, res) {
+        try {
+            const { filename, buffer } = await DccService.getTransmissionTransmittalPDF(req.user.company_id, req.params.id);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+            res.send(buffer);
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
     async updateTransmissionClientStatus(req, res) {
         try {
             const { transmission_id, status, remarks } = req.body;

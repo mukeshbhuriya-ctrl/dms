@@ -448,7 +448,7 @@ class DccService {
                 if (include_id) {
                     idsToExclude = assignedDocIds.filter(id => id !== include_id);
                 }
-                
+
                 if (idsToExclude.length > 0) {
                     where.id = { ...where.id, notIn: [...(where.id?.notIn || []), ...idsToExclude] };
                 }
@@ -477,9 +477,9 @@ class DccService {
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
-        const { 
-            status_filter, 
-            approver_status_filter, 
+        const {
+            status_filter,
+            approver_status_filter,
             uploader_status_filter,
             customer_name_filter,
             po_number_filter,
@@ -529,16 +529,16 @@ class DccService {
                 { document: { document_number: { contains: search, mode: 'insensitive' } } },
                 { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
                 { po: { po_number: { contains: search, mode: 'insensitive' } } },
-                { 
-                    group: { 
-                        job_group: { 
-                            some: { 
-                                job: { 
-                                    job_number: { contains: search, mode: 'insensitive' } 
-                                } 
-                            } 
-                        } 
-                    } 
+                {
+                    group: {
+                        job_group: {
+                            some: {
+                                job: {
+                                    job_number: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
+                    }
                 }
             ];
         }
@@ -594,14 +594,14 @@ class DccService {
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
-        const { 
-            status_filter, 
+        const {
+            status_filter,
             uploader_status_filter,
             customer_name_filter,
             po_number_filter,
             job_number_filter
         } = params;
-        
+
         const where = { company_id };
 
         // Standardize status filtering across global and column-based filters
@@ -661,16 +661,16 @@ class DccService {
                 { client_doc_no: { contains: search, mode: 'insensitive' } },
                 { po: { po_number: { contains: search, mode: 'insensitive' } } },
                 { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
-                { 
-                    group: { 
-                        job_group: { 
-                            some: { 
-                                job: { 
-                                    job_number: { contains: search, mode: 'insensitive' } 
-                                } 
-                            } 
-                        } 
-                    } 
+                {
+                    group: {
+                        job_group: {
+                            some: {
+                                job: {
+                                    job_number: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
+                    }
                 }
             ];
         }
@@ -745,7 +745,7 @@ class DccService {
             // 1. Process storage (move to structured directory)
             const job_number = groupDoc.group?.job_group[0]?.job?.job_number || 'NA';
             const document_number = groupDoc.document?.document_number || 'NA';
-            
+
             const targetDir = StorageUtils.getDocRevisionDir(company_id, job_number, document_number, nextVersionNo);
             const storageData = await fileService.processStorage(file, targetDir);
 
@@ -759,8 +759,8 @@ class DccService {
                 user_id,
                 action: 'Uploaded',
                 remarks: `Version ${nextVersionNo} uploaded`,
-                metadata: { 
-                    version_no: nextVersionNo, 
+                metadata: {
+                    version_no: nextVersionNo,
                     file_name: file.originalname,
                     file_url: version.file_url // Added for trail download
                 }
@@ -780,12 +780,12 @@ class DccService {
      * Get Documents for Approval
      */
     async getDocumentsForApproval(company_id, params = {}) {
-        const { 
-            page = 1, 
-            limit, 
-            search = '', 
-            customer_id, 
-            po_id, 
+        const {
+            page = 1,
+            limit,
+            search = '',
+            customer_id,
+            po_id,
             status,
             status_filter,
             approver_status_filter,
@@ -878,16 +878,16 @@ class DccService {
                 { document: { document_number: { contains: search, mode: 'insensitive' } } },
                 { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
                 { po: { po_number: { contains: search, mode: 'insensitive' } } },
-                { 
-                    group: { 
-                        job_group: { 
-                            some: { 
-                                job: { 
-                                    job_number: { contains: search, mode: 'insensitive' } 
-                                } 
-                            } 
-                        } 
-                    } 
+                {
+                    group: {
+                        job_group: {
+                            some: {
+                                job: {
+                                    job_number: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
+                    }
                 }
             ];
         }
@@ -950,7 +950,7 @@ class DccService {
 
         const groupDoc = await prisma.group_document.findFirst({
             where: { id: document_id, company_id },
-            include: { 
+            include: {
                 versions: { orderBy: { version_no: 'desc' }, take: 1 },
                 document: true
             }
@@ -981,9 +981,9 @@ class DccService {
                 user_id,
                 action: status === 'Approved' ? 'Internal Approved' : 'Internal Rejected',
                 remarks: remarks || null,
-                metadata: { 
+                metadata: {
                     version_no: latestVersion.version_no,
-                    file_url: latestVersion.file_url 
+                    file_url: latestVersion.file_url
                 }
             }, tx);
 
@@ -991,7 +991,7 @@ class DccService {
         });
 
         // 4. Trigger Email Notification to Uploader in background
-        this._sendReviewNotification(groupDoc, latestVersion, status, remarks).catch(e => 
+        this._sendReviewNotification(groupDoc, latestVersion, status, remarks).catch(e =>
             console.error("[DccService] Review notification error:", e)
         );
 
@@ -1293,7 +1293,7 @@ class DccService {
     }
 
     async sendTransmissionEmail(company_id, data) {
-        const { transmission_id, shreno_emails, client_emails } = data;
+        const { transmission_id, shreno_emails, client_emails, include_transmittal = true } = data;
 
         // 1. Fetch transmission details with required relations for the PDF
         const transmission = await prisma.transmission.findFirst({
@@ -1313,23 +1313,24 @@ class DccService {
         const fullDocsResponse = await this.getTransmissionDocuments(company_id, transmission_id);
         const documentsData = fullDocsResponse || [];
 
-        // 3. Generate the PDF Buffer
-        const pdfBuffer = await generateTransmittalPDF(
-            transmission,
-            transmission.customer,
-            transmission.location,
-            transmission.po,
-            documentsData,
-            transmission.creator
-        );
+        // 3. Prepare attachments and format documents for email template
+        let attachments = [];
+        if (include_transmittal) {
+            const pdfBuffer = await generateTransmittalPDF(
+                transmission,
+                transmission.customer,
+                transmission.location,
+                transmission.po,
+                documentsData,
+                transmission.creator
+            );
 
-        const attachments = [
-            {
+            attachments.push({
                 filename: `Document_Transmittal_${transmission.transmission_number}.pdf`,
                 content: pdfBuffer,
                 contentType: 'application/pdf'
-            }
-        ];
+            });
+        }
 
         // 4. Send Email using EmailService and attach the PDF
         // Client -> To, Shreno -> CC
@@ -1376,7 +1377,7 @@ class DccService {
         // 1. Process Client Feedback Files
         if (files && files.length > 0) {
             const { baseDir, uploadDir } = StorageUtils.getTransmissionFeedbackDir(company_id, transmission.transmission_number);
-            
+
             // Move files to feedback directory
             for (const file of files) {
                 const targetPath = path.join(uploadDir, file.filename);
@@ -1387,7 +1388,7 @@ class DccService {
             // Generate ZIP of feedback files
             const feedbackZipName = `Feedback_${transmission.transmission_number}.zip`;
             const zipPath = path.join(baseDir, feedbackZipName);
-            
+
             const archiver = require('archiver');
             const output = fs.createWriteStream(zipPath);
             const archive = archiver('zip', { zlib: { level: 9 } });
@@ -1424,8 +1425,8 @@ class DccService {
                 user_id: updatedTransmission.created_by,
                 action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
                 remarks: remarks || null,
-                metadata: { 
-                    file_count: files.length, 
+                metadata: {
+                    file_count: files.length,
                     transmission_no: updatedTransmission.transmission_number,
                     feedback_files: savedFiles.map(f => f.name),
                     feedback_url: client_archive_url
@@ -1617,7 +1618,7 @@ class DccService {
         });
 
         // Trigger notifications as background task
-        this._sendAssignmentNotifications(company_id, results).catch(e => 
+        this._sendAssignmentNotifications(company_id, results).catch(e =>
             console.error("[DccService] Assignment notification error:", e)
         );
 
@@ -1681,7 +1682,7 @@ class DccService {
             // 2. Update Job Groups if job_ids provided
             if (job_ids && Array.isArray(job_ids)) {
                 const groupId = groupDoc.group_id;
-                
+
                 // Delete old job groups
                 await tx.job_group.deleteMany({
                     where: { group_id: groupId, company_id }
@@ -1717,7 +1718,7 @@ class DccService {
                 const rejectedVersion = doc.versions[0];
                 if (rejectedVersion) {
                     doc.status = rejectedVersion.status;
-                    doc.updatedAt = rejectedVersion.createdAt; 
+                    doc.updatedAt = rejectedVersion.createdAt;
                 }
             }
 
@@ -1809,7 +1810,7 @@ class DccService {
         }
 
         const results = await prisma.$transaction(async (tx) => {
-        
+
             const results = [];
 
             // Fetch all job details for the assignments to get Customer, Location, PO, and Job Number
@@ -1821,18 +1822,18 @@ class DccService {
             const jobMap = Object.fromEntries(foundJobs.map(j => [j.id, j]));
 
             for (const assign of assignments) {
-                const { 
-                    job_id, 
-                    document_name, 
+                const {
+                    job_id,
+                    document_name,
                     document_type_id,
-                    assign_user_id, 
-                    upload_due_days, 
-                    response_due_days, 
+                    assign_user_id,
+                    upload_due_days,
+                    response_due_days,
                     actual_due_days,
-                    shreno_document_no, 
-                    shreno_reference_no, 
-                    client_document_no, 
-                    client_reference_no 
+                    shreno_document_no,
+                    shreno_reference_no,
+                    client_document_no,
+                    client_reference_no
                 } = assign;
 
                 if (!job_id || !document_name || !assign_user_id) continue;
@@ -1847,8 +1848,8 @@ class DccService {
 
                 // 1. Find or Create Document Master for this name and type
                 let documentMaster = await tx.document_master.findFirst({
-                    where: { 
-                        company_id, 
+                    where: {
+                        company_id,
                         document_name: document_name.trim()
                     }
                 });
@@ -1923,7 +1924,7 @@ class DccService {
         });
 
         // Trigger notifications as background task
-        this._sendAssignmentNotifications(company_id, results).catch(e => 
+        this._sendAssignmentNotifications(company_id, results).catch(e =>
             console.error("[DccService] Bulk assignment notification error:", e)
         );
 
@@ -1952,7 +1953,7 @@ class DccService {
                 // Fetch full doc details for the email
                 const fullDocs = await prisma.group_document.findMany({
                     where: { id: { in: userGroups[userId] } },
-                    include: { 
+                    include: {
                         document: true,
                         group: { include: { job_group: { include: { job: true } } } }
                     }
@@ -1983,7 +1984,7 @@ class DccService {
         try {
             // 1. Check for UPLOAD OVERDUE (Pending docs)
             const pendingDocs = await prisma.group_document.findMany({
-                where: { 
+                where: {
                     status: 'Pending',
                     upload_due_days: { not: null }
                 },
@@ -1995,7 +1996,7 @@ class DccService {
             for (const doc of pendingDocs) {
                 const created = new Date(doc.createdAt);
                 const deadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
-                
+
                 if (now > deadline) {
                     if (!uploadOverdueUsers[doc.user_id]) uploadOverdueUsers[doc.user_id] = { user: doc.user, docs: [] };
                     uploadOverdueUsers[doc.user_id].docs.push({
@@ -2017,12 +2018,12 @@ class DccService {
 
             // 2. Check for RESPONSE OVERDUE (Uploaded docs awaiting approval)
             const submittedDocs = await prisma.group_document.findMany({
-                where: { 
+                where: {
                     status: 'Pending for Approval',
                     response_due_days: { not: null }
                 },
-                include: { 
-                    document: true, 
+                include: {
+                    document: true,
                     group: { include: { job_group: { include: { job: true } } } },
                     versions: { orderBy: { version_no: 'desc' }, take: 1 }
                 }

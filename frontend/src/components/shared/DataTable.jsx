@@ -208,7 +208,7 @@ export function DataTable({
                                 <TableRow key={rIdx}>
                                     {columns.map((col, cIdx) => (
                                         <TableCell key={cIdx} className={col.className}>
-                                            {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                                            {col.cell ? col.cell(row, rIdx) : resolvePath(row, col.accessorKey)}
                                         </TableCell>
                                     ))}
                                 </TableRow>
