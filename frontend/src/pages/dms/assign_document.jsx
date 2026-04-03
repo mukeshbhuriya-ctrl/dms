@@ -146,18 +146,49 @@ function AssignDocument() {
       cell: (row) => row.actual_due_days || "-",
     },
     {
+      header: "Revision",
+      accessorKey: "versionNo",
+      cell: (row) => (
+        <span className={row.versionNo !== null && row.versionNo !== undefined ? "font-semibold text-blue-600" : "text-muted-foreground"}>
+          {row.versionNo !== null && row.versionNo !== undefined ? `${row.versionNo}` : '-'}
+        </span>
+      ),
+      className: "w-[80px]"
+    },
+    {
       id: "status",
       header: "Status",
       filterType: "select",
       filterOptions: [
-        { label: "Pending", value: "pending" },
-        { label: "Uploaded", value: "uploaded" },
+        { label: "Awaiting Upload", value: "awaiting_upload" },
+        { label: "Pending for Approval", value: "pending_approval" },
+        { label: "Approved", value: "approved" },
+        { label: "Rejected", value: "rejected" },
       ],
       cell: (row) => {
-        const isPending = row.status === 'Pending' || row.status === 'Upload Due' || row.status === 'Response Due' || row.status === 'Rejected';
+        const docStatus = row.status;
+        if (docStatus === 'Response Due' || docStatus === 'Upload Due') {
+          return (
+            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+              {docStatus === 'Upload Due' ? 'Upload Overdue' : 'Response Overdue'}
+            </span>
+          );
+        }
+        const isUploaderPending = docStatus === 'Pending';
+        let text = isUploaderPending ? "Awaiting Upload" : (docStatus === 'Pending for Approval' ? "Pending for Approval" : docStatus);
+        let colorClass = isUploaderPending ? "bg-gray-100 text-gray-800" : "bg-orange-100 text-orange-800 border border-orange-200";
+
+        if (docStatus === 'Approved') {
+          text = "Approved";
+          colorClass = "bg-green-100 text-green-800";
+        } else if (docStatus === 'Rejected') {
+          text = "Rejected";
+          colorClass = "bg-red-100 text-red-800";
+        }
+
         return (
-          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isPending ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
-            {isPending ? 'Pending' : 'Uploaded'}
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
           </span>
         );
       },

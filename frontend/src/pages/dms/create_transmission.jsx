@@ -75,7 +75,7 @@ function CreateTransmission() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [successData, setSuccessData] = useState(null) // { zip_url, password }
-  
+
   // --- Preview State ---
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -413,7 +413,7 @@ function CreateTransmission() {
     setLoadingDocs(true);
     try {
       const resDocs = await dccService.getTransmissionDocuments({ transmission_id: transmission.id });
-      
+
       if (resDocs.success) {
         const mappedDocs = (resDocs.data || []).map(item => {
           const docSource = item.group_document;
@@ -430,9 +430,9 @@ function CreateTransmission() {
             versionNo: item.display_version_no,
             status: item.version?.status || 'Approved',
             // Pre-calculate document type for robust preview routing
-            mimeType: item.version?.mime_type || '', 
+            mimeType: item.version?.mime_type || '',
             filePath: item.version?.file_path || '',
-            file_url: item.version?.id 
+            file_url: item.version?.id
               ? `${BACKEND_URL}/api/dcc/document-preview/${item.version.id}/${encodeURIComponent(item.version.file_path.split('/').pop())}`
               : null
           };
@@ -497,14 +497,14 @@ function CreateTransmission() {
 
         let clientContact = communicationMatrix.client.find(c => c.id === contactIdNum || c.id == contactIdStr);
         if (clientContact) {
-            clientEmails.push(clientContact.email);
-            return;
+          clientEmails.push(clientContact.email);
+          return;
         }
 
         let shrenoContact = communicationMatrix.shreno.find(c => c.id === contactIdNum || c.id == contactIdStr);
         if (shrenoContact) {
-            shrenoEmails.push(shrenoContact.email);
-            return;
+          shrenoEmails.push(shrenoContact.email);
+          return;
         }
       });
 
@@ -706,477 +706,476 @@ function CreateTransmission() {
         return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
       }
     },
-    { header: "Revision/Version No", accessorKey: "display_version_no", cell: (item) => item.display_version_no ? `Rev ${item.display_version_no}` : '-' },
+    { header: "Revision", accessorKey: "display_version_no", cell: (item) => (item.display_version_no !== null && item.display_version_no !== undefined) ? `Rev ${item.display_version_no}` : '-' },
     { header: "Status", accessorKey: "status" }
   ], [selectedDocuments, filteredDocuments]);
 
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
 
-            {/* Header Section */}
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">
-                  {view === 'list' ? 'Transmissions' : view === 'send' ? 'Send Documents' : 'Create Transmission'}
-                </h1>
-                <p className="text-muted-foreground">
-                  {view === 'list' 
-                    ? 'Manage and view existing transmissions.' 
-                    : view === 'send' 
-                      ? 'Review documents and send to client.'
-                      : 'Select approved documents to create a new transmission.'}
-                </p>
-              </div>
-              <div>
-                {view === 'list' ? (
-                  <Button onClick={() => setView('create')}>
-                    <Plus className="mr-2 h-4 w-4" /> Create Transmission
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={() => {
-                      setView('list');
-                      setActiveTransmission(null);
-                      setSendDocuments([]);
-                  }}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                  </Button>
-                )}
-              </div>
+          {/* Header Section */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">
+                {view === 'list' ? 'Transmissions' : view === 'send' ? 'Send Documents' : 'Create Transmission'}
+              </h1>
+              <p className="text-muted-foreground">
+                {view === 'list'
+                  ? 'Manage and view existing transmissions.'
+                  : view === 'send'
+                    ? 'Review documents and send to client.'
+                    : 'Select approved documents to create a new transmission.'}
+              </p>
             </div>
+            <div>
+              {view === 'list' ? (
+                <Button onClick={() => setView('create')}>
+                  <Plus className="mr-2 h-4 w-4" /> Create Transmission
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => {
+                  setView('list');
+                  setActiveTransmission(null);
+                  setSendDocuments([]);
+                }}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                </Button>
+              )}
+            </div>
+          </div>
 
-            {/* Content Section */}
-            {view === 'list' ? (
+          {/* Content Section */}
+          {view === 'list' ? (
+            <Card>
+              <CardHeader><CardTitle>Transmission List</CardTitle></CardHeader>
+              <CardContent>
+                <DataTable
+                  columns={listColumns}
+                  fetchData={fetchTransmissions}
+                  pageCount={0}
+                  onExport={handleExport}
+                  refreshKey={refreshKey}
+                />
+              </CardContent>
+            </Card>
+          ) : view === 'send' ? (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Approved Documents</CardTitle>
+                    <CardDescription>
+                      List of approved documents for Transmission {activeTransmission?.transmission_number}
+                    </CardDescription>
+                  </div>
+                  {activeTransmission?.client_status !== 'Approved' && activeTransmission?.client_status !== 'Rejected' && (
+                    <Button
+                      type="button"
+                      onClick={() => setIsSendMailDialogOpen(true)}
+                      disabled={isLoadingSend}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <div className="rounded-md border bg-white">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[60px]">S.No</TableHead>
+                        <TableHead>System Doc ID</TableHead>
+                        <TableHead>Document Name</TableHead>
+                        <TableHead>Uploaded By</TableHead>
+                        <TableHead>Uploaded Date</TableHead>
+                        <TableHead>Revision</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Transmittal Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sendDocuments.length > 0 ? (
+                        sendDocuments.map((document, index) => (
+                          <TableRow key={document.id}>
+                            <TableCell className="font-medium text-slate-500">
+                              {index + 1}
+                            </TableCell>
+                            <TableCell>{document.documentCode}</TableCell>
+                            <TableCell>{document.documentName}</TableCell>
+                            <TableCell>{document.uploadedBy}</TableCell>
+                            <TableCell>{document.uploadedDate}</TableCell>
+                            <TableCell>
+                              {document.versionNo !== null && document.versionNo !== undefined ? `Rev ${document.versionNo}` : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                                Approved
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${activeTransmission?.status === 'Sent'
+                                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                                }`}>
+                                {activeTransmission?.status || 'Pending'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {document.file_url && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 gap-1"
+                                  onClick={() => {
+                                    setActivePreviewDoc({
+                                      documentName: document.documentName,
+                                      versionNo: (document.versionNo !== null && document.versionNo !== undefined) ? `Rev ${document.versionNo}` : '',
+                                      mimeType: document.mimeType,
+                                      filePath: document.filePath
+                                    });
+                                    setPreviewUrl(document.file_url);
+                                    setIsPreviewOpen(true);
+                                  }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                  Preview
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={9}
+                            className="h-24 text-center"
+                          >
+                            {loadingDocs ? "Loading documents..." : "No approved documents found for this transmission."}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6">
+              {/* Selection Context */}
               <Card>
-                <CardHeader><CardTitle>Transmission List</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle>Selection</CardTitle>
+                  <CardDescription>Select customer, location, PO, and job in sequence</CardDescription>
+                </CardHeader>
                 <CardContent>
-                  <DataTable
-                    columns={listColumns}
-                    fetchData={fetchTransmissions}
-                    pageCount={0}
-                    onExport={handleExport}
-                    refreshKey={refreshKey}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>
+                        Customer Name <span className="text-red-500">*</span>
+                        {autoFilled.customerId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
+                      </Label>
+                      <Select value={formData.customerId} onValueChange={handleCustomerChange}>
+                        <SelectTrigger className="w-full"><SelectValue placeholder="Select Customer" /></SelectTrigger>
+                        <SelectContent>
+                          {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.customer_name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>
+                        Location <span className="text-red-500">*</span>
+                        {autoFilled.locationId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
+                      </Label>
+                      <Select value={formData.locationId} onValueChange={handleLocationChange} disabled={!formData.customerId}>
+                        <SelectTrigger className="w-full h-auto py-2"><SelectValue placeholder="Select Location" /></SelectTrigger>
+                        <SelectContent>
+                          {getLocationsForCustomer(formData.customerId).map(l => (
+                            <SelectItem key={l.id} value={l.id} className="py-2">
+                              <div className="flex flex-col items-start text-left">
+                                <span className="font-medium">{l.location_name}</span>
+                                {l.gst_number && <span className="text-xs text-muted-foreground">GST: {l.gst_number}</span>}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>PO Number <span className="text-red-500">*</span></Label>
+                      <Select value={formData.poId} onValueChange={handlePOChange}>
+                        <SelectTrigger className="w-full"><SelectValue placeholder="Select a PO" /></SelectTrigger>
+                        <SelectContent>
+                          {getAllPOs().map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              <div className="flex flex-col items-start text-left">
+                                <span className="font-medium">{p.po_number}</span>
+                                <span className="text-xs text-muted-foreground">{p.customerName} - {p.locationName}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            ) : view === 'send' ? (
-               <Card>
-                 <CardHeader>
-                   <div className="flex items-center justify-between">
-                     <div>
-                       <CardTitle>Approved Documents</CardTitle>
-                       <CardDescription>
-                         List of approved documents for Transmission {activeTransmission?.transmission_number}
-                       </CardDescription>
-                     </div>
-                     {activeTransmission?.client_status !== 'Approved' && activeTransmission?.client_status !== 'Rejected' && (
-                       <Button
-                         type="button"
-                         onClick={() => setIsSendMailDialogOpen(true)}
-                         disabled={isLoadingSend}
-                       >
-                         <Send className="h-4 w-4 mr-2" />
-                         {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
-                       </Button>
-                     )}
-                   </div>
-                 </CardHeader>
-                 <CardContent className="pt-6">
-                   <div className="rounded-md border bg-white">
-                     <Table>
-                       <TableHeader>
-                         <TableRow>
-                           <TableHead className="w-[60px]">S.No</TableHead>
-                           <TableHead>System Doc ID</TableHead>
-                           <TableHead>Document Name</TableHead>
-                           <TableHead>Uploaded By</TableHead>
-                           <TableHead>Uploaded Date</TableHead>
-                           <TableHead>Revision</TableHead>
-                           <TableHead>Status</TableHead>
-                           <TableHead>Transmittal Status</TableHead>
-                           <TableHead className="text-right">Actions</TableHead>
-                         </TableRow>
-                       </TableHeader>
-                       <TableBody>
-                         {sendDocuments.length > 0 ? (
-                           sendDocuments.map((document, index) => (
-                             <TableRow key={document.id}>
-                               <TableCell className="font-medium text-slate-500">
-                                 {index + 1}
-                               </TableCell>
-                               <TableCell>{document.documentCode}</TableCell>
-                               <TableCell>{document.documentName}</TableCell>
-                               <TableCell>{document.uploadedBy}</TableCell>
-                               <TableCell>{document.uploadedDate}</TableCell>
-                               <TableCell>
-                                 {document.versionNo ? `Rev ${document.versionNo}` : '-'}
-                               </TableCell>
-                               <TableCell>
-                                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                                   Approved
-                                 </span>
-                               </TableCell>
-                               <TableCell>
-                                 <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                   activeTransmission?.status === 'Sent' 
-                                     ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' 
-                                     : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                                 }`}>
-                                   {activeTransmission?.status || 'Pending'}
-                                 </span>
-                               </TableCell>
-                               <TableCell className="text-right">
-                                 {document.file_url && (
-                                   <Button
-                                     variant="ghost"
-                                     size="sm"
-                                     className="h-8 gap-1"
-                                     onClick={() => {
-                                       setActivePreviewDoc({
-                                         documentName: document.documentName,
-                                         versionNo: document.versionNo ? `Rev ${document.versionNo}` : '',
-                                         mimeType: document.mimeType,
-                                         filePath: document.filePath
-                                       });
-                                       setPreviewUrl(document.file_url);
-                                       setIsPreviewOpen(true);
-                                     }}
-                                   >
-                                     <Eye className="h-3.5 w-3.5" />
-                                     Preview
-                                   </Button>
-                                 )}
-                               </TableCell>
-                             </TableRow>
-                           ))
-                         ) : (
-                           <TableRow>
-                             <TableCell
-                               colSpan={9}
-                               className="h-24 text-center"
-                             >
-                               {loadingDocs ? "Loading documents..." : "No approved documents found for this transmission."}
-                             </TableCell>
-                           </TableRow>
-                         )}
-                       </TableBody>
-                     </Table>
-                   </div>
-                 </CardContent>
-               </Card>
-            ) : (
-              <div className="grid gap-6">
-                {/* Selection Context */}
+
+              {/* Job Selection */}
+              {formData.poId && uniqueJobs.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Selection</CardTitle>
-                    <CardDescription>Select customer, location, PO, and job in sequence</CardDescription>
+                    <div className="flex justify-between items-center">
+                      <div className="space-y-1">
+                        <CardTitle>Select Jobs</CardTitle>
+                        <CardDescription>Select one or more jobs to include in the transmission</CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={handleSelectAllJobs}>
+                        {selectedJobs.length === uniqueJobs.length ? "Deselect All" : "Select All"}
+                      </Button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>
-                          Customer Name <span className="text-red-500">*</span>
-                          {autoFilled.customerId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
-                        </Label>
-                        <Select value={formData.customerId} onValueChange={handleCustomerChange}>
-                          <SelectTrigger className="w-full"><SelectValue placeholder="Select Customer" /></SelectTrigger>
-                          <SelectContent>
-                            {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.customer_name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>
-                          Location <span className="text-red-500">*</span>
-                          {autoFilled.locationId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
-                        </Label>
-                        <Select value={formData.locationId} onValueChange={handleLocationChange} disabled={!formData.customerId}>
-                          <SelectTrigger className="w-full h-auto py-2"><SelectValue placeholder="Select Location" /></SelectTrigger>
-                          <SelectContent>
-                            {getLocationsForCustomer(formData.customerId).map(l => (
-                              <SelectItem key={l.id} value={l.id} className="py-2">
-                                <div className="flex flex-col items-start text-left">
-                                  <span className="font-medium">{l.location_name}</span>
-                                  {l.gst_number && <span className="text-xs text-muted-foreground">GST: {l.gst_number}</span>}
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>PO Number <span className="text-red-500">*</span></Label>
-                        <Select value={formData.poId} onValueChange={handlePOChange}>
-                          <SelectTrigger className="w-full"><SelectValue placeholder="Select a PO" /></SelectTrigger>
-                          <SelectContent>
-                            {getAllPOs().map(p => (
-                              <SelectItem key={p.id} value={p.id}>
-                                <div className="flex flex-col items-start text-left">
-                                  <span className="font-medium">{p.po_number}</span>
-                                  <span className="text-xs text-muted-foreground">{p.customerName} - {p.locationName}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {uniqueJobs.map(job => (
+                        <div key={job.id} className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 transition-colors">
+                          <Checkbox
+                            id={`job-${job.id}`}
+                            checked={selectedJobs.includes(job.id)}
+                            onCheckedChange={() => handleJobToggle(job.id)}
+                          />
+                          <Label htmlFor={`job-${job.id}`} className="cursor-pointer font-medium flex-1">
+                            {job.job_number}
+                          </Label>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
+              )}
 
-                {/* Job Selection */}
-                {formData.poId && uniqueJobs.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <div className="flex justify-between items-center">
-                        <div className="space-y-1">
-                          <CardTitle>Select Jobs</CardTitle>
-                          <CardDescription>Select one or more jobs to include in the transmission</CardDescription>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={handleSelectAllJobs}>
-                          {selectedJobs.length === uniqueJobs.length ? "Deselect All" : "Select All"}
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {uniqueJobs.map(job => (
-                          <div key={job.id} className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 transition-colors">
-                            <Checkbox
-                              id={`job-${job.id}`}
-                              checked={selectedJobs.includes(job.id)}
-                              onCheckedChange={() => handleJobToggle(job.id)}
-                            />
-                            <Label htmlFor={`job-${job.id}`} className="cursor-pointer font-medium flex-1">
-                              {job.job_number}
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+              {/* Document List */}
+              {formData.poId && (
+                <Card>
+                  <CardHeader>
+                    <div className="space-y-1">
+                      <CardTitle>Select Approved Documents</CardTitle>
+                      <CardDescription>Select documents from the selected jobs to include</CardDescription>
+                    </div>
 
-                {/* Document List */}
-                {formData.poId && (
-                  <Card>
-                    <CardHeader>
-                      <div className="space-y-1">
-                        <CardTitle>Select Approved Documents</CardTitle>
-                        <CardDescription>Select documents from the selected jobs to include</CardDescription>
-                      </div>
-
-                    </CardHeader>
-                    <CardContent>
-                      {loadingDocs ? (
-                        <div className="text-center py-4">Loading documents...</div>
-                      ) : (
-                        itemsWithSNo.length > 0 ? (
-                          <div className="rounded-md border">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-[50px]">
+                  </CardHeader>
+                  <CardContent>
+                    {loadingDocs ? (
+                      <div className="text-center py-4">Loading documents...</div>
+                    ) : (
+                      itemsWithSNo.length > 0 ? (
+                        <div className="rounded-md border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[50px]">
+                                  <Checkbox
+                                    checked={itemsWithSNo.length > 0 && selectedDocuments.length === itemsWithSNo.length}
+                                    onCheckedChange={(value) => handleSelectAllDocs(!!value)}
+                                    aria-label="Select all"
+                                  />
+                                </TableHead>
+                                <TableHead>S.No</TableHead>
+                                <TableHead>Generated Document No</TableHead>
+                                <TableHead>Document Name</TableHead>
+                                <TableHead>Job Number</TableHead>
+                                <TableHead>Revision/Version No</TableHead>
+                                <TableHead>Status</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {itemsWithSNo.map((doc) => (
+                                <TableRow key={doc.id}>
+                                  <TableCell>
                                     <Checkbox
-                                      checked={itemsWithSNo.length > 0 && selectedDocuments.length === itemsWithSNo.length}
-                                      onCheckedChange={(value) => handleSelectAllDocs(!!value)}
-                                      aria-label="Select all"
+                                      checked={selectedDocuments.includes(doc.id)}
+                                      onCheckedChange={(checked) => handleSelectOneDoc(doc.id, checked)}
+                                      aria-label={`Select ${doc.document.document_number}`}
                                     />
-                                  </TableHead>
-                                  <TableHead>S.No</TableHead>
-                                  <TableHead>Generated Document No</TableHead>
-                                  <TableHead>Document Name</TableHead>
-                                  <TableHead>Job Number</TableHead>
-                                  <TableHead>Revision/Version No</TableHead>
-                                  <TableHead>Status</TableHead>
+                                  </TableCell>
+                                  <TableCell>{doc.s_no}</TableCell>
+                                  <TableCell>{doc.document.document_number}</TableCell>
+                                  <TableCell>{doc.document.document_name}</TableCell>
+                                  <TableCell>
+                                    {(() => {
+                                      const jobs = doc.group?.job_group;
+                                      return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
+                                    })()}
+                                  </TableCell>
+                                  <TableCell>
+                                    {(doc.display_version_no !== null && doc.display_version_no !== undefined) ? `v${doc.display_version_no}` : '-'}
+                                  </TableCell>
+                                  <TableCell>{doc.status}</TableCell>
                                 </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {itemsWithSNo.map((doc) => (
-                                  <TableRow key={doc.id}>
-                                    <TableCell>
-                                      <Checkbox
-                                        checked={selectedDocuments.includes(doc.id)}
-                                        onCheckedChange={(checked) => handleSelectOneDoc(doc.id, checked)}
-                                        aria-label={`Select ${doc.document.document_number}`}
-                                      />
-                                    </TableCell>
-                                    <TableCell>{doc.s_no}</TableCell>
-                                    <TableCell>{doc.document.document_number}</TableCell>
-                                    <TableCell>{doc.document.document_name}</TableCell>
-                                    <TableCell>
-                                      {(() => {
-                                        const jobs = doc.group?.job_group;
-                                        return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
-                                      })()}
-                                    </TableCell>
-                                    <TableCell>
-                                      {doc.display_version_no ? `v${doc.display_version_no}` : '-'}
-                                    </TableCell>
-                                    <TableCell>{doc.status}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-muted-foreground">
-                            {uniqueJobs.length > 0 && selectedJobs.length === 0 ?
-                              "Please select at least one job to view documents." :
-                              "No approved documents found for this PO."}
-                          </div>
-                        )
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          {uniqueJobs.length > 0 && selectedJobs.length === 0 ?
+                            "Please select at least one job to view documents." :
+                            "No approved documents found for this PO."}
+                        </div>
+                      )
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-4 mt-4">
-                  <Button variant="outline" onClick={handleReset}>
-                    Reset
-                  </Button>
-                  <Button onClick={handleSubmitTransmission} disabled={isSubmitting || selectedDocuments.length === 0}>
-                    {isSubmitting ? "Creating..." : "Create Transmission"}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </main>
-        
-        {/* Send Mail Dialog */}
-        <Dialog open={isSendMailDialogOpen} onOpenChange={setIsSendMailDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Send Documents via Email</DialogTitle>
-              <DialogDescription>
-                Select email addresses to send the approved documents for {activeTransmission?.transmission_number}.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6 py-4">
-              {/* Shreno Communication */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-semibold">Shreno Communication</h3>
-                </div>
-                {communicationMatrix.shreno.length > 0 ? (
-                  <div className="space-y-3 pl-7">
-                    {communicationMatrix.shreno.map((contact) => (
-                      <div
-                        key={contact.id}
-                        className="flex items-center space-x-3 p-3 border rounded-lg"
-                      >
-                        <Checkbox
-                          id={`shreno-${contact.id}`}
-                          checked={selectedEmails[contact.id] || false}
-                          onCheckedChange={() => handleEmailToggle(contact.id)}
-                        />
-                        <Label
-                          htmlFor={`shreno-${contact.id}`}
-                          className="flex-1 cursor-pointer"
-                        >
-                          <div className="font-medium">{contact.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {contact.email}
-                          </div>
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground pl-7">
-                    No Shreno contacts found.
-                  </p>
-                )}
-              </div>
-
-              {/* Divider */}
-              <div className="border-t"></div>
-
-              {/* Client Side Communication */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-semibold">Client Side Communication</h3>
-                </div>
-                {communicationMatrix.client.length > 0 ? (
-                  <div className="space-y-3 pl-7">
-                    {communicationMatrix.client.map((contact) => (
-                      <div
-                        key={contact.id}
-                        className="flex items-center space-x-3 p-3 border rounded-lg"
-                      >
-                        <Checkbox
-                          id={`client-${contact.id}`}
-                          checked={selectedEmails[contact.id] || false}
-                          onCheckedChange={() => handleEmailToggle(contact.id)}
-                        />
-                        <Label
-                          htmlFor={`client-${contact.id}`}
-                          className="flex-1 cursor-pointer"
-                        >
-                          <div className="font-medium">{contact.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {contact.email}
-                          </div>
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground pl-7">
-                    No client contacts found.
-                  </p>
-                )}
-              </div>
-
-              {/* Documents Summary */}
-              <div className="space-y-2 pt-2 border-t">
-                <h4 className="font-semibold">Documents to Send:</h4>
-                <div className="text-sm text-muted-foreground">
-                  {sendDocuments.length} approved document(s) will be sent
-                </div>
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-4 mt-4">
+                <Button variant="outline" onClick={handleReset}>
+                  Reset
+                </Button>
+                <Button onClick={handleSubmitTransmission} disabled={isSubmitting || selectedDocuments.length === 0}>
+                  {isSubmitting ? "Creating..." : "Create Transmission"}
+                </Button>
               </div>
             </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsSendMailDialogOpen(false)}
-                disabled={isLoadingSend}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSendMail}
-                disabled={
-                  isLoadingSend ||
-                  Object.values(selectedEmails).filter(Boolean).length === 0
-                }
-              >
-                {isLoadingSend ? "Sending..." : (activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          )}
+        </div>
+      </main>
 
-        {/* Document Preview Dialog */}
-        <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-          <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
-            <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
-              {/* Floating Close Button (Optional if the default X is not enough) */}
-              {/* <Button 
+      {/* Send Mail Dialog */}
+      <Dialog open={isSendMailDialogOpen} onOpenChange={setIsSendMailDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Send Documents via Email</DialogTitle>
+            <DialogDescription>
+              Select email addresses to send the approved documents for {activeTransmission?.transmission_number}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {/* Shreno Communication */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Shreno Communication</h3>
+              </div>
+              {communicationMatrix.shreno.length > 0 ? (
+                <div className="space-y-3 pl-7">
+                  {communicationMatrix.shreno.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center space-x-3 p-3 border rounded-lg"
+                    >
+                      <Checkbox
+                        id={`shreno-${contact.id}`}
+                        checked={selectedEmails[contact.id] || false}
+                        onCheckedChange={() => handleEmailToggle(contact.id)}
+                      />
+                      <Label
+                        htmlFor={`shreno-${contact.id}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="font-medium">{contact.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {contact.email}
+                        </div>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground pl-7">
+                  No Shreno contacts found.
+                </p>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="border-t"></div>
+
+            {/* Client Side Communication */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Client Side Communication</h3>
+              </div>
+              {communicationMatrix.client.length > 0 ? (
+                <div className="space-y-3 pl-7">
+                  {communicationMatrix.client.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center space-x-3 p-3 border rounded-lg"
+                    >
+                      <Checkbox
+                        id={`client-${contact.id}`}
+                        checked={selectedEmails[contact.id] || false}
+                        onCheckedChange={() => handleEmailToggle(contact.id)}
+                      />
+                      <Label
+                        htmlFor={`client-${contact.id}`}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <div className="font-medium">{contact.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {contact.email}
+                        </div>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground pl-7">
+                  No client contacts found.
+                </p>
+              )}
+            </div>
+
+            {/* Documents Summary */}
+            <div className="space-y-2 pt-2 border-t">
+              <h4 className="font-semibold">Documents to Send:</h4>
+              <div className="text-sm text-muted-foreground">
+                {sendDocuments.length} approved document(s) will be sent
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsSendMailDialogOpen(false)}
+              disabled={isLoadingSend}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSendMail}
+              disabled={
+                isLoadingSend ||
+                Object.values(selectedEmails).filter(Boolean).length === 0
+              }
+            >
+              {isLoadingSend ? "Sending..." : (activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
+          <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
+            {/* Floating Close Button (Optional if the default X is not enough) */}
+            {/* <Button 
                 variant="secondary" 
                 size="icon" 
                 className="absolute top-4 right-12 z-50 rounded-full shadow-lg"
@@ -1185,60 +1184,60 @@ function CreateTransmission() {
                 <Plus className="h-6 w-6 rotate-45" />
               </Button> */}
 
-              {previewUrl ? (
-                // Determine support based on MIME type or version's file path extension
-                (
-                  activePreviewDoc?.mimeType === 'application/pdf' || 
-                  activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
-                  previewUrl.toLowerCase().includes('pdf')
-                ) ? (
-                  <iframe
-                    src={`${previewUrl}#toolbar=0`}
-                    className="w-full h-full border-0"
-                    title="PDF Preview"
-                  />
-                ) : (
-                  activePreviewDoc?.mimeType?.startsWith('image/') || 
-                  /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
-                  /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
-                ) ? (
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="max-w-full max-h-full object-contain"
-                    onError={(e) => {
-                      e.target.src = "";
-                      e.target.onerror = null;
-                      toast.error("Failed to load image preview");
-                    }}
-                  />
-                ) : (
-                  // Fallback UI for Excel, Word, etc.
-                  <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
-                    <div className="bg-slate-100 p-4 rounded-full mb-4">
-                      <FileText className="h-12 w-12 text-slate-400" />
-                    </div>
-                    <p className="text-slate-500 font-medium">
-                      Preview not available for this file type.
-                    </p>
-                    <Button 
-                      variant="link" 
-                      className="mt-2 text-primary"
-                      onClick={() => window.open(previewUrl, '_blank')}
-                    >
-                      Open in New Tab
-                    </Button>
-                  </div>
-                )
+            {previewUrl ? (
+              // Determine support based on MIME type or version's file path extension
+              (
+                activePreviewDoc?.mimeType === 'application/pdf' ||
+                activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
+                previewUrl.toLowerCase().includes('pdf')
+              ) ? (
+                <iframe
+                  src={`${previewUrl}#toolbar=0`}
+                  className="w-full h-full border-0"
+                  title="PDF Preview"
+                />
               ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">
-                  <Plus className="h-10 w-10 rotate-45" />
-                  <p>No preview available</p>
+                activePreviewDoc?.mimeType?.startsWith('image/') ||
+                /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
+                /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
+              ) ? (
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="max-w-full max-h-full object-contain"
+                  onError={(e) => {
+                    e.target.src = "";
+                    e.target.onerror = null;
+                    toast.error("Failed to load image preview");
+                  }}
+                />
+              ) : (
+                // Fallback UI for Excel, Word, etc.
+                <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
+                  <div className="bg-slate-100 p-4 rounded-full mb-4">
+                    <FileText className="h-12 w-12 text-slate-400" />
+                  </div>
+                  <p className="text-slate-500 font-medium">
+                    Preview not available for this file type.
+                  </p>
+                  <Button
+                    variant="link"
+                    className="mt-2 text-primary"
+                    onClick={() => window.open(previewUrl, '_blank')}
+                  >
+                    Open in New Tab
+                  </Button>
                 </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
+              )
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">
+                <Plus className="h-10 w-10 rotate-45" />
+                <p>No preview available</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

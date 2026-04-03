@@ -347,9 +347,9 @@ class DccService {
             prisma.job.findMany({
                 where, skip, take,
                 include: {
-                    customer: { select: { id: true, customer_name: true } },
-                    customer_location: { select: { id: true, location_name: true } },
-                    po: { select: { id: true, po_number: true } }
+                    customer: true,
+                    customer_location: true,
+                    po: true
                 },
                 orderBy: { createdAt: 'desc' }
             })
@@ -603,14 +603,17 @@ class DccService {
 
         if (activeStatusFilter) {
             const filterVal = activeStatusFilter.toLowerCase();
-            if (filterVal === 'pending') {
-                // Pending means uploader hasn't successfully shared it yet
-                where.status = { in: ['Pending', 'Upload Due', 'Response Due', 'Rejected'] };
+            if (filterVal === 'pending' || filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
             } else if (filterVal === 'uploaded' || filterVal === 'done') {
-                // Uploaded means first version has been shared
-                where.status = { notIn: ['Pending', 'Upload Due', 'Response Due', 'Rejected'] };
+                where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
+            } else if (filterVal === 'approved') {
+                where.status = 'Approved';
+            } else if (filterVal === 'rejected') {
+                where.status = 'Rejected';
             } else {
-                // Specific direct status (e.g., 'Approved', 'Rejected' literal)
                 where.status = activeStatusFilter;
             }
         }
@@ -728,7 +731,7 @@ class DccService {
                 where: { group_document_id: document_id },
                 orderBy: { version_no: 'desc' }
             });
-            const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 1;
+            const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
 
             // 1. Process storage (move to structured directory)
             const job_number = groupDoc.group?.job_group[0]?.job?.job_number || 'NA';
