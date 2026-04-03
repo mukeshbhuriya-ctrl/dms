@@ -48,14 +48,14 @@ class DccService {
     async getCustomers(company_id, params = {}) {
         const {
             page = 1,
-            limit = 50,
+            limit,
             search = '',
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = params;
 
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         const where = {
             company_id: company_id
@@ -99,8 +99,8 @@ class DccService {
             meta: {
                 total,
                 page: parseInt(page),
-                limit: take,
-                totalPages: Math.ceil(total / take)
+                limit: (limit === undefined || limit === null) ? total : take,
+                totalPages: (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take))
             }
         };
     }
@@ -140,9 +140,9 @@ class DccService {
     }
 
     async getCustomerLocations(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '' } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (search) {
@@ -161,7 +161,7 @@ class DccService {
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
     }
 
     /**
@@ -257,9 +257,9 @@ class DccService {
     }
 
     async getPos(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', customer_id } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', customer_id } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (customer_id) where.customer_id = customer_id.trim();
@@ -295,7 +295,10 @@ class DccService {
             return po;
         });
 
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
 
     /**
@@ -326,9 +329,9 @@ class DccService {
     }
 
     async getJobs(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', po_id, customer_id, customer_location_id } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', po_id, customer_id, customer_location_id } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (po_id) where.po_id = po_id.trim();
@@ -355,7 +358,7 @@ class DccService {
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
     }
 
     /**
@@ -386,9 +389,9 @@ class DccService {
     }
 
     async getDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', exclude_transmitted, exclude_assigned, include_id } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', exclude_transmitted, exclude_assigned, include_id } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (search) {
@@ -461,7 +464,7 @@ class DccService {
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
     }
 
 
@@ -470,9 +473,9 @@ class DccService {
      * Get documents assigned to user (for Upload)
      */
     async getMyAssignedDocuments(company_id, user_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '' } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         const { 
             status_filter, 
@@ -578,15 +581,18 @@ class DccService {
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
         const expandedData = this._expandFileUrls(enrichedData);
 
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
     /**
      * Get all assigned documents (Admin View)
      */
     async getAllAssignedDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', customer_id, location_id, po_id, job_id, status } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', customer_id, location_id, po_id, job_id, status } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         const { 
             status_filter, 
@@ -699,7 +705,10 @@ class DccService {
         const EnhancedData = this._enhanceWithDueStatuses(data, params);
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
         const expandedData = this._expandFileUrls(enrichedData);
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
 
 
@@ -773,21 +782,24 @@ class DccService {
     async getDocumentsForApproval(company_id, params = {}) {
         const { 
             page = 1, 
-            limit = 50, 
+            limit, 
             search = '', 
             customer_id, 
             po_id, 
-            job_id, 
             status,
             status_filter,
             approver_status_filter,
             uploader_status_filter,
             customer_name_filter,
             po_number_filter,
-            job_number_filter
+            job_number_filter,
+            exclude_transmitted,
+            job_ids,
+            job_id
         } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         const where = { company_id };
 
@@ -801,7 +813,6 @@ class DccService {
             } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
                 where.status = 'Pending for Approval';
             } else if (filterVal === 'uploaded' || filterVal === 'done') {
-                // Wide filter for all documents that have been shared
                 where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
@@ -810,9 +821,6 @@ class DccService {
             } else {
                 where.status = activeStatusFilter;
             }
-        } else {
-            // Default View: Show documents that have at least one version (in review cycle)
-            where.versions = { some: {} };
         }
 
         // Explicit Column Filters
@@ -833,28 +841,36 @@ class DccService {
         if (customer_id) where.customer_id = customer_id.trim();
         if (po_id) where.po_id = po_id.trim();
 
+        // Optimized Exclude Transmitted & Job Filters
+        // Build common conditions for versions
+        const versionConditions = {};
+        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
+            // Exclude versions that are already part of a transmission
+            versionConditions.transmission_items = { none: {} };
+        }
+
+        // Apply version conditions if any, or default to checking for existence if no status filter
+        if (Object.keys(versionConditions).length > 0) {
+            where.versions = { some: versionConditions };
+        } else if (!where.status) {
+            where.versions = { some: {} };
+        }
+
         // Filter by specific job IDs (from Create Transmission)
-        const { job_ids } = params;
         if (job_ids) {
-            const jobIds = Array.isArray(job_ids) ? job_ids : job_ids.split(',');
+            const jobIdsArray = Array.isArray(job_ids) ? job_ids : job_ids.split(',');
             where.group = {
                 job_group: {
-                    some: {
-                        job_id: { in: jobIds }
-                    }
+                    some: { job_id: { in: jobIdsArray } }
                 }
             };
         } else if (job_id) {
-            // Fallback for single job_id (though likely not used if we use numbers)
-            // Check if job_id is valid relation
             where.group = {
                 job_group: {
                     some: { job_id: job_id.trim() }
                 }
             };
         }
-
-
 
         if (search) {
             where.OR = [
@@ -882,7 +898,7 @@ class DccService {
             take: 1,
             include: {
                 uploader: true,
-                transmission_items: true // needed to check if already transmitted
+                transmission_items: true
             }
         };
 
@@ -916,31 +932,14 @@ class DccService {
             })
         ]);
 
-        // Filter out transmitted documents if requested
-        let processingData = data;
-        const { exclude_transmitted } = params;
-        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
-            processingData = data.filter(doc => {
-                const latestVersion = doc.versions[0];
-                // If latest version has transmission items, it's already transmitted.
-                if (latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0) {
-                    return false; // Exclude
-                }
-                return true;
-            });
-        }
-
-        const EnhancedData = this._enhanceWithDueStatuses(processingData, params);
+        const EnhancedData = this._enhanceWithDueStatuses(data, params);
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
         const expandedData = this._expandFileUrls(enrichedData);
 
-        // Note: total might optionally be adjusted if we want precise pagination metadata, 
-        // but since this is usually limited to 1000/one-page for creation, keeping original count is acceptable or we accept slight mismatch.
-        // For correctness in list view, let's update total if filtered? 
-        // Actually total is DB count. We can't easily adjust typical pagination.
-        // But for 'Create Transmission' we generally pull all.
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
 
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
 
     /**

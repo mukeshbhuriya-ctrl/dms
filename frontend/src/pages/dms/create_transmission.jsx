@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from "react"
-
+import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -12,14 +12,21 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle } from "lucide-react"
+import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { toast } from 'react-toastify';
 import { dccService } from "../../services/dcc.service";
 import { useNavigate } from "react-router-dom";
@@ -41,14 +48,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 function CreateTransmission() {
   const navigate = useNavigate();
@@ -59,22 +58,16 @@ function CreateTransmission() {
   const [loadingList, setLoadingList] = useState(false)
 
   // --- Create View State ---
-  const [formData, setFormData] = useState({
-    customerId: "",
-    locationId: "",
-    poId: "",
-  })
-  const [autoFilled, setAutoFilled] = useState({
-    customerId: false,
-    locationId: false
-  })
-  const [customers, setCustomers] = useState([])
-  const [allDocuments, setAllDocuments] = useState([]) // Documents for selected PO
   const [selectedDocuments, setSelectedDocuments] = useState([])
   const [loadingDocs, setLoadingDocs] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [successData, setSuccessData] = useState(null) // { zip_url, password }
+  const [allJobs, setAllJobs] = useState([]) // For dropdown filters
+
+  // --- Core State ---
+  const [currentDocs, setCurrentDocs] = useState([]) // Store current page docs for metadata lookup
+  const [customers, setCustomers] = useState([])
 
   // --- Preview State ---
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -88,222 +81,157 @@ function CreateTransmission() {
   const [selectedEmails, setSelectedEmails] = useState({})
   const [communicationMatrix, setCommunicationMatrix] = useState({ shreno: [], client: [] })
   const [isLoadingSend, setIsLoadingSend] = useState(false)
+  const [currentSearchParams, setCurrentSearchParams] = useState({ search: '', columnFilters: {} })
+  const [isSelectingAll, setIsSelectingAll] = useState(false)
 
-  // --- Job Selection Logic ---
-  const [selectedJobs, setSelectedJobs] = useState([]);
-  const [jobs, setJobs] = useState([]);
-
-  // --- Initial Data Fetch (Customers for Create View) ---
+  // --- Initial Data Fetch (Customers & Jobs for metadata lookup/filtering) ---
   useEffect(() => {
     fetchCustomers();
+    fetchAllJobs();
   }, []);
 
   const fetchCustomers = async () => {
     try {
-      const res = await dccService.getCustomers({ limit: 1000 });
+      const res = await dccService.getCustomers();
       if (res.success) {
         setCustomers(res.data || []);
-      } else {
-        console.error("Failed to fetch customers:", res.message);
-        toast.error("Failed to load customers");
       }
     } catch (err) {
       console.error("Error fetching customers:", err);
-      toast.error("Failed to load customers");
     }
   }
 
-  // --- Helpers for Dropdowns ---
-  const getLocationsForCustomer = (customerId) => {
-    const customer = customers.find(c => c.id === customerId)
-    return customer?.customer_locations || []
+  const fetchAllJobs = async () => {
+    try {
+      const res = await dccService.getJobs();
+      if (res.success) {
+        setAllJobs(res.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching all jobs:", err);
+    }
   }
 
-  const getPOsForLocation = (locationId) => {
-    if (!formData.customerId || !locationId) return []
-    const customer = customers.find(c => c.id === formData.customerId)
-    if (!customer) return []
-    const location = customer.customer_locations?.find(loc => loc.id === locationId)
-    return location?.pos || []
-  }
+  // --- Memoized Filter Options ---
+  const clientFilterOptions = useMemo(() => {
+    return customers.map(c => ({ label: c.customer_name, value: c.customer_name }))
+  }, [customers]);
 
-  // Get all POs from all customers/locations
-  const getAllPOs = () => {
-    const allPOs = [];
-    customers.forEach(customer => {
-      customer.customer_locations?.forEach(location => {
-        location.pos?.forEach(po => {
-          allPOs.push({
-            ...po,
-            customerName: customer.customer_name,
-            locationName: location.location_name
-          });
-        });
-      });
-    });
-    return allPOs;
-  }
+  const poFilterOptions = useMemo(() => {
+    const pos = customers.flatMap(c => 
+      c.customer_locations?.flatMap(l => l.pos?.map(p => p.po_number) || []) || []
+    );
+    return [...new Set(pos)].map(p => ({ label: p, value: p }));
+  }, [customers]);
 
-  const fetchDocumentsForPO = async (poId, jobIds = []) => {
+  const jobFilterOptions = useMemo(() => {
+    return allJobs.map(j => ({ label: j.job_number, value: j.job_number }))
+  }, [allJobs]);
+
+  const fetchApprovedDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
     setLoadingDocs(true);
     try {
-      // Fetch approved documents for this PO
       const params = {
-        status_filter: 'done', // Filter by 'Done' status which includes Approved/Uploaded
-        approver_status_filter: 'approved', // Ensure strictly approved
-        limit: 1000,
-        po_id: poId, // Important: Filter by PO
-        job_ids: jobIds, // Filter by selected job IDs!
-        exclude_transmitted: true // Exclude documents already part of a transmission
+        page,
+        limit,
+        search,
+        status_filter: 'done',
+        approver_status_filter: 'approved',
+        exclude_transmitted: true
       };
 
-      const data = await dccService.getDocumentsForApproval(params);
-      if (data.success) {
-        setAllDocuments(data.data);
-      } else {
-        toast.error(data.message || "Failed to load documents");
+      if (columnFilters) {
+        if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+        if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+        if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
       }
+
+      const response = await dccService.getDocumentsForApproval(params);
+      if (response.success) {
+        const mappedData = (response.data || []).map((doc, index) => ({
+          ...doc,
+          s_no: (page - 1) * limit + index + 1
+        }));
+        setCurrentDocs(mappedData);
+        return {
+          data: mappedData,
+          meta: response.meta || {}
+        };
+      }
+      return { data: [], meta: {} };
     } catch (error) {
       console.error("Error fetching documents:", error);
-      toast.error("Failed to load documents");
+      return { data: [], meta: {} };
     } finally {
       setLoadingDocs(false);
     }
-  };
+  }, []);
 
-  const fetchJobsForPO = async (poId) => {
-    try {
-      const res = await dccService.getJobs({ po_id: poId, limit: 1000 });
-      if (res.success) {
-        setJobs(res.data || []);
-      } else {
-        toast.error("Failed to load jobs");
-      }
-    } catch (err) {
-      console.error("Error fetching jobs:", err);
-    }
+  // --- Helpers for Dropdowns (Used in Send View) ---
+  const getCommunicationMatrixForPO = (poId, customerId, locationId) => {
+    if (!poId || !customerId) return { shreno: [], client: [] }
+    const customer = customers.find(c => c.id === customerId)
+    if (!customer) return { shreno: [], client: [] }
+    const location = customer.customer_locations?.find(l => l.id === locationId)
+    if (!location) return { shreno: [], client: [] }
+    const po = location.pos?.find(p => p.id === poId)
+    if (!po || !po.po_communication_matrix) return { shreno: [], client: [] }
+    const matrix = Array.isArray(po.po_communication_matrix) ? po.po_communication_matrix : []
+    const shreno = matrix.filter(m => m.type === 'shreno' || m.type === 'Internal')
+    const client = matrix.filter(m => m.type === 'client' || m.type === 'External')
+    return { shreno, client }
   }
 
-  // --- Handlers for Create/Form ---
-  const handleCustomerChange = (customerId) => {
-    setFormData({ customerId, locationId: "", poId: "" })
-    setAutoFilled({ customerId: false, locationId: false })
-    setAllDocuments([])
-    setJobs([])
-    setSelectedDocuments([])
-    setSelectedJobs([])
-  }
-
-  const handleLocationChange = (locationId) => {
-    setFormData((prev) => ({ ...prev, locationId, poId: "" }))
-    setAutoFilled((prev) => ({ ...prev, locationId: false }))
-    setAllDocuments([])
-    setJobs([])
-    setSelectedDocuments([])
-    setSelectedJobs([])
-  }
-
-  const handlePOChange = (poId) => {
-    if (poId) {
-      // Find the PO in the customer data to auto-fill customer and location
-      let foundCustomer = null;
-      let foundLocation = null;
-      let foundPO = null;
-
-      for (const customer of customers) {
-        for (const location of customer.customer_locations || []) {
-          const po = location.pos?.find(p => p.id === poId);
-          if (po) {
-            foundCustomer = customer;
-            foundLocation = location;
-            foundPO = po;
-            break;
-          }
-        }
-        if (foundPO) break;
-      }
-
-      if (foundCustomer && foundLocation) {
-        // Auto-fill customer and location
-        setFormData({
-          customerId: foundCustomer.id,
-          locationId: foundLocation.id,
-          poId: poId
-        });
-        setAutoFilled({
-          customerId: true,
-          locationId: true
-        });
-      } else {
-        // Just set the PO if not found (shouldn't happen)
-        setFormData((prev) => ({ ...prev, poId }));
-      }
-
-      fetchJobsForPO(poId);
-    } else {
-      setFormData((prev) => ({ ...prev, poId: "" }));
-      setAllDocuments([]);
-      setJobs([]);
-      setSelectedJobs([]);
-    }
+  const onSelectionReset = useCallback(() => {
     setSelectedDocuments([]);
-  }
+  }, []);
 
-  // --- Job Selection Logic ---
-  // Use API fetched jobs
-  const uniqueJobs = useMemo(() => jobs, [jobs]);
+  const handleParamsChange = (params) => {
+    const { search, columnFilters } = params;
+    
+    // Check if meaningful filters changed (ignoring page/pageSize for selection reset)
+    const filtersChanged = 
+      search !== currentSearchParams.search || 
+      JSON.stringify(columnFilters) !== JSON.stringify(currentSearchParams.columnFilters);
 
-
-  // Refetch documents when selectedJobs change
-  useEffect(() => {
-    if (formData.poId && selectedJobs.length > 0) {
-      fetchDocumentsForPO(formData.poId, selectedJobs);
-    } else if (formData.poId && selectedJobs.length === 0) {
-      setAllDocuments([]);
+    if (filtersChanged) {
+      onSelectionReset();
+      setCurrentSearchParams({ search, columnFilters });
     }
-  }, [selectedJobs, formData.poId]);
-
-  // Use allDocuments directly since they are now server-filtered
-  const filteredDocuments = allDocuments;
-
-  const itemsWithSNo = useMemo(() => filteredDocuments.map((doc, index) => ({ ...doc, s_no: index + 1 })), [filteredDocuments]);
-
-  const handleJobToggle = (jobId) => {
-    setSelectedJobs(prev => {
-      if (prev.includes(jobId)) {
-        return prev.filter(j => j !== jobId);
-      } else {
-        return [...prev, jobId];
-      }
-    });
   };
 
-  const handleSelectAllJobs = () => {
-    if (selectedJobs.length === uniqueJobs.length) {
-      setSelectedJobs([]);
-    } else {
-      setSelectedJobs(uniqueJobs.map(j => j.id));
-    }
-  }
-
-  // --- Document Selection Logic ---
-  const handleSelectAllDocs = (checked) => {
+  const handleToggleSelectAll = async (checked, currentFilters) => {
     if (checked) {
-      // Select visible documents only or all filtered?
-      // Usually all filtered.
-      setSelectedDocuments(filteredDocuments.map(d => d.id));
+      setIsSelectingAll(true);
+      try {
+        const params = {
+          search: currentFilters.search,
+          status_filter: 'done',
+          approver_status_filter: 'approved',
+          exclude_transmitted: true
+        };
+
+        if (currentFilters.columnFilters) {
+          if (currentFilters.columnFilters.customer_name) params.customer_name_filter = currentFilters.columnFilters.customer_name;
+          if (currentFilters.columnFilters.po_number) params.po_number_filter = currentFilters.columnFilters.po_number;
+          if (currentFilters.columnFilters.job_number) params.job_number_filter = currentFilters.columnFilters.job_number;
+        }
+
+        const response = await dccService.getDocumentsForApproval(params);
+        if (response.success) {
+          const allDocIds = (response.data || []).map(d => d.id);
+          setSelectedDocuments(allDocIds);
+        }
+      } catch (err) {
+        console.error("Error selecting all filtered documents:", err);
+      } finally {
+        setIsSelectingAll(false);
+      }
     } else {
       setSelectedDocuments([]);
     }
   };
 
-  const handleSelectOneDoc = (docId, checked) => {
-    if (checked) {
-      setSelectedDocuments(prev => [...prev, docId]);
-    } else {
-      setSelectedDocuments(prev => prev.filter(id => id !== docId));
-    }
-  };
 
   const handleSubmitTransmission = async () => {
     if (selectedDocuments.length === 0) {
@@ -313,46 +241,49 @@ function CreateTransmission() {
 
     setIsSubmitting(true);
     try {
+      // Find metadata from the first selected document
+      const docResponse = await dccService.getDocumentsForApproval({ 
+        limit: 1, 
+        document_id: selectedDocuments[0],
+        approver_status_filter: 'approved' 
+      });
+
+      if (!docResponse.success || !docResponse.data[0]) {
+        toast.error("Could not determine metadata for selected documents.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const firstDoc = docResponse.data[0];
+
       const payload = {
-        customer_id: formData.customerId,
-        customer_location_id: formData.locationId,
-        po_id: formData.poId,
+        customer_id: firstDoc.customer_id,
+        customer_location_id: firstDoc.customer_location_id,
+        po_id: firstDoc.po_id,
         document_ids: selectedDocuments
       };
 
       const result = await dccService.createTransmission(payload);
-      console.log("Create Transmission Result:", result);
       if (result.success) {
         toast.success(`Transmission created successfully!`);
         setView("list");
-        setSuccessData(null);
-        setFormData({ customerId: "", locationId: "", poId: "" });
-        setAllDocuments([]);
         setSelectedDocuments([]);
-        setSelectedJobs([]);
+        setRefreshKey(prev => prev + 1);
       } else {
-        const errorMsg = result.message || result.error || "Failed to create transmission";
-        console.error("Backend error:", errorMsg);
-        toast.error(errorMsg);
+        toast.error(result.message || "Failed to create transmission");
       }
     } catch (error) {
       console.error("Submission error:", error);
-      const errorMsg = error.response?.data?.message || error.message || "Failed to create transmission";
-      toast.error(errorMsg);
+      toast.error(error.message || "Failed to create transmission");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   const handleReset = () => {
-    setFormData({ customerId: "", locationId: "", poId: "" });
-    setAllDocuments([]);
     setSelectedDocuments([]);
-    setSelectedJobs([]);
-    setView("list"); // Optional: go back to list, or stay in create mode? User implies stay.
-    // Actually typically reset clears the form so they can start over.
+    setView("list");
   };
-
 
   const handleExport = async () => {
     try {
@@ -364,18 +295,10 @@ function CreateTransmission() {
   };
 
   // --- List View Data Fetching ---
-  const fetchTransmissions = useCallback(async ({ page, limit, search, sorting }) => {
+  const fetchTransmissions = useCallback(async ({ page, limit, search }) => {
     try {
-      const params = {
-        page,
-        limit,
-        search,
-      };
-
-      const res = await dccService.getTransmissions(params);
-
+      const res = await dccService.getTransmissions({ page, limit, search });
       if (res.success && res.data) {
-        console.log("Transmissions data:", res.data.data);
         return {
           data: res.data.data || [],
           meta: res.data.meta || {}
@@ -388,38 +311,16 @@ function CreateTransmission() {
     }
   }, []);
 
-  // --- Integrated Send View Logic (Ported from SendDocumentToClient) ---
-
-  const getCommunicationMatrixForPO = (poId, customerId, locationId) => {
-    if (!poId || !customerId) return { shreno: [], client: [] }
-
-    const customer = customers.find(c => c.id === customerId)
-    if (!customer) return { shreno: [], client: [] }
-
-    const location = customer.customer_locations?.find(l => l.id === locationId)
-    if (!location) return { shreno: [], client: [] }
-
-    const po = location.pos?.find(p => p.id === poId)
-    if (!po || !po.po_communication_matrix) return { shreno: [], client: [] }
-
-    const matrix = Array.isArray(po.po_communication_matrix) ? po.po_communication_matrix : []
-    const shreno = matrix.filter(m => m.type === 'shreno' || m.type === 'Internal')
-    const client = matrix.filter(m => m.type === 'client' || m.type === 'External')
-
-    return { shreno, client }
-  }
-
+  // --- Send View Logic ---
   const fetchTransmissionDetailsForSend = async (transmission) => {
     setLoadingDocs(true);
     try {
       const resDocs = await dccService.getTransmissionDocuments({ transmission_id: transmission.id });
-
       if (resDocs.success) {
         const mappedDocs = (resDocs.data || []).map(item => {
           const docSource = item.group_document;
           if (!docSource) return null;
           const uploaderName = item.version?.uploader?.name || docSource.user?.name || '';
-
           return {
             id: docSource.id,
             documentCode: docSource.document?.document_number,
@@ -429,7 +330,6 @@ function CreateTransmission() {
             uploadedDate: new Date(docSource.createdAt).toLocaleDateString(),
             versionNo: item.display_version_no,
             status: item.version?.status || 'Approved',
-            // Pre-calculate document type for robust preview routing
             mimeType: item.version?.mime_type || '',
             filePath: item.version?.file_path || '',
             file_url: item.version?.id
@@ -437,15 +337,12 @@ function CreateTransmission() {
               : null
           };
         }).filter(Boolean);
-
         setSendDocuments(mappedDocs);
       } else {
         setSendDocuments([]);
       }
-
       const matrix = getCommunicationMatrixForPO(transmission.po_id, transmission.customer_id, transmission.customer_location_id)
       setCommunicationMatrix(matrix);
-
     } catch (error) {
       console.error("Error fetching transmission details", error);
       setSendDocuments([]);
@@ -458,66 +355,40 @@ function CreateTransmission() {
     if (isSendMailDialogOpen && activeTransmission) {
       const matrix = getCommunicationMatrixForPO(activeTransmission.po_id, activeTransmission.customer_id, activeTransmission.customer_location_id)
       const initialSelection = {}
-      matrix.shreno.forEach((contact) => {
-        initialSelection[contact.id] = true
-      })
-      matrix.client.forEach((contact) => {
-        initialSelection[contact.id] = true
-      })
+      matrix.shreno.forEach((contact) => initialSelection[contact.id] = true)
+      matrix.client.forEach((contact) => initialSelection[contact.id] = true)
       setSelectedEmails(initialSelection)
-    } else if (!isSendMailDialogOpen) {
-      setSelectedEmails({})
     }
   }, [isSendMailDialogOpen, activeTransmission, customers])
 
   const handleEmailToggle = (contactId) => {
-    setSelectedEmails((prev) => ({
-      ...prev,
-      [contactId]: !prev[contactId],
-    }))
+    setSelectedEmails((prev) => ({ ...prev, [contactId]: !prev[contactId] }))
   }
 
   const handleSendMail = async () => {
     const selectedIds = Object.keys(selectedEmails).filter(id => selectedEmails[id]);
-
     if (selectedIds.length === 0) {
       toast.error("Please select at least one recipient");
       return;
     }
-
     setIsLoadingSend(true);
-
     try {
       const clientEmails = [];
       const shrenoEmails = [];
-
       selectedIds.forEach(id => {
-        const contactIdNum = parseInt(id);
-        const contactIdStr = id;
-
-        let clientContact = communicationMatrix.client.find(c => c.id === contactIdNum || c.id == contactIdStr);
-        if (clientContact) {
-          clientEmails.push(clientContact.email);
-          return;
-        }
-
-        let shrenoContact = communicationMatrix.shreno.find(c => c.id === contactIdNum || c.id == contactIdStr);
-        if (shrenoContact) {
-          shrenoEmails.push(shrenoContact.email);
-          return;
-        }
+        let clientContact = communicationMatrix.client.find(c => c.id == id);
+        if (clientContact) { clientEmails.push(clientContact.email); return; }
+        let shrenoContact = communicationMatrix.shreno.find(c => c.id == id);
+        if (shrenoContact) shrenoEmails.push(shrenoContact.email);
       });
-
       const response = await dccService.sendTransmissionEmail({
         transmission_id: activeTransmission.id,
         client_emails: clientEmails,
         shreno_emails: shrenoEmails
       });
-
       if (response && response.success) {
         toast.success("Email sent successfully!");
         setIsSendMailDialogOpen(false);
-        setActiveTransmission(prev => ({ ...prev, status: 'Sent' }));
         setRefreshKey(prev => prev + 1);
       } else {
         toast.error(response?.message || "Failed to send email");
@@ -526,19 +397,6 @@ function CreateTransmission() {
       toast.error(error.message || "Failed to send email");
     } finally {
       setIsLoadingSend(false);
-    }
-  };
-
-  // --- Helper for Status Badge ---
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'Approved':
-        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">Approved</span>
-      case 'Rejected':
-        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">Rejected</span>
-      case 'Pending':
-      default:
-        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">Pending</span>
     }
   };
 
@@ -591,124 +449,138 @@ function CreateTransmission() {
     {
       header: "Client Status",
       accessorKey: "client_status",
-      cell: (row) => getStatusBadge(row.client_status)
+      cell: (row) => (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${row.client_status === 'Approved' ? 'bg-green-100 text-green-800' :
+            row.client_status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+          }`}>
+          {row.client_status || 'Pending'}
+        </span>
+      )
     },
     {
       header: "Actions",
       id: "actions",
-      cell: (row) => {
-        if (!row) return null;
-        return (
-          <div className="flex gap-2">
+      cell: (row) => (
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => {
+            if (row.password) {
+              navigator.clipboard.writeText(row.password);
+              toast.success("Password copied to clipboard");
+            }
+          }}>
+            Copy Pass
+          </Button>
+          {row.zip_url && (
             <Button variant="outline" size="sm" onClick={() => {
-              if (row.password) {
-                navigator.clipboard.writeText(row.password);
-                toast.success("Password copied to clipboard");
-              }
+              navigator.clipboard.writeText(row.zip_url);
+              toast.success("Zip URL copied to clipboard");
             }}>
-              Copy Password
+              Copy URL
             </Button>
-            {row.zip_url && (
-              <Button variant="outline" size="sm" onClick={() => {
-                navigator.clipboard.writeText(row.zip_url);
-                toast.success("Zip URL copied to clipboard");
-              }}>
-                Copy Zip URL
-              </Button>
-            )}
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+            onClick={async () => {
+              try {
+                const blob = await dccService.downloadTransmittalPDF(row.id);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Transmittal_${row.transmission_number}.pdf`;
+                a.click();
+              } catch (error) { toast.error("Failed to download PDF"); }
+            }}
+          >
+            <Download className="h-4 w-4" /> PDF
+          </Button>
+          {row.client_status === 'Approved' || row.client_status === 'Rejected' ? (
             <Button
               variant="outline"
               size="sm"
               className="flex items-center gap-2"
-              onClick={async () => {
-                try {
-                  const blob = await dccService.downloadTransmittalPDF(row.id);
-                  const url = window.URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `Transmittal_${row.transmission_number}.pdf`;
-                  document.body.appendChild(a);
-                  a.click();
-                  window.URL.revokeObjectURL(url);
-                  document.body.removeChild(a);
-                  toast.success("PDF downloaded successfully");
-                } catch (error) {
-                  toast.error("Failed to download PDF");
-                }
+              onClick={() => {
+                setActiveTransmission(row);
+                fetchTransmissionDetailsForSend(row);
+                setView("send");
               }}
             >
-              <Download className="h-4 w-4" />
-              Document Transmittal
+              <Eye className="h-4 w-4" />
+              View
             </Button>
-            {row.client_status === 'Approved' || row.client_status === 'Rejected' ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-2"
-                onClick={() => {
-                  setActiveTransmission(row);
-                  fetchTransmissionDetailsForSend(row);
-                  setView("send");
-                }}
-              >
-                <Eye className="h-4 w-4" />
-                View
-              </Button>
-            ) : (
-              <Button
-                variant={row.status === 'Sent' ? "secondary" : "default"}
-                size="sm"
-                className="flex items-center gap-2"
-                onClick={() => {
-                  setActiveTransmission(row);
-                  fetchTransmissionDetailsForSend(row);
-                  setView("send");
-                }}
-              >
-                <Mail className="h-4 w-4" />
-                {row.status === 'Sent' ? "Resend Mail" : "Send Mail"}
-              </Button>
-            )}
-          </div>
-        );
-      }
+          ) : (
+            <Button
+              variant={row.status === 'Sent' ? "secondary" : "default"}
+              size="sm"
+              className="flex items-center gap-2"
+              onClick={() => {
+                setActiveTransmission(row);
+                fetchTransmissionDetailsForSend(row);
+                setView("send");
+              }}
+            >
+              <Mail className="h-4 w-4" />
+              {row.status === 'Sent' ? "Resend" : "Send"}
+            </Button>
+          )}
+        </div>
+      )
     }
-  ], [navigate, customers]);
+  ], []);
 
-  // Create View Document Columns
+  // Create View Document Columns (REF: assign_document.jsx style)
   const documentColumns = useMemo(() => [
     {
-      header: () => (
+      id: "select",
+      header: "Select",
+      cell: (row) => (
         <Checkbox
-          checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
-          onCheckedChange={(value) => handleSelectAllDocs(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      accessorKey: "select",
-      cell: (item) => (
-        <Checkbox
-          checked={selectedDocuments.includes(item.id)}
-          onCheckedChange={(checked) => handleSelectOneDoc(item.id, checked)}
-          aria-label={`Select ${item.document?.document_number}`}
+          checked={selectedDocuments.includes(row.id)}
+          onCheckedChange={(checked) => {
+            if (checked) {
+              setSelectedDocuments(prev => [...prev, row.id]);
+            } else {
+              setSelectedDocuments(prev => prev.filter(id => id !== row.id));
+            }
+          }}
         />
       ),
       className: "w-[50px]"
     },
-    { header: "S.No", accessorKey: "s_no" },
-    { header: "Generated Document No", accessorKey: "document.document_number" },
+    { header: "S.No", accessorKey: "s_no", className: "w-[60px]" },
+    { header: "System Doc ID", accessorKey: "document.document_number" },
     { header: "Document Name", accessorKey: "document.document_name" },
     {
-      header: "Job Number",
-      accessorKey: "group.job_group.0.job.job_number",
-      cell: (item) => {
-        const jobs = item.group?.job_group;
-        return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
-      }
+      id: "customer_name",
+      header: "Client",
+      accessorKey: "customer.customer_name",
+      filterType: "select",
+      filterOptions: clientFilterOptions,
+      cell: (row) => row.customer?.customer_name || "-",
     },
-    { header: "Revision", accessorKey: "display_version_no", cell: (item) => (item.display_version_no !== null && item.display_version_no !== undefined) ? `Rev ${item.display_version_no}` : '-' },
-    { header: "Status", accessorKey: "status" }
-  ], [selectedDocuments, filteredDocuments]);
+    {
+      id: "po_number",
+      header: "PO",
+      accessorKey: "po.po_number",
+      filterType: "select",
+      filterOptions: poFilterOptions,
+      cell: (row) => row.po?.po_number || "-",
+    },
+    {
+      id: "job_number",
+      header: "Job Number",
+      accessorKey: "job_number",
+      filterType: "select",
+      filterOptions: jobFilterOptions,
+      cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+    },
+    {
+      header: "Revision",
+      accessorKey: "display_version_no",
+      cell: (row) => (row.display_version_no !== null && row.display_version_no !== undefined) ? `${row.display_version_no}` : '-'
+    }
+  ], [selectedDocuments, clientFilterOptions, poFilterOptions, jobFilterOptions]);
 
 
   return (
@@ -733,9 +605,9 @@ function CreateTransmission() {
                     : 'Select approved documents to create a new transmission.'}
               </p>
             </div>
-            <div>
+            <div className="flex gap-2">
               {view === 'list' ? (
-                <Button onClick={() => setView('create')}>
+                <Button onClick={() => { setView('create'); setSelectedDocuments([]); }}>
                   <Plus className="mr-2 h-4 w-4" /> Create Transmission
                 </Button>
               ) : (
@@ -758,7 +630,6 @@ function CreateTransmission() {
                 <DataTable
                   columns={listColumns}
                   fetchData={fetchTransmissions}
-                  pageCount={0}
                   onExport={handleExport}
                   refreshKey={refreshKey}
                 />
@@ -787,7 +658,7 @@ function CreateTransmission() {
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
-                <div className="rounded-md border bg-white">
+                <div className="rounded-md border bg-white overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -798,255 +669,78 @@ function CreateTransmission() {
                         <TableHead>Uploaded Date</TableHead>
                         <TableHead>Revision</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Transmittal Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead>Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {sendDocuments.length > 0 ? (
-                        sendDocuments.map((document, index) => (
-                          <TableRow key={document.id}>
-                            <TableCell className="font-medium text-slate-500">
-                              {index + 1}
-                            </TableCell>
-                            <TableCell>{document.documentCode}</TableCell>
-                            <TableCell>{document.documentName}</TableCell>
-                            <TableCell>{document.uploadedBy}</TableCell>
-                            <TableCell>{document.uploadedDate}</TableCell>
-                            <TableCell>
-                              {document.versionNo !== null && document.versionNo !== undefined ? `Rev ${document.versionNo}` : '-'}
-                            </TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                                Approved
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${activeTransmission?.status === 'Sent'
-                                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                                  : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                                }`}>
-                                {activeTransmission?.status || 'Pending'}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {document.file_url && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 gap-1"
-                                  onClick={() => {
-                                    setActivePreviewDoc({
-                                      documentName: document.documentName,
-                                      versionNo: (document.versionNo !== null && document.versionNo !== undefined) ? `Rev ${document.versionNo}` : '',
-                                      mimeType: document.mimeType,
-                                      filePath: document.filePath
-                                    });
-                                    setPreviewUrl(document.file_url);
-                                    setIsPreviewOpen(true);
-                                  }}
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                  Preview
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell
-                            colSpan={9}
-                            className="h-24 text-center"
-                          >
-                            {loadingDocs ? "Loading documents..." : "No approved documents found for this transmission."}
+                      {sendDocuments.map((doc, index) => (
+                        <TableRow key={doc.id}>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>{doc.documentCode}</TableCell>
+                          <TableCell>{doc.documentName}</TableCell>
+                          <TableCell>{doc.uploadedBy}</TableCell>
+                          <TableCell>{doc.uploadedDate}</TableCell>
+                          <TableCell>
+                            {doc.versionNo !== null && doc.versionNo !== undefined ? `${doc.versionNo}` : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                              {doc.status}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setActivePreviewDoc(doc);
+                                setPreviewUrl(doc.file_url);
+                                setIsPreviewOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview
+                            </Button>
                           </TableCell>
                         </TableRow>
-                      )}
+                      ))}
                     </TableBody>
                   </Table>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-6">
-              {/* Selection Context */}
+            /* CREATE VIEW */
+            <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Selection</CardTitle>
-                  <CardDescription>Select customer, location, PO, and job in sequence</CardDescription>
+                  <CardTitle>Select Approved Documents</CardTitle>
+                  <CardDescription>
+                    Filter and select one or more documents to include in the new transmission.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>
-                        Customer Name <span className="text-red-500">*</span>
-                        {autoFilled.customerId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
-                      </Label>
-                      <Select value={formData.customerId} onValueChange={handleCustomerChange}>
-                        <SelectTrigger className="w-full"><SelectValue placeholder="Select Customer" /></SelectTrigger>
-                        <SelectContent>
-                          {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.customer_name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <DocumentSelectionTable
+                    columns={documentColumns}
+                    fetchData={fetchApprovedDocuments}
+                    onSelectionReset={onSelectionReset}
+                    selectedDocuments={selectedDocuments}
+                    setSelectedDocuments={setSelectedDocuments}
+                    handleToggleSelectAll={handleToggleSelectAll}
+                    isSelectingAll={isSelectingAll}
+                  />
 
-                    <div className="space-y-2">
-                      <Label>
-                        Location <span className="text-red-500">*</span>
-                        {autoFilled.locationId && <span className="ml-2 text-xs text-muted-foreground">(auto-filled)</span>}
-                      </Label>
-                      <Select value={formData.locationId} onValueChange={handleLocationChange} disabled={!formData.customerId}>
-                        <SelectTrigger className="w-full h-auto py-2"><SelectValue placeholder="Select Location" /></SelectTrigger>
-                        <SelectContent>
-                          {getLocationsForCustomer(formData.customerId).map(l => (
-                            <SelectItem key={l.id} value={l.id} className="py-2">
-                              <div className="flex flex-col items-start text-left">
-                                <span className="font-medium">{l.location_name}</span>
-                                {l.gst_number && <span className="text-xs text-muted-foreground">GST: {l.gst_number}</span>}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>PO Number <span className="text-red-500">*</span></Label>
-                      <Select value={formData.poId} onValueChange={handlePOChange}>
-                        <SelectTrigger className="w-full"><SelectValue placeholder="Select a PO" /></SelectTrigger>
-                        <SelectContent>
-                          {getAllPOs().map(p => (
-                            <SelectItem key={p.id} value={p.id}>
-                              <div className="flex flex-col items-start text-left">
-                                <span className="font-medium">{p.po_number}</span>
-                                <span className="text-xs text-muted-foreground">{p.customerName} - {p.locationName}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  {/* BOTTOM ACTION BUTTONS */}
+                  <div className="flex justify-end gap-2 mt-6">
+                    <Button variant="destructive" onClick={handleReset}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSubmitTransmission} disabled={isSubmitting || selectedDocuments.length === 0}>
+                      {isSubmitting ? "Creating..." : "Create Transmission"}
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Job Selection */}
-              {formData.poId && uniqueJobs.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <div className="space-y-1">
-                        <CardTitle>Select Jobs</CardTitle>
-                        <CardDescription>Select one or more jobs to include in the transmission</CardDescription>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={handleSelectAllJobs}>
-                        {selectedJobs.length === uniqueJobs.length ? "Deselect All" : "Select All"}
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {uniqueJobs.map(job => (
-                        <div key={job.id} className="flex items-center space-x-2 border p-3 rounded-md hover:bg-muted/50 transition-colors">
-                          <Checkbox
-                            id={`job-${job.id}`}
-                            checked={selectedJobs.includes(job.id)}
-                            onCheckedChange={() => handleJobToggle(job.id)}
-                          />
-                          <Label htmlFor={`job-${job.id}`} className="cursor-pointer font-medium flex-1">
-                            {job.job_number}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Document List */}
-              {formData.poId && (
-                <Card>
-                  <CardHeader>
-                    <div className="space-y-1">
-                      <CardTitle>Select Approved Documents</CardTitle>
-                      <CardDescription>Select documents from the selected jobs to include</CardDescription>
-                    </div>
-
-                  </CardHeader>
-                  <CardContent>
-                    {loadingDocs ? (
-                      <div className="text-center py-4">Loading documents...</div>
-                    ) : (
-                      itemsWithSNo.length > 0 ? (
-                        <div className="rounded-md border">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-[50px]">
-                                  <Checkbox
-                                    checked={itemsWithSNo.length > 0 && selectedDocuments.length === itemsWithSNo.length}
-                                    onCheckedChange={(value) => handleSelectAllDocs(!!value)}
-                                    aria-label="Select all"
-                                  />
-                                </TableHead>
-                                <TableHead>S.No</TableHead>
-                                <TableHead>Generated Document No</TableHead>
-                                <TableHead>Document Name</TableHead>
-                                <TableHead>Job Number</TableHead>
-                                <TableHead>Revision/Version No</TableHead>
-                                <TableHead>Status</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {itemsWithSNo.map((doc) => (
-                                <TableRow key={doc.id}>
-                                  <TableCell>
-                                    <Checkbox
-                                      checked={selectedDocuments.includes(doc.id)}
-                                      onCheckedChange={(checked) => handleSelectOneDoc(doc.id, checked)}
-                                      aria-label={`Select ${doc.document.document_number}`}
-                                    />
-                                  </TableCell>
-                                  <TableCell>{doc.s_no}</TableCell>
-                                  <TableCell>{doc.document.document_number}</TableCell>
-                                  <TableCell>{doc.document.document_name}</TableCell>
-                                  <TableCell>
-                                    {(() => {
-                                      const jobs = doc.group?.job_group;
-                                      return jobs && jobs.length > 0 ? jobs.map(j => j.job?.job_number).join(', ') : '-';
-                                    })()}
-                                  </TableCell>
-                                  <TableCell>
-                                    {(doc.display_version_no !== null && doc.display_version_no !== undefined) ? `v${doc.display_version_no}` : '-'}
-                                  </TableCell>
-                                  <TableCell>{doc.status}</TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          {uniqueJobs.length > 0 && selectedJobs.length === 0 ?
-                            "Please select at least one job to view documents." :
-                            "No approved documents found for this PO."}
-                        </div>
-                      )
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-4 mt-4">
-                <Button variant="outline" onClick={handleReset}>
-                  Reset
-                </Button>
-                <Button onClick={handleSubmitTransmission} disabled={isSubmitting || selectedDocuments.length === 0}>
-                  {isSubmitting ? "Creating..." : "Create Transmission"}
-                </Button>
-              </div>
             </div>
           )}
         </div>
@@ -1174,18 +868,7 @@ function CreateTransmission() {
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
           <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
-            {/* Floating Close Button (Optional if the default X is not enough) */}
-            {/* <Button 
-                variant="secondary" 
-                size="icon" 
-                className="absolute top-4 right-12 z-50 rounded-full shadow-lg"
-                onClick={() => setIsPreviewOpen(false)}
-              >
-                <Plus className="h-6 w-6 rotate-45" />
-              </Button> */}
-
             {previewUrl ? (
-              // Determine support based on MIME type or version's file path extension
               (
                 activePreviewDoc?.mimeType === 'application/pdf' ||
                 activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
@@ -1212,14 +895,11 @@ function CreateTransmission() {
                   }}
                 />
               ) : (
-                // Fallback UI for Excel, Word, etc.
                 <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
                   <div className="bg-slate-100 p-4 rounded-full mb-4">
                     <FileText className="h-12 w-12 text-slate-400" />
                   </div>
-                  <p className="text-slate-500 font-medium">
-                    Preview not available for this file type.
-                  </p>
+                  <p className="text-slate-500 font-medium">预览不可用于此文件类型。Preview not available for this file type.</p>
                   <Button
                     variant="link"
                     className="mt-2 text-primary"
@@ -1242,4 +922,177 @@ function CreateTransmission() {
   )
 }
 
-export default CreateTransmission
+// --- Local Table Component implementation (Outside to avoid re-mounting) ---
+const DocumentSelectionTable = ({ 
+  columns, 
+  fetchData, 
+  onSelectionReset, 
+  selectedDocuments, 
+  setSelectedDocuments,
+  handleToggleSelectAll,
+  isSelectingAll
+}) => {
+  const [data, setData] = useState([]);
+  const [meta, setMeta] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [columnFilters, setColumnFilters] = useState({});
+  const [debouncedColumnFilters, setDebouncedColumnFilters] = useState({});
+  const isFirstRender = useRef(true);
+
+  // Sync search
+  useEffect(() => {
+      if (isFirstRender.current) return;
+      const timer = setTimeout(() => {
+          setDebouncedSearch(search);
+          setPage(1);
+          onSelectionReset(); // RESET SELECTION
+      }, 500);
+      return () => clearTimeout(timer);
+  }, [search, onSelectionReset]);
+
+  // Sync filters
+  useEffect(() => {
+      if (isFirstRender.current) {
+          isFirstRender.current = false;
+          return;
+      }
+      const timer = setTimeout(() => {
+          setDebouncedColumnFilters(columnFilters);
+          setPage(1);
+          onSelectionReset(); // RESET SELECTION
+      }, 800);
+      return () => clearTimeout(timer);
+  }, [columnFilters, onSelectionReset]);
+
+  useEffect(() => {
+      const loadData = async () => {
+          setLoading(true);
+          try {
+              const result = await fetchData({ 
+                  page, 
+                  limit: pageSize, 
+                  search: debouncedSearch,
+                  columnFilters: debouncedColumnFilters 
+              });
+              setData(result.data || []);
+              setMeta(result.meta || {});
+          } catch (error) {
+              console.error("Failed to load local data", error);
+          } finally {
+              setLoading(false);
+          }
+      };
+      loadData();
+  }, [page, pageSize, debouncedSearch, debouncedColumnFilters, fetchData]);
+
+  const resolvePath = (object, path) => {
+      if (!path) return undefined;
+      return path.split('.').reduce((o, p) => (o ? o[p] : undefined), object);
+  };
+
+  return (
+      <div className="space-y-4">
+          <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Input
+                    placeholder="Global Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="max-w-sm"
+                />
+              </div>
+          </div>
+
+          <div className="rounded-md border bg-card overflow-x-auto">
+              <Table>
+                  <TableHeader>
+                      <TableRow>
+                          {columns.map((col, idx) => {
+                              const isSelectCol = col.id === 'select';
+                              return (
+                                  <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50`}>
+                                      <div className="flex flex-col gap-1.5 py-1.5">
+                                          <div className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
+                                              {isSelectCol ? (
+                                                <div className="flex items-center gap-2">
+                                                  <Checkbox
+                                                    checked={data.length > 0 && data.every(d => selectedDocuments.includes(d.id))}
+                                                    onCheckedChange={(checked) => handleToggleSelectAll(checked, { search: debouncedSearch, columnFilters: debouncedColumnFilters })}
+                                                  />
+                                                  <span>Select</span>
+                                                </div>
+                                              ) : col.header}
+                                          </div>
+                                          {col.id !== 'select' && col.filterType === 'select' && (
+                                              <Select 
+                                                  value={columnFilters[col.id || col.accessorKey] || "all"} 
+                                                  onValueChange={(val) => setColumnFilters(prev => ({ ...prev, [col.id || col.accessorKey]: val === 'all' ? "" : val }))}
+                                              >
+                                                  <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
+                                                      <SelectValue placeholder="All" />
+                                                  </SelectTrigger>
+                                                  <SelectContent>
+                                                      <SelectItem value="all">All</SelectItem>
+                                                      {col.filterOptions?.map(opt => (
+                                                          <SelectItem key={opt.value} value={opt.value}>
+                                                              {opt.label}
+                                                          </SelectItem>
+                                                      ))}
+                                                  </SelectContent>
+                                              </Select>
+                                          )}
+                                      </div>
+                                  </TableHead>
+                              );
+                          })}
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {loading ? (
+                          <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Loading documents...</TableCell></TableRow>
+                      ) : data.length ? (
+                          data.map((row, rIdx) => (
+                              <TableRow key={rIdx}>
+                                  {columns.map((col, cIdx) => (
+                                      <TableCell key={cIdx} className={col.className}>
+                                          {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                                      </TableCell>
+                                  ))}
+                              </TableRow>
+                          ))
+                      ) : (
+                          <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No approved documents found.</TableCell></TableRow>
+                      )}
+                  </TableBody>
+              </Table>
+          </div>
+
+          <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">Rows per page</p>
+                  <Select value={pageSize.toString()} onValueChange={(val) => { setPageSize(parseInt(val)); setPage(1); }}>
+                      <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={pageSize} /></SelectTrigger>
+                      <SelectContent side="top">
+                          {[5, 10, 20, 50, 100].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
+                      </SelectContent>
+                  </Select>
+              </div>
+              <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                      Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setPage(prev => prev - 1)} disabled={page <= 1 || loading}><ChevronLeft className="h-4 w-4" />Previous</Button>
+                      <Button variant="outline" size="sm" onClick={() => setPage(prev => prev + 1)} disabled={page >= (meta.totalPages || 1) || loading}>Next<ChevronRight className="h-4 w-4" /></Button>
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
+};
+
+export default CreateTransmission;
