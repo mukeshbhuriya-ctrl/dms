@@ -407,7 +407,8 @@ function DocumentApprover() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending Approval</SelectItem>
+                    <SelectItem value="awaiting_upload">Awaiting Upload</SelectItem>
+                    <SelectItem value="pending_approval">Pending for Approval</SelectItem>
                     <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
