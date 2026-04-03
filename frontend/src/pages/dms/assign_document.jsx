@@ -146,16 +146,6 @@ function AssignDocument() {
       cell: (row) => row.actual_due_days || "-",
     },
     {
-      header: "Revision",
-      accessorKey: "versionNo",
-      cell: (row) => (
-        <span className={row.versionNo !== null && row.versionNo !== undefined ? "font-semibold text-blue-600" : "text-muted-foreground"}>
-          {row.versionNo !== null && row.versionNo !== undefined ? `${row.versionNo}` : '-'}
-        </span>
-      ),
-      className: "w-[80px]"
-    },
-    {
       id: "status",
       header: "Status",
       filterType: "select",
