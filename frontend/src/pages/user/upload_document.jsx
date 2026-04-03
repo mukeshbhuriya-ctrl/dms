@@ -99,6 +99,7 @@ function UploadDocument() {
         {
             header: "Document Name",
             accessorKey: "documentName",
+            filterType: "text",
         },
         {
             header: "Rev",
@@ -133,6 +134,11 @@ function UploadDocument() {
         {
             header: "Uploader Status",
             accessorKey: "uploader_status",
+            filterType: "select",
+            filterOptions: [
+                { label: "Pending", value: "pending" },
+                { label: "Uploaded", value: "uploaded" },
+            ],
             cell: (row) => {
                 const status = row.originalStatus || row.status
                 if (status === 'Upload Due') {
@@ -152,7 +158,14 @@ function UploadDocument() {
         },
         {
             header: "Approver Status",
-            accessorKey: "approver_status",
+            accessorKey: "status",
+            filterType: "select",
+            filterOptions: [
+                { label: "Awaiting Upload", value: "awaiting_upload" },
+                { label: "Pending for Approval", value: "pending_approval" },
+                { label: "Approved", value: "approved" },
+                { label: "Rejected", value: "rejected" },
+            ],
             cell: (row) => {
                 const status = row.originalStatus || row.status
                 if (status === 'Response Due') {
@@ -268,7 +281,9 @@ function UploadDocument() {
                 if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
                 if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
                 if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
-                if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
+                if (columnFilters.documentName) params.search = columnFilters.documentName;
+                if (columnFilters.uploader_status) params.uploader_status_filter = columnFilters.uploader_status;
+                if (columnFilters.status) params.approver_status_filter = columnFilters.status;
             }
 
             const response = await dccService.getMyAssignedDocuments(params)

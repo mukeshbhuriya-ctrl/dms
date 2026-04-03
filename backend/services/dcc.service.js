@@ -490,14 +490,16 @@ class DccService {
 
         if (activeStatusFilter) {
             const filterVal = activeStatusFilter.toLowerCase();
-            if (filterVal === 'pending') {
-                where.status = { in: ['Pending', 'Upload Due', 'Rejected'] };
+            if (filterVal === 'pending' || filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
             } else if (filterVal === 'uploaded' || filterVal === 'done') {
                 where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                where.versions = { some: { status: { in: ['Rejected', 'rejected'] } } };
+                where.status = 'Rejected';
             } else {
                 where.status = activeStatusFilter;
             }
@@ -791,14 +793,17 @@ class DccService {
 
         if (activeStatusFilter) {
             const filterVal = activeStatusFilter.toLowerCase();
-            if (filterVal === 'pending') {
-                where.status = { in: ['Pending', 'Upload Due', 'Rejected'] };
-            } else if (filterVal === 'uploaded' || filterVal === 'done' || filterVal === 'pending for approval') {
+            if (filterVal === 'pending' || filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
+            } else if (filterVal === 'uploaded' || filterVal === 'done') {
+                // Wide filter for all documents that have been shared
                 where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                where.versions = { some: { status: { in: ['Rejected', 'rejected'] } } };
+                where.status = 'Rejected';
             } else {
                 where.status = activeStatusFilter;
             }

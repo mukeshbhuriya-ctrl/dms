@@ -167,10 +167,10 @@ function DocumentApprover() {
       header: "Status",
       filterType: "select",
       filterOptions: [
-        { label: "Pending Approval", value: "pending" },
+        { label: "Awaiting Upload", value: "awaiting_upload" },
+        { label: "Pending for Approval", value: "pending_approval" },
         { label: "Approved", value: "approved" },
         { label: "Rejected", value: "rejected" },
-        { label: "Awaiting Upload", value: "NA" },
       ],
       cell: (row) => {
         const docStatus = row.originalDoc?.status || row.status;
