@@ -102,11 +102,11 @@ function UploadDocument() {
             filterType: "text",
         },
         {
-            header: "Rev",
+            header: "Revision",
             accessorKey: "versionNo",
             cell: (row) => (
                 <span className={row.versionNo ? "font-semibold text-blue-600" : "text-muted-foreground"}>
-                    {row.versionNo ? `Rev ${row.versionNo}` : '-'}
+                    {row.versionNo ? `${row.versionNo}` : '-'}
                 </span>
             ),
             className: "w-[80px]"
