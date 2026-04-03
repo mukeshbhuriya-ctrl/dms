@@ -429,6 +429,7 @@ function CreateTransmission() {
       if (response && response.success) {
         toast.success("Email sent successfully!");
         setIsSendMailDialogOpen(false);
+        setView("list");
         setRefreshKey(prev => prev + 1);
       } else {
         toast.error(response?.message || "Failed to send email");
