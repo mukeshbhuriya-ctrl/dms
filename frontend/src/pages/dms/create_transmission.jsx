@@ -940,7 +940,7 @@ function CreateTransmission() {
           </div>
 
 
-          <DialogFooter className="bg-gray-50 -mx-6 -mb-6 p-4 rounded-b-lg border-t gap-2 sm:gap-0">
+          <DialogFooter className="bg-gray-50 -mx-6 -mb-6 p-4 rounded-b-lg border-t gap-4 flex justify-end">
             <Button
               variant="outline"
               onClick={() => setIsSendMailDialogOpen(false)}
