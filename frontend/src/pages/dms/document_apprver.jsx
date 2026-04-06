@@ -138,7 +138,16 @@ function DocumentApprover() {
       filterType: "text",
       cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
     },
-
+    {
+      accessorKey: "shreno_doc_no",
+      header: "Shreno Doc No",
+      cell: (row) => row.shreno_doc_no || "-",
+    },
+    {
+      accessorKey: "client_doc_no",
+      header: "Client Doc No",
+      cell: (row) => row.client_doc_no || "-",
+    },
     {
       header: "Document Name",
       accessorKey: "documentName"
@@ -260,7 +269,7 @@ function DocumentApprover() {
             size="sm"
             className="bg-green-600 hover:bg-green-700"
             onClick={() => handleReviewClick(row.originalDoc, 'Approved')}
-            disabled={row.status === 'Approved' || row.status === 'Rejected'}
+            disabled={(row.originalDoc?.status || row.status) !== 'Pending for Approval'}
           >
             <CheckCircle className="w-4 h-4 mr-1" /> Approve
           </Button>
@@ -268,7 +277,7 @@ function DocumentApprover() {
             size="sm"
             variant="destructive"
             onClick={() => handleReviewClick(row.originalDoc, 'Rejected')}
-            disabled={row.status === 'Rejected' || row.status === 'Approved'}
+            disabled={(row.originalDoc?.status || row.status) !== 'Pending for Approval'}
           >
             <XCircle className="w-4 h-4 mr-1" /> Reject
           </Button>
@@ -341,6 +350,8 @@ function DocumentApprover() {
             status: latestVersion?.status || doc.status, // Use version status for accuracy in consolidated view
             statusDisplay: doc.status,
             client_status: doc.client_status,
+            shreno_doc_no: doc.shreno_doc_no || '-',
+            client_doc_no: doc.client_doc_no || '-',
             actual_due_days: doc.actual_due_days,
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,

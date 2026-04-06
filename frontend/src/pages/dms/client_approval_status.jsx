@@ -116,17 +116,17 @@ const ClientApprovalStatus = () => {
                     documents: fullDocs
                 }));
 
-                // Reverted the auto-locking logic for now as requested.
-                // All documents will start as editable.
+                // Detect previously-submitted documents via td.client_status
                 const initialUpdates = {};
                 fullDocs.forEach(td => {
+                    const isSubmitted = td.client_status && td.client_status !== 'Pending';
                     initialUpdates[td.id] = { 
-                        status: 'Approved', 
-                        remarks: '', 
+                        status: isSubmitted ? td.client_status : 'Approved', 
+                        remarks: isSubmitted ? (td.client_remarks || '') : '', 
                         file: null, 
                         existingFile: null,
                         loading: false, 
-                        submitted: false 
+                        submitted: isSubmitted 
                     };
                 });
                 setRowUpdates(initialUpdates);
@@ -141,8 +141,8 @@ const ClientApprovalStatus = () => {
         const update = rowUpdates[rowId];
         if (!update) return;
 
-        if (update.status === 'Rejected' && !update.remarks?.trim()) {
-            toast.error("Please provide remarks for rejection.");
+        if ((update.status === 'Rejected' || update.status === 'Commented') && !update.remarks?.trim()) {
+            toast.error("Please provide remarks.");
             return;
         }
 
@@ -164,6 +164,8 @@ const ClientApprovalStatus = () => {
                     ...prev, 
                     [rowId]: { ...prev[rowId], loading: false, submitted: true } 
                 }));
+                // Trigger list refresh so transmission status updates
+                setRefreshTrigger(prev => prev + 1);
             } else {
                 throw new Error(res.message || "Failed to update");
             }
@@ -187,6 +189,7 @@ const ClientApprovalStatus = () => {
                 const colors = {
                     'Approved': 'bg-green-100 text-green-700 font-bold',
                     'Rejected': 'bg-red-100 text-red-700 font-bold',
+                    'Partially Approved': 'bg-blue-100 text-blue-700 font-bold',
                     'default': 'bg-yellow-100 text-yellow-700 font-bold'
                 };
                 return (
@@ -283,8 +286,14 @@ const ClientApprovalStatus = () => {
                         onValueChange={(val) => updateRowStatus(row.id, val)}
                         disabled={isSubmitted}
                     >
-                        <SelectTrigger className={`h-8 text-[11px] font-semibold ${
-                            update.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                        <SelectTrigger className={`h-8 w-[120px] text-[11px] font-semibold ${
+                            isSubmitted 
+                            ? (update.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200 opacity-80 cursor-not-allowed'
+                              : update.status === 'Commented' ? 'bg-amber-50 text-amber-700 border-amber-200 opacity-80 cursor-not-allowed'
+                              : 'bg-red-50 text-red-700 border-red-200 opacity-80 cursor-not-allowed')
+                            : update.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' 
+                            : update.status === 'Commented' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-red-50 text-red-700 border-red-200'
                         }`}>
                             <SelectValue placeholder="SELECT STATUS" />
                         </SelectTrigger>
@@ -304,7 +313,9 @@ const ClientApprovalStatus = () => {
                 return (
                     <Input 
                         placeholder="Add Comment"
-                        className={`h-8 text-xs border-slate-200 ${update.submitted ? 'bg-slate-50' : ''}`}
+                        className={`h-8 text-xs border-slate-200 ${
+                            update.submitted ? 'bg-slate-100 text-slate-500 opacity-70 cursor-not-allowed' : ''
+                        }`}
                         value={update.remarks}
                         disabled={update.submitted}
                         onChange={(e) => updateRowRemarks(row.id, e.target.value)}
@@ -324,7 +335,11 @@ const ClientApprovalStatus = () => {
                             variant="outline" 
                             size="sm" 
                             disabled={update.submitted}
-                            className={`h-8 border-slate-200 text-slate-600 ${update.file || update.existingFile ? 'bg-blue-50 border-blue-200' : ''}`}
+                            className={`h-8 border-slate-200 text-slate-600 ${
+                                update.submitted 
+                                ? 'bg-slate-100 text-slate-500 opacity-70 cursor-not-allowed'
+                                : update.file || update.existingFile ? 'bg-blue-50 border-blue-200' : ''
+                            }`}
                             onClick={() => document.getElementById(`stamped-${row.id}`).click()}
                         >
                             <Upload className="h-3.5 w-3.5 mr-2" />
@@ -342,10 +357,12 @@ const ClientApprovalStatus = () => {
             cell: (row) => {
                 const update = rowUpdates[row.id] || { loading: false, submitted: false, status: '', remarks: '', file: null };
                 
-                // MANDATORY VALIDATION: Status selected, Remarks added, and File uploaded
+                // MANDATORY VALIDATION:
+                // Commented: only remarks required, file optional
+                // Approved/Rejected: remarks + file required
                 const canSubmit = update.status && 
                                   update.remarks?.trim().length > 0 && 
-                                  (update.file || update.existingFile);
+                                  (update.status === 'Commented' || update.file || update.existingFile);
 
                 return (
                     <div className="flex items-center gap-2">

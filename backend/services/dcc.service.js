@@ -1517,9 +1517,10 @@ class DccService {
     /**
      * Update Client Status for an individual Document within a Transmission
      * Creates a new version for the document feedback.
+     * Statuses: Approved, Rejected, Commented
      */
     async updateTransmissionDocumentClientStatus(company_id, user_id, transmission_document_id, status, remarks, file) {
-        if (!['Approved', 'Rejected'].includes(status)) throw new Error('Invalid status');
+        if (!['Approved', 'Rejected', 'Commented'].includes(status)) throw new Error('Invalid status');
 
         // 1. Fetch transmission document with all needed relations
         const transDoc = await prisma.transmission_document.findFirst({
@@ -1539,8 +1540,15 @@ class DccService {
         if (transDoc.transmission.company_id !== company_id) throw new Error('Unauthorized');
 
         const groupDoc = transDoc.group_document;
-        const latestVersion = groupDoc.versions[0];
-        const nextVersionNo = (latestVersion?.version_no || 0) + 1;
+        const masterDocId = groupDoc.document_id;
+
+        // Use global version counter across ALL group_documents sharing the same document_master
+        // This matches the pattern in file.service.js
+        const lastGlobalVersion = await prisma.document_version.findFirst({
+            where: { group_document: { document_id: masterDocId } },
+            orderBy: { version_no: 'desc' }
+        });
+        const nextVersionNo = lastGlobalVersion ? lastGlobalVersion.version_no + 1 : 0;
 
         return await prisma.$transaction(async (tx) => {
             let newVersion = null;
@@ -1550,7 +1558,7 @@ class DccService {
                 const docNumber = groupDoc.document.document_number;
                 const transNumber = transDoc.transmission.transmission_number;
                 
-                // New directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
+                // Directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
                 const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, nextVersionNo);
                 const targetPath = path.join(targetDir, file.filename || file.originalname);
                 
@@ -1559,55 +1567,105 @@ class DccService {
 
                 const relativePath = StorageUtils.getRelativePath(targetPath);
                 
+                // Use the same URL pattern as file.service.js for consistency
+                const fileUrl = `/api/dcc/document/${groupDoc.id}/download?version=${nextVersionNo}`;
+
+                // Mark ALL previous versions of this Master Document as inactive (matching file.service.js)
+                await tx.document_version.updateMany({
+                    where: { 
+                        group_document: { document_id: masterDocId },
+                        is_active: true 
+                    },
+                    data: { is_active: false }
+                });
+
                 newVersion = await tx.document_version.create({
                     data: {
                         group_document_id: groupDoc.id,
                         version_no: nextVersionNo,
-                        file_url: relativePath.startsWith('/') ? relativePath : `/${relativePath}`,
+                        file_url: fileUrl,
                         file_path: relativePath,
                         file_size: file.size,
                         mime_type: file.mimetype,
-                        status: status, // Approved or Rejected
+                        status: status,
                         remarks: remarks || `Client review ${status}`,
                         uploaded_by: user_id,
                         is_active: true
                     }
                 });
-
-                // Deactivate previous versions
-                await tx.document_version.updateMany({
-                    where: { group_document_id: groupDoc.id, id: { not: newVersion.id } },
-                    data: { is_active: false }
-                });
             }
 
-            // 3. Update Group Document Status
-            // Logic: If Rejected, reset to Pending to allow internal user to upload new revision.
-            // If Approved, set to Approved.
-            const updatedGroupDoc = await tx.group_document.update({
-                where: { id: groupDoc.id },
-                data: { 
-                    status: status === 'Rejected' ? 'Pending' : 'Approved'
+            // 3. Update the transmission_document with per-document client status
+            await tx.transmission_document.update({
+                where: { id: transmission_document_id },
+                data: {
+                    client_status: status,
+                    client_remarks: remarks || null
                 }
             });
 
-            // 4. Log Activity
+            // 4. Update Group Document Status
+            // Approved → Approved, Rejected → Pending (for re-upload), Commented → No change
+            if (status === 'Approved') {
+                await tx.group_document.update({
+                    where: { id: groupDoc.id },
+                    data: { status: 'Approved' }
+                });
+            } else if (status === 'Rejected') {
+                await tx.group_document.update({
+                    where: { id: groupDoc.id },
+                    data: { status: 'Pending' }
+                });
+            }
+            // Commented: no group_document status change
+
+            // 5. Auto-compute parent Transmission client_status
+            const allTransDocs = await tx.transmission_document.findMany({
+                where: { transmission_id: transDoc.transmission_id },
+                select: { client_status: true }
+            });
+
+            const statuses = allTransDocs.map(d => d.client_status);
+            let transmissionStatus = 'Pending';
+
+            if (statuses.every(s => s === 'Approved')) {
+                transmissionStatus = 'Approved';
+            } else if (statuses.every(s => s === 'Rejected')) {
+                transmissionStatus = 'Rejected';
+            } else if (statuses.some(s => s !== 'Pending')) {
+                transmissionStatus = 'Partially Approved';
+            }
+
+            await tx.transmission.update({
+                where: { id: transDoc.transmission_id },
+                data: { client_status: transmissionStatus }
+            });
+
+            // 6. Log Activity with complete metadata for audit trail
+            const actionLabel = status === 'Approved' ? 'Client Approved' 
+                              : status === 'Rejected' ? 'Client Rejected' 
+                              : 'Client Commented';
+
             await ActivityService.logActivity({
                 company_id,
                 group_document_id: groupDoc.id,
                 transmission_id: transDoc.transmission_id,
                 user_id,
-                action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
-                remarks: remarks || `Document reviewed individually from Transmission ${transDoc.transmission.transmission_number}`,
+                action: actionLabel,
+                remarks: remarks || `Document reviewed from Transmission ${transDoc.transmission.transmission_number}`,
                 metadata: {
                     status,
-                    version_no: nextVersionNo,
+                    transmission_number: transDoc.transmission.transmission_number,
+                    document_number: groupDoc.document.document_number,
+                    document_name: groupDoc.document.document_name,
+                    version_no: newVersion ? nextVersionNo : (lastGlobalVersion?.version_no ?? 0),
                     has_file: !!file,
-                    new_version_id: newVersion?.id
+                    new_version_id: newVersion?.id,
+                    transmission_status: transmissionStatus
                 }
             }, tx);
 
-            return { group_document: updatedGroupDoc, version: newVersion };
+            return { group_document: groupDoc, version: newVersion, transmission_status: transmissionStatus };
         });
     }
 

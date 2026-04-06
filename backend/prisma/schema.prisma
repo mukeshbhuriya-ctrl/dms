@@ -591,6 +591,8 @@ model transmission_document {
   single_document_id String?
   group_document_id  String?
   version_id         String
+  client_status      String @default("Pending")  // Pending, Approved, Rejected, Commented
+  client_remarks     String?
 
   transmission    transmission     @relation(fields: [transmission_id], references: [id])
   single_document single_document? @relation(fields: [single_document_id], references: [id])
