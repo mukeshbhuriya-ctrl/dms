@@ -1298,7 +1298,7 @@ class DccService {
     }
 
     async sendTransmissionEmail(company_id, data) {
-        const { transmission_id, shreno_emails, client_emails, include_transmittal = true } = data;
+        const { transmission_id, shreno_emails, client_emails, include_zip = true } = data;
 
         // 1. Fetch transmission details with required relations for the PDF
         const transmission = await prisma.transmission.findFirst({
@@ -1320,7 +1320,6 @@ class DccService {
 
         // 3. Prepare attachments and format documents for email template
         let attachments = [];
-        if (include_transmittal) {
             const pdfBuffer = await generateTransmittalPDF(
                 transmission,
                 transmission.customer,
@@ -1335,7 +1334,6 @@ class DccService {
                 content: pdfBuffer,
                 contentType: 'application/pdf'
             });
-        }
 
         // 4. Send Email using EmailService and attach the PDF
         // Client -> To, Shreno -> CC
@@ -1351,7 +1349,8 @@ class DccService {
             customer_name: transmission.customer?.customer_name || 'N/A',
             document_count: transmission.documents?.length || 0,
             password: transmission.password,
-            zip_url: absoluteZipUrl || '#'
+            zip_url: absoluteZipUrl || '#',
+            include_zip: !!include_zip
         }, attachments);
 
         // Update status to 'Sent'

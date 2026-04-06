@@ -63,6 +63,7 @@ const getTransmissionEmailTemplate = (details) => {
                 </div>
             </div>
 
+            ${details.include_zip ? `
             <div class="secure-section">
                 <p style="margin-top: 0; margin-bottom: 10px;"><strong>🔒 Secure Access Required</strong></p>
                 <p style="margin: 0;">Use the following password to unlock the files:</p>
@@ -74,6 +75,11 @@ const getTransmissionEmailTemplate = (details) => {
             </div>
             
             <p class="note">Note: This link is secure. You will be prompted to enter the password shown above when you access the download page.</p>
+            ` : `
+            <div class="secure-section" style="background-color: #f8f9fa; border-left-color: #6c757d;">
+                <p style="margin: 0; color: #666;"><strong>Note:</strong> Selected documents are attached to this email as a Transmittal PDF for your reference.</p>
+            </div>
+            `}
         </div>
         <div class="footer">
             &copy; ${new Date().getFullYear()} Shreno Engineering. All rights reserved.<br>

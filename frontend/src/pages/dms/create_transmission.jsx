@@ -96,7 +96,7 @@ function CreateTransmission() {
   const [isLoadingSend, setIsLoadingSend] = useState(false)
   const [currentSearchParams, setCurrentSearchParams] = useState({ search: '', columnFilters: {} })
   const [isSelectingAll, setIsSelectingAll] = useState(false)
-  const [includeTransmittalDoc, setIncludeTransmittalDoc] = useState(true)
+  const [includeZipDownload, setIncludeZipDownload] = useState(true)
 
   // --- Initial Data Fetch (Customers & Jobs for metadata lookup/filtering) ---
   useEffect(() => {
@@ -459,7 +459,7 @@ function CreateTransmission() {
         transmission_id: activeTransmission.id,
         client_emails: clientEmails,
         shreno_emails: shrenoEmails,
-        include_transmittal: includeTransmittalDoc
+        include_zip: includeZipDownload
       });
       if (response && response.success) {
         toast.success("Email sent successfully!");
@@ -814,7 +814,7 @@ function CreateTransmission() {
                           <FileText className="h-5 w-5 text-slate-600" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800">Transmittal Documents</h4>
+                          <h4 className="text-sm font-bold text-slate-800">Documents</h4>
                         </div>
                       </div>
 
@@ -822,30 +822,18 @@ function CreateTransmission() {
                       <div className="flex items-center gap-3 bg-white p-1.5 pr-3 rounded-xl border border-slate-200 shadow-sm">
                         <div className="flex items-center space-x-3 px-3">
                           <Checkbox
-                            id="include-transmittal-card"
-                            checked={includeTransmittalDoc}
-                            onCheckedChange={(checked) => setIncludeTransmittalDoc(!!checked)}
+                            id="include-zip-card"
+                            checked={includeZipDownload}
+                            onCheckedChange={(checked) => setIncludeZipDownload(!!checked)}
                             className="h-5 w-5 border-slate-300 data-[state=checked]:bg-slate-700 data-[state=checked]:border-slate-700"
                           />
                           <Label
-                            htmlFor="include-transmittal-card"
+                            htmlFor="include-zip-card"
                             className="cursor-pointer text-sm font-bold text-slate-700"
                           >
-                            Include PDF
+                            Include documents ZIP
                           </Label>
                         </div>
-
-                        <div className="h-6 w-px bg-slate-200"></div>
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 px-3 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium rounded-lg"
-                          onClick={() => handlePreviewTransmittal(activeTransmission?.id)}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview
-                        </Button>
                       </div>
                     </div>
 
