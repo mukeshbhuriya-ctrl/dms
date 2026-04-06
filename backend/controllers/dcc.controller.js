@@ -273,6 +273,28 @@ class DccController {
         }
     }
 
+    async updateTransmissionDocumentClientStatus(req, res) {
+        try {
+            const { transmission_document_id, status, remarks } = req.body;
+            const file = req.file; // single file for individual doc
+            const userId = req.user.userid || req.user.id;
+            
+            const result = await DccService.updateTransmissionDocumentClientStatus(
+                req.user.company_id, 
+                userId,
+                transmission_document_id, 
+                status, 
+                remarks, 
+                file
+            );
+            
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('Update transmission document client status error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
     async downloadTransmissionFeedback(req, res) {
         try {
             const { id } = req.params;

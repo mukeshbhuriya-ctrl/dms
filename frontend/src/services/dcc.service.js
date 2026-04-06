@@ -47,6 +47,11 @@ export const dccService = {
         return await apiClient.post("/api/dcc/transmission/client-status", formData);
     },
 
+    updateTransmissionDocumentClientStatus: async (formData) => {
+        // Accepts FormData for single doc status + file
+        return await apiClient.post("/api/dcc/transmission/document/client-status", formData);
+    },
+
     downloadTransmittalPDF: async (id) => {
         return await apiClient.get(`/api/dcc/download-transmittal-pdf/${id}`, {}, { responseType: 'blob' });
     },

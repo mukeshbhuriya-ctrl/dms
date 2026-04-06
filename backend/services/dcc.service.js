@@ -1240,7 +1240,12 @@ class DccService {
                         user: true,
                         customer: true,
                         customer_location: true,
-                        po: true
+                        po: true,
+                        versions: {
+                            orderBy: { version_no: 'desc' },
+                            take: 1,
+                            include: { uploader: true }
+                        }
                     }
                 },
                 version: {
@@ -1506,6 +1511,103 @@ class DccService {
 
             // (Already handled in Step 4 above: existing group_document status reset to Pending)
             return updatedTransmission;
+        });
+    }
+
+    /**
+     * Update Client Status for an individual Document within a Transmission
+     * Creates a new version for the document feedback.
+     */
+    async updateTransmissionDocumentClientStatus(company_id, user_id, transmission_document_id, status, remarks, file) {
+        if (!['Approved', 'Rejected'].includes(status)) throw new Error('Invalid status');
+
+        // 1. Fetch transmission document with all needed relations
+        const transDoc = await prisma.transmission_document.findFirst({
+            where: { id: transmission_document_id },
+            include: {
+                transmission: true,
+                group_document: {
+                    include: {
+                        document: true,
+                        versions: { orderBy: { version_no: 'desc' }, take: 1 }
+                    }
+                }
+            }
+        });
+
+        if (!transDoc) throw new Error('Transmission document link not found');
+        if (transDoc.transmission.company_id !== company_id) throw new Error('Unauthorized');
+
+        const groupDoc = transDoc.group_document;
+        const latestVersion = groupDoc.versions[0];
+        const nextVersionNo = (latestVersion?.version_no || 0) + 1;
+
+        return await prisma.$transaction(async (tx) => {
+            let newVersion = null;
+
+            // 2. Process File if provided (Create New Version)
+            if (file) {
+                const docNumber = groupDoc.document.document_number;
+                const transNumber = transDoc.transmission.transmission_number;
+                
+                // New directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
+                const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, nextVersionNo);
+                const targetPath = path.join(targetDir, file.filename || file.originalname);
+                
+                // Move file from temp to final destination
+                fs.renameSync(file.path, targetPath);
+
+                const relativePath = StorageUtils.getRelativePath(targetPath);
+                
+                newVersion = await tx.document_version.create({
+                    data: {
+                        group_document_id: groupDoc.id,
+                        version_no: nextVersionNo,
+                        file_url: relativePath.startsWith('/') ? relativePath : `/${relativePath}`,
+                        file_path: relativePath,
+                        file_size: file.size,
+                        mime_type: file.mimetype,
+                        status: status, // Approved or Rejected
+                        remarks: remarks || `Client review ${status}`,
+                        uploaded_by: user_id,
+                        is_active: true
+                    }
+                });
+
+                // Deactivate previous versions
+                await tx.document_version.updateMany({
+                    where: { group_document_id: groupDoc.id, id: { not: newVersion.id } },
+                    data: { is_active: false }
+                });
+            }
+
+            // 3. Update Group Document Status
+            // Logic: If Rejected, reset to Pending to allow internal user to upload new revision.
+            // If Approved, set to Approved.
+            const updatedGroupDoc = await tx.group_document.update({
+                where: { id: groupDoc.id },
+                data: { 
+                    status: status === 'Rejected' ? 'Pending' : 'Approved'
+                }
+            });
+
+            // 4. Log Activity
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: groupDoc.id,
+                transmission_id: transDoc.transmission_id,
+                user_id,
+                action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
+                remarks: remarks || `Document reviewed individually from Transmission ${transDoc.transmission.transmission_number}`,
+                metadata: {
+                    status,
+                    version_no: nextVersionNo,
+                    has_file: !!file,
+                    new_version_id: newVersion?.id
+                }
+            }, tx);
+
+            return { group_document: updatedGroupDoc, version: newVersion };
         });
     }
 

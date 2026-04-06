@@ -67,6 +67,7 @@ router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF
 router.get('/preview-transmittal-pdf/:id', DccController.previewTransmittalPDF);
 // Client Approval Status
 router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
+router.post('/transmission/document/client-status', upload.single('client_file'), DccController.updateTransmissionDocumentClientStatus);
 router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);
 
 // Activity Trail (Moved to public section)
