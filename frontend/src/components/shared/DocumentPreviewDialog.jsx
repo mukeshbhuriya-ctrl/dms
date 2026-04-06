@@ -38,6 +38,15 @@ export function DocumentPreviewDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
+        {/* Prominent Close Button */}
+        <button
+          onClick={() => onOpenChange(false)}
+          className="absolute top-4 right-4 z-[100] p-2 bg-white/80 hover:bg-white text-slate-800 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 group border border-slate-200"
+          title="Close Preview"
+        >
+          <Plus className="h-6 w-6 rotate-45 transform transition-transform group-hover:rotate-[135deg]" />
+        </button>
+        
         <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
           {previewUrl ? (
             isPdf ? (

@@ -27,6 +27,7 @@ import {
     Dialog,
     DialogContent,
 } from "@/components/ui/dialog"
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 
 function UploadDocument() {
@@ -242,7 +243,7 @@ function UploadDocument() {
                                 setPreviewUrl(row.previewUrl);
                                 setIsPreviewOpen(true);
                             }}
-                            disabled={!row.previewUrl}
+                            disabled={!row.previewUrl || row.originalStatus === 'Pending' || row.originalStatus === 'Upload Due'}
                         >
                             <Eye className="h-4 w-4 mr-2" />
                             Preview
@@ -397,6 +398,14 @@ function UploadDocument() {
                     </div>
                 </div>
 
+                {/* Shared Document Preview Dialog */}
+                <DocumentPreviewDialog
+                    isOpen={isPreviewOpen}
+                    onOpenChange={setIsPreviewOpen}
+                    previewUrl={previewUrl}
+                    activePreviewDoc={activePreviewDoc}
+                />
+
                 <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
                     <SheetContent className="sm:max-w-xl overflow-y-auto">
                         <SheetHeader>
@@ -415,55 +424,7 @@ function UploadDocument() {
                     </SheetContent>
                 </Sheet>
 
-                <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                    <DialogContent className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
-                        <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
-                            {previewUrl ? (
-                                (
-                                    activePreviewDoc?.mimeType === 'application/pdf' ||
-                                    activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
-                                    previewUrl.toLowerCase().includes('pdf')
-                                ) ? (
-                                    <iframe
-                                        src={`${previewUrl}#toolbar=0`}
-                                        className="w-full h-full border-0"
-                                        title="PDF Preview"
-                                    />
-                                ) : (
-                                    activePreviewDoc?.mimeType?.startsWith('image/') ||
-                                    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
-                                    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl)
-                                ) ? (
-                                    <img
-                                        src={previewUrl}
-                                        alt="Preview"
-                                        className="max-w-full max-h-full object-contain"
-                                        onError={(e) => {
-                                            e.target.src = ""
-                                            e.target.onerror = null
-                                            toast.error("Failed to load image preview")
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center p-12 text-center bg-white border border-dashed rounded-lg">
-                                        <div className="bg-slate-100 p-4 rounded-full mb-4">
-                                            <FileText className="h-12 w-12 text-slate-400" />
-                                        </div>
-                                        <p className="text-slate-500 font-medium">Preview not available for this file type.</p>
-                                        <Button variant="link" className="mt-2 text-primary" onClick={() => window.open(previewUrl, '_blank')}>
-                                            Open in New Tab
-                                        </Button>
-                                    </div>
-                                )
-                            ) : (
-                                <div className="flex flex-col items-center gap-2 text-muted-foreground opacity-40">
-                                    <Plus className="h-10 w-10 rotate-45" />
-                                    <p>No preview available</p>
-                                </div>
-                            )}
-                        </div>
-                    </DialogContent>
-                </Dialog>
+
             </main>
         </>
     )
