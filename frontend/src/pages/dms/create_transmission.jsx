@@ -256,7 +256,20 @@ function CreateTransmission() {
 
         const response = await dccService.getDocumentsForApproval(params);
         if (response.success) {
-          const allDocIds = (response.data || []).map(d => d.id);
+          const allDocs = response.data || [];
+          // Validate all docs belong to same Customer & PO
+          if (allDocs.length > 0) {
+            const firstPo = allDocs[0].po_id;
+            const firstCustomer = allDocs[0].customer_id;
+            const mixedPo = allDocs.some(d => d.po_id !== firstPo);
+            const mixedCustomer = allDocs.some(d => d.customer_id !== firstCustomer);
+            if (mixedCustomer || mixedPo) {
+              toast.warn("Cannot select all — filtered documents belong to different POs or Customers. Please filter by a specific PO first.");
+              setIsSelectingAll(false);
+              return;
+            }
+          }
+          const allDocIds = allDocs.map(d => d.id);
           setSelectedDocuments(allDocIds);
         }
       } catch (err) {
@@ -292,6 +305,28 @@ function CreateTransmission() {
       }
 
       const firstDoc = docResponse.data[0];
+
+      // Final validation: ensure all selected documents belong to same PO
+      if (selectedDocuments.length > 1) {
+        const allDocsResponse = await dccService.getDocumentsForApproval({
+          approver_status_filter: 'approved'
+        });
+        if (allDocsResponse.success) {
+          const selectedDocs = (allDocsResponse.data || []).filter(d => selectedDocuments.includes(d.id));
+          const mixedPo = selectedDocs.some(d => d.po_id !== firstDoc.po_id);
+          const mixedCustomer = selectedDocs.some(d => d.customer_id !== firstDoc.customer_id);
+          if (mixedCustomer) {
+            toast.error("Selected documents belong to different Customers. A transmission must contain documents from a single Customer.");
+            setIsSubmitting(false);
+            return;
+          }
+          if (mixedPo) {
+            toast.error("Selected documents belong to different POs. A transmission must contain documents from a single PO.");
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
 
       const payload = {
         customer_id: firstDoc.customer_id,
@@ -580,6 +615,22 @@ function CreateTransmission() {
           checked={selectedDocuments.includes(row.id)}
           onCheckedChange={(checked) => {
             if (checked) {
+              // Validate: all selected documents must be from the same PO & Customer
+              if (selectedDocuments.length > 0) {
+                const firstSelectedDoc = currentDocs.find(d => d.id === selectedDocuments[0]);
+                if (firstSelectedDoc) {
+                  // Check Customer match
+                  if (row.customer_id !== firstSelectedDoc.customer_id) {
+                    toast.warn("All documents in a transmission must belong to the same Customer.");
+                    return;
+                  }
+                  // Check PO match
+                  if (row.po_id !== firstSelectedDoc.po_id) {
+                    toast.warn("All documents in a transmission must belong to the same PO. Multiple jobs within the same PO are allowed.");
+                    return;
+                  }
+                }
+              }
               setSelectedDocuments(prev => [...prev, row.id]);
             } else {
               setSelectedDocuments(prev => prev.filter(id => id !== row.id));
