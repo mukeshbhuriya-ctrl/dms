@@ -95,9 +95,19 @@ class DccController {
         }
     }
 
+    async getTransmissionFilters(req, res) {
+        try {
+            const result = await DccService.getTransmissionFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     async getActiveFilters(req, res) {
         try {
             const { userid, role, company_id: companyId } = req.user;
+            const { is_approved, is_transmittable } = req.query;
             
             const roles = Array.isArray(role) ? role : [role];
             const upperRoles = roles.map(r => r.toUpperCase());
@@ -107,8 +117,13 @@ class DccController {
             const isUploader = upperRoles.includes('USER');
             
             const getOnlyForUser = !isPowerUser && isUploader ? userid : null;
+
+            const options = {
+                isApproved: is_approved === 'true',
+                isTransmittable: is_transmittable === 'true'
+            };
             
-            const result = await DccService.getActiveFilters(companyId, getOnlyForUser);
+            const result = await DccService.getActiveFilters(companyId, getOnlyForUser, options);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
@@ -246,7 +261,11 @@ class DccController {
     async getTransmissions(req, res) {
         try {
             const result = await DccService.getTransmissions(req.user.company_id, req.query);
-            res.status(200).json({ success: true, data: result });
+            res.status(200).json({ 
+                success: true, 
+                data: result.data, 
+                meta: result.meta 
+            });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
         }

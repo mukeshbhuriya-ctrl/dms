@@ -33,8 +33,12 @@ export const dccService = {
         return await apiClient.get("/api/dcc/get-pos", params);
     },
 
-    getActiveFilters: async () => {
-        return await apiClient.get("/api/dcc/get-active-filters");
+    getActiveFilters: async (params = {}) => {
+        return await apiClient.get("/api/dcc/get-active-filters", params);
+    },
+
+    getTransmissionFilters: async () => {
+        return await apiClient.get("/api/dcc/get-transmission-filters");
     },
 
     getMyAssignedDocuments: async (params = {}) => {

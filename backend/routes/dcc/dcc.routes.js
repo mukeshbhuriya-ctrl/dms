@@ -25,6 +25,8 @@ router.get('/get-active-filters', authenticateUserOnly, DccController.getActiveF
 // Apply authentication middleware to all routes in this router
 router.use(authenticateUser(['DCC', 'ADMIN']));
 
+router.get('/get-active-filters', DccController.getActiveFilters);
+router.get('/get-transmission-filters', DccController.getTransmissionFilters);
 router.get('/get-customers', DccController.getCustomers);
 router.post('/create-customer', createCustomer);
 router.put('/update-customer/:id', updateCustomer);

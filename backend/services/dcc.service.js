@@ -367,10 +367,20 @@ class DccService {
     /**
      * Get unique filters (Customers, POs, Jobs) that actually have assigned documents
      */
-    async getActiveFilters(company_id, user_id = null) {
+    async getActiveFilters(company_id, user_id = null, options = {}) {
         const getFilters = async (uid = null) => {
             const whereClause = { company_id };
             if (uid) whereClause.user_id = uid;
+            
+            // Check for specific document status/approval filters
+            if (options.isApproved) {
+                whereClause.status = 'Approved';
+            }
+            if (options.isTransmittable) {
+                // Ensure document is approved AND not yet transmitted
+                whereClause.status = 'Approved';
+                whereClause.transmission_items = { none: {} };
+            }
 
             // Fetch the documents with their core relations
             const activeDocs = await prisma.group_document.findMany({
@@ -1242,8 +1252,34 @@ class DccService {
         });
     }
 
+    async getTransmissionFilters(company_id) {
+        const transmissions = await prisma.transmission.findMany({
+            where: { company_id },
+            include: {
+                customer: { select: { id: true, customer_name: true } },
+                po: { select: { id: true, po_number: true } }
+            }
+        });
+
+        const customersMap = new Map();
+        const posMap = new Map();
+
+        transmissions.forEach(t => {
+            if (t.customer) customersMap.set(t.customer.id, t.customer);
+            if (t.po) posMap.set(t.po.id, {
+                ...t.po,
+                customer: t.customer
+            });
+        });
+
+        return {
+            customers: Array.from(customersMap.values()),
+            pos: Array.from(posMap.values())
+        };
+    }
+
     async getTransmissions(company_id, params = {}) {
-        const { po_id, page = 1, limit = 10, search, status } = params;
+        const { po_id, page = 1, limit = 10, search, status, customer_name_filter, po_number_filter } = params;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
@@ -1251,6 +1287,18 @@ class DccService {
         const where = { company_id };
         if (po_id) where.po_id = po_id;
         if (status) where.status = status;
+
+        // Apply Column Specific Filters
+        if (customer_name_filter) {
+            where.customer = { 
+                customer_name: { contains: customer_name_filter, mode: 'insensitive' } 
+            };
+        }
+        if (po_number_filter) {
+            where.po = { 
+                po_number: { contains: po_number_filter, mode: 'insensitive' } 
+            };
+        }
 
         if (search) {
             where.OR = [
