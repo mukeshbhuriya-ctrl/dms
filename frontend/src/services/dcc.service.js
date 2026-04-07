@@ -29,6 +29,14 @@ export const dccService = {
         return await apiClient.get("/api/dcc/get-jobs", params);
     },
 
+    getPos: async (params = {}) => {
+        return await apiClient.get("/api/dcc/get-pos", params);
+    },
+
+    getActiveFilters: async () => {
+        return await apiClient.get("/api/dcc/get-active-filters");
+    },
+
     getMyAssignedDocuments: async (params = {}) => {
         return await apiClient.get("/api/dcc/upload-documents", params);
     },

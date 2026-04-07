@@ -1,9 +1,17 @@
-import { useState, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { UserSidebar } from "@/components"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 import {
     Select,
     SelectContent,
@@ -12,7 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, Loader2, History, Eye, FileText, Plus } from "lucide-react"
+import { Upload, Loader2, History, Eye, FileText, Plus, Download, ChevronLeft, ChevronRight } from "lucide-react"
 import { dccService } from "../../services/dcc.service"
 import { toast } from "react-toastify"
 import { DataTable } from "@/components/shared/DataTable"
@@ -35,6 +43,12 @@ function UploadDocument() {
     const [statusFilter, setStatusFilter] = useState("all")
     const [approverStatusFilter, setApproverStatusFilter] = useState("all")
     const [refreshTrigger, setRefreshTrigger] = useState(0)
+    const [columnFilters, setColumnFilters] = useState({});
+
+    // Master Data for Cascading Filters
+    const [customers, setCustomers] = useState([]);
+    const [allPos, setAllPos] = useState([]);
+    const [allJobs, setAllJobs] = useState([]);
 
     const [isTrailOpen, setIsTrailOpen] = useState(false)
     const [activeDocId, setActiveDocId] = useState(null)
@@ -44,6 +58,63 @@ function UploadDocument() {
     const [activePreviewDoc, setActivePreviewDoc] = useState(null)
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL
+
+    useEffect(() => {
+        fetchFilterMetadata();
+    }, []);
+
+    const fetchFilterMetadata = async () => {
+        try {
+            const res = await dccService.getActiveFilters();
+            if (res?.success && res.data) {
+                const { customers = [], pos = [], jobs = [] } = res.data;
+                setCustomers(customers);
+                setAllPos(pos);
+                setAllJobs(jobs);
+            }
+        } catch (err) {
+            console.error("Error fetching filter metadata:", err);
+        }
+    };
+
+    const onFilterChange = (newFilters) => {
+        setColumnFilters(prev => {
+            const updated = { ...prev, ...newFilters };
+            
+            // Reverse Cascading Auto-Select Logic
+            if (newFilters.hasOwnProperty('job_number') && newFilters.job_number) {
+                const selectedJob = allJobs.find(j => (j.job_number || j.number || "").toString() === newFilters.job_number.toString());
+                if (selectedJob) {
+                    const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
+                    const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
+                    if (poNum) updated.po_number = poNum;
+                    if (custName) updated.customer_name = custName;
+                }
+            } else if (newFilters.hasOwnProperty('po_number') && newFilters.po_number) {
+                const selectedPo = allPos.find(p => (p.po_number || p.number || "").toString() === newFilters.po_number.toString());
+                if (selectedPo) {
+                    const custName = (selectedPo.customer?.customer_name || selectedPo.customer_name || "").toString();
+                    if (custName) updated.customer_name = custName;
+                }
+            }
+
+            // Forward Cascading Reset Logic (only if manually changing a parent)
+            if (newFilters.hasOwnProperty('customer_name')) {
+                const poObj = allPos.find(p => (p.po_number || p.number || "").toString() === updated.po_number?.toString());
+                if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newFilters.customer_name.toString()) {
+                    delete updated.po_number;
+                    delete updated.job_number;
+                }
+            } else if (newFilters.hasOwnProperty('po_number')) {
+                const jobObj = allJobs.find(j => (j.job_number || j.number || "").toString() === updated.job_number?.toString());
+                if (jobObj && (jobObj.po?.po_number || jobObj.po_number || "").toString() !== newFilters.po_number.toString()) {
+                    delete updated.job_number;
+                }
+            }
+            
+            return updated;
+        });
+    };
 
     const handleDirectUpload = async (documentId, file) => {
         if (!file) return
@@ -71,6 +142,34 @@ function UploadDocument() {
         }
     }
 
+    // cascading filter options
+    const clientFilterOptions = useMemo(() => {
+        return customers.map(c => ({ 
+            label: (c.customer_name || c.name || "Unknown").toString(), 
+            value: (c.customer_name || c.name || "").toString() 
+        })).filter(o => o.value !== "");
+    }, [customers]);
+
+    const poFilterOptions = useMemo(() => {
+        const selectedClient = columnFilters.customer_name;
+        let filteredPos = allPos;
+        if (selectedClient) {
+            filteredPos = allPos.filter(p => (p.customer?.customer_name || p.customer_name) === selectedClient);
+        }
+        const uniquePosLabels = [...new Set(filteredPos.map(p => p.po_number || p.number))].filter(Boolean);
+        return uniquePosLabels.map(p => ({ label: p.toString(), value: p.toString() }));
+    }, [allPos, columnFilters.customer_name]);
+
+    const jobFilterOptions = useMemo(() => {
+        const selectedPo = columnFilters.po_number;
+        let filteredJobs = allJobs;
+        if (selectedPo) {
+            filteredJobs = allJobs.filter(j => (j.po?.po_number || j.po_number) === selectedPo);
+        }
+        const uniqueJobsLabels = [...new Set(filteredJobs.map(j => j.job_number || j.number))].filter(Boolean);
+        return uniqueJobsLabels.map(j => ({ label: j.toString(), value: j.toString() }));
+    }, [allJobs, columnFilters.po_number]);
+
     const columns = useMemo(() => [
         {
             header: "System Doc ID",
@@ -80,20 +179,24 @@ function UploadDocument() {
             id: "customer_name",
             header: "Client",
             accessorKey: "customer.customer_name",
-            filterType: "text",
+            filterType: "select",
+            filterOptions: clientFilterOptions,
             cell: (row) => row.customer?.customer_name || "-",
         },
         {
             id: "po_number",
             header: "PO",
             accessorKey: "po.po_number",
-            filterType: "text",
+            filterType: "select",
+            filterOptions: poFilterOptions,
             cell: (row) => row.po?.po_number || "-",
         },
         {
             id: "job_number",
             header: "Job Number",
-            filterType: "text",
+            accessorKey: "job_number",
+            filterType: "select",
+            filterOptions: jobFilterOptions,
             cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
         },
 
@@ -266,7 +369,7 @@ function UploadDocument() {
             },
             className: "w-[150px]"
         }
-    ], [uploadingIds, backendUrl])
+    ], [uploadingIds, backendUrl, clientFilterOptions, poFilterOptions, jobFilterOptions])
 
     const fetchDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
         try {
@@ -311,7 +414,7 @@ function UploadDocument() {
                         s_no: (page - 1) * limit + index + 1,
                         documentName: doc.document.document_name,
                         documentNumber: doc.document.document_number,
-                        jobNo: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || doc.job?.job_number || 'N/A',
+                        job_number: doc.group?.job_group?.[0]?.job?.job_number || 'N/A',
                         status: displayStatus,
                         approverStatus: approverStatus,
                         client_status: doc.client_status,
@@ -390,10 +493,13 @@ function UploadDocument() {
                             </div>
                         </div>
 
-                        <DataTable
+                        <UploaderTable
                             columns={columns}
                             fetchData={fetchDocumentsWrapper}
                             onExport={handleExport}
+                            columnFilters={columnFilters}
+                            onFilterChange={onFilterChange}
+                            refreshTrigger={refreshTrigger}
                         />
                     </div>
                 </div>
@@ -429,5 +535,201 @@ function UploadDocument() {
         </>
     )
 }
+
+// --- Local Component-Based Table implementation ---
+// Exact replica of @/components/shared/DataTable.jsx but with controlled columnFilters support
+const UploaderTable = ({
+    columns,
+    fetchData,
+    onExport,
+    columnFilters, // Controlled from parent for cascading reset
+    onFilterChange,
+    refreshTrigger
+}) => {
+    const [data, setData] = useState([]);
+    const [meta, setMeta] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+
+    const isFirstRender = useRef(true);
+
+    // Debounce the global search
+    useEffect(() => {
+        if (isFirstRender.current) return;
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Sync Data - Following DataTable.jsx pattern but with immediate prop-based columnFilters
+    useEffect(() => {
+        let cancelled = false;
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const result = await fetchData({
+                    page,
+                    limit: pageSize,
+                    search: debouncedSearch,
+                    columnFilters // Use prop directly for immediate response in cascading filter reset
+                });
+                if (!cancelled) {
+                    setData(result.data || []);
+                    setMeta(result.meta || {});
+                }
+            } catch (error) {
+                console.error("Failed to load table data", error);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        loadData();
+        return () => { cancelled = true; };
+    }, [page, pageSize, debouncedSearch, columnFilters, fetchData, refreshTrigger]);
+
+    const handleSearchChange = (e) => {
+        setSearch(e.target.value);
+    }
+
+    const handlePageChange = (newPage) => {
+        setPage(newPage)
+    }
+
+    const handlePageSizeChange = (val) => {
+        setPageSize(parseInt(val))
+        setPage(1)
+    }
+
+    const resolvePath = (object, path) => {
+        if (!path) return undefined;
+        return path.split('.').reduce((o, p) => (o ? o[p] : undefined), object);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <Input
+                    placeholder="Global Search..."
+                    value={search}
+                    onChange={handleSearchChange}
+                    className="max-w-sm"
+                />
+                <Button variant="outline" onClick={onExport}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export
+                </Button>
+            </div>
+
+            <div className="rounded-md border bg-card overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            {columns.map((col, idx) => (
+                                <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50 ${col.filterType ? 'min-w-[150px]' : ''}`}>
+                                    <div className="flex flex-col gap-1.5 py-1.5">
+                                        <span className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
+                                            {col.header}
+                                        </span>
+                                        {col.filterType === 'select' && (
+                                            <Select
+                                                value={(columnFilters[col.id || col.accessorKey] || "all").toString()}
+                                                onValueChange={(val) => onFilterChange({ [col.id || col.accessorKey]: val === 'all' ? "" : val })}
+                                            >
+                                                <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
+                                                    <SelectValue placeholder="All" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[300px]">
+                                                    <SelectItem value="all">All</SelectItem>
+                                                    {col.filterOptions?.map((opt, idx) => (
+                                                        <SelectItem key={`${opt.value}-${idx}`} value={opt.value.toString()}>
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                        {col.filterType === 'text' && (
+                                            <Input
+                                                placeholder={`Search ${col.header}...`}
+                                                className="h-7 text-xs font-normal w-full max-w-[150px]"
+                                                value={columnFilters[col.id || col.accessorKey] || ""}
+                                                onChange={(e) => onFilterChange({ [col.id || col.accessorKey]: e.target.value })}
+                                            />
+                                        )}
+                                    </div>
+                                </TableHead>
+                            ))}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Loading...</TableCell></TableRow>
+                        ) : data.length ? (
+                            data.map((row, rIdx) => (
+                                <TableRow key={rIdx}>
+                                    {columns.map((col, cIdx) => (
+                                        <TableCell key={cIdx} className={col.className}>
+                                            {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No results.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Rows per page</p>
+                    <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={pageSize} />
+                        </SelectTrigger>
+                        <SelectContent side="top">
+                            <SelectItem value="5">5</SelectItem>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                            <SelectItem value="50">50</SelectItem>
+                            <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground">
+                        Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(page - 1)}
+                            disabled={page <= 1 || loading}
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(page + 1)}
+                            disabled={page >= (meta.totalPages || 1) || loading}
+                        >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default UploadDocument

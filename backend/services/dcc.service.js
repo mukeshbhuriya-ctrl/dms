@@ -334,9 +334,12 @@ class DccService {
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
-        if (po_id) where.po_id = po_id.trim();
         if (customer_id) where.customer_id = customer_id.trim();
-        if (customer_location_id) where.customer_location_id = customer_location_id.trim();
+        if (po_id) {
+            where.job_group = {
+                some: { group: { group_document: { some: { po_id: po_id.trim() } } } }
+            };
+        }
 
         if (search) {
             where.OR = [
@@ -359,6 +362,85 @@ class DccService {
         ]);
 
         return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
+    }
+
+    /**
+     * Get unique filters (Customers, POs, Jobs) that actually have assigned documents
+     */
+    async getActiveFilters(company_id, user_id = null) {
+        const getFilters = async (uid = null) => {
+            const whereClause = { company_id };
+            if (uid) whereClause.user_id = uid;
+
+            // Fetch the documents with their core relations
+            const activeDocs = await prisma.group_document.findMany({
+                where: whereClause,
+                include: {
+                    customer: { select: { id: true, customer_name: true } },
+                    po: { select: { id: true, po_number: true, customer_id: true, customer_location: { select: { id: true, location_name: true } } } },
+                    group: {
+                        include: {
+                            job_group: {
+                                include: {
+                                    job: {
+                                        select: {
+                                            id: true,
+                                            job_number: true,
+                                            po_id: true,
+                                            customer_id: true,
+                                            customer_location: { select: { id: true, location_name: true } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Extract unique Customers
+            const customersMap = new Map();
+            // Extract unique POs
+            const posMap = new Map();
+            // Extract unique Jobs
+            const jobsMap = new Map();
+
+            activeDocs.forEach(doc => {
+                if (doc.customer) customersMap.set(doc.customer.id, doc.customer);
+                if (doc.po) posMap.set(doc.po.id, { 
+                    ...doc.po, 
+                    customer: doc.customer 
+                });
+                
+                // Jobs are nested in group -> job_group
+                doc.group?.job_group?.forEach(jg => {
+                    if (jg.job) {
+                        jobsMap.set(jg.job.id, {
+                            ...jg.job,
+                            po: doc.po,
+                            customer: doc.customer
+                        });
+                    }
+                });
+            });
+
+            return {
+                customers: Array.from(customersMap.values()),
+                pos: Array.from(posMap.values()),
+                jobs: Array.from(jobsMap.values())
+            };
+        };
+
+        // Try getting user-specific filters first
+        let result = await getFilters(user_id);
+
+        // Fallback: If uploader has no filters (maybe assigned via group only), 
+        // fallback to company-wide active filters so dropdowns aren't empty
+        if (user_id && result.customers.length === 0 && result.pos.length === 0 && result.jobs.length === 0) {
+            result = await getFilters(null);
+        }
+
+        return result;
     }
 
     /**

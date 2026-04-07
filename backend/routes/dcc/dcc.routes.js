@@ -19,6 +19,7 @@ router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumen
 router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);
 router.get('/document-preview/:versionId', authenticateUserOnly, DccController.previewDocument);
 router.get('/document-preview/:versionId/:filename', authenticateUserOnly, DccController.previewDocument);
+router.get('/get-active-filters', authenticateUserOnly, DccController.getActiveFilters);
 
 
 // Apply authentication middleware to all routes in this router

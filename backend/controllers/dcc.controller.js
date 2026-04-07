@@ -95,6 +95,26 @@ class DccController {
         }
     }
 
+    async getActiveFilters(req, res) {
+        try {
+            const { userid, role, company_id: companyId } = req.user;
+            
+            const roles = Array.isArray(role) ? role : [role];
+            const upperRoles = roles.map(r => r.toUpperCase());
+            
+            // Case-insensitive role check for robustness
+            const isPowerUser = upperRoles.includes('ADMIN') || upperRoles.includes('DCC');
+            const isUploader = upperRoles.includes('USER');
+            
+            const getOnlyForUser = !isPowerUser && isUploader ? userid : null;
+            
+            const result = await DccService.getActiveFilters(companyId, getOnlyForUser);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     async createDocumentMaster(req, res) {
         try {
             const result = await DccService.createDocumentMaster(req.user.company_id, req.body);
