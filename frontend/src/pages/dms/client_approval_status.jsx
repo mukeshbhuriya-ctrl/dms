@@ -1,7 +1,15 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 import {
     Sheet,
     SheetContent,
@@ -32,7 +40,11 @@ import {
     FileText,
     Calendar,
     User,
-    Package
+    Package,
+    Search,
+    ChevronLeft,
+    ChevronRight,
+    Download
 } from "lucide-react";
 import { dccService } from "../../services/dcc.service";
 import { DataTable } from "@/components/shared/DataTable";
@@ -47,6 +59,7 @@ const ClientApprovalStatus = () => {
     const [rowUpdates, setRowUpdates] = useState({}); // { td_id: { status: 'Approved', remarks: '', file: null, loading: false, submitted: false } }
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [statusFilter, setStatusFilter] = useState("all");
+    const [activeListFilters, setActiveListFilters] = useState({ customers: [], pos: [] });
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -56,15 +69,35 @@ const ClientApprovalStatus = () => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewUrl, setPreviewUrl] = useState("");
     const [activePreviewDoc, setActivePreviewDoc] = useState(null);
+    
+    // Fetch Restricted Metadata for filters
+    React.useEffect(() => {
+        const fetchFilters = async () => {
+            try {
+                const res = await dccService.getTransmissionFilters();
+                if (res.success) setActiveListFilters(res.data);
+            } catch (err) {
+                console.error("Error fetching approval filters:", err);
+            }
+        };
+        fetchFilters();
+    }, [refreshTrigger]);
 
     // Fetch Transmissions for main list
     const fetchTransmissionsWrapper = useCallback(async (params) => {
         try {
-            const res = await dccService.getTransmissions({ ...params, status_filter: statusFilter });
+            // params.columnFilters contains UI filters: { customer_name, po_number }
+            const queryParams = { 
+                ...params, 
+                status_filter: statusFilter,
+                customer_name_filter: params.columnFilters?.customer_name,
+                po_number_filter: params.columnFilters?.po_number
+            };
+            const res = await dccService.getTransmissions(queryParams);
             if (res.success) {
                 return {
-                    data: res.data.data || [],
-                    meta: res.data.meta || { total: 0, page: 1, limit: 10, totalPages: 0 }
+                    data: res.data || [],
+                    meta: res.meta || { total: 0, page: 1, limit: 10, totalPages: 0 }
                 };
             }
             return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
@@ -179,8 +212,18 @@ const ClientApprovalStatus = () => {
     // Columns for MAIN LIST
     const listColumns = useMemo(() => [
         { accessorKey: "transmission_number", header: "TRANSMISSION NO" },
-        { accessorKey: "po.po_number", header: "PO NUMBER" },
-        { accessorKey: "customer.customer_name", header: "CUSTOMER" },
+        { 
+            header: "CUSTOMER", 
+            accessorKey: "customer.customer_name",
+            id: "customer_name",
+            filterType: "select"
+        },
+        { 
+            header: "PO NUMBER", 
+            accessorKey: "po.po_number",
+            id: "po_number",
+            filterType: "select"
+        },
         { header: "DOCS", cell: (row) => <Badge variant="secondary" className="px-2">{row.documents?.length || 0}</Badge> },
         { header: "SENT DATE", cell: (row) => row.createdAt ? new Date(row.createdAt).toLocaleDateString() : '-' },
         {
@@ -480,12 +523,14 @@ const ClientApprovalStatus = () => {
                     )}
 
                     <div className="flex flex-col gap-4">
-                        <DataTable
+                        <TransmissionApprovalListTable
                             key={view}
                             columns={view === 'list' ? listColumns : reviewColumns}
                             fetchData={view === 'list' ? fetchTransmissionsWrapper : reviewFetchData}
                             onExport={() => exportApi.exportModule("transmission")}
                             refreshTrigger={refreshTrigger}
+                            customers={activeListFilters.customers}
+                            pos={activeListFilters.pos}
                         />
                     </div>
                 </div>
@@ -510,6 +555,215 @@ const ClientApprovalStatus = () => {
                     activePreviewDoc={activePreviewDoc}
                 />
         </>
+    );
+};
+
+// --- Specialized Local Replication of DataTable ---
+const TransmissionApprovalListTable = ({
+    columns,
+    fetchData,
+    onExport,
+    refreshTrigger,
+    customers = [],
+    pos = []
+}) => {
+    const [data, setData] = useState([]);
+    const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 1 });
+    const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [columnFilters, setColumnFilters] = useState({});
+    const [debouncedColumnFilters, setDebouncedColumnFilters] = useState({});
+    const isFirstRender = useRef(true);
+
+    // Sync search
+    React.useEffect(() => {
+        if (isFirstRender.current) return;
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+            setPage(1);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    // Sync filters
+    React.useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        const timer = setTimeout(() => {
+            setDebouncedColumnFilters(columnFilters);
+            setPage(1);
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [columnFilters]);
+
+    React.useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const result = await fetchData({
+                    page,
+                    limit: pageSize,
+                    search: debouncedSearch,
+                    columnFilters: debouncedColumnFilters
+                });
+                setData(result.data || []);
+                setMeta(result.meta || { total: 0, page: 1, totalPages: 1 });
+            } catch (error) {
+                console.error("Failed to load approval list data", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, [page, pageSize, debouncedSearch, debouncedColumnFilters, fetchData, refreshTrigger]);
+
+    const resolvePath = (object, path) => {
+        if (!path) return undefined;
+        return path.split('.').reduce((o, p) => (o ? o[p] : undefined), object);
+    };
+
+    // --- Intelligent Cascading Logic ---
+    const handleFilterChange = (id, value) => {
+        const newFilters = { ...columnFilters };
+        if (id === 'customer_name') {
+            newFilters.customer_name = value || "";
+            newFilters.po_number = ""; // Reset child
+        } else if (id === 'po_number') {
+            newFilters.po_number = value || "";
+            // Reverse Cascading for List View
+            if (value) {
+                const selectedPo = pos.find(p => p.po_number === value);
+                if (selectedPo && selectedPo.customer?.customer_name) {
+                    newFilters.customer_name = selectedPo.customer.customer_name;
+                }
+            }
+        } else {
+            newFilters[id] = value;
+        }
+        setColumnFilters(newFilters);
+    };
+
+    // --- Dynamic Dropdown Options ---
+    const dynamicClientOptions = useMemo(() => {
+        return customers.map(c => ({ label: c.customer_name, value: c.customer_name }));
+    }, [customers]);
+
+    const dynamicPoOptions = useMemo(() => {
+        let filteredPos = [...pos];
+        const currentCustomer = columnFilters.customer_name;
+        if (currentCustomer) {
+            filteredPos = filteredPos.filter(p => p.customer?.customer_name === currentCustomer);
+        }
+        const uniquePosNames = [...new Set(filteredPos.map(p => p.po_number).filter(Boolean))];
+        return uniquePosNames.map(p => ({ label: p, value: p }));
+    }, [pos, columnFilters.customer_name]);
+
+    return (
+        <div className="space-y-4 w-full">
+            <div className="flex items-center justify-between">
+                <Input
+                    placeholder="Global Search..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="max-w-sm"
+                />
+                <Button variant="outline" onClick={onExport} size="sm">
+                    <Download className="mr-2 h-4 w-4" /> Export
+                </Button>
+            </div>
+
+            <div className="rounded-md border bg-card overflow-x-auto shadow-sm">
+                <Table className="w-full">
+                    <TableHeader>
+                        <TableRow>
+                            {columns.map((col, idx) => {
+                                // Inject options
+                                let finalOptions = col.filterOptions;
+                                if (col.id === 'customer_name') finalOptions = dynamicClientOptions;
+                                if (col.id === 'po_number') finalOptions = dynamicPoOptions;
+
+                                return (
+                                    <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50 py-3`}>
+                                        <div className="flex flex-col gap-1.5 py-1.5">
+                                            <span className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">{col.header}</span>
+                                            {col.filterType === 'select' && (
+                                                <Select 
+                                                    value={columnFilters[col.id || col.accessorKey] || "all"} 
+                                                    onValueChange={(val) => handleFilterChange(col.id || col.accessorKey, val === 'all' ? "" : val)}
+                                                >
+                                                    <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
+                                                        <SelectValue placeholder="All" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">All</SelectItem>
+                                                        {finalOptions?.map(opt => (
+                                                            <SelectItem key={opt.value} value={opt.value}>
+                                                                {opt.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                            {col.filterType === 'text' && (
+                                                <Input 
+                                                    placeholder="Filter.."
+                                                    className="h-7 text-xs font-normal w-full max-w-[150px]"
+                                                    value={columnFilters[col.id || col.accessorKey] || ""}
+                                                    onChange={(e) => setColumnFilters(prev => ({ ...prev, [col.id || col.accessorKey]: e.target.value }))}
+                                                />
+                                            )}
+                                        </div>
+                                    </TableHead>
+                                );
+                            })}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Loading list...</TableCell></TableRow>
+                        ) : data.length ? (
+                            data.map((row, rIdx) => (
+                                <TableRow key={rIdx} className="hover:bg-slate-50/50 transition-colors">
+                                    {columns.map((col, cIdx) => (
+                                        <TableCell key={cIdx} className={col.className}>
+                                            {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                                        </TableCell>
+                                    ))}
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No transmissions found.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <div className="flex items-center justify-between py-6">
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Rows per page</p>
+                    <Select value={pageSize.toString()} onValueChange={(val) => {setPageSize(parseInt(val)); setPage(1);}}>
+                        <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={pageSize} /></SelectTrigger>
+                        <SelectContent side="top">
+                            {[5,10,20,50,100].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground font-medium">
+                        Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setPage(prev => prev - 1)} disabled={page <= 1 || loading} className="h-8"><ChevronLeft className="h-4 w-4" />Previous</Button>
+                        <Button variant="outline" size="sm" onClick={() => setPage(prev => prev + 1)} disabled={page >= (meta.totalPages || 1) || loading} className="h-8">Next<ChevronRight className="h-4 w-4" /></Button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
 
