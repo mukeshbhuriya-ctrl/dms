@@ -77,6 +77,7 @@ function AssignDocument() {
   const [users, setUsers] = useState([])
   const [allJobs, setAllJobs] = useState([]) // Master list of jobs (cached)
   const [allPos, setAllPos] = useState([])    // Master list of POs (cached)
+  const [activeFilters, setActiveFilters] = useState({ customers: [], pos: [], jobs: [] })
 
   // Refs for debouncing
   const searchTimeoutRef = useRef({}); // { [tempId_field]: setTimeoutId }
@@ -85,7 +86,8 @@ function AssignDocument() {
   // Master Data fetching (unified)
   useEffect(() => {
     fetchMasterData();
-  }, []);
+    fetchActiveFilters();
+  }, [refreshKey]);
 
   const fetchMasterData = async () => {
     try {
@@ -113,33 +115,46 @@ function AssignDocument() {
     }
   };
 
-  // cascading filter options
-  const clientFilterOptions = useMemo(() => {
-    return customers.map(c => ({ 
-      label: (c.customer_name || c.name || "Unknown").toString(), 
-      value: (c.customer_name || c.name || "").toString() 
-    })).filter(o => o.value !== "");
-  }, [customers]);
-
-  const poFilterOptions = useMemo(() => {
-    const selectedClient = columnFilters.customer_name;
-    let filteredPos = allPos;
-    if (selectedClient) {
-      filteredPos = allPos.filter(p => (p.customer?.customer_name || p.customer_name) === selectedClient);
+  const fetchActiveFilters = async () => {
+    try {
+      const res = await dccService.getActiveFilters();
+      if (res.success) setActiveFilters(res.data);
+    } catch (err) {
+      console.error("Error fetching active filters:", err);
     }
-    const uniquePosLabels = [...new Set(filteredPos.map(p => p.po_number || p.number))].filter(Boolean);
-    return uniquePosLabels.map(p => ({ label: p.toString(), value: p.toString() }));
-  }, [allPos, columnFilters.customer_name]);
+  };
 
-  const jobFilterOptions = useMemo(() => {
+  // --- Restrictive (Active) Filter Options for List View ---
+  const activeClientOptions = useMemo(() => {
+    return activeFilters.customers.map(c => ({ 
+      label: c.customer_name, 
+      value: c.customer_name 
+    }));
+  }, [activeFilters.customers]);
+
+  const activePoOptions = useMemo(() => {
+    const selectedClient = columnFilters.customer_name;
+    let filteredJobs = activeFilters.jobs;
+    if (selectedClient) {
+      filteredJobs = filteredJobs.filter(j => (j.customer?.customer_name || j.customer_name) === selectedClient);
+    }
+    const uniquePosLabels = [...new Set(filteredJobs.map(j => j.po?.po_number || j.po_number))].filter(Boolean);
+    return uniquePosLabels.map(p => ({ label: p.toString(), value: p.toString() }));
+  }, [activeFilters.jobs, columnFilters.customer_name]);
+
+  const activeJobOptions = useMemo(() => {
     const selectedPo = columnFilters.po_number;
-    let filteredJobs = allJobs;
+    const selectedClient = columnFilters.customer_name;
+    let filteredJobs = activeFilters.jobs;
+    if (selectedClient) {
+      filteredJobs = filteredJobs.filter(j => (j.customer?.customer_name || j.customer_name) === selectedClient);
+    }
     if (selectedPo) {
-      filteredJobs = allJobs.filter(j => (j.po?.po_number || j.po_number) === selectedPo);
+      filteredJobs = filteredJobs.filter(j => (j.po?.po_number || j.po_number) === selectedPo);
     }
     const uniqueJobsLabels = [...new Set(filteredJobs.map(j => j.job_number || j.number))].filter(Boolean);
     return uniqueJobsLabels.map(j => ({ label: j.toString(), value: j.toString() }));
-  }, [allJobs, columnFilters.po_number]);
+  }, [activeFilters.jobs, columnFilters.customer_name, columnFilters.po_number]);
 
   // --- List View Columns ---
   const columns = useMemo(() => [
@@ -152,7 +167,7 @@ function AssignDocument() {
       header: "Client",
       accessorKey: "customer.customer_name",
       filterType: "select",
-      filterOptions: clientFilterOptions,
+      filterOptions: activeClientOptions,
       cell: (row) => row.customer?.customer_name || "-",
     },
     {
@@ -160,7 +175,7 @@ function AssignDocument() {
       header: "PO",
       accessorKey: "po.po_number",
       filterType: "select",
-      filterOptions: poFilterOptions,
+      filterOptions: activePoOptions,
       cell: (row) => row.po?.po_number || "-",
     },
     {
@@ -168,7 +183,7 @@ function AssignDocument() {
       header: "Job Number",
       accessorKey: "job_number",
       filterType: "select",
-      filterOptions: jobFilterOptions,
+      filterOptions: activeJobOptions,
       cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
     },
     {
@@ -291,7 +306,7 @@ function AssignDocument() {
         );
       },
     },
-  ], [clientFilterOptions, poFilterOptions, jobFilterOptions])
+  ], [activeClientOptions, activePoOptions, activeJobOptions])
 
   // --- Fetch Data for List View ---
   const fetchAssignedDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
@@ -579,7 +594,7 @@ function AssignDocument() {
       
       // Reverse Cascading Auto-Select Logic
       if (newFilters.hasOwnProperty('job_number') && newFilters.job_number) {
-        const selectedJob = allJobs.find(j => (j.job_number || j.number || "").toString() === newFilters.job_number.toString());
+        const selectedJob = activeFilters.jobs.find(j => (j.job_number || j.number || "").toString() === newFilters.job_number.toString());
         if (selectedJob) {
           const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
           const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
@@ -587,7 +602,7 @@ function AssignDocument() {
           if (custName) updated.customer_name = custName;
         }
       } else if (newFilters.hasOwnProperty('po_number') && newFilters.po_number) {
-        const selectedPo = allPos.find(p => (p.po_number || p.number || "").toString() === newFilters.po_number.toString());
+        const selectedPo = activeFilters.pos.find(p => (p.po_number || p.number || "").toString() === newFilters.po_number.toString());
         if (selectedPo) {
           const custName = (selectedPo.customer?.customer_name || selectedPo.customer_name || "").toString();
           if (custName) updated.customer_name = custName;
