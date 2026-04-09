@@ -19,18 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Download,
-  CheckCircle,
-  XCircle,
-  History,
-  Eye,
-  FileText,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  Search
-} from "lucide-react"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 import { toast } from 'react-toastify';
@@ -50,6 +38,13 @@ import {
 } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Search, ArrowRight, Plus, ArrowLeft, Edit, Copy, History, ChevronLeft, ChevronRight, Download, X, ChevronDown, Check, CheckCircle, XCircle, Eye, FileText } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import { exportApi } from "@/api/export.api"
 
 function DocumentApprover() {
@@ -213,6 +208,7 @@ function DocumentApprover() {
       header: "Job Number",
       accessorKey: "job_number",
       filterType: "select",
+      isMulti: true,
       filterOptions: jobFilterOptions,
       cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
     },
@@ -480,36 +476,64 @@ function DocumentApprover() {
     setColumnFilters(prev => {
       const updated = { ...prev, ...newFilters };
       
-      // Reverse Cascading Auto-Select Logic
-      if (newFilters.hasOwnProperty('job_number') && newFilters.job_number) {
-        const selectedJob = allJobs.find(j => (j.job_number || j.number || "").toString() === newFilters.job_number.toString());
-        if (selectedJob) {
-          const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
-          const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
-          if (poNum) updated.po_number = poNum;
-          if (custName) updated.customer_name = custName;
+      // Handle Multi-select Array vs Single value mapping
+      Object.keys(newFilters).forEach(key => {
+        const val = newFilters[key];
+        if (Array.isArray(val) && val.length === 0) {
+          delete updated[key];
         }
-      } else if (newFilters.hasOwnProperty('po_number') && newFilters.po_number) {
-        const selectedPo = allPos.find(p => (p.po_number || p.number || "").toString() === newFilters.po_number.toString());
-        if (selectedPo) {
-          const custName = (selectedPo.customer?.customer_name || selectedPo.customer_name || "").toString();
-          if (custName) updated.customer_name = custName;
+      });
+
+      // Reverse Cascading Auto-Select Logic (Enhanced for Multi-select)
+      // Only auto-select parent if a SINGLE item is selected in child (to avoid ambiguity)
+      if (newFilters.hasOwnProperty('job_number')) {
+        const jobVal = newFilters.job_number;
+        const actualJobVal = Array.isArray(jobVal) ? (jobVal.length === 1 ? jobVal[0] : null) : jobVal;
+
+        if (actualJobVal) {
+            const selectedJob = allJobs.find(j => (j.job_number || j.number || "").toString() === actualJobVal.toString());
+            if (selectedJob) {
+              const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
+              const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
+              if (poNum) updated.po_number = poNum;
+              if (custName) updated.customer_name = custName;
+            }
+        }
+      } else if (newFilters.hasOwnProperty('po_number')) {
+        const poVal = newFilters.po_number;
+        const actualPoVal = Array.isArray(poVal) ? (poVal.length === 1 ? poVal[0] : null) : poVal;
+
+        if (actualPoVal) {
+          const selectedPo = allPos.find(p => (p.po_number || p.number || "").toString() === actualPoVal.toString());
+          if (selectedPo) {
+            const custName = (selectedPo.customer?.customer_name || selectedPo.customer_name || "").toString();
+            if (custName) updated.customer_name = custName;
+          }
         }
       }
 
       // Forward Cascading Reset Logic (only if manually changing a parent)
       if (newFilters.hasOwnProperty('customer_name')) {
-        // If we are MANUALLY changing customer (not as part of a reverse auto-select), reset children.
-        // Actually, the simpler check is: if the new customer doesn't match the current PO/Job's customer, reset them.
-        const poObj = allPos.find(p => (p.po_number || p.number || "").toString() === updated.po_number?.toString());
-        if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newFilters.customer_name.toString()) {
-            delete updated.po_number;
-            delete updated.job_number;
-        }
+         // If we are MANUALLY changing customer (not as part of a reverse auto-select), reset children.
+         const newCust = Array.isArray(newFilters.customer_name) ? newFilters.customer_name : [newFilters.customer_name];
+         if (newCust.length === 1 && newCust[0]) {
+            // Check current PO
+            const currentPo = Array.isArray(updated.po_number) ? updated.po_number[0] : updated.po_number;
+            const poObj = allPos.find(p => (p.po_number || p.number || "").toString() === (currentPo || "").toString());
+            if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newCust[0].toString()) {
+                delete updated.po_number;
+                delete updated.job_number;
+            }
+         }
       } else if (newFilters.hasOwnProperty('po_number')) {
-        const jobObj = allJobs.find(j => (j.job_number || j.number || "").toString() === updated.job_number?.toString());
-        if (jobObj && (jobObj.po?.po_number || jobObj.po_number || "").toString() !== newFilters.po_number.toString()) {
-            delete updated.job_number;
+        // Handle PO change
+        const newPo = Array.isArray(newFilters.po_number) ? newFilters.po_number : [newFilters.po_number];
+        if (newPo.length === 1 && newPo[0]) {
+            const currentJob = Array.isArray(updated.job_number) ? updated.job_number[0] : updated.job_number;
+            const jobObj = allJobs.find(j => (j.job_number || j.number || "").toString() === (currentJob || "").toString());
+            if (jobObj && (jobObj.po?.po_number || jobObj.po_number || "").toString() !== newPo[0].toString()) {
+                delete updated.job_number;
+            }
         }
       }
       
@@ -725,6 +749,14 @@ const ApproverTable = ({
                       {col.header}
                     </span>
                         {col.filterType === 'select' && (
+                          col.isMulti ? (
+                            <MultiSelectFilter
+                              options={col.filterOptions || []}
+                              value={columnFilters[col.id || col.accessorKey] || []}
+                              onChange={(val) => onFilterChange({ [col.id || col.accessorKey]: val })}
+                              placeholder={`All ${col.header}`}
+                            />
+                          ) : (
                           <Select
                             value={(columnFilters[col.id || col.accessorKey] || "all").toString()}
                             onValueChange={(val) => onFilterChange({ [col.id || col.accessorKey]: val === 'all' ? "" : val })}
@@ -741,6 +773,7 @@ const ApproverTable = ({
                               ))}
                             </SelectContent>
                           </Select>
+                          )
                         )}
                         {col.filterType === 'text' && (
                           <Input
@@ -819,6 +852,112 @@ const ApproverTable = ({
         </div>
       </div>
     </div>
+  );
+};
+
+const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
+  const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
+  const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOptions = options.filter(opt => 
+    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleOption = (val) => {
+    const newVal = selectedValues.includes(val)
+      ? selectedValues.filter(v => v !== val)
+      : [...selectedValues, val];
+    onChange(newVal);
+  };
+
+  const clearFilters = (e) => {
+    e.stopPropagation();
+    onChange([]);
+    setSearchTerm("");
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px] justify-between px-2 bg-white"
+        >
+          <div className="flex items-center gap-1 truncate mr-1">
+            {selectedValues.length === 0 ? (
+              <span className="text-slate-400">{placeholder}</span>
+            ) : (
+                <div className="flex items-center gap-1">
+                    <span className="font-medium text-primary bg-primary/10 px-1 rounded-sm text-[10px]">
+                        {selectedValues.length}
+                    </span>
+                    <span className="truncate">{options.find(o => o.value === selectedValues[0])?.label}</span>
+                    {selectedValues.length > 1 && <span className="text-slate-400">...</span>}
+                </div>
+            )}
+          </div>
+          <div className="flex items-center">
+            {selectedValues.length > 0 && (
+                <X 
+                  className="h-3 w-3 mr-1 text-slate-400 hover:text-slate-600 pointer-events-auto" 
+                  onClick={clearFilters}
+                />
+            )}
+            <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+          </div>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <div className="flex flex-col h-[300px]">
+          <div className="p-2 border-b">
+            <div className="relative">
+                <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
+                <Input
+                    placeholder="Search..."
+                    className="h-8 pl-8 text-xs shadow-none border-none focus-visible:ring-0"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
+            {filteredOptions.length === 0 ? (
+              <div className="p-2 text-xs text-center text-slate-500">No results.</div>
+            ) : (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt.value}
+                  className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-100 rounded-sm cursor-pointer"
+                  onClick={() => toggleOption(opt.value)}
+                >
+                  <Checkbox 
+                    checked={selectedValues.includes(opt.value)}
+                    onCheckedChange={() => toggleOption(opt.value)}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="text-xs truncate flex-1">{opt.label}</span>
+                  {selectedValues.includes(opt.value) && <Check className="h-3 w-3 text-primary shrink-0" />}
+                </div>
+              ))
+            )}
+          </div>
+          {selectedValues.length > 0 && (
+            <div className="p-2 border-t mt-auto">
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="w-full h-7 text-[10px] text-slate-500 hover:text-red-600"
+                    onClick={clearFilters}
+                >
+                    Clear Selections
+                </Button>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
 

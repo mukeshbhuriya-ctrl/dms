@@ -600,17 +600,24 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters
+        // Explicit Column Filters (Robust Array/String handling for Multi-select)
+        const processFilter = (val) => {
+            if (!val) return null;
+            if (Array.isArray(val)) return { in: val };
+            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+            return { contains: val, mode: 'insensitive' };
+        };
+
         if (customer_name_filter) {
-            where.customer = { customer_name: { contains: customer_name_filter, mode: 'insensitive' } };
+            where.customer = { customer_name: processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: { contains: po_number_filter, mode: 'insensitive' } };
+            where.po = { po_number: processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: { contains: job_number_filter, mode: 'insensitive' } } }
+                    some: { job: { job_number: processFilter(job_number_filter) } }
                 }
             };
         }
@@ -716,17 +723,24 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters
+        // Explicit Column Filters (Robust Array/String handling for Multi-select)
+        const processFilter = (val) => {
+            if (!val) return null;
+            if (Array.isArray(val)) return { in: val };
+            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+            return { contains: val, mode: 'insensitive' };
+        };
+
         if (customer_name_filter) {
-            where.customer = { customer_name: { contains: customer_name_filter, mode: 'insensitive' } };
+            where.customer = { customer_name: processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: { contains: po_number_filter, mode: 'insensitive' } };
+            where.po = { po_number: processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: { contains: job_number_filter, mode: 'insensitive' } } }
+                    some: { job: { job_number: processFilter(job_number_filter) } }
                 }
             };
         }
@@ -915,19 +929,36 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters
+        // Explicit Column Filters (Robust Array/String handling for Multi-select)
+        const processFilter = (val) => {
+            if (!val) return null;
+            if (Array.isArray(val)) return { in: val };
+            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+            return { contains: val, mode: 'insensitive' };
+        };
+
         if (customer_name_filter) {
-            where.customer = { customer_name: { contains: customer_name_filter, mode: 'insensitive' } };
+            where.customer = { customer_name: processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: { contains: po_number_filter, mode: 'insensitive' } };
+            where.po = { po_number: processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: { contains: job_number_filter, mode: 'insensitive' } } }
+                    some: { job: { job_number: processFilter(job_number_filter) } }
                 }
             };
+        }
+        if (approver_status_filter) {
+            const filterVal = approver_status_filter.toLowerCase();
+            if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
+            } else if (filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else {
+                where.status = { contains: approver_status_filter, mode: 'insensitive' };
+            }
         }
 
         if (customer_id) where.customer_id = customer_id.trim();
