@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { toast } from "react-toastify"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -53,21 +54,18 @@ function ListView({ onCreateClick }) {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
-  const [error, setError] = useState("")
-
   const handleViewClick = async (id) => {
     setIsViewLoading(true)
-    setError("")
     try {
       const res = await apiClient.get(`/api/mhc/${id}`)
       if (res.success) {
         setSelectedRecord(res.data)
         setIsViewOpen(true)
       } else {
-        setError("Failed to fetch details")
+        toast.warn("Failed to fetch details")
       }
     } catch (err) {
-      setError("Error fetching details")
+      toast.error("Error fetching details")
       console.error(err)
     } finally {
       setIsViewLoading(false)
@@ -131,11 +129,6 @@ function ListView({ onCreateClick }) {
         </Button>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
 
       <DataTable 
         columns={columns} 
@@ -300,7 +293,6 @@ function CreateView({ onBack, onSuccess }) {
 
   // Submit state
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState("")
 
   useEffect(() => {
     apiClient.get("/api/common/jobs?limit=200")
@@ -394,8 +386,10 @@ function CreateView({ onBack, onSuccess }) {
 
   // Submit
   const handleSubmit = async () => {
-    setError("")
-    if (!selectedJobId) { setError("Please select a Job / MSN."); return }
+    if (!selectedJobId) { 
+      toast.warn("Please select a Job / MSN.")
+      return 
+    }
 
     const items = tableRows.map((row, idx) => ({
       sort_order: idx,
@@ -426,7 +420,7 @@ function CreateView({ onBack, onSuccess }) {
       await apiClient.post("/api/mhc/create", payload)
       onSuccess()
     } catch (err) {
-      setError(err.message || "Failed to create Material Heat Chart.")
+      toast.error(err.message || "Failed to create Material Heat Chart.")
     } finally {
       setSubmitting(false)
     }
@@ -446,11 +440,6 @@ function CreateView({ onBack, onSuccess }) {
         </Button>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
 
       {/* ── Section 1: Basic Information ── */}
       <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
@@ -717,12 +706,10 @@ function CreateView({ onBack, onSuccess }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function MaterialHeatChart() {
   const [view, setView] = useState("list") // "list" | "create"
-  const [successMsg, setSuccessMsg] = useState("")
 
   const handleSuccess = () => {
-    setSuccessMsg("Material Heat Chart created successfully!")
+    toast.success("Material Heat Chart created successfully!")
     setView("list")
-    setTimeout(() => setSuccessMsg(""), 4000)
   }
 
   return (
@@ -732,12 +719,6 @@ function MaterialHeatChart() {
         </header>
         <main className="flex-1 overflow-auto p-6 flex flex-col">
           <div className="flex-1 flex flex-col w-full">
-            {successMsg && (
-              <div className="mb-4 rounded-md border border-green-500 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                {successMsg}
-              </div>
-            )}
 
             {view === "list" ? (
               <ListView onCreateClick={() => setView("create")} />
