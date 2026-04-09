@@ -262,64 +262,67 @@ function ListView({ onCreateClick, onEditClick }) {
                             </div>
 
                             {/* Section 3: Assignment & Status */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white">
+                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
                                 <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold text-sm">Assignment & Status</h3>
+                                    <h3 className="font-bold">Assignment & Status</h3>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-5 gap-x-4 p-6 text-sm">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-6 gap-x-4 p-6">
                                     {[
                                         ["MEDIATOR", selectedRecord.mediator],
                                         ["ESTIMATOR", selectedRecord.estimator],
                                         ["SHRENO STATUS", selectedRecord.shreno_status],
                                         ["CLIENT STATUS", selectedRecord.client_status],
+                                        ["PO NO.", selectedRecord.po_no],
+                                        ["PO DATE", selectedRecord.po_date ? new Date(selectedRecord.po_date).toLocaleDateString("en-GB") : "-"],
+                                        ["PO VALUE", selectedRecord.po_value ? `₹${selectedRecord.po_value.toLocaleString("en-IN")}` : "-"],
+                                        ["PO REMARKS", selectedRecord.po_remark],
                                         ["MADE BY", selectedRecord.made_by],
                                         ["REMARK", selectedRecord.remark],
                                     ].map(([label, value], idx) => (
-                                        <div key={idx} className="flex flex-col space-y-1">
-                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
+                                        <div key={idx} className={`flex flex-col space-y-1 ${label === "REMARK" || label === "PO REMARKS" ? "md:col-span-2" : ""}`}>
+                                            <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">{label}</span>
                                             <span className="font-medium">{(label === "SHRENO STATUS" || label === "CLIENT STATUS") ? <StatusBadge status={value} /> : (value || "-")}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Section 4: Enquiry Details Table */}
-                            <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-                                <h3 className="px-6 py-3 font-bold text-sm bg-muted/40 border-b border-border">Enquiry Details</h3>
-                                <table className="w-full border-collapse text-xs text-left">
-                                    <thead>
-                                        <tr className="bg-[#f4f4f5] border-b border-border">
-                                            {["SR NO.", "ENQ. DESCRIPTION", "EQUIP. QTY", "REV.", "TOTAL VALUE", "PO NO.", "PO DATE", "PO VALUE", "REMARKS"].map((h) => (
-                                                <th key={h} className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider last:border-r-0">
-                                                    {h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {!selectedRecord.items?.length ? (
-                                            <tr>
-                                                <td colSpan={9} className="p-4 text-center text-muted-foreground">
-                                                    No enquiry items added.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            selectedRecord.items.map((row) => (
-                                                <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                                                    <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.enq_description || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-center">{row.equip_qty || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-center">{row.rev || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.total_value?.toLocaleString("en-IN") || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.po_no || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.po_date ? new Date(row.po_date).toLocaleDateString("en-GB") : "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.po_value?.toLocaleString("en-IN") || "-"}</td>
-                                                    <td className="p-3 align-top">{row.remarks || "-"}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                            {/* Section 4: Enquiry Details */}
+                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
+                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
+                                    <h3 className="font-bold">Enquiry Details</h3>
+                                </div>
+                                <div className="p-6 space-y-6">
+                                    {selectedRecord.items?.length > 0 ? (
+                                        <div className="space-y-6">
+                                            <div className="flex flex-col space-y-2">
+                                                <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">ENQ. DESCRIPTION</span>
+                                                <p className="font-medium text-sm whitespace-pre-wrap bg-muted/20 p-4 rounded-lg border border-border/50">
+                                                    {selectedRecord.items[0].enq_description || "No description provided."}
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">EQUIP. QTY</span>
+                                                    <span className="font-medium text-base">{selectedRecord.items[0].equip_qty || "-"}</span>
+                                                </div>
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">REV.</span>
+                                                    <span className="font-medium text-base">{selectedRecord.items[0].rev || "-"}</span>
+                                                </div>
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">TOTAL VALUE</span>
+                                                    <span className="font-medium text-base">
+                                                        {selectedRecord.items[0].total_value ? `₹${selectedRecord.items[0].total_value.toLocaleString("en-IN")}` : "-"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-center text-muted-foreground py-4">No enquiry items found.</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
