@@ -249,7 +249,7 @@ function ListView({ onCreateClick, onEditClick }) {
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-4 p-6 text-sm">
                                     {[
-                                        ["TARGET DATE (+5 WORKING DAYS)", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
+                                        ["CLIENT TARGET DATE", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
                                         ["ACTUAL SUBMISSION DATE", selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"],
                                         ["TIME TAKEN FOR SUBMISSION", selectedRecord.time_taken],
                                     ].map(([label, value], idx) => (
@@ -379,6 +379,7 @@ function CreateView({ onBack, editId = null }) {
         
         return {
             quotationNo: "",
+            quotationCategory: "Core",
             clientRef: "",
             rfqType: "",
             clientName: "",
@@ -408,7 +409,7 @@ function CreateView({ onBack, editId = null }) {
 
         const fetchNextNo = async () => {
             try {
-                const res = await apiClient.get("/api/rfq/next-quotation-no")
+                const res = await apiClient.get(`/api/rfq/next-quotation-no?type=${formData.quotationCategory}`)
                 if (res.success && res.data) {
                     setFormData((prev) => ({ ...prev, quotationNo: res.data.next_quotation_no }))
                 }
@@ -417,7 +418,7 @@ function CreateView({ onBack, editId = null }) {
             }
         }
         fetchNextNo()
-    }, [editId])
+    }, [editId, formData.quotationCategory])
 
     // Fetch record data when editing
     useEffect(() => {
@@ -431,6 +432,7 @@ function CreateView({ onBack, editId = null }) {
                     const r = res.data
                     setFormData({
                         quotationNo: r.quotation_no || "",
+                        quotationCategory: r.quotation_category || "Core",
                         clientRef: r.client_ref || "",
                         rfqType: r.rfq_type || "",
                         clientName: r.client_name || "",
@@ -478,18 +480,6 @@ function CreateView({ onBack, editId = null }) {
         setFormData((prev) => {
             const updated = { ...prev, [name]: value }
 
-            // Auto-calculate Target Date (+5 business days) when Enq. Date changes
-            if (name === "enqDate" && value) {
-                const enqDate = new Date(value)
-                let count = 0
-                const target = new Date(enqDate)
-                while (count < 5) {
-                    target.setDate(target.getDate() + 1)
-                    const day = target.getDay()
-                    if (day !== 0 && day !== 6) count++
-                }
-                updated.targetDate = target.toISOString().split("T")[0]
-            }
 
             // Auto-calculate Time Taken when Actual Submission Date changes
             if ((name === "actualSubmissionDate" || name === "enqDate") && updated.enqDate && updated.actualSubmissionDate) {
@@ -535,6 +525,7 @@ function CreateView({ onBack, editId = null }) {
             const payload = {
                 client_ref: formData.clientRef,
                 rfq_type: formData.rfqType,
+                quotation_category: formData.quotationCategory,
                 client_name: formData.clientName,
                 consultancy: formData.consultancy,
                 contact_person: formData.contactPerson,
@@ -609,6 +600,23 @@ function CreateView({ onBack, editId = null }) {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-2">
+                            <Label htmlFor="quotationCategory">Quotation Type</Label>
+                            <Select 
+                                value={formData.quotationCategory} 
+                                onValueChange={(v) => handleSelectChange("quotationCategory", v)}
+                                disabled={!!editId}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Core">Core - MKT</SelectItem>
+                                    <SelectItem value="Spare">Spare - SPR</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="quotationNo">Quotation No.</Label>
                             <Input
                                 id="quotationNo"
@@ -649,16 +657,14 @@ function CreateView({ onBack, editId = null }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="clientName">Client Name</Label>
-                            <Select value={formData.clientName} onValueChange={(v) => handleSelectChange("clientName", v)}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Client" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dropdownOptions.clientNames.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Input
+                                id="clientName"
+                                name="clientName"
+                                type="text"
+                                value={formData.clientName}
+                                onChange={handleInputChange}
+                                placeholder="Enter Client Name"
+                            />
                         </div>
 
                         <div className="space-y-2">
@@ -732,14 +738,13 @@ function CreateView({ onBack, editId = null }) {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="targetDate">Target Date (+5 Working Days)</Label>
+                            <Label htmlFor="targetDate">Client Target Date</Label>
                             <Input
                                 id="targetDate"
                                 name="targetDate"
                                 type="date"
                                 value={formData.targetDate}
-                                readOnly
-                                className="bg-muted"
+                                onChange={handleInputChange}
                             />
                         </div>
 

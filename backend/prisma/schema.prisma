@@ -893,6 +893,8 @@ model rfq_register {
   company_id             String
   serial_no              Int
   quotation_no           String
+  quotation_category     String    @default("Core")
+  type_serial_no         Int       @default(1)
   client_ref             String?
   rfq_type               String?
   client_name            String?

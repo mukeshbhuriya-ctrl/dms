@@ -18,7 +18,8 @@ class RfqController {
 
     async getNextQuotationNo(req, res) {
         try {
-            const result = await RfqService.getNextQuotationNo(req.user.company_id);
+            const { type = 'Core' } = req.query;
+            const result = await RfqService.getNextQuotationNo(req.user.company_id, type);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             console.error('RFQ getNextQuotationNo error:', error);

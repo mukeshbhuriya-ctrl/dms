@@ -53,20 +53,55 @@ class RfqService {
     }
 
     /**
+     * Get financial year suffix (e.g., 2026-27 or 2024-25)
+     */
+    getFinancialYearSuffix() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth() + 1; // 1-indexed
+
+        let startYear, endYearSuffix;
+        if (month >= 4) { // April onwards
+            startYear = year;
+            endYearSuffix = (year + 1) % 100;
+        } else {
+            startYear = year - 1;
+            endYearSuffix = year % 100;
+        }
+
+        return `${startYear}-${String(endYearSuffix).padStart(2, '0')}`;
+    }
+
+    /**
+     * Get category prefix (MKT for Core, SPR for Spare)
+     */
+    getCategoryPrefix(category) {
+        return category === 'Spare' ? 'SPR' : 'MKT';
+    }
+
+    /**
      * Get the next quotation number (preview before creating)
      */
-    async getNextQuotationNo(company_id) {
+    async getNextQuotationNo(company_id, category = 'Core') {
+        const fySuffix = this.getFinancialYearSuffix();
+        const prefix = this.getCategoryPrefix(category);
+
+        // Find the last record for this category in the current financial year
         const lastRfq = await prisma.rfq_register.findFirst({
-            where: { company_id },
-            orderBy: { serial_no: 'desc' },
-            select: { serial_no: true },
+            where: {
+                company_id,
+                quotation_category: category,
+                quotation_no: { contains: `/${fySuffix}` }
+            },
+            orderBy: { type_serial_no: 'desc' },
+            select: { type_serial_no: true },
         });
 
-        const nextSerialNo = lastRfq ? lastRfq.serial_no + 1 : 1;
-        const paddedSerial = String(nextSerialNo).padStart(3, '0');
-        const quotation_no = `SHR/QTN/${paddedSerial}`;
+        const nextTypeSerialNo = lastRfq ? lastRfq.type_serial_no + 1 : 1;
+        const paddedSerial = String(nextTypeSerialNo).padStart(3, '0');
+        const quotation_no = `SHR/${prefix}/${paddedSerial}/${fySuffix}`;
 
-        return { next_quotation_no: quotation_no, next_serial_no: nextSerialNo };
+        return { next_quotation_no: quotation_no, next_serial_no: nextTypeSerialNo };
     }
 
     /**
@@ -94,23 +129,41 @@ class RfqService {
         } = body;
 
         const rfq = await prisma.$transaction(async (tx) => {
-            // Calculate next serial_no
-            const lastRfq = await tx.rfq_register.findFirst({
+            // 1. Calculate next global serial_no
+            const lastGlobalRfq = await tx.rfq_register.findFirst({
                 where: { company_id },
                 orderBy: { serial_no: 'desc' },
                 select: { serial_no: true },
             });
+            const nextGlobalSerialNo = lastGlobalRfq ? lastGlobalRfq.serial_no + 1 : 1;
 
-            const nextSerialNo = lastRfq ? lastRfq.serial_no + 1 : 1;
-            const paddedSerial = String(nextSerialNo).padStart(3, '0');
-            const quotation_no = `SHR/QTN/${paddedSerial}`;
+            // 2. Calculate next type-specific serial_no and quotation_no
+            const quotation_category = body.quotation_category || 'Core';
+            const fySuffix = this.getFinancialYearSuffix();
+            const prefix = this.getCategoryPrefix(quotation_category);
 
-            // Create header record
+            const lastTypeRfq = await tx.rfq_register.findFirst({
+                where: {
+                    company_id,
+                    quotation_category: quotation_category,
+                    quotation_no: { contains: `/${fySuffix}` }
+                },
+                orderBy: { type_serial_no: 'desc' },
+                select: { type_serial_no: true },
+            });
+
+            const nextTypeSerialNo = lastTypeRfq ? lastTypeRfq.type_serial_no + 1 : 1;
+            const paddedSerial = String(nextTypeSerialNo).padStart(3, '0');
+            const quotation_no = `SHR/${prefix}/${paddedSerial}/${fySuffix}`;
+
+            // 3. Create header record
             const header = await tx.rfq_register.create({
                 data: {
                     company_id,
-                    serial_no: nextSerialNo,
+                    serial_no: nextGlobalSerialNo,
+                    type_serial_no: nextTypeSerialNo,
                     quotation_no,
+                    quotation_category,
                     client_ref: client_ref || null,
                     rfq_type: rfq_type || null,
                     client_name: client_name || null,
