@@ -35,7 +35,7 @@ class InspectionReportService {
                     equipment_name: true,
                     vendor_dish_end_number: true,
                     status: true,
-                    quality_engineer_id: true,
+                    production_engineer_id: true,
                     createdAt: true
                 }
             }),
@@ -64,7 +64,7 @@ class InspectionReportService {
                     orderBy: { sr_no: 'asc' }
                 },
                 instruments: true,
-                quality_engineer: {
+                production_engineer: {
                     select: { id: true, name: true, email: true }
                 }
             }
@@ -106,7 +106,7 @@ class InspectionReportService {
             code,
             drg_no,
             insp_agency,
-            quality_engineer_id,
+            production_engineer_id,
             vendor_dish_end_number,
             items, // array of { sr_no, description, as_per_drg, actual, remarks }
             instruments // array of { name, id_no, due_date }
@@ -140,7 +140,7 @@ class InspectionReportService {
                     code,
                     drg_no,
                     insp_agency,
-                    quality_engineer_id: quality_engineer_id || null,
+                    production_engineer_id: production_engineer_id || null,
                     vendor_dish_end_number: vendor_dish_end_number || null,
                     items: {
                         create: items.map(item => ({
@@ -180,7 +180,7 @@ class InspectionReportService {
             code,
             drg_no,
             insp_agency,
-            quality_engineer_id,
+            production_engineer_id,
             vendor_dish_end_number,
             items, // array of { sr_no, description, as_per_drg, actual, remarks }
             instruments // array of { name, id_no, due_date }
@@ -211,7 +211,7 @@ class InspectionReportService {
                     code,
                     drg_no,
                     insp_agency,
-                    quality_engineer_id: quality_engineer_id || null,
+                    production_engineer_id: production_engineer_id || null,
                     vendor_dish_end_number: vendor_dish_end_number || null,
                     items: {
                         create: items.map(item => ({

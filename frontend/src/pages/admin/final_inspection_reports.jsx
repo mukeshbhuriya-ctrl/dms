@@ -150,9 +150,11 @@ function ListView({ onCreateClick, onEditClick }) {
       id: "actions",
       header: "Actions",
       cell: (row) => {
-        const isAssignedQE = row.quality_engineer_id === user?.id
-        const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER")
-        const canReview = (isQE || isAssignedQE) && row.status !== "Approved" && row.status !== "Rejected"
+        const isAssignedPE = row.production_engineer_id === user?.id
+        const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC")
+        const status = row.status?.trim()?.toLowerCase()
+        // Only non-QC users who are assigned can review, or Admin
+        const canReview = !isQE && (isAssignedPE || isAdmin) && status !== "approved" && status !== "rejected"
 
         const handleDownload = async (id) => {
           try {
@@ -178,15 +180,47 @@ function ListView({ onCreateClick, onEditClick }) {
               title="View">
               <Eye className="h-4 w-4 mr-2" /> View
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEditClick(row.id)}
-              disabled={row.status?.trim()?.toLowerCase() === "approved"}
-              title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
-              <Edit className="h-4 w-4 mr-2" /> Edit
-            </Button>
-            {row.status === "Approved" && (
+            {isAdmin || isQE ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditClick(row.id)}
+                disabled={row.status?.trim()?.toLowerCase() === "approved"}
+                title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
+                <Edit className="h-4 w-4 mr-2" /> Edit
+              </Button>
+            ) : (
+              row.status?.trim()?.toLowerCase() !== "approved" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditClick(row.id)}
+                  title="Review">
+                  <CheckCircle className="h-4 w-4 mr-2" /> Review
+                </Button>
+              )
+            )}
+            {canReview && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
+                  onClick={() => handleReviewClick(row, "Approved")}
+                  title="Approve">
+                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
+                  onClick={() => handleReviewClick(row, "Rejected")}
+                  title="Reject">
+                  <XCircle className="h-4 w-4 mr-2" /> Reject
+                </Button>
+              </>
+            )}
+            {status === "approved" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -223,10 +257,10 @@ function ListView({ onCreateClick, onEditClick }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Final Inspection Reports</h1>
-          <p className="text-muted-foreground">View and manage all final inspection reports.</p>
+          <h1 className="text-3xl font-bold mb-1">Final Dimension Inspection Reports</h1>
+          <p className="text-muted-foreground">View and manage all Final Dimension Inspection Reports.</p>
         </div>
-        {(isAdmin || !isQE) && (
+        {(isAdmin || isQE) && (
           <Button onClick={onCreateClick}>
             <Plus className="h-4 w-4 mr-2" />
             Create
@@ -240,9 +274,9 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       )}
 
-      <DataTable 
-        columns={columns} 
-        fetchData={fetchData} 
+      <DataTable
+        columns={columns}
+        fetchData={fetchData}
         onExport={handleExport}
       />
 
@@ -330,8 +364,8 @@ function ListView({ onCreateClick, onEditClick }) {
                   <span className="font-medium">{selectedRecord.report_no || "-"}</span>
                 </div>
                 <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">QUALITY ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.quality_engineer?.name || "-"}</span>
+                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PRODUCTION ENGINEER:</span>
+                  <span className="font-medium">{selectedRecord.production_engineer?.name || "-"}</span>
                 </div>
               </div>
 
@@ -489,6 +523,18 @@ function ListView({ onCreateClick, onEditClick }) {
 
 // ─── Create / Edit View (Original Legacy Visual UI) ──────────────────────────────────────────────────────
 function CreateView({ onBack, onSuccess, editId = null }) {
+
+  const normalizeUser = (user) => {
+    const id = String(user?.id || "")
+    const name = String(user?.name || user?.full_name || user?.email || "User")
+    const empid = String(user?.empid || user?.employeeId || "")
+    return {
+      id,
+      name,
+      empid,
+      displayName: empid ? `${name} (${empid})` : `${name}`,
+    }
+  }
   // Get today's date
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -511,7 +557,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     project_id: "",
   })
 
-  const [qualityEngineer, setQualityEngineer] = useState("")
+  const [productionEngineer, setProductionEngineer] = useState("")
 
   // First table rows (DESCRIPTION, REQUIRED, ACTUAL, REMARKS)
   const initialTable1Rows = [{ id: 1, srNo: 1, description: "", required: "", actual: "", remarks: "" }]
@@ -530,6 +576,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     { id: 1, text: "All dimensions are in mm unless otherwise specified." },
     { id: 2, text: "All other dimensions are checked as per approved drawing and found satisfactory." },
     { id: 3, text: "Abbreviation: TL: Tan Line, CL: Center Line, GF: Gasket face, FF: Flange face, VOD: Vessel Outside Diameter, VCL: Vessel center line, OD: Outside diameter, TTL : Top tan line, BTL: Bottom tan line, QTY.: Quantity, I/S: Inside, O/S: Outside, NCL:Nozzle center line, BWL: Bottom Weld line, TWL: Top weld line, APD: As Per Drawing" },
+    { id: 4, text: "Visual inspection was carried out from both the inside and outside, and the condition was found to be satisfactory." },
   ]
   const [remarks, setRemarks] = useState(initialRemarks)
 
@@ -538,7 +585,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
   // API State
   const [msnOptions, setMsnOptions] = useState([])
-  const [qualityEngineers, setQualityEngineers] = useState([])
+  const [productionEngineers, setProductionEngineers] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [userRole, setUserRole] = useState("")
 
@@ -550,9 +597,9 @@ function CreateView({ onBack, onSuccess, editId = null }) {
         const parsed = JSON.parse(authData)
         const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
         const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r)
-        if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER', 'ADMIN'].includes(r))) {
+        if (roleNames.some(r => ['QC_ENGINEER', 'ADMIN'].includes(r))) {
           setUserRole('QC')
-        } else {
+        } else if (roleNames.some(r => ['PRODUCTION_ENGINEER'].includes(r))) {
           setUserRole('PROD')
         }
       } catch (e) {
@@ -567,9 +614,9 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       .then((res) => { if (res.success) setMsnOptions(res.data) })
       .catch((err) => console.error("Failed to fetch jobs:", err))
 
-    apiClient.get("/api/common/qc-engineers")
-      .then((res) => { if (res.success) setQualityEngineers(res.data) })
-      .catch((err) => console.error("Failed to fetch QC engineers:", err))
+    apiClient.get("/api/users/by-role/PRODUCTION_ENGINEER")
+      .then((res) => { if (res.success) setProductionEngineers(res.data) })
+      .catch((err) => console.error("Failed to fetch production engineers:", err))
   }, [])
 
   // Auto-fill for Edit View
@@ -592,7 +639,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
               project_id: data.project_id || "",
             })
 
-            setQualityEngineer(data.quality_engineer_id || "")
+            setProductionEngineer(data.production_engineer_id || "")
 
             if (data.details && data.details.length > 0) {
               setTable1Rows(data.details.map((item, i) => ({
@@ -720,11 +767,34 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
   // Form Submission
   const handleSubmit = async (newStatus = "draft") => {
-    if (!msn) return toast.error("Please select an MSN")
+    console.log("Submitting Final Inspection Report with status:", newStatus);
+    if (!msn) {
+      toast.error("Please select an MSN");
+      return;
+    }
+
+    // Try to find job number from options, fallback to parsing from report No if available
+    const selectedJob = msnOptions.find(opt => String(opt.id) === String(msn));
+    const msnJobNumber = selectedJob?.job_number || (reportNo !== "Auto-generated on Submit" ? reportNo.split('/')[1] : "");
+
+    // Validation for Approval
+    if (newStatus === "approved") {
+      const missingNozzleData = table2Rows.some(r => !r.elevationActual?.trim() || !r.projectionActual?.trim());
+      if (missingNozzleData) {
+        toast.error("Please fill all Elevation and Projection Actual measurements in Nozzle Details.");
+        return;
+      }
+
+      const missingPartData = table3Rows.some(r => !r.elevationActual?.trim() || !r.projectionActual?.trim());
+      if (missingPartData) {
+        toast.error("Please fill all Elevation and Projection Actual measurements in Part Details.");
+        return;
+      }
+    }
 
     const payload = {
       job_id: msn,
-      msn: msnOptions.find(opt => opt.id === msn)?.job_number || "",
+      msn: msnJobNumber,
       client,
       po_no: poNo,
       equipment_name: equipment,
@@ -732,51 +802,80 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       project_id: formData.project_id,
       tag_no: formData.tagNo,
       drg_no: formData.drgNo,
-      quality_engineer_id: qualityEngineer,
+      production_engineer_id: productionEngineer,
       status: newStatus,
-      details: table1Rows.filter(r => r.description || r.required || r.actual).map(r => ({
-        sr_no: parseInt(r.srNo, 10), description: r.description, required: r.required, actual: r.actual, remarks: r.remarks
+      details: table1Rows.filter(r => r.description?.trim() || r.required?.trim() || r.actual?.trim()).map(r => ({
+        sr_no: parseInt(r.srNo, 10),
+        description: r.description,
+        required: r.required,
+        actual: r.actual,
+        remarks: r.remarks
       })),
-      nozzles: table2Rows.filter(r => r.nozzleMark || r.orientation || r.size).map(r => ({
-        sr_no: parseInt(r.srNo, 10), nozzle_mark: r.nozzleMark, orientation: r.orientation, size: r.size, location: r.location, elevation_approved: r.elevationApproved, projection_approved: r.projectionApproved, elevation_actual: r.elevationActual, projection_actual: r.projectionActual
+      nozzles: table2Rows.filter(r => r.nozzleMark?.trim() || r.orientation?.trim() || r.size?.trim()).map(r => ({
+        sr_no: parseInt(r.srNo, 10),
+        nozzle_mark: r.nozzleMark,
+        orientation: r.orientation,
+        size: r.size,
+        location: r.location,
+        elevation_approved: r.elevationApproved,
+        projection_approved: r.projectionApproved,
+        elevation_actual: r.elevationActual,
+        projection_actual: r.projectionActual
       })),
-      parts: table3Rows.filter(r => r.partNo || r.description).map(r => ({
-        sr_no: parseInt(r.srNo, 10), part_no: r.partNo, description: r.description, orientation_approved: r.orientationApproved, elevation_approved: r.elevationApproved, projection_approved: r.projectionApproved, elevation_actual: r.elevationActual, projection_actual: r.projectionActual
+      parts: table3Rows.filter(r => r.partNo?.trim() || r.description?.trim()).map(r => ({
+        sr_no: parseInt(r.srNo, 10),
+        part_no: r.partNo,
+        description: r.description,
+        orientation_approved: r.orientationApproved,
+        elevation_approved: r.elevationApproved,
+        projection_approved: r.projectionApproved,
+        elevation_actual: r.elevationActual,
+        projection_actual: r.projectionActual
       })),
-      instruments: instrumentRows.filter(r => r.name || r.idNo || r.dueDate).map(r => ({
-        name: r.name, id_no: r.idNo, due_date: r.dueDate
+      instruments: instrumentRows.filter(r => r.name?.trim() || r.idNo?.trim() || r.dueDate).map(r => ({
+        name: r.name,
+        id_no: r.idNo,
+        due_date: r.dueDate
       })),
-      remarks: remarks.filter(r => r.text).map((r, i) => ({
-        sr_no: i + 1, text: r.text
+      remarks: remarks.filter(r => r.text?.trim()).map((r, i) => ({
+        sr_no: i + 1,
+        text: r.text
       }))
-    }
+    };
+
+    console.log("Payload prepared:", payload);
 
     try {
-      setSubmitting(true)
+      setSubmitting(true);
       let res;
       if (editId) {
-        res = await apiClient.put(`/api/inspection-report/final/update/${editId}`, payload)
+        res = await apiClient.put(`/api/inspection-report/final/update/${editId}`, payload);
       } else {
-        res = await apiClient.post("/api/inspection-report/final/create", payload)
+        res = await apiClient.post("/api/inspection-report/final/create", payload);
       }
 
+      console.log("Server response:", res);
+
       if (res.success) {
-        toast.success(editId ? "Final Inspection Report updated!" : "Final Inspection Report created!")
-        onSuccess()
+        toast.success(editId ? "Final Inspection Report updated!" : "Final Inspection Report created!");
+        onSuccess();
+      } else {
+        toast.error(res.message || "Failed to save report");
       }
     } catch (err) {
-      toast.error(err.message || "Failed to save report")
+      console.error("Submission error:", err);
+      toast.error(err.message || "Failed to save report");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">{editId ? "Edit" : "Create"} Final Inspection Report</h1>
-          <p className="text-muted-foreground">{editId ? "Update the details for this final inspection." : "Fill in the details for a new final inspection."}</p>
+          <h1 className="text-3xl font-bold mb-1">{editId ? "Edit" : "Create"} Final Dimension Inspection</h1>
+          <p className="text-muted-foreground">{editId ? "Update the details for this final dimension inspection." : "Fill in the details for a new final dimension inspection."}</p>
         </div>
         <Button variant="outline" onClick={onBack} className="h-9">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
@@ -791,16 +890,14 @@ function CreateView({ onBack, onSuccess, editId = null }) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="msn">MSN:</Label>
-              <Select value={msn} onValueChange={handleMsnChange}>
+              <Label htmlFor="msn">MSN / JOB NO:</Label>
+              <Select value={msn} onValueChange={handleMsnChange} disabled={userRole === 'PROD'}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select MSN" />
                 </SelectTrigger>
                 <SelectContent>
-                  {msnOptions.map((msnOption) => (
-                    <SelectItem key={msnOption.id} value={msnOption.id}>
-                      {msnOption.job_number}
-                    </SelectItem>
+                  {msnOptions.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.id}>{opt.job_number}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -808,7 +905,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
             <div className="space-y-2">
               <Label htmlFor="reportNo">REPORT NO.:</Label>
-              <Input id="reportNo" type="text" value={reportNo} readOnly className="bg-muted font-bold text-xs" />
+              <Input id="reportNo" type="text" value={reportNo} readOnly className="bg-muted font-bold" />
             </div>
 
             <div className="space-y-2">
@@ -823,47 +920,13 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="poNo">P.O. NO.:</Label>
+              <Label htmlFor="poNo">PO NO:</Label>
               <Input
                 id="poNo"
                 type="text"
                 value={poNo}
                 readOnly
                 className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="projectId">PROJECT ID:</Label>
-              <Input
-                id="projectId"
-                name="project_id"
-                type="text"
-                value={formData.project_id}
-                onChange={handleInputChange}
-                placeholder="Enter Project ID"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="date">DATE:</Label>
-              <Input
-                id="date"
-                type="text"
-                value={today}
-                disabled
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="tagNo">TAG NO:</Label>
-              <Input
-                id="tagNo"
-                type="text"
-                name="tagNo"
-                value={formData.tagNo}
-                onChange={handleInputChange}
               />
             </div>
 
@@ -888,26 +951,43 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 className="bg-muted"
               />
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* User Input Fields Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Equipment Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="drgNo">DRG. NO.:</Label>
+              <Label htmlFor="project_id">PROJECT ID:</Label>
+              <Input
+                id="project_id"
+                name="project_id"
+                type="text"
+                value={formData.project_id}
+                onChange={handleInputChange}
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tagNo">TAG NO:</Label>
+              <Input
+                id="tagNo"
+                name="tagNo"
+                type="text"
+                value={formData.tagNo}
+                onChange={handleInputChange}
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="drgNo">DRG NO:</Label>
               <Input
                 id="drgNo"
                 name="drgNo"
                 type="text"
                 value={formData.drgNo}
                 onChange={handleInputChange}
-                placeholder="Enter DRG. NO."
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted" : ""}
               />
             </div>
           </div>
@@ -953,7 +1033,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable1RowChange(row.id, "description", e.target.value)
                           }
                           placeholder="Description"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -964,7 +1045,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable1RowChange(row.id, "required", e.target.value)
                           }
                           placeholder="Required"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -975,7 +1057,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable1RowChange(row.id, "actual", e.target.value)
                           }
                           placeholder="Actual"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'QC'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'QC' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -986,7 +1069,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable1RowChange(row.id, "remarks", e.target.value)
                           }
                           placeholder="Remarks"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'QC'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'QC' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -995,7 +1079,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeTable1Row(row.id)}
-                          disabled={table1Rows.length === 1}
+                          disabled={table1Rows.length === 1 || userRole === 'PROD'}
                           title="Remove Row"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -1018,6 +1102,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             variant="outline"
             onClick={addTable1Row}
             className="w-full sm:w-auto"
+            disabled={userRole === 'PROD'}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Row
@@ -1035,6 +1120,28 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow>
+                  <TableHead></TableHead>
+                  <TableHead
+                    colSpan={3}
+                    className="p-2 text-xs font-bold uppercase text-center"
+                  >
+                    DIMENSION AS PER APPROVED DRAWING
+                  </TableHead>
+                  <TableHead></TableHead>
+
+                  <TableHead></TableHead>
+
+                  <TableHead
+                    colSpan={2}
+                    className="p-2 text-xs font-bold uppercase text-center border-l border-slate-300"
+                  >
+                    DIMENSION AT ACTUAL MEASURE
+                  </TableHead>
+                  <TableHead className="p-2 text-xs font-bold uppercase w-[120px]">
+                    Actions
+                  </TableHead>
+                </TableRow>
+                <TableRow>
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     NOZZLE MARK
                   </TableHead>
@@ -1044,26 +1151,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     SIZE
                   </TableHead>
-                  <TableHead
-                    colSpan={3}
-                    className="p-2 text-xs font-bold uppercase text-center"
-                  >
-                    DIMENSION AS PER APPROVED DRAWING
-                  </TableHead>
-                  <TableHead
-                    colSpan={2}
-                    className="p-2 text-xs font-bold uppercase text-center"
-                  >
-                    DIMENSION AT ACTUAL MEASURE
-                  </TableHead>
-                  <TableHead className="p-2 text-xs font-bold uppercase w-[120px]">
-                    Actions
-                  </TableHead>
-                </TableRow>
-                <TableRow>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
+
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     LOCATION
                   </TableHead>
@@ -1073,7 +1161,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     PROJECTION
                   </TableHead>
-                  <TableHead className="p-2 text-xs font-bold uppercase">
+                  <TableHead className="p-2 text-xs font-bold uppercase border-l border-slate-300">
                     ELEVATION
                   </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase">
@@ -1094,7 +1182,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "nozzleMark", e.target.value)
                           }
                           placeholder="Nozzle Mark"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1105,7 +1194,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "orientation", e.target.value)
                           }
                           placeholder="Orientation"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1116,7 +1206,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "size", e.target.value)
                           }
                           placeholder="Size"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1127,7 +1218,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "location", e.target.value)
                           }
                           placeholder="Location"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1138,7 +1230,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "elevationApproved", e.target.value)
                           }
                           placeholder="Elevation"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1149,10 +1242,11 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "projectionApproved", e.target.value)
                           }
                           placeholder="Projection"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="border-l border-slate-300">
                         <Input
                           type="text"
                           value={row.elevationActual}
@@ -1160,8 +1254,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "elevationActual", e.target.value)
                           }
                           placeholder="Elevation"
-                          disabled={userRole === 'PROD'}
-                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
+                          readOnly={userRole === 'QC'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'QC' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1172,8 +1266,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable2RowChange(row.id, "projectionActual", e.target.value)
                           }
                           placeholder="Projection"
-                          disabled={userRole === 'PROD'}
-                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
+                          readOnly={userRole === 'QC'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'QC' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1182,7 +1276,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeTable2Row(row.id)}
-                          disabled={table2Rows.length === 1}
+                          disabled={table2Rows.length === 1 || userRole === 'PROD'}
                           title="Remove Row"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -1205,6 +1299,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             variant="outline"
             onClick={addTable2Row}
             className="w-full sm:w-auto"
+            disabled={userRole === 'PROD'}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Row
@@ -1222,21 +1317,17 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="p-2 text-xs font-bold uppercase">
-                    PART NO
-                  </TableHead>
-                  <TableHead className="p-2 text-xs font-bold uppercase">
-                    DESCRIPTION
-                  </TableHead>
+                  <TableHead></TableHead>
                   <TableHead
                     colSpan={3}
                     className="p-2 text-xs font-bold uppercase text-center"
                   >
                     DIMENSION AS PER APPROVED DRAWING
                   </TableHead>
+                  <TableHead></TableHead>
                   <TableHead
                     colSpan={2}
-                    className="p-2 text-xs font-bold uppercase text-center"
+                    className="p-2 text-xs font-bold uppercase text-center border-l border-slate-300"
                   >
                     DIMENSION AT ACTUAL MEASURE
                   </TableHead>
@@ -1245,8 +1336,12 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                   </TableHead>
                 </TableRow>
                 <TableRow>
-                  <TableHead></TableHead>
-                  <TableHead></TableHead>
+                  <TableHead className="p-2 text-xs font-bold uppercase">
+                    PART NO
+                  </TableHead>
+                  <TableHead className="p-2 text-xs font-bold uppercase">
+                    DESCRIPTION
+                  </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     ORIENTATION
                   </TableHead>
@@ -1256,7 +1351,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     PROJECTION
                   </TableHead>
-                  <TableHead className="p-2 text-xs font-bold uppercase">
+                  <TableHead className="p-2 text-xs font-bold uppercase border-l border-slate-300">
                     ELEVATION
                   </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase">
@@ -1277,7 +1372,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "partNo", e.target.value)
                           }
                           placeholder="Part No"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1288,7 +1384,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "description", e.target.value)
                           }
                           placeholder="Description"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1299,7 +1396,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "orientationApproved", e.target.value)
                           }
                           placeholder="Orientation"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1310,7 +1408,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "elevationApproved", e.target.value)
                           }
                           placeholder="Elevation"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1321,10 +1420,11 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "projectionApproved", e.target.value)
                           }
                           placeholder="Projection"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="border-l border-slate-300">
                         <Input
                           type="text"
                           value={row.elevationActual}
@@ -1332,8 +1432,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "elevationActual", e.target.value)
                           }
                           placeholder="Elevation"
-                          disabled={userRole === 'PROD'}
-                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
+                          readOnly={userRole === 'QC'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'QC' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1344,8 +1444,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleTable3RowChange(row.id, "projectionActual", e.target.value)
                           }
                           placeholder="Projection"
-                          disabled={userRole === 'PROD'}
-                          className="w-full text-xs border-0 focus-visible:ring-0 disabled:bg-muted"
+                          readOnly={userRole === 'QC'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'QC' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1354,7 +1454,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeTable3Row(row.id)}
-                          disabled={table3Rows.length === 1}
+                          disabled={table3Rows.length === 1 || userRole === 'PROD'}
                           title="Remove Row"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -1377,6 +1477,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             variant="outline"
             onClick={addTable3Row}
             className="w-full sm:w-auto"
+            disabled={userRole === 'PROD'}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Row
@@ -1400,7 +1501,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 <Textarea
                   value={remark.text}
                   onChange={(e) => handleRemarkChange(remark.id, e.target.value)}
-                  className="min-h-[60px] flex-1"
+                  readOnly={userRole === 'PROD'}
+                  className={`min-h-[60px] flex-1 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
                   placeholder="Enter remark"
                 />
                 <Button
@@ -1408,7 +1510,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                   variant="ghost"
                   size="sm"
                   onClick={() => removeRemark(remark.id)}
-                  disabled={remarks.length === 1}
+                  disabled={remarks.length === 1 || userRole === 'PROD'}
                   className="mt-2"
                   title="Remove Remark"
                 >
@@ -1421,6 +1523,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
               variant="outline"
               onClick={addRemark}
               className="w-full sm:w-auto"
+              disabled={userRole === 'PROD'}
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Remark
@@ -1465,7 +1568,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleInstrumentRowChange(row.id, "name", e.target.value)
                           }
                           placeholder="Name"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1476,7 +1580,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleInstrumentRowChange(row.id, "idNo", e.target.value)
                           }
                           placeholder="ID No. / SR No."
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1487,7 +1592,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             handleInstrumentRowChange(row.id, "dueDate", e.target.value)
                           }
                           placeholder="Due Date"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -1496,7 +1602,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeInstrumentRow(row.id)}
-                          disabled={instrumentRows.length === 1}
+                          disabled={instrumentRows.length === 1 || userRole === 'PROD'}
                           title="Remove Row"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -1519,6 +1625,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             variant="outline"
             onClick={addInstrumentRow}
             className="w-full sm:w-auto"
+            disabled={userRole === 'PROD'}
           >
             <Plus className="h-4 w-4 mr-2" />
             Add Row
@@ -1528,25 +1635,27 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Quality Engineer Assignment</CardTitle>
+          <CardTitle>Production Engineer Assignment</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="qualityEngineer">Quality Engineer:</Label>
-              <Select value={qualityEngineer} onValueChange={setQualityEngineer}>
+              <Label htmlFor="productionEngineer">Production Engineer:</Label>
+              <Select value={productionEngineer} onValueChange={setProductionEngineer} disabled={userRole === 'PROD'}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Quality Engineer" />
+                  <SelectValue placeholder="Select Production Engineer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {qualityEngineers.map((engineer) => (
-                    <SelectItem key={engineer.id} value={engineer.id}>
-                      <div className="flex flex-col">
-                        <span>{engineer.name}</span>
-                        <span className="text-xs text-muted-foreground">{engineer.email}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {productionEngineers.map((engineer) => {
+                    const normalized = normalizeUser(engineer);
+                    return (
+                      <SelectItem key={normalized.id} value={normalized.id}>
+                        <div className="flex flex-col">
+                          <span>{normalized.displayName}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1555,7 +1664,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       </Card>
       <div className="flex justify-end gap-4 mt-8 mb-4">
         <Button variant="outline" onClick={onBack}>Cancel</Button>
-        {userRole === 'QC' && editId ? (
+        {userRole === 'PROD' && editId ? (
           <>
             <Button variant="destructive" onClick={() => handleSubmit("rejected")} disabled={submitting}>
               {submitting ? "Processing..." : "Reject"}
@@ -1565,7 +1674,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             </Button>
           </>
         ) : (
-          <Button onClick={() => handleSubmit("draft")} disabled={submitting}>
+          <Button onClick={() => handleSubmit("draft")} disabled={submitting || userRole === 'PROD'}>
             {submitting ? "Saving..." : (editId ? "Update Report" : "Save & Submit Report")}
           </Button>
         )}
@@ -1592,31 +1701,31 @@ export default function FinalInspectionReports() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
-            {view === "list" ? (
-              <ListView
-                onCreateClick={() => {
-                  setEditId(null)
-                  setView("create")
-                }}
-                onEditClick={handleEdit}
-              />
-            ) : (
-              <CreateView
-                onBack={() => {
-                  setView("list")
-                  setEditId(null)
-                }}
-                onSuccess={handleSuccess}
-                editId={editId}
-              />
-            )}
-          </div>
-        </main>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
+          {view === "list" ? (
+            <ListView
+              onCreateClick={() => {
+                setEditId(null)
+                setView("create")
+              }}
+              onEditClick={handleEdit}
+            />
+          ) : (
+            <CreateView
+              onBack={() => {
+                setView("list")
+                setEditId(null)
+              }}
+              onSuccess={handleSuccess}
+              editId={editId}
+            />
+          )}
+        </div>
+      </main>
     </>
   )
 }

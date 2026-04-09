@@ -161,9 +161,11 @@ function ListView({ onCreateClick, onEditClick }) {
       id: "actions",
       header: "Actions",
       cell: (row) => {
-        const isAssignedQE = row.quality_engineer_id === user?.id
-        const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER")
-        const canReview = (isQE || isAssignedQE) && row.status !== "Approved" && row.status !== "Rejected"
+        const isAssignedPE = row.production_engineer_id === user?.id
+        const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC")
+        const status = row.status?.trim()?.toLowerCase()
+        // Only non-QC users who are assigned can review, or Admin
+        const canReview = !isQE && (isAssignedPE || isAdmin) && status !== "approved" && status !== "rejected"
 
         return (
           <div className="flex gap-2">
@@ -174,14 +176,26 @@ function ListView({ onCreateClick, onEditClick }) {
               title="View">
               <Eye className="h-4 w-4 mr-2" /> View
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEditClick(row.id)}
-              disabled={row.status?.trim()?.toLowerCase() === "approved"}
-              title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
-              <Edit className="h-4 w-4 mr-2" /> Edit
-            </Button>
+            {isAdmin || isQE ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditClick(row.id)}
+                disabled={row.status?.trim()?.toLowerCase() === "approved"}
+                title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
+                <Edit className="h-4 w-4 mr-2" /> Edit
+              </Button>
+            ) : (
+              row.status?.trim()?.toLowerCase() !== "approved" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditClick(row.id)}
+                  title="Review">
+                  <CheckCircle className="h-4 w-4 mr-2" /> Review
+                </Button>
+              )
+            )}
             {canReview && (
               <>
                 <Button
@@ -202,7 +216,7 @@ function ListView({ onCreateClick, onEditClick }) {
                 </Button>
               </>
             )}
-            {row.status === "Approved" && (
+            {status === "approved" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -242,7 +256,7 @@ function ListView({ onCreateClick, onEditClick }) {
           <h1 className="text-3xl font-bold mb-1">Dish End Inspection Reports</h1>
           <p className="text-muted-foreground">View and manage all dish end inspection reports.</p>
         </div>
-        {(isAdmin || !isQE) && (
+        {(isAdmin || isQE) && (
           <Button onClick={onCreateClick}>
             <Plus className="h-4 w-4 mr-2" />
             Create
@@ -256,9 +270,9 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       )}
 
-      <DataTable 
-        columns={columns} 
-        fetchData={fetchData} 
+      <DataTable
+        columns={columns}
+        fetchData={fetchData}
         onExport={handleExport}
       />
 
@@ -346,8 +360,8 @@ function ListView({ onCreateClick, onEditClick }) {
                   <span className="font-medium">{selectedRecord.report_no || "-"}</span>
                 </div>
                 <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">QUALITY ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.quality_engineer?.name || "-"}</span>
+                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PRODUCTION ENGINEER:</span>
+                  <span className="font-medium">{selectedRecord.production_engineer?.name || "-"}</span>
                 </div>
                 <div className="flex flex-col space-y-1">
                   <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">VENDOR DISH END NO:</span>
@@ -428,6 +442,18 @@ function ListView({ onCreateClick, onEditClick }) {
 
 // ─── Create / Edit View ──────────────────────────────────────────────────────
 function CreateView({ onBack, onSuccess, editId = null }) {
+  const normalizeUser = (user) => {
+    const id = String(user?.id || "")
+    const name = String(user?.name || user?.full_name || user?.email || "User")
+    const empid = String(user?.empid || user?.employeeId || "")
+    return {
+      id,
+      name,
+      empid,
+      displayName: empid ? `${name} (${empid})` : `${name}`,
+    }
+  }
+
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit', month: '2-digit', year: 'numeric'
   })
@@ -448,6 +474,27 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     inspAgency: "",
   })
 
+  const [userRole, setUserRole] = useState("")
+
+  // Detect user role from local storage
+  useEffect(() => {
+    const authData = localStorage.getItem("user_auth")
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData)
+        const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
+        const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r)
+        if (roleNames.some(r => ['QC_ENGINEER', 'ADMIN'].includes(r))) {
+          setUserRole('QC')
+        } else if (roleNames.some(r => ['PRODUCTION_ENGINEER'].includes(r))) {
+          setUserRole('PROD')
+        }
+      } catch (e) {
+        console.error("Error parsing auth data", e)
+      }
+    }
+  }, [])
+
   // Description options for the table
   const descriptionOptions = [
     "OD",
@@ -459,7 +506,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     "DISH HEIGHT including SF",
     "NOMINAL THICKNESS",
     "MIN. THICKNESS",
-    "CENTER HOLE",
+    "SPIN HOLE",
     "Maximum OVER CROWNING",
     "Maximum UNDER CROWNING",
     "EDGE PREPARATION (Single \"V\" / DOUBLE \"V\")",
@@ -490,12 +537,12 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     { id: 1, name: "", idNo: "", dueDate: "" },
   ])
 
-  // Quality Engineer
-  const [qualityEngineer, setQualityEngineer] = useState("")
+  // Production Engineer
+  const [productionEngineer, setProductionEngineer] = useState("")
 
   // API state
   const [msnOptions, setMsnOptions] = useState([])
-  const [qualityEngineers, setQualityEngineers] = useState([])
+  const [productionEngineers, setProductionEngineers] = useState([])
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
@@ -503,9 +550,9 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       .then((res) => { if (res.success) setMsnOptions(res.data) })
       .catch((err) => console.error("Failed to fetch jobs:", err))
 
-    apiClient.get("/api/common/qc-engineers")
-      .then((res) => { if (res.success) setQualityEngineers(res.data) })
-      .catch((err) => console.error("Failed to fetch QC engineers:", err))
+    apiClient.get("/api/users/by-role/PRODUCTION_ENGINEER")
+      .then((res) => { if (res.success) setProductionEngineers(res.data) })
+      .catch((err) => console.error("Failed to fetch production engineers:", err))
   }, [])
 
   useEffect(() => {
@@ -529,8 +576,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
               drgNo: data.drg_no || "",
               inspAgency: data.insp_agency || "",
             })
-
-            setQualityEngineer(data.quality_engineer_id || "")
+            setProductionEngineer(data.production_engineer_id || "")
 
             if (data.items && data.items.length > 0) {
               setTableRows(data.items.map((item, i) => ({
@@ -615,7 +661,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     }
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (status = "draft") => {
     if (!msn) {
       toast.error("Please select an MSN")
       return
@@ -631,8 +677,9 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       code,
       drg_no: formData.drgNo,
       insp_agency: formData.inspAgency,
-      quality_engineer_id: qualityEngineer,
+      production_engineer_id: productionEngineer,
       vendor_dish_end_number: vendorDishEndNo,
+      status: status,
       items: tableRows.map(r => ({
         sr_no: parseInt(r.srNo, 10),
         description: r.description,
@@ -689,7 +736,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="msn">MSN:</Label>
-              <Select value={msn} onValueChange={handleMsnChange}>
+              <Select value={msn} onValueChange={handleMsnChange} disabled={userRole === 'PROD'}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select MSN" />
                 </SelectTrigger>
@@ -786,6 +833,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 type="text"
                 value={formData.tagNo}
                 onChange={handleInputChange}
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted text-xs" : "text-xs"}
                 placeholder="Enter TAG NO."
               />
             </div>
@@ -798,6 +847,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 type="text"
                 value={formData.drgNo}
                 onChange={handleInputChange}
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted text-xs" : "text-xs"}
                 placeholder="Enter DRG. NO."
               />
             </div>
@@ -810,6 +861,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 type="text"
                 value={formData.inspAgency}
                 onChange={handleInputChange}
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted text-xs" : "text-xs"}
                 placeholder="Enter INSP. AGENCY"
               />
             </div>
@@ -843,7 +896,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                         value={vendorDishEndNo}
                         onChange={(e) => setVendorDishEndNo(e.target.value)}
                         placeholder="Vendor Dish End Number"
-                        className="text-xs border-0 focus-visible:ring-0 bg-white"
+                        readOnly={userRole === 'PROD'}
+                        className={`text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : 'bg-white'}`}
                       />
                     </div>
                   </TableHead>
@@ -867,7 +921,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                         value={row.asPerDrg}
                         onChange={(e) => handleRowChange(row.id, "asPerDrg", e.target.value)}
                         placeholder="As Per DRG"
-                        className="w-full text-xs border-0 focus-visible:ring-0"
+                        readOnly={userRole === 'PROD'}
+                        className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
                       />
                     </TableCell>
                     <TableCell className="p-2 border border-gray-300">
@@ -876,7 +931,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                         value={row.actual}
                         onChange={(e) => handleRowChange(row.id, "actual", e.target.value)}
                         placeholder="Actual"
-                        className="w-full text-xs border-0 focus-visible:ring-0"
+                        readOnly={userRole === 'PROD'}
+                        className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
                       />
                     </TableCell>
                     <TableCell className="p-2 border border-gray-300">
@@ -885,7 +941,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                         value={row.remarks}
                         onChange={(e) => handleRowChange(row.id, "remarks", e.target.value)}
                         placeholder="Remarks"
-                        className="w-full text-xs border-0 focus-visible:ring-0"
+                        readOnly={userRole === 'PROD'}
+                        className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
                       />
                     </TableCell>
                   </TableRow>
@@ -921,7 +978,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           value={row.name}
                           onChange={(e) => handleInstrumentRowChange(row.id, "name", e.target.value)}
                           placeholder="Name"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -930,7 +988,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           value={row.idNo}
                           onChange={(e) => handleInstrumentRowChange(row.id, "idNo", e.target.value)}
                           placeholder="ID No. / SR No."
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -939,7 +998,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           value={row.dueDate}
                           onChange={(e) => handleInstrumentRowChange(row.id, "dueDate", e.target.value)}
                           placeholder="Due Date"
-                          className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={userRole === 'PROD'}
+                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
                         />
                       </TableCell>
                       <TableCell>
@@ -948,7 +1008,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeInstrumentRow(row.id)}
-                          disabled={instrumentRows.length === 1}
+                          disabled={instrumentRows.length === 1 || userRole === 'PROD'}
                           title="Remove Row"
                         >
                           <Trash2 className="h-4 w-4 text-destructive" />
@@ -966,7 +1026,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
               </TableBody>
             </Table>
           </div>
-          <Button type="button" variant="outline" onClick={addInstrumentRow} className="w-full sm:w-auto mt-2">
+          <Button type="button" variant="outline" onClick={addInstrumentRow} className="w-full sm:w-auto mt-2" disabled={userRole === 'PROD'}>
             <Plus className="h-4 w-4 mr-2" />
             Add Row
           </Button>
@@ -975,25 +1035,27 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Quality Engineer Assignment</CardTitle>
+          <CardTitle>Production Engineer Assignment</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="qualityEngineer">Quality Engineer:</Label>
-              <Select value={qualityEngineer} onValueChange={setQualityEngineer}>
+              <Label htmlFor="productionEngineer">Production Engineer:</Label>
+              <Select value={productionEngineer} onValueChange={setProductionEngineer} disabled={userRole === 'PROD'}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Quality Engineer" />
+                  <SelectValue placeholder="Select Production Engineer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {qualityEngineers.map((engineer) => (
-                    <SelectItem key={engineer.id} value={engineer.id}>
-                      <div className="flex flex-col">
-                        <span>{engineer.name}</span>
-                        <span className="text-xs text-muted-foreground">{engineer.email}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {productionEngineers.map((engineer) => {
+                    const normalized = normalizeUser(engineer);
+                    return (
+                      <SelectItem key={normalized.id} value={normalized.id}>
+                        <div className="flex flex-col">
+                          <span>{normalized.displayName}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1002,9 +1064,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       </Card>
 
       <div className="flex justify-end gap-4 mt-6">
-        <Button onClick={onBack} variant="outline" disabled={submitting}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "Saving..." : "Submit Report"}
+        <Button onClick={() => handleSubmit("draft")} disabled={submitting || userRole === 'PROD'}>
+          {submitting ? "Saving..." : (editId ? "Update Report" : "Submit Report")}
         </Button>
       </div>
     </div>
@@ -1028,31 +1089,31 @@ function InspectionReport() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
-            {view === "list" ? (
-              <ListView
-                onCreateClick={() => {
-                  setEditId(null)
-                  setView("create")
-                }}
-                onEditClick={handleEdit}
-              />
-            ) : (
-              <CreateView
-                onBack={() => {
-                  setView("list")
-                  setEditId(null)
-                }}
-                onSuccess={handleSuccess}
-                editId={editId}
-              />
-            )}
-          </div>
-        </main>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
+          {view === "list" ? (
+            <ListView
+              onCreateClick={() => {
+                setEditId(null)
+                setView("create")
+              }}
+              onEditClick={handleEdit}
+            />
+          ) : (
+            <CreateView
+              onBack={() => {
+                setView("list")
+                setEditId(null)
+              }}
+              onSuccess={handleSuccess}
+              editId={editId}
+            />
+          )}
+        </div>
+      </main>
     </>
   )
 }
