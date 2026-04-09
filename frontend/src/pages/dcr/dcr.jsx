@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { AdminSidebar } from "@/components"
+
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import {
@@ -642,9 +642,7 @@ function CreateDCR() {
   const isFormDisabled = isSubmitting || isViewMode
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
+    <>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
@@ -1251,7 +1249,6 @@ function CreateDCR() {
             )}
           </div>
         </main>
-      </SidebarInset>
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
@@ -1289,7 +1286,7 @@ function CreateDCR() {
           </div>
         </DialogContent>
       </Dialog>
-    </SidebarProvider>
+    </>
   )
 }
 

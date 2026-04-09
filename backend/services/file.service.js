@@ -68,7 +68,7 @@ class FileService {
       },
       orderBy: { version_no: 'desc' },
     });
-    const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 1;
+    const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
 
     // 3. Create new document version
     // Use the relative secure download API path

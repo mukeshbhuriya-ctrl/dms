@@ -113,7 +113,7 @@ class MhcService {
                         sort_order: item.sort_order !== undefined ? item.sort_order : idx,
                         is_heading: item.is_heading || false,
                         heading_text: item.heading_text || null,
-                        parent_heading_id: item.parent_heading_id || null,
+                        parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
                         item_no: item.item_no || null,
                         description: item.description || null,
                         size: item.size || null,

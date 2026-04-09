@@ -44,6 +44,24 @@ class StorageUtils {
     }
 
     /**
+     * Get the directory for a specific document's feedback within a transmission
+     * Pattern: {company_id}/transmissions/{transmission_number}/client_feedback/{document_number}/rev_{version}
+     */
+    getTransmissionDocumentFeedbackDir(company_id, transmission_number, document_number, version) {
+        const dir = path.join(
+            UPLOAD_BASE,
+            company_id,
+            'transmissions',
+            this._sanitize(transmission_number),
+            'client_feedback',
+            this._sanitize(document_number),
+            version.toString()
+        );
+        this._ensureDir(dir);
+        return dir;
+    }
+
+    /**
      * Get the directory for outgoing transmission packages
      */
     getTransmissionOutgoingDir(company_id, transmission_number) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import apiClient from "@/api/api.client"
 
 export default function RfqDashboard() {
@@ -30,9 +30,7 @@ export default function RfqDashboard() {
     }, [])
 
     if (loading) return (
-        <SidebarProvider>
-            <AdminSidebar />
-            <SidebarInset className="flex flex-col flex-1 overflow-hidden min-h-screen relative w-full translate-x-0 bg-gray-50/50">
+        <>
                 <header className="flex shrink-0 items-center justify-between border-b bg-white h-16 px-4">
                     <div className="flex items-center gap-2">
                         <SidebarTrigger className="-ml-1" />
@@ -43,14 +41,11 @@ export default function RfqDashboard() {
                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                     <p className="mt-4 text-muted-foreground">Loading dashboard data...</p>
                 </div>
-            </SidebarInset>
-        </SidebarProvider>
+        </>
     )
 
     if (error) return (
-        <SidebarProvider>
-            <AdminSidebar />
-            <SidebarInset className="flex flex-col flex-1 overflow-hidden min-h-screen relative w-full translate-x-0 bg-gray-50/50">
+        <>
                 <header className="flex shrink-0 items-center justify-between border-b bg-white h-16 px-4">
                     <div className="flex items-center gap-2">
                         <SidebarTrigger className="-ml-1" />
@@ -60,16 +55,13 @@ export default function RfqDashboard() {
                 <div className="flex-1 p-6 flex flex-col justify-center items-center">
                     <p className="text-red-500 font-medium">{error}</p>
                 </div>
-            </SidebarInset>
-        </SidebarProvider>
+        </>
     )
 
     const { shrenoStats, clientStats, financials } = data;
 
     return (
-        <SidebarProvider>
-            <AdminSidebar />
-            <SidebarInset className="flex flex-col flex-1 overflow-hidden min-h-screen relative w-full translate-x-0 bg-gray-50/50">
+        <>
                 <header className="flex shrink-0 items-center justify-between border-b bg-white h-16 px-4">
                     <div className="flex items-center gap-2">
                         <SidebarTrigger className="-ml-1" />
@@ -182,7 +174,6 @@ export default function RfqDashboard() {
 
                     </div>
                 </main>
-            </SidebarInset>
-        </SidebarProvider>
+        </>
     )
 }

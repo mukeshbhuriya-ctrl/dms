@@ -26,29 +26,45 @@ export function DataTable({
     const [pageSize, setPageSize] = useState(10)
     const [search, setSearch] = useState("")
     const [debouncedSearch, setDebouncedSearch] = useState("")
+    const [columnFilters, setColumnFilters] = useState({})
+    const [debouncedColumnFilters, setDebouncedColumnFilters] = useState({})
     const isFirstRender = useRef(true)
 
-    // Debounce the search input — only update debouncedSearch after 500ms
+    // Debounce the global search
     useEffect(() => {
-        // Skip debounce on first render (initial empty value)
+        if (isFirstRender.current) return;
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search)
+            setPage(1)
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [search])
+
+    // Debounce column-level filters
+    useEffect(() => {
         if (isFirstRender.current) {
             isFirstRender.current = false
             return
         }
         const timer = setTimeout(() => {
-            setDebouncedSearch(search)
-            setPage(1) // Reset to page 1 on search
-        }, 500)
+            setDebouncedColumnFilters(columnFilters)
+            setPage(1)
+        }, 800) // Slightly longer for column filters to avoid over-fetching
         return () => clearTimeout(timer)
-    }, [search])
+    }, [columnFilters])
 
-    // Single effect for all data loading — fires once on mount and when deps change
+    // Single effect for all data loading
     useEffect(() => {
         let cancelled = false
         const loadData = async () => {
             setLoading(true)
             try {
-                const result = await fetchData({ page, limit: pageSize, search: debouncedSearch })
+                const result = await fetchData({ 
+                    page, 
+                    limit: pageSize, 
+                    search: debouncedSearch,
+                    columnFilters: debouncedColumnFilters 
+                })
                 if (!cancelled) {
                     setData(result.data || [])
                     setMeta(result.meta || {})
@@ -61,10 +77,14 @@ export function DataTable({
         }
         loadData()
         return () => { cancelled = true }
-    }, [fetchData, page, pageSize, debouncedSearch])
+    }, [fetchData, page, pageSize, debouncedSearch, debouncedColumnFilters])
 
     const handleSearchChange = (e) => {
         setSearch(e.target.value)
+    }
+
+    const handleFilterChange = (key, value) => {
+        setColumnFilters(prev => ({ ...prev, [key]: value }))
     }
 
     const handlePageChange = (newPage) => {
@@ -126,7 +146,7 @@ export function DataTable({
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <Input
-                    placeholder="Search..."
+                    placeholder="Global Search..."
                     value={search}
                     onChange={handleSearchChange}
                     className="max-w-sm"
@@ -137,13 +157,41 @@ export function DataTable({
                 </Button>
             </div>
 
-            <div className="rounded-md border bg-card">
+            <div className="rounded-md border bg-card overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
                             {columns.map((col, idx) => (
-                                <TableHead key={idx} className={col.className}>
-                                    {col.header}
+                                <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50 ${col.filterType ? 'min-w-[150px]' : ''}`}>
+                                    <div className="flex flex-col gap-1.5 py-1.5">
+                                        <span className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">{col.header}</span>
+                                        {col.filterType === 'text' && (
+                                            <Input
+                                                placeholder={`Filter...`}
+                                                className="h-7 text-xs font-normal w-full max-w-[150px]"
+                                                value={columnFilters[col.id || col.accessorKey] || ""}
+                                                onChange={(e) => handleFilterChange(col.id || col.accessorKey, e.target.value)}
+                                            />
+                                        )}
+                                        {col.filterType === 'select' && (
+                                            <Select 
+                                                value={columnFilters[col.id || col.accessorKey] || "all"} 
+                                                onValueChange={(val) => handleFilterChange(col.id || col.accessorKey, val === 'all' ? "" : val)}
+                                            >
+                                                <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
+                                                    <SelectValue placeholder="All" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All</SelectItem>
+                                                    {col.filterOptions?.map(opt => (
+                                                        <SelectItem key={opt.value} value={opt.value}>
+                                                            {opt.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    </div>
                                 </TableHead>
                             ))}
                         </TableRow>
@@ -160,7 +208,7 @@ export function DataTable({
                                 <TableRow key={rIdx}>
                                     {columns.map((col, cIdx) => (
                                         <TableCell key={cIdx} className={col.className}>
-                                            {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                                            {col.cell ? col.cell(row, rIdx) : resolvePath(row, col.accessorKey)}
                                         </TableCell>
                                     ))}
                                 </TableRow>

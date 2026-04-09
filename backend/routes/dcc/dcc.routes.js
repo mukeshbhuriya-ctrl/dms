@@ -19,11 +19,14 @@ router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumen
 router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);
 router.get('/document-preview/:versionId', authenticateUserOnly, DccController.previewDocument);
 router.get('/document-preview/:versionId/:filename', authenticateUserOnly, DccController.previewDocument);
+router.get('/get-active-filters', authenticateUserOnly, DccController.getActiveFilters);
 
 
 // Apply authentication middleware to all routes in this router
 router.use(authenticateUser(['DCC', 'ADMIN']));
 
+router.get('/get-active-filters', DccController.getActiveFilters);
+router.get('/get-transmission-filters', DccController.getTransmissionFilters);
 router.get('/get-customers', DccController.getCustomers);
 router.post('/create-customer', createCustomer);
 router.put('/update-customer/:id', updateCustomer);
@@ -64,8 +67,10 @@ router.get('/get-transmission-documents', DccController.getTransmissionDocuments
 router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
 router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF);
+router.get('/preview-transmittal-pdf/:id', DccController.previewTransmittalPDF);
 // Client Approval Status
 router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
+router.post('/transmission/document/client-status', upload.single('client_file'), DccController.updateTransmissionDocumentClientStatus);
 router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);
 
 // Activity Trail (Moved to public section)

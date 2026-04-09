@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -59,6 +59,7 @@ function ViewWeldingJoints() {
   const [selectedStage, setSelectedStage] = useState(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [downloadError, setDownloadError] = useState("")
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Dynamic Component Mapping
   const componentMap = {
@@ -215,7 +216,7 @@ function ViewWeldingJoints() {
       console.error("Error fetching welding joints:", err);
       return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
     }
-  }, [])
+  }, [refreshKey])
 
   const handleDownloadReport = async (joint, stage) => {
     setDownloadError("");
@@ -330,9 +331,7 @@ function ViewWeldingJoints() {
   };
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
+    <>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
@@ -355,7 +354,6 @@ function ViewWeldingJoints() {
             </CardContent>
           </Card>
         </main>
-      </SidebarInset>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">
@@ -393,13 +391,17 @@ function ViewWeldingJoints() {
                     isReview={isReviewMode} 
                     stage={selectedStage}
                     type={activeConfig.type}
+                    onSuccess={() => {
+                        setIsDialogOpen(false)
+                        setRefreshKey(prev => prev + 1)
+                    }}
                 />
             );
           })()}
 
         </DialogContent>
       </Dialog>
-    </SidebarProvider>
+    </>
   )
 }
 

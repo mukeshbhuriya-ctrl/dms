@@ -48,14 +48,14 @@ class DccService {
     async getCustomers(company_id, params = {}) {
         const {
             page = 1,
-            limit = 50,
+            limit,
             search = '',
             sortBy = 'createdAt',
             sortOrder = 'desc'
         } = params;
 
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         const where = {
             company_id: company_id
@@ -99,8 +99,8 @@ class DccService {
             meta: {
                 total,
                 page: parseInt(page),
-                limit: take,
-                totalPages: Math.ceil(total / take)
+                limit: (limit === undefined || limit === null) ? total : take,
+                totalPages: (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take))
             }
         };
     }
@@ -140,9 +140,9 @@ class DccService {
     }
 
     async getCustomerLocations(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '' } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (search) {
@@ -161,7 +161,7 @@ class DccService {
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
     }
 
     /**
@@ -257,10 +257,12 @@ class DccService {
     }
 
     async getPos(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', customer_id } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
+
+        if (customer_id) where.customer_id = customer_id.trim();
 
         if (search) {
             where.OR = [
@@ -293,7 +295,10 @@ class DccService {
             return po;
         });
 
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
 
     /**
@@ -324,14 +329,17 @@ class DccService {
     }
 
     async getJobs(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', po_id, customer_id, customer_location_id } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', po_id, customer_id, customer_location_id } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
-        if (po_id) where.po_id = po_id.trim();
         if (customer_id) where.customer_id = customer_id.trim();
-        if (customer_location_id) where.customer_location_id = customer_location_id.trim();
+        if (po_id) {
+            where.job_group = {
+                some: { group: { group_document: { some: { po_id: po_id.trim() } } } }
+            };
+        }
 
         if (search) {
             where.OR = [
@@ -345,15 +353,104 @@ class DccService {
             prisma.job.findMany({
                 where, skip, take,
                 include: {
-                    customer: { select: { id: true, customer_name: true } },
-                    customer_location: { select: { id: true, location_name: true } },
-                    po: { select: { id: true, po_number: true } }
+                    customer: true,
+                    customer_location: true,
+                    po: true
                 },
                 orderBy: { createdAt: 'desc' }
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
+    }
+
+    /**
+     * Get unique filters (Customers, POs, Jobs) that actually have assigned documents
+     */
+    async getActiveFilters(company_id, user_id = null, options = {}) {
+        const getFilters = async (uid = null) => {
+            const whereClause = { company_id };
+            if (uid) whereClause.user_id = uid;
+            
+            // Check for specific document status/approval filters
+            if (options.isApproved) {
+                whereClause.status = 'Approved';
+            }
+            if (options.isTransmittable) {
+                // Ensure document is approved AND not yet transmitted
+                whereClause.status = 'Approved';
+                whereClause.transmission_items = { none: {} };
+            }
+
+            // Fetch the documents with their core relations
+            const activeDocs = await prisma.group_document.findMany({
+                where: whereClause,
+                include: {
+                    customer: { select: { id: true, customer_name: true } },
+                    po: { select: { id: true, po_number: true, customer_id: true, customer_location: { select: { id: true, location_name: true } } } },
+                    group: {
+                        include: {
+                            job_group: {
+                                include: {
+                                    job: {
+                                        select: {
+                                            id: true,
+                                            job_number: true,
+                                            po_id: true,
+                                            customer_id: true,
+                                            customer_location: { select: { id: true, location_name: true } }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Extract unique Customers
+            const customersMap = new Map();
+            // Extract unique POs
+            const posMap = new Map();
+            // Extract unique Jobs
+            const jobsMap = new Map();
+
+            activeDocs.forEach(doc => {
+                if (doc.customer) customersMap.set(doc.customer.id, doc.customer);
+                if (doc.po) posMap.set(doc.po.id, { 
+                    ...doc.po, 
+                    customer: doc.customer 
+                });
+                
+                // Jobs are nested in group -> job_group
+                doc.group?.job_group?.forEach(jg => {
+                    if (jg.job) {
+                        jobsMap.set(jg.job.id, {
+                            ...jg.job,
+                            po: doc.po,
+                            customer: doc.customer
+                        });
+                    }
+                });
+            });
+
+            return {
+                customers: Array.from(customersMap.values()),
+                pos: Array.from(posMap.values()),
+                jobs: Array.from(jobsMap.values())
+            };
+        };
+
+        // Try getting user-specific filters first
+        let result = await getFilters(user_id);
+
+        // Fallback: If uploader has no filters (maybe assigned via group only), 
+        // fallback to company-wide active filters so dropdowns aren't empty
+        if (user_id && result.customers.length === 0 && result.pos.length === 0 && result.jobs.length === 0) {
+            result = await getFilters(null);
+        }
+
+        return result;
     }
 
     /**
@@ -384,9 +481,9 @@ class DccService {
     }
 
     async getDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', exclude_transmitted, exclude_assigned, include_id } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', exclude_transmitted, exclude_assigned, include_id } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (search) {
@@ -443,7 +540,7 @@ class DccService {
                 if (include_id) {
                     idsToExclude = assignedDocIds.filter(id => id !== include_id);
                 }
-                
+
                 if (idsToExclude.length > 0) {
                     where.id = { ...where.id, notIn: [...(where.id?.notIn || []), ...idsToExclude] };
                 }
@@ -459,7 +556,7 @@ class DccService {
             })
         ]);
 
-        return { data, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
     }
 
 
@@ -468,49 +565,81 @@ class DccService {
      * Get documents assigned to user (for Upload)
      */
     async getMyAssignedDocuments(company_id, user_id, params = {}) {
-        const { page = 1, limit = 50, search = '' } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '' } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
-        const where = {
-            company_id,
-            user_id
+        const {
+            status_filter,
+            approver_status_filter,
+            uploader_status_filter,
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter
+        } = params;
+
+        const where = { company_id, user_id };
+
+        // Standardize status filtering
+        const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null);
+
+        if (activeStatusFilter) {
+            const filterVal = activeStatusFilter.toLowerCase();
+            if (filterVal === 'pending' || filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
+            } else if (filterVal === 'uploaded' || filterVal === 'done') {
+                where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
+            } else if (filterVal === 'approved') {
+                where.status = 'Approved';
+            } else if (filterVal === 'rejected') {
+                where.status = 'Rejected';
+            } else {
+                where.status = activeStatusFilter;
+            }
+        }
+
+        // Explicit Column Filters (Robust Array/String handling for Multi-select)
+        const processFilter = (val) => {
+            if (!val) return null;
+            if (Array.isArray(val)) return { in: val };
+            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+            return { contains: val, mode: 'insensitive' };
         };
+
+        if (customer_name_filter) {
+            where.customer = { customer_name: processFilter(customer_name_filter) };
+        }
+        if (po_number_filter) {
+            where.po = { po_number: processFilter(po_number_filter) };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: processFilter(job_number_filter) } }
+                }
+            };
+        }
 
         if (search) {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
-                { document: { document_number: { contains: search, mode: 'insensitive' } } }
-            ];
-        }
-
-        // Server-side Filtering Logic
-        const { status_filter, approver_status_filter } = params;
-
-        if (status_filter && status_filter !== 'all') {
-            if (status_filter === 'pending') {
-                where.status = { in: ['Pending', 'Rejected'] };
-            } else if (status_filter === 'done') {
-                where.status = { in: ['Approved', 'Uploaded', 'Pending'] };
-            }
-        }
-
-        if (approver_status_filter && approver_status_filter !== 'all') {
-            const filterVal = approver_status_filter.toLowerCase();
-            if (filterVal === 'pending for approval' || filterVal === 'pending') {
-                where.status = { in: ['Uploaded', 'Pending'] };
-            } else if (filterVal === 'approved') {
-                where.status = 'Approved';
-            } else if (filterVal === 'rejected') {
-                // Filter by version history: Check if ANY version has been rejected.
-                where.versions = {
-                    some: {
-                        status: { in: ['Rejected', 'rejected'] }
+                { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                {
+                    group: {
+                        job_group: {
+                            some: {
+                                job: {
+                                    job_number: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
                     }
-                };
-            } else if (filterVal === 'na') {
-                where.status = { notIn: ['Uploaded', 'Pending', 'Approved', 'Rejected'] }; // Likely just 'Pending'
-            }
+                }
+            ];
         }
 
         // Dynamic Version Include
@@ -551,39 +680,78 @@ class DccService {
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
         const expandedData = this._expandFileUrls(enrichedData);
 
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
     /**
      * Get all assigned documents (Admin View)
      */
     async getAllAssignedDocuments(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', customer_id, location_id, po_id, job_id, status } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const { page = 1, limit, search = '', customer_id, location_id, po_id, job_id, status } = params;
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
-        const { status_filter } = params;
+        const {
+            status_filter,
+            uploader_status_filter,
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter
+        } = params;
+
         const where = { company_id };
 
-        if (status_filter && status_filter !== 'all') {
-            const filterVal = status_filter.toLowerCase();
-            if (filterVal === 'pending') {
-                where.status = { in: ['Pending', 'Rejected', 'Upload Due'] };
-            } else if (filterVal === 'done') {
-                where.status = { in: ['Approved', 'Uploaded', 'Response Due'] };
+        // Standardize status filtering across global and column-based filters
+        const activeStatusFilter = uploader_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
+
+        if (activeStatusFilter) {
+            const filterVal = activeStatusFilter.toLowerCase();
+            if (filterVal === 'pending' || filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
+            } else if (filterVal === 'uploaded' || filterVal === 'done') {
+                where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
+            } else if (filterVal === 'approved') {
+                where.status = 'Approved';
+            } else if (filterVal === 'rejected') {
+                where.status = 'Rejected';
             } else {
-                // Literal match (e.g., 'Approved', 'Uploaded', 'Upload Due')
-                where.status = status_filter;
+                where.status = activeStatusFilter;
             }
-        } else if (status) {
-            where.status = status;
         }
 
+        // Explicit Column Filters (Robust Array/String handling for Multi-select)
+        const processFilter = (val) => {
+            if (!val) return null;
+            if (Array.isArray(val)) return { in: val };
+            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+            return { contains: val, mode: 'insensitive' };
+        };
+
+        if (customer_name_filter) {
+            where.customer = { customer_name: processFilter(customer_name_filter) };
+        }
+        if (po_number_filter) {
+            where.po = { po_number: processFilter(po_number_filter) };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: processFilter(job_number_filter) } }
+                }
+            };
+        }
+
+        // ID-based filters (existing)
         if (customer_id) where.customer_id = customer_id;
         if (location_id) where.customer_location_id = location_id;
         if (po_id) where.po_id = po_id;
-
-        // Handle Job filtering
         if (job_id) {
+            // If already set via job_number_filter, this might override or combine
+            // Usually only one is used at a time in the UI
             where.group = {
                 job_group: {
                     some: { job_id: job_id }
@@ -595,7 +763,21 @@ class DccService {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
                 { document: { document_number: { contains: search, mode: 'insensitive' } } },
-                { shreno_doc_no: { contains: search, mode: 'insensitive' } }
+                { shreno_doc_no: { contains: search, mode: 'insensitive' } },
+                { client_doc_no: { contains: search, mode: 'insensitive' } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                {
+                    group: {
+                        job_group: {
+                            some: {
+                                job: {
+                                    job_number: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
+                    }
+                }
             ];
         }
 
@@ -629,7 +811,10 @@ class DccService {
         const EnhancedData = this._enhanceWithDueStatuses(data, params);
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
         const expandedData = this._expandFileUrls(enrichedData);
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
 
 
@@ -661,12 +846,12 @@ class DccService {
                 where: { group_document_id: document_id },
                 orderBy: { version_no: 'desc' }
             });
-            const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 1;
+            const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
 
             // 1. Process storage (move to structured directory)
             const job_number = groupDoc.group?.job_group[0]?.job?.job_number || 'NA';
             const document_number = groupDoc.document?.document_number || 'NA';
-            
+
             const targetDir = StorageUtils.getDocRevisionDir(company_id, job_number, document_number, nextVersionNo);
             const storageData = await fileService.processStorage(file, targetDir);
 
@@ -680,8 +865,8 @@ class DccService {
                 user_id,
                 action: 'Uploaded',
                 remarks: `Version ${nextVersionNo} uploaded`,
-                metadata: { 
-                    version_no: nextVersionNo, 
+                metadata: {
+                    version_no: nextVersionNo,
                     file_name: file.originalname,
                     file_url: version.file_url // Added for trail download
                 }
@@ -701,72 +886,108 @@ class DccService {
      * Get Documents for Approval
      */
     async getDocumentsForApproval(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', customer_id, po_id, job_id, status } = params;
-        const skip = (page - 1) * limit;
-        const take = parseInt(limit);
+        const {
+            page = 1,
+            limit,
+            search = '',
+            customer_id,
+            po_id,
+            status,
+            status_filter,
+            approver_status_filter,
+            uploader_status_filter,
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter,
+            exclude_transmitted,
+            job_ids,
+            job_id
+        } = params;
 
-        const where = {
-            company_id
-        };
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
-        // Server-side Filtering Logic
-        const { status_filter, approver_status_filter } = params;
+        const where = { company_id };
 
-        if (status_filter && status_filter !== 'all') {
-            if (status_filter === 'pending') {
+        // Standardize status filtering
+        const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
+
+        if (activeStatusFilter) {
+            const filterVal = activeStatusFilter.toLowerCase();
+            if (filterVal === 'pending' || filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
                 where.status = 'Pending for Approval';
-            } else if (status_filter === 'done') {
-                where.status = 'Approved';
-            }
-        } else {
-            // Default: Show documents that have been uploaded, approved, or rejected (Pending with versions).
-            // strictly exclude 'Pending' documents that have NO versions (newly assigned but not yet uploaded).
-            if (!approver_status_filter || approver_status_filter === 'all') {
-                where.status = { in: ['Pending for Approval', 'Approved', 'Pending'] };
-                where.versions = { some: {} }; // Crucial: Only show documents with at least one upload/version
-            }
-        }
-
-        if (approver_status_filter && approver_status_filter !== 'all') {
-            const filterVal = approver_status_filter.toLowerCase();
-            if (filterVal === 'pending for approval' || filterVal === 'pending') {
-                where.status = 'Pending for Approval';
+            } else if (filterVal === 'uploaded' || filterVal === 'done') {
+                where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
             } else if (filterVal === 'rejected') {
-                // Documents that have been rejected in their history.
-                // Since they are now 'Pending', we MUST allow 'Pending' status here.
-                where.status = 'Pending'; 
-                where.versions = {
-                    some: {
-                        status: { in: ['Rejected', 'rejected'] }
-                    }
-                };
+                where.status = 'Rejected';
+            } else {
+                where.status = activeStatusFilter;
             }
         }
 
-        // Backward compatibility for direct status filter (if used)
-        if (status && status !== 'All' && !status_filter && !approver_status_filter) {
-            where.status = status;
+        // Explicit Column Filters (Robust Array/String handling for Multi-select)
+        const processFilter = (val) => {
+            if (!val) return null;
+            if (Array.isArray(val)) return { in: val };
+            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+            return { contains: val, mode: 'insensitive' };
+        };
+
+        if (customer_name_filter) {
+            where.customer = { customer_name: processFilter(customer_name_filter) };
+        }
+        if (po_number_filter) {
+            where.po = { po_number: processFilter(po_number_filter) };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: processFilter(job_number_filter) } }
+                }
+            };
+        }
+        if (approver_status_filter) {
+            const filterVal = approver_status_filter.toLowerCase();
+            if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
+            } else if (filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else {
+                where.status = { contains: approver_status_filter, mode: 'insensitive' };
+            }
         }
 
         if (customer_id) where.customer_id = customer_id.trim();
         if (po_id) where.po_id = po_id.trim();
 
+        // Optimized Exclude Transmitted & Job Filters
+        // Build common conditions for versions
+        const versionConditions = {};
+        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
+            // Exclude versions that are already part of a transmission
+            versionConditions.transmission_items = { none: {} };
+        }
+
+        // Apply version conditions if any, or default to checking for existence if no status filter
+        if (Object.keys(versionConditions).length > 0) {
+            where.versions = { some: versionConditions };
+        } else if (!where.status) {
+            where.versions = { some: {} };
+        }
+
         // Filter by specific job IDs (from Create Transmission)
-        const { job_ids } = params;
         if (job_ids) {
-            const jobIds = Array.isArray(job_ids) ? job_ids : job_ids.split(',');
+            const jobIdsArray = Array.isArray(job_ids) ? job_ids : job_ids.split(',');
             where.group = {
                 job_group: {
-                    some: {
-                        job_id: { in: jobIds }
-                    }
+                    some: { job_id: { in: jobIdsArray } }
                 }
             };
         } else if (job_id) {
-            // Fallback for single job_id (though likely not used if we use numbers)
-            // Check if job_id is valid relation
             where.group = {
                 job_group: {
                     some: { job_id: job_id.trim() }
@@ -774,12 +995,23 @@ class DccService {
             };
         }
 
-
-
         if (search) {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
-                { document: { document_number: { contains: search, mode: 'insensitive' } } }
+                { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                {
+                    group: {
+                        job_group: {
+                            some: {
+                                job: {
+                                    job_number: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
+                    }
+                }
             ];
         }
 
@@ -789,7 +1021,7 @@ class DccService {
             take: 1,
             include: {
                 uploader: true,
-                transmission_items: true // needed to check if already transmitted
+                transmission_items: true
             }
         };
 
@@ -823,31 +1055,14 @@ class DccService {
             })
         ]);
 
-        // Filter out transmitted documents if requested
-        let processingData = data;
-        const { exclude_transmitted } = params;
-        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
-            processingData = data.filter(doc => {
-                const latestVersion = doc.versions[0];
-                // If latest version has transmission items, it's already transmitted.
-                if (latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0) {
-                    return false; // Exclude
-                }
-                return true;
-            });
-        }
-
-        const EnhancedData = this._enhanceWithDueStatuses(processingData, params);
+        const EnhancedData = this._enhanceWithDueStatuses(data, params);
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
         const expandedData = this._expandFileUrls(enrichedData);
 
-        // Note: total might optionally be adjusted if we want precise pagination metadata, 
-        // but since this is usually limited to 1000/one-page for creation, keeping original count is acceptable or we accept slight mismatch.
-        // For correctness in list view, let's update total if filtered? 
-        // Actually total is DB count. We can't easily adjust typical pagination.
-        // But for 'Create Transmission' we generally pull all.
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
 
-        return { data: expandedData, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
     }
 
     /**
@@ -858,7 +1073,7 @@ class DccService {
 
         const groupDoc = await prisma.group_document.findFirst({
             where: { id: document_id, company_id },
-            include: { 
+            include: {
                 versions: { orderBy: { version_no: 'desc' }, take: 1 },
                 document: true
             }
@@ -889,9 +1104,9 @@ class DccService {
                 user_id,
                 action: status === 'Approved' ? 'Internal Approved' : 'Internal Rejected',
                 remarks: remarks || null,
-                metadata: { 
+                metadata: {
                     version_no: latestVersion.version_no,
-                    file_url: latestVersion.file_url 
+                    file_url: latestVersion.file_url
                 }
             }, tx);
 
@@ -899,7 +1114,7 @@ class DccService {
         });
 
         // 4. Trigger Email Notification to Uploader in background
-        this._sendReviewNotification(groupDoc, latestVersion, status, remarks).catch(e => 
+        this._sendReviewNotification(groupDoc, latestVersion, status, remarks).catch(e =>
             console.error("[DccService] Review notification error:", e)
         );
 
@@ -1068,8 +1283,34 @@ class DccService {
         });
     }
 
+    async getTransmissionFilters(company_id) {
+        const transmissions = await prisma.transmission.findMany({
+            where: { company_id },
+            include: {
+                customer: { select: { id: true, customer_name: true } },
+                po: { select: { id: true, po_number: true } }
+            }
+        });
+
+        const customersMap = new Map();
+        const posMap = new Map();
+
+        transmissions.forEach(t => {
+            if (t.customer) customersMap.set(t.customer.id, t.customer);
+            if (t.po) posMap.set(t.po.id, {
+                ...t.po,
+                customer: t.customer
+            });
+        });
+
+        return {
+            customers: Array.from(customersMap.values()),
+            pos: Array.from(posMap.values())
+        };
+    }
+
     async getTransmissions(company_id, params = {}) {
-        const { po_id, page = 1, limit = 10, search, status } = params;
+        const { po_id, page = 1, limit = 10, search, status, customer_name_filter, po_number_filter } = params;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
@@ -1077,6 +1318,18 @@ class DccService {
         const where = { company_id };
         if (po_id) where.po_id = po_id;
         if (status) where.status = status;
+
+        // Apply Column Specific Filters
+        if (customer_name_filter) {
+            where.customer = { 
+                customer_name: { contains: customer_name_filter, mode: 'insensitive' } 
+            };
+        }
+        if (po_number_filter) {
+            where.po = { 
+                po_number: { contains: po_number_filter, mode: 'insensitive' } 
+            };
+        }
 
         if (search) {
             where.OR = [
@@ -1148,7 +1401,12 @@ class DccService {
                         user: true,
                         customer: true,
                         customer_location: true,
-                        po: true
+                        po: true,
+                        versions: {
+                            orderBy: { version_no: 'desc' },
+                            take: 1,
+                            include: { uploader: true }
+                        }
                     }
                 },
                 version: {
@@ -1201,7 +1459,7 @@ class DccService {
     }
 
     async sendTransmissionEmail(company_id, data) {
-        const { transmission_id, shreno_emails, client_emails } = data;
+        const { transmission_id, shreno_emails, client_emails, include_zip = true } = data;
 
         // 1. Fetch transmission details with required relations for the PDF
         const transmission = await prisma.transmission.findFirst({
@@ -1221,23 +1479,22 @@ class DccService {
         const fullDocsResponse = await this.getTransmissionDocuments(company_id, transmission_id);
         const documentsData = fullDocsResponse || [];
 
-        // 3. Generate the PDF Buffer
-        const pdfBuffer = await generateTransmittalPDF(
-            transmission,
-            transmission.customer,
-            transmission.location,
-            transmission.po,
-            documentsData,
-            transmission.creator
-        );
+        // 3. Prepare attachments and format documents for email template
+        let attachments = [];
+            const pdfBuffer = await generateTransmittalPDF(
+                transmission,
+                transmission.customer,
+                transmission.location,
+                transmission.po,
+                documentsData,
+                transmission.creator
+            );
 
-        const attachments = [
-            {
+            attachments.push({
                 filename: `Document_Transmittal_${transmission.transmission_number}.pdf`,
                 content: pdfBuffer,
                 contentType: 'application/pdf'
-            }
-        ];
+            });
 
         // 4. Send Email using EmailService and attach the PDF
         // Client -> To, Shreno -> CC
@@ -1253,7 +1510,8 @@ class DccService {
             customer_name: transmission.customer?.customer_name || 'N/A',
             document_count: transmission.documents?.length || 0,
             password: transmission.password,
-            zip_url: absoluteZipUrl || '#'
+            zip_url: absoluteZipUrl || '#',
+            include_zip: !!include_zip
         }, attachments);
 
         // Update status to 'Sent'
@@ -1284,7 +1542,7 @@ class DccService {
         // 1. Process Client Feedback Files
         if (files && files.length > 0) {
             const { baseDir, uploadDir } = StorageUtils.getTransmissionFeedbackDir(company_id, transmission.transmission_number);
-            
+
             // Move files to feedback directory
             for (const file of files) {
                 const targetPath = path.join(uploadDir, file.filename);
@@ -1295,7 +1553,7 @@ class DccService {
             // Generate ZIP of feedback files
             const feedbackZipName = `Feedback_${transmission.transmission_number}.zip`;
             const zipPath = path.join(baseDir, feedbackZipName);
-            
+
             const archiver = require('archiver');
             const output = fs.createWriteStream(zipPath);
             const archive = archiver('zip', { zlib: { level: 9 } });
@@ -1332,8 +1590,8 @@ class DccService {
                 user_id: updatedTransmission.created_by,
                 action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
                 remarks: remarks || null,
-                metadata: { 
-                    file_count: files.length, 
+                metadata: {
+                    file_count: files.length,
                     transmission_no: updatedTransmission.transmission_number,
                     feedback_files: savedFiles.map(f => f.name),
                     feedback_url: client_archive_url
@@ -1413,6 +1671,161 @@ class DccService {
 
             // (Already handled in Step 4 above: existing group_document status reset to Pending)
             return updatedTransmission;
+        });
+    }
+
+    /**
+     * Update Client Status for an individual Document within a Transmission
+     * Creates a new version for the document feedback.
+     * Statuses: Approved, Rejected, Commented
+     */
+    async updateTransmissionDocumentClientStatus(company_id, user_id, transmission_document_id, status, remarks, file) {
+        if (!['Approved', 'Rejected', 'Commented'].includes(status)) throw new Error('Invalid status');
+
+        // 1. Fetch transmission document with all needed relations
+        const transDoc = await prisma.transmission_document.findFirst({
+            where: { id: transmission_document_id },
+            include: {
+                transmission: true,
+                group_document: {
+                    include: {
+                        document: true,
+                        versions: { orderBy: { version_no: 'desc' }, take: 1 }
+                    }
+                }
+            }
+        });
+
+        if (!transDoc) throw new Error('Transmission document link not found');
+        if (transDoc.transmission.company_id !== company_id) throw new Error('Unauthorized');
+
+        const groupDoc = transDoc.group_document;
+        const masterDocId = groupDoc.document_id;
+
+        // Use global version counter across ALL group_documents sharing the same document_master
+        // This matches the pattern in file.service.js
+        const lastGlobalVersion = await prisma.document_version.findFirst({
+            where: { group_document: { document_id: masterDocId } },
+            orderBy: { version_no: 'desc' }
+        });
+        const nextVersionNo = lastGlobalVersion ? lastGlobalVersion.version_no + 1 : 0;
+
+        return await prisma.$transaction(async (tx) => {
+            let newVersion = null;
+
+            // 2. Process File if provided (Create New Version)
+            if (file) {
+                const docNumber = groupDoc.document.document_number;
+                const transNumber = transDoc.transmission.transmission_number;
+                
+                // Directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
+                const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, nextVersionNo);
+                const targetPath = path.join(targetDir, file.filename || file.originalname);
+                
+                // Move file from temp to final destination
+                fs.renameSync(file.path, targetPath);
+
+                const relativePath = StorageUtils.getRelativePath(targetPath);
+                
+                // Use the same URL pattern as file.service.js for consistency
+                const fileUrl = `/api/dcc/document/${groupDoc.id}/download?version=${nextVersionNo}`;
+
+                // Mark ALL previous versions of this Master Document as inactive (matching file.service.js)
+                await tx.document_version.updateMany({
+                    where: { 
+                        group_document: { document_id: masterDocId },
+                        is_active: true 
+                    },
+                    data: { is_active: false }
+                });
+
+                newVersion = await tx.document_version.create({
+                    data: {
+                        group_document_id: groupDoc.id,
+                        version_no: nextVersionNo,
+                        file_url: fileUrl,
+                        file_path: relativePath,
+                        file_size: file.size,
+                        mime_type: file.mimetype,
+                        status: status,
+                        remarks: remarks || `Client review ${status}`,
+                        uploaded_by: user_id,
+                        is_active: true
+                    }
+                });
+            }
+
+            // 3. Update the transmission_document with per-document client status
+            await tx.transmission_document.update({
+                where: { id: transmission_document_id },
+                data: {
+                    client_status: status,
+                    client_remarks: remarks || null
+                }
+            });
+
+            // 4. Update Group Document Status
+            // Approved → Approved, Rejected → Pending (for re-upload), Commented → No change
+            if (status === 'Approved') {
+                await tx.group_document.update({
+                    where: { id: groupDoc.id },
+                    data: { status: 'Approved' }
+                });
+            } else if (status === 'Rejected') {
+                await tx.group_document.update({
+                    where: { id: groupDoc.id },
+                    data: { status: 'Pending' }
+                });
+            }
+            // Commented: no group_document status change
+
+            // 5. Auto-compute parent Transmission client_status
+            const allTransDocs = await tx.transmission_document.findMany({
+                where: { transmission_id: transDoc.transmission_id },
+                select: { client_status: true }
+            });
+
+            const statuses = allTransDocs.map(d => d.client_status);
+            let transmissionStatus = 'Pending';
+
+            if (statuses.every(s => s === 'Approved')) {
+                transmissionStatus = 'Approved';
+            } else if (statuses.every(s => s === 'Rejected')) {
+                transmissionStatus = 'Rejected';
+            } else if (statuses.some(s => s !== 'Pending')) {
+                transmissionStatus = 'Partially Approved';
+            }
+
+            await tx.transmission.update({
+                where: { id: transDoc.transmission_id },
+                data: { client_status: transmissionStatus }
+            });
+
+            // 6. Log Activity with complete metadata for audit trail
+            const actionLabel = status === 'Approved' ? 'Client Approved' 
+                              : status === 'Rejected' ? 'Client Rejected' 
+                              : 'Client Commented';
+
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: groupDoc.id,
+                transmission_id: transDoc.transmission_id,
+                user_id,
+                action: actionLabel,
+                remarks: remarks || `Document reviewed from Transmission ${transDoc.transmission.transmission_number}`,
+                metadata: {
+                    status,
+                    transmission_number: transDoc.transmission.transmission_number,
+                    document_number: groupDoc.document.document_number,
+                    document_name: groupDoc.document.document_name,
+                    version_no: newVersion ? nextVersionNo : (lastGlobalVersion?.version_no ?? 0),
+                    has_file: !!file,
+                    new_version_id: newVersion?.id,
+                    transmission_status: transmissionStatus
+                }
+            }, tx);
+
+            return { group_document: groupDoc, version: newVersion, transmission_status: transmissionStatus };
         });
     }
 
@@ -1525,7 +1938,7 @@ class DccService {
         });
 
         // Trigger notifications as background task
-        this._sendAssignmentNotifications(company_id, results).catch(e => 
+        this._sendAssignmentNotifications(company_id, results).catch(e =>
             console.error("[DccService] Assignment notification error:", e)
         );
 
@@ -1589,7 +2002,7 @@ class DccService {
             // 2. Update Job Groups if job_ids provided
             if (job_ids && Array.isArray(job_ids)) {
                 const groupId = groupDoc.group_id;
-                
+
                 // Delete old job groups
                 await tx.job_group.deleteMany({
                     where: { group_id: groupId, company_id }
@@ -1625,7 +2038,7 @@ class DccService {
                 const rejectedVersion = doc.versions[0];
                 if (rejectedVersion) {
                     doc.status = rejectedVersion.status;
-                    doc.updatedAt = rejectedVersion.createdAt; 
+                    doc.updatedAt = rejectedVersion.createdAt;
                 }
             }
 
@@ -1717,7 +2130,7 @@ class DccService {
         }
 
         const results = await prisma.$transaction(async (tx) => {
-        
+
             const results = [];
 
             // Fetch all job details for the assignments to get Customer, Location, PO, and Job Number
@@ -1729,18 +2142,18 @@ class DccService {
             const jobMap = Object.fromEntries(foundJobs.map(j => [j.id, j]));
 
             for (const assign of assignments) {
-                const { 
-                    job_id, 
-                    document_name, 
+                const {
+                    job_id,
+                    document_name,
                     document_type_id,
-                    assign_user_id, 
-                    upload_due_days, 
-                    response_due_days, 
+                    assign_user_id,
+                    upload_due_days,
+                    response_due_days,
                     actual_due_days,
-                    shreno_document_no, 
-                    shreno_reference_no, 
-                    client_document_no, 
-                    client_reference_no 
+                    shreno_document_no,
+                    shreno_reference_no,
+                    client_document_no,
+                    client_reference_no
                 } = assign;
 
                 if (!job_id || !document_name || !assign_user_id) continue;
@@ -1755,8 +2168,8 @@ class DccService {
 
                 // 1. Find or Create Document Master for this name and type
                 let documentMaster = await tx.document_master.findFirst({
-                    where: { 
-                        company_id, 
+                    where: {
+                        company_id,
                         document_name: document_name.trim()
                     }
                 });
@@ -1831,7 +2244,7 @@ class DccService {
         });
 
         // Trigger notifications as background task
-        this._sendAssignmentNotifications(company_id, results).catch(e => 
+        this._sendAssignmentNotifications(company_id, results).catch(e =>
             console.error("[DccService] Bulk assignment notification error:", e)
         );
 
@@ -1860,7 +2273,7 @@ class DccService {
                 // Fetch full doc details for the email
                 const fullDocs = await prisma.group_document.findMany({
                     where: { id: { in: userGroups[userId] } },
-                    include: { 
+                    include: {
                         document: true,
                         group: { include: { job_group: { include: { job: true } } } }
                     }
@@ -1891,7 +2304,7 @@ class DccService {
         try {
             // 1. Check for UPLOAD OVERDUE (Pending docs)
             const pendingDocs = await prisma.group_document.findMany({
-                where: { 
+                where: {
                     status: 'Pending',
                     upload_due_days: { not: null }
                 },
@@ -1903,7 +2316,7 @@ class DccService {
             for (const doc of pendingDocs) {
                 const created = new Date(doc.createdAt);
                 const deadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
-                
+
                 if (now > deadline) {
                     if (!uploadOverdueUsers[doc.user_id]) uploadOverdueUsers[doc.user_id] = { user: doc.user, docs: [] };
                     uploadOverdueUsers[doc.user_id].docs.push({
@@ -1925,12 +2338,12 @@ class DccService {
 
             // 2. Check for RESPONSE OVERDUE (Uploaded docs awaiting approval)
             const submittedDocs = await prisma.group_document.findMany({
-                where: { 
+                where: {
                     status: 'Pending for Approval',
                     response_due_days: { not: null }
                 },
-                include: { 
-                    document: true, 
+                include: {
+                    document: true,
                     group: { include: { job_group: { include: { job: true } } } },
                     versions: { orderBy: { version_no: 'desc' }, take: 1 }
                 }

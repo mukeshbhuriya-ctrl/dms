@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1591,9 +1591,7 @@ export default function FinalInspectionReports() {
   }
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
+    <>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
@@ -1619,7 +1617,6 @@ export default function FinalInspectionReports() {
             )}
           </div>
         </main>
-      </SidebarInset>
-    </SidebarProvider>
+    </>
   )
 }

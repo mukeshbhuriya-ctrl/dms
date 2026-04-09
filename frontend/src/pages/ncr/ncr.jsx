@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
-import { AdminSidebar } from "@/components"
+
 import {
     SidebarProvider,
     SidebarInset,
@@ -1214,9 +1214,7 @@ function CreateNCR() {
     }
 
     return (
-        <SidebarProvider>
-            <AdminSidebar />
-            <SidebarInset>
+        <>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />
                 </header>
@@ -1246,8 +1244,7 @@ function CreateNCR() {
                         )}
                     </div>
                 </main>
-            </SidebarInset>
-        </SidebarProvider>
+        </>
     )
 }
 

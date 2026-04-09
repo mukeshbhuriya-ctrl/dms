@@ -29,6 +29,18 @@ export const dccService = {
         return await apiClient.get("/api/dcc/get-jobs", params);
     },
 
+    getPos: async (params = {}) => {
+        return await apiClient.get("/api/dcc/get-pos", params);
+    },
+
+    getActiveFilters: async (params = {}) => {
+        return await apiClient.get("/api/dcc/get-active-filters", params);
+    },
+
+    getTransmissionFilters: async () => {
+        return await apiClient.get("/api/dcc/get-transmission-filters");
+    },
+
     getMyAssignedDocuments: async (params = {}) => {
         return await apiClient.get("/api/dcc/upload-documents", params);
     },
@@ -45,6 +57,11 @@ export const dccService = {
     updateTransmissionClientStatus: async (formData) => {
         // Now accepts FormData for multi-file upload
         return await apiClient.post("/api/dcc/transmission/client-status", formData);
+    },
+
+    updateTransmissionDocumentClientStatus: async (formData) => {
+        // Accepts FormData for single doc status + file
+        return await apiClient.post("/api/dcc/transmission/document/client-status", formData);
     },
 
     downloadTransmittalPDF: async (id) => {

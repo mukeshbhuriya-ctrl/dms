@@ -81,8 +81,9 @@ class ActivityService {
         return activities.map(activity => {
             if (activity.metadata) {
                 // Backfill details from versions table if missing in metadata
-                if (activity.metadata.version_no && versionMap[activity.metadata.version_no]) {
-                    const vInfo = versionMap[activity.metadata.version_no];
+                const vNo = activity.metadata.version_no;
+                if ((vNo !== null && vNo !== undefined) && versionMap[vNo]) {
+                    const vInfo = versionMap[vNo];
                     if (!activity.metadata.file_url) activity.metadata.file_url = vInfo.file_url;
                     if (!activity.metadata.mime_type) activity.metadata.mime_type = vInfo.mime_type;
                     if (!activity.metadata.file_path) activity.metadata.file_path = vInfo.file_path;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AdminSidebar } from "@/components";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+;
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -204,9 +204,7 @@ const Reports = () => {
   const filteredModules = reportModules.filter(m => m.category === activeTab);
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
+    <>
         <header className="flex h-16 shrink-0 items-center justify-between border-b px-6 bg-white shadow-sm">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
@@ -363,8 +361,7 @@ const Reports = () => {
 
           </div>
         </main>
-      </SidebarInset>
-    </SidebarProvider>
+    </>
   );
 };
 

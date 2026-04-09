@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useLocation } from "react-router-dom"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import {
@@ -345,335 +345,331 @@ function SendDocumentToClient() {
   const isSent = transmittalStatus === 'Sent';
 
   return (
-    <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold mb-2">Send Document to Client</h1>
-              <p className="text-muted-foreground">
-                Select customer, location, PO, and Transmission to send approved documents.
-              </p>
-            </div>
+    <>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold mb-2">Send Document to Client</h1>
+            <p className="text-muted-foreground">
+              Select customer, location, PO, and Transmission to send approved documents.
+            </p>
+          </div>
 
-            {/* Selection Section */}
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Select Transmission</CardTitle>
-                <CardDescription>
-                  Choose the customer, location, PO, and transmission to view approved documents
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Selection Section */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Select Transmission</CardTitle>
+              <CardDescription>
+                Choose the customer, location, PO, and transmission to view approved documents
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="customerId">
+                    Customer <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={formData.customerId}
+                    onValueChange={handleCustomerChange}
+                    disabled={isLoading || customers.length === 0}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.customer_name || customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {formData.customerId && (
                   <div className="space-y-2">
-                    <Label htmlFor="customerId">
-                      Customer <span className="text-destructive">*</span>
+                    <Label htmlFor="locationId">
+                      Location <span className="text-destructive">*</span>
                     </Label>
                     <Select
-                      value={formData.customerId}
-                      onValueChange={handleCustomerChange}
-                      disabled={isLoading || customers.length === 0}
+                      value={formData.locationId}
+                      onValueChange={handleLocationChange}
+                      disabled={isLoading || !formData.customerId}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a customer" />
+                        <SelectValue placeholder="Select a location" />
                       </SelectTrigger>
                       <SelectContent>
-                        {customers.map((customer) => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.customer_name || customer.name}
+                        {availableLocations.map((location) => (
+                          <SelectItem key={location.id} value={location.id}>
+                            {location.location_name || location.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+                )}
 
-                  {formData.customerId && (
-                    <div className="space-y-2">
-                      <Label htmlFor="locationId">
-                        Location <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.locationId}
-                        onValueChange={handleLocationChange}
-                        disabled={isLoading || !formData.customerId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a location" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableLocations.map((location) => (
-                            <SelectItem key={location.id} value={location.id}>
-                              {location.location_name || location.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                {formData.locationId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="poId">
+                      PO Number <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.poId}
+                      onValueChange={handlePOChange}
+                      disabled={isLoading || !formData.locationId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a PO" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availablePOs.map((po) => (
+                          <SelectItem key={po.id} value={po.id}>
+                            {po.po_number}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-                  {formData.locationId && (
-                    <div className="space-y-2">
-                      <Label htmlFor="poId">
-                        PO Number <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.poId}
-                        onValueChange={handlePOChange}
-                        disabled={isLoading || !formData.locationId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a PO" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availablePOs.map((po) => (
-                            <SelectItem key={po.id} value={po.id}>
-                              {po.po_number}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
+                {formData.poId && (
+                  <div className="space-y-2">
+                    <Label htmlFor="jobId">
+                      Transmission Number <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.jobId}
+                      onValueChange={handleJobChange}
+                      disabled={isLoading || !formData.poId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a transmission" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableJobs.map((job) => (
+                          <SelectItem key={job.id} value={job.id}>
+                            {job.transmission_number}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-                  {formData.poId && (
-                    <div className="space-y-2">
-                      <Label htmlFor="jobId">
-                        Transmission Number <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.jobId}
-                        onValueChange={handleJobChange}
-                        disabled={isLoading || !formData.poId}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a transmission" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableJobs.map((job) => (
-                            <SelectItem key={job.id} value={job.id}>
-                              {job.transmission_number}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+          {/* Documents Table */}
+          {formData.jobId && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Approved Documents</CardTitle>
+                    <CardDescription>
+                      List of approved documents ready to be sent to client
+                    </CardDescription>
+                  </div>
+                  {documents.length > 0 && (
+                    <Button
+                      type="button"
+                      onClick={() => setIsDialogOpen(true)}
+                      disabled={isLoading}
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {isSent ? "Resend Mail" : "Send Mail"}
+                    </Button>
                   )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[50px]">S.No</TableHead>
+                        <TableHead>Generated Document No</TableHead>
+                        <TableHead>Document Name</TableHead>
+                        <TableHead>Uploaded By</TableHead>
+                        <TableHead>Uploaded Date</TableHead>
+                        <TableHead>Revision</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Transmittal Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {documents.length > 0 ? (
+                        documents.map((document, index) => (
+                          <TableRow key={document.id}>
+                            <TableCell className="font-medium">
+                              {index + 1}
+                            </TableCell>
+                            <TableCell>{document.documentCode}</TableCell>
+                            <TableCell>{document.documentName}</TableCell>
+                            <TableCell>{document.uploadedBy}</TableCell>
+                            <TableCell>{document.uploadedDate}</TableCell>
+                            <TableCell>
+                              {(document.versionNo !== null && document.versionNo !== undefined) ? `Rev ${document.versionNo}` : '-'}
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                                Approved
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${isSent
+                                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                                  : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                                }`}>
+                                {transmittalStatus}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={8}
+                            className="h-24 text-center"
+                          >
+                            No approved documents found for the selected transmission.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
               </CardContent>
             </Card>
+          )}
 
-            {/* Documents Table */}
-            {formData.jobId && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Approved Documents</CardTitle>
-                      <CardDescription>
-                        List of approved documents ready to be sent to client
-                      </CardDescription>
-                    </div>
-                    {documents.length > 0 && (
-                      <Button
-                        type="button"
-                        onClick={() => setIsDialogOpen(true)}
-                        disabled={isLoading}
-                      >
-                        <Send className="h-4 w-4 mr-2" />
-                        {isSent ? "Resend Mail" : "Send Mail"}
-                      </Button>
-                    )}
+          {/* Send Mail Dialog */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Send Documents via Email</DialogTitle>
+                <DialogDescription>
+                  Select email addresses to send the approved documents. All emails
+                  are selected by default.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-4">
+                {/* Shreno Communication */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Shreno Communication</h3>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[50px]">S.No</TableHead>
-                          <TableHead>Generated Document No</TableHead>
-                          <TableHead>Document Name</TableHead>
-                          <TableHead>Uploaded By</TableHead>
-                          <TableHead>Uploaded Date</TableHead>
-                          <TableHead>Revision/Version No</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Transmittal Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {documents.length > 0 ? (
-                          documents.map((document, index) => (
-                            <TableRow key={document.id}>
-                              <TableCell className="font-medium">
-                                {index + 1}
-                              </TableCell>
-                              <TableCell>{document.documentCode}</TableCell>
-                              <TableCell>{document.documentName}</TableCell>
-                              <TableCell>{document.uploadedBy}</TableCell>
-                              <TableCell>{document.uploadedDate}</TableCell>
-                              <TableCell>
-                                {document.versionNo ? `Rev ${document.versionNo}` : '-'}
-                              </TableCell>
-                              <TableCell>
-                                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                                  Approved
-                                </span>
-                              </TableCell>
-                              <TableCell>
-                                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                  isSent 
-                                    ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' 
-                                    : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                                }`}>
-                                  {transmittalStatus}
-                                </span>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell
-                              colSpan={8}
-                              className="h-24 text-center"
-                            >
-                              No approved documents found for the selected transmission.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Send Mail Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Send Documents via Email</DialogTitle>
-                  <DialogDescription>
-                    Select email addresses to send the approved documents. All emails
-                    are selected by default.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-6 py-4">
-                  {/* Shreno Communication */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold">Shreno Communication</h3>
-                    </div>
-                    {communicationMatrix.shreno.length > 0 ? (
-                      <div className="space-y-3 pl-7">
-                        {communicationMatrix.shreno.map((contact) => (
-                          <div
-                            key={contact.id}
-                            className="flex items-center space-x-3 p-3 border rounded-lg"
+                  {communicationMatrix.shreno.length > 0 ? (
+                    <div className="space-y-3 pl-7">
+                      {communicationMatrix.shreno.map((contact) => (
+                        <div
+                          key={contact.id}
+                          className="flex items-center space-x-3 p-3 border rounded-lg"
+                        >
+                          <Checkbox
+                            id={`shreno-${contact.id}`}
+                            checked={selectedEmails[contact.id] || false}
+                            onCheckedChange={() => handleEmailToggle(contact.id)}
+                          />
+                          <Label
+                            htmlFor={`shreno-${contact.id}`}
+                            className="flex-1 cursor-pointer"
                           >
-                            <Checkbox
-                              id={`shreno-${contact.id}`}
-                              checked={selectedEmails[contact.id] || false}
-                              onCheckedChange={() => handleEmailToggle(contact.id)}
-                            />
-                            <Label
-                              htmlFor={`shreno-${contact.id}`}
-                              className="flex-1 cursor-pointer"
-                            >
-                              <div className="font-medium">{contact.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {contact.email}
-                              </div>
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground pl-7">
-                        No Shreno contacts found for this PO.
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Divider */}
-                  <div className="border-t"></div>
-
-                  {/* Client Side Communication */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-5 w-5 text-primary" />
-                      <h3 className="text-lg font-semibold">Client Side Communication</h3>
+                            <div className="font-medium">{contact.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {contact.email}
+                            </div>
+                          </Label>
+                        </div>
+                      ))}
                     </div>
-                    {communicationMatrix.client.length > 0 ? (
-                      <div className="space-y-3 pl-7">
-                        {communicationMatrix.client.map((contact) => (
-                          <div
-                            key={contact.id}
-                            className="flex items-center space-x-3 p-3 border rounded-lg"
+                  ) : (
+                    <p className="text-sm text-muted-foreground pl-7">
+                      No Shreno contacts found for this PO.
+                    </p>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="border-t"></div>
+
+                {/* Client Side Communication */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-semibold">Client Side Communication</h3>
+                  </div>
+                  {communicationMatrix.client.length > 0 ? (
+                    <div className="space-y-3 pl-7">
+                      {communicationMatrix.client.map((contact) => (
+                        <div
+                          key={contact.id}
+                          className="flex items-center space-x-3 p-3 border rounded-lg"
+                        >
+                          <Checkbox
+                            id={`client-${contact.id}`}
+                            checked={selectedEmails[contact.id] || false}
+                            onCheckedChange={() => handleEmailToggle(contact.id)}
+                          />
+                          <Label
+                            htmlFor={`client-${contact.id}`}
+                            className="flex-1 cursor-pointer"
                           >
-                            <Checkbox
-                              id={`client-${contact.id}`}
-                              checked={selectedEmails[contact.id] || false}
-                              onCheckedChange={() => handleEmailToggle(contact.id)}
-                            />
-                            <Label
-                              htmlFor={`client-${contact.id}`}
-                              className="flex-1 cursor-pointer"
-                            >
-                              <div className="font-medium">{contact.name}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {contact.email}
-                              </div>
-                            </Label>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground pl-7">
-                        No client contacts found for this PO.
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Documents Summary */}
-                  <div className="space-y-2 pt-2 border-t">
-                    <h4 className="font-semibold">Documents to Send:</h4>
-                    <div className="text-sm text-muted-foreground">
-                      {documents.length} approved document(s) will be sent
+                            <div className="font-medium">{contact.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {contact.email}
+                            </div>
+                          </Label>
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground pl-7">
+                      No client contacts found for this PO.
+                    </p>
+                  )}
+                </div>
+
+                {/* Documents Summary */}
+                <div className="space-y-2 pt-2 border-t">
+                  <h4 className="font-semibold">Documents to Send:</h4>
+                  <div className="text-sm text-muted-foreground">
+                    {documents.length} approved document(s) will be sent
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsDialogOpen(false)}
-                    disabled={isLoading}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleSendMail}
-                    disabled={
-                      isLoading ||
-                      Object.values(selectedEmails).filter(Boolean).length === 0
-                    }
-                  >
-                    {isLoading ? "Sending..." : (isSent ? "Resend Mail" : "Send Mail")}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                  disabled={isLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSendMail}
+                  disabled={
+                    isLoading ||
+                    Object.values(selectedEmails).filter(Boolean).length === 0
+                  }
+                >
+                  {isLoading ? "Sending..." : (isSent ? "Resend Mail" : "Send Mail")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </main>
+    </>
   )
 }
 

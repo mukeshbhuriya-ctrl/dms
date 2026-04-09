@@ -95,6 +95,41 @@ class DccController {
         }
     }
 
+    async getTransmissionFilters(req, res) {
+        try {
+            const result = await DccService.getTransmissionFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async getActiveFilters(req, res) {
+        try {
+            const { userid, role, company_id: companyId } = req.user;
+            const { is_approved, is_transmittable } = req.query;
+            
+            const roles = Array.isArray(role) ? role : [role];
+            const upperRoles = roles.map(r => r.toUpperCase());
+            
+            // Case-insensitive role check for robustness
+            const isPowerUser = upperRoles.includes('ADMIN') || upperRoles.includes('DCC');
+            const isUploader = upperRoles.includes('USER');
+            
+            const getOnlyForUser = !isPowerUser && isUploader ? userid : null;
+
+            const options = {
+                isApproved: is_approved === 'true',
+                isTransmittable: is_transmittable === 'true'
+            };
+            
+            const result = await DccService.getActiveFilters(companyId, getOnlyForUser, options);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     async createDocumentMaster(req, res) {
         try {
             const result = await DccService.createDocumentMaster(req.user.company_id, req.body);
@@ -226,7 +261,11 @@ class DccController {
     async getTransmissions(req, res) {
         try {
             const result = await DccService.getTransmissions(req.user.company_id, req.query);
-            res.status(200).json({ success: true, data: result });
+            res.status(200).json({ 
+                success: true, 
+                data: result.data, 
+                meta: result.meta 
+            });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
         }
@@ -251,6 +290,17 @@ class DccController {
             res.status(400).json({ success: false, message: error.message });
         }
     }
+
+    async previewTransmittalPDF(req, res) {
+        try {
+            const { filename, buffer } = await DccService.getTransmissionTransmittalPDF(req.user.company_id, req.params.id);
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+            res.send(buffer);
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
     async updateTransmissionClientStatus(req, res) {
         try {
             const { transmission_id, status, remarks } = req.body;
@@ -258,6 +308,28 @@ class DccController {
             const result = await DccService.updateTransmissionClientStatus(req.user.company_id, transmission_id, status, remarks, files);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async updateTransmissionDocumentClientStatus(req, res) {
+        try {
+            const { transmission_document_id, status, remarks } = req.body;
+            const file = req.file; // single file for individual doc
+            const userId = req.user.userid || req.user.id;
+            
+            const result = await DccService.updateTransmissionDocumentClientStatus(
+                req.user.company_id, 
+                userId,
+                transmission_document_id, 
+                status, 
+                remarks, 
+                file
+            );
+            
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('Update transmission document client status error:', error);
             res.status(400).json({ success: false, message: error.message });
         }
     }

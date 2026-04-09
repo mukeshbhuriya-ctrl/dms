@@ -85,12 +85,14 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             let currentY = startTableY;
 
             // Table Columns setup (A4 width is 595, margins 50 each => 495 usable width)
-            const colWidths = [50, 140, 50, 255]; // Total = 495
+            // Updated columns: Sr No (30), Shreno (115), Client (115), Doc Name (185), Rev (50)
+            const colWidths = [30, 115, 115, 185, 50]; 
             const colX = [
                 50,
                 50 + colWidths[0],
                 50 + colWidths[0] + colWidths[1],
-                50 + colWidths[0] + colWidths[1] + colWidths[2]
+                50 + colWidths[0] + colWidths[1] + colWidths[2],
+                50 + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3]
             ];
 
             // Helper to draw cells
@@ -103,8 +105,9 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
                     doc.rect(colX[i], y, colWidths[i], rowHeight).stroke();
 
                     let align = 'center';
-                    if (i === 1 || i === 3) align = 'left'; // Align Document Number and Title left
-                    if (isHeader) align = 'center'; // For headers, center everything
+                    // Align Doc Numbers and Names left, others center
+                    if (i === 1 || i === 2 || i === 3) align = 'left'; 
+                    if (isHeader) align = 'center'; 
 
                     // Add safe horizontal padding (5pt on each side) to prevent border overlap
                     const padX = 5;
@@ -122,8 +125,8 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
                 }
             };
 
-            // Draw Header
-            drawRow(currentY, ['Sr. No.', 'Doc Number', 'Rev', 'Title'], true);
+            // Draw Header (Updated Labels)
+            drawRow(currentY, ['Sr. No.', 'Shreno Doc No', 'Client Doc No', 'Doc Name', 'Rev'], true);
             currentY += rowHeight;
 
             // Determine versions to list
@@ -136,21 +139,19 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
                     doc.addPage();
                     currentY = 50; // Reset Y for new page
                     // Redraw header on new page
-                    drawRow(currentY, ['Sr. No.', 'Doc Number', 'Rev', 'Title'], true);
+                    drawRow(currentY, ['Sr. No.', 'Shreno Doc No', 'Client Doc No', 'Doc Name', 'Rev'], true);
                     currentY += rowHeight;
                 }
 
                 const srNo = (index + 1).toString();
-                // Extract relevant doc fields.
-                let docNumber = docItem.group_document.document?.document_number || '';
-                let rev = '';
-                let title = docItem.group_document.document?.document_name || '';
+                
+                // Map fields correctly as per user request
+                let shrenoDocNo = docItem.group_document?.shreno_doc_no || '';
+                let clientDocNo = docItem.group_document?.client_doc_no || '';
+                let docName = docItem.group_document?.document?.document_name || '';
+                let rev = docItem.display_version_no || (docItem.version ? (docItem.version.version_no !== undefined ? docItem.version.version_no.toString() : '') : '');
 
-                if (docItem.version) {
-                    rev = docItem.version.version_no !== undefined ? docItem.version.version_no.toString() : '';
-                }
-
-                drawRow(currentY, [srNo, docNumber, rev, title]);
+                drawRow(currentY, [srNo, shrenoDocNo, clientDocNo, docName, rev]);
                 currentY += rowHeight;
             });
 

@@ -1,6 +1,6 @@
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import UserSidebar from "@/components/sidebar/user"
+
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -78,9 +78,7 @@ function UserDashboard() {
   ]
 
   return (
-    <SidebarProvider>
-      <UserSidebar />
-      <SidebarInset>
+    <>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <div className="flex-1">
@@ -188,8 +186,7 @@ function UserDashboard() {
           </Card>
         </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+    </>
   )
 }
 

@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -186,22 +186,17 @@ function RfqLookupManager() {
 
     if (!config) {
         return (
-            <SidebarProvider>
-                <AdminSidebar />
-                <SidebarInset>
+            <>
                     <div className="p-6">
                         <h1 className="text-2xl font-bold text-destructive">Invalid Lookup Type</h1>
                         <p className="text-muted-foreground mt-2">The requested lookup management page does not exist or has been removed.</p>
                     </div>
-                </SidebarInset>
-            </SidebarProvider>
+            </>
         )
     }
 
     return (
-        <SidebarProvider>
-            <AdminSidebar />
-            <SidebarInset>
+        <>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />
                 </header>
@@ -310,8 +305,7 @@ function RfqLookupManager() {
                         )}
                     </div>
                 </main>
-            </SidebarInset>
-        </SidebarProvider>
+        </>
     )
 }
 

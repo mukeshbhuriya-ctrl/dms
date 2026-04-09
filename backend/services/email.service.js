@@ -19,6 +19,11 @@ class EmailService {
 
     async sendEmail({ to, cc, subject, text, html, attachments }) {
         try {
+            if (!this.isEmailEnabled()) {
+                console.log('[EmailService] - disabled');
+                return { skipped: true };
+            }
+
             const info = await this.transporter.sendMail({
                 from: `"DMS System" <${process.env.SMTP_USER || 'no-reply@dms.com'}>`,
                 to, // list of receivers
@@ -34,6 +39,10 @@ class EmailService {
             console.error("Error sending email:", error);
             throw error;
         }
+    }
+
+    isEmailEnabled() {
+        return process.env.EMAIL_ENABLED?.toLowerCase() !== 'false';
     }
 
     // Template for Transmission

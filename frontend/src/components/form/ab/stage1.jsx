@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-function Stage1({ initialData, isReview = false }) {
+function Stage1({ initialData, isReview = false, onSuccess }) {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [userRole, setUserRole] = useState("")
@@ -52,11 +52,9 @@ function Stage1({ initialData, isReview = false }) {
     { id: 8, name: "Weld edge Visual", value: "" },
     { id: 9, name: "Length of the Shell", value: "" },
     { id: 10, name: "Outside circumference", value: "" },
-    { id: 11, name: "Inside Gauge / Template", value: "" },
-    { id: 12, name: "Verification", value: "" },
-    { id: 13, name: "Outside Gauge /Template", value: "" },
-    { id: 14, name: "verification (if Applicable)", value: "" },
-    { id: 15, name: "Tack Welder Number", value: "" },
+    { id: 11, name: "Inside Gauge / Template Verification", value: "" },
+    { id: 12, name: "Outside Gauge / Template verification (if Applicable)", value: "" },
+    { id: 13, name: "Tack Welder Number", value: "" },
   ])
 
   const [productionEngineerName, setProductionEngineerName] = useState("")
@@ -290,7 +288,7 @@ function Stage1({ initialData, isReview = false }) {
       const data = await res.json();
       if (res.ok) {
         setSuccess("Stage 1 submitted successfully");
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
         setError(data.message || "Submission failed");
       }
@@ -390,7 +388,7 @@ function Stage1({ initialData, isReview = false }) {
       const data = await res.json();
       if (res.ok) {
         setSuccess(`Stage 1 ${status} successfully`);
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
         setError(data.message || "Review action failed");
       }

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage9D = ({ initialData, inspectionData, isReview = false, stage = "stage9" }) => {
+const Stage9D = ({ initialData, inspectionData, isReview = false, stage = "stage9", onSuccess  }) => {
     const sPrefix = stage.replace('stage', 's');
     
     const [productionEngineerName, setProductionEngineerName] = useState("")
@@ -160,7 +160,7 @@ const Stage9D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: "Stage submitted successfully" });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 const data = await res.json();
                 setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
@@ -240,7 +240,7 @@ const Stage9D = ({ initialData, inspectionData, isReview = false, stage = "stage
             });
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: `Stage ${status} successfully` });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 const data = await res.json();
                 setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });

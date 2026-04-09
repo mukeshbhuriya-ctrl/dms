@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react"
-import { AdminSidebar } from "@/components"
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
+
+import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -88,6 +88,7 @@ function ListView({ onCreateClick, onEditClick }) {
     const [isViewOpen, setIsViewOpen] = useState(false)
     const [selectedRecord, setSelectedRecord] = useState(null)
     const [viewLoading, setViewLoading] = useState(false)
+    const [refreshKey, setRefreshKey] = useState(0)
 
     const handleViewClick = async (id) => {
         try {
@@ -111,7 +112,7 @@ function ListView({ onCreateClick, onEditClick }) {
             if (res.success) {
                 toast.success("RFQ entry deleted successfully")
                 // Force DataTable to refetch by triggering a re-render
-                window.location.reload()
+                setRefreshKey(prev => prev + 1)
             }
         } catch (error) {
             toast.error(error.message || "Failed to delete record")
@@ -175,9 +176,7 @@ function ListView({ onCreateClick, onEditClick }) {
     const fetchData = useCallback(async ({ page, limit, search }) => {
         const res = await apiClient.get("/api/rfq/list", { page, limit, search })
         return { data: res.data || [], meta: res.meta || {} }
-    }, [])
-
-    const [refreshKey, setRefreshKey] = useState(0);
+    }, [refreshKey])
 
     const handleExport = async () => {
         try {
@@ -1013,9 +1012,7 @@ function RfqRegister() {
     }
 
     return (
-        <SidebarProvider>
-            <AdminSidebar />
-            <SidebarInset>
+        <>
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
                     <SidebarTrigger className="-ml-1" />
                 </header>
@@ -1040,8 +1037,7 @@ function RfqRegister() {
                         )}
                     </div>
                 </main>
-            </SidebarInset>
-        </SidebarProvider>
+        </>
     )
 }
 

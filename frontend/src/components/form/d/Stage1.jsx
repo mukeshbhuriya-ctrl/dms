@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
 
-const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage1" }) => {
+const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage1", onSuccess  }) => {
     const sPrefix = stage.replace('stage', 's');
     
     const [productionEngineerName, setProductionEngineerName] = useState("")
@@ -180,7 +180,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} Submitted Successfully` });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 const data = await res.json();
                 setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
@@ -227,7 +227,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
             });
             if (res.ok) {
                 setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} Successfully` });
-                setTimeout(() => window.location.reload(), 1500);
+                setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
                 const data = await res.json();
                 setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
