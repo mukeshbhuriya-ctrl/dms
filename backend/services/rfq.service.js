@@ -125,6 +125,10 @@ class RfqService {
             client_status,
             remark,
             made_by,
+            po_no,
+            po_date,
+            po_value,
+            po_remark,
             items = [],
         } = body;
 
@@ -181,6 +185,10 @@ class RfqService {
                     remark: remark || null,
                     made_by: made_by || null,
                     created_by: userId || null,
+                    po_no: po_no || null,
+                    po_date: po_date ? new Date(po_date) : null,
+                    po_value: po_value ? parseFloat(po_value) : null,
+                    po_remark: po_remark || null,
                 },
             });
 
@@ -194,10 +202,6 @@ class RfqService {
                         equip_qty: item.equip_qty ? parseInt(item.equip_qty, 10) : null,
                         rev: item.rev || null,
                         total_value: item.total_value ? parseFloat(item.total_value) : null,
-                        po_no: item.po_no || null,
-                        po_date: item.po_date ? new Date(item.po_date) : null,
-                        po_value: item.po_value ? parseFloat(item.po_value) : null,
-                        remarks: item.remarks || null,
                     })),
                 });
             }
@@ -241,6 +245,10 @@ class RfqService {
             client_status,
             remark,
             made_by,
+            po_no,
+            po_date,
+            po_value,
+            po_remark,
             items = [],
         } = body;
 
@@ -265,6 +273,10 @@ class RfqService {
                     client_status: client_status || 'Under Review',
                     remark: remark || null,
                     made_by: made_by || null,
+                    po_no: po_no || null,
+                    po_date: po_date ? new Date(po_date) : null,
+                    po_value: po_value ? parseFloat(po_value) : null,
+                    po_remark: po_remark || null,
                 },
             });
 
@@ -280,10 +292,6 @@ class RfqService {
                         equip_qty: item.equip_qty ? parseInt(item.equip_qty, 10) : null,
                         rev: item.rev || null,
                         total_value: item.total_value ? parseFloat(item.total_value) : null,
-                        po_no: item.po_no || null,
-                        po_date: item.po_date ? new Date(item.po_date) : null,
-                        po_value: item.po_value ? parseFloat(item.po_value) : null,
-                        remarks: item.remarks || null,
                     })),
                 });
             }

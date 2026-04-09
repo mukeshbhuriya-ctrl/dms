@@ -396,6 +396,10 @@ function CreateView({ onBack, editId = null }) {
             clientStatus: "Under Review",
             remark: "",
             madeBy: loggedInUser,
+            poNo: "",
+            poDate: "",
+            poValue: "",
+            poRemark: "",
         }
     })
 
@@ -449,6 +453,10 @@ function CreateView({ onBack, editId = null }) {
                         clientStatus: r.client_status || "Under Review",
                         remark: r.remark || "",
                         madeBy: r.made_by || "",
+                        poNo: r.po_no || "",
+                        poDate: r.po_date ? r.po_date.split("T")[0] : "",
+                        poValue: r.po_value || "",
+                        poRemark: r.po_remark || "",
                     })
                     if (r.items?.length) {
                         setTableRows(r.items.map((item, i) => ({
@@ -458,9 +466,6 @@ function CreateView({ onBack, editId = null }) {
                             equipQty: item.equip_qty || "",
                             rev: item.rev || "",
                             totalValue: item.total_value || "",
-                            poNo: item.po_no || "",
-                            poDate: item.po_date ? item.po_date.split("T")[0] : "",
-                            poValue: item.po_value || "",
                             remarks: item.remarks || "",
                         })))
                     }
@@ -508,7 +513,7 @@ function CreateView({ onBack, editId = null }) {
         const newId = Math.max(...tableRows.map((r) => r.id), 0) + 1
         setTableRows([
             ...tableRows,
-            { id: newId, srNo: newId, enqDescription: "", equipQty: "", rev: "", totalValue: "", poNo: "", poDate: "", poValue: "", remarks: "" },
+            { id: newId, srNo: newId, enqDescription: "", equipQty: "", rev: "", totalValue: "", remarks: "" },
         ])
     }
 
@@ -540,15 +545,16 @@ function CreateView({ onBack, editId = null }) {
                 client_status: formData.clientStatus || "Under Review",
                 remark: formData.remark,
                 made_by: formData.madeBy,
+                po_no: formData.poNo,
+                po_date: formData.poDate || null,
+                po_value: formData.poValue,
+                po_remark: formData.poRemark,
                 items: tableRows.map((row) => ({
                     sr_no: row.srNo,
                     enq_description: row.enqDescription,
                     equip_qty: row.equipQty,
                     rev: row.rev,
                     total_value: row.totalValue,
-                    po_no: row.poNo,
-                    po_date: row.poDate || null,
-                    po_value: row.poValue,
                     remarks: row.remarks,
                 })),
             }
@@ -839,6 +845,54 @@ function CreateView({ onBack, editId = null }) {
                         </div>
 
                         <div className="space-y-2">
+                            <Label htmlFor="poNo">PO No.</Label>
+                            <Input
+                                id="poNo"
+                                name="poNo"
+                                type="text"
+                                value={formData.poNo}
+                                onChange={handleInputChange}
+                                placeholder="Enter PO No."
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="poDate">PO Date</Label>
+                            <Input
+                                id="poDate"
+                                name="poDate"
+                                type="date"
+                                value={formData.poDate}
+                                onChange={handleInputChange}
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="poValue">PO Value</Label>
+                            <Input
+                                id="poValue"
+                                name="poValue"
+                                type="number"
+                                value={formData.poValue}
+                                onChange={handleInputChange}
+                                placeholder="Enter PO Value"
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="poRemark">PO Remarks</Label>
+                            <Input
+                                id="poRemark"
+                                name="poRemark"
+                                type="text"
+                                value={formData.poRemark}
+                                onChange={handleInputChange}
+                                placeholder="Enter PO Remarks"
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="madeBy">Made By</Label>
                             <Input
                                 id="madeBy"
@@ -867,131 +921,53 @@ function CreateView({ onBack, editId = null }) {
                 </CardContent>
             </Card>
 
-            {/* Card 4: Enquiry Details Table */}
             <Card className="mb-6">
                 <CardHeader>
                     <CardTitle>Enquiry Details</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-blue-100">
-                                    {["Sr. No.", "Enq. Description", "Equip. Qty", "Rev.", "Total Value", "PO No.", "PO Date", "PO Value", "Remarks", ""].map(
-                                        (h, idx) => (
-                                            <TableHead
-                                                key={idx}
-                                                className="text-red-600 font-semibold border border-gray-300 whitespace-nowrap"
-                                            >
-                                                {h}
-                                            </TableHead>
-                                        )
-                                    )}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {tableRows.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell className="p-2 border border-gray-300 text-center w-16">
-                                            <Input
-                                                type="number"
-                                                value={row.srNo}
-                                                onChange={(e) => handleRowChange(row.id, "srNo", e.target.value)}
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-center"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 min-w-[200px]">
-                                            <Input
-                                                type="text"
-                                                value={row.enqDescription}
-                                                onChange={(e) => handleRowChange(row.id, "enqDescription", e.target.value)}
-                                                placeholder="Description"
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-24">
-                                            <Input
-                                                type="number"
-                                                value={row.equipQty}
-                                                onChange={(e) => handleRowChange(row.id, "equipQty", e.target.value)}
-                                                placeholder="Qty"
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-center"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-20">
-                                            <Input
-                                                type="text"
-                                                value={row.rev}
-                                                onChange={(e) => handleRowChange(row.id, "rev", e.target.value)}
-                                                placeholder="Rev."
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-center"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-28">
-                                            <Input
-                                                type="number"
-                                                value={row.totalValue}
-                                                onChange={(e) => handleRowChange(row.id, "totalValue", e.target.value)}
-                                                placeholder="Total Value"
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-right"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-28">
-                                            <Input
-                                                type="text"
-                                                value={row.poNo}
-                                                onChange={(e) => handleRowChange(row.id, "poNo", e.target.value)}
-                                                placeholder="PO No."
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-32">
-                                            <Input
-                                                type="date"
-                                                value={row.poDate}
-                                                onChange={(e) => handleRowChange(row.id, "poDate", e.target.value)}
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-28">
-                                            <Input
-                                                type="number"
-                                                value={row.poValue}
-                                                onChange={(e) => handleRowChange(row.id, "poValue", e.target.value)}
-                                                placeholder="PO Value"
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-right"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
-                                            <Input
-                                                type="text"
-                                                value={row.remarks}
-                                                onChange={(e) => handleRowChange(row.id, "remarks", e.target.value)}
-                                                placeholder="Remarks"
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 text-center">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => removeRow(row.id)}
-                                                disabled={tableRows.length === 1}
-                                                title="Remove Row"
-                                            >
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <Button type="button" variant="outline" onClick={addRow} className="w-full sm:w-auto mt-2">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Row
-                    </Button>
+                    {tableRows.length > 0 && (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Enq. Description</Label>
+                                <Textarea 
+                                    value={tableRows[0].enqDescription} 
+                                    onChange={(e) => handleRowChange(tableRows[0].id, "enqDescription", e.target.value)}
+                                    placeholder="Enter Enquiry Description"
+                                    className="min-h-[100px]"
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Equip. Qty</Label>
+                                    <Input 
+                                        type="number"
+                                        value={tableRows[0].equipQty} 
+                                        onChange={(e) => handleRowChange(tableRows[0].id, "equipQty", e.target.value)}
+                                        placeholder="Qty"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Rev.</Label>
+                                    <Input 
+                                        value={tableRows[0].rev} 
+                                        onChange={(e) => handleRowChange(tableRows[0].id, "rev", e.target.value)}
+                                        placeholder="Rev"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Total Value</Label>
+                                    <Input 
+                                        type="number"
+                                        value={tableRows[0].totalValue} 
+                                        onChange={(e) => handleRowChange(tableRows[0].id, "totalValue", e.target.value)}
+                                        placeholder="Value"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

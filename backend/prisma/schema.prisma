@@ -913,6 +913,11 @@ model rfq_register {
   made_by                String?
   created_by             String?
 
+  po_no                  String?
+  po_date                DateTime?
+  po_value               Float?
+  po_remark              String?
+
   company  company @relation(fields: [company_id], references: [id])
   creator  user?   @relation(fields: [created_by], references: [id])
   items    rfq_register_item[]
@@ -929,10 +934,6 @@ model rfq_register_item {
   equip_qty        Int?
   rev              String?
   total_value      Float?
-  po_no            String?
-  po_date          DateTime?
-  po_value         Float?
-  remarks          String?
 
   rfq rfq_register @relation(fields: [rfq_id], references: [id], onDelete: Cascade)
 
