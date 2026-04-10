@@ -307,6 +307,8 @@ function CreateDCR() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
 
   const [formData, setFormData] = useState(defaultFormData)
+  const [assignedDocs, setAssignedDocs] = useState([])
+  const [isLoadingDocs, setIsLoadingDocs] = useState(false)
   const [tableRows, setTableRows] = useState([createEmptyRow(1)])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
@@ -492,7 +494,7 @@ function CreateDCR() {
     }
   }
 
-  const handleJobChange = (jobId) => {
+  const handleJobChange = async (jobId) => {
     const selectedJob = jobs.find((job) => job.id === jobId)
 
     setFormData((prev) => ({
@@ -500,11 +502,28 @@ function CreateDCR() {
       msmNumber: jobId,
       dcrNo: selectedJob?.next_dcr_no || "",
       equipmentNo: selectedJob?.equipement_name || "",
-      drawingNo: selectedJob?.code || "",
+      drawingNo: "",
     }))
 
     if (formError) {
       setFormError("")
+    }
+
+    if (jobId) {
+      setIsLoadingDocs(true)
+      try {
+        const payload = await apiClient.get(`/api/dcr/get-assigned-drawings/${jobId}`)
+        if (payload.success) {
+          setAssignedDocs(payload.data || [])
+        }
+      } catch (err) {
+        console.error("Error fetching drawings:", err)
+        toast.error("Failed to fetch assigned drawings")
+      } finally {
+        setIsLoadingDocs(false)
+      }
+    } else {
+      setAssignedDocs([])
     }
   }
 
@@ -992,16 +1011,51 @@ function CreateDCR() {
                           <Label htmlFor="drawingNo">
                             DRAWING NO. <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            id="drawingNo"
-                            name="drawingNo"
-                            type="text"
-                            placeholder="Enter drawing number"
-                            value={formData.drawingNo}
-                            onChange={handleInputChange}
-                            required
-                            disabled={isFormDisabled}
-                          />
+                          {isViewMode ? (
+                            <Input
+                              id="drawingNo"
+                              type="text"
+                              value={formData.drawingNo}
+                              readOnly
+                              disabled
+                            />
+                          ) : (
+                            <Select
+                              value={formData.drawingNo}
+                              onValueChange={(value) => handleSelectChange("drawingNo", value)}
+                              disabled={isSubmitting || isLoadingDocs || !formData.msmNumber}
+                            >
+                              <SelectTrigger id="drawingNo" className="w-full">
+                                <SelectValue
+                                  placeholder={
+                                    !formData.msmNumber
+                                      ? "Select job no first"
+                                      : isLoadingDocs
+                                        ? "Loading drawings..."
+                                        : "Select drawing no"
+                                  }
+                                />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {assignedDocs.length === 0 && !isLoadingDocs ? (
+                                  <div className="p-2 text-sm text-muted-foreground text-center">
+                                    No drawings assigned to this job
+                                  </div>
+                                ) : (
+                                  assignedDocs.map((doc) => (
+                                    <SelectItem key={doc.id} value={doc.shreno_doc_no}>
+                                      <div className="flex flex-col text-left">
+                                        <span className="font-medium">{doc.shreno_doc_no}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {doc.document_name}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          )}
                         </div>
 
                         <div className="space-y-2">

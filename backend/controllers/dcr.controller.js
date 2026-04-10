@@ -528,6 +528,69 @@ class DcrController {
             });
         }
     }
+
+    async getAssignedDrawings(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const job_id = req.params.jobId;
+
+            if (!job_id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Job id is required',
+                });
+            }
+
+            const assignedDocs = await prisma.group_document.findMany({
+                where: {
+                    company_id,
+                    group: {
+                        job_group: {
+                            some: {
+                                job_id: job_id
+                            }
+                        }
+                    }
+                },
+                select: {
+                    id: true,
+                    shreno_doc_no: true,
+                    document: {
+                        select: {
+                            document_name: true
+                        }
+                    }
+                }
+            });
+
+            // Ensure uniqueness by shreno_doc_no to prevent multiple selections in frontend
+            const uniqueDocsMap = new Map();
+            assignedDocs.forEach(doc => {
+                if (doc.shreno_doc_no && !uniqueDocsMap.has(doc.shreno_doc_no)) {
+                    uniqueDocsMap.set(doc.shreno_doc_no, {
+                        id: doc.id,
+                        shreno_doc_no: doc.shreno_doc_no,
+                        document_name: doc.document?.document_name || ''
+                    });
+                }
+            });
+
+            const data = Array.from(uniqueDocsMap.values());
+
+            return res.status(200).json({
+                success: true,
+                message: 'Assigned drawings fetched successfully',
+                data,
+            });
+        } catch (error) {
+            console.error('Get assigned drawings error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            });
+        }
+    }
 }
 
 module.exports = new DcrController();

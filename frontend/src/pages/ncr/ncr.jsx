@@ -29,6 +29,7 @@ import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download } from "lu
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { useAuth } from "@/context/AuthContext"
+import { toast } from "react-toastify"
 
 const ncrStatusConfig = {
     stage1: { label: "Stage 1", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20" },
@@ -70,18 +71,6 @@ const normalizeUser = (user) => {
         empid,
         displayName: empid ? `${name} (${empid})` : `${name}`,
     }
-}
-
-const getAuthHeaders = () => {
-    const authData = localStorage.getItem("user_auth")
-    let token = null
-    try {
-        const parsed = JSON.parse(authData || "{}")
-        token = parsed?.payload?.token || parsed?.token || null
-    } catch { /* ignore */ }
-    const headers = { "Content-Type": "application/json" }
-    if (token) headers.Authorization = `Bearer ${token}`
-    return headers
 }
 
 const defaultFormData = {
@@ -333,6 +322,8 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
     const [jobs, setJobs] = useState([])
     const [users, setUsers] = useState([])
     const [jobsLoading, setJobsLoading] = useState(true)
+    const [assignedDrawings, setAssignedDrawings] = useState([])
+    const [isDrawingsLoading, setIsDrawingsLoading] = useState(false)
     const [formData, setFormData] = useState(defaultFormData)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState("")
@@ -443,17 +434,25 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             }
         })
     }
-
     const handleJobChange = async (jobId) => {
         setFormData((prev) => ({ ...prev, msmNumber: jobId }))
 
+        if (!jobId) {
+            setAssignedDrawings([])
+            return
+        }
+
+        setIsDrawingsLoading(true)
         try {
-            const [ncrRes, jobRes] = await Promise.all([
+            const [ncrRes, jobRes, drawingsRes] = await Promise.all([
                 apiClient.get(`/api/ncr/next-ncr-no/${jobId}`),
                 apiClient.get(`/api/common/jobs/${jobId}`),
+                apiClient.get(`/api/dcr/get-assigned-drawings/${jobId}`).catch(() => ({ success: false, data: [] }))
             ])
 
             const job = jobRes.data || {}
+            setAssignedDrawings(drawingsRes.success ? (drawingsRes.data || []) : [])
+
             setFormData((prev) => ({
                 ...prev,
                 msmNumber: jobId,
@@ -466,6 +465,9 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             }))
         } catch (err) {
             console.error("Failed to fetch job details:", err)
+            toast.error("Failed to fetch job details or assigned drawings")
+        } finally {
+            setIsDrawingsLoading(false)
         }
     }
 
@@ -732,7 +734,41 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             </div>
             <div className="space-y-2">
                 <Label htmlFor={`${idPrefix}drgNo`}>DRG. NO. <span className="text-destructive">*</span></Label>
-                <Input id={`${idPrefix}drgNo`} name="drgNo" placeholder="Enter Drawing Number" value={formData.drgNo} onChange={handleInputChange} disabled={isDisabled} required />
+                {isDisabled ? (
+                    <Input
+                        id={`${idPrefix}drgNo`}
+                        value={formData.drgNo}
+                        readOnly
+                        disabled
+                        className="bg-muted"
+                    />
+                ) : (
+                    <Select
+                        value={formData.drgNo}
+                        onValueChange={(val) => handleSelectChange("drgNo", val)}
+                        disabled={isDisabled || isDrawingsLoading || !formData.msmNumber}
+                    >
+                        <SelectTrigger id={`${idPrefix}drgNo`} className="w-full bg-background [&>span]:truncate text-left">
+                            <SelectValue placeholder={!formData.msmNumber ? "Select MSN first" : isDrawingsLoading ? "Loading..." : "Select Drawing"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {assignedDrawings.length === 0 && !isDrawingsLoading ? (
+                                <div className="p-2 text-sm text-muted-foreground text-center">No drawings assigned</div>
+                            ) : (
+                                assignedDrawings.map((doc) => (
+                                    <SelectItem key={doc.id} value={doc.shreno_doc_no}>
+                                        <div className="flex flex-col text-left">
+                                            <span className="font-medium">{doc.shreno_doc_no}</span>
+                                            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                                {doc.document_name}
+                                            </span>
+                                        </div>
+                                    </SelectItem>
+                                ))
+                            )}
+                        </SelectContent>
+                    </Select>
+                )}
             </div>
             <div className="space-y-2">
                 <Label htmlFor={`${idPrefix}revNo`}>REV. NO. <span className="text-destructive">*</span></Label>

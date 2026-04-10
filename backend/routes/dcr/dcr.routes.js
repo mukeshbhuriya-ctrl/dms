@@ -13,6 +13,7 @@ router.get('/get-dcr', DcrController.getDcr);
 router.get('/get-dcr-by-id/:id', DcrController.getDcrById);
 router.post('/create-dcr', DcrController.createDcr);
 router.get('/get-jobs', DcrController.getDcrNumber);
+router.get('/get-assigned-drawings/:jobId', DcrController.getAssignedDrawings);
 router.get('/download-pdf/:id', DcrController.downloadPdf);
 
 
