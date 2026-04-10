@@ -302,7 +302,8 @@ function CreateDCR() {
   })
 
   const [jobs, setJobs] = useState([])
-  const [users, setUsers] = useState([])
+  const [designEngineers, setDesignEngineers] = useState([])
+  const [qualityEngineers, setQualityEngineers] = useState([])
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [isLoadingUsers, setIsLoadingUsers] = useState(false)
 
@@ -407,21 +408,25 @@ function CreateDCR() {
     setIsLoadingUsers(true)
 
     try {
-      const params = {
-        page: "1",
-        limit: "1000",
-      }
+      const [designRes, qualityRes] = await Promise.all([
+        apiClient.get('/api/users/by-role/DESIGN_ENGINEER'),
+        apiClient.get('/api/users/by-role/QC_ENGINEER'),
+      ])
 
-      const payload = await apiClient.get('/api/users/get-users', params)
-
-      const userList = Array.isArray(payload?.data)
-        ? payload.data.map(normalizeUser).filter((user) => user.id)
+      const designList = Array.isArray(designRes?.data)
+        ? designRes.data.map(normalizeUser).filter((u) => u.id)
+        : []
+      
+      const qualityList = Array.isArray(qualityRes?.data)
+        ? qualityRes.data.map(normalizeUser).filter((u) => u.id)
         : []
 
-      setUsers(userList)
+      setDesignEngineers(designList)
+      setQualityEngineers(qualityList)
     } catch (err) {
       setFormError(err?.message || "Unable to load users")
-      setUsers([])
+      setDesignEngineers([])
+      setQualityEngineers([])
     } finally {
       setIsLoadingUsers(false)
     }
@@ -1234,7 +1239,7 @@ function CreateDCR() {
                                 />
                               </SelectTrigger>
                               <SelectContent>
-                                {users.map((user) => (
+                                {designEngineers.map((user) => (
                                   <SelectItem key={`design-${user.id}`} value={user.id}>
                                     {user.displayName}
                                   </SelectItem>
@@ -1270,7 +1275,7 @@ function CreateDCR() {
                                 />
                               </SelectTrigger>
                               <SelectContent>
-                                {users.map((user) => (
+                                {qualityEngineers.map((user) => (
                                   <SelectItem key={`quality-${user.id}`} value={user.id}>
                                     {user.displayName}
                                   </SelectItem>
