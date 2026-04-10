@@ -1149,6 +1149,7 @@ model ncr {
   ncr_raised_at   String?
   ncr_raised_by   String?
   ncr_date        DateTime?
+  attachments     Json?
 
   // Stage 2
   proposed_resolution String?

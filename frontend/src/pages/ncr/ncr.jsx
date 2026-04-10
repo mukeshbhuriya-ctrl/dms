@@ -25,10 +25,12 @@ import {
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { DataTable } from "@/components/shared/DataTable"
-import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download } from "lucide-react"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download, Upload, FileText, Trash2, Paperclip, ExternalLink, X } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { useAuth } from "@/context/AuthContext"
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 import { toast } from "react-toastify"
 
 const ncrStatusConfig = {
@@ -120,7 +122,8 @@ const defaultFormData = {
 
     disposition: "",
     verifiedByHeadQuality: "",
-    dispositionDate: new Date().toISOString().split("T")[0]
+    dispositionDate: new Date().toISOString().split("T")[0],
+    attachments: []
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
@@ -325,11 +328,19 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
     const [assignedDrawings, setAssignedDrawings] = useState([])
     const [isDrawingsLoading, setIsDrawingsLoading] = useState(false)
     const [formData, setFormData] = useState(defaultFormData)
+    const [attachment, setAttachment] = useState(null)
+    const [preview, setPreview] = useState(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState("")
 
+    // Preview Dialog State
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+    const [activePreviewUrl, setActivePreviewUrl] = useState("")
+    const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+
     const [currentStage, setCurrentStage] = useState(1)
     const [ncrStatus, setNcrStatus] = useState("draft")
+    const [nextPerformer, setNextPerformer] = useState(null)
     const [ncrDbId, setNcrDbId] = useState(ncrId || null) // DB id after creation
 
     // Fetch jobs and users on mount
@@ -400,9 +411,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                         disposition: d.disposition || "",
                         verifiedByHeadQuality: d.verified_by_head_quality_id?.toString() || "",
                         dispositionDate: d.disposition_date ? new Date(d.disposition_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+                        attachments: d.attachments || []
                     })
                     setCurrentStage(d.current_stage || 1)
                     setNcrStatus(d.ncr_status || "draft")
+                    setNextPerformer(d.nextPerformer || null)
                     setNcrDbId(d.id)
                 }
             })
@@ -434,6 +447,49 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             }
         })
     }
+
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files)
+        if (files.length === 0) return
+
+        const file = files[0] // Only take the first file
+        
+        // Enforce only images for Stage 1 as requested
+        const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error("ONLY JPG, JPEG, AND PNG IMAGES ARE ALLOWED FOR STAGE 1 ATTACHMENTS.")
+            e.target.value = "" // Clear the input
+            return
+        }
+
+        setAttachment(file)
+        const isImage = file.type.startsWith('image/')
+        
+        // Generate blob URL for local preview
+        const blobUrl = URL.createObjectURL(file)
+        
+        setPreview({ 
+            name: file.name, 
+            type: 'image', 
+            mimeType: file.type,
+            url: blobUrl 
+        })
+    }
+
+    const removeAttachment = () => {
+        if (preview && preview.url) {
+            URL.revokeObjectURL(preview.url)
+        }
+        setAttachment(null)
+        setPreview(null)
+    }
+
+    const openPreview = (url, name, mimeType) => {
+        setActivePreviewUrl(url)
+        setActivePreviewDoc({ documentName: name, mimeType: mimeType, filePath: name })
+        setIsPreviewOpen(true)
+    }
+
     const handleJobChange = async (jobId) => {
         setFormData((prev) => ({ ...prev, msmNumber: jobId }))
 
@@ -476,21 +532,28 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         setError("")
         setIsSubmitting(true)
         try {
-            const res = await apiClient.post("/api/ncr/create", {
-                job_id: formData.msmNumber,
-                date: formData.date,
-                drg_no: formData.drgNo,
-                rev_no: formData.revNo,
-                description_non_conformance: formData.descriptionNonConformance,
-                ncr_raised_at: formData.ncrRaisedAt,
-                ncr_raised_by: formData.ncrRaisedBy,
-                ncr_date: formData.ncrDate,
-            })
+            const data = new FormData()
+            data.append("job_id", formData.msmNumber)
+            data.append("date", formData.date)
+            data.append("drg_no", formData.drgNo)
+            data.append("rev_no", formData.revNo)
+            data.append("description_non_conformance", formData.descriptionNonConformance)
+            data.append("ncr_raised_at", formData.ncrRaisedAt)
+            data.append("ncr_raised_by", formData.ncrRaisedBy)
+            data.append("ncr_date", formData.ncrDate)
+
+            if (attachment) {
+                data.append("attachments", attachment)
+            }
+
+            const res = await apiClient.post("/api/ncr/create", data)
             if (res.success) {
                 setNcrDbId(res.data.id)
                 setCurrentStage(2)
                 setNcrStatus("stage1_submitted")
-                if (onSuccess) onSuccess()
+                setAttachment(null)
+                setPreview(null)
+                if (onSuccess) onSuccess(res.data)
             }
         } catch (err) {
             setError(err.message || "Failed to create NCR")
@@ -504,7 +567,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         setError("")
         setIsSubmitting(true)
         try {
-            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage2`, {
+            const payload = {
                 proposed_resolution: formData.proposedResolution,
                 resolution_by: formData.resolutionBy,
                 resolution_date: formData.resolutionDate,
@@ -512,7 +575,8 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                 target_head_design_id: formData.targetHeadDesign,
                 target_head_welding_id: formData.targetHeadWelding,
                 target_head_quality_id: formData.targetHeadQuality,
-            })
+            }
+            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage2`, payload)
             if (res.success) {
                 setCurrentStage(3)
                 setNcrStatus("stage2_submitted")
@@ -522,7 +586,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                     headWelding: prev.targetHeadWelding,
                     headQuality: prev.targetHeadQuality,
                 }))
-                if (onSuccess) onSuccess()
+                if (onSuccess) onSuccess(res.data)
             }
         } catch (err) {
             setError(err.message || "Failed to submit Stage 2")
@@ -536,13 +600,14 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         setError("")
         setIsSubmitting(true)
         try {
-            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage3/init`, {
+            const payload = {
                 resolution_approval: formData.resolutionApproval,
                 acceptance_date: formData.acceptanceDate,
-            })
+            }
+            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage3/init`, payload)
             if (res.success) {
                 setNcrStatus("stage3_in_review")
-                if (onSuccess) onSuccess()
+                if (onSuccess) onSuccess(res.data)
             }
         } catch (err) {
             setError(err.message || "Failed to submit Stage 3")
@@ -576,7 +641,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                 }))
                 setCurrentStage(updated.current_stage || currentStage)
                 setNcrStatus(updated.ncr_status || ncrStatus)
-                if (onSuccess) onSuccess()
+                if (onSuccess) onSuccess(updated)
             }
         } catch (err) {
             setError(err.message || "Failed to submit review")
@@ -590,15 +655,16 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         setError("")
         setIsSubmitting(true)
         try {
-            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage4`, {
+            const payload = {
                 corrective_action_comments: formData.correctiveActionComments,
                 corrective_action_date: formData.correctiveActionDate,
                 verified_by_qce_id: formData.headQuality,
-            })
+            }
+            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage4`, payload)
             if (res.success) {
                 setCurrentStage(5)
                 setNcrStatus("pending_disposition")
-                if (onSuccess) onSuccess()
+                if (onSuccess) onSuccess(res.data)
             }
         } catch (err) {
             setError(err.message || "Failed to submit Stage 4")
@@ -612,14 +678,15 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         setError("")
         setIsSubmitting(true)
         try {
-            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage5`, {
+            const payload = {
                 disposition: formData.disposition,
                 verified_by_head_quality_id: formData.headQuality,
                 disposition_date: formData.dispositionDate,
-            })
+            }
+            const res = await apiClient.put(`/api/ncr/${ncrDbId}/stage5`, payload)
             if (res.success) {
                 setNcrStatus("closed")
-                if (onSuccess) onSuccess()
+                if (onSuccess) onSuccess(res.data)
             }
         } catch (err) {
             setError(err.message || "Failed to close NCR")
@@ -667,50 +734,17 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         return false
     }
 
-    // Compact summary for completed stages (used in open mode)
-    const renderCompletedSummary = () => {
-        if (!isOpenMode) return null
-        const completedStages = []
-        if (currentStage > 1) completedStages.push({ num: 1, label: 'Description of Non-Conformance' })
-        if (currentStage > 2) completedStages.push({ num: 2, label: 'Proposed Resolution' })
-        if (currentStage > 3) completedStages.push({ num: 3, label: 'Acceptance of Proposal' })
-        if (currentStage > 4) completedStages.push({ num: 4, label: 'Corrective Action Verification' })
-        if (completedStages.length === 0) return null
-
-        return (
-            <div className="rounded-lg border bg-muted/20 p-4 mb-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Completed Stages</p>
-                <div className="flex flex-wrap gap-2">
-                    {completedStages.map(s => (
-                        <span key={s.num} className="inline-flex items-center gap-1.5 text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-full font-medium">
-                            <CheckCircle className="w-3 h-3" /> Stage {s.num}: {s.label}
-                        </span>
-                    ))}
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 pt-3 border-t border-muted/40">
-                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">NCR No</span><p className="text-sm font-medium">{formData.ncrNo}</p></div>
-                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">Client</span><p className="text-sm font-medium">{formData.client}</p></div>
-                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">MSN</span><p className="text-sm font-medium">{jobs.find(j => j.id === formData.msmNumber)?.job_number || formData.msmNumber}</p></div>
-                    <div><span className="text-[10px] font-bold uppercase text-muted-foreground">Date</span><p className="text-sm font-medium">{formData.date}</p></div>
-                </div>
-            </div>
-        )
-    }
-
     const renderBasicInfo = (isDisabled, idPrefix) => (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 pb-4 border-b border-muted/50">
             <div className="space-y-2">
                 <Label htmlFor={`${idPrefix}msmNumber`}>MSN. <span className="text-destructive">*</span></Label>
-                <Select value={formData.msmNumber} onValueChange={handleJobChange} disabled={isDisabled || jobsLoading}>
-                    <SelectTrigger id={`${idPrefix}msmNumber`} className="w-full bg-background [&>span]:truncate text-left">
-                        <SelectValue placeholder={jobsLoading ? "Loading jobs…" : "Select MSN Number"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {jobs.map((job) => (
-                            <SelectItem key={job.id} value={job.id}>{job.job_number}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <SearchableSelect
+                    options={jobs.map(job => ({ label: job.job_number, value: job.id }))}
+                    value={formData.msmNumber}
+                    onValueChange={handleJobChange}
+                    disabled={isDisabled || jobsLoading}
+                    placeholder={jobsLoading ? "Loading jobs…" : "Select MSN Number"}
+                />
             </div>
             <div className="space-y-2">
                 <Label htmlFor={`${idPrefix}ncrNo`}>NCR NO. <span className="text-destructive">*</span></Label>
@@ -743,31 +777,16 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                         className="bg-muted"
                     />
                 ) : (
-                    <Select
+                    <SearchableSelect
+                        options={assignedDrawings.map(doc => ({ 
+                            label: `${doc.shreno_doc_no} - ${doc.document_name}`, 
+                            value: doc.shreno_doc_no 
+                        }))}
                         value={formData.drgNo}
                         onValueChange={(val) => handleSelectChange("drgNo", val)}
                         disabled={isDisabled || isDrawingsLoading || !formData.msmNumber}
-                    >
-                        <SelectTrigger id={`${idPrefix}drgNo`} className="w-full bg-background [&>span]:truncate text-left">
-                            <SelectValue placeholder={!formData.msmNumber ? "Select MSN first" : isDrawingsLoading ? "Loading..." : "Select Drawing"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {assignedDrawings.length === 0 && !isDrawingsLoading ? (
-                                <div className="p-2 text-sm text-muted-foreground text-center">No drawings assigned</div>
-                            ) : (
-                                assignedDrawings.map((doc) => (
-                                    <SelectItem key={doc.id} value={doc.shreno_doc_no}>
-                                        <div className="flex flex-col text-left">
-                                            <span className="font-medium">{doc.shreno_doc_no}</span>
-                                            <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                                {doc.document_name}
-                                            </span>
-                                        </div>
-                                    </SelectItem>
-                                ))
-                            )}
-                        </SelectContent>
-                    </Select>
+                        placeholder={!formData.msmNumber ? "Select MSN first" : isDrawingsLoading ? "Loading..." : "Select Drawing"}
+                    />
                 )}
             </div>
             <div className="space-y-2">
@@ -778,11 +797,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
     )
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
+        <div className="space-y-6">
+            <div className="flex items-center justify-between mb-2">
                 <div>
                     <h1 className="text-3xl font-bold mb-1">{ncrId ? "NCR Details" : "Create NCR"}</h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         {ncrId ? `NCR: ${formData.ncrNo}` : "Fill in the NCR details following the automated workflow."}
                     </p>
                 </div>
@@ -793,6 +812,14 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                 </div>
             </div>
 
+            {/* Next Performer Indicator */}
+            {nextPerformer && ncrStatus !== 'closed' && ncrStatus !== 'rejected' && (
+                <div className="mb-2 text-red-600 font-bold uppercase text-xs tracking-wider flex items-center gap-1.5 animate-in fade-in duration-500">
+                    <div className="h-2 w-2 rounded-full bg-red-600 animate-pulse" />
+                    Next Performer : {nextPerformer.name} {nextPerformer.empid && `(${nextPerformer.empid})`}
+                </div>
+            )}
+
             {error && (
                 <div className="mb-4 rounded-md border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
                     {error}
@@ -801,11 +828,6 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
             <form onSubmit={(e) => e.preventDefault()}>
                 <div className="grid gap-6">
-
-
-                    {/* Open Mode: Completed Stages Summary */}
-                    {renderCompletedSummary()}
-
                     {/* STAGE 1 */}
                     {shouldShowStage(1) && (
                         <Card className={isStage1Active ? "shadow-md" : "opacity-80"}>
@@ -822,32 +844,110 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                         <Label className="text-md">Description of Non-Conformance:</Label>
                                         <Textarea name="descriptionNonConformance" rows={4} placeholder="Provide a detailed description of the non-conformance..." value={formData.descriptionNonConformance} onChange={handleInputChange} disabled={!isStage1Active} required />
                                     </div>
+                                    <div className="space-y-3 pt-2">
+                                        <Label className="text-md flex items-center gap-2">
+                                            <Paperclip className="h-4 w-4" />Attachment:
+                                        </Label>
+                                        
+                                        {/* Attachment UI (Single File) */}
+                                        <div className="flex flex-wrap gap-4">
+                                            {/* Saved Attachment */}
+                                            {formData.attachments && formData.attachments.length > 0 && formData.attachments.map((att, idx) => (
+                                                <div key={`saved-${idx}`} className="relative group border rounded-lg p-3 bg-muted/50 hover:bg-muted transition-all min-w-[200px] flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-background rounded-md shadow-sm">
+                                                            <FileText className="h-5 w-5 text-muted-foreground" />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-semibold truncate max-w-[120px]" title={att.name}>{att.name}</span>
+                                                            <span className="text-[10px] text-muted-foreground">Original Attachment</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-blue-600"
+                                                            onClick={() => openPreview(att.url, att.name, att.type)}
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                        <a href={att.url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-background rounded-md text-muted-foreground">
+                                                            <ExternalLink className="h-4 w-4" />
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* New Selected Attachment */}
+                                            {preview && (
+                                                <div className="relative group border border-primary/20 rounded-lg p-3 bg-primary/5 min-w-[200px] flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="p-2 bg-background rounded-md shadow-sm">
+                                                            <FileText className="h-5 w-5 text-primary" />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-semibold truncate max-w-[120px]" title={preview.name}>{preview.name}</span>
+                                                            <span className="text-[10px] text-primary/60 italic">New Attachment</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 uppercase">
+                                                        {(preview.type === 'image' || preview.type === 'pdf') && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-primary"
+                                                                onClick={() => openPreview(preview.url, preview.name, preview.mimeType)}
+                                                            >
+                                                                <Eye className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-destructive"
+                                                            onClick={removeAttachment}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Add Button (only in active stage and if no new file selected) */}
+                                            {isStage1Active && !preview && (
+                                                <label className="border-2 border-dashed border-muted-foreground/20 rounded-lg px-4 py-2 flex items-center justify-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all h-[52px] min-w-[200px]">
+                                                    <Upload className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="text-xs font-medium text-muted-foreground uppercase">Upload attachment</span>
+                                                    <input type="file" className="hidden" onChange={handleFileChange} accept=".jpg,.jpeg,.png" title="Only JPG, JPEG, and PNG are supported" />
+                                                </label>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="ncrRaisedAt" className="uppercase">NCR Raised At:</Label>
-                                            <Select value={formData.ncrRaisedAt} onValueChange={(val) => handleSelectChange("ncrRaisedAt", val)} disabled={!isStage1Active}>
-                                                <SelectTrigger id="ncrRaisedAt" className="w-full"><SelectValue placeholder="Select team member" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {users.map((user) => (
-                                                        <SelectItem key={`raisedAt-${user.id}`} value={user.id}>
-                                                            {user.displayName}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <Label htmlFor="ncrRaisedAt">NCR Raised At <span className="text-destructive">*</span></Label>
+                                            <SearchableSelect
+                                                options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                                value={formData.ncrRaisedAt}
+                                                onValueChange={(val) => handleSelectChange("ncrRaisedAt", val)}
+                                                disabled={!isStage1Active}
+                                                placeholder="Select team member"
+                                            />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="ncrRaisedBy" className="uppercase">NCR Raised By:</Label>
-                                            <Select value={formData.ncrRaisedBy} onValueChange={(val) => handleSelectChange("ncrRaisedBy", val)} disabled={!isStage1Active}>
-                                                <SelectTrigger id="ncrRaisedBy" className="w-full"><SelectValue placeholder="Select team member" /></SelectTrigger>
-                                                <SelectContent>
-                                                    {users.map((user) => (
-                                                        <SelectItem key={`raisedBy-${user.id}`} value={user.id}>
-                                                            {user.displayName}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <Label htmlFor="ncrRaisedBy">NCR Raised By <span className="text-destructive">*</span></Label>
+                                            <SearchableSelect
+                                                options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                                value={formData.ncrRaisedBy}
+                                                onValueChange={(val) => handleSelectChange("ncrRaisedBy", val)}
+                                                disabled={!isStage1Active}
+                                                placeholder="Select team member"
+                                            />
                                         </div>
                                         <div className="space-y-2">
                                             <Label htmlFor="ncrDate" className="uppercase">Date:</Label>
@@ -883,41 +983,56 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 mt-4 border-t">
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-semibold text-sm">Assign Engineer:</Label>
-                                        <Select value={formData.targetEngineer} onValueChange={(val) => handleSelectChange("targetEngineer", val)} disabled={!isStage2Active}>
-                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Engineer" /></SelectTrigger>
-                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                        </Select>
+                                        <Label htmlFor="targetEngineer">Assign Engineer <span className="text-destructive">*</span></Label>
+                                        <SearchableSelect
+                                            options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                            value={formData.targetEngineer}
+                                            onValueChange={(val) => handleSelectChange("targetEngineer", val)}
+                                            disabled={!isStage2Active}
+                                            placeholder="Assign Engineer"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-semibold text-sm">Head Design:</Label>
-                                        <Select value={formData.targetHeadDesign} onValueChange={(val) => handleSelectChange("targetHeadDesign", val)} disabled={!isStage2Active}>
-                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Design Head" /></SelectTrigger>
-                                            <SelectContent>{users.map(u => <SelectItem key={`hd-${u.id}`} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                        </Select>
+                                        <Label htmlFor="targetHeadDesign">Head Design <span className="text-destructive">*</span></Label>
+                                        <SearchableSelect
+                                            options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                            value={formData.targetHeadDesign}
+                                            onValueChange={(val) => handleSelectChange("targetHeadDesign", val)}
+                                            disabled={!isStage2Active}
+                                            placeholder="Assign Design Head"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-semibold text-sm">Head Welding:</Label>
-                                        <Select value={formData.targetHeadWelding} onValueChange={(val) => handleSelectChange("targetHeadWelding", val)} disabled={!isStage2Active}>
-                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Welding Head" /></SelectTrigger>
-                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                        </Select>
+                                        <Label htmlFor="targetHeadWelding">Head Welding <span className="text-destructive">*</span></Label>
+                                        <SearchableSelect
+                                            options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                            value={formData.targetHeadWelding}
+                                            onValueChange={(val) => handleSelectChange("targetHeadWelding", val)}
+                                            disabled={!isStage2Active}
+                                            placeholder="Assign Welding Head"
+                                        />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-semibold text-sm">Head Quality:</Label>
-                                        <Select value={formData.targetHeadQuality} onValueChange={(val) => handleSelectChange("targetHeadQuality", val)} disabled={!isStage2Active}>
-                                            <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assign Quality Head" /></SelectTrigger>
-                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                        </Select>
+                                        <Label htmlFor="targetHeadQuality">Head Quality <span className="text-destructive">*</span></Label>
+                                        <SearchableSelect
+                                            options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                            value={formData.targetHeadQuality}
+                                            onValueChange={(val) => handleSelectChange("targetHeadQuality", val)}
+                                            disabled={!isStage2Active}
+                                            placeholder="Assign Quality Head"
+                                        />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div className="space-y-2">
-                                        <Label className="uppercase">Submitted By:</Label>
-                                        <Select value={formData.resolutionBy} onValueChange={(val) => handleSelectChange("resolutionBy", val)} disabled={!isStage2Active}>
-                                            <SelectTrigger className="w-full"><SelectValue placeholder="Select team member" /></SelectTrigger>
-                                            <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                        </Select>
+                                        <Label htmlFor="resolutionBy">Resolution By <span className="text-destructive">*</span></Label>
+                                        <SearchableSelect
+                                            options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                            value={formData.resolutionBy}
+                                            onValueChange={(val) => handleSelectChange("resolutionBy", val)}
+                                            disabled={!isStage2Active}
+                                            placeholder="Assign resolution by"
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="uppercase">Date:</Label>
@@ -1146,13 +1261,16 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
-
-                                    <Label className="uppercase font-bold">VERIFIED BY QCE:</Label>
-                                    <Select value={formData.headQuality} disabled={true}>
-                                        <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assigned Quality Control Engineer" /></SelectTrigger>
-                                        <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                    </Select>
-
+                                    <div className="space-y-2">
+                                        <Label htmlFor="verifiedByQce">Verified by QCE <span className="text-destructive">*</span></Label>
+                                        <SearchableSelect
+                                            options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                            value={formData.verifiedByQce}
+                                            onValueChange={(val) => handleSelectChange("verifiedByQce", val)}
+                                            disabled={!isStage4InitActive}
+                                            placeholder="select QCE"
+                                        />
+                                    </div>
                                 </div>
                                 {isStage4InitActive && (
                                     <div className="pt-4 flex justify-end">
@@ -1186,11 +1304,14 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                     </div>
                                 </div>
                                 <div className="w-full md:w-1/2 space-y-2 border-t pt-4">
-                                    <Label className="uppercase font-bold">VERIFIED BY HEAD QUALITY:</Label>
-                                    <Select value={formData.headQuality} disabled={true}>
-                                        <SelectTrigger className="w-full bg-background"><SelectValue placeholder="Assigned Head of Quality" /></SelectTrigger>
-                                        <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
-                                    </Select>
+                                    <Label className="uppercase font-bold">Verified by Head Quality <span className="text-destructive">*</span></Label>
+                                    <SearchableSelect
+                                        options={users.map(u => ({ label: u.displayName, value: u.id }))}
+                                        value={formData.verifiedByHeadQuality || formData.headQuality}
+                                        onValueChange={(val) => handleSelectChange("verifiedByHeadQuality", val)}
+                                        disabled={!isStage5QualityActive}
+                                        placeholder="Assigned Head of Quality"
+                                    />
                                 </div>
                                 {isStage5QualityActive && (
                                     <div className="pt-4 flex justify-end">
@@ -1213,6 +1334,14 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                     )}
                 </div>
             </form>
+
+            {/* Document Preview Dialog */}
+            <DocumentPreviewDialog 
+                isOpen={isPreviewOpen} 
+                onOpenChange={setIsPreviewOpen} 
+                previewUrl={activePreviewUrl} 
+                activePreviewDoc={activePreviewDoc} 
+            />
         </div>
     )
 }
@@ -1221,12 +1350,15 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 function CreateNCR() {
     const [view, setView] = useState("list") // "list" | "create" | "view" | "open"
     const [viewNcrId, setViewNcrId] = useState(null)
-    const [successMsg, setSuccessMsg] = useState("")
-
-    const handleSuccess = () => {
-        setSuccessMsg("NCR operation completed successfully!")
+    const handleSuccess = (data) => {
+        let msg = "NCR operation completed successfully!"
+        if (data && data.nextUser) {
+            if (data.nextUser.name === "Completed") {
+                msg = "NCR Operation Completed Successfully!"
+            }
+        }
+        toast.success(msg)
         setView("list")
-        setTimeout(() => setSuccessMsg(""), 4000)
     }
 
     const handleViewClick = (id) => {
@@ -1246,13 +1378,6 @@ function CreateNCR() {
                 </header>
                 <main className="flex-1 overflow-auto p-6 flex flex-col">
                     <div className="flex-1 flex flex-col w-full">
-                        {successMsg && (
-                            <div className="mb-4 rounded-md border border-green-500 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
-                                <CheckCircle className="h-4 w-4" />
-                                {successMsg}
-                            </div>
-                        )}
-
                         {view === "list" ? (
                             <ListView
                                 onCreateClick={() => { setViewNcrId(null); setView("create") }}

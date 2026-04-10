@@ -89,11 +89,34 @@ class NCRPdfGenerator {
         return curY;
     }
 
-    drawSection(doc, x, y, width, label, content, height = 60) {
+    drawSection(doc, x, y, width, label, content, height = 60, imagePath = null) {
         doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.red).text(label, x + 5, y + 5);
+        
+        // If image provided, reduce text width to make room on the right
+        const textWidth = imagePath ? (width * 0.65) : (width - 10);
+        
         if (content) {
-            doc.font(this.fonts.regular).fontSize(9).fillColor(this.colors.black).text(content, x + 5, y + 20, { width: width - 10 });
+            doc.font(this.fonts.regular).fontSize(9).fillColor(this.colors.black).text(content, x + 5, y + 20, { width: textWidth });
         }
+
+        if (imagePath && fs.existsSync(imagePath)) {
+            try {
+                // Dimensions for the image box
+                const imgX = x + textWidth + 10;
+                const imgY = y + 10;
+                const imgW = width - textWidth - 15;
+                const imgH = height - 20;
+
+                doc.image(imagePath, imgX, imgY, {
+                    fit: [imgW, imgH],
+                    align: 'center',
+                    valign: 'center'
+                });
+            } catch (e) {
+                console.error('PDF Image Error:', e);
+            }
+        }
+
         const endY = y + height;
         doc.moveTo(x, endY).lineTo(x + width, endY).stroke();
         return endY;
@@ -136,8 +159,22 @@ class NCRPdfGenerator {
         curY = this.drawHeader(doc, startX, curY, width, data, companyInfo);
         curY = this.drawInfoGrid(doc, startX, curY, width, data);
 
+        // Identify if there is an image attachment for Stage 1
+        const ROOT_DIR = process.env.ROOT_DIR || 'C:/dms-data';
+        const UPLOAD_DIR = path.join(ROOT_DIR, 'uploads');
+        let stage1ImagePath = null;
+
+        if (data.attachments && Array.isArray(data.attachments)) {
+            const firstImg = data.attachments.find(att => 
+                att.filename && (att.type?.startsWith('image/') || att.name?.match(/\.(jpg|jpeg|png)$/i))
+            );
+            if (firstImg) {
+                stage1ImagePath = path.join(UPLOAD_DIR, firstImg.filename);
+            }
+        }
+
         // Description of Non-Conformance
-        curY = this.drawSection(doc, startX, curY, width, 'DESCRIPTION OF NON-CONFORMANCE:', data.description_non_conformance, 100);
+        curY = this.drawSection(doc, startX, curY, width, 'DESCRIPTION OF NON-CONFORMANCE:', data.description_non_conformance, 100, stage1ImagePath);
 
         // Raised At / By
         doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.red).text('NCR RAISED AT:', startX + 5, curY + 6);
@@ -148,6 +185,15 @@ class NCRPdfGenerator {
         
         curY += 24;
         doc.moveTo(startX, curY).lineTo(startX + width, curY).stroke();
+
+        // Attachments (Stage 1)
+        if (data.attachments && Array.isArray(data.attachments) && data.attachments.length > 0) {
+            doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text('ATTACHMENTS (Stage 1):', startX + 5, curY + 6);
+            let attList = data.attachments.map(att => att.name).join(', ');
+            doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black).text(attList, startX + 115, curY + 6, { width: width - 120 });
+            curY += 24;
+            doc.moveTo(startX, curY).lineTo(startX + width, curY).stroke();
+        }
 
         // Proposed Resolution
         doc.font(this.fonts.bold).fillColor(this.colors.red).text('PROPOSED RESOLUTION WITH JUSTIFICATION:', startX + 5, curY + 6);

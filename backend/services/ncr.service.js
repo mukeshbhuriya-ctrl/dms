@@ -1,4 +1,5 @@
 const prisma = require('#prisma');
+const EmailService = require('./email.service');
 
 class NcrService {
     /**
@@ -61,16 +62,16 @@ class NcrService {
         const ncr = await prisma.ncr.findFirst({
             where: { id, company_id },
             include: {
-                initiator: { select: { id: true, name: true } },
-                raised_at_user: { select: { id: true, name: true } },
-                resolution_user: { select: { id: true, name: true } },
-                target_engineer: { select: { id: true, name: true } },
-                target_head_design: { select: { id: true, name: true } },
-                target_head_welding: { select: { id: true, name: true } },
-                target_head_quality: { select: { id: true, name: true } },
-                corrective_action_verifier: { select: { id: true, name: true } },
-                qce_verifier: { select: { id: true, name: true } },
-                head_quality_verifier: { select: { id: true, name: true } },
+                initiator: { select: { id: true, name: true, empid: true } },
+                raised_at_user: { select: { id: true, name: true, empid: true } },
+                resolution_user: { select: { id: true, name: true, empid: true } },
+                target_engineer: { select: { id: true, name: true, empid: true } },
+                target_head_design: { select: { id: true, name: true, empid: true } },
+                target_head_welding: { select: { id: true, name: true, empid: true } },
+                target_head_quality: { select: { id: true, name: true, empid: true } },
+                corrective_action_verifier: { select: { id: true, name: true, empid: true } },
+                qce_verifier: { select: { id: true, name: true, empid: true } },
+                head_quality_verifier: { select: { id: true, name: true, empid: true } },
                 job: {
                     select: {
                         id: true, job_number: true, project_id: true,
@@ -83,7 +84,9 @@ class NcrService {
         });
 
         if (!ncr) throw new Error('NCR not found');
-        return ncr;
+        
+        const nextPerformer = this._resolveNextPerformer(ncr);
+        return { ...ncr, nextPerformer };
     }
 
     /**
@@ -160,6 +163,7 @@ class NcrService {
                 ncr_raised_at: ncr_raised_at || null,
                 ncr_raised_by: ncr_raised_by || userId,
                 ncr_date: ncr_date ? new Date(ncr_date) : new Date(),
+                attachments: body.attachments || null,
 
                 current_stage: 2,
                 ncr_status: 'stage1_submitted',
@@ -167,7 +171,17 @@ class NcrService {
             },
         });
 
-        return ncr;
+        // Notify next user (ncr_raised_at)
+        const nextUser = await this._notifyNextUser(ncr_raised_at, {
+            ncrNo: ncr.ncr_no,
+            jobNo: ncr.msn,
+            status: ncr.ncr_status,
+            stageLabel: 'Stage 1 (Creation)',
+            submittedBy: (userId ? (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name : 'User') || 'User',
+            nextAction: 'Submit Proposed Resolution (Stage 2)'
+        });
+
+        return { ...ncr, nextUser };
     }
 
     /**
@@ -187,12 +201,12 @@ class NcrService {
             target_head_quality_id,
         } = body;
 
-        return await prisma.ncr.update({
+        const updatedNcr = await prisma.ncr.update({
             where: { id },
             data: {
                 proposed_resolution: proposed_resolution || null,
                 resolution_by: resolution_by || null,
-                resolution_date: resolution_date ? new Date(resolution_date) : null,
+                resolution_date: (resolution_date && resolution_date !== "") ? new Date(resolution_date) : null,
                 target_engineer_id: target_engineer_id || null,
                 target_head_design_id: target_head_design_id || null,
                 target_head_welding_id: target_head_welding_id || null,
@@ -201,6 +215,19 @@ class NcrService {
                 ncr_status: 'stage2_submitted',
             },
         });
+
+        // Notify Target Engineer
+        const submittedByUser = resolution_by ? await prisma.user.findUnique({ where: { id: resolution_by }, select: { name: true } }) : null;
+        const nextUser = await this._notifyNextUser(target_engineer_id, {
+            ncrNo: updatedNcr.ncr_no,
+            jobNo: updatedNcr.msn,
+            status: updatedNcr.ncr_status,
+            stageLabel: 'Stage 2 (Proposed Resolution)',
+            submittedBy: submittedByUser?.name || 'User',
+            nextAction: 'Accept Proposal (Stage 3)'
+        });
+
+        return { ...updatedNcr, nextUser };
     }
 
     /**
@@ -215,17 +242,37 @@ class NcrService {
             acceptance_date,
         } = body;
 
-        return await prisma.ncr.update({
+        const updatedNcr = await prisma.ncr.update({
             where: { id },
             data: {
                 resolution_approval: resolution_approval || null,
-                acceptance_date: acceptance_date ? new Date(acceptance_date) : null,
+                acceptance_date: (acceptance_date && acceptance_date !== "") ? new Date(acceptance_date) : null,
                 ncr_status: 'stage3_in_review',
                 design_review_status: 'PENDING',
                 welding_review_status: 'PENDING',
                 quality_review_status: 'PENDING',
             },
         });
+
+        // Notify 3 Heads
+        const heads = [ncr.target_head_design_id, ncr.target_head_welding_id, ncr.target_head_quality_id];
+        let nextUser = null;
+        for (const headId of heads) {
+            if (headId) {
+                const submittedByUser = ncr.target_engineer_id ? await prisma.user.findUnique({ where: { id: ncr.target_engineer_id }, select: { name: true } }) : null;
+                const user = await this._notifyNextUser(headId, {
+                    ncrNo: updatedNcr.ncr_no,
+                    jobNo: updatedNcr.msn,
+                    status: updatedNcr.ncr_status,
+                    stageLabel: 'Stage 3 (Acceptance)',
+                    submittedBy: submittedByUser?.name || 'User',
+                    nextAction: 'Review Resolution Plan'
+                });
+                if (!nextUser) nextUser = user; // Use first head as primary contact for flash msg
+            }
+        }
+
+        return { ...updatedNcr, nextUser: { name: "Assigned Heads", empid: "MULTIPLE" } };
     }
 
     /**
@@ -279,13 +326,13 @@ class NcrService {
         ];
 
         const allDecided = allStatuses.every(s => s === 'APPROVED' || s === 'REJECTED' || s === 'NA');
+        let nextUser = null;
 
         if (allDecided) {
             const anyRejected = allStatuses.some(s => s === 'REJECTED');
-            const anyApproved = allStatuses.some(s => s === 'APPROVED');
 
             if (anyRejected) {
-                await prisma.ncr.update({
+                const updatedNcr = await prisma.ncr.update({
                     where: { id },
                     data: {
                         current_stage: 5,
@@ -293,18 +340,40 @@ class NcrService {
                         status: 'CLOSED',
                     },
                 });
+                // Notify Initiator about rejection
+                nextUser = await this._notifyNextUser(updatedNcr.ncr_raised_by, {
+                    ncrNo: updatedNcr.ncr_no,
+                    jobNo: updatedNcr.msn,
+                    status: 'REJECTED & CLOSED',
+                    stageLabel: 'Stage 3 Review',
+                    submittedBy: 'Review Board',
+                    description: 'One or more reviewers rejected the resolution proposal.',
+                    nextAction: 'None - NCR Closed'
+                });
             } else {
-                await prisma.ncr.update({
+                const updatedNcr = await prisma.ncr.update({
                     where: { id },
                     data: {
                         current_stage: 4,
                         ncr_status: 'approved_resolution',
                     },
                 });
+                // Notify Stage 4 Verifier (usually QCE or Initiator)
+                // We'll use the user assigned in verified_by_qce_id (often set or inherited)
+                // For now, notify ncr_raised_by (Initiator) to carry out verification
+                nextUser = await this._notifyNextUser(updatedNcr.ncr_raised_by, {
+                    ncrNo: updatedNcr.ncr_no,
+                    jobNo: updatedNcr.msn,
+                    status: 'PROPOSAL APPROVED',
+                    stageLabel: 'Stage 3 Review',
+                    submittedBy: 'Review Board',
+                    nextAction: 'Carry out Corrective Action Verification (Stage 4)'
+                });
             }
         }
 
-        return await prisma.ncr.findFirst({ where: { id } });
+        const finalNcr = await prisma.ncr.findFirst({ where: { id } });
+        return { ...finalNcr, nextUser };
     }
 
     /**
@@ -320,17 +389,29 @@ class NcrService {
             verified_by_qce_id,
         } = body;
 
-        return await prisma.ncr.update({
+        const updatedNcr = await prisma.ncr.update({
             where: { id },
             data: {
                 corrective_action_verified_by: userId,
                 corrective_action_comments: corrective_action_comments || null,
-                corrective_action_date: corrective_action_date ? new Date(corrective_action_date) : null,
+                corrective_action_date: (corrective_action_date && corrective_action_date !== "") ? new Date(corrective_action_date) : null,
                 verified_by_qce_id: verified_by_qce_id || null,
                 current_stage: 5,
                 ncr_status: 'pending_disposition',
             },
         });
+
+        // Notify Head Quality for final disposition
+        const nextUser = await this._notifyNextUser(updatedNcr.verified_by_head_quality_id || updatedNcr.target_head_quality_id, {
+            ncrNo: updatedNcr.ncr_no,
+            jobNo: updatedNcr.msn,
+            status: updatedNcr.ncr_status,
+            stageLabel: 'Stage 4 (Verification)',
+            submittedBy: (await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name || 'User',
+            nextAction: 'Provide Final Disposition & Close (Stage 5)'
+        });
+
+        return { ...updatedNcr, nextUser };
     }
 
     /**
@@ -346,17 +427,29 @@ class NcrService {
             disposition_date,
         } = body;
 
-        return await prisma.ncr.update({
+        const updatedNcr = await prisma.ncr.update({
             where: { id },
             data: {
                 disposition: disposition || null,
                 verified_by_head_quality_id: verified_by_head_quality_id || null,
-                disposition_date: disposition_date ? new Date(disposition_date) : null,
+                disposition_date: (disposition_date && disposition_date !== "") ? new Date(disposition_date) : null,
                 current_stage: 5,
                 ncr_status: 'closed',
                 status: 'CLOSED',
             },
         });
+
+        // Notify Initiator that NCR is CLOSED
+        const nextUser = await this._notifyNextUser(updatedNcr.ncr_raised_by, {
+            ncrNo: updatedNcr.ncr_no,
+            jobNo: updatedNcr.msn,
+            status: 'CLOSED',
+            stageLabel: 'Stage 5 (Disposition)',
+            submittedBy: (await prisma.user.findUnique({ where: { id: updatedNcr.verified_by_head_quality_id || '' }, select: { name: true } }))?.name || 'Quality Head',
+            nextAction: 'None - Workflow Completed'
+        });
+
+        return { ...updatedNcr, nextUser: { name: "Completed", empid: "" } };
     }
 
     /**
@@ -379,6 +472,106 @@ class NcrService {
             },
             orderBy: { name: 'asc' },
         });
+    }
+
+    /**
+     * Internal helper to determine who performs the current stage
+     */
+    _resolveNextPerformer(ncr) {
+        const { ncr_status, current_stage } = ncr;
+
+        if (ncr_status === 'closed' || ncr_status === 'rejected') {
+            return { name: "Completed", empid: "", label: "None" };
+        }
+
+        switch (current_stage) {
+            case 1:
+                return { 
+                    name: ncr.initiator?.name || "Initiator", 
+                    empid: ncr.initiator?.empid || "",
+                    label: "Submit Description (Stage 1)"
+                };
+            case 2:
+                return { 
+                    name: ncr.raised_at_user?.name || "Assigned User", 
+                    empid: ncr.raised_at_user?.empid || "",
+                    label: "Submit Proposed Resolution (Stage 2)"
+                };
+            case 3:
+                if (ncr_status === 'stage2_submitted') {
+                    return { 
+                        name: ncr.target_engineer?.name || "Assigned Engineer", 
+                        empid: ncr.target_engineer?.empid || "",
+                        label: "Accept Proposal (Stage 3)"
+                    };
+                } else if (ncr_status === 'stage3_in_review') {
+                    if (ncr.design_review_status === 'PENDING') {
+                        return { 
+                            name: ncr.target_head_design?.name || "Design Head", 
+                            empid: ncr.target_head_design?.empid || "PENDING",
+                            label: "Design Review (Stage 3)"
+                        };
+                    }
+                    if (ncr.welding_review_status === 'PENDING') {
+                        return { 
+                            name: ncr.target_head_welding?.name || "Welding Head", 
+                            empid: ncr.target_head_welding?.empid || "PENDING",
+                            label: "Welding Review (Stage 3)"
+                        };
+                    }
+                    if (ncr.quality_review_status === 'PENDING') {
+                        return { 
+                            name: ncr.target_head_quality?.name || "Quality Head", 
+                            empid: ncr.target_head_quality?.empid || "PENDING",
+                            label: "Quality Review (Stage 3)"
+                        };
+                    }
+                    return { name: "Department Heads", empid: "PENDING", label: "Review Resolution Plan (Stage 3)" };
+                }
+                break;
+            case 4:
+                return { 
+                    name: ncr.initiator?.name || "Initiator", 
+                    empid: ncr.initiator?.empid || "",
+                    label: "Carry out Corrective Action Verification (Stage 4)"
+                };
+            case 5:
+                const headQuality = ncr.head_quality_verifier || ncr.target_head_quality;
+                return { 
+                    name: headQuality?.name || "Head Quality", 
+                    empid: headQuality?.empid || "",
+                    label: "Provide Final Disposition & Close (Stage 5)"
+                };
+        }
+
+        return { name: "Unknown", empid: "", label: "Stage " + current_stage };
+    }
+
+    /**
+     * Internal helper to notify user and return their public info
+     */
+    async _notifyNextUser(userId, details) {
+        if (!userId || userId === "") return null;
+        try {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { id: true, name: true, empid: true, email: true }
+            });
+
+            if (user && user.email) {
+                // Async send
+                EmailService.sendNcrNotification(user.email, {
+                    ...details,
+                    toName: user.name
+                }).catch(e => console.error('NCR Email failed:', e));
+
+                return { name: user.name, empid: user.empid };
+            }
+            return user ? { name: user.name, empid: user.empid } : null;
+        } catch (error) {
+            console.error('Notify error:', error);
+            return null;
+        }
     }
 }
 

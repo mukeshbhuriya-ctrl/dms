@@ -6,10 +6,11 @@ class NcrController {
     async list(req, res) {
         try {
             const result = await NcrService.list(req.user.company_id, req.query);
+            const mappedData = result.data.map(ncr => this._mapNcrAttachments(ncr));
             res.status(200).json({
                 success: true,
                 message: 'NCRs fetched successfully',
-                data: result.data,
+                data: mappedData,
                 meta: result.meta,
             });
         } catch (error) {
@@ -20,11 +21,30 @@ class NcrController {
 
     async create(req, res) {
         try {
-            const result = await NcrService.create(req.user.company_id, req.user.id, req.body);
+            // If multipart data, req.body might need parsing if it was stringified
+            // But usually multer handles fields automatically. 
+            // We just need to attach the files metadata.
+            let attachments = [];
+            if (req.files && req.files.length > 0) {
+                attachments = req.files.map(file => ({
+                    name: file.originalname,
+                    url: `/api/files/${file.filename}`,
+                    type: file.mimetype,
+                    size: file.size,
+                    filename: file.filename
+                }));
+            }
+
+            const data = {
+                ...req.body,
+                attachments: attachments.length > 0 ? attachments : undefined
+            };
+
+            const result = await NcrService.create(req.user.company_id, req.user.id || req.user.userid, data);
             res.status(201).json({
                 success: true,
                 message: 'NCR created successfully',
-                data: result,
+                data: this._mapNcrAttachments(result),
             });
         } catch (error) {
             console.error('NCR create error:', error);
@@ -36,7 +56,7 @@ class NcrController {
     async getById(req, res) {
         try {
             const result = await NcrService.getById(req.user.company_id, req.params.id);
-            res.status(200).json({ success: true, data: result });
+            res.status(200).json({ success: true, data: this._mapNcrAttachments(result) });
         } catch (error) {
             console.error('NCR getById error:', error);
             const status = error.message.includes('not found') ? 404 : 500;
@@ -133,6 +153,17 @@ class NcrController {
             const status = error.message.includes('not found') ? 404 : 500;
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }
+    }
+
+    _mapNcrAttachments(ncr) {
+        if (ncr && ncr.attachments && Array.isArray(ncr.attachments)) {
+            const baseUrl = process.env.BACKEND_URL || '';
+            ncr.attachments = ncr.attachments.map(att => ({
+                ...att,
+                url: att.url && !att.url.startsWith('http') ? `${baseUrl}${att.url}` : att.url
+            }));
+        }
+        return ncr;
     }
 }
 
