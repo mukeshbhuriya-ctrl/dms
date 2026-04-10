@@ -787,16 +787,6 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                     </p>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-8 text-sm bg-background border rounded-md px-4 py-2">
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">Stage</span>
-                            <span className="font-bold text-lg">{currentStage} <span className="text-muted-foreground text-sm">/ 5</span></span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">Status</span>
-                            <span className="font-bold mt-1"><StatusBadge status={ncrStatus.replace(/_/g, ' ')} /></span>
-                        </div>
-                    </div>
                     <Button variant="outline" onClick={onBack} className="h-9">
                         <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
                     </Button>

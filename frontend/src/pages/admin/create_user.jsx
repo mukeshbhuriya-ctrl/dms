@@ -16,10 +16,12 @@ import {
 } from "@/components/ui/select"
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -526,37 +528,67 @@ function CreateUser() {
                           <Label htmlFor="role">
                             Roles <span className="text-destructive">*</span>
                           </Label>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" className="w-full justify-between" disabled={isLoading}>
-                                {formData.roles && formData.roles.length > 0
-                                  ? `${formData.roles.length} role(s) selected`
-                                  : "Select roles"}
-                                <ChevronDownIcon className="ml-2 h-4 w-4 opacity-50" />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] px-3 py-2 text-left" disabled={isLoading}>
+                                <div className="flex flex-wrap gap-1 max-w-[280px]">
+                                  {formData.roles && formData.roles.length > 0 ? (
+                                    Array.from(new Set(formData.roles)).map(roleId => {
+                                      const roleObj = roles.find(r => r.id === roleId);
+                                      return (
+                                        <Badge key={roleId} variant="secondary" className="font-normal">
+                                          {roleObj?.name || "Unknown"}
+                                        </Badge>
+                                      );
+                                    })
+                                  ) : (
+                                    <span className="text-muted-foreground font-normal">Select roles</span>
+                                  )}
+                                </div>
+                                <ChevronDownIcon className="h-4 w-4 opacity-50 shrink-0 ml-2" />
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="w-56">
-                              {roles.map((role) => (
-                                <DropdownMenuCheckboxItem
-                                  key={role.id}
-                                  checked={formData.roles?.includes(role.id)}
-                                  onCheckedChange={(checked) => {
-                                    setFormData(prev => {
-                                      const currentRoles = prev.roles || [];
-                                      return {
-                                        ...prev,
-                                        roles: checked
-                                          ? [...currentRoles, role.id]
-                                          : currentRoles.filter(id => id !== role.id)
-                                      };
-                                    });
-                                  }}
-                                >
-                                  {role.name}
-                                </DropdownMenuCheckboxItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <div className="p-2 border-b">
+                                <p className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wider">Available Roles</p>
+                              </div>
+                              <div className="max-h-[300px] overflow-y-auto p-2">
+                                {roles.length > 0 ? (
+                                  roles.map((role) => (
+                                    <div
+                                      key={role.id}
+                                      className="flex items-center space-x-3 space-y-0 rounded-md p-2 hover:bg-muted cursor-pointer"
+                                    >
+                                      <Checkbox
+                                        id={`role-${role.id}`}
+                                        checked={formData.roles?.includes(role.id)}
+                                        onCheckedChange={(checked) => {
+                                          setFormData(prev => {
+                                            const currentRoles = prev.roles || [];
+                                            const newRoles = checked
+                                              ? [...new Set([...currentRoles, role.id])]
+                                              : currentRoles.filter(id => id !== role.id);
+                                            return {
+                                              ...prev,
+                                              roles: newRoles
+                                            };
+                                          });
+                                        }}
+                                      />
+                                      <Label
+                                        htmlFor={`role-${role.id}`}
+                                        className="text-sm font-medium leading-none cursor-pointer flex-1 py-1"
+                                      >
+                                        {role.name}
+                                      </Label>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-sm text-center p-4 text-muted-foreground">No roles found</p>
+                                )}
+                              </div>
+                            </PopoverContent>
+                          </Popover>
                         </div>
                       </div>
 
