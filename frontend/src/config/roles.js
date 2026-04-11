@@ -126,7 +126,7 @@ export const MENU_CONFIG = [
         title: "MHC",
         icon: Folder,
         items: [
-            { title: "Material Heat Chart", path: "/material-heat-chart", roles: [ROLES.ADMIN] },
+            { title: "Material Heat Chart", path: "/material-heat-chart", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
         ],
     },
 

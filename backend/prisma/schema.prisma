@@ -107,6 +107,8 @@ model user{
   final_inspection_reports final_inspection_report[]
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
   dcr_quality_engineer dcr[] @relation("DcrQualityEngineer")
+  mhc_production_reports material_heat_chart[] @relation("MhcProductionEngineer")
+  mhc_qc_reports         material_heat_chart[] @relation("MhcQcEngineer")
   rfq_registers rfq_register[]
 
   // NCR relations
@@ -636,7 +638,16 @@ model material_heat_chart {
   customer_drg_no  String?
   inspection_by    String?
 
-  status           String   @default("draft")
+  status           String   @default("Pending")
+  production_engineer_id String?
+  qc_engineer_id         String?
+  submitted_at           DateTime?
+  approved_at            DateTime?
+  rejected_at            DateTime?
+  approver_remarks       String?
+
+  production_engineer user? @relation("MhcProductionEngineer", fields: [production_engineer_id], references: [id])
+  qc_engineer         user? @relation("MhcQcEngineer", fields: [qc_engineer_id], references: [id])
 
   company  company  @relation(fields: [company_id], references: [id])
   job      job      @relation(fields: [job_id], references: [id])
@@ -660,6 +671,7 @@ model material_heat_chart_item {
   material_spec     String?
   quantity_unit     String?
   heat_no           String?
+  grn_app_ap_no     String?
   mtr_no            String?
   manufacturer      String?
   remarks           String?

@@ -23,6 +23,7 @@ class MhcService {
                 { msn: { contains: search, mode: 'insensitive' } },
                 { client: { contains: search, mode: 'insensitive' } },
                 { po_no: { contains: search, mode: 'insensitive' } },
+                { report_no: { contains: search, mode: 'insensitive' } },
             ];
         }
 
@@ -33,6 +34,10 @@ class MhcService {
                 skip,
                 take,
                 orderBy: { [sortBy]: sortOrder },
+                include: {
+                    production_engineer: { select: { id: true, name: true, empid: true } },
+                    qc_engineer: { select: { id: true, name: true, empid: true } },
+                }
             }),
         ]);
 
@@ -50,12 +55,14 @@ class MhcService {
     /**
      * Create a new MHC record with items
      */
-    async create(company_id, body) {
+    async create(company_id, body, creator_id) {
         const {
             job_id,
             shreno_drg_no,
             customer_drg_no,
             inspection_by,
+            production_engineer_id,
+            qc_engineer_id,
             items = [],
         } = body;
 
@@ -101,7 +108,10 @@ class MhcService {
                     shreno_drg_no: shreno_drg_no || null,
                     customer_drg_no: customer_drg_no || null,
                     inspection_by: inspection_by || null,
-                    status: 'draft',
+                    status: 'Pending',
+                    production_engineer_id: production_engineer_id || creator_id,
+                    qc_engineer_id: qc_engineer_id || null,
+                    submitted_at: new Date(),
                 },
             });
 
@@ -114,14 +124,15 @@ class MhcService {
                         is_heading: item.is_heading || false,
                         heading_text: item.heading_text || null,
                         parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
-                        item_no: item.item_no || null,
+                        item_no: item.itemNo || item.item_no || null,
                         description: item.description || null,
                         size: item.size || null,
-                        material_spec: item.material_spec || null,
-                        quantity_unit: item.quantity_unit || null,
-                        heat_no: item.heat_no || null,
-                        mtr_no: item.mtr_no || null,
-                        manufacturer: item.manufacturer || null,
+                        material_spec: item.materialSpecification || item.material_spec || null,
+                        quantity_unit: item.quantityUnit || item.quantity_unit || null,
+                        heat_no: item.heatNo || item.heat_no || null,
+                        grn_app_ap_no: item.grn_app_ap_no || null,
+                        mtr_no: item.mtrNo || item.mtr_no || null,
+                        manufacturer: item.manufacturerName || item.manufacturer || null,
                         remarks: item.remarks || null,
                     })),
                 });
@@ -132,11 +143,114 @@ class MhcService {
                 where: { id: header.id },
                 include: {
                     items: { orderBy: { sort_order: 'asc' } },
+                    production_engineer: { select: { id: true, name: true, empid: true } },
+                    qc_engineer: { select: { id: true, name: true, empid: true } },
                 },
             });
         });
 
         return mhc;
+    }
+
+    /**
+     * Update an existing MHC record
+     */
+    async update(company_id, id, body) {
+        const {
+            shreno_drg_no,
+            customer_drg_no,
+            inspection_by,
+            tag_no,
+            production_engineer_id,
+            qc_engineer_id,
+            status,
+            items = [],
+        } = body;
+
+        const existing = await prisma.material_heat_chart.findFirst({
+            where: { id, company_id }
+        });
+
+        if (!existing) throw new Error('Material Heat Chart not found');
+        if (existing.status === 'Approved') throw new Error('Cannot edit an approved report');
+
+        return await prisma.$transaction(async (tx) => {
+            // Update header
+            const updatedHeader = await tx.material_heat_chart.update({
+                where: { id },
+                data: {
+                    shreno_drg_no,
+                    customer_drg_no,
+                    inspection_by,
+                    tag_no,
+                    production_engineer_id,
+                    qc_engineer_id,
+                    status: status || existing.status,
+                }
+            });
+
+            // Replace items
+            await tx.material_heat_chart_item.deleteMany({ where: { mhc_id: id } });
+            if (items.length > 0) {
+                await tx.material_heat_chart_item.createMany({
+                    data: items.map((item, idx) => ({
+                        mhc_id: id,
+                        sort_order: item.sort_order !== undefined ? item.sort_order : idx,
+                        is_heading: item.is_heading || false,
+                        heading_text: item.heading_text || null,
+                        parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
+                        item_no: item.itemNo || item.item_no || null,
+                        description: item.description || null,
+                        size: item.size || null,
+                        material_spec: item.materialSpecification || item.material_spec || null,
+                        quantity_unit: item.quantityUnit || item.quantity_unit || null,
+                        heat_no: item.heatNo || item.heat_no || null,
+                        grn_app_ap_no: item.grn_app_ap_no || null,
+                        mtr_no: item.mtrNo || item.mtr_no || null,
+                        manufacturer: item.manufacturerName || item.manufacturer || null,
+                        remarks: item.remarks || null,
+                    })),
+                });
+            }
+
+            return tx.material_heat_chart.findUnique({
+                where: { id },
+                include: {
+                    items: { orderBy: { sort_order: 'asc' } },
+                    production_engineer: { select: { id: true, name: true, empid: true } },
+                    qc_engineer: { select: { id: true, name: true, empid: true } },
+                }
+            });
+        });
+    }
+
+    /**
+     * Update status (Approve/Reject)
+     */
+    async updateStatus(company_id, id, { status, remarks, user_id }) {
+        const existing = await prisma.material_heat_chart.findFirst({
+            where: { id, company_id }
+        });
+
+        if (!existing) throw new Error('Material Heat Chart not found');
+
+        const data = { status };
+        if (status === 'Approved') {
+            data.approved_at = new Date();
+            data.approver_remarks = remarks || null;
+        } else if (status === 'Rejected') {
+            data.rejected_at = new Date();
+            data.approver_remarks = remarks;
+        }
+
+        return await prisma.material_heat_chart.update({
+            where: { id },
+            data,
+            include: {
+                production_engineer: { select: { id: true, name: true, empid: true } },
+                qc_engineer: { select: { id: true, name: true, empid: true } },
+            }
+        });
     }
 
     /**
@@ -147,6 +261,8 @@ class MhcService {
             where: { id, company_id },
             include: {
                 items: { orderBy: { sort_order: 'asc' } },
+                production_engineer: { select: { id: true, name: true, empid: true } },
+                qc_engineer: { select: { id: true, name: true, empid: true } },
             },
         });
 

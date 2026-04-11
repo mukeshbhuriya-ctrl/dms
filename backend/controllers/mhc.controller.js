@@ -18,7 +18,7 @@ class MhcController {
 
     async create(req, res) {
         try {
-            const result = await MhcService.create(req.user.company_id, req.body);
+            const result = await MhcService.create(req.user.company_id, req.body, req.user.userid);
             res.status(201).json({
                 success: true,
                 message: 'Material heat chart created successfully',
@@ -26,6 +26,39 @@ class MhcController {
             });
         } catch (error) {
             console.error('MHC create error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async update(req, res) {
+        try {
+            const result = await MhcService.update(req.user.company_id, req.params.id, req.body);
+            res.status(200).json({
+                success: true,
+                message: 'Material heat chart updated successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC update error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async updateStatus(req, res) {
+        try {
+            const result = await MhcService.updateStatus(req.user.company_id, req.params.id, {
+                ...req.body,
+                user_id: req.user.id
+            });
+            res.status(200).json({
+                success: true,
+                message: `Material heat chart ${req.body.status} successfully`,
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC updateStatus error:', error);
             const status = error.message.includes('not found') ? 404 : 400;
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }

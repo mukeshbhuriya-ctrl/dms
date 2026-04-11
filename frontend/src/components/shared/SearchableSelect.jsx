@@ -93,8 +93,7 @@ export function SearchableSelect({
       <PopoverContent 
         className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[200px] z-[100]" 
         align="start"
-        side="bottom"
-        avoidCollisions={false}
+        sideOffset={4}
       >
         <div className="flex flex-col flex-1 max-h-[300px]">
           <div className="flex items-center border-b px-3 py-2">

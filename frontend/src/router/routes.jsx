@@ -157,7 +157,7 @@ const adminRoutes = [
   },
   {
     path: "/material-heat-chart",
-    element: protect(<MaterialHeatChart />, [ROLES.ADMIN]),
+    element: protect(<MaterialHeatChart />, [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]),
   },
   {
     path: "/hydrostatic-pressure-test",
