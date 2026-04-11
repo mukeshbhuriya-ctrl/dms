@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog"
 import { Plus, Trash2, Type, ArrowLeft, FileText, Eye } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
 
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -205,8 +206,8 @@ function ListView({ onCreateClick }) {
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">HEADING</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">ITEM NO./PART NO.</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">DESCRIPTION</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">SIZE</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">MATERIAL SPECIFICATION</th>
+                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">SIZE</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">QUANTITY / UNIT</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">HEAT NO. / CAST NO. / PLATE NO.</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">MTR NO.</th>
@@ -239,8 +240,8 @@ function ListView({ onCreateClick }) {
                             <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{currentHeading || "-"}</td>
                             <td className="border-r border-border p-3 align-top font-medium">{row.item_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.description || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.size || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.material_spec || "-"}</td>
+                            <td className="border-r border-border p-3 align-top">{row.size || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.quantity_unit || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.heat_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.mtr_no || "-"}</td>
@@ -451,18 +452,14 @@ function CreateView({ onBack, onSuccess }) {
             {/* MSN / Job Number */}
             <div className="space-y-2">
               <Label className="uppercase text-xs font-semibold text-muted-foreground">MSN / JOB NO.:</Label>
-              <Select value={selectedJobId} onValueChange={handleJobSelect} disabled={jobsLoading}>
-                <SelectTrigger className="w-full bg-white h-9">
-                  <SelectValue placeholder={jobsLoading ? "Loading jobs…" : "Select MSN"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {jobs.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>
-                      {j.job_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={jobs.map((j) => ({ value: j.id, label: j.job_number }))}
+                value={selectedJobId}
+                onValueChange={handleJobSelect}
+                placeholder={jobsLoading ? "Loading jobs…" : "Select MSN"}
+                searchPlaceholder="Search job number..."
+                disabled={jobsLoading}
+              />
             </div>
 
             {/* Auto-filled fields */}
@@ -542,8 +539,8 @@ function CreateView({ onBack, onSuccess }) {
                     {[
                       "ITEM NO./PART NO.",
                       "DESCRIPTION",
-                      "SIZE",
                       "MATERIAL SPECIFICATION",
+                      "SIZE",
                       "QUANTITY / UNIT",
                       "HEAT NO. / CAST NO. / PLATE NO.",
                       "MTR NO.",
@@ -617,8 +614,8 @@ function CreateView({ onBack, onSuccess }) {
                         {[
                           { field: "itemNo", placeholder: "Item No" },
                           { field: "description", placeholder: "Description" },
-                          { field: "size", placeholder: "Size" },
                           { field: "materialSpecification", placeholder: "Material Spec" },
+                          { field: "size", placeholder: "Size" },
                           { field: "quantityUnit", placeholder: "Quantity" },
                           { field: "heatNo", placeholder: "Heat No" },
                           { field: "mtrNo", placeholder: "MTR No" },
