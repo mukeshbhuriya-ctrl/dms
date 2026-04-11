@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs, updateCustomer, updateCustomerLocation, updatePo, updateJob, updatePoCommunicationMatrix } = require('#api/dcc/customer.js');
+const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs, updateCustomer, updateCustomerLocation, updatePo, updateJob, updatePoCommunicationMatrix, getPoAttachments } = require('#api/dcc/customer.js');
 const { getDocumentType, createDocumentType, getDocumentMaster, createDocumentMaster } = require('#api/dcc/document.js');
 const { getUsers } = require('#api/users/user.js');
 
@@ -39,6 +39,7 @@ router.get('/get-pos', DccController.getPos);
 router.post('/create-po', upload.single('po_document'), createPo);
 router.put('/update-po/:id', upload.single('po_document'), updatePo);
 router.put('/update-po-communication-matrix/:id', updatePoCommunicationMatrix);
+router.get('/get-po-attachments/:po_id', getPoAttachments);
 
 // Document Versioning and Secure Access
 router.get('/document/:documentId/download', authenticateUserOnly, documentController.downloadDocument);

@@ -27,6 +27,7 @@ model company{
   customer_locations customer_location[]
   pos po[]
   po_communication_matrix po_communication_matrix[]
+  po_attachment_history po_attachment_history[]
   jobs job[]
   document_master document_master[]
   single_document single_document[]
@@ -189,7 +190,7 @@ model po{
   customer_location_id String
   po_number String
   po_date DateTime
-  po_doc_url String
+  po_doc_url String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -198,6 +199,7 @@ model po{
   company company @relation(fields: [company_id], references: [id])
 
   po_communication_matrix po_communication_matrix[]
+  po_attachment_history po_attachment_history[]
   jobs job[]
   group_document group_document[]
   single_document single_document[]
@@ -217,6 +219,19 @@ model po_communication_matrix{
   company company @relation(fields: [company_id], references: [id])
   po po @relation(fields: [po_id], references: [id])
   
+}
+
+model po_attachment_history {
+  id String @id @default(uuid())
+  company_id String
+  po_id String
+  po_attachments Json @default("[]")
+  revision Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  po po @relation(fields: [po_id], references: [id])
 }
 
 model job{
