@@ -20,6 +20,7 @@ import {
   CreateCustomer,
   CreateLocation,
   ClientApprovalStatus,
+  CommunicationMatrix,
 } from "@/pages/dms"
 
 import {
@@ -109,6 +110,10 @@ const dccRoutes = [
   {
     path: "/dcc/create-job",
     element: protect(<CreateJob />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dcc/communication-matrix",
+    element: protect(<CommunicationMatrix />, [ROLES.ADMIN, ROLES.DCC]),
   },
   {
     path: "/dcc/documents",

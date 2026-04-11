@@ -93,7 +93,8 @@ export const MENU_CONFIG = [
         title: "DMS",
         icon: Folder,
         items: [
-            { title: "Documents", path: "/dcc/documents", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Communication Matrix", path: "/dcc/communication-matrix", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Documents (VDR)", path: "/dcc/documents", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER], hideFor: [ROLES.ADMIN] },
             { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Create Transmission", path: "/dcc/create-transmission", roles: [ROLES.ADMIN, ROLES.DCC] },

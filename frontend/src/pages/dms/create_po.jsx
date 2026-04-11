@@ -19,7 +19,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
-import { Upload, X, Plus, Mail, ArrowLeft, FileText, Edit } from "lucide-react"
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import { Upload, Plus, ArrowLeft, FileText, Edit, X, Eye } from "lucide-react"
 import { poApi } from "@/api/po.api"
 import { exportApi } from "@/api/export.api"
 import { commonApi } from "@/api/common.api"
@@ -47,15 +48,14 @@ function CreatePO() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [activePreviewUrl, setActivePreviewUrl] = useState(null)
+  const [activePreviewDoc, setActivePreviewDoc] = useState(null)
 
   const [editingId, setEditingId] = useState(null)
 
-  const [shrenoCommunication, setShrenoCommunication] = useState([
-    { name: "", email: "" },
-  ])
-  const [clientCommunication, setClientCommunication] = useState([
-    { name: "", email: "" },
-  ])
+
 
   const handleEdit = useCallback(async (po) => {
     // Populate form logic
@@ -75,17 +75,7 @@ function CreatePO() {
     setPoDocument(null)
     setPreviewUrl(null)
 
-    // Parse matrix
-    const shreno = []
-    const client = []
-    if (po.po_communication_matrix && Array.isArray(po.po_communication_matrix)) {
-      po.po_communication_matrix.forEach(contact => {
-        if (contact.type === 'shreno') shreno.push({ name: contact.name, email: contact.email })
-        if (contact.type === 'client') client.push({ name: contact.name, email: contact.email })
-      })
-    }
-    setShrenoCommunication(shreno.length ? shreno : [{ name: "", email: "" }])
-    setClientCommunication(client.length ? client : [{ name: "", email: "" }])
+
 
     setEditingId(po.id)
     setView("create")
@@ -270,38 +260,7 @@ function CreatePO() {
     }
   }
 
-  // Communication Matrix Handlers
-  const handleShrenoCommunicationChange = (index, field, value) => {
-    setShrenoCommunication((prev) => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      return updated
-    })
-  }
 
-  const handleClientCommunicationChange = (index, field, value) => {
-    setClientCommunication((prev) => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      return updated
-    })
-  }
-
-  const addShrenoCommunication = () => {
-    setShrenoCommunication((prev) => [...prev, { name: "", email: "" }])
-  }
-
-  const removeShrenoCommunication = (index) => {
-    setShrenoCommunication((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const addClientCommunication = () => {
-    setClientCommunication((prev) => [...prev, { name: "", email: "" }])
-  }
-
-  const removeClientCommunication = (index) => {
-    setClientCommunication((prev) => prev.filter((_, i) => i !== index))
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -310,36 +269,14 @@ function CreatePO() {
     setIsLoading(true)
 
     try {
-      const communicationMatrix = {
-        shreno: shrenoCommunication
-          .filter((contact) => contact.name && contact.email)
-          .map((contact) => ({
-            name: String(contact.name).trim(),
-            email: String(contact.email).trim(),
-          })),
-        client: clientCommunication
-          .filter((contact) => contact.name && contact.email)
-          .map((contact) => ({
-            name: String(contact.name).trim(),
-            email: String(contact.email).trim(),
-          })),
-      }
 
-      if (
-        !communicationMatrix ||
-        typeof communicationMatrix !== "object" ||
-        !Array.isArray(communicationMatrix.shreno) ||
-        !Array.isArray(communicationMatrix.client)
-      ) {
-        throw new Error("Invalid communication matrix format")
-      }
 
       const formDataToSend = new FormData()
       formDataToSend.append("customer_id", formData.customerId)
       formDataToSend.append("customer_location_id", formData.locationId)
       formDataToSend.append("po_number", formData.poNumber)
       formDataToSend.append("po_date", formData.poDate)
-      formDataToSend.append("communication_matrix", JSON.stringify(communicationMatrix))
+
 
       if (poDocument) {
         formDataToSend.append("po_document", poDocument)
@@ -369,8 +306,7 @@ function CreatePO() {
         URL.revokeObjectURL(previewUrl)
         setPreviewUrl(null)
       }
-      setShrenoCommunication([{ name: "", email: "" }])
-      setClientCommunication([{ name: "", email: "" }])
+
       setEditingId(null)
 
       const fileInput = document.getElementById("documentUpload")
@@ -432,8 +368,7 @@ function CreatePO() {
                       URL.revokeObjectURL(previewUrl)
                       setPreviewUrl(null)
                     }
-                    setShrenoCommunication([{ name: "", email: "" }])
-                    setClientCommunication([{ name: "", email: "" }])
+
                     setView("create")
                   }}>
                     <Plus className="mr-2 h-4 w-4" /> Create PO
@@ -447,19 +382,13 @@ function CreatePO() {
             </div>
 
             {view === "list" ? (
-              <Card className="flex-1 flex flex-col">
-                <CardHeader>
-                  <CardTitle>Purchase Orders</CardTitle>
-                  <CardDescription>View and manage purchase orders.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <DataTable
-                    columns={columns}
-                    fetchData={fetchPos}
-                    onExport={handleExport}
-                  />
-                </CardContent>
-              </Card>
+              <div className="flex-1 flex flex-col">
+                <DataTable
+                  columns={columns}
+                  fetchData={fetchPos}
+                  onExport={handleExport}
+                />
+              </div>
             ) : (
               <form onSubmit={handleSubmit}>
                 <div className="grid gap-6">
@@ -591,43 +520,48 @@ function CreatePO() {
                               <div className="flex flex-col gap-2 p-4 border rounded">
                                 <div className="flex items-center justify-between">
                                   <span className="text-sm font-medium">Current Document</span>
-                                  <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
-                                    <FileText className="h-3 w-3 mr-1" /> Open in new tab
-                                  </a>
-                                </div>
-                                {existingDocUrl.toLowerCase().endsWith('.pdf') ? (
-                                  <iframe
-                                    src={existingDocUrl}
-                                    className="w-full h-[500px] border rounded"
-                                    title="Current Document Preview"
-                                  />
-                                ) : (
-                                  <div className="flex items-center justify-center h-32 bg-muted/50 rounded border-dashed border-2">
-                                    <span className="text-muted-foreground text-sm">Preview not available for this file type.</span>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setActivePreviewUrl(existingDocUrl)
+                                        setActivePreviewDoc({ filePath: existingDocUrl })
+                                        setIsPreviewOpen(true)
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" /> Preview
+                                    </Button>
+                                    <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
+                                      <FileText className="h-3 w-3 mr-1" /> Open
+                                    </a>
                                   </div>
-                                )}
+                                </div>
                               </div>
                             )}
                             {poDocument && (
                               <div className="flex flex-col gap-2 p-4 border rounded">
                                 <div className="flex items-center justify-between">
                                   <span className="text-sm font-medium">{poDocument.name}</span>
-                                  <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                {poDocument.type === "application/pdf" ? (
-                                  <iframe
-                                    src={previewUrl}
-                                    className="w-full h-[500px] border rounded"
-                                    title="Document Preview"
-                                  />
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center h-32 bg-muted/50 rounded border-dashed border-2 gap-2">
-                                    <FileText className="h-8 w-8 text-muted-foreground" />
-                                    <span className="text-muted-foreground text-sm">Preview only available for PDF files.</span>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setActivePreviewUrl(previewUrl)
+                                        setActivePreviewDoc({ mimeType: poDocument.type, documentName: poDocument.name })
+                                        setIsPreviewOpen(true)
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" /> Preview
+                                    </Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
+                                      <X className="h-4 w-4" />
+                                    </Button>
                                   </div>
-                                )}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -636,90 +570,7 @@ function CreatePO() {
                     </Card>
                   )}
 
-                  {formData.locationId && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Communication Matrix</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        {/* Shreno */}
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-semibold flex items-center gap-2">
-                              <Mail className="h-4 w-4" /> Shreno Communication
-                            </h3>
-                            <Button type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
-                              <Plus className="h-4 w-4 mr-2" /> Add
-                            </Button>
-                          </div>
-                          {shrenoCommunication.map((contact, index) => (
-                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
-                              <Input
-                                placeholder="Name"
-                                value={contact.name}
-                                onChange={(e) => handleShrenoCommunicationChange(index, "name", e.target.value)}
-                                required
-                              />
-                              <Input
-                                placeholder="Email"
-                                type="email"
-                                value={contact.email}
-                                onChange={(e) => handleShrenoCommunicationChange(index, "email", e.target.value)}
-                                required
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeShrenoCommunication(index)}
-                                disabled={shrenoCommunication.length === 1}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
 
-                        {/* Client */}
-                        <div className="space-y-4 border-t pt-4">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-semibold flex items-center gap-2">
-                              <Mail className="h-4 w-4" /> Client Communication
-                            </h3>
-                            <Button type="button" variant="outline" size="sm" onClick={addClientCommunication}>
-                              <Plus className="h-4 w-4 mr-2" /> Add
-                            </Button>
-                          </div>
-                          {clientCommunication.map((contact, index) => (
-                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
-                              <Input
-                                placeholder="Name"
-                                value={contact.name}
-                                onChange={(e) => handleClientCommunicationChange(index, "name", e.target.value)}
-                                required
-                              />
-                              <Input
-                                placeholder="Email"
-                                type="email"
-                                value={contact.email}
-                                onChange={(e) => handleClientCommunicationChange(index, "email", e.target.value)}
-                                required
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeClientCommunication(index)}
-                                disabled={clientCommunication.length === 1}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
 
                   {formData.locationId && (
                     <div className="flex justify-end gap-4">
@@ -754,6 +605,13 @@ function CreatePO() {
             )}
           </div>
         </main>
+
+        <DocumentPreviewDialog
+          isOpen={isPreviewOpen}
+          onOpenChange={setIsPreviewOpen}
+          previewUrl={activePreviewUrl}
+          activePreviewDoc={activePreviewDoc}
+        />
     </>
   )
 }

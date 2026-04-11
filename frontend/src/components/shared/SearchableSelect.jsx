@@ -90,8 +90,13 @@ export function SearchableSelect({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[200px]" align="start">
-        <div className="flex flex-col flex-1 max-h-[400px]">
+      <PopoverContent 
+        className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[200px] z-[100]" 
+        align="start"
+        side="bottom"
+        avoidCollisions={false}
+      >
+        <div className="flex flex-col flex-1 max-h-[300px]">
           <div className="flex items-center border-b px-3 py-2">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <Input

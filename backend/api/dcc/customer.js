@@ -969,6 +969,65 @@ async function updateJob(req, res) {
   }
 }
 
+/**
+ * Update PO Communication Matrix
+ */
+async function updatePoCommunicationMatrix(req, res) {
+  try {
+    const { id } = req.params;
+    const { communication_matrix } = req.body;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'PO ID is required' });
+
+    const existingPo = await prisma.po.findFirst({ where: { id: id.trim(), company_id } });
+    if (!existingPo) return res.status(404).json({ success: false, message: 'PO not found' });
+
+    let parsedCommunicationMatrix = null;
+    if (communication_matrix) {
+      if (typeof communication_matrix === 'string') {
+        try { parsedCommunicationMatrix = JSON.parse(communication_matrix); } catch (e) {
+          return res.status(400).json({ success: false, message: 'Invalid communication_matrix format' });
+        }
+      } else {
+        parsedCommunicationMatrix = communication_matrix;
+      }
+    } else {
+      return res.status(400).json({ success: false, message: 'Communication matrix payload is required' });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      let newMatrix = [];
+      await tx.po_communication_matrix.deleteMany({ where: { po_id: id.trim(), company_id } });
+
+      if (parsedCommunicationMatrix.shreno && Array.isArray(parsedCommunicationMatrix.shreno)) {
+        for (const person of parsedCommunicationMatrix.shreno) {
+          if (person.name && person.email) {
+            newMatrix.push(await tx.po_communication_matrix.create({
+              data: { company_id, po_id: id.trim(), name: person.name.trim(), email: person.email.toLowerCase().trim(), type: 'shreno' }
+            }));
+          }
+        }
+      }
+      if (parsedCommunicationMatrix.client && Array.isArray(parsedCommunicationMatrix.client)) {
+        for (const person of parsedCommunicationMatrix.client) {
+          if (person.name && person.email) {
+             newMatrix.push(await tx.po_communication_matrix.create({
+               data: { company_id, po_id: id.trim(), name: person.name.trim(), email: person.email.toLowerCase().trim(), type: 'client' }
+             }));
+          }
+        }
+      }
+      return newMatrix;
+    });
+
+    res.status(200).json({ success: true, message: 'Communication matrix updated successfully', data: result });
+  } catch (error) {
+    console.error('Update PO communication matrix error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+}
+
 module.exports = {
   createCustomer,
   createCustomerLocation,
@@ -981,5 +1040,6 @@ module.exports = {
   updateCustomer,
   updateCustomerLocation,
   updatePo,
-  updateJob
+  updateJob,
+  updatePoCommunicationMatrix
 };
