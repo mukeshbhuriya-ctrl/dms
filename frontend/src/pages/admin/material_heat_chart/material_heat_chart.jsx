@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { toast } from "react-toastify"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 
@@ -550,7 +550,7 @@ function CreateView({ onBack, onSuccess }) {
                     ].map((h, i) => (
                       <th
                         key={h}
-                        className={`text-left p-3 font-semibold text-[11px] uppercase tracking-wider whitespace-normal min-w-[120px] ${i === 0 ? "sticky left-0 bg-[#f4f4f5] z-20 shadow-[1px_0_0_0_#e4e4e7]" : ""
+                        className={`text-left p-3 font-semibold text-[11px] uppercase tracking-wider whitespace-normal min-w-[120px] ${i === 0 ? "sticky left-0 bg-[#f4f4f5] z-30 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
                           }`}
                       >
                         {h}
@@ -559,58 +559,38 @@ function CreateView({ onBack, onSuccess }) {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="h-4"></tr> {/* Spacing between header and inputs */}
-                  {tableRows.map((row) =>
-                    row.isHeading ? (
-                      // ── Heading Row ──
-                      <tr key={row.id} className="bg-[#f4f4f5] border-b border-t border-muted-foreground/20">
-                        <td colSpan={9} className="p-2 align-top sticky left-0 z-10 bg-[#f4f4f5] shadow-[1px_0_0_0_#e4e4e7]">
-                          <Input
-                            type="text"
-                            value={row.headingText}
-                            onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
-                            placeholder="Enter heading text…"
-                            className="font-bold h-10 border-muted-foreground/30 shadow-none focus-visible:ring-1 bg-white/50"
-                          />
-                        </td>
-                        <td className="p-2 align-top bg-[#f4f4f5]">
-                          <div className="flex gap-2">
+                  <tr className="h-4"></tr>
+                  {tableRows.map((row) => (
+                    <React.Fragment key={row.id}>
+                      {row.isHeading && (
+                        <tr className="bg-amber-50 border-t-2 border-amber-400/60">
+                          <td colSpan={9} className="px-2 pt-2 pb-0 align-top sticky left-0 z-10 bg-amber-50">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 shrink-0">Heading:</span>
+                              <Input
+                                type="text"
+                                value={row.headingText}
+                                onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
+                                placeholder="Enter heading text…"
+                                className="font-bold h-8 text-sm border-amber-300 shadow-none focus-visible:ring-1 focus-visible:ring-amber-400 bg-white/80"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-2 pt-2 pb-0 align-top bg-amber-50">
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none hover:text-foreground text-primary bg-primary/10 border-primary/20"
-                              title="Remove heading format"
+                              className="h-8 w-8 border-amber-300 shadow-none text-amber-700 hover:text-destructive hover:border-destructive/30 bg-white/80"
+                              title="Remove heading"
                               onClick={() => toggleHeading(row.id)}
                             >
-                              <Type className="h-4 w-4" />
+                              <X className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Add row under this heading"
-                              onClick={() => addRowAfterHeading(row.id)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-destructive"
-                              onClick={() => removeRow(row.id)}
-                              disabled={tableRows.length === 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      // ── Data Row ──
-                      <tr key={row.id}>
+                          </td>
+                        </tr>
+                      )}
+                      <tr className={row.isHeading ? "bg-amber-50/30 border-b-2 border-amber-400/30" : ""}>
                         {[
                           { field: "itemNo", placeholder: "Item No" },
                           { field: "description", placeholder: "Description" },
@@ -624,8 +604,7 @@ function CreateView({ onBack, onSuccess }) {
                         ].map(({ field, placeholder }, i) => (
                           <td
                             key={field}
-                            className={`p-2 align-top ${i === 0 ? "sticky left-0 bg-white z-10 shadow-[1px_0_0_0_#e4e4e7]" : ""
-                              }`}
+                            className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${row.isHeading ? "bg-amber-50" : "bg-white"}` : ""}`}
                           >
                             <Input
                               type="text"
@@ -636,14 +615,14 @@ function CreateView({ onBack, onSuccess }) {
                             />
                           </td>
                         ))}
-                        <td className="p-2 align-top bg-white">
+                        <td className={`p-2 align-top ${row.isHeading ? "bg-amber-50/30" : "bg-white"}`}>
                           <div className="flex gap-2">
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Convert to heading"
+                              className={`h-10 w-10 border-muted-foreground/30 shadow-none ${row.isHeading ? "text-amber-700 bg-amber-100 border-amber-300 hover:text-amber-900" : "text-muted-foreground hover:text-foreground"}`}
+                              title={row.isHeading ? "Has heading" : "Add heading"}
                               onClick={() => toggleHeading(row.id)}
                             >
                               <Type className="h-4 w-4" />
@@ -653,7 +632,7 @@ function CreateView({ onBack, onSuccess }) {
                               variant="outline"
                               size="icon"
                               className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Add sub-row"
+                              title="Add row below"
                               onClick={() => addRowAfterHeading(row.id)}
                             >
                               <Plus className="h-4 w-4" />
@@ -671,8 +650,8 @@ function CreateView({ onBack, onSuccess }) {
                           </div>
                         </td>
                       </tr>
-                    )
-                  )}
+                    </React.Fragment>
+                  ))}
                 </tbody>
               </table>
             </div>
