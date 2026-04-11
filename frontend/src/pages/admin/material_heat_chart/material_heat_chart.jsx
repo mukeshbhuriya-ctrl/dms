@@ -28,6 +28,7 @@ import {
 import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { formatDateTimeSQL } from "@/utils/time"
 
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -81,9 +82,9 @@ function ListView({ onCreateClick }) {
     { header: "Project ID", accessorKey: "project_id" },
     { header: "Equipment", accessorKey: "equipment_name" },
     {
-      header: "Created",
+      header: "Created At",
       accessorKey: "createdAt",
-      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+      cell: (row) => formatDateTimeSQL(row.createdAt),
     },
     {
       id: "actions",
