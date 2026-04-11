@@ -392,21 +392,30 @@ function CreateView({ onBack, onSuccess }) {
       return 
     }
 
-    const items = tableRows.map((row, idx) => ({
-      sort_order: idx,
-      is_heading: row.isHeading,
-      heading_text: row.isHeading ? (row.headingText || row.itemNo || "HEADING") : null,
-      parent_heading_id: row.parentHeadingId || null,
-      item_no: row.itemNo || null,
-      description: row.description || null,
-      size: row.size || null,
-      material_spec: row.materialSpecification || null,
-      quantity_unit: row.quantityUnit || null,
-      heat_no: row.heatNo || null,
-      mtr_no: row.mtrNo || null,
-      manufacturer: row.manufacturerName || null,
-      remarks: row.remarks || null,
-    }))
+    // Compute parent_heading_id dynamically: track the current heading sort_order
+    let currentHeadingSortOrder = null;
+    const items = tableRows.map((row, idx) => {
+      // If this row has a heading, it starts a new heading group
+      if (row.isHeading) {
+        currentHeadingSortOrder = idx;
+      }
+
+      return {
+        sort_order: idx,
+        is_heading: row.isHeading,
+        heading_text: row.isHeading ? (row.headingText || row.itemNo || "HEADING") : null,
+        parent_heading_id: currentHeadingSortOrder !== null ? String(currentHeadingSortOrder) : null,
+        item_no: row.itemNo || null,
+        description: row.description || null,
+        size: row.size || null,
+        material_spec: row.materialSpecification || null,
+        quantity_unit: row.quantityUnit || null,
+        heat_no: row.heatNo || null,
+        mtr_no: row.mtrNo || null,
+        manufacturer: row.manufacturerName || null,
+        remarks: row.remarks || null,
+      };
+    })
 
     const payload = {
       job_id: selectedJobId,
