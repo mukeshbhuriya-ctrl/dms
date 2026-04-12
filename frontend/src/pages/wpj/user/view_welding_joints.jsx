@@ -336,23 +336,23 @@ function ViewWeldingJoints() {
           <SidebarTrigger className="-ml-1" />
         </header>
         <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <h1 className="text-2xl font-bold mb-4">Welding Joints</h1>
-          <Card>
-            <CardHeader>
-              <CardTitle>Welding Joints</CardTitle>
-              <CardDescription>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Welding Joints</h1>
+              <p className="text-muted-foreground">
                 List of all welding joints with their details and status.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FormAlert type="error" message={downloadError} />
-              <DataTable
-                columns={columns}
-                fetchData={fetchJointsData}
-                onExport={handleExport}
-              />
-            </CardContent>
-          </Card>
+              </p>
+            </div>
+          </div>
+
+          <FormAlert type="error" message={downloadError} />
+          <div className="flex-1">
+            <DataTable
+              columns={columns}
+              fetchData={fetchJointsData}
+              onExport={handleExport}
+            />
+          </div>
         </main>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

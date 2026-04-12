@@ -629,19 +629,13 @@ function WeldingJoints() {
             )}
 
             {view === "list" ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Existing Plans</CardTitle>
-                  <CardDescription>View and manage welding joint plans.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <DataTable
-                    columns={columns}
-                    fetchData={fetchPlans}
-                    onExport={handleExport}
-                  />
-                </CardContent>
-              </Card>
+              <div className="flex-1">
+                <DataTable
+                  columns={columns}
+                  fetchData={fetchPlans}
+                  onExport={handleExport}
+                />
+              </div>
             ) : (
               <form onSubmit={handleSubmit}>
                 <div className="grid gap-6 w-full">
