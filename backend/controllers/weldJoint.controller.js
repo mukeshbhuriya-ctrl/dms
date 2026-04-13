@@ -99,15 +99,20 @@ async function generateStageReport(req, res) {
 async function getWeldJoints(req, res) {
     try {
         const company_id = req.user.company_id;
-        const { page, limit, search, status, sortBy, sortOrder } = req.query;
-
+        const { page, limit, search, status, sortBy, sortOrder, client, po, job, cat, msn } = req.query;
+ 
         const result = await weldJointService.findAll(company_id, {
             page,
             limit,
             search,
             status,
             sortBy,
-            sortOrder
+            sortOrder,
+            client,
+            po,
+            job,
+            cat,
+            msn
         }, {
             userId: req.user.userid || req.user.id,
             roles: req.user.role
@@ -202,8 +207,20 @@ async function getWeldJointPlans(req, res) {
     }
 }
 
+async function getWeldJointActiveFilters(req, res) {
+    try {
+        const company_id = req.user.company_id;
+        const filters = await weldJointService.getActiveFilters(company_id);
+        res.status(200).json({ success: true, data: filters });
+    } catch (error) {
+        console.error('Get weld joint filters error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
 module.exports = {
     getWeldJoints,
+    getWeldJointActiveFilters,
     updateStageStatus,
     reviewStageStatus,
     getWeldJointPlans,

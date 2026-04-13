@@ -244,16 +244,29 @@ class WeldJointService {
             });
             const groupIds = userGroups.map(ug => ug.qc_group_id);
 
-            // Find joints where user is assigned individually OR via a group
-            where.weld_joint_stages = {
-                some: {
-                    OR: [
-                        { qc_eng_id: userId },
-                        { assigned_qc_group_id: { in: groupIds } }
-                    ],
-                    is_active: true
-                }
-            };
+            // Base criteria for QC: MUST be involved in at least one stage (historically or currently)
+            // Or specifically filter based on the requested status.
+            
+            if (!status || status === 'all' || status === 'pending' || status === 'rejected') {
+                where.weld_joint_stages = {
+                    some: {
+                        OR: [
+                            { qc_eng_id: userId },
+                            { assigned_qc_group_id: { in: groupIds } }
+                        ],
+                        // For Pending/Rejected we only look at active stages
+                        ...( (status === 'pending' || status === 'rejected') && { is_active: true } )
+                    }
+                };
+            } else if (status === 'completed') {
+                // For Completed, we look for stages they approved
+                where.weld_joint_stages = {
+                    some: {
+                        qc_eng_id: userId,
+                        status: 'approved'
+                    }
+                };
+            }
         }
 
         if (search) {
@@ -291,15 +304,69 @@ class WeldJointService {
 
         if (status) {
             if (status === 'completed') {
+                // A joint is "Entirely Finished" if it has NO active stages and at least one approved stage
                 where.weld_joint_stages = {
-                    some: {
-                        stage_name: 'stage8', // Fallback simple logic, but getStatus uses multiple. We will leave this simple or rely on FE.
-                        status: 'approved'
+                    ...(where.weld_joint_stages || {}),
+                    none: { is_active: true },
+                    some: { 
+                        ...(where.weld_joint_stages?.some || {}),
+                        status: 'approved' 
                     }
                 };
             } else if (status === 'pending') {
-                 // Not fully completed. This is a rough estimation for DB level query.
+                where.weld_joint_stages = {
+                    ...(where.weld_joint_stages || {}),
+                    some: { 
+                        ...(where.weld_joint_stages?.some || {}),
+                        status: 'pending',
+                        is_active: true
+                    }
+                };
+            } else if (status === 'rejected') {
+                where.weld_joint_stages = {
+                    ...(where.weld_joint_stages || {}),
+                    some: { 
+                        ...(where.weld_joint_stages?.some || {}),
+                        status: 'rejected',
+                        is_active: true
+                    }
+                };
             }
+        }
+
+        // Column-based filters (Support multi-select)
+        const { client, po, job, cat, msn } = params;
+
+        const handleMultiFilter = (val) => {
+            if (!val) return undefined;
+            if (Array.isArray(val)) return { in: val };
+            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+            return { equals: val, mode: 'insensitive' };
+        };
+
+        if (client) {
+            where.weld_joint_plan = { 
+                ...where.weld_joint_plan, 
+                job: { ...where.weld_joint_plan?.job, customer: { customer_name: handleMultiFilter(client) } } 
+            };
+        }
+        if (po) {
+            where.weld_joint_plan = { 
+                ...where.weld_joint_plan, 
+                job: { ...where.weld_joint_plan?.job, po: { po_number: handleMultiFilter(po) } } 
+            };
+        }
+        if (job) {
+            where.joint_no = handleMultiFilter(job);
+        }
+        if (cat) {
+            where.joint_type = handleMultiFilter(cat);
+        }
+        if (msn) {
+            where.weld_joint_plan = { 
+                ...where.weld_joint_plan, 
+                job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(msn) } 
+            };
         }
 
         const [joints, total] = await Promise.all([
@@ -660,6 +727,43 @@ class WeldJointService {
         ]);
 
         return { data: plans, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+    }
+
+    async getActiveFilters(company_id) {
+        try {
+            // Fetch unique values from related tables
+            const jobs = await prisma.job.findMany({
+                where: { company_id },
+                select: {
+                    job_number: true,
+                    customer: { select: { customer_name: true } },
+                    po: { select: { po_number: true } }
+                }
+            });
+
+            // Extract unique categories from weld_joint
+            const joints = await prisma.weld_joint.findMany({
+                where: { weld_joint_plan: { company_id } },
+                select: { joint_type: true, joint_no: true }
+            });
+
+            const uniqueClients = [...new Set(jobs.map(j => j.customer?.customer_name))].filter(Boolean).sort();
+            const uniquePos = [...new Set(jobs.map(j => j.po?.po_number))].filter(Boolean).sort();
+            const uniqueMsns = [...new Set(jobs.map(j => j.job_number))].filter(Boolean).sort();
+            const uniqueJointNos = [...new Set(joints.map(j => j.joint_no))].filter(Boolean).sort();
+            const uniqueCats = [...new Set(joints.map(j => j.joint_type))].filter(Boolean).sort();
+
+            return {
+                clients: uniqueClients.map(c => ({ label: c, value: c })),
+                pos: uniquePos.map(p => ({ label: p, value: p })),
+                msns: uniqueMsns.map(m => ({ label: m, value: m })),
+                jointNos: uniqueJointNos.map(j => ({ label: j, value: j })),
+                categories: uniqueCats.map(c => ({ label: c, value: c }))
+            };
+        } catch (error) {
+            console.error("Get Active Filters error:", error);
+            throw error;
+        }
     }
 }
 
