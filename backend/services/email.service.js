@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const { getNcrEmailTemplate } = require('../utils/email-templates/ncr.template');
 
 class EmailService {
     constructor() {
@@ -98,6 +99,16 @@ class EmailService {
         const { getDocumentOverdueTemplate } = require('../utils/email-templates/document-workflow.template');
         const subject = `[URGENT] Portfolio Deadline Exceeded - DMS`;
         const html = getDocumentOverdueTemplate(user_name, type, documents);
+        return this.sendEmail({ to, subject, html });
+    }
+
+    async sendNcrNotification(to, details) {
+        const { ncrNo, jobNo, status } = details;
+        const subject = `NCR Notification: ${ncrNo} (Job ${jobNo}) - ${status.toUpperCase()}`;
+        const viewUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/ncr`;
+        
+        const html = getNcrEmailTemplate({ ...details, viewUrl });
+
         return this.sendEmail({ to, subject, html });
     }
 }

@@ -27,6 +27,7 @@ model company{
   customer_locations customer_location[]
   pos po[]
   po_communication_matrix po_communication_matrix[]
+  po_attachment_history po_attachment_history[]
   jobs job[]
   document_master document_master[]
   single_document single_document[]
@@ -50,6 +51,7 @@ model company{
   mediators mediator[]
   ncr ncr[]
   document_activities document_activity[]
+  qc_groups qc_group[]
 }
 
 model department {
@@ -65,6 +67,34 @@ model department {
   users     user[]
   
   @@unique([company_id, name]) // Ensure department names are unique per company
+}
+
+model qc_group {
+  id          String   @id @default(uuid())
+  company_id  String
+  name        String
+  
+  company     company  @relation(fields: [company_id], references: [id])
+  users       user_qc_group[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([company_id, name])
+}
+
+model user_qc_group {
+  id          String   @id @default(uuid())
+  user_id     String
+  qc_group_id String
+
+  user        user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  qc_group    qc_group @relation(fields: [qc_group_id], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([user_id, qc_group_id])
 }
 
 model role{
@@ -106,6 +136,8 @@ model user{
   final_inspection_reports final_inspection_report[]
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
   dcr_quality_engineer dcr[] @relation("DcrQualityEngineer")
+  mhc_production_reports material_heat_chart[] @relation("MhcProductionEngineer")
+  mhc_qc_reports         material_heat_chart[] @relation("MhcQcEngineer")
   rfq_registers rfq_register[]
 
   // NCR relations
@@ -119,6 +151,7 @@ model user{
   ncr_corrective_action_verified_by ncr[] @relation("NcrCorrectiveActionVerifiedBy")
   ncr_verified_by_qce ncr[] @relation("NcrVerifiedByQce")
   ncr_verified_by_head_quality ncr[] @relation("NcrVerifiedByHeadQuality")
+  qc_groups user_qc_group[]
 }
 
 model user_roles{
@@ -189,7 +222,7 @@ model po{
   customer_location_id String
   po_number String
   po_date DateTime
-  po_doc_url String
+  po_doc_url String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -198,6 +231,7 @@ model po{
   company company @relation(fields: [company_id], references: [id])
 
   po_communication_matrix po_communication_matrix[]
+  po_attachment_history po_attachment_history[]
   jobs job[]
   group_document group_document[]
   single_document single_document[]
@@ -217,6 +251,19 @@ model po_communication_matrix{
   company company @relation(fields: [company_id], references: [id])
   po po @relation(fields: [po_id], references: [id])
   
+}
+
+model po_attachment_history {
+  id String @id @default(uuid())
+  company_id String
+  po_id String
+  po_attachments Json @default("[]")
+  revision Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id])
+  po po @relation(fields: [po_id], references: [id])
 }
 
 model job{
@@ -455,6 +502,7 @@ model weld_joint_stage {
   submitted_at    DateTime?
   approved_at     DateTime?
   rejected_at     DateTime?
+  remarks         String?
 
   stage_data      weld_joint_stage_data?
   stage_rows      weld_joint_stage_row[]
@@ -621,7 +669,16 @@ model material_heat_chart {
   customer_drg_no  String?
   inspection_by    String?
 
-  status           String   @default("draft")
+  status           String   @default("Pending")
+  production_engineer_id String?
+  qc_engineer_id         String?
+  submitted_at           DateTime?
+  approved_at            DateTime?
+  rejected_at            DateTime?
+  approver_remarks       String?
+
+  production_engineer user? @relation("MhcProductionEngineer", fields: [production_engineer_id], references: [id])
+  qc_engineer         user? @relation("MhcQcEngineer", fields: [qc_engineer_id], references: [id])
 
   company  company  @relation(fields: [company_id], references: [id])
   job      job      @relation(fields: [job_id], references: [id])
@@ -645,6 +702,7 @@ model material_heat_chart_item {
   material_spec     String?
   quantity_unit     String?
   heat_no           String?
+  grn_app_ap_no     String?
   mtr_no            String?
   manufacturer      String?
   remarks           String?
@@ -671,7 +729,7 @@ model dish_end_inspection_report {
 
   drg_no          String?
   insp_agency     String?
-  quality_engineer_id String?
+  production_engineer_id String?
   vendor_dish_end_number String?
 
   status          String   @default("Pending")
@@ -679,7 +737,7 @@ model dish_end_inspection_report {
 
   company   company  @relation(fields: [company_id], references: [id])
   job       job      @relation(fields: [job_id], references: [id])
-  quality_engineer user? @relation(fields: [quality_engineer_id], references: [id])
+  production_engineer user? @relation(fields: [production_engineer_id], references: [id])
 
   items       dish_end_inspection_item[]
   instruments dish_end_inspection_instrument[]
@@ -735,13 +793,13 @@ model final_inspection_report {
   code            String?
   drg_no          String?
   
-  quality_engineer_id String?
+  production_engineer_id String?
   status          String   @default("Pending")
   approver_remarks String?
 
   company   company  @relation(fields: [company_id], references: [id])
   job       job      @relation(fields: [job_id], references: [id])
-  quality_engineer user? @relation(fields: [quality_engineer_id], references: [id])
+  production_engineer user? @relation(fields: [production_engineer_id], references: [id])
 
   details     final_inspection_detail[]
   nozzles     final_inspection_nozzle[]
@@ -893,6 +951,8 @@ model rfq_register {
   company_id             String
   serial_no              Int
   quotation_no           String
+  quotation_category     String    @default("Core")
+  type_serial_no         Int       @default(1)
   client_ref             String?
   rfq_type               String?
   client_name            String?
@@ -911,6 +971,11 @@ model rfq_register {
   made_by                String?
   created_by             String?
 
+  po_no                  String?
+  po_date                DateTime?
+  po_value               Float?
+  po_remark              String?
+
   company  company @relation(fields: [company_id], references: [id])
   creator  user?   @relation(fields: [created_by], references: [id])
   items    rfq_register_item[]
@@ -927,10 +992,6 @@ model rfq_register_item {
   equip_qty        Int?
   rev              String?
   total_value      Float?
-  po_no            String?
-  po_date          DateTime?
-  po_value         Float?
-  remarks          String?
 
   rfq rfq_register @relation(fields: [rfq_id], references: [id], onDelete: Cascade)
 
@@ -1146,6 +1207,7 @@ model ncr {
   ncr_raised_at   String?
   ncr_raised_by   String?
   ncr_date        DateTime?
+  attachments     Json?
 
   // Stage 2
   proposed_resolution String?

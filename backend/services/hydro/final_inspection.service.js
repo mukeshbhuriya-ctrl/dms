@@ -34,7 +34,7 @@ class FinalInspectionService {
                     project_id: true,
                     equipment_name: true,
                     status: true,
-                    quality_engineer_id: true,
+                    production_engineer_id: true,
                     createdAt: true
                 }
             }),
@@ -64,7 +64,7 @@ class FinalInspectionService {
                 parts: { orderBy: { sr_no: 'asc' } },
                 instruments: true,
                 remarks: { orderBy: { sr_no: 'asc' } },
-                quality_engineer: {
+                production_engineer: {
                     select: { id: true, name: true, email: true }
                 }
             }
@@ -87,7 +87,7 @@ class FinalInspectionService {
         });
 
         const nextNumber = String(count + 1).padStart(4, '0');
-        const reportNo = `SHR/${job.job_number}/FIR/${nextNumber}`;
+        const reportNo = `SHR/${job.job_number}/FDIR/${nextNumber}`;
         return reportNo;
     }
 
@@ -105,7 +105,7 @@ class FinalInspectionService {
             tag_no,
             code,
             drg_no,
-            quality_engineer_id,
+            production_engineer_id,
             status,      // Optional status field
             details,     // array
             nozzles,     // array
@@ -141,7 +141,7 @@ class FinalInspectionService {
                     tag_no,
                     code,
                     drg_no,
-                    quality_engineer_id: quality_engineer_id || null,
+                    production_engineer_id: production_engineer_id || null,
                     status: status || "Pending",
                     details: {
                         create: details?.map(item => ({
@@ -211,7 +211,7 @@ class FinalInspectionService {
             tag_no,
             code,
             drg_no,
-            quality_engineer_id,
+            production_engineer_id,
             status,
             details,
             nozzles,
@@ -247,7 +247,7 @@ class FinalInspectionService {
                     tag_no,
                     code,
                     drg_no,
-                    quality_engineer_id: quality_engineer_id || null,
+                    production_engineer_id: production_engineer_id || null,
                     status: status || "Pending",
                     details: {
                         create: details?.map(item => ({

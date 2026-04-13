@@ -19,14 +19,16 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { DataTable } from "@/components/shared/DataTable"
-import { Upload, X, Plus, Mail, ArrowLeft, FileText, Edit } from "lucide-react"
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import { Upload, Plus, ArrowLeft, FileText, Edit, X, Eye, History } from "lucide-react"
 import { poApi } from "@/api/po.api"
 import { exportApi } from "@/api/export.api"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
 
 function CreatePO() {
-  const [view, setView] = useState("list") // 'list' or 'create'
+  const [view, setView] = useState("list") // 'list', 'create', or 'attachments'
+  const [selectedHistoryPo, setSelectedHistoryPo] = useState(null)
 
   const [formData, setFormData] = useState({
     customerId: "",
@@ -47,15 +49,15 @@ function CreatePO() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [activePreviewUrl, setActivePreviewUrl] = useState(null)
+  const [activePreviewDoc, setActivePreviewDoc] = useState(null)
 
   const [editingId, setEditingId] = useState(null)
+  const [editingPo, setEditingPo] = useState(null)
 
-  const [shrenoCommunication, setShrenoCommunication] = useState([
-    { name: "", email: "" },
-  ])
-  const [clientCommunication, setClientCommunication] = useState([
-    { name: "", email: "" },
-  ])
+
 
   const handleEdit = useCallback(async (po) => {
     // Populate form logic
@@ -75,19 +77,10 @@ function CreatePO() {
     setPoDocument(null)
     setPreviewUrl(null)
 
-    // Parse matrix
-    const shreno = []
-    const client = []
-    if (po.po_communication_matrix && Array.isArray(po.po_communication_matrix)) {
-      po.po_communication_matrix.forEach(contact => {
-        if (contact.type === 'shreno') shreno.push({ name: contact.name, email: contact.email })
-        if (contact.type === 'client') client.push({ name: contact.name, email: contact.email })
-      })
-    }
-    setShrenoCommunication(shreno.length ? shreno : [{ name: "", email: "" }])
-    setClientCommunication(client.length ? client : [{ name: "", email: "" }])
+
 
     setEditingId(po.id)
+    setEditingPo(po)
     setView("create")
     setError("")
     setSuccess("")
@@ -114,17 +107,45 @@ function CreatePO() {
     {
       accessorKey: "po_doc_url",
       header: "Document",
-      cell: (row) => row.po_doc_url ? (
-        <a
-          href={row.po_doc_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-blue-600 hover:underline flex items-center gap-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <FileText className="h-3 w-3" /> View
-        </a>
-      ) : "-",
+      cell: (row) => {
+        let displayUrl = row.po_doc_url;
+        let displayName = "Document";
+        let isImage = false;
+        
+        if (row.po_attachment_history && row.po_attachment_history.length > 0) {
+          const latestHistory = row.po_attachment_history[0];
+          const attachments = latestHistory.po_attachments || [];
+          if (attachments.length > 0) {
+            const doc = attachments[0];
+            if (doc.url) {
+              displayUrl = doc.url;
+              displayName = doc.name || doc.filename || "Document";
+            }
+          }
+        }
+        
+        if (displayUrl) {
+          const fileExt = displayUrl.split(".").pop()?.toLowerCase();
+          isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt);
+        }
+
+        return displayUrl ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-blue-600 hover:text-blue-800 hover:bg-transparent p-0 flex items-center gap-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              setActivePreviewUrl(displayUrl);
+              setActivePreviewDoc({ documentName: displayName, isImage });
+              setIsPreviewOpen(true);
+            }}
+          >
+            <FileText className="h-3 w-3" /> Preview
+          </Button>
+        ) : "-";
+      },
     },
     {
       accessorKey: "createdAt",
@@ -135,14 +156,27 @@ function CreatePO() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleEdit(row)}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSelectedHistoryPo(row);
+              setView("attachments");
+            }}
+          >
+            <History className="h-4 w-4 mr-1" />
+            History
+          </Button>
+        </div>
       ),
     },
   ], [handleEdit])
@@ -270,38 +304,7 @@ function CreatePO() {
     }
   }
 
-  // Communication Matrix Handlers
-  const handleShrenoCommunicationChange = (index, field, value) => {
-    setShrenoCommunication((prev) => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      return updated
-    })
-  }
 
-  const handleClientCommunicationChange = (index, field, value) => {
-    setClientCommunication((prev) => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      return updated
-    })
-  }
-
-  const addShrenoCommunication = () => {
-    setShrenoCommunication((prev) => [...prev, { name: "", email: "" }])
-  }
-
-  const removeShrenoCommunication = (index) => {
-    setShrenoCommunication((prev) => prev.filter((_, i) => i !== index))
-  }
-
-  const addClientCommunication = () => {
-    setClientCommunication((prev) => [...prev, { name: "", email: "" }])
-  }
-
-  const removeClientCommunication = (index) => {
-    setClientCommunication((prev) => prev.filter((_, i) => i !== index))
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -310,36 +313,14 @@ function CreatePO() {
     setIsLoading(true)
 
     try {
-      const communicationMatrix = {
-        shreno: shrenoCommunication
-          .filter((contact) => contact.name && contact.email)
-          .map((contact) => ({
-            name: String(contact.name).trim(),
-            email: String(contact.email).trim(),
-          })),
-        client: clientCommunication
-          .filter((contact) => contact.name && contact.email)
-          .map((contact) => ({
-            name: String(contact.name).trim(),
-            email: String(contact.email).trim(),
-          })),
-      }
 
-      if (
-        !communicationMatrix ||
-        typeof communicationMatrix !== "object" ||
-        !Array.isArray(communicationMatrix.shreno) ||
-        !Array.isArray(communicationMatrix.client)
-      ) {
-        throw new Error("Invalid communication matrix format")
-      }
 
       const formDataToSend = new FormData()
       formDataToSend.append("customer_id", formData.customerId)
       formDataToSend.append("customer_location_id", formData.locationId)
       formDataToSend.append("po_number", formData.poNumber)
       formDataToSend.append("po_date", formData.poDate)
-      formDataToSend.append("communication_matrix", JSON.stringify(communicationMatrix))
+
 
       if (poDocument) {
         formDataToSend.append("po_document", poDocument)
@@ -369,9 +350,9 @@ function CreatePO() {
         URL.revokeObjectURL(previewUrl)
         setPreviewUrl(null)
       }
-      setShrenoCommunication([{ name: "", email: "" }])
-      setClientCommunication([{ name: "", email: "" }])
+
       setEditingId(null)
+      setEditingPo(null)
 
       const fileInput = document.getElementById("documentUpload")
       if (fileInput) fileInput.value = ""
@@ -412,18 +393,30 @@ function CreatePO() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Purchase Orders List" : (editingId ? "Update Purchase Order" : "Create Purchase Order")}
+                  {view === "list" ? "Purchase Orders" : view === "create" ? (editingId ? "Edit Purchase Order" : "Create Purchase Order") : `PO Attachments: ${selectedHistoryPo?.po_number || ""}`}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "list"
-                    ? "List of all purchase orders"
-                    : (editingId ? "Update the details for the selected purchase order." : "Fill in the purchase order information below.")}
+                    ? "Manage your purchase orders"
+                    : view === "create" 
+                      ? "Enter the details for the new purchase order" 
+                      : "View history of attachments for this purchase order"}
                 </p>
               </div>
-              <div>
-                {view === "list" ? (
+              <div className="flex gap-2">
+                {view !== "list" && (
+                  <Button variant="outline" onClick={() => {
+                    setView("list");
+                    setEditingId(null);
+                    setSelectedHistoryPo(null);
+                  }}>
+                    Back to List
+                  </Button>
+                )}
+                {view === "list" && (
                   <Button onClick={() => {
                     setEditingId(null)
+                    setEditingPo(null)
                     setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
                     setSelectedLocation(null)
                     setPoDocument(null)
@@ -432,35 +425,95 @@ function CreatePO() {
                       URL.revokeObjectURL(previewUrl)
                       setPreviewUrl(null)
                     }
-                    setShrenoCommunication([{ name: "", email: "" }])
-                    setClientCommunication([{ name: "", email: "" }])
+
                     setView("create")
                   }}>
                     <Plus className="mr-2 h-4 w-4" /> Create PO
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={() => setView("list")}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
                 )}
               </div>
             </div>
 
-            {view === "list" ? (
-              <Card className="flex-1 flex flex-col">
-                <CardHeader>
-                  <CardTitle>Purchase Orders</CardTitle>
-                  <CardDescription>View and manage purchase orders.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <DataTable
-                    columns={columns}
-                    fetchData={fetchPos}
-                    onExport={handleExport}
-                  />
-                </CardContent>
-              </Card>
-            ) : (
+            {view === "list" && (
+              <DataTable
+                columns={columns}
+                fetchData={fetchPos}
+                searchPlaceholder="Search POs..."
+                refreshKey={refreshKey}
+              />
+            )}
+            
+            {view === "attachments" && (
+              <DataTable
+                columns={[
+                  {
+                    accessorKey: "revision",
+                    header: "Attachment",
+                    cell: (row) => `${row.revision}`
+                  },
+                  {
+                    accessorKey: "createdAt",
+                    header: "Created Date",
+                    cell: (row) => {
+                      const d = new Date(row.createdAt);
+                      return d.toLocaleString('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(',', '');
+                    }
+                  },
+                  {
+                    id: "actions",
+                    header: "Actions",
+                    cell: (row) => {
+                      const attachments = row.po_attachments || [];
+                      if (attachments.length === 0) return "-";
+                      const doc = attachments[0];
+                      const fileExt = doc.filename?.split(".").pop()?.toLowerCase();
+                      const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt);
+
+                      return (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePreviewUrl(doc.url);
+                            setActivePreviewDoc({
+                              documentName: doc.name || doc.filename || "Attachment",
+                              isImage
+                            });
+                            setIsPreviewOpen(true);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Preview
+                        </Button>
+                      );
+                    }
+                  }
+                ]}
+                fetchData={async (params) => {
+                  if (!selectedHistoryPo?.id) return { data: [], meta: { pageCount: 0, total: 0 } };
+                  try {
+                    const response = await poApi.getPoAttachments(selectedHistoryPo.id);
+                    const records = response?.data || [];
+                    return {
+                      data: records,
+                      meta: {
+                        page: 1,
+                        totalPages: 1,
+                        total: records.length,
+                      }
+                    };
+                  } catch (e) {
+                    console.error("Failed to fetch po attachments", e);
+                    return { data: [], meta: { page: 1, totalPages: 0, total: 0 } };
+                  }
+                }}
+                searchPlaceholder="Search..."
+                disablePagination={true}
+              />
+            )}
+
+            {view === "create" && (
               <form onSubmit={handleSubmit}>
                 <div className="grid gap-6">
                   {/* Form Content */}
@@ -587,47 +640,93 @@ function CreatePO() {
                               onChange={handleDocumentUpload}
                               className="hidden"
                             />
-                            {existingDocUrl && !poDocument && (
-                              <div className="flex flex-col gap-2 p-4 border rounded">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium">Current Document</span>
-                                  <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
-                                    <FileText className="h-3 w-3 mr-1" /> Open in new tab
-                                  </a>
-                                </div>
-                                {existingDocUrl.toLowerCase().endsWith('.pdf') ? (
-                                  <iframe
-                                    src={existingDocUrl}
-                                    className="w-full h-[500px] border rounded"
-                                    title="Current Document Preview"
-                                  />
-                                ) : (
-                                  <div className="flex items-center justify-center h-32 bg-muted/50 rounded border-dashed border-2">
-                                    <span className="text-muted-foreground text-sm">Preview not available for this file type.</span>
-                                  </div>
-                                )}
+                            {editingPo?.po_attachment_history?.length > 0 ? (
+                              <div className="flex flex-col gap-2 mt-4">
+                                <span className="text-sm font-medium">Attachment History</span>
+                                {editingPo.po_attachment_history.map((history, idx) => {
+                                  const attachments = history.po_attachments || [];
+                                  if (attachments.length === 0) return null;
+                                  const doc = attachments[0];
+                                  return (
+                                    <div key={idx} className="flex flex-col gap-2 p-3 border rounded mb-2 bg-gray-50/50">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium">Rev {history.revision}: {doc.name || doc.filename || "Attachment"}</span>
+                                          <span className="text-xs text-muted-foreground">{new Date(history.createdAt).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(doc.url?.split(".").pop()?.toLowerCase());
+                                              setActivePreviewUrl(doc.url)
+                                              setActivePreviewDoc({ documentName: doc.name || doc.filename, isImage })
+                                              setIsPreviewOpen(true)
+                                            }}
+                                          >
+                                            <Eye className="h-4 w-4 mr-2" /> Preview
+                                          </Button>
+                                          {doc.url && (
+                                            <a href={doc.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
+                                              <FileText className="h-3 w-3 mr-1" /> Open
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
+                            ) : (
+                              existingDocUrl && !poDocument && (
+                                <div className="flex flex-col gap-2 p-4 border rounded mt-4">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">Current Document</span>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setActivePreviewUrl(existingDocUrl)
+                                          setActivePreviewDoc({ filePath: existingDocUrl })
+                                          setIsPreviewOpen(true)
+                                        }}
+                                      >
+                                        <Eye className="h-4 w-4 mr-2" /> Preview
+                                      </Button>
+                                      <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
+                                        <FileText className="h-3 w-3 mr-1" /> Open
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
                             )}
                             {poDocument && (
                               <div className="flex flex-col gap-2 p-4 border rounded">
                                 <div className="flex items-center justify-between">
                                   <span className="text-sm font-medium">{poDocument.name}</span>
-                                  <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                                {poDocument.type === "application/pdf" ? (
-                                  <iframe
-                                    src={previewUrl}
-                                    className="w-full h-[500px] border rounded"
-                                    title="Document Preview"
-                                  />
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center h-32 bg-muted/50 rounded border-dashed border-2 gap-2">
-                                    <FileText className="h-8 w-8 text-muted-foreground" />
-                                    <span className="text-muted-foreground text-sm">Preview only available for PDF files.</span>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setActivePreviewUrl(previewUrl)
+                                        setActivePreviewDoc({ mimeType: poDocument.type, documentName: poDocument.name })
+                                        setIsPreviewOpen(true)
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" /> Preview
+                                    </Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
+                                      <X className="h-4 w-4" />
+                                    </Button>
                                   </div>
-                                )}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -636,90 +735,7 @@ function CreatePO() {
                     </Card>
                   )}
 
-                  {formData.locationId && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Communication Matrix</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        {/* Shreno */}
-                        <div className="space-y-4">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-semibold flex items-center gap-2">
-                              <Mail className="h-4 w-4" /> Shreno Communication
-                            </h3>
-                            <Button type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
-                              <Plus className="h-4 w-4 mr-2" /> Add
-                            </Button>
-                          </div>
-                          {shrenoCommunication.map((contact, index) => (
-                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
-                              <Input
-                                placeholder="Name"
-                                value={contact.name}
-                                onChange={(e) => handleShrenoCommunicationChange(index, "name", e.target.value)}
-                                required
-                              />
-                              <Input
-                                placeholder="Email"
-                                type="email"
-                                value={contact.email}
-                                onChange={(e) => handleShrenoCommunicationChange(index, "email", e.target.value)}
-                                required
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeShrenoCommunication(index)}
-                                disabled={shrenoCommunication.length === 1}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
 
-                        {/* Client */}
-                        <div className="space-y-4 border-t pt-4">
-                          <div className="flex justify-between items-center">
-                            <h3 className="font-semibold flex items-center gap-2">
-                              <Mail className="h-4 w-4" /> Client Communication
-                            </h3>
-                            <Button type="button" variant="outline" size="sm" onClick={addClientCommunication}>
-                              <Plus className="h-4 w-4 mr-2" /> Add
-                            </Button>
-                          </div>
-                          {clientCommunication.map((contact, index) => (
-                            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
-                              <Input
-                                placeholder="Name"
-                                value={contact.name}
-                                onChange={(e) => handleClientCommunicationChange(index, "name", e.target.value)}
-                                required
-                              />
-                              <Input
-                                placeholder="Email"
-                                type="email"
-                                value={contact.email}
-                                onChange={(e) => handleClientCommunicationChange(index, "email", e.target.value)}
-                                required
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeClientCommunication(index)}
-                                disabled={clientCommunication.length === 1}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
 
                   {formData.locationId && (
                     <div className="flex justify-end gap-4">
@@ -738,6 +754,7 @@ function CreatePO() {
                           }
                           if (editingId) {
                             setEditingId(null)
+                            setEditingPo(null)
                             setView("list")
                           }
                         }}
@@ -754,6 +771,13 @@ function CreatePO() {
             )}
           </div>
         </main>
+
+        <DocumentPreviewDialog
+          isOpen={isPreviewOpen}
+          onOpenChange={setIsPreviewOpen}
+          previewUrl={activePreviewUrl}
+          activePreviewDoc={activePreviewDoc}
+        />
     </>
   )
 }

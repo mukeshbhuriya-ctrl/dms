@@ -249,7 +249,7 @@ function ListView({ onCreateClick, onEditClick }) {
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-4 p-6 text-sm">
                                     {[
-                                        ["TARGET DATE (+5 WORKING DAYS)", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
+                                        ["CLIENT TARGET DATE", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
                                         ["ACTUAL SUBMISSION DATE", selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"],
                                         ["TIME TAKEN FOR SUBMISSION", selectedRecord.time_taken],
                                     ].map(([label, value], idx) => (
@@ -262,64 +262,67 @@ function ListView({ onCreateClick, onEditClick }) {
                             </div>
 
                             {/* Section 3: Assignment & Status */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white">
+                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
                                 <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold text-sm">Assignment & Status</h3>
+                                    <h3 className="font-bold">Assignment & Status</h3>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-5 gap-x-4 p-6 text-sm">
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-6 gap-x-4 p-6">
                                     {[
                                         ["MEDIATOR", selectedRecord.mediator],
                                         ["ESTIMATOR", selectedRecord.estimator],
                                         ["SHRENO STATUS", selectedRecord.shreno_status],
                                         ["CLIENT STATUS", selectedRecord.client_status],
+                                        ["PO NO.", selectedRecord.po_no],
+                                        ["PO DATE", selectedRecord.po_date ? new Date(selectedRecord.po_date).toLocaleDateString("en-GB") : "-"],
+                                        ["PO VALUE", selectedRecord.po_value ? `₹${selectedRecord.po_value.toLocaleString("en-IN")}` : "-"],
+                                        ["PO REMARKS", selectedRecord.po_remark],
                                         ["MADE BY", selectedRecord.made_by],
                                         ["REMARK", selectedRecord.remark],
                                     ].map(([label, value], idx) => (
-                                        <div key={idx} className="flex flex-col space-y-1">
-                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
+                                        <div key={idx} className={`flex flex-col space-y-1 ${label === "REMARK" || label === "PO REMARKS" ? "md:col-span-2" : ""}`}>
+                                            <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">{label}</span>
                                             <span className="font-medium">{(label === "SHRENO STATUS" || label === "CLIENT STATUS") ? <StatusBadge status={value} /> : (value || "-")}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* Section 4: Enquiry Details Table */}
-                            <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
-                                <h3 className="px-6 py-3 font-bold text-sm bg-muted/40 border-b border-border">Enquiry Details</h3>
-                                <table className="w-full border-collapse text-xs text-left">
-                                    <thead>
-                                        <tr className="bg-[#f4f4f5] border-b border-border">
-                                            {["SR NO.", "ENQ. DESCRIPTION", "EQUIP. QTY", "REV.", "TOTAL VALUE", "PO NO.", "PO DATE", "PO VALUE", "REMARKS"].map((h) => (
-                                                <th key={h} className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider last:border-r-0">
-                                                    {h}
-                                                </th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {!selectedRecord.items?.length ? (
-                                            <tr>
-                                                <td colSpan={9} className="p-4 text-center text-muted-foreground">
-                                                    No enquiry items added.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            selectedRecord.items.map((row) => (
-                                                <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                                                    <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.enq_description || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-center">{row.equip_qty || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-center">{row.rev || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.total_value?.toLocaleString("en-IN") || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.po_no || "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top">{row.po_date ? new Date(row.po_date).toLocaleDateString("en-GB") : "-"}</td>
-                                                    <td className="border-r border-border p-3 align-top text-right">₹{row.po_value?.toLocaleString("en-IN") || "-"}</td>
-                                                    <td className="p-3 align-top">{row.remarks || "-"}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                            {/* Section 4: Enquiry Details */}
+                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
+                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
+                                    <h3 className="font-bold">Enquiry Details</h3>
+                                </div>
+                                <div className="p-6 space-y-6">
+                                    {selectedRecord.items?.length > 0 ? (
+                                        <div className="space-y-6">
+                                            <div className="flex flex-col space-y-2">
+                                                <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">ENQ. DESCRIPTION</span>
+                                                <p className="font-medium text-sm whitespace-pre-wrap bg-muted/20 p-4 rounded-lg border border-border/50">
+                                                    {selectedRecord.items[0].enq_description || "No description provided."}
+                                                </p>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">EQUIP. QTY</span>
+                                                    <span className="font-medium text-base">{selectedRecord.items[0].equip_qty || "-"}</span>
+                                                </div>
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">REV.</span>
+                                                    <span className="font-medium text-base">{selectedRecord.items[0].rev || "-"}</span>
+                                                </div>
+                                                <div className="flex flex-col space-y-1">
+                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">TOTAL VALUE</span>
+                                                    <span className="font-medium text-base">
+                                                        {selectedRecord.items[0].total_value ? `₹${selectedRecord.items[0].total_value.toLocaleString("en-IN")}` : "-"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-center text-muted-foreground py-4">No enquiry items found.</p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -379,6 +382,7 @@ function CreateView({ onBack, editId = null }) {
         
         return {
             quotationNo: "",
+            quotationCategory: "Core",
             clientRef: "",
             rfqType: "",
             clientName: "",
@@ -395,6 +399,10 @@ function CreateView({ onBack, editId = null }) {
             clientStatus: "Under Review",
             remark: "",
             madeBy: loggedInUser,
+            poNo: "",
+            poDate: "",
+            poValue: "",
+            poRemark: "",
         }
     })
 
@@ -408,7 +416,7 @@ function CreateView({ onBack, editId = null }) {
 
         const fetchNextNo = async () => {
             try {
-                const res = await apiClient.get("/api/rfq/next-quotation-no")
+                const res = await apiClient.get(`/api/rfq/next-quotation-no?type=${formData.quotationCategory}`)
                 if (res.success && res.data) {
                     setFormData((prev) => ({ ...prev, quotationNo: res.data.next_quotation_no }))
                 }
@@ -417,7 +425,7 @@ function CreateView({ onBack, editId = null }) {
             }
         }
         fetchNextNo()
-    }, [editId])
+    }, [editId, formData.quotationCategory])
 
     // Fetch record data when editing
     useEffect(() => {
@@ -431,6 +439,7 @@ function CreateView({ onBack, editId = null }) {
                     const r = res.data
                     setFormData({
                         quotationNo: r.quotation_no || "",
+                        quotationCategory: r.quotation_category || "Core",
                         clientRef: r.client_ref || "",
                         rfqType: r.rfq_type || "",
                         clientName: r.client_name || "",
@@ -447,6 +456,10 @@ function CreateView({ onBack, editId = null }) {
                         clientStatus: r.client_status || "Under Review",
                         remark: r.remark || "",
                         madeBy: r.made_by || "",
+                        poNo: r.po_no || "",
+                        poDate: r.po_date ? r.po_date.split("T")[0] : "",
+                        poValue: r.po_value || "",
+                        poRemark: r.po_remark || "",
                     })
                     if (r.items?.length) {
                         setTableRows(r.items.map((item, i) => ({
@@ -456,9 +469,6 @@ function CreateView({ onBack, editId = null }) {
                             equipQty: item.equip_qty || "",
                             rev: item.rev || "",
                             totalValue: item.total_value || "",
-                            poNo: item.po_no || "",
-                            poDate: item.po_date ? item.po_date.split("T")[0] : "",
-                            poValue: item.po_value || "",
                             remarks: item.remarks || "",
                         })))
                     }
@@ -478,18 +488,6 @@ function CreateView({ onBack, editId = null }) {
         setFormData((prev) => {
             const updated = { ...prev, [name]: value }
 
-            // Auto-calculate Target Date (+5 business days) when Enq. Date changes
-            if (name === "enqDate" && value) {
-                const enqDate = new Date(value)
-                let count = 0
-                const target = new Date(enqDate)
-                while (count < 5) {
-                    target.setDate(target.getDate() + 1)
-                    const day = target.getDay()
-                    if (day !== 0 && day !== 6) count++
-                }
-                updated.targetDate = target.toISOString().split("T")[0]
-            }
 
             // Auto-calculate Time Taken when Actual Submission Date changes
             if ((name === "actualSubmissionDate" || name === "enqDate") && updated.enqDate && updated.actualSubmissionDate) {
@@ -518,7 +516,7 @@ function CreateView({ onBack, editId = null }) {
         const newId = Math.max(...tableRows.map((r) => r.id), 0) + 1
         setTableRows([
             ...tableRows,
-            { id: newId, srNo: newId, enqDescription: "", equipQty: "", rev: "", totalValue: "", poNo: "", poDate: "", poValue: "", remarks: "" },
+            { id: newId, srNo: newId, enqDescription: "", equipQty: "", rev: "", totalValue: "", remarks: "" },
         ])
     }
 
@@ -535,6 +533,7 @@ function CreateView({ onBack, editId = null }) {
             const payload = {
                 client_ref: formData.clientRef,
                 rfq_type: formData.rfqType,
+                quotation_category: formData.quotationCategory,
                 client_name: formData.clientName,
                 consultancy: formData.consultancy,
                 contact_person: formData.contactPerson,
@@ -549,15 +548,16 @@ function CreateView({ onBack, editId = null }) {
                 client_status: formData.clientStatus || "Under Review",
                 remark: formData.remark,
                 made_by: formData.madeBy,
+                po_no: formData.poNo,
+                po_date: formData.poDate || null,
+                po_value: formData.poValue,
+                po_remark: formData.poRemark,
                 items: tableRows.map((row) => ({
                     sr_no: row.srNo,
                     enq_description: row.enqDescription,
                     equip_qty: row.equipQty,
                     rev: row.rev,
                     total_value: row.totalValue,
-                    po_no: row.poNo,
-                    po_date: row.poDate || null,
-                    po_value: row.poValue,
                     remarks: row.remarks,
                 })),
             }
@@ -609,6 +609,23 @@ function CreateView({ onBack, editId = null }) {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-2">
+                            <Label htmlFor="quotationCategory">Quotation Type</Label>
+                            <Select 
+                                value={formData.quotationCategory} 
+                                onValueChange={(v) => handleSelectChange("quotationCategory", v)}
+                                disabled={!!editId}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Core">Core - MKT</SelectItem>
+                                    <SelectItem value="Spare">Spare - SPR</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="quotationNo">Quotation No.</Label>
                             <Input
                                 id="quotationNo"
@@ -649,16 +666,14 @@ function CreateView({ onBack, editId = null }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="clientName">Client Name</Label>
-                            <Select value={formData.clientName} onValueChange={(v) => handleSelectChange("clientName", v)}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Client" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dropdownOptions.clientNames.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Input
+                                id="clientName"
+                                name="clientName"
+                                type="text"
+                                value={formData.clientName}
+                                onChange={handleInputChange}
+                                placeholder="Enter Client Name"
+                            />
                         </div>
 
                         <div className="space-y-2">
@@ -732,14 +747,13 @@ function CreateView({ onBack, editId = null }) {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="targetDate">Target Date (+5 Working Days)</Label>
+                            <Label htmlFor="targetDate">Client Target Date</Label>
                             <Input
                                 id="targetDate"
                                 name="targetDate"
                                 type="date"
                                 value={formData.targetDate}
-                                readOnly
-                                className="bg-muted"
+                                onChange={handleInputChange}
                             />
                         </div>
 
@@ -834,6 +848,54 @@ function CreateView({ onBack, editId = null }) {
                         </div>
 
                         <div className="space-y-2">
+                            <Label htmlFor="poNo">PO No.</Label>
+                            <Input
+                                id="poNo"
+                                name="poNo"
+                                type="text"
+                                value={formData.poNo}
+                                onChange={handleInputChange}
+                                placeholder="Enter PO No."
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="poDate">PO Date</Label>
+                            <Input
+                                id="poDate"
+                                name="poDate"
+                                type="date"
+                                value={formData.poDate}
+                                onChange={handleInputChange}
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="poValue">PO Value</Label>
+                            <Input
+                                id="poValue"
+                                name="poValue"
+                                type="number"
+                                value={formData.poValue}
+                                onChange={handleInputChange}
+                                placeholder="Enter PO Value"
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="poRemark">PO Remarks</Label>
+                            <Input
+                                id="poRemark"
+                                name="poRemark"
+                                type="text"
+                                value={formData.poRemark}
+                                onChange={handleInputChange}
+                                placeholder="Enter PO Remarks"
+                                disabled={formData.clientStatus !== "Order Received"}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="madeBy">Made By</Label>
                             <Input
                                 id="madeBy"
@@ -862,131 +924,53 @@ function CreateView({ onBack, editId = null }) {
                 </CardContent>
             </Card>
 
-            {/* Card 4: Enquiry Details Table */}
             <Card className="mb-6">
                 <CardHeader>
                     <CardTitle>Enquiry Details</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-blue-100">
-                                    {["Sr. No.", "Enq. Description", "Equip. Qty", "Rev.", "Total Value", "PO No.", "PO Date", "PO Value", "Remarks", ""].map(
-                                        (h, idx) => (
-                                            <TableHead
-                                                key={idx}
-                                                className="text-red-600 font-semibold border border-gray-300 whitespace-nowrap"
-                                            >
-                                                {h}
-                                            </TableHead>
-                                        )
-                                    )}
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {tableRows.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell className="p-2 border border-gray-300 text-center w-16">
-                                            <Input
-                                                type="number"
-                                                value={row.srNo}
-                                                onChange={(e) => handleRowChange(row.id, "srNo", e.target.value)}
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-center"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 min-w-[200px]">
-                                            <Input
-                                                type="text"
-                                                value={row.enqDescription}
-                                                onChange={(e) => handleRowChange(row.id, "enqDescription", e.target.value)}
-                                                placeholder="Description"
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-24">
-                                            <Input
-                                                type="number"
-                                                value={row.equipQty}
-                                                onChange={(e) => handleRowChange(row.id, "equipQty", e.target.value)}
-                                                placeholder="Qty"
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-center"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-20">
-                                            <Input
-                                                type="text"
-                                                value={row.rev}
-                                                onChange={(e) => handleRowChange(row.id, "rev", e.target.value)}
-                                                placeholder="Rev."
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-center"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-28">
-                                            <Input
-                                                type="number"
-                                                value={row.totalValue}
-                                                onChange={(e) => handleRowChange(row.id, "totalValue", e.target.value)}
-                                                placeholder="Total Value"
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-right"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-28">
-                                            <Input
-                                                type="text"
-                                                value={row.poNo}
-                                                onChange={(e) => handleRowChange(row.id, "poNo", e.target.value)}
-                                                placeholder="PO No."
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-32">
-                                            <Input
-                                                type="date"
-                                                value={row.poDate}
-                                                onChange={(e) => handleRowChange(row.id, "poDate", e.target.value)}
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 w-28">
-                                            <Input
-                                                type="number"
-                                                value={row.poValue}
-                                                onChange={(e) => handleRowChange(row.id, "poValue", e.target.value)}
-                                                placeholder="PO Value"
-                                                className="w-full text-xs border-0 focus-visible:ring-0 text-right"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300">
-                                            <Input
-                                                type="text"
-                                                value={row.remarks}
-                                                onChange={(e) => handleRowChange(row.id, "remarks", e.target.value)}
-                                                placeholder="Remarks"
-                                                className="w-full text-xs border-0 focus-visible:ring-0"
-                                            />
-                                        </TableCell>
-                                        <TableCell className="p-2 border border-gray-300 text-center">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => removeRow(row.id)}
-                                                disabled={tableRows.length === 1}
-                                                title="Remove Row"
-                                            >
-                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <Button type="button" variant="outline" onClick={addRow} className="w-full sm:w-auto mt-2">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Row
-                    </Button>
+                    {tableRows.length > 0 && (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-sm font-semibold">Enq. Description</Label>
+                                <Textarea 
+                                    value={tableRows[0].enqDescription} 
+                                    onChange={(e) => handleRowChange(tableRows[0].id, "enqDescription", e.target.value)}
+                                    placeholder="Enter Enquiry Description"
+                                    className="min-h-[100px]"
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Equip. Qty</Label>
+                                    <Input 
+                                        type="number"
+                                        value={tableRows[0].equipQty} 
+                                        onChange={(e) => handleRowChange(tableRows[0].id, "equipQty", e.target.value)}
+                                        placeholder="Qty"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Rev.</Label>
+                                    <Input 
+                                        value={tableRows[0].rev} 
+                                        onChange={(e) => handleRowChange(tableRows[0].id, "rev", e.target.value)}
+                                        placeholder="Rev"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Total Value</Label>
+                                    <Input 
+                                        type="number"
+                                        value={tableRows[0].totalValue} 
+                                        onChange={(e) => handleRowChange(tableRows[0].id, "totalValue", e.target.value)}
+                                        placeholder="Value"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

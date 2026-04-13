@@ -109,32 +109,35 @@ class QapPdfGenerator {
 
     drawTableHeaders(doc, x, y, width, dynamicCols) {
         const headerH = 35;
-        const colWs = {
-            cSr: 30,
-            cAct: 105,
-            cType: 100,
-            cCrit: 100,
-            cDoc: 70,
-            cShreno: 35,
-            cClient: 45,
-            cRemark: 55 // Increased for Remarks
+        const fixedWs = {
+            cSr: 25,
+            cShreno: 30,
+            cClient: 40
         };
         
-        const staticTotal = Object.values(colWs).reduce((a, b) => a + b, 0);
-        let finalCols = { ...colWs };
+        const weights = {
+            cAct: 3,
+            cType: 2.5,
+            cCrit: 2.5,
+            cDoc: 2,
+            cRemark: 2
+        };
 
-        if (dynamicCols && dynamicCols.length > 0) {
-            const availableForDyn = width - staticTotal;
-            const dynW = availableForDyn / dynamicCols.length;
+        const dynamicColsCount = dynamicCols ? dynamicCols.length : 0;
+        const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0) + (dynamicColsCount * 2);
+        
+        const availableWidth = width - Object.values(fixedWs).reduce((a, b) => a + b, 0);
+        const widthPerWeight = availableWidth / totalWeight;
+
+        let finalCols = { ...fixedWs };
+        Object.keys(weights).forEach(key => {
+            finalCols[key] = weights[key] * widthPerWeight;
+        });
+
+        if (dynamicCols) {
             dynamicCols.forEach(col => {
-                finalCols[col.id] = dynW;
+                finalCols[col.id] = 2 * widthPerWeight;
             });
-        } else {
-            const extra = (width - staticTotal) / 3;
-            // Distribute remaining width
-            finalCols.cAct += extra;
-            finalCols.cType += extra;
-            finalCols.cCrit += extra;
         }
 
         doc.rect(x, y, width, headerH).fillAndStroke(this.colors.grey, this.colors.black);
@@ -166,6 +169,50 @@ class QapPdfGenerator {
         drawH('Remarks', finalCols.cRemark);
 
         return { height: headerH, columnWidths: finalCols };
+    }
+
+    drawFooterSections(doc, x, y, width, data) {
+        const sigH = 105;
+        const exhibitH = 16;
+        const remarksH = 60;
+        const sigGap = 8;
+        
+        const footerSpaceNeeded = 220; 
+        
+        if (y + footerSpaceNeeded > doc.page.height) {
+            doc.addPage();
+            y = 50; 
+        }
+
+        const sigY = doc.page.height - 155;
+        const remarksY = sigY - remarksH - sigGap;
+
+        // 1. Remarks / General Notes
+        doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.black);
+        doc.text('NOTES:', x, remarksY - 12);
+        doc.rect(x, remarksY, width, remarksH).stroke();
+        
+        // 2. Integrated Signature & Exhibit Section
+        doc.rect(x, sigY, width, sigH).stroke();
+        const sigW = width / 3;
+        doc.moveTo(x + sigW, sigY).lineTo(x + sigW, sigY + sigH).stroke();
+        doc.moveTo(x + 2 * sigW, sigY).lineTo(x + 2 * sigW, sigY + sigH).stroke();
+
+        doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.black);
+        doc.text('PREPARED BY', x, sigY + sigH - 14, { width: sigW, align: 'center' });
+        doc.text('CHECKED BY', x + sigW, sigY + sigH - 14, { width: sigW, align: 'center' });
+        doc.text('APPROVED BY', x + 2 * sigW, sigY + sigH - 14, { width: sigW, align: 'center' });
+
+        // Tangled Exhibit row (Stuck to bottom of signatures)
+        const exY = sigY + sigH;
+        doc.rect(x, exY, width, exhibitH).stroke();
+        doc.fontSize(7).font(this.fonts.regular);
+        doc.text('EXHIBIT: 10/1 QUALITY ASSURANCE PLAN  Rev. 1', x + 5, exY + 5);
+        
+        const range = doc.bufferedPageRange();
+        doc.text(`Page ${range.count} of ${range.count}`, x, exY + 5, { align: 'right', width: width - 5 });
+
+        return exY + exhibitH;
     }
 
     generatePDF(data, res, companyInfo) {
@@ -205,12 +252,22 @@ class QapPdfGenerator {
         if (data.items && data.items.length > 0) {
             data.items.forEach((item) => {
                 doc.fontSize(7);
-                const actH = doc.heightOfString(item.activity || '', { width: colWs.cAct - 10 });
-                const typeH = doc.heightOfString(`${item.type_method_check || ''}\n${item.extent || ''}`.trim(), { width: colWs.cType - 10 });
-                const critH = doc.heightOfString(`${item.acceptance_criteria || ''}\n${item.reference_documents || ''}`.trim(), { width: colWs.cCrit - 10 });
-                const docH = doc.heightOfString(item.verifying_document || '', { width: colWs.cDoc - 10 });
+                const actH = doc.heightOfString(item.activity || '', { width: colWs.cAct - 8 });
+                const typeH = doc.heightOfString(`${item.type_method_check || ''}\n${item.extent || ''}`.trim(), { width: colWs.cType - 8 });
+                const critH = doc.heightOfString(`${item.acceptance_criteria || ''}\n${item.reference_documents || ''}`.trim(), { width: colWs.cCrit - 8 });
+                const docH = doc.heightOfString(item.verifying_document || '', { width: colWs.cDoc - 8 });
+                const remarkH = doc.heightOfString(item.remark || '', { width: colWs.cRemark - 8 });
+
+                let maxDynH = 0;
+                if (dynamicCols) {
+                    dynamicCols.forEach(col => {
+                        const val = item.dynamic_values ? item.dynamic_values[col.id] : '-';
+                        const h = doc.heightOfString(String(val), { width: colWs[col.id] - 8 });
+                        if (h > maxDynH) maxDynH = h;
+                    });
+                }
                 
-                let rowH = Math.max(22, actH + 10, typeH + 10, critH + 10, docH + 10);
+                let rowH = Math.max(22, actH + 10, typeH + 10, critH + 10, docH + 10, remarkH + 10, maxDynH + 10);
                 if (item.is_heading) rowH = 18;
 
                 if (curY + rowH > doc.page.height - 50) {
@@ -258,14 +315,20 @@ class QapPdfGenerator {
             });
         }
 
+        // Add General Notes and Signatures
+        this.drawFooterSections(doc, startX, curY, pageWidth, data);
+
         // Finalize page numbering and footer
         const range = doc.bufferedPageRange();
         for (let i = range.start; i < range.start + range.count; i++) {
-            doc.switchToPage(i);
-            const footerY = doc.page.height - 40;
-            doc.fontSize(7).font(this.fonts.regular).fillColor(this.colors.black);
-            doc.text('EXHIBIT: 10/1 QUALITY ASSURANCE PLAN  Rev. 1', startX, footerY);
-            doc.text(`Page ${i + 1} of ${range.count}`, startX, footerY, { align: 'right', width: pageWidth });
+            // Standard footer for all pages EXCEPT the last one
+            if (i < range.start + range.count - 1) {
+                doc.switchToPage(i);
+                const footerY = doc.page.height - 45; // Moved higher up to prevent auto-pagination blank pages
+                doc.fontSize(7).font(this.fonts.regular).fillColor(this.colors.black);
+                doc.text('EXHIBIT: 10/1 QUALITY ASSURANCE PLAN  Rev. 1', startX, footerY);
+                doc.text(`Page ${i + 1} of ${range.count}`, startX, footerY, { align: 'right', width: pageWidth });
+            }
         }
 
         doc.end();

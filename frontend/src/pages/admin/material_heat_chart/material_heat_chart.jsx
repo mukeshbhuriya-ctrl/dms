@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { toast } from "react-toastify"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -25,8 +25,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { formatDateTimeSQL } from "@/utils/time"
+import { useAuth } from "@/context/AuthContext"
 
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -40,6 +43,7 @@ function emptyRow(id) {
     materialSpecification: "",
     quantityUnit: "",
     heatNo: "",
+    grnAppApNo: "",
     mtrNo: "",
     manufacturerName: "",
     remarks: "",
@@ -50,10 +54,72 @@ function emptyRow(id) {
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick }) {
+function ListView({ onCreateClick, onEditClick }) {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
+
+  const { user, roles } = useAuth()
+  const isAdmin = roles?.includes("ADMIN");
+  const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC");
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Review Dialog State
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [docForReview, setDocForReview] = useState(null)
+  const [reviewStatus, setReviewStatus] = useState("")
+  const [reviewRemarks, setReviewRemarks] = useState("")
+  const [isReviewing, setIsReviewing] = useState(false)
+
+  const handleReviewClick = (row, status) => {
+    setDocForReview(row)
+    setReviewStatus(status)
+    setReviewRemarks("")
+    setReviewDialogOpen(true)
+  }
+
+  const submitReview = async () => {
+    if (!docForReview) return
+    if (reviewStatus === "Rejected" && !reviewRemarks.trim()) {
+      toast.error("Remarks are required for rejection.")
+      return
+    }
+
+    setIsReviewing(true)
+    try {
+      const res = await apiClient.put(`/api/mhc/update-status/${docForReview.id}`, {
+        status: reviewStatus,
+        remarks: reviewRemarks
+      })
+      if (res.success) {
+        toast.success(`Report ${reviewStatus} successfully`)
+        setReviewDialogOpen(false)
+        setRefreshTrigger(prev => prev + 1)
+      } else {
+        toast.error(res.message || "Failed to submit review")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to submit review")
+    } finally {
+      setIsReviewing(false)
+    }
+  }
+
+  const getStatusBadge = (status) => {
+    const s = status?.trim()?.toLowerCase() || "pending"
+    switch (s) {
+      case "approved":
+        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800 shadow-sm border border-green-200">Approved</span>
+      case "rejected":
+        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 shadow-sm border border-red-200">Rejected</span>
+      case "pending":
+        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800 shadow-sm border border-yellow-200">Pending</span>
+      default:
+        return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800 shadow-sm border border-gray-200">{status || "Pending"}</span>
+    }
+  }
+
   const handleViewClick = async (id) => {
     setIsViewLoading(true)
     try {
@@ -77,25 +143,66 @@ function ListView({ onCreateClick }) {
     { header: "MSN", accessorKey: "msn" },
     { header: "Client", accessorKey: "client" },
     { header: "PO No.", accessorKey: "po_no" },
-    { header: "Project ID", accessorKey: "project_id" },
+    // { header: "Project ID", accessorKey: "project_id" },
     { header: "Equipment", accessorKey: "equipment_name" },
     {
-      header: "Created",
+      header: "Created At",
       accessorKey: "createdAt",
-      cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+      cell: (row) => formatDateTimeSQL(row.createdAt),
+    },
+    {
+      header: "Status",
+      accessorKey: "status",
+      cell: (row) => getStatusBadge(row.status),
     },
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleViewClick(row.id)}
-          title="View">
-          <Eye className="h-4 w-4" /> View
-        </Button>
-      ),
+      cell: (row) => {
+        const canReview = isQE && (row.status?.toLowerCase() === "pending")
+        const canEdit = (isAdmin || !isQE) && (row.status?.toLowerCase() !== "approved")
+
+        return (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleViewClick(row.id)}
+              title="View">
+              <Eye className="h-4 w-4 mr-2" /> View
+            </Button>
+            {canEdit && (
+               <Button
+               variant="outline"
+               size="sm"
+               onClick={() => onEditClick(row.id)}
+               title="Edit">
+               <Edit className="h-4 w-4 mr-2" /> Edit
+             </Button>
+            )}
+            {canReview && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
+                  onClick={() => handleReviewClick(row, "Approved")}
+                  title="Approve">
+                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
+                  onClick={() => handleReviewClick(row, "Rejected")}
+                  title="Reject">
+                  <XCircle className="h-4 w-4 mr-2" /> Reject
+                </Button>
+              </>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
@@ -103,7 +210,7 @@ function ListView({ onCreateClick }) {
     const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
     const res = await apiClient.get(`/api/mhc/list`, Object.fromEntries(params))
     return { data: res.data, meta: res.meta }
-  }, [])
+  }, [refreshTrigger])
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -123,18 +230,52 @@ function ListView({ onCreateClick }) {
           <h1 className="text-3xl font-bold mb-1">Material Heat Charts</h1>
           <p className="text-muted-foreground">View and manage all material heat charts.</p>
         </div>
-        <Button onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create
-        </Button>
+        {(isAdmin || !isQE) && (
+          <Button onClick={onCreateClick}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create
+          </Button>
+        )}
       </div>
-
 
       <DataTable 
         columns={columns} 
         fetchData={fetchData} 
         onExport={handleExport}
       />
+
+      {/* Review Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{reviewStatus} Report</DialogTitle>
+            <DialogDescription>
+              {docForReview && `Are you sure you want to ${reviewStatus.toLowerCase()} report ${docForReview.report_no}?`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="remarks">Remarks {reviewStatus === "Rejected" && <span className="text-destructive">*</span>}</Label>
+              <Input
+                id="remarks"
+                value={reviewRemarks}
+                onChange={(e) => setReviewRemarks(e.target.value)}
+                placeholder="Enter remarks..."
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={submitReview}
+              disabled={isReviewing || (reviewStatus === "Rejected" && !reviewRemarks.trim())}
+              variant={reviewStatus === "Rejected" ? "destructive" : "default"}
+            >
+              Confirm {reviewStatus}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* View Details Modal */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
@@ -195,6 +336,14 @@ function ListView({ onCreateClick }) {
                   <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">INSPECTION BY:</span>
                   <span className="font-medium">{selectedRecord.inspection_by || "-"}</span>
                 </div>
+                <div className="flex flex-col space-y-1">
+                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PRODUCTION ENGINEER:</span>
+                  <span className="font-medium">{selectedRecord.production_engineer?.name || "-"}</span>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">QUALITY ENGINEER:</span>
+                  <span className="font-medium">{selectedRecord.qc_engineer?.name || "-"}</span>
+                </div>
               </div>
 
               {/* Table */}
@@ -205,10 +354,11 @@ function ListView({ onCreateClick }) {
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">HEADING</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">ITEM NO./PART NO.</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">DESCRIPTION</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">SIZE</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">MATERIAL SPECIFICATION</th>
+                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">SIZE</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">QUANTITY / UNIT</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">HEAT NO. / CAST NO. / PLATE NO.</th>
+                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">GRN/APP/AP NO.</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">MTR NO.</th>
                       <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">MANUFACTURER NAME</th>
                       <th className="p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">REMARKS NCR/DCR</th>
@@ -239,10 +389,11 @@ function ListView({ onCreateClick }) {
                             <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{currentHeading || "-"}</td>
                             <td className="border-r border-border p-3 align-top font-medium">{row.item_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.description || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.size || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.material_spec || "-"}</td>
+                            <td className="border-r border-border p-3 align-top">{row.size || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.quantity_unit || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.heat_no || "-"}</td>
+                            <td className="border-r border-border p-3 align-top">{row.grn_app_ap_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.mtr_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.manufacturer || "-"}</td>
                             <td className="p-3 align-top">{row.remarks || "-"}</td>
@@ -264,10 +415,22 @@ function ListView({ onCreateClick }) {
 }
 
 // ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess }) {
+function CreateView({ onBack, onSuccess, editId = null }) {
+  const { user } = useAuth()
   // Jobs list for MSN dropdown
   const [jobs, setJobs] = useState([])
   const [jobsLoading, setJobsLoading] = useState(true)
+  const [qcEngineers, setQcEngineers] = useState([])
+  const [qc_engineer_id, setQcEngineerId] = useState("")
+  const [productionEngineers, setProductionEngineers] = useState([])
+  const [production_engineer_id, setProductionEngineerId] = useState("")
+
+  useEffect(() => {
+    // Default to logged-in user if available
+    if (user?.id && !editId) {
+      setProductionEngineerId(user.id)
+    }
+  }, [user, editId])
 
   // Basic Info (auto-filled from selected job)
   const [selectedJobId, setSelectedJobId] = useState("")
@@ -299,7 +462,64 @@ function CreateView({ onBack, onSuccess }) {
       .then((res) => setJobs(res.data || []))
       .catch(() => setJobs([]))
       .finally(() => setJobsLoading(false))
+
+    // Fetch Quality Engineers
+    apiClient.get("/api/users/by-role/QC_ENGINEER")
+      .then((res) => { if (res.success) setQcEngineers(res.data) })
+      .catch((err) => console.error("Failed to fetch QE users:", err))
+
+    // Fetch Production Engineers
+    apiClient.get("/api/users/by-role/PRODUCTION_ENGINEER")
+      .then((res) => { if (res.success) setProductionEngineers(res.data) })
+      .catch((err) => console.error("Failed to fetch PE users:", err))
   }, [])
+
+  // Handle editId logic
+  useEffect(() => {
+    if (editId) {
+      apiClient.get(`/api/mhc/${editId}`)
+        .then((res) => {
+          if (res.success && res.data) {
+            const data = res.data
+            setSelectedJobId(data.job_id)
+            setAutoFill({
+              reportNo: data.report_no,
+              client: data.client,
+              poNo: data.po_no,
+              projectId: data.project_id || "",
+              equipmentName: data.equipment_name || "",
+              tagNo: data.tag_no || "",
+              code: data.code || "",
+            })
+            setFormData({
+              shrenoDrgNo: data.shreno_drg_no || "",
+              customerDrgNo: data.customer_drg_no || "",
+              inspectionBy: data.inspection_by || "",
+            })
+            setQcEngineerId(data.qc_engineer_id || "")
+            setProductionEngineerId(data.production_engineer_id || "")
+            if (data.items && data.items.length > 0) {
+              setTableRows(data.items.map(item => ({
+                id: item.id,
+                itemNo: item.item_no || "",
+                description: item.description || "",
+                size: item.size || "",
+                materialSpecification: item.material_spec || "",
+                quantityUnit: item.quantity_unit || "",
+                heatNo: item.heat_no || "",
+                grnAppApNo: item.grn_app_ap_no || "",
+                mtrNo: item.mtr_no || "",
+                manufacturerName: item.manufacturer || "",
+                remarks: item.remarks || "",
+                isHeading: item.is_heading,
+                headingText: item.heading_text || "",
+                parentHeadingId: item.parent_heading_id,
+              })))
+            }
+          }
+        })
+    }
+  }, [editId])
 
   // Handle MSN selection → auto-fill from job details API
   const handleJobSelect = async (jobId) => {
@@ -391,36 +611,52 @@ function CreateView({ onBack, onSuccess }) {
       return 
     }
 
-    const items = tableRows.map((row, idx) => ({
-      sort_order: idx,
-      is_heading: row.isHeading,
-      heading_text: row.isHeading ? (row.headingText || row.itemNo || "HEADING") : null,
-      parent_heading_id: row.parentHeadingId || null,
-      item_no: row.itemNo || null,
-      description: row.description || null,
-      size: row.size || null,
-      material_spec: row.materialSpecification || null,
-      quantity_unit: row.quantityUnit || null,
-      heat_no: row.heatNo || null,
-      mtr_no: row.mtrNo || null,
-      manufacturer: row.manufacturerName || null,
-      remarks: row.remarks || null,
-    }))
+    // Compute parent_heading_id dynamically: track the current heading sort_order
+    let currentHeadingSortOrder = null;
+    const items = tableRows.map((row, idx) => {
+      // If this row has a heading, it starts a new heading group
+      if (row.isHeading) {
+        currentHeadingSortOrder = idx;
+      }
+
+      return {
+        sort_order: idx,
+        is_heading: row.isHeading,
+        heading_text: row.isHeading ? (row.headingText || row.itemNo || "HEADING") : null,
+        parent_heading_id: currentHeadingSortOrder !== null ? String(currentHeadingSortOrder) : null,
+        item_no: row.itemNo || null,
+        description: row.description || null,
+        size: row.size || null,
+        material_spec: row.materialSpecification || null,
+        quantity_unit: row.quantityUnit || null,
+        heat_no: row.heatNo || null,
+        grn_app_ap_no: row.grnAppApNo || null,
+        mtr_no: row.mtrNo || null,
+        manufacturer: row.manufacturerName || null,
+        remarks: row.remarks || null,
+      };
+    })
 
     const payload = {
       job_id: selectedJobId,
       shreno_drg_no: formData.shrenoDrgNo || null,
       customer_drg_no: formData.customerDrgNo || null,
       inspection_by: formData.inspectionBy || null,
+      production_engineer_id: production_engineer_id || null,
+      qc_engineer_id: qc_engineer_id || null,
       items,
     }
 
     try {
       setSubmitting(true)
-      await apiClient.post("/api/mhc/create", payload)
-      onSuccess()
+      if (editId) {
+        await apiClient.put(`/api/mhc/update/${editId}`, payload)
+      } else {
+        await apiClient.post("/api/mhc/create", payload)
+      }
+      onSuccess(editId ? "updated" : "created")
     } catch (err) {
-      toast.error(err.message || "Failed to create Material Heat Chart.")
+      toast.error(err.message || "Failed to save Material Heat Chart.")
     } finally {
       setSubmitting(false)
     }
@@ -451,18 +687,14 @@ function CreateView({ onBack, onSuccess }) {
             {/* MSN / Job Number */}
             <div className="space-y-2">
               <Label className="uppercase text-xs font-semibold text-muted-foreground">MSN / JOB NO.:</Label>
-              <Select value={selectedJobId} onValueChange={handleJobSelect} disabled={jobsLoading}>
-                <SelectTrigger className="w-full bg-white h-9">
-                  <SelectValue placeholder={jobsLoading ? "Loading jobs…" : "Select MSN"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {jobs.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>
-                      {j.job_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={jobs.map((j) => ({ value: j.id, label: j.job_number }))}
+                value={selectedJobId}
+                onValueChange={handleJobSelect}
+                placeholder={jobsLoading ? "Loading jobs…" : "Select MSN"}
+                searchPlaceholder="Search job number..."
+                disabled={jobsLoading}
+              />
             </div>
 
             {/* Auto-filled fields */}
@@ -542,10 +774,11 @@ function CreateView({ onBack, onSuccess }) {
                     {[
                       "ITEM NO./PART NO.",
                       "DESCRIPTION",
-                      "SIZE",
                       "MATERIAL SPECIFICATION",
+                      "SIZE",
                       "QUANTITY / UNIT",
                       "HEAT NO. / CAST NO. / PLATE NO.",
+                      "GRN/APP/AP NO.",
                       "MTR NO.",
                       "MANUFACTURER NAME",
                       "REMARKS NCR/DCR",
@@ -553,7 +786,7 @@ function CreateView({ onBack, onSuccess }) {
                     ].map((h, i) => (
                       <th
                         key={h}
-                        className={`text-left p-3 font-semibold text-[11px] uppercase tracking-wider whitespace-normal min-w-[120px] ${i === 0 ? "sticky left-0 bg-[#f4f4f5] z-20 shadow-[1px_0_0_0_#e4e4e7]" : ""
+                        className={`text-left p-3 font-semibold text-[11px] uppercase tracking-wider whitespace-normal min-w-[120px] ${i === 0 ? "sticky left-0 bg-[#f4f4f5] z-30 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
                           }`}
                       >
                         {h}
@@ -562,73 +795,53 @@ function CreateView({ onBack, onSuccess }) {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="h-4"></tr> {/* Spacing between header and inputs */}
-                  {tableRows.map((row) =>
-                    row.isHeading ? (
-                      // ── Heading Row ──
-                      <tr key={row.id} className="bg-[#f4f4f5] border-b border-t border-muted-foreground/20">
-                        <td colSpan={9} className="p-2 align-top sticky left-0 z-10 bg-[#f4f4f5] shadow-[1px_0_0_0_#e4e4e7]">
-                          <Input
-                            type="text"
-                            value={row.headingText}
-                            onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
-                            placeholder="Enter heading text…"
-                            className="font-bold h-10 border-muted-foreground/30 shadow-none focus-visible:ring-1 bg-white/50"
-                          />
-                        </td>
-                        <td className="p-2 align-top bg-[#f4f4f5]">
-                          <div className="flex gap-2">
+                  <tr className="h-4"></tr>
+                  {tableRows.map((row) => (
+                    <React.Fragment key={row.id}>
+                      {row.isHeading && (
+                        <tr className="bg-amber-50 border-t-2 border-amber-400/60">
+                          <td colSpan={9} className="px-2 pt-2 pb-0 align-top sticky left-0 z-10 bg-amber-50">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 shrink-0">Heading:</span>
+                              <Input
+                                type="text"
+                                value={row.headingText}
+                                onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
+                                placeholder="Enter heading text…"
+                                className="font-bold h-8 text-sm border-amber-300 shadow-none focus-visible:ring-1 focus-visible:ring-amber-400 bg-white/80"
+                              />
+                            </div>
+                          </td>
+                          <td className="px-2 pt-2 pb-0 align-top bg-amber-50">
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none hover:text-foreground text-primary bg-primary/10 border-primary/20"
-                              title="Remove heading format"
+                              className="h-8 w-8 border-amber-300 shadow-none text-amber-700 hover:text-destructive hover:border-destructive/30 bg-white/80"
+                              title="Remove heading"
                               onClick={() => toggleHeading(row.id)}
                             >
-                              <Type className="h-4 w-4" />
+                              <X className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Add row under this heading"
-                              onClick={() => addRowAfterHeading(row.id)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-destructive"
-                              onClick={() => removeRow(row.id)}
-                              disabled={tableRows.length === 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : (
-                      // ── Data Row ──
-                      <tr key={row.id}>
+                          </td>
+                        </tr>
+                      )}
+                      <tr className={row.isHeading ? "bg-amber-50/30 border-b-2 border-amber-400/30" : ""}>
                         {[
                           { field: "itemNo", placeholder: "Item No" },
                           { field: "description", placeholder: "Description" },
-                          { field: "size", placeholder: "Size" },
                           { field: "materialSpecification", placeholder: "Material Spec" },
+                          { field: "size", placeholder: "Size" },
                           { field: "quantityUnit", placeholder: "Quantity" },
                           { field: "heatNo", placeholder: "Heat No" },
+                          { field: "grnAppApNo", placeholder: "GRN/APP/AP No" },
                           { field: "mtrNo", placeholder: "MTR No" },
                           { field: "manufacturerName", placeholder: "Manufacturer" },
                           { field: "remarks", placeholder: "Remarks" },
                         ].map(({ field, placeholder }, i) => (
                           <td
                             key={field}
-                            className={`p-2 align-top ${i === 0 ? "sticky left-0 bg-white z-10 shadow-[1px_0_0_0_#e4e4e7]" : ""
-                              }`}
+                            className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${row.isHeading ? "bg-amber-50" : "bg-white"}` : ""}`}
                           >
                             <Input
                               type="text"
@@ -639,14 +852,14 @@ function CreateView({ onBack, onSuccess }) {
                             />
                           </td>
                         ))}
-                        <td className="p-2 align-top bg-white">
+                        <td className={`p-2 align-top ${row.isHeading ? "bg-amber-50/30" : "bg-white"}`}>
                           <div className="flex gap-2">
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Convert to heading"
+                              className={`h-10 w-10 border-muted-foreground/30 shadow-none ${row.isHeading ? "text-amber-700 bg-amber-100 border-amber-300 hover:text-amber-900" : "text-muted-foreground hover:text-foreground"}`}
+                              title={row.isHeading ? "Has heading" : "Add heading"}
                               onClick={() => toggleHeading(row.id)}
                             >
                               <Type className="h-4 w-4" />
@@ -656,7 +869,7 @@ function CreateView({ onBack, onSuccess }) {
                               variant="outline"
                               size="icon"
                               className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Add sub-row"
+                              title="Add row below"
                               onClick={() => addRowAfterHeading(row.id)}
                             >
                               <Plus className="h-4 w-4" />
@@ -674,8 +887,8 @@ function CreateView({ onBack, onSuccess }) {
                           </div>
                         </td>
                       </tr>
-                    )
-                  )}
+                    </React.Fragment>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -685,6 +898,39 @@ function CreateView({ onBack, onSuccess }) {
                 <Plus className="h-4 w-4 mr-2" />
                 Add Row
               </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Section 4: Approval ── */}
+      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-base font-semibold">Approval</CardTitle>
+          <p className="text-xs text-muted-foreground">Assign quality</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+            <div className="space-y-2">
+              <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">PRODUCTION <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={productionEngineers.map((u) => ({ value: u.id, label: `${u.name}` }))}
+                value={production_engineer_id}
+                onValueChange={setProductionEngineerId}
+                placeholder="Select production engineer"
+                searchPlaceholder="Search production engineer..."
+                disabled
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">QUALITY <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={qcEngineers.map((u) => ({ value: u.id, label: `${u.name}` }))}
+                value={qc_engineer_id}
+                onValueChange={setQcEngineerId}
+                placeholder="Select quality engineer"
+                searchPlaceholder="Search quality engineer..."
+              />
             </div>
           </div>
         </CardContent>
@@ -706,9 +952,20 @@ function CreateView({ onBack, onSuccess }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function MaterialHeatChart() {
   const [view, setView] = useState("list") // "list" | "create"
+  const [editId, setEditId] = useState(null)
 
-  const handleSuccess = () => {
-    toast.success("Material Heat Chart created successfully!")
+  const handleCreateClick = () => {
+    setEditId(null)
+    setView("create")
+  }
+
+  const handleEditClick = (id) => {
+    setEditId(id)
+    setView("create")
+  }
+
+  const handleSuccess = (action) => {
+    toast.success(`Material Heat Chart ${action} successfully!`)
     setView("list")
   }
 
@@ -721,9 +978,9 @@ function MaterialHeatChart() {
           <div className="flex-1 flex flex-col w-full">
 
             {view === "list" ? (
-              <ListView onCreateClick={() => setView("create")} />
+              <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} />
             ) : (
-              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} />
+              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} />
             )}
           </div>
         </main>

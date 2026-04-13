@@ -42,6 +42,9 @@ app.use('/api/dcc', dccRoutes);
 const departmentRoutes = require('#routes/department.routes.js');
 app.use('/api/departments', departmentRoutes);
 
+const qcGroupRoutes = require('#routes/qc_group.routes.js');
+app.use('/api/qc-groups', qcGroupRoutes);
+
 const commonRoutes = require('./routes/common/common.routes.js');
 app.use('/api/common', commonRoutes);
 

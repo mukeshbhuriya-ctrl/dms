@@ -27,14 +27,13 @@ class NCRPdfGenerator {
         const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 10, { height: 30 });
+                // Center the logo in the box and ensure it fits comfortably without overlapping grid lines
+                doc.image(logoPath, x + (logoBoxW / 2) - 40, y + 5, { fit: [80, 60], align: 'center', valign: 'center' });
             } catch (e) {
                 const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
-                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
+                if (fs.existsSync(altLogo)) doc.image(altLogo, x + (logoBoxW / 2) - 30, y + 5, { fit: [60, 50], align: 'center', valign: 'center' });
             }
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // Title Box (Right)
         const titleBoxW = width - logoBoxW;
@@ -56,9 +55,9 @@ class NCRPdfGenerator {
     }
 
     drawInfoGrid(doc, x, y, width, data) {
-        const rowH = 20;
+        const rowH = 18;
         const colW = width / 2;
-        doc.fontSize(10);
+        doc.fontSize(9);
 
         const rows = [
             { l1: 'NCR NO.:', v1: data.ncr_no, l2: 'DATE:', v2: data.date ? new Date(data.date).toLocaleDateString() : '' },
@@ -89,11 +88,34 @@ class NCRPdfGenerator {
         return curY;
     }
 
-    drawSection(doc, x, y, width, label, content, height = 60) {
-        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.red).text(label, x + 5, y + 5);
+    drawSection(doc, x, y, width, label, content, height = 60, imagePath = null) {
+        doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text(label, x + 5, y + 5);
+        
+        // If image provided, reduce text width to make room on the right
+        const textWidth = imagePath ? (width * 0.75) : (width - 10);
+        
         if (content) {
-            doc.font(this.fonts.regular).fontSize(9).fillColor(this.colors.black).text(content, x + 5, y + 20, { width: width - 10 });
+            doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black).text(content, x + 5, y + 18, { width: textWidth });
         }
+
+        if (imagePath && fs.existsSync(imagePath)) {
+            try {
+                // Dimensions for the image box
+                const imgX = x + textWidth + 5;
+                const imgY = y + 8;
+                const imgW = width - textWidth - 10;
+                const imgH = height - 16;
+
+                doc.image(imagePath, imgX, imgY, {
+                    fit: [imgW, imgH],
+                    align: 'center',
+                    valign: 'center'
+                });
+            } catch (e) {
+                console.error('PDF Image Error:', e);
+            }
+        }
+
         const endY = y + height;
         doc.moveTo(x, endY).lineTo(x + width, endY).stroke();
         return endY;
@@ -127,7 +149,7 @@ class NCRPdfGenerator {
         const startX = 40;
         const startY = 40;
         const width = doc.page.width - 80;
-        const height = doc.page.height - 80;
+        const height = doc.page.height - 100; // Reduced height to prevent blank page issue
 
         // Main Border
         doc.rect(startX, startY, width, height).strokeColor(this.colors.black).lineWidth(1).stroke();
@@ -136,8 +158,22 @@ class NCRPdfGenerator {
         curY = this.drawHeader(doc, startX, curY, width, data, companyInfo);
         curY = this.drawInfoGrid(doc, startX, curY, width, data);
 
+        // Identify if there is an image attachment for Stage 1
+        const ROOT_DIR = process.env.ROOT_DIR || 'C:/dms-data';
+        const UPLOAD_DIR = path.join(ROOT_DIR, 'uploads');
+        let stage1ImagePath = null;
+
+        if (data.attachments && Array.isArray(data.attachments)) {
+            const firstImg = data.attachments.find(att => 
+                att.filename && (att.type?.startsWith('image/') || att.name?.match(/\.(jpg|jpeg|png)$/i))
+            );
+            if (firstImg) {
+                stage1ImagePath = path.join(UPLOAD_DIR, firstImg.filename);
+            }
+        }
+
         // Description of Non-Conformance
-        curY = this.drawSection(doc, startX, curY, width, 'DESCRIPTION OF NON-CONFORMANCE:', data.description_non_conformance, 100);
+        curY = this.drawSection(doc, startX, curY, width, 'DESCRIPTION OF NON-CONFORMANCE:', data.description_non_conformance, 100, stage1ImagePath);
 
         // Raised At / By
         doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.red).text('NCR RAISED AT:', startX + 5, curY + 6);
@@ -148,6 +184,8 @@ class NCRPdfGenerator {
         
         curY += 24;
         doc.moveTo(startX, curY).lineTo(startX + width, curY).stroke();
+
+
 
         // Proposed Resolution
         doc.font(this.fonts.bold).fillColor(this.colors.red).text('PROPOSED RESOLUTION WITH JUSTIFICATION:', startX + 5, curY + 6);
@@ -218,16 +256,24 @@ class NCRPdfGenerator {
             doc.font(this.fonts.regular).fontSize(9).fillColor(this.colors.black).text(data.disposition, startX + 5, curY + 22, { width: width - 10 });
         }
 
-        curY += 100; // Increased to fill remaining space
-        doc.font(this.fonts.bold).fillColor(this.colors.red).text('VERIFIED BY Head Quality:', startX + 5, curY);
-        doc.font(this.fonts.regular).fillColor(this.colors.black).text(data.head_quality_verifier?.name || '', startX + 130, curY);
+        curY += 60; // Reduced spacer
+        doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text('VERIFIED BY Head Quality:', startX + 5, curY);
+        doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black).text(data.head_quality_verifier?.name || '', startX + 130, curY);
+        
+        // Ensure no more drawing happens inside the main border box
+        curY = startY + height;
 
-        // Simple Footer
-        const footerY = startY + height + 5;
+        // Simple Footer (Outside Border)
+        const footerY = curY + 5;
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
-        doc.text('EXHIBIT 10/4', startX, footerY);
-        doc.text('REV.: R2', startX + width - 100, footerY, { align: 'right' });
-        doc.text('PAGE 01 OF 01', startX + width - 100, footerY + 8, { align: 'right' });
+        
+        // Note: Computer generated disclaimer
+        doc.text('* Note: This is a computer-generated copy, hence no signature is required.', startX, footerY, { width: width, align: 'center' });
+        
+        // Fixed Footer Info
+        doc.text('EXHIBIT 10/4', startX, footerY + 10);
+        doc.text('REV.: R2', startX + width - 100, footerY + 10, { align: 'right' });
+        doc.text('PAGE 01 OF 01', startX + width - 100, footerY + 18, { align: 'right' });
 
         doc.end();
     }

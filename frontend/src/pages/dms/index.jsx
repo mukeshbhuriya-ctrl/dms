@@ -2,6 +2,7 @@
 export { default as AssignDocument } from "./assign_document"
 export { default as CreateJob } from "./create_job"
 export { default as CreatePO } from "./create_po"
+export { default as CommunicationMatrix } from "./communication_matrix"
 export { default as CreateTransmission } from "./create_transmission"
 export { default as DocumentApprover } from "./document_apprver"
 export { default as SendDocumentToClient } from "./send_document_to_client"

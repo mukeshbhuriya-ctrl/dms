@@ -370,9 +370,113 @@ async function getAssignedWeldJoints(req, res) {
     }
 }
 
+/**
+ * Update Weld Joint Plan API
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function updateWeldJointPlan(req, res) {
+    try {
+        const { id } = req.params;
+        const {
+            shrDrgNo,
+            customerDrgNumber,
+            codeOfConstruction,
+            tableRows
+        } = req.body;
+
+        const company_id = req.user.company_id;
+
+        if (!id) {
+            return res.status(400).json({ success: false, message: 'Plan ID is required' });
+        }
+
+        // Verify plan exists and belongs to company
+        const existingPlan = await prisma.weld_joint_plan.findFirst({
+            where: {
+                id: id,
+                company_id: company_id
+            }
+        });
+
+        if (!existingPlan) {
+            return res.status(404).json({ success: false, message: 'Weld Joint Plan not found' });
+        }
+
+        // Update Plan and Joints in transaction
+        const result = await prisma.$transaction(async (tx) => {
+            // 1. Update Header
+            const updatedPlan = await tx.weld_joint_plan.update({
+                where: { id: id },
+                data: {
+                    shreno_drg_no: shrDrgNo,
+                    customer_drg_no: customerDrgNumber,
+                    code_of_construction: codeOfConstruction,
+                }
+            });
+
+            // 2. Update/Create Joints
+            if (tableRows && tableRows.length > 0) {
+                for (const row of tableRows) {
+                    const jointData = {
+                        joint_no: row.jointNo,
+                        joint_type: row.jointType,
+                        joint_description: row.joint,
+                        base_metal_thickness_p1: row.baseMetalThicknessPart1,
+                        base_metal_thickness_p2: row.baseMetalThicknessPart2,
+                        base_metal_spec_p1: row.baseMetalSpecPart1,
+                        base_metal_spec_p2: row.baseMetalSpecPart2,
+                        consumable: row.consumable,
+                        wps_pqr_no: row.wpsNoPqrNo,
+                        process: row.process,
+                        impact_test: row.impactTest,
+                        back_chip_req: row.backChipReq === 'yes' ? true : (row.backChipReq === 'no' ? false : null),
+                        pwht: row.pwht === 'yes' ? true : (row.pwht === 'no' ? false : null),
+                        rt: row.rt === 'yes' ? true : (row.rt === 'no' ? false : null),
+                        pt: row.pt === 'yes' ? true : (row.pt === 'no' ? false : null),
+                        remarks: row.remarks
+                    };
+
+                    if (row.id && typeof row.id === 'string' && row.id.length > 10) { 
+                        // Update existing joint
+                        await tx.weld_joint.update({
+                            where: { id: row.id },
+                            data: jointData
+                        });
+                    } else {
+                        // Create new joint
+                        await tx.weld_joint.create({
+                            data: {
+                                ...jointData,
+                                weld_joint_plan_id: id
+                            }
+                        });
+                    }
+                }
+            }
+
+            return updatedPlan;
+        });
+
+        res.status(200).json({
+            success: true,
+            message: 'Welding Joint Plan updated successfully',
+            data: result
+        });
+
+    } catch (error) {
+        console.error('Update weld joint plan error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+    }
+}
+
 module.exports = {
-    getjobInfo, createWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints,
+    getjobInfo, createWeldJointPlan, updateWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints,
     updateStageStatus,
     getAssignedWeldJoints,
     reviewStageStatus
-};
+};
