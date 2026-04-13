@@ -5,7 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X } from "lucide-react"
+import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X, Eye } from "lucide-react"
 import {
     Card,
     CardContent,
@@ -153,9 +153,17 @@ function CreateQcGroup() {
     const [qcEngineers, setQcEngineers] = useState([])
     const [isLoadingEngineers, setIsLoadingEngineers] = useState(false)
 
+    // Selected Group for detail views
+    const [selectedGroup, setSelectedGroup] = useState(null)
+
     // Delete Dialog State
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [groupToDelete, setGroupToDelete] = useState(null)
+
+    const handleViewClick = (group) => {
+        setSelectedGroup(group)
+        setView('members')
+    }
 
     // Fetch QC Engineers for selection
     useEffect(() => {
@@ -239,16 +247,6 @@ function CreateQcGroup() {
             header: "Group Name",
         },
         {
-            id: "engineers",
-            header: "QC Engineers",
-            cell: (row) => {
-                const names = row.users?.map(u => u.user?.name).filter(Boolean) || []
-                if (names.length === 0) return "No engineers assigned"
-                if (names.length <= 2) return names.join(", ")
-                return `${names.slice(0, 2).join(", ")} + ${names.length - 2} more`
-            }
-        },
-        {
             accessorKey: "createdAt",
             header: "Created At",
             cell: (row) => new Date(row.createdAt).toLocaleDateString(),
@@ -258,6 +256,14 @@ function CreateQcGroup() {
             header: "Actions",
             cell: (row) => (
                 <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewClick(row)}
+                        title="View assigned engineers"
+                    >
+                        <Eye className="mr-2 h-4 w-4" /> View
+                    </Button>
                     <Button
                         variant="outline"
                         size="sm"
@@ -280,6 +286,48 @@ function CreateQcGroup() {
             enableSorting: false,
         },
     ], [])
+
+    const memberColumns = useMemo(() => [
+        {
+            accessorKey: "user.name",
+            header: "Employee Name",
+            cell: (row) => row.user?.name || "N/A"
+        },
+        {
+            accessorKey: "user.empid",
+            header: "Employee ID",
+            cell: (row) => row.user?.empid || "N/A"
+        },
+        {
+            accessorKey: "user.role",
+            header: "Role",
+            cell: (row) => row.user?.user_roles?.[0]?.role?.name || "N/A"
+        }
+    ], [])
+
+    const fetchMembersData = useCallback(async ({ page, limit, search }) => {
+        if (!selectedGroup || !selectedGroup.users) return { data: [], meta: { total: 0, page: 1, totalPages: 1 } }
+        
+        let filtered = [...selectedGroup.users]
+        if (search) {
+            const lowSearch = search.toLowerCase()
+            filtered = filtered.filter(u => 
+                (u.user?.name || "").toLowerCase().includes(lowSearch) ||
+                (u.user?.email || "").toLowerCase().includes(lowSearch) ||
+                (u.user?.empid || "").toLowerCase().includes(lowSearch) ||
+                (u.user?.user_roles || []).some(ur => (ur.role?.name || "").toLowerCase().includes(lowSearch))
+            )
+        }
+
+        const total = filtered.length
+        const totalPages = Math.ceil(total / limit) || 1
+        const paginated = filtered.slice((page - 1) * limit, page * limit)
+
+        return {
+            data: paginated,
+            meta: { total, page, totalPages }
+        }
+    }, [selectedGroup])
 
     const handleEdit = (group) => {
         const userIds = group.users?.map(u => u.user_id.toString()) || []
@@ -371,12 +419,13 @@ function CreateQcGroup() {
                                     setEditingId(null)
                                     setView("create")
                                 }}>
-                                    <Plus className="mr-2 h-4 w-4" /> Create QC Group
+                                    <Plus className="mr-2 h-4 w-4" /> Create Group
                                 </Button>
                             ) : (
                                 <Button variant="outline" onClick={() => {
                                     setView("list")
                                     setEditingId(null)
+                                    setSelectedGroup(null)
                                     setFormData({ name: "", user_ids: [] })
                                 }}>
                                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
@@ -397,6 +446,31 @@ function CreateQcGroup() {
                                 <DataTable
                                     columns={columns}
                                     fetchData={fetchQcGroups}
+                                    refreshKey={refreshKey}
+                                />
+                            </CardContent>
+                        </Card>
+                    ) : view === "members" ? (
+                        <Card className="flex-1 flex flex-col">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <CardTitle>Members: {selectedGroup?.name}</CardTitle>
+                                        <CardDescription>
+                                            Personnel assigned to this QC group.
+                                        </CardDescription>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" onClick={() => handleEdit(selectedGroup)}>
+                                            <Pencil className="mr-2 h-4 w-4" /> Edit Group
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="flex-1">
+                                <DataTable
+                                    columns={memberColumns}
+                                    fetchData={fetchMembersData}
                                     refreshKey={refreshKey}
                                 />
                             </CardContent>

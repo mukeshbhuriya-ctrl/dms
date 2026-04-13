@@ -75,7 +75,13 @@ class QcGroupController {
                                 select: {
                                     id: true,
                                     name: true,
-                                    email: true
+                                    email: true,
+                                    empid: true,
+                                    user_roles: {
+                                        include: {
+                                            role: true
+                                        }
+                                    }
                                 }
                             }
                         }
