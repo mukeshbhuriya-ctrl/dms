@@ -659,6 +659,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
             </div>
           </div>
 
+
         </CardContent>
       </Card>
 
@@ -724,10 +725,10 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         </CardContent>
       </Card>
 
-      {!isReview && initialData?.inspectionData?.s1_status !== 'approved' && initialData?.inspectionData?.s1_status !== 'pending' && (
-        <div className="mt-6 flex justify-end">
+      {!isReview && (
+        <div className="mt-12 flex justify-end pb-10">
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
+            {isSubmitting ? "Processing..." : "Save & Complete Stage 1"}
           </Button>
         </div>
       )}
