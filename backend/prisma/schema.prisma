@@ -51,6 +51,7 @@ model company{
   mediators mediator[]
   ncr ncr[]
   document_activities document_activity[]
+  qc_groups qc_group[]
 }
 
 model department {
@@ -66,6 +67,34 @@ model department {
   users     user[]
   
   @@unique([company_id, name]) // Ensure department names are unique per company
+}
+
+model qc_group {
+  id          String   @id @default(uuid())
+  company_id  String
+  name        String
+  
+  company     company  @relation(fields: [company_id], references: [id])
+  users       user_qc_group[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([company_id, name])
+}
+
+model user_qc_group {
+  id          String   @id @default(uuid())
+  user_id     String
+  qc_group_id String
+
+  user        user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  qc_group    qc_group @relation(fields: [qc_group_id], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([user_id, qc_group_id])
 }
 
 model role{
@@ -122,6 +151,7 @@ model user{
   ncr_corrective_action_verified_by ncr[] @relation("NcrCorrectiveActionVerifiedBy")
   ncr_verified_by_qce ncr[] @relation("NcrVerifiedByQce")
   ncr_verified_by_head_quality ncr[] @relation("NcrVerifiedByHeadQuality")
+  qc_groups user_qc_group[]
 }
 
 model user_roles{

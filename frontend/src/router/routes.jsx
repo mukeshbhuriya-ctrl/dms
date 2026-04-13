@@ -27,6 +27,7 @@ import {
   AdminDashboard,
   CreateUser,
   DepartmentManagement,
+  QcGroupManagement,
   FinalInspectionReports,
   Reports,
 } from "@/pages/admin"
@@ -154,6 +155,10 @@ const adminRoutes = [
   {
     path: "/departments",
     element: protect(<DepartmentManagement />, [ROLES.ADMIN]),
+  },
+  {
+    path: "/qc-group",
+    element: protect(<QcGroupManagement />, [ROLES.ADMIN]),
   },
   {
     path: "/material-heat-chart",

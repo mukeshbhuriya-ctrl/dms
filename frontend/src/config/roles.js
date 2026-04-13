@@ -54,6 +54,7 @@ export const MENU_CONFIG = [
         items: [
             { title: "User Management", path: "/users", roles: [ROLES.ADMIN] },
             { title: "Department Management", path: "/departments", roles: [ROLES.ADMIN] },
+            { title: "QC Group", path: "/qc-group", roles: [ROLES.ADMIN] },
         ],
     },
 
