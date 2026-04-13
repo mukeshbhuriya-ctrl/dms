@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
+import QCReviewSection from "@/components/wpj/QCReviewSection"
 
 function Stage1({ initialData, isReview = false, onSuccess }) {
   const [error, setError] = useState("")
@@ -646,67 +647,19 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         </CardContent>
       </Card>
 
-      <Card className={isReview || initialData?.inspectionData?.s1_status === 'approved' || initialData?.inspectionData?.s1_status === 'rejected' ? "block" : "hidden"}>
-        <CardHeader>
-          <CardTitle>QC Review & Approval</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="qcRemarks">Quality Engineer Remarks:</Label>
-            <Textarea
-              id="qcRemarks"
-              value={qcRemarks}
-              onChange={(e) => setQcRemarks(e.target.value)}
-              placeholder="Enter QC Remarks"
-              readOnly={userRole !== 'QC' || (initialData?.inspectionData?.s1_status !== 'pending' && initialData?.inspectionData?.s1_status !== 'submitted' && !isReview)}
-              className={userRole !== 'QC' ? "bg-muted min-h-[100px]" : "min-h-[100px]"}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
-            <div className="space-y-2">
-              <Label>Review Date:</Label>
-              <Input
-                readOnly
-                className="bg-muted font-mono text-xs"
-                value={
-                  initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleString() :
-                    initialData?.inspectionData?.s1_rejected_at ? new Date(initialData.inspectionData.s1_rejected_at).toLocaleString() :
-                      isReview ? new Date().toLocaleString() : "Pending"
-                }
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
-            <div className="flex flex-col gap-1">
-              {initialData?.inspectionData?.s1_status && initialData?.inspectionData?.s1_status !== 'pending' && (
-                <div className="text-sm font-medium">
-                  Current Status: <span className={
-                    initialData.inspectionData.s1_status === 'approved' ? 'text-green-600' :
-                      initialData.inspectionData.s1_status === 'rejected' ? 'text-red-600' : 'text-blue-600'
-                  }>
-                    {initialData.inspectionData.s1_status.toUpperCase()}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2 items-center">
-              {isReview && (
-                <>
-                  <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                    {isSubmitting ? "Processing..." : "Reject"}
-                  </Button>
-                  <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                    {isSubmitting ? "Processing..." : "Approve"}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <QCReviewSection
+        isReview={isReview}
+        userRole={userRole}
+        status={initialData?.inspectionData?.s1_status}
+        remarks={qcRemarks}
+        setRemarks={setQcRemarks}
+        onAction={handleReviewAction}
+        isSubmitting={isSubmitting}
+        reviewDate={
+          initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleString() :
+          initialData?.inspectionData?.s1_rejected_at ? new Date(initialData.inspectionData.s1_rejected_at).toLocaleString() : ""
+        }
+      />
 
       {!isReview && (
         <div className="mt-12 flex justify-end pb-10">
@@ -715,7 +668,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
           </Button>
         </div>
       )}
-    </div >
+    </div>
   )
 }
 

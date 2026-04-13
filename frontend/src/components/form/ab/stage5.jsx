@@ -16,11 +16,14 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
+import api from "@/api/api.client"
+import QCReviewSection from "@/components/wpj/QCReviewSection"
 
 function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-    const [ndtEngineer, setNdtEngineer] = useState("")
+    const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
+    const [qcRemarks, setQcRemarks] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
@@ -107,44 +110,21 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
         }))
     }
 
-    // Mock NDT Engineers
-    const [ndtEngineers, setNdtEngineers] = useState([])
+    const [qcGroups, setQcGroups] = useState([])
 
     useEffect(() => {
-        const fetchNdtEngineers = async () => {
+        const fetchQcGroups = async () => {
             try {
-                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-                const authData = localStorage.getItem("user_auth")
-                let token = null
-                if (authData) {
-                    try {
-                        const parsed = JSON.parse(authData)
-                        token = parsed?.payload?.token || parsed?.token
-                    } catch { }
-                }
-
-                // Stage 5 requires NDT Engineer. User requested to use QC_ENGINEER list for this.
-                const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": token ? `Bearer ${token}` : ""
-                    },
-                    credentials: "include",
-                })
-                const data = await res.json()
-                if (res.ok && data.success) {
-                    setNdtEngineers(data.data || [])
-                } else {
-                    console.error("Failed to fetch NDT Engineers:", data.message)
+                const response = await api.get('/api/qc-groups');
+                if (response && response.success) {
+                    setQcGroups(response.data || []);
                 }
             } catch (error) {
-                console.error("Error fetching NDT Engineers:", error)
+                console.error("Error fetching QC groups:", error);
             }
-        }
-
-        fetchNdtEngineers()
-    }, [])
+        };
+        fetchQcGroups();
+    }, []);
 
     // Helper to determine category key
     const getCategoryKey = () => {
@@ -175,35 +155,30 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
                 } catch (e) { console.error("Error parsing data_json", e) }
             }
 
-            if (inspectionData.s5_qc_eng_id) {
-                setNdtEngineer(inspectionData.s5_qc_eng_id);
+            if (inspectionData.s5_assigned_qc_group_id) {
+                setSelectedQcGroupId(inspectionData.s5_assigned_qc_group_id);
             }
             if (inspectionData.s5_prod_eng_name) {
                 setProductionEngineerName(inspectionData.s5_prod_eng_name);
+            }
+            if (inspectionData.s5_remarks) {
+                setQcRemarks(inspectionData.s5_remarks);
             }
 
             if (inspectionData.s5_data) {
                 try {
                     const rawData = typeof inspectionData.s5_data === 'string' ? JSON.parse(inspectionData.s5_data) : inspectionData.s5_data;
-                    // Check nested s5 key: { ab: { s5: ... } } or legacy
                     const s5Data = rawData?.[categoryKey]?.s5 || rawData?.[categoryKey] || rawData || {};
 
                     if (s5Data?.productionEngineerName) setProductionEngineerName(s5Data.productionEngineerName);
                     if (s5Data?.submissionDate) setTodayDate(s5Data.submissionDate);
 
-                    if (!inspectionData.s5_qc_eng_id && s5Data?.assignedQcEngineerId) {
-                        setNdtEngineer(s5Data.assignedQcEngineerId);
+                    if (inspectionData.s5_assigned_qc_group_id) {
+                        setSelectedQcGroupId(inspectionData.s5_assigned_qc_group_id);
+                    } else if (s5Data?.assignedQcGroupId) {
+                        setSelectedQcGroupId(s5Data.assignedQcGroupId);
                     }
-                    // Legacy fallback check for older NDT key
-                    if (!inspectionData.s5_qc_eng_id && !s5Data?.assignedQcEngineerId && s5Data?.assignedNdtEngineerId) {
-                        setNdtEngineer(s5Data.assignedNdtEngineerId);
-                    }
-
-                    // Legacy fallback
-                    if (s5Data?.inputFields && !inspectionData.data_json) {
-                        setInputFields(prev => ({ ...prev, ...s5Data.inputFields }));
-                    }
-                } catch (e) { console.error("Error parsing s5_data", e) }
+                } catch (e) { }
             }
         }
     }, [inspectionData, initialData]);
@@ -226,8 +201,8 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            if (!ndtEngineer) {
-                alert("Please select NDT Engineer");
+            if (!selectedQcGroupId) {
+                setError("Please select QC Group for Stage 5");
                 setIsSubmitting(false);
                 return;
             }
@@ -241,10 +216,9 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
             }
 
             const currentStageData = {
-                assignedQcEngineerId: ndtEngineer, // Renamed
+                assignedQcGroupId: selectedQcGroupId,
                 productionEngineerName,
                 submissionDate: todayDate,
-                // inputFields removed
             };
 
             const finalData = {
@@ -255,33 +229,30 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
                 }
             };
 
-
+            const basicInfo = {
+                [categoryKey]: {
+                    ...displayFields,
+                    ...inputFields
+                }
+            };
 
             const payload = {
                 jointId: initialData?.id,
                 stage: "stage5",
                 status: "pending",
                 engineerId: userId,
-                role: role,
-                data: finalData
+                role: "PROD",
+                data: finalData,
+                basicInfo: basicInfo
             }
 
-            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": token ? `Bearer ${token}` : ""
-                },
-                body: JSON.stringify(payload),
-                credentials: "include",
-            });
+            const res = await api.post("/api/wpj/update-stage-status", payload);
 
-            const data = await res.json();
-            if (res.ok) {
+            if (res.success) {
                 setSuccess("Stage 5 (PT) submitted successfully");
                 setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
-                setError(data.message || "Submission failed");
+                setError(res.message || "Submission failed");
             }
 
         } catch (error) {
@@ -310,7 +281,6 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
             }
 
             if (userRole === 'QC' && status === 'approved') {
-                // Save data before approving if edits made
                 const categoryKey = getCategoryKey();
                 let existingData = {};
                 if (initialData?.inspectionData?.s5_data) {
@@ -319,10 +289,9 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
                         : initialData.inspectionData.s5_data;
                 }
                 const currentStageData = {
-                    assignedQcEngineerId: ndtEngineer, // Renamed
+                    assignedQcGroupId: selectedQcGroupId,
                     productionEngineerName,
                     submissionDate: todayDate,
-                    // inputFields removed
                 };
                 const finalData = {
                     ...existingData,
@@ -332,48 +301,38 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
                     }
                 };
 
+                const basicInfo = {
+                    [categoryKey]: {
+                        ...displayFields,
+                        ...inputFields
+                    }
+                };
 
-
-                await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-                    body: JSON.stringify({
-                        jointId: initialData?.id,
-                        stage: "stage5",
-                        status: status,
-                        engineerId: userId,
-                        role: 'QC',
-                        data: finalData
-                    }),
-                    credentials: "include",
+                await api.post("/api/wpj/update-stage-status", {
+                    jointId: initialData?.id,
+                    stage: "stage5",
+                    status: status,
+                    engineerId: userId,
+                    role: 'QC',
+                    data: finalData,
+                    basicInfo: basicInfo
                 });
             }
 
-            const payload = {
+            const res = await api.post("/api/wpj/review-stage", {
                 jointId: initialData?.id,
                 stage: "stage5",
                 status: status,
                 engineerId: userId,
-                role: role,
-                data: {}
-            }
-
-            const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": token ? `Bearer ${token}` : ""
-                },
-                body: JSON.stringify(payload),
-                credentials: "include",
+                role: 'QC',
+                remarks: qcRemarks
             });
 
-            const data = await res.json();
-            if (res.ok) {
+            if (res.success) {
                 setSuccess(`Stage 5 ${status} successfully`);
                 setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
-                setError(data.message || "Review action failed");
+                setError(res.message || "Review action failed");
             }
         } catch (error) {
             console.error(error);
@@ -578,48 +537,46 @@ function Stage5({ initialData, inspectionData, isReview = false, onSuccess }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="ndtEngineer">NDT Engineer:</Label>
-                            <Select value={ndtEngineer} onValueChange={setNdtEngineer} disabled={isReview}>
+                            <Label>QC Group Name:</Label>
+                            <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select NDT Engineer" />
+                                    <SelectValue placeholder="Select QC Group" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {ndtEngineers.map((engineer) => (
-                                        <SelectItem key={engineer.id} value={engineer.id}>
-                                            {engineer.name?.toUpperCase()}
+                                    {qcGroups.map((group) => (
+                                        <SelectItem key={group.id} value={group.id}>
+                                            {group.name?.toUpperCase()}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
-                    <div className="mt-6 flex justify-end gap-2 items-center">
-                        {!isReview ? (
-                            <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                {isSubmitting ? "Saving..." : "Save & Complete Stage 5"}
-                            </Button>
-                        ) : (
-                            <>
-                                {(isReview || initialData?.inspectionData?.s5_approved_at) && (
-                                    <Input
-                                        type="text"
-                                        value={`Approve Date: ${initialData?.inspectionData?.s5_approved_at ? new Date(initialData.inspectionData.s5_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                                        readOnly
-                                        className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                                        placeholder="Approve Date"
-                                    />
-                                )}
-                                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : "Reject"}
-                                </Button>
-                                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : "Approve"}
-                                </Button>
-                            </>
-                        )}
-                    </div>
                 </CardContent>
             </Card>
+
+            {/* Shared QC Review & Approval Section */}
+            <QCReviewSection
+                isReview={isReview}
+                userRole={userRole}
+                status={initialData?.inspectionData?.s5_status}
+                remarks={qcRemarks}
+                setRemarks={setQcRemarks}
+                onAction={handleReviewAction}
+                isSubmitting={isSubmitting}
+                reviewDate={
+                    initialData?.inspectionData?.s5_approved_at ? new Date(initialData.inspectionData.s5_approved_at).toLocaleString() :
+                    initialData?.inspectionData?.s5_rejected_at ? new Date(initialData.inspectionData.s5_rejected_at).toLocaleString() : ""
+                }
+            />
+
+            {!isReview && (
+                <div className="mt-12 flex justify-end pb-10">
+                    <Button onClick={handleSubmit} disabled={isSubmitting}>
+                        {isSubmitting ? "Processing..." : "Save & Complete Stage 5"}
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }

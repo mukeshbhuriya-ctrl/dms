@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react"
+import api from "@/api/api.client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -16,16 +18,18 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
+import QCReviewSection from "@/components/wpj/QCReviewSection"
 
 function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-  const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
+  const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [userRole, setUserRole] = useState("")
-  const [qcEngineers, setQcEngineers] = useState([])
-
-  const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
+  const [qcGroups, setQcGroups] = useState([])
+  const [qcRemarks, setQcRemarks] = useState("")
+  const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
   const [displayFields, setDisplayFields] = useState({
     msn: "",
     client: "",
@@ -68,40 +72,20 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
     }
   }, [isReview])
 
+  // Fetch QC Groups
   useEffect(() => {
-    const fetchQcEngineers = async () => {
+    const fetchQcGroups = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
-        }
-
-        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          setQcEngineers(data.data || [])
-        } else {
-          console.error("Failed to fetch QC Engineers:", data.message)
+        const response = await api.get('/api/qc-groups');
+        if (response && response.success) {
+          setQcGroups(response.data || []);
         }
       } catch (error) {
-        console.error("Error fetching QC Engineers:", error)
+        console.error("Error fetching QC groups:", error);
       }
-    }
-
-    fetchQcEngineers()
-  }, [])
+    };
+    fetchQcGroups();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -148,11 +132,14 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         const categoryKey = getCategoryKey();
         const inspectionData = initialData.inspectionData;
 
-        if (inspectionData[`${sPrefix}_qc_eng_id`]) {
-          setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
+        if (inspectionData[`${sPrefix}_assigned_qc_group_id`]) {
+          setSelectedQcGroupId(inspectionData[`${sPrefix}_assigned_qc_group_id`]);
         }
         if (inspectionData[`${sPrefix}_prod_eng_name`]) {
           setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
+        }
+        if (inspectionData[`${sPrefix}_remarks`]) {
+          setQcRemarks(inspectionData[`${sPrefix}_remarks`]);
         }
 
         // Load Basic Info (from data_json)
@@ -182,8 +169,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
             if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
             if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
-            if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
-              setBackChipQcEngineer(sbcData.assignedQcEngineerId);
+            if (!inspectionData[`${sPrefix}_assigned_qc_group_id`] && sbcData?.assignedQcGroupId) {
+              setSelectedQcGroupId(sbcData.assignedQcGroupId);
             }
             // Legacy fallback check for inputFields in stage data if data_json missing
             if (sbcData?.inputFields && !inspectionData.data_json) {
@@ -200,7 +187,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
-    setAlert({ show: false, type: '', message: '' });
+    setError("");
+    setSuccess("");
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -214,8 +202,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
 
-      if (!backChipQcEngineer) {
-        setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
+      if (!selectedQcGroupId) {
+        setError("Please select QC Group");
         setIsSubmitting(false);
         return;
       }
@@ -232,7 +220,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
       const currentStageData = {
         productionEngineerName,
         submissionDate: todayDate,
-        assignedQcEngineerId: backChipQcEngineer
+        assignedQcGroupId: selectedQcGroupId
       };
 
       const finalData = {
@@ -272,15 +260,15 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
       const data = await res.json();
       if (res.ok) {
-        setAlert({ show: true, type: 'success', message: "Back Chip submitted successfully" });
+        setSuccess("Back Chip submitted successfully");
         setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
-        setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
+        setError(data.message || "Submission failed");
       }
 
     } catch (error) {
       console.error(error);
-      setAlert({ show: true, type: 'error', message: "Error submitting form" });
+      setError("Error submitting form");
     } finally {
       setIsSubmitting(false);
     }
@@ -288,7 +276,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
   const handleReviewAction = async (status) => {
     setIsSubmitting(true);
-    setAlert({ show: false, type: '', message: '' });
+    setError("");
+    setSuccess("");
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
       const authData = localStorage.getItem("user_auth")
@@ -315,7 +304,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         const currentStageData = {
           productionEngineerName,
           submissionDate: todayDate,
-          assignedQcEngineerId: backChipQcEngineer
+          assignedQcGroupId: selectedQcGroupId
         };
 
         const finalData = {
@@ -354,7 +343,9 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         stage: stage,
         status: status,
         engineerId: userId,
-        role: role
+        role: role,
+        remarks: qcRemarks,
+        data: {}
       }
 
       const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
@@ -369,14 +360,14 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
       const data = await res.json();
       if (res.ok) {
-        setAlert({ show: true, type: 'success', message: `Back Chip ${status} successfully` });
+        setSuccess(`Back Chip ${status} successfully`);
         setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
-        setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
+        setError(data.message || "Review action failed");
       }
     } catch (error) {
       console.error(error);
-      setAlert({ show: true, type: 'error', message: "Error processing review" });
+      setError("Error processing review");
     } finally {
       setIsSubmitting(false);
     }
@@ -384,6 +375,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
   return (
     <div className="w-full mx-auto p-6 space-y-6">
+      <FormAlert type="error" message={error} />
+      <FormAlert type="success" message={success} />
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
@@ -543,20 +536,18 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         </CardContent>
       </Card>
       <Card>
-        <CardContent className="space-y-6">
-          <FormAlert type={alert.type} message={alert.message} />
-
-          {/* Back chip section */}
-          <div className="space-y-6 pt-6 border-t mt-6">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="text-lg font-semibold">Back chip</h3>
-              {initialData?.back_chip_req && (
-                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600 ring-1 ring-inset ring-green-600/20">
-                  Yes
-                </span>
-              )}
-            </div>
-
+        <CardHeader>
+          <CardTitle className="text-xl flex items-center gap-2">
+            Back chip
+            {initialData?.back_chip_req && (
+              <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
+                True
+              </span>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 pt-0">
+          <div className="space-y-6 pt-6 border-t">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label>Production Engineer Name:</Label>
@@ -565,7 +556,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
                   value={productionEngineerName}
                   placeholder="Production Engineer Name"
                   readOnly
-                  className="bg-muted uppercase"
+                  className="bg-muted uppercase font-medium"
                 />
               </div>
 
@@ -573,26 +564,28 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
                 <Label>Date:</Label>
                 <Input
                   type="text"
-                  value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
+                  value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] 
+                    ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() 
+                    : todayDate}
                   readOnly
                   className="bg-muted"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="backChipQcEngineer">QC Engineer Name:</Label>
+                <Label htmlFor="selectedQcGroupId">QC Group Name:</Label>
                 <Select
-                  value={backChipQcEngineer}
-                  onValueChange={setBackChipQcEngineer}
+                  value={selectedQcGroupId}
+                  onValueChange={setSelectedQcGroupId}
                   disabled={isReview}
                 >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select QC Engineer" />
+                  <SelectTrigger className="w-full focus:ring-2 focus:ring-primary">
+                    <SelectValue placeholder="Select QC Group" />
                   </SelectTrigger>
                   <SelectContent>
-                    {qcEngineers.map((engineer) => (
-                      <SelectItem key={engineer.id} value={engineer.id}>
-                        {engineer.name?.toUpperCase()}
+                    {qcGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name?.toUpperCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -600,34 +593,31 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
               </div>
             </div>
           </div>
-
-          <div className="mt-6 flex justify-end gap-2 items-center">
-            {!isReview ? (
-              <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
-              </Button>
-            ) : (
-              <>
-                {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
-                  <Input
-                    type="text"
-                    value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                    readOnly
-                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                    placeholder="Approve Date"
-                  />
-                )}
-                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Reject"}
-                </Button>
-                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Approve"}
-                </Button>
-              </>
-            )}
-          </div>
         </CardContent>
       </Card>
+
+      {/* Shared QC Review & Approval Section */}
+      <QCReviewSection
+        isReview={isReview}
+        userRole={userRole}
+        status={initialData?.inspectionData?.[`${sPrefix}_status`]}
+        remarks={qcRemarks}
+        setRemarks={setQcRemarks}
+        onAction={handleReviewAction}
+        isSubmitting={isSubmitting}
+        reviewDate={
+             initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleString() :
+             initialData?.inspectionData?.[`${sPrefix}_rejected_at`] ? new Date(initialData.inspectionData[`${sPrefix}_rejected_at`]).toLocaleString() : ""
+        }
+      />
+
+      {!isReview && (
+        <div className="mt-12 flex justify-end pb-10">
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Processing..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
