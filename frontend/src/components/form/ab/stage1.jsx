@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,6 +63,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
   const [qeEngineer, setQeEngineer] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [qeEngineers, setQeEngineers] = useState([])
+  const [qcRemarks, setQcRemarks] = useState("")
 
   useEffect(() => {
     const authData = localStorage.getItem("user_auth")
@@ -191,6 +193,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         // Fallback / Override from columns if JSON missing/incomplete
         if (insp.s1_qc_eng_id && !qeEngineer) setQeEngineer(insp.s1_qc_eng_id);
         if (insp.s1_prod_eng_name) setProductionEngineerName(insp.s1_prod_eng_name);
+        if (insp.s1_remarks) setQcRemarks(insp.s1_remarks);
       }
     }
   }, [initialData])
@@ -372,6 +375,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         status: status,
         engineerId: userId,
         role: role,
+        remarks: qcRemarks,
         data: {} // No data update on simple status change review
       }
 
@@ -655,33 +659,78 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-2 items-center">
-            {!isReview ? (
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
-              </Button>
-            ) : (
-              <>
-                {(isReview || initialData?.inspectionData?.s1_approved_at) && (
-                  <Input
-                    type="text"
-                    value={`Approve Date: ${initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                    readOnly
-                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                    placeholder="Approve Date"
-                  />
-                )}
-                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Reject"}
-                </Button>
-                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Approve"}
-                </Button>
-              </>
-            )}
+        </CardContent>
+      </Card>
+
+      <Card className={isReview || initialData?.inspectionData?.s1_status === 'approved' || initialData?.inspectionData?.s1_status === 'rejected' ? "block" : "hidden"}>
+        <CardHeader>
+          <CardTitle>QC Review & Approval</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="qcRemarks">Quality Engineer Remarks:</Label>
+            <Textarea
+              id="qcRemarks"
+              value={qcRemarks}
+              onChange={(e) => setQcRemarks(e.target.value)}
+              placeholder="Enter QC Remarks"
+              readOnly={userRole !== 'QC' || (initialData?.inspectionData?.s1_status !== 'pending' && initialData?.inspectionData?.s1_status !== 'submitted' && !isReview)}
+              className={userRole !== 'QC' ? "bg-muted min-h-[100px]" : "min-h-[100px]"}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+            <div className="space-y-2">
+              <Label>Review Date:</Label>
+              <Input
+                readOnly
+                className="bg-muted font-mono text-xs"
+                value={
+                  initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleString() :
+                    initialData?.inspectionData?.s1_rejected_at ? new Date(initialData.inspectionData.s1_rejected_at).toLocaleString() :
+                      isReview ? new Date().toLocaleString() : "Pending"
+                }
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
+            <div className="flex flex-col gap-1">
+              {initialData?.inspectionData?.s1_status && initialData?.inspectionData?.s1_status !== 'pending' && (
+                <div className="text-sm font-medium">
+                  Current Status: <span className={
+                    initialData.inspectionData.s1_status === 'approved' ? 'text-green-600' :
+                      initialData.inspectionData.s1_status === 'rejected' ? 'text-red-600' : 'text-blue-600'
+                  }>
+                    {initialData.inspectionData.s1_status.toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 items-center">
+              {isReview && (
+                <>
+                  <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
+                    {isSubmitting ? "Processing..." : "Reject"}
+                  </Button>
+                  <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
+                    {isSubmitting ? "Processing..." : "Approve"}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {!isReview && initialData?.inspectionData?.s1_status !== 'approved' && initialData?.inspectionData?.s1_status !== 'pending' && (
+        <div className="mt-6 flex justify-end">
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
+          </Button>
+        </div>
+      )}
     </div >
   )
 }

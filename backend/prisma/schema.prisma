@@ -503,6 +503,7 @@ model weld_joint_stage {
   approved_at     DateTime?
   rejected_at     DateTime?
   remarks         String?
+  is_active       Boolean  @default(true)
 
   stage_data      weld_joint_stage_data?
   stage_rows      weld_joint_stage_row[]
@@ -510,7 +511,7 @@ model weld_joint_stage {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@unique([weld_joint_id, stage_name])
+  @@index([weld_joint_id, stage_name])
 }
 
 model weld_joint_stage_data {

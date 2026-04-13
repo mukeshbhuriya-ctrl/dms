@@ -108,18 +108,20 @@ class WeldJointService {
         if (stages && stages.length > 0) {
             stages.forEach(stage => {
                 const sKey = stage.stage_name.replace('stage', 's'); // "stage1" -> "s1"
+                const sPrefix = sKey;
                 insp[`${sKey}_status`] = stage.status;
                 if (stage.prod_eng_id) {
                     insp[`${sKey}_prod_eng_id`] = stage.prod_eng_id;
                     if (userMap && userMap[stage.prod_eng_id]) insp[`${sKey}_prod_eng_name`] = userMap[stage.prod_eng_id];
                 }
                 if (stage.qc_eng_id) {
-                    insp[`${sKey}_qc_eng_id`] = stage.qc_eng_id;
-                    if (userMap && userMap[stage.qc_eng_id]) insp[`${sKey}_qc_eng_name`] = userMap[stage.qc_eng_id];
+                    insp[`${sPrefix}_qc_eng_id`] = stage.qc_eng_id;
+                    if (userMap && userMap[stage.qc_eng_id]) insp[`${sPrefix}_qc_eng_name`] = userMap[stage.qc_eng_id];
                 }
-                insp[`${sKey}_submitted_at`] = stage.submitted_at;
-                insp[`${sKey}_approved_at`] = stage.approved_at;
-                insp[`${sKey}_rejected_at`] = stage.rejected_at;
+                insp[`${sPrefix}_submitted_at`] = stage.submitted_at;
+                insp[`${sPrefix}_approved_at`] = stage.approved_at;
+                insp[`${sPrefix}_rejected_at`] = stage.rejected_at;
+                insp[`${sPrefix}_remarks`] = stage.remarks;
 
                 // Reconstruct sX_data
                 let innerData = this._mapDbStageDataToCamelCase(stage.stage_data);
@@ -133,11 +135,14 @@ class WeldJointService {
                     })).sort((a,b) => a.id - b.id);
                 }
 
-                insp[`${sKey}_data`] = JSON.stringify({
-                    [catKey]: {
-                        [sKey]: innerData
-                    }
-                });
+                // Only the ACTIVE stage overwrites the canonical sX_data for the form
+                if (stage.is_active) {
+                    insp[`${sPrefix}_data`] = JSON.stringify({
+                        [catKey]: {
+                            [sPrefix]: innerData
+                        }
+                    });
+                }
             });
         }
 
@@ -413,24 +418,35 @@ class WeldJointService {
         if (stagePayload.assignedQcEngineerId) qc_eng_id = stagePayload.assignedQcEngineerId;
         if (stagePayload.assignedNdtEngineerId) qc_eng_id = stagePayload.assignedNdtEngineerId;
 
-        // 3. Upsert stage
-        const stageRecord = await prisma.weld_joint_stage.upsert({
-            where: { weld_joint_id_stage_name: { weld_joint_id: jointId, stage_name: stage } },
-            update: {
-                status,
-                ...(prod_eng_id && { prod_eng_id }),
-                ...(qc_eng_id && { qc_eng_id }),
-                ...(submitted_at && { submitted_at }),
-                ...(approved_at && { approved_at }),
-                ...(rejected_at && { rejected_at }),
-            },
-            create: {
-                weld_joint_id: jointId,
-                stage_name: stage,
-                status,
-                prod_eng_id, qc_eng_id, submitted_at, approved_at, rejected_at
-            }
+        // 3. Find active stage or create new revision
+        let stageRecord = await prisma.weld_joint_stage.findFirst({
+            where: { weld_joint_id: jointId, stage_name: stage, is_active: true }
         });
+
+        const updateData = {
+            status,
+            ...(prod_eng_id && { prod_eng_id }),
+            ...(qc_eng_id && { qc_eng_id }),
+            ...(submitted_at && { submitted_at }),
+            ...(approved_at && { approved_at }),
+            ...(rejected_at && { rejected_at }),
+        };
+
+        if (stageRecord) {
+            stageRecord = await prisma.weld_joint_stage.update({
+                where: { id: stageRecord.id },
+                data: updateData
+            });
+        } else {
+            stageRecord = await prisma.weld_joint_stage.create({
+                data: {
+                    weld_joint_id: jointId,
+                    stage_name: stage,
+                    ...updateData,
+                    is_active: true
+                }
+            });
+        }
 
         // 4. Update stage data details
         if (Object.keys(stagePayload).length > 0) {
@@ -494,28 +510,46 @@ class WeldJointService {
     }
 
     async reviewStatus(payload) {
-        const { jointId, stage, status, engineerId, role } = payload;
+        const { jointId, stage, status, engineerId, role, remarks } = payload;
         if (!jointId || !stage || !status) throw new Error('Missing required fields');
 
-        const updateData = { status };
-        if (status === 'approved') updateData.approved_at = new Date();
-        else if (status === 'rejected') updateData.rejected_at = new Date();
-
-        const stageRecord = await prisma.weld_joint_stage.upsert({
-            where: { weld_joint_id_stage_name: { weld_joint_id: jointId, stage_name: stage } },
-            update: updateData,
-            create: { // in case reviewing a stage that was somehow never saved gracefully
-                weld_joint_id: jointId,
-                stage_name: stage,
-                status,
-                qc_eng_id: role === 'QC' || role === 'NDT' ? engineerId : undefined,
-                ...(status === 'approved' && { approved_at: new Date() }),
-                ...(status === 'rejected' && { rejected_at: new Date() }),
-            },
-            include: {
-                weld_joint: true
-            }
+        // Find current active stage
+        let stageRecord = await prisma.weld_joint_stage.findFirst({
+            where: { weld_joint_id: jointId, stage_name: stage, is_active: true }
         });
+
+        if (!stageRecord) {
+            // Create a record if none active (safety fallback)
+            stageRecord = await prisma.weld_joint_stage.create({
+                data: {
+                    weld_joint_id: jointId,
+                    stage_name: stage,
+                    status: status,
+                    remarks: remarks,
+                    qc_eng_id: role === 'QC' || role === 'NDT' ? engineerId : undefined,
+                    ...(status === 'approved' && { approved_at: new Date() }),
+                    ...(status === 'rejected' && { rejected_at: new Date(), is_active: false }),
+                },
+                include: { weld_joint: true }
+            });
+        } else {
+            const updateData = { 
+                status, 
+                remarks,
+                qc_eng_id: role === 'QC' || role === 'NDT' ? engineerId : undefined
+            };
+            if (status === 'approved') updateData.approved_at = new Date();
+            else if (status === 'rejected') {
+                updateData.rejected_at = new Date();
+                updateData.is_active = false; // Freeze rejection into history
+            }
+
+            stageRecord = await prisma.weld_joint_stage.update({
+                where: { id: stageRecord.id },
+                data: updateData,
+                include: { weld_joint: true }
+            });
+        }
 
         // Send notification to Production Engineer (approving/rejecting)
         if ((status === 'approved' || status === 'rejected') && stageRecord.prod_eng_id) {
