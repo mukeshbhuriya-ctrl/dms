@@ -81,7 +81,7 @@ const userRoutes = [
     path: "/user/dashboard",
     element: protect(
       <UserDashboard />,
-      [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER]
+      [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER, ROLES.TAXATION],
     ),
   },
   {
@@ -97,19 +97,19 @@ const userRoutes = [
 const dccRoutes = [
   {
     path: "/dcc/create-customer",
-    element: protect(<CreateCustomer />, [ROLES.ADMIN, ROLES.DCC]),
+    element: protect(<CreateCustomer />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
   },
   {
     path: "/dcc/create-location",
-    element: protect(<CreateLocation />, [ROLES.ADMIN, ROLES.DCC]),
+    element: protect(<CreateLocation />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
   },
   {
     path: "/dcc/create-po",
-    element: protect(<CreatePO />, [ROLES.ADMIN, ROLES.DCC]),
+    element: protect(<CreatePO />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
   },
   {
     path: "/dcc/create-job",
-    element: protect(<CreateJob />, [ROLES.ADMIN, ROLES.DCC]),
+    element: protect(<CreateJob />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
   },
   {
     path: "/dcc/communication-matrix",

@@ -3,9 +3,9 @@ require('module-alias/register');
 require('tsx/cjs');
 const prisma = require('#prisma');
 
-const COMPANY_ID = 'ca930e8d-91be-435a-98fd-7595d72e50a0';
-const USER_ID = 'd03c5c3a-3ed5-4bc5-92c7-c7682df08032';
-const ROLE_NAME = 'MARKETING';
+const COMPANY_ID = '272b81b4-11c4-4316-9b67-ddf6687286d3';
+const USER_ID = 'b760b4fe-d9cd-4a8e-bae0-6414f849e35e';
+const ROLE_NAME = 'TAXATION';
 
 async function createRoleAndAssign() {
   try {

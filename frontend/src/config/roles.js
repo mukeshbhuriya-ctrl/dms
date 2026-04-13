@@ -22,6 +22,7 @@ export const ROLES = {
     DCR: "DCR",
     DESIGN_ENGINEER: "DESIGN_ENGINEER",
     MARKETING: "MARKETING",
+    TAXATION: "TAXATION",
 }
 
 // ─── Menu Configuration ────────────────────────────────────────────
@@ -69,8 +70,8 @@ export const MENU_CONFIG = [
         title: "Customer Management",
         icon: Users,
         items: [
-            { title: "Customer", path: "/dcc/create-customer", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Location", path: "/dcc/create-location", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Customer", path: "/dcc/create-customer", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
+            { title: "Location", path: "/dcc/create-location", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
         ],
     },
 
@@ -79,13 +80,13 @@ export const MENU_CONFIG = [
         title: "Purchase Orders",
         icon: Briefcase,
         path: "/dcc/create-po",
-        roles: [ROLES.ADMIN, ROLES.DCC],
+        roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
     },
     {
         title: "Jobs",
         icon: FileText,
         path: "/dcc/create-job",
-        roles: [ROLES.ADMIN, ROLES.DCC],
+        roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
     },
 
     // ── DMS ──
