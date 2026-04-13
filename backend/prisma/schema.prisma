@@ -472,6 +472,7 @@ model weld_joint_stage {
   submitted_at    DateTime?
   approved_at     DateTime?
   rejected_at     DateTime?
+  remarks         String?
 
   stage_data      weld_joint_stage_data?
   stage_rows      weld_joint_stage_row[]
