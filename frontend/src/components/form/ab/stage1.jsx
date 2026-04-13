@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import api from "@/api/api.client"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
@@ -60,9 +61,9 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
 
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-  const [qeEngineer, setQeEngineer] = useState("")
+  const [qcGroups, setQcGroups] = useState([])
+  const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [qeEngineers, setQeEngineers] = useState([])
   const [qcRemarks, setQcRemarks] = useState("")
 
   useEffect(() => {
@@ -87,38 +88,20 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
     }
   }, [isReview])
 
-  // Fetch QC Engineers
+  // Fetch QC Groups
   useEffect(() => {
-    const fetchQeEngineers = async () => {
+    const fetchQcGroups = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
-        }
-
-        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          setQeEngineers(data.data || [])
+        const response = await api.get('/api/qc-groups');
+        if (response && response.success) {
+          setQcGroups(response.data || []);
         }
       } catch (error) {
-        console.error("Error fetching QE Engineers:", error)
+        console.error("Error fetching QC groups:", error);
       }
-    }
-    fetchQeEngineers()
-  }, [])
+    };
+    fetchQcGroups();
+  }, []);
 
   const getCategoryKey = () => {
         return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'a';
@@ -164,7 +147,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
             if (s1Data.inputFields && !insp.data_json) {
               setInputFields(prev => ({ ...prev, ...s1Data.inputFields }));
             }
-            if (s1Data.assignedQcEngineerId) setQeEngineer(s1Data.assignedQcEngineerId);
+            if (s1Data.assignedQcGroupId) setSelectedQcGroupId(s1Data.assignedQcGroupId);
           } catch (e) {
             console.error("Error parsing s1_data", e)
           }
@@ -191,7 +174,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         }
 
         // Fallback / Override from columns if JSON missing/incomplete
-        if (insp.s1_qc_eng_id && !qeEngineer) setQeEngineer(insp.s1_qc_eng_id);
+        if (insp.s1_assigned_qc_group_id && !selectedQcGroupId) setSelectedQcGroupId(insp.s1_assigned_qc_group_id);
         if (insp.s1_prod_eng_name) setProductionEngineerName(insp.s1_prod_eng_name);
         if (insp.s1_remarks) setQcRemarks(insp.s1_remarks);
       }
@@ -227,12 +210,12 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         token = parsed?.payload?.token || parsed?.token
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
-
-      if (!qeEngineer) {
-        setError("Please select QE Engineer");
-        setIsSubmitting(false);
-        return;
-      }
+ 
+       if (!selectedQcGroupId) {
+         setError("Please select QC Group");
+         setIsSubmitting(false);
+         return;
+       }
 
       const categoryKey = getCategoryKey();
 
@@ -247,7 +230,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
       // 1. Construct Stage Data (Nest s1 inside category)
       const currentStageInnerData = {
         inspectionRows,
-        assignedQcEngineerId: qeEngineer,
+        assignedQcGroupId: selectedQcGroupId,
         productionEngineerName: productionEngineerName,
         submissionDate: todayDate
       };
@@ -333,7 +316,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
 
         const currentStageInnerData = {
           inspectionRows,
-          assignedQcEngineerId: qeEngineer,
+          assignedQcGroupId: selectedQcGroupId,
           productionEngineerName,
           submissionDate: todayDate
         };
@@ -643,15 +626,15 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="qeEngineer">QE Engineer:</Label>
-              <Select value={qeEngineer} onValueChange={setQeEngineer} disabled={isReview}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select QE Engineer" />
+              <Label htmlFor="qcGroup">QC Group:</Label>
+              <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
+                <SelectTrigger id="qcGroup" className="w-full">
+                  <SelectValue placeholder="Select QC Group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {qeEngineers.map((engineer) => (
-                    <SelectItem key={engineer.id} value={engineer.id}>
-                      {engineer.name?.toUpperCase()}
+                  {qcGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name?.toUpperCase()}
                     </SelectItem>
                   ))}
                 </SelectContent>

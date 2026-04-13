@@ -5,6 +5,7 @@ const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user
 
 // Get QC Groups (Open to all authenticated users for dropdowns and views)
 router.get('/', authenticateUserOnly, qcGroupController.getQcGroups);
+router.get('/my-groups', authenticateUserOnly, qcGroupController.getUserGroups);
 
 // Create, Update, Delete (Restrict to ADMIN)
 router.post('/', authenticateUser('ADMIN', { requireAll: false }), qcGroupController.createQcGroup);

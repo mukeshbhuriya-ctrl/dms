@@ -76,6 +76,7 @@ model qc_group {
   
   company     company  @relation(fields: [company_id], references: [id])
   users       user_qc_group[]
+  weld_joint_stages weld_joint_stage[]
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -504,6 +505,9 @@ model weld_joint_stage {
   rejected_at     DateTime?
   remarks         String?
   is_active       Boolean  @default(true)
+  
+  assigned_qc_group_id String?
+  assigned_qc_group    qc_group? @relation(fields: [assigned_qc_group_id], references: [id])
 
   stage_data      weld_joint_stage_data?
   stage_rows      weld_joint_stage_row[]

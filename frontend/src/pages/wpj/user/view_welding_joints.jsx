@@ -60,6 +60,7 @@ function ViewWeldingJoints() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [downloadError, setDownloadError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [userGroupIds, setUserGroupIds] = useState([])
 
   // Dynamic Component Mapping
   const componentMap = {
@@ -87,6 +88,21 @@ function ViewWeldingJoints() {
       } catch { }
     }
   }, [])
+ 
+  // Fetch My Groups
+  useEffect(() => {
+    const fetchMyGroups = async () => {
+      try {
+        const response = await apiClient.get('/api/qc-groups/my-groups');
+        if (response && response.success) {
+          setUserGroupIds(response.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching my groups:", error);
+      }
+    };
+    if (userId) fetchMyGroups();
+  }, [userId])
 
   const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
 
@@ -138,10 +154,12 @@ function ViewWeldingJoints() {
     const isPending = joint.inspectionData?.[statusKey] === 'pending';
 
     const idKey = `${sPrefix}_qc_eng_id`;
+    const groupIdKey = `${sPrefix}_assigned_qc_group_id`;
     let assignedId = joint.inspectionData?.[idKey];
+    let assignedGroupId = joint.inspectionData?.[groupIdKey];
 
     // Fallback to data-encoded assignment if needed
-    if (!assignedId) {
+    if (!assignedId && !assignedGroupId) {
       const dataKey = `${sPrefix}_data`;
       const rawData = joint.inspectionData?.[dataKey];
       if (rawData) {
@@ -150,12 +168,14 @@ function ViewWeldingJoints() {
           const catKey = joint.jointCategory?.toLowerCase() || 'a';
           const stageData = parsed?.[catKey]?.[sPrefix] || parsed?.[catKey] || parsed;
           assignedId = stageData?.assignedQcEngineerId || stageData?.ndtEngineerId;
+          assignedGroupId = stageData?.assignedQcGroupId;
         } catch (e) { }
       }
     }
 
-    const isAssignedToMe = userId && assignedId && String(assignedId) === String(userId);
-    const hasAssignment = !!assignedId;
+    const isAssignedToMe = (userId && assignedId && String(assignedId) === String(userId)) ||
+                           (assignedGroupId && userGroupIds.includes(assignedGroupId));
+    const hasAssignment = !!(assignedId || assignedGroupId);
 
     const prodKey = `${sPrefix}_prod_eng_id`;
     const qcKey = `${sPrefix}_qc_eng_id`;
@@ -166,7 +186,7 @@ function ViewWeldingJoints() {
       joint.inspectionData?.[completedAtKey]);
 
     return { isPending, isAssignedToMe, hasAssignment, isSubmitted };
-  }, [userId]);
+  }, [userId, userGroupIds]);
 
 
   const fetchJointsData = useCallback(async ({ page, limit, search }) => {

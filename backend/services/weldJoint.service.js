@@ -122,6 +122,7 @@ class WeldJointService {
                 insp[`${sPrefix}_approved_at`] = stage.approved_at;
                 insp[`${sPrefix}_rejected_at`] = stage.rejected_at;
                 insp[`${sPrefix}_remarks`] = stage.remarks;
+                insp[`${sPrefix}_assigned_qc_group_id`] = stage.assigned_qc_group_id;
 
                 // Reconstruct sX_data
                 let innerData = this._mapDbStageDataToCamelCase(stage.stage_data);
@@ -236,10 +237,21 @@ class WeldJointService {
         const isQC = roles.includes('QC_ENGINEER') || roles.includes('NDT_ENGINEER');
 
         if (!isAdminOrProd && isQC) {
-            // Relational equivalent: find joints where THIS user is assigned to ANY stage as qc_eng_id
+            // Fetch the groups this user belongs to
+            const userGroups = await prisma.user_qc_group.findMany({
+                where: { user_id: userId },
+                select: { qc_group_id: true }
+            });
+            const groupIds = userGroups.map(ug => ug.qc_group_id);
+
+            // Find joints where user is assigned individually OR via a group
             where.weld_joint_stages = {
                 some: {
-                    qc_eng_id: userId
+                    OR: [
+                        { qc_eng_id: userId },
+                        { assigned_qc_group_id: { in: groupIds } }
+                    ],
+                    is_active: true
                 }
             };
         }
@@ -427,6 +439,7 @@ class WeldJointService {
             status,
             ...(prod_eng_id && { prod_eng_id }),
             ...(qc_eng_id && { qc_eng_id }),
+            assigned_qc_group_id: stagePayload.assignedQcGroupId || undefined,
             ...(submitted_at && { submitted_at }),
             ...(approved_at && { approved_at }),
             ...(rejected_at && { rejected_at }),
@@ -513,10 +526,34 @@ class WeldJointService {
         const { jointId, stage, status, engineerId, role, remarks } = payload;
         if (!jointId || !stage || !status) throw new Error('Missing required fields');
 
-        // Find current active stage
+        // 1. Find current active stage
         let stageRecord = await prisma.weld_joint_stage.findFirst({
             where: { weld_joint_id: jointId, stage_name: stage, is_active: true }
         });
+
+        // 2. Authorization Check: Must be in the assigned QC Group
+        if (stageRecord && stageRecord.assigned_qc_group_id) {
+            const isMember = await prisma.user_qc_group.findUnique({
+                where: {
+                    user_id_qc_group_id: {
+                        user_id: engineerId,
+                        qc_group_id: stageRecord.assigned_qc_group_id
+                    }
+                }
+            });
+            
+            if (!isMember) {
+                // Admin bypass
+                const user = await prisma.user.findUnique({
+                    where: { id: engineerId },
+                    include: { user_roles: { include: { role: true } } }
+                });
+                const isAdmin = user?.user_roles.some(ur => ur.role.name === 'ADMIN');
+                if (!isAdmin) {
+                    throw new Error('You are not authorized to review this stage. Only members of the assigned QC Group can perform this action.');
+                }
+            }
+        }
 
         if (!stageRecord) {
             // Create a record if none active (safety fallback)
