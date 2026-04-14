@@ -271,6 +271,61 @@ class MhcService {
     }
 
     /**
+     * Get all items from approved MHCs for a specific job
+     */
+    async getApprovedItemsByJob(company_id, job_id) {
+        if (!job_id) throw new Error('job_id is required');
+
+        const approvedCharts = await prisma.material_heat_chart.findMany({
+            where: {
+                company_id,
+                job_id,
+                status: 'Approved'
+            },
+            include: {
+                items: {
+                    orderBy: { sort_order: 'asc' }
+                }
+            }
+        });
+
+        const allItems = approvedCharts.flatMap(chart => 
+            chart.items.map(item => ({
+                ...item,
+                mhc_report_no: chart.report_no
+            }))
+        );
+
+        return allItems;
+    }
+
+    async getApprovedItemsByMsn(company_id, msn) {
+        if (!msn) throw new Error('msn is required');
+
+        const approvedCharts = await prisma.material_heat_chart.findMany({
+            where: {
+                company_id,
+                msn: String(msn),
+                status: 'Approved'
+            },
+            include: {
+                items: {
+                    orderBy: { sort_order: 'asc' }
+                }
+            }
+        });
+
+        const allItems = approvedCharts.flatMap(chart => 
+            chart.items.map(item => ({
+                ...item,
+                mhc_report_no: chart.report_no
+            }))
+        );
+
+        return allItems;
+    }
+
+    /**
      * Get the next report number for a specific job
      */
     async getNextReportNo(company_id, job_id) {
