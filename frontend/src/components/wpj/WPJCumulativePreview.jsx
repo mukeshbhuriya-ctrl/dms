@@ -78,34 +78,53 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
     fetchData()
   }, [jointId])
 
-  const handlePrint = () => {
-    window.print()
+  const fetchCumulativePdf = async () => {
+    if (!jointId) return null
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
+    const authData = localStorage.getItem("user_auth")
+    let token = null
+    if (authData) {
+      try {
+        const parsed = JSON.parse(authData)
+        token = parsed?.payload?.token || parsed?.token
+      } catch (e) {}
+    }
+    const response = await fetch(`${backendUrl}/api/wpj/generate-report/${jointId}/all`, {
+      method: "GET",
+      headers: {
+        "Authorization": token ? `Bearer ${token}` : ""
+      },
+      credentials: "include",
+    })
+    if (!response.ok) throw new Error("Failed to fetch PDF")
+    return await response.blob()
+  }
+
+  const handlePrint = async () => {
+    setDownloading(true)
+    try {
+      const blob = await fetchCumulativePdf()
+      const url = window.URL.createObjectURL(blob)
+      const printWindow = window.open(url, "_blank")
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print()
+        }
+      }
+    } catch (e) {
+      console.error("Print error:", e)
+    } finally {
+      setDownloading(false)
+    }
   }
 
   const handleDownload = async () => {
     if (!jointData) return
     setDownloading(true)
     try {
+      const blob = await fetchCumulativePdf()
       const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0]
       const filename = `Complete_Report_${jointData.joint_no}_${dateTime}.pdf`
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch (e) {}
-      }
-      const response = await fetch(`${backendUrl}/api/wpj/generate-report/${jointId}/all`, {
-        method: "GET",
-        headers: {
-          "Authorization": token ? `Bearer ${token}` : ""
-        },
-        credentials: "include",
-      })
-      if (!response.ok) throw new Error("Download failed")
-      const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
@@ -182,9 +201,9 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Button variant="outline" size="sm" onClick={handlePrint} disabled={downloading}>
             <Printer className="h-4 w-4 mr-2" />
-            Print
+            {downloading ? "Generating..." : "Print"}
           </Button>
           <Button size="sm" onClick={handleDownload} disabled={downloading}>
             <Download className="h-4 w-4 mr-2" />

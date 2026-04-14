@@ -51,10 +51,12 @@ async function generateStageReport(req, res) {
             await Promise.all(config.map(async (stageObj) => {
                 const sKey = stageObj.id;
                 const sPrefix = sKey.replace('stage', 's');
-                const isRequired = !stageObj.condition || !!joint[stageObj.condition];
-                const hasStatus = !!insp[`${sPrefix}_status`];
+                
+                // Only include approved stages for the cumulative report
+                const isApproved = insp[`${sPrefix}_status`] === 'approved';
+                const isBaseStage = sKey === 'stage1';
 
-                if (isRequired || hasStatus || sKey === 'stage1') {
+                if (isApproved || isBaseStage) {
                     const sData = await extractStageData(insp, plan, job, joint, sKey, categoryKey);
                     allStagesData[sKey] = { ...sData, label: stageObj.label };
                 }
