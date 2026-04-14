@@ -109,7 +109,11 @@ class WeldJointService {
             stages.forEach(stage => {
                 const sKey = stage.stage_name.replace('stage', 's'); // "stage1" -> "s1"
                 const sPrefix = sKey;
-                insp[`${sKey}_status`] = stage.status;
+                
+                // Prioritize active stage status or overwrite if not set
+                if (stage.is_active || !insp[`${sKey}_status`] || insp[`${sKey}_status`] === 'pending') {
+                    insp[`${sKey}_status`] = stage.status;
+                }
                 if (stage.prod_eng_id) {
                     insp[`${sKey}_prod_eng_id`] = stage.prod_eng_id;
                     if (userMap && userMap[stage.prod_eng_id]) insp[`${sKey}_prod_eng_name`] = userMap[stage.prod_eng_id];
@@ -176,6 +180,9 @@ class WeldJointService {
                     include: {
                         stage_data: true,
                         stage_rows: true
+                    },
+                    orderBy: {
+                        createdAt: 'asc'
                     }
                 }
             }
@@ -390,6 +397,9 @@ class WeldJointService {
                         include: {
                             stage_data: true,
                             stage_rows: true
+                        },
+                        orderBy: {
+                            createdAt: 'asc'
                         }
                     }
                 },
