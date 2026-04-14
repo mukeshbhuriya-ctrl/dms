@@ -1619,32 +1619,6 @@ class DccService {
                     data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
                 });
 
-                // Calculate and store actual_due_days on approval
-                if (status === 'Approved') {
-                    for (const gId of groupDocIds) {
-                        try {
-                            const firstVersion = await tx.document_version.findFirst({
-                                where: { group_document_id: gId },
-                                orderBy: { createdAt: 'asc' }
-                            });
-
-                            if (firstVersion) {
-                                const start = new Date(firstVersion.createdAt);
-                                const end = new Date();
-                                const diffTime = Math.abs(end - start);
-                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                                await tx.group_document.update({
-                                    where: { id: gId },
-                                    data: { actual_due_days: diffDays }
-                                });
-                            }
-                        } catch (calcError) {
-                            console.error(`[DccService] Error calculating actual_due_days for doc ${gId}:`, calcError);
-                        }
-                    }
-                }
-
                 for (const gId of groupDocIds) {
                     await ActivityService.logActivity({
                         company_id,
@@ -2066,18 +2040,6 @@ class DccService {
                 }
             }
 
-            // 4. Logic for dynamic "Actual Due Days"
-            // If not already set (e.g. not yet approved), but at least one version exists
-            if (!doc.actual_due_days && doc.versions && doc.versions.length > 0) {
-                // Find earliest created version
-                const earliestVersion = [...doc.versions].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))[0];
-                if (earliestVersion) {
-                    const start = new Date(earliestVersion.createdAt);
-                    const diffTime = Math.abs(now - start);
-                    doc.actual_due_days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                }
-            }
-
             return doc;
         });
     }
@@ -2149,7 +2111,6 @@ class DccService {
                     assign_user_id,
                     upload_due_days,
                     response_due_days,
-                    actual_due_days,
                     shreno_document_no,
                     shreno_reference_no,
                     client_document_no,
@@ -2220,7 +2181,6 @@ class DccService {
                         status: 'Pending',
                         upload_due_days: upload_due_days ? parseInt(upload_due_days) : null,
                         response_due_days: response_due_days ? parseInt(response_due_days) : null,
-                        actual_due_days: actual_due_days ? parseInt(actual_due_days) : null,
                         shreno_doc_no: shreno_document_no || null,
                         shreno_reference_no: shreno_reference_no || null,
                         client_doc_no: client_document_no || null,

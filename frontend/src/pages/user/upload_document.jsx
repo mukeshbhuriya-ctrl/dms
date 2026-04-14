@@ -264,11 +264,6 @@ function UploadDocument() {
             cell: (row) => row.response_due_days || "-"
         },
         {
-            header: "Actual Due Days",
-            accessorKey: "actual_due_days",
-            cell: (row) => row.actual_due_days || "-"
-        },
-        {
             header: "Uploader Status",
             accessorKey: "uploader_status",
             filterType: "select",
@@ -454,7 +449,6 @@ function UploadDocument() {
                         createdAt: doc.createdAt,
                         upload_due_days: doc.upload_due_days,
                         response_due_days: doc.response_due_days,
-                        actual_due_days: doc.actual_due_days,
                         versionNo: doc.display_version_no || 0,
                         mimeType: latestVersion?.mime_type,
                         filePath: latestVersion?.file_path,

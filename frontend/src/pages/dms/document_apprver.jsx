@@ -244,11 +244,6 @@ function DocumentApprover() {
       accessorKey: "uploadedBy"
     },
     {
-      header: "Actual Due Days",
-      accessorKey: "actual_due_days",
-      cell: (row) => row.actual_due_days || "-"
-    },
-    {
       id: "status",
       header: "Status",
       filterType: "select",
@@ -430,7 +425,6 @@ function DocumentApprover() {
             client_status: doc.client_status,
             shreno_doc_no: doc.shreno_doc_no || '-',
             client_doc_no: doc.client_doc_no || '-',
-            actual_due_days: doc.actual_due_days,
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,
             // Preview support fields
