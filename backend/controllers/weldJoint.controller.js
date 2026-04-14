@@ -49,6 +49,9 @@ async function generateStageReport(req, res) {
             const config = WELD_STAGES_CONFIG[jt] || [];
             
             await Promise.all(config.map(async (stageObj) => {
+                // Skip if the stage requirement is disabled for this joint
+                if (stageObj.condition && !joint[stageObj.condition]) return;
+
                 const sKey = stageObj.id;
                 const sPrefix = sKey.replace('stage', 's');
                 
@@ -236,10 +239,12 @@ async function getCumulativeData(req, res) {
         // Build approved stages list
         const approvedStages = config
             .filter(stageObj => {
-                // Check condition (e.g. back_chip_req, pwht, rt, pt)
+                // Skip if the stage requirement is disabled for this joint
                 if (stageObj.condition && !joint[stageObj.condition]) return false;
+
+                // Check condition (e.g. back_chip_req, pwht, rt, pt)
                 const sPrefix = stageObj.id.replace('stage', 's');
-                return insp[`${sPrefix}_status`] === 'approved';
+                return insp[`${sPrefix}_status`] === 'approved' || stageObj.id === 'stage1';
             })
             .map(stageObj => ({
                 id: stageObj.id,
