@@ -698,7 +698,9 @@ class DccService {
             uploader_status_filter,
             customer_name_filter,
             po_number_filter,
-            job_number_filter
+            job_number_filter,
+            shreno_doc_no_filter,
+            client_doc_no_filter
         } = params;
 
         const where = { company_id };
@@ -743,6 +745,13 @@ class DccService {
                     some: { job: { job_number: processFilter(job_number_filter) } }
                 }
             };
+        }
+
+        if (shreno_doc_no_filter) {
+            where.shreno_doc_no = processFilter(shreno_doc_no_filter);
+        }
+        if (client_doc_no_filter) {
+            where.client_doc_no = processFilter(client_doc_no_filter);
         }
 
         // ID-based filters (existing)
@@ -901,7 +910,9 @@ class DccService {
             job_number_filter,
             exclude_transmitted,
             job_ids,
-            job_id
+            job_id,
+            shreno_doc_no_filter,
+            client_doc_no_filter
         } = params;
 
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
@@ -949,6 +960,13 @@ class DccService {
                     some: { job: { job_number: processFilter(job_number_filter) } }
                 }
             };
+        }
+
+        if (shreno_doc_no_filter) {
+            where.shreno_doc_no = processFilter(shreno_doc_no_filter);
+        }
+        if (client_doc_no_filter) {
+            where.client_doc_no = processFilter(client_doc_no_filter);
         }
         if (approver_status_filter) {
             const filterVal = approver_status_filter.toLowerCase();

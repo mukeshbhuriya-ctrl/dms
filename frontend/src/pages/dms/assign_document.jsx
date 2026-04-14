@@ -198,13 +198,17 @@ function AssignDocument() {
       filterType: "text",
     },
     {
+      id: "shreno_doc_no",
       accessorKey: "shreno_doc_no",
       header: "Shreno Doc No",
+      filterType: "text",
       cell: (row) => row.shreno_doc_no || "-",
     },
     {
+      id: "client_doc_no",
       accessorKey: "client_doc_no",
       header: "Client Doc No",
+      filterType: "text",
       cell: (row) => row.client_doc_no || "-",
     },
     {
@@ -322,6 +326,8 @@ function AssignDocument() {
         if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
         if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
         if (columnFilters.documentName) params.search = columnFilters.documentName;
+        if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+        if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
       }
 
       const response = await apiClient.get("/api/dcc/get-assigned-documents", params)
