@@ -20,7 +20,7 @@ import {
 import { FormAlert } from "@/components/ui/form-alert"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage1({ initialData, isReview = false, onSuccess }) {
+function Stage1({ initialData, isReview = false, readOnly = false, onSuccess }) {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [userRole, setUserRole] = useState("")
@@ -647,21 +647,23 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         </CardContent>
       </Card>
 
-      <QCReviewSection
-        isReview={isReview}
-        userRole={userRole}
-        status={initialData?.inspectionData?.s1_status}
-        remarks={qcRemarks}
-        setRemarks={setQcRemarks}
-        onAction={handleReviewAction}
-        isSubmitting={isSubmitting}
-        reviewDate={
-          initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleString() :
-          initialData?.inspectionData?.s1_rejected_at ? new Date(initialData.inspectionData.s1_rejected_at).toLocaleString() : ""
-        }
-      />
+      {!readOnly && (
+        <QCReviewSection
+          isReview={isReview}
+          userRole={userRole}
+          status={initialData?.inspectionData?.s1_status}
+          remarks={qcRemarks}
+          setRemarks={setQcRemarks}
+          onAction={handleReviewAction}
+          isSubmitting={isSubmitting}
+          reviewDate={
+            initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleString() :
+            initialData?.inspectionData?.s1_rejected_at ? new Date(initialData.inspectionData.s1_rejected_at).toLocaleString() : ""
+          }
+        />
+      )}
 
-      {!isReview && (
+      {!isReview && !readOnly && (
         <div className="mt-12 flex justify-end pb-10">
           <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? "Processing..." : "Save & Complete Stage 1"}

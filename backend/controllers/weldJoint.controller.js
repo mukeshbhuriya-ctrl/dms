@@ -218,6 +218,47 @@ async function getWeldJointActiveFilters(req, res) {
     }
 }
 
+async function getCumulativeData(req, res) {
+    try {
+        const { jointId } = req.params;
+        const joint = await weldJointService.getWeldJointWithInspection(jointId);
+
+        if (!joint) {
+            return res.status(404).json({ success: false, message: 'Weld Joint not found' });
+        }
+
+        const jt = joint.joint_type ? joint.joint_type.toUpperCase() : 'A';
+        const config = WELD_STAGES_CONFIG[jt] || [];
+        const insp = joint.weld_joint_inspection || {};
+
+        // Build approved stages list
+        const approvedStages = config
+            .filter(stageObj => {
+                // Check condition (e.g. back_chip_req, pwht, rt, pt)
+                if (stageObj.condition && !joint[stageObj.condition]) return false;
+                const sPrefix = stageObj.id.replace('stage', 's');
+                return insp[`${sPrefix}_status`] === 'approved';
+            })
+            .map(stageObj => ({
+                id: stageObj.id,
+                label: stageObj.label,
+                component: stageObj.component
+            }));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                joint,
+                approvedStages,
+                category: jt
+            }
+        });
+    } catch (error) {
+        console.error('Get cumulative data error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -225,5 +266,6 @@ module.exports = {
     reviewStageStatus,
     getWeldJointPlans,
     generateStageReport,
-    getStageConfig
+    getStageConfig,
+    getCumulativeData
 };

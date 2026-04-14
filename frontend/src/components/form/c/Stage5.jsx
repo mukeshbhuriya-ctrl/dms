@@ -19,7 +19,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage5({ initialData, inspectionData, isReview = false, stage = "stage5" , onSuccess }) {
+function Stage5({ initialData, inspectionData, isReview = false, readOnly = false, stage = "stage5" , onSuccess }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
@@ -402,7 +402,9 @@ function Stage5({ initialData, inspectionData, isReview = false, stage = "stage5
                     </div>
 
                     {/* Shared QC Review & Approval Section */}
-                    <QCReviewSection
+                    {!readOnly && (
+
+                      <QCReviewSection
                         isReview={isReview}
                         userRole={userRole}
                         status={initialData?.inspectionData?.[`${sPrefix}_status`]}
@@ -416,7 +418,9 @@ function Stage5({ initialData, inspectionData, isReview = false, stage = "stage5
                         }
                     />
 
-                    {!isReview && (
+                    )}
+
+                    {!isReview && !readOnly && (
                         <div className="mt-12 flex justify-end pb-10 gap-3 border-t pt-6">
                             <Button
                                 onClick={handleSubmit}

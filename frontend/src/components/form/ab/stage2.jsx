@@ -20,7 +20,7 @@ import {
 import { FormAlert } from "@/components/ui/form-alert"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess }) {
+function Stage2({ initialData, isReview = false, readOnly = false, stage = "stage2" , onSuccess }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
@@ -597,21 +597,23 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
       </Card>
 
       {/* Shared QC Review & Approval Section */}
-      <QCReviewSection
-        isReview={isReview}
-        userRole={userRole}
-        status={initialData?.inspectionData?.[`${sPrefix}_status`]}
-        remarks={qcRemarks}
-        setRemarks={setQcRemarks}
-        onAction={handleReviewAction}
-        isSubmitting={isSubmitting}
-        reviewDate={
-             initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleString() :
-             initialData?.inspectionData?.[`${sPrefix}_rejected_at`] ? new Date(initialData.inspectionData[`${sPrefix}_rejected_at`]).toLocaleString() : ""
-        }
-      />
+      {!readOnly && (
+        <QCReviewSection
+          isReview={isReview}
+          userRole={userRole}
+          status={initialData?.inspectionData?.[`${sPrefix}_status`]}
+          remarks={qcRemarks}
+          setRemarks={setQcRemarks}
+          onAction={handleReviewAction}
+          isSubmitting={isSubmitting}
+          reviewDate={
+               initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleString() :
+               initialData?.inspectionData?.[`${sPrefix}_rejected_at`] ? new Date(initialData.inspectionData[`${sPrefix}_rejected_at`]).toLocaleString() : ""
+          }
+        />
+      )}
 
-      {!isReview && (
+      {!isReview && !readOnly && (
         <div className="mt-12 flex justify-end pb-10">
           <Button onClick={handleSubmit} disabled={isSubmitting}>
             {isSubmitting ? "Processing..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}

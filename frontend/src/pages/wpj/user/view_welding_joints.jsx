@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye } from "lucide-react"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { FormAlert } from "@/components/ui/form-alert"
+import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
 
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
@@ -76,6 +77,8 @@ function ViewWeldingJoints() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [downloadError, setDownloadError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [previewJointId, setPreviewJointId] = useState(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [userGroupIds, setUserGroupIds] = useState([])
   
   // Filter States
@@ -416,8 +419,22 @@ function ViewWeldingJoints() {
           }
         })();
 
+        // Show preview button if at least one stage is approved (i.e. status is NOT stage1)
+        const hasApprovedStages = row.status !== 'stage1';
+
         return (
           <div className="flex items-center gap-2">
+            {hasApprovedStages && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-primary hover:text-primary/80"
+                onClick={() => { setPreviewJointId(row.id); setIsPreviewOpen(true); }}
+                title="Preview approved stages"
+              >
+                <Eye className="h-4 w-4" /> Preview
+              </Button>
+            )}
             {actionButton}
           </div>
         );
@@ -449,9 +466,7 @@ function ViewWeldingJoints() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending">Pending Stages</SelectItem>
-                    <SelectItem value="rejected">Rejected Stages</SelectItem>
-                    <SelectItem value="completed">Completed (Finished)</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -512,6 +527,18 @@ function ViewWeldingJoints() {
                     />
                 );
               })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Cumulative Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="sm:max-w-[95vw] max-w-[98vw] max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Inspection Preview — Approved Stages</DialogTitle>
+          </DialogHeader>
+          {isPreviewOpen && previewJointId && (
+            <WPJCumulativePreview jointId={previewJointId} />
+          )}
         </DialogContent>
       </Dialog>
     </>

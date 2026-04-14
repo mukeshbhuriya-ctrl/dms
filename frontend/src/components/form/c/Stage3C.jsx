@@ -8,7 +8,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-const Stage3C = ({ initialData, isReview, stage = "stage3", onSuccess  }) => {
+const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "stage3", onSuccess  }) => {
     const sPrefix = stage.replace('stage', 's');
     const [formData, setFormData] = useState({
         welderNumber: "",
@@ -361,7 +361,9 @@ const Stage3C = ({ initialData, isReview, stage = "stage3", onSuccess  }) => {
                         </div>
 
                         {/* Shared QC Review & Approval Section */}
-                        <QCReviewSection
+                        {!readOnly && (
+
+                          <QCReviewSection
                             isReview={isReview}
                             userRole={userRole}
                             status={initialData?.inspectionData?.[`${sPrefix}_status`]}
@@ -375,7 +377,9 @@ const Stage3C = ({ initialData, isReview, stage = "stage3", onSuccess  }) => {
                             }
                         />
 
-                        {!isReview && (
+                        )}
+
+                        {!isReview && !readOnly && (
                             <div className="mt-12 flex justify-end pb-10">
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
                                     {isSubmitting ? "Processing..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}

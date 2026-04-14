@@ -8,7 +8,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-const Stage2F = ({ initialData, inspectionData, isReview, onSuccess }) => {
+const Stage2F = ({ initialData, inspectionData, isReview = false, readOnly = false, onSuccess }) => {
     const [formData, setFormData] = useState({
         welderNumber: "",
         weldingProcess: ""
@@ -346,7 +346,9 @@ const Stage2F = ({ initialData, inspectionData, isReview, onSuccess }) => {
                     </div>
 
                     {/* Shared QC Review Section */}
-                    <QCReviewSection
+                    {!readOnly && (
+
+                      <QCReviewSection
                         isReview={isReview}
                         userRole={userRole}
                         status={inspectionData?.s2_status}
@@ -360,7 +362,9 @@ const Stage2F = ({ initialData, inspectionData, isReview, onSuccess }) => {
                         }
                     />
 
-                    {!isReview && (
+                    )}
+
+                    {!isReview && !readOnly && (
                         <div className="mt-12 flex justify-end pb-10">
                             <Button onClick={handleSubmit} disabled={isSubmitting}>
                                 {isSubmitting ? "Processing..." : "Save & Complete Stage 2"}

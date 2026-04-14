@@ -19,7 +19,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage4({ initialData, inspectionData, isReview = false, onSuccess }) {
+function Stage4({ initialData, inspectionData, isReview = false, readOnly = false, onSuccess }) {
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
@@ -556,7 +556,9 @@ function Stage4({ initialData, inspectionData, isReview = false, onSuccess }) {
             </Card>
 
             {/* Shared QC Review & Approval Section */}
-            <QCReviewSection
+            {!readOnly && (
+
+              <QCReviewSection
                 isReview={isReview}
                 userRole={userRole}
                 status={initialData?.inspectionData?.s4_status}
@@ -570,7 +572,9 @@ function Stage4({ initialData, inspectionData, isReview = false, onSuccess }) {
                 }
             />
 
-            {!isReview && (
+            )}
+
+            {!isReview && !readOnly && (
                 <div className="mt-12 flex justify-end pb-10">
                     <Button onClick={handleSubmit} disabled={isSubmitting}>
                         {isSubmitting ? "Processing..." : "Save & Complete Stage 4"}
