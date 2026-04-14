@@ -257,7 +257,9 @@ const Stage1F = ({ initialData, inspectionData, isReview = false, readOnly = fal
         }
     }
 
-    return (
+      const isReadOnly = readOnly || (isReview && userRole !== 'QC');
+
+return (
         <Card className="w-full">
             <CardHeader>
                 <CardTitle>Stage 1: Set Up</CardTitle>
@@ -295,7 +297,7 @@ const Stage1F = ({ initialData, inspectionData, isReview = false, readOnly = fal
                             <Select
                                 value={formData.materialIdMarks}
                                 onValueChange={(val) => handleChange('materialIdMarks', val)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -311,7 +313,7 @@ const Stage1F = ({ initialData, inspectionData, isReview = false, readOnly = fal
                             <Input
                                 value={formData.tackWelder}
                                 onChange={(e) => handleChange('tackWelder', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                                 placeholder="Enter Tack Welder Name/ID"
                             />
                         </div>

@@ -335,7 +335,9 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
     }
 
 
-    return (
+      const isReadOnly = readOnly || (isReview && userRole !== 'QC');
+
+return (
         <Card className="w-full">
             <CardHeader>
                 <CardTitle>Material Identification Marks & Setup</CardTitle>
@@ -374,7 +376,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                                     key={`part1-${mhcItems.length}-${selectedPart1}`}
                                     value={selectedPart1} 
                                     onValueChange={(val) => handlePartSelection('part1', val)} 
-                                    disabled={isReview && userRole !== 'QC'}
+                                    disabled={isReadOnly}
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select Part 1" />
@@ -394,7 +396,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                                     key={`part2-${mhcItems.length}-${selectedPart2}`}
                                     value={selectedPart2} 
                                     onValueChange={(val) => handlePartSelection('part2', val)} 
-                                    disabled={isReview && userRole !== 'QC'}
+                                    disabled={isReadOnly}
                                 >
                                     <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select Part 2 (Nozzle)" />
@@ -422,7 +424,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                                 value={formData.nozzleNumber}
                                 placeholder='Enter Nozzle Number'
                                 onChange={(e) => handleChange('nozzleNumber', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -430,7 +432,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                             <Select
                                 value={formData.materialIdMarks}
                                 onValueChange={(val) => handleChange('materialIdMarks', val)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -454,7 +456,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                                 value={formData.tackWelder}
                                 placeholder='Enter Tack Welder'
                                 onChange={(e) => handleChange('tackWelder', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             />
                         </div>
 
@@ -463,7 +465,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                             <Select
                                 value={formData.visualInspection}
                                 onValueChange={(val) => handleChange('visualInspection', val)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -480,7 +482,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                             <Select
                                 value={formData.lSeamRt}
                                 onValueChange={(val) => handleChange('lSeamRt', val)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
@@ -503,7 +505,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                                     value={formData.nozzleSize}
                                     placeholder='Enter Nozzle Size'
                                     onChange={(e) => handleChange('nozzleSize', e.target.value)}
-                                    disabled={isReview && userRole !== 'QC'}
+                                    disabled={isReadOnly}
                                 />
                             </div>
                             <div className="space-y-2">
@@ -512,7 +514,7 @@ const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess })
                                     value={formData.totalLength}
                                     placeholder='Enter Total Length'
                                     onChange={(e) => handleChange('totalLength', e.target.value)}
-                                    disabled={isReview && userRole !== 'QC'}
+                                    disabled={isReadOnly}
                                 />
                             </div>
                         </div>

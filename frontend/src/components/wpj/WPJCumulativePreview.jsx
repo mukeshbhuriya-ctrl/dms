@@ -238,7 +238,28 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
               </div>
 
               {/* Stage Component in ReadOnly mode */}
-              <div className="border rounded-lg p-4 bg-card">
+              <div className="border rounded-lg p-4 bg-card preview-readonly-wrapper">
+                <style>{`
+                  .preview-readonly-wrapper input,
+                  .preview-readonly-wrapper textarea,
+                  .preview-readonly-wrapper select,
+                  .preview-readonly-wrapper button,
+                  .preview-readonly-wrapper [role="combobox"],
+                  .preview-readonly-wrapper [role="checkbox"],
+                  .preview-readonly-wrapper [role="radio"],
+                  .preview-readonly-wrapper [role="listbox"],
+                  .preview-readonly-wrapper [data-slot="select-trigger"] {
+                    pointer-events: none !important;
+                    user-select: text !important;
+                    opacity: 0.85;
+                  }
+                  .preview-readonly-wrapper input:focus,
+                  .preview-readonly-wrapper textarea:focus {
+                    outline: none !important;
+                    box-shadow: none !important;
+                    ring: none !important;
+                  }
+                `}</style>
                 <StageComponent
                   initialData={mappedInitialData}
                   inspectionData={mappedInitialData.inspectionData}

@@ -191,7 +191,7 @@ function Stage3({ initialData, inspectionData, isReview = false, readOnly = fals
     }
   }, [inspectionData, initialData]);
 
-  const isReadOnly = isReview && userRole !== 'QC';
+  const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
   const handleSubmit = async () => {
     setIsSubmitting(true);

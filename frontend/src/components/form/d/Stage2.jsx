@@ -290,7 +290,9 @@ const Stage2D = ({ initialData, inspectionData, isReview = false, readOnly = fal
     } finally { setIsSubmitting(false); }
   }
 
-  return (
+    const isReadOnly = readOnly || (isReview && userRole !== 'QC');
+
+return (
     <div className="w-full mx-auto p-6 space-y-6">
       <FormAlert type={alert.type} message={alert.message} />
 

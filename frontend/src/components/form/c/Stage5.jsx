@@ -316,7 +316,9 @@ function Stage5({ initialData, inspectionData, isReview = false, readOnly = fals
         }
     }
 
-    return (
+      const isReadOnly = readOnly || (isReview && userRole !== 'QC');
+
+return (
         <div className="w-full mx-auto p-6 space-y-6">
             <FormAlert type={alert.type} message={alert.message} />
             <div className="border rounded-lg p-4 space-y-4 shadow-sm bg-card">

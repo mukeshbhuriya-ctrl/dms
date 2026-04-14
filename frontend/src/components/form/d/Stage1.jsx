@@ -154,7 +154,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = fal
         }
     }, [initialData, inspectionData, stage]);
 
-    const isReadOnly = isReview && userRole !== 'QC';
+    const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
     const handleFormChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }))

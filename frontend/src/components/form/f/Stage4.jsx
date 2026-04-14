@@ -252,7 +252,9 @@ function Stage4F({ initialData, inspectionData, isReview = false, readOnly = fal
         }
     }
 
-    return (
+      const isReadOnly = readOnly || (isReview && userRole !== 'QC');
+
+return (
         <div className="w-full mx-auto p-6 space-y-6">
             {alert.show && <FormAlert type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />}
             <div className="border rounded-lg p-4 space-y-4">

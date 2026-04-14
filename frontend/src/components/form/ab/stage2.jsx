@@ -183,7 +183,7 @@ function Stage2({ initialData, isReview = false, readOnly = false, stage = "stag
   }, [initialData])
 
   // ReadOnly Condition: Review mode AND not QC
-  const isReadOnly = isReview && userRole !== 'QC';
+  const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
   const handleSubmit = async () => {
     setIsSubmitting(true);

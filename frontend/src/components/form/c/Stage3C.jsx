@@ -273,7 +273,9 @@ const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "sta
     }
 
 
-    return (
+      const isReadOnly = readOnly || (isReview && userRole !== 'QC');
+
+return (
         <div className="space-y-6">
             <Card className="w-full">
                 <CardHeader>
@@ -307,7 +309,7 @@ const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "sta
                                 value={formData.welderNumber}
                                 placeholder='Enter Welder Number'
                                 onChange={(e) => handleChange('welderNumber', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             />
                         </div>
                         <div className="space-y-2">
@@ -316,7 +318,7 @@ const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "sta
                                 value={formData.overlayPt}
                                 placeholder='Enter Overlay PT (If applicable)'
                                 onChange={(e) => handleChange('overlayPt', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                             />
                         </div>
                     </div>

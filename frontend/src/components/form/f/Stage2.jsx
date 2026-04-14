@@ -257,7 +257,9 @@ const Stage2F = ({ initialData, inspectionData, isReview = false, readOnly = fal
         }
     }
 
-    return (
+      const isReadOnly = readOnly || (isReview && userRole !== 'QC');
+
+return (
         <Card className="w-full">
             <CardHeader>
                 <CardTitle>Stage 2: WELD Visual</CardTitle>
@@ -291,7 +293,7 @@ const Stage2F = ({ initialData, inspectionData, isReview = false, readOnly = fal
                             <Input
                                 value={formData.welderNumber}
                                 onChange={(e) => handleChange('welderNumber', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                                 placeholder="Enter Welder Number"
                             />
                         </div>
@@ -300,7 +302,7 @@ const Stage2F = ({ initialData, inspectionData, isReview = false, readOnly = fal
                             <Input
                                 value={formData.weldingProcess}
                                 onChange={(e) => handleChange('weldingProcess', e.target.value)}
-                                disabled={isReview && userRole !== 'QC'}
+                                disabled={isReadOnly}
                                 placeholder="Enter Welding Process"
                             />
                         </div>
