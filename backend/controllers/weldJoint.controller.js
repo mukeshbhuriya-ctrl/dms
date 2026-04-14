@@ -280,6 +280,24 @@ async function getReportNo(req, res) {
     }
 }
 
+/**
+ * Get full activity trail for a weld joint
+ */
+async function getJointTrail(req, res) {
+    try {
+        const { jointId } = req.params;
+        const trail = await weldJointService.getJointTrail(jointId);
+
+        res.json({
+            success: true,
+            data: trail
+        });
+    } catch (error) {
+        console.error('Get Joint Trail error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -289,5 +307,6 @@ module.exports = {
     generateStageReport,
     getStageConfig,
     getCumulativeData,
-    getReportNo
+    getReportNo,
+    getJointTrail
 };

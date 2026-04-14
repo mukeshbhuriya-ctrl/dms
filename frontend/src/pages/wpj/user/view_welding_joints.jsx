@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye } from "lucide-react"
+import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History } from "lucide-react"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -27,9 +27,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { FormAlert } from "@/components/ui/form-alert"
 import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
+import WeldJointTrail from "@/components/wpj/WeldJointTrail"
 
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
@@ -80,6 +87,12 @@ function ViewWeldingJoints() {
   const [previewJointId, setPreviewJointId] = useState(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [userGroupIds, setUserGroupIds] = useState([])
+
+  // Trail Sheet State
+  const [isTrailOpen, setIsTrailOpen] = useState(false)
+  const [trailJointId, setTrailJointId] = useState(null)
+  const [trailJointCategory, setTrailJointCategory] = useState(null)
+  const [trailJointNo, setTrailJointNo] = useState("")
   
   // Filter States
   const [statusFilter, setStatusFilter] = useState("all")
@@ -428,14 +441,26 @@ function ViewWeldingJoints() {
             {hasApprovedStages && (
               <Button
                 size="sm"
-                variant="ghost"
-                className="text-primary hover:text-primary/80"
+                variant="outline"
                 onClick={() => { setPreviewJointId(row.id); setIsPreviewOpen(true); }}
                 title="Preview approved stages"
               >
                 <Eye className="h-4 w-4" /> Preview
               </Button>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setTrailJointId(row.id);
+                setTrailJointCategory(row.jointCategory);
+                setTrailJointNo(row.jointNo);
+                setIsTrailOpen(true);
+              }}
+              title="View activity trail"
+            >
+              <History className="h-4 w-4" /> Trail
+            </Button>
             {actionButton}
           </div>
         );
@@ -542,6 +567,21 @@ function ViewWeldingJoints() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Activity Trail Sheet */}
+      <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+        <SheetContent className="sm:max-w-[500px] w-full p-0 overflow-y-auto">
+          <SheetHeader className="p-6 pb-2 border-b">
+            <SheetTitle className="text-xl font-bold flex flex-col gap-1">
+              <span>Weld Inspection Trail</span>
+              <span className="text-sm font-normal text-muted-foreground">Joint No: {trailJointNo}</span>
+            </SheetTitle>
+          </SheetHeader>
+          {isTrailOpen && trailJointId && (
+            <WeldJointTrail jointId={trailJointId} jointCategory={trailJointCategory} />
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   )
 }

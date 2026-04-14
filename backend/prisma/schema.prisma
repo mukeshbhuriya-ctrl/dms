@@ -153,6 +153,10 @@ model user{
   ncr_verified_by_qce ncr[] @relation("NcrVerifiedByQce")
   ncr_verified_by_head_quality ncr[] @relation("NcrVerifiedByHeadQuality")
   qc_groups user_qc_group[]
+
+  // Weld Inspection Trail relations
+  weld_stage_prod_reports weld_joint_stage[] @relation("WeldStageProdEng")
+  weld_stage_qc_reports   weld_joint_stage[] @relation("WeldStageQcEng")
 }
 
 model user_roles{
@@ -498,7 +502,9 @@ model weld_joint_stage {
   status          String   @default("pending") // pending, submitted, approved, rejected
   
   prod_eng_id     String?
+  prod_eng        user?    @relation("WeldStageProdEng", fields: [prod_eng_id], references: [id])
   qc_eng_id       String?
+  qc_eng          user?    @relation("WeldStageQcEng", fields: [qc_eng_id], references: [id])
   
   submitted_at    DateTime?
   approved_at     DateTime?

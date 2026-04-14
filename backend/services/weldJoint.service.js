@@ -822,6 +822,22 @@ class WeldJointService {
             throw error;
         }
     }
+
+    async getJointTrail(jointId) {
+        if (!jointId) throw new Error("Joint ID is required");
+
+        const trail = await prisma.weld_joint_stage.findMany({
+            where: { weld_joint_id: jointId },
+            include: {
+                prod_eng: { select: { id: true, name: true } },
+                qc_eng: { select: { id: true, name: true } },
+                assigned_qc_group: { select: { id: true, name: true } }
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        return trail;
+    }
 }
 
 module.exports = new WeldJointService();
