@@ -365,38 +365,51 @@ const Stage1C = ({ initialData, isReview, onSuccess }) => {
                 <div className="space-y-4 border-t pt-4">
                     <h3 className="font-semibold text-lg">I. Material Identification</h3>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed">
-                        <div className="space-y-2">
-                            <Label className="text-primary">Part 1 Selection (ITEM NO./PART NO.)</Label>
-                            <Select value={selectedPart1} onValueChange={(val) => handlePartSelection('part1', val)} disabled={isReview && userRole !== 'QC'}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Part 1" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {mhcItems.map(item => (
-                                        <SelectItem key={item.id} value={item.id}>
-                                            {item.item_no} {item.description ? `- ${item.description}` : ""}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                    {/* MHC Part Selection - Hidden for QC */}
+                    {userRole !== 'QC' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed">
+                            <div className="space-y-2">
+                                <Label className="text-primary">Part 1 Selection (ITEM NO./PART NO.)</Label>
+                                <Select 
+                                    key={`part1-${mhcItems.length}-${selectedPart1}`}
+                                    value={selectedPart1} 
+                                    onValueChange={(val) => handlePartSelection('part1', val)} 
+                                    disabled={isReview && userRole !== 'QC'}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Part 1" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {mhcItems.map(item => (
+                                            <SelectItem key={item.id} value={item.id}>
+                                                {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-primary">Part 2 Selection (ITEM NO./PART NO.)</Label>
+                                <Select 
+                                    key={`part2-${mhcItems.length}-${selectedPart2}`}
+                                    value={selectedPart2} 
+                                    onValueChange={(val) => handlePartSelection('part2', val)} 
+                                    disabled={isReview && userRole !== 'QC'}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Part 2 (Nozzle)" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {mhcItems.map(item => (
+                                            <SelectItem key={item.id} value={item.id}>
+                                                {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-primary">Part 2 Selection (ITEM NO./PART NO.)</Label>
-                            <Select value={selectedPart2} onValueChange={(val) => handlePartSelection('part2', val)} disabled={isReview && userRole !== 'QC'}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Part 2 (Nozzle)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {mhcItems.map(item => (
-                                        <SelectItem key={item.id} value={item.id}>
-                                            {item.item_no} {item.description ? `- ${item.description}` : ""}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
