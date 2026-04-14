@@ -91,11 +91,18 @@ const Stage2D = ({ initialData, inspectionData, isReview = false, readOnly = fal
         poNo: initialData.poNo || "",
       })
 
-      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/2`;
+      // Fetch dynamic report NO from dedicated API if not already present in inspection data
+      if (!initialData.inspectionData?.reportNo) {
+        api.get(`/api/wpj/report-no/${initialData.id}`).then(res => {
+          if (res.success && res.reportNo) {
+            setInputFields(prev => ({ ...prev, reportNo: res.reportNo }));
+          }
+        }).catch(err => console.error("Error fetching report no", err));
+      }
 
       setInputFields((prev) => ({
         ...prev,
-        reportNo: prev.reportNo || generatedReportNo,
+        reportNo: initialData.inspectionData?.reportNo || prev.reportNo || "",
         tagNo: initialData.tagNo || "",
         equipment: initialData.equipment || "",
         projectsId: initialData.projectsId || "",

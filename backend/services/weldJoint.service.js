@@ -8,6 +8,48 @@ class WeldJointService {
         return WELD_STAGES_CONFIG;
     }
 
+    async getReportNo(jointId) {
+        // 1. Fetch joint with related plan and EXISTING report info
+        const joint = await prisma.weld_joint.findUnique({
+            where: { id: jointId },
+            include: {
+                weld_joint_plan: {
+                    include: {
+                        job: { select: { job_number: true } }
+                    }
+                },
+                weld_joint_report_info: {
+                    select: { report_no: true }
+                }
+            }
+        });
+
+        if (!joint || !joint.weld_joint_plan) return null;
+
+        // 2. If report_no already exists in DB, return it
+        if (joint.weld_joint_report_info?.report_no) {
+            return joint.weld_joint_report_info.report_no;
+        }
+
+        // 3. Otherwise, calculate the standardized number
+        const jobNo = joint.weld_joint_plan.job?.job_number || "000";
+        const serialNo = joint.weld_joint_plan.serial_no || "000";
+        const calculatedReportNo = `SHR/${jobNo}/${serialNo}`;
+
+        // 4. Persist the calculated number to the database
+        // Use upsert to handle case where weld_joint_report_info record might not exist yet
+        await prisma.weld_joint_report_info.upsert({
+            where: { weld_joint_id: jointId },
+            update: { report_no: calculatedReportNo },
+            create: { 
+                weld_joint_id: jointId,
+                report_no: calculatedReportNo
+            }
+        });
+
+        return calculatedReportNo;
+    }
+
     _mapDbStageDataToCamelCase(dbData) {
         if (!dbData) return {};
         return {
@@ -218,6 +260,7 @@ class WeldJointService {
         );
 
         const { weld_joint_report_info, weld_joint_stages, ...jointRest } = joint;
+        
         return {
             ...jointRest,
             weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null

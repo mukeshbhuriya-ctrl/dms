@@ -261,6 +261,25 @@ async function getCumulativeData(req, res) {
     }
 }
 
+/**
+ * Dedicated API to fetch standardized Report No
+ */
+async function getReportNo(req, res) {
+    try {
+        const { jointId } = req.params;
+        const reportNo = await weldJointService.getReportNo(jointId);
+
+        if (!reportNo) {
+            return res.status(404).json({ success: false, message: 'Weld Joint not found' });
+        }
+
+        res.json({ success: true, reportNo });
+    } catch (error) {
+        console.error('Get Report No Error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -269,5 +288,6 @@ module.exports = {
     getWeldJointPlans,
     generateStageReport,
     getStageConfig,
-    getCumulativeData
+    getCumulativeData,
+    getReportNo
 };

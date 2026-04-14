@@ -279,6 +279,7 @@ function ViewWeldingJoints() {
         code: item.weld_joint_plan?.job?.code || "",
         jointNo: item.joint_no,
         jointCategory: item.joint_type,
+        generatedReportNo: item.generatedReportNo || "",
         status: getStatus(item),
         backChip: item.back_chip_req || false,
         inspectionData: item.weld_joint_inspection || {},
