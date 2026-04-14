@@ -552,6 +552,8 @@ model weld_joint_stage_data {
   post_pt_status          String?
   date                    String?
   assigned_ndt_engineer_id String?
+  rt_status               String?
+  rt_remark               String?
 }
 
 model weld_joint_stage_row {

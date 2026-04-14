@@ -183,6 +183,8 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         pwht: joint.pwht || false,
         rt: joint.rt || false,
         pt: joint.pt || false,
+        rtStatus: stageData.rtStatus || '',
+        rtRemark: stageData.rtRemark || '',
         rawData: stageData
     };
 };

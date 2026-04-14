@@ -28,6 +28,8 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
     const [error, setError] = useState("")
     const [success, setSuccess] = useState("")
     const [userRole, setUserRole] = useState("")
+    const [rtStatus, setRtStatus] = useState("")
+    const [rtRemark, setRtRemark] = useState("")
 
     // Basic Info State
     const [displayFields, setDisplayFields] = useState({
@@ -178,6 +180,9 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                     } else if (s4Data?.assignedQcGroupId) {
                         setSelectedQcGroupId(s4Data.assignedQcGroupId);
                     }
+
+                    if (s4Data?.rtStatus) setRtStatus(s4Data.rtStatus);
+                    if (s4Data?.rtRemark) setRtRemark(s4Data.rtRemark);
                 } catch (e) { }
             }
         }
@@ -189,11 +194,9 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
     const handleSubmit = async () => {
         setIsSubmitting(true)
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
             let token = null
             let userId = null;
-            let role = 'PROD'; // Default submitter
 
             if (authData) {
                 const parsed = JSON.parse(authData)
@@ -219,6 +222,8 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                 assignedQcGroupId: selectedQcGroupId,
                 productionEngineerName,
                 submissionDate: todayDate,
+                rtStatus,
+                rtRemark
             };
 
             const finalData = {
@@ -268,15 +273,11 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
         setError("");
         setSuccess("");
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
             const authData = localStorage.getItem("user_auth")
-            let token = null
             let userId = null;
-            const role = 'QC'; // Assuming QC/NDT performing review
 
             if (authData) {
                 const parsed = JSON.parse(authData)
-                token = parsed?.payload?.token || parsed?.token
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
@@ -292,6 +293,8 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                     assignedQcGroupId: selectedQcGroupId,
                     productionEngineerName,
                     submissionDate: todayDate,
+                    rtStatus,
+                    rtRemark
                 };
                 const finalData = {
                     ...existingData,
@@ -514,8 +517,8 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                 <CardHeader>
                     <CardTitle>Radiography Testing (RT)</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
                             <Label>Production Engineer Name:</Label>
                             <Input
@@ -538,7 +541,7 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
 
                         <div className="space-y-2">
                             <Label>QC Group Name:</Label>
-                            <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
+                            <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview || readOnly}>
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select QC Group" />
                                 </SelectTrigger>
@@ -552,12 +555,39 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                             </Select>
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
+                        <div className="space-y-2">
+                            <Label htmlFor="rtStatus">RT Status:</Label>
+                            <Select value={rtStatus} onValueChange={setRtStatus} disabled={isReadOnly}>
+                                <SelectTrigger id="rtStatus" className="w-full">
+                                    <SelectValue placeholder="Select RT Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="OK">OK</SelectItem>
+                                    <SelectItem value="NOT OK">NOT OK</SelectItem>
+                                    <SelectItem value="REPAIR">REPAIR</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="rtRemark">RT Remark:</Label>
+                            <Input
+                                id="rtRemark"
+                                type="text"
+                                value={rtRemark}
+                                onChange={(e) => setRtRemark(e.target.value)}
+                                placeholder="Enter RT Remark"
+                                disabled={isReadOnly}
+                            />
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
             {/* Shared QC Review & Approval Section */}
             {!readOnly && (
-
               <QCReviewSection
                 isReview={isReview}
                 userRole={userRole}
@@ -571,7 +601,6 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                     initialData?.inspectionData?.s4_rejected_at ? new Date(initialData.inspectionData.s4_rejected_at).toLocaleString() : ""
                 }
             />
-
             )}
 
             {!isReview && !readOnly && (

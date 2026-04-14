@@ -42,6 +42,8 @@ class WeldJointService {
             postPtStatus: dbData.post_pt_status,
             date: dbData.date,
             assignedNdtEngineerId: dbData.assigned_ndt_engineer_id,
+            rtStatus: dbData.rt_status,
+            rtRemark: dbData.rt_remark,
         };
     }
 
@@ -78,6 +80,8 @@ class WeldJointService {
             post_pt_status: camelData.postPtStatus,
             date: camelData.date,
             assigned_ndt_engineer_id: camelData.assignedNdtEngineerId,
+            rt_status: camelData.rtStatus,
+            rt_remark: camelData.rtRemark,
         };
     }
 
