@@ -383,14 +383,31 @@ const ProDataTable = ({
                           </>
                         ) : (
                           <div className="flex items-center gap-1 w-full animate-in fade-in duration-200">
-                            {col.filterType === 'select' ? (
-                              <MultiSelectFilter
-                                options={col.filterOptions || []}
-                                value={columnFilters[columnId]}
-                                onChange={(val) => onFilterChange({ [columnId]: val })}
-                                placeholder={col.header}
-                              />
-                            ) : (
+                             {col.filterType === 'select' ? (
+                               col.isMulti ? (
+                                <MultiSelectFilter
+                                  options={col.filterOptions || []}
+                                  value={columnFilters[columnId]}
+                                  onChange={(val) => onFilterChange({ [columnId]: val })}
+                                  placeholder={col.header}
+                                />
+                               ) : (
+                                <Select
+                                  value={columnFilters[columnId] || "all"}
+                                  onValueChange={(val) => onFilterChange({ [columnId]: val === 'all' ? "" : val })}
+                                >
+                                  <SelectTrigger className="h-7 text-[10px] w-full bg-white border-slate-300 shadow-none ring-0 focus:ring-1 focus:ring-blue-400 font-normal">
+                                    <SelectValue placeholder={`All ${col.header}`} />
+                                  </SelectTrigger>
+                                  <SelectContent className="max-h-[250px]">
+                                    <SelectItem value="all" className="text-xs italic text-slate-400 font-normal">All {col.header}</SelectItem>
+                                    {col.filterOptions?.map((opt, i) => (
+                                      <SelectItem key={`${opt.value}-${i}`} value={opt.value.toString()} className="text-xs font-normal">{opt.label}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                               )
+                             ) : (
                               <div className="relative flex-1">
                                 <Input
                                   autoFocus

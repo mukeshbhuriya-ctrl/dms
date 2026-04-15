@@ -141,7 +141,12 @@ function AssignDocument() {
     const selectedClient = columnFilters.customer_name;
     let filteredJobs = activeFilters.jobs;
     if (selectedClient) {
-      filteredJobs = filteredJobs.filter(j => (j.customer?.customer_name || j.customer_name) === selectedClient);
+      filteredJobs = filteredJobs.filter(j => {
+        const val = (j.customer?.customer_name || j.customer_name);
+        return Array.isArray(selectedClient) 
+          ? selectedClient.includes(val) 
+          : val === selectedClient;
+      });
     }
     const uniquePosLabels = [...new Set(filteredJobs.map(j => j.po?.po_number || j.po_number))].filter(Boolean);
     return uniquePosLabels.map(p => ({ label: p.toString(), value: p.toString() }));
@@ -152,10 +157,20 @@ function AssignDocument() {
     const selectedClient = columnFilters.customer_name;
     let filteredJobs = activeFilters.jobs;
     if (selectedClient) {
-      filteredJobs = filteredJobs.filter(j => (j.customer?.customer_name || j.customer_name) === selectedClient);
+      filteredJobs = filteredJobs.filter(j => {
+        const val = (j.customer?.customer_name || j.customer_name);
+        return Array.isArray(selectedClient) 
+          ? selectedClient.includes(val) 
+          : val === selectedClient;
+      });
     }
     if (selectedPo) {
-      filteredJobs = filteredJobs.filter(j => (j.po?.po_number || j.po_number) === selectedPo);
+      filteredJobs = filteredJobs.filter(j => {
+        const val = (j.po?.po_number || j.po_number);
+        return Array.isArray(selectedPo) 
+          ? selectedPo.includes(val) 
+          : val === selectedPo;
+      });
     }
     const uniqueJobsLabels = [...new Set(filteredJobs.map(j => j.job_number || j.number))].filter(Boolean);
     return uniqueJobsLabels.sort((a, b) => a.toString().localeCompare(b.toString(), undefined, { numeric: true })).map(j => ({ label: j.toString(), value: j.toString() }));
@@ -710,7 +725,7 @@ function AssignDocument() {
                   refreshKey={refreshKey}
                   topFilters={proTableTopFilters}
                   globalSearchPlaceholder="Search documents..."
-                  initialStickyColumns={["document.document_number", "shreno_doc_no"]}
+                  initialStickyColumns={["document.document_number"]}
                 />
           )}
 
