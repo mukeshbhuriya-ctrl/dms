@@ -122,6 +122,77 @@ class ApiClient {
     delete(endpoint, body = null, options = {}) {
         return this.request("DELETE", endpoint, body, options);
     }
+
+    /**
+     * Specialized method for file uploads with progress tracking using XMLHttpRequest
+     */
+    uploadWithProgress(endpoint, formData, options = {}) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const token = getAuthToken();
+
+            xhr.open('POST', `${backendUrl}${endpoint}`, true);
+            
+            // Allow credentials (cookies)
+            xhr.withCredentials = true;
+
+            if (token) {
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+            }
+
+            // Do NOT set Content-Type header manually for FormData, 
+            // the browser will set it automatically with the boundary
+
+            // Upload progress event
+            if (xhr.upload && options.onUploadProgress) {
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percentComplete = Math.round((event.loaded * 100) / event.total);
+                        options.onUploadProgress({
+                            loaded: event.loaded,
+                            total: event.total,
+                            progress: percentComplete
+                        });
+                    }
+                };
+            }
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        resolve(response);
+                    } catch (e) {
+                        resolve(xhr.responseText);
+                    }
+                } else {
+                    if (xhr.status === 401 && !options.skipAuthRedirect) {
+                        localStorage.removeItem("user_auth");
+                        window.location.href = "/";
+                        return;
+                    }
+                    
+                    let errorData;
+                    try {
+                        errorData = JSON.parse(xhr.responseText);
+                    } catch (e) {
+                        errorData = { message: xhr.responseText || "Upload failed" };
+                    }
+                    
+                    const error = new Error(errorData.message || `Upload failed with status ${xhr.status}`);
+                    error.status = xhr.status;
+                    error.data = errorData;
+                    reject(error);
+                }
+            };
+
+            xhr.onerror = () => {
+                reject(new Error("Network Error occurred during upload"));
+            };
+
+            xhr.send(formData);
+        });
+    }
 }
 
 const apiClient = new ApiClient();

@@ -17,8 +17,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors);
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const MAX_PAYLOAD_SIZE = parseInt(process.env.MAX_FILE_SIZE || 1073741824);
+app.use(express.json({ limit: MAX_PAYLOAD_SIZE }));
+app.use(express.urlencoded({ extended: true, limit: MAX_PAYLOAD_SIZE }));
 
 // Routes
 app.get('/', (req, res) => {

@@ -45,6 +45,7 @@ import DocumentTrail from "../../components/dms/DocumentTrail"
 
 function UploadDocument() {
     const [uploadingIds, setUploadingIds] = useState({})
+    const [uploadProgress, setUploadProgress] = useState({})
     const [statusFilter, setStatusFilter] = useState("all")
     const [approverStatusFilter, setApproverStatusFilter] = useState("all")
     const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -152,13 +153,18 @@ function UploadDocument() {
         if (!file) return
 
         setUploadingIds(prev => ({ ...prev, [documentId]: true }))
+        setUploadProgress(prev => ({ ...prev, [documentId]: 0 }))
 
         try {
             const formData = new FormData()
             formData.append('document_id', documentId)
             formData.append('file', file)
 
-            const result = await dccService.uploadDocumentVersion(formData)
+            const result = await dccService.uploadDocumentVersion(formData, {
+                onUploadProgress: (progressEvent) => {
+                    setUploadProgress(prev => ({ ...prev, [documentId]: progressEvent.progress }))
+                }
+            })
 
             if (result.success || result.data) {
                 toast.success("Document uploaded successfully")
@@ -171,6 +177,11 @@ function UploadDocument() {
             toast.error("An error occurred while uploading")
         } finally {
             setUploadingIds(prev => ({ ...prev, [documentId]: false }))
+            setUploadProgress(prev => {
+                const newProgress = { ...prev }
+                delete newProgress[documentId]
+                return newProgress
+            })
         }
     }
 
@@ -331,34 +342,36 @@ function UploadDocument() {
             accessorKey: "id",
             cell: (row) => {
                 const isUploading = uploadingIds[row.id]
+                const progress = uploadProgress[row.id]
                 const isDisabled = row.approverStatus === "approved" || row.approverStatus === "pending for approval"
 
                 return (
-                    <div className="flex items-center gap-2">
-                        <Input
-                            id={`upload-${row.id}`}
-                            type="file"
-                            className="hidden"
-                            onChange={(e) => handleDirectUpload(row.id, e.target.files[0])}
-                            disabled={isDisabled || isUploading}
-                        />
-                        <Label
-                            htmlFor={`upload-${row.id}`}
-                            className={`
-                                inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
-                                border border-input bg-background hover:bg-accent hover:text-accent-foreground
-                                h-9 px-3
-                                cursor-pointer
-                                ${isDisabled || isUploading ? 'opacity-50 pointer-events-none' : ''}
-                            `}
-                        >
-                            {isUploading ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                                <Upload className="h-4 w-4 mr-2" />
-                            )}
-                            {isUploading ? 'Uploading...' : 'Upload'}
-                        </Label>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                            <Input
+                                id={`upload-${row.id}`}
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => handleDirectUpload(row.id, e.target.files[0])}
+                                disabled={isDisabled || isUploading}
+                            />
+                            <Label
+                                htmlFor={`upload-${row.id}`}
+                                className={`
+                                    inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
+                                    border border-input bg-background hover:bg-accent hover:text-accent-foreground
+                                    h-9 px-3
+                                    cursor-pointer
+                                    ${isDisabled || isUploading ? 'opacity-50 pointer-events-none' : ''}
+                                `}
+                            >
+                                {isUploading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                ) : (
+                                    <Upload className="h-4 w-4 mr-2" />
+                                )}
+                                {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : 'Upload'}
+                            </Label>
 
                         <Button
                             variant="outline"
@@ -392,6 +405,17 @@ function UploadDocument() {
                             <History className="h-4 w-4 mr-2" />
                             Trail
                         </Button>
+                        </div>
+                        {isUploading && typeof progress === 'number' && (
+                            <div className="w-full mt-1">
+                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
+                                    <div 
+                                        className="bg-primary h-1.5 transition-all duration-300 ease-out" 
+                                        style={{ width: `${progress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )
             },
