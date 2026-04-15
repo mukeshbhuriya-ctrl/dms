@@ -5,17 +5,23 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FormAlert } from "@/components/ui/form-alert"
+import api from "@/api/api.client"
+import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage1", onSuccess  }) => {
+const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = false, stage = "stage1", onSuccess }) => {
     const sPrefix = stage.replace('stage', 's');
-    
+
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-    const [qcEngineer, setQcEngineer] = useState("") 
+    const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
+    const [qcRemarks, setQcRemarks] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [userRole, setUserRole] = useState("")
-    const [qcEngineers, setQcEngineers] = useState([])
+    const [qcGroups, setQcGroups] = useState([])
     const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
+    const [mhcItems, setMhcItems] = useState([])
+    const [selectedPart1, setSelectedPart1] = useState("")
+    const [selectedPart2, setSelectedPart2] = useState("")
 
     const [formData, setFormData] = useState({
         materialIdMarks: "",
@@ -48,42 +54,74 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
         }
     }, [isReview])
 
+    // Fetch QC Groups
     useEffect(() => {
-        const fetchQeEngineers = async () => {
+        const fetchQcGroups = async () => {
             try {
-                const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-                const authData = localStorage.getItem("user_auth")
-                let token = null
-                if (authData) {
-                    try {
-                        const parsed = JSON.parse(authData)
-                        token = parsed?.payload?.token || parsed?.token
-                    } catch { }
-                }
-
-                const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": token ? `Bearer ${token}` : ""
-                    },
-                    credentials: "include",
-                })
-                const data = await res.json()
-                if (res.ok && data.success) {
-                    setQcEngineers(data.data || [])
+                const response = await api.get('/api/qc-groups');
+                if (response && response.success) {
+                    setQcGroups(response.data || []);
                 }
             } catch (error) {
-                console.error("Error fetching QE Engineers:", error)
+                console.error("Error fetching QC groups:", error);
             }
+        };
+        fetchQcGroups();
+    }, []);
+
+    // Fetch Approved MHC Items
+    useEffect(() => {
+        const fetchMhcItems = async () => {
+            const msn = initialData?.msnNumber;
+            if (!msn || msn === '-') return;
+
+            try {
+                const res = await api.get(`/api/mhc/approved-items-by-msn/${msn}`);
+                if (res.success) {
+                    setMhcItems(res.data || []);
+                }
+            } catch (error) {
+                console.error("Error fetching MHC items:", error);
+            }
+        };
+        fetchMhcItems();
+    }, [initialData?.msnNumber]);
+
+    const handlePartSelection = (partType, itemId) => {
+        if (partType === 'part1') {
+            setSelectedPart1(itemId);
+        } else {
+            setSelectedPart2(itemId);
         }
-        fetchQeEngineers()
-    }, [])
+    }
+
+    // Auto-populate Nozzle Number and Size based on selections
+    useEffect(() => {
+        // Skip during initial load if we already have inspection data but no selection has been made yet
+        if (!mhcItems.length) return;
+        if (!selectedPart1 && !selectedPart2) return;
+
+        const item1 = mhcItems.find(i => i.id === selectedPart1);
+        const item2 = mhcItems.find(i => i.id === selectedPart2);
+
+        const desc1 = item1 ? `${item1.item_no || ''} - ${item1.description || ''}`.trim() : "";
+        const desc2 = item2 ? `${item2.item_no || ''} - ${item2.description || ''}`.trim() : "";
+        
+        const size1 = item1?.size || "";
+        const size2 = item2?.size || "";
+
+        setFormData(prev => ({
+            ...prev,
+            nozzleNumber: [desc1, desc2].filter(Boolean).join(" | "),
+            nozzleSize: [size1, size2].filter(Boolean).join(" | ")
+        }));
+    }, [selectedPart1, selectedPart2, mhcItems]);
 
     useEffect(() => {
         const inspData = inspectionData || initialData?.inspectionData;
         if (inspData) {
-            if (inspData[`${sPrefix}_qc_eng_id`]) setQcEngineer(inspData[`${sPrefix}_qc_eng_id`]);
+            if (inspData[`${sPrefix}_assigned_qc_group_id`]) setSelectedQcGroupId(inspData[`${sPrefix}_assigned_qc_group_id`]);
+            if (inspData[`${sPrefix}_remarks`]) setQcRemarks(inspData[`${sPrefix}_remarks`]);
             if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
             if (inspData[`${sPrefix}_data`]) {
@@ -93,7 +131,12 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
 
                     if (sData.productionEngineerName) setProductionEngineerName(sData.productionEngineerName);
                     if (sData.submissionDate) setTodayDate(sData.submissionDate);
-                    if (!inspData[`${sPrefix}_qc_eng_id`] && sData.assignedQcEngineerId) setQcEngineer(sData.assignedQcEngineerId);
+
+                    if (inspData[`${sPrefix}_assigned_qc_group_id`]) {
+                        setSelectedQcGroupId(inspData[`${sPrefix}_assigned_qc_group_id`]);
+                    } else if (sData.assignedQcGroupId) {
+                        setSelectedQcGroupId(sData.assignedQcGroupId);
+                    }
 
                     setFormData(prev => ({
                         ...prev,
@@ -111,7 +154,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
         }
     }, [initialData, inspectionData, stage]);
 
-    const isReadOnly = isReview && userRole !== 'QC';
+    const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
     const handleFormChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }))
@@ -132,14 +175,14 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            if (!qcEngineer) {
-                setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
+            if (!selectedQcGroupId) {
+                setAlert({ show: true, type: 'error', message: "Please select QC Group" });
                 setIsSubmitting(false);
                 return;
             }
 
             const currentStageData = {
-                assignedQcEngineerId: qcEngineer,
+                assignedQcGroupId: selectedQcGroupId,
                 productionEngineerName,
                 submissionDate: todayDate,
                 ...formData
@@ -159,31 +202,31 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 }
             };
 
+            const basicInfo = {
+                d: {
+                    msnNumber: initialData?.msnNumber,
+                    equipment: initialData?.equipment,
+                    drgNo: initialData?.drgNo,
+                }
+            };
+
             const payload = {
                 jointId: initialData?.id,
                 stage: stage,
                 status: "pending",
                 engineerId: userId,
                 role: 'PROD',
-                data: finalData
+                data: finalData,
+                basicInfo: basicInfo
             }
 
-            const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": token ? `Bearer ${token}` : ""
-                },
-                body: JSON.stringify(payload),
-                credentials: "include",
-            });
+            const res = await api.post("/api/wpj/update-stage-status", payload);
 
-            if (res.ok) {
+            if (res.success) {
                 setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} Submitted Successfully` });
                 setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
-                const data = await res.json();
-                setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
+                setAlert({ show: true, type: 'error', message: res.message || "Submission failed" });
             }
         } catch (error) {
             console.error(error);
@@ -208,29 +251,62 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
                 userId = parsed?.payload?.user?.id || parsed?.user?.id
             }
 
-            const payload = {
+            // If Approved by QC, save changes first (Standard pattern)
+            if (status === 'approved') {
+                const currentStageData = {
+                    assignedQcGroupId: selectedQcGroupId,
+                    productionEngineerName,
+                    submissionDate: todayDate,
+                    ...formData
+                };
+
+                const inspData = inspectionData || initialData?.inspectionData;
+                let existingData = {};
+                if (inspData?.[`${sPrefix}_data`]) {
+                    existingData = typeof inspData[`${sPrefix}_data`] === 'string' ? JSON.parse(inspData[`${sPrefix}_data`]) : inspData[`${sPrefix}_data`];
+                }
+
+                const finalData = {
+                    ...existingData,
+                    d: {
+                        ...existingData?.d,
+                        [sPrefix]: currentStageData
+                    }
+                };
+
+                const basicInfo = {
+                    d: {
+                        msnNumber: initialData?.msnNumber,
+                        equipment: initialData?.equipment,
+                        drgNo: initialData?.drgNo,
+                    }
+                };
+
+                await api.post("/api/wpj/update-stage-status", {
+                    jointId: initialData?.id,
+                    stage: stage,
+                    status: status,
+                    engineerId: userId,
+                    role: 'QC',
+                    data: finalData,
+                    basicInfo: basicInfo
+                });
+            }
+
+            const res = await api.post("/api/wpj/review-stage", {
                 jointId: initialData?.id,
                 stage: stage,
                 status: status,
                 engineerId: userId,
-                role: 'QC'
-            }
-
-            const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": token ? `Bearer ${token}` : ""
-                },
-                body: JSON.stringify(payload),
-                credentials: "include",
+                role: 'QC',
+                remarks: qcRemarks
             });
-            if (res.ok) {
+
+            if (res.success) {
                 setAlert({ show: true, type: 'success', message: `${stage.replace('stage', 'Stage ')} ${status} Successfully` });
                 setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
             } else {
-                const data = await res.json();
-                setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
+                setAlert({ show: true, type: 'error', message: res.message || "Review action failed" });
             }
         } catch (error) {
             console.error(error);
@@ -271,6 +347,53 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
                     {/* I. Material Identification Section */}
                     <div className="space-y-4 border-t pt-4">
                         <h3 className="font-semibold text-lg">I. Material Identification</h3>
+
+                        {/* MHC Part Selection - Hidden for QC */}
+                        {userRole !== 'QC' && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed">
+                                <div className="space-y-2">
+                                    <Label className="text-primary">Part 1 Selection (ITEM NO./PART NO.)</Label>
+                                    <Select 
+                                        key={`part1-${mhcItems.length}-${selectedPart1}`}
+                                        value={selectedPart1} 
+                                        onValueChange={(val) => handlePartSelection('part1', val)} 
+                                        disabled={isReadOnly}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select Part 1" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {mhcItems.map(item => (
+                                                <SelectItem key={item.id} value={item.id}>
+                                                    {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-primary">Part 2 Selection (ITEM NO./PART NO.)</Label>
+                                    <Select 
+                                        key={`part2-${mhcItems.length}-${selectedPart2}`}
+                                        value={selectedPart2} 
+                                        onValueChange={(val) => handlePartSelection('part2', val)} 
+                                        disabled={isReadOnly}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select Part 2 (Nozzle)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {mhcItems.map(item => (
+                                                <SelectItem key={item.id} value={item.id}>
+                                                    {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <Label>Characteristics to be checked</Label>
@@ -391,43 +514,46 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, stage = "stage
                                 <Input value={todayDate} readOnly className="bg-muted" />
                             </div>
                             <div className="space-y-2">
-                                <Label>QC Engineer:</Label>
-                                <Select value={qcEngineer} onValueChange={setQcEngineer} disabled={isReview}>
+                                <Label>QC Group Name:</Label>
+                                <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select QC Engineer" />
+                                        <SelectValue placeholder="Select QC Group" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {qcEngineers.map(eng => (
-                                            <SelectItem key={eng.id} value={eng.id}>{eng.name?.toUpperCase()}</SelectItem>
+                                        {qcGroups.map(group => (
+                                            <SelectItem key={group.id} value={group.id}>{group.name?.toUpperCase()}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>
                             </div>
                         </div>
 
-                        <div className="flex justify-end gap-2 items-center pt-4">
-                            {!isReview ? (
+                        {/* Shared QC Review & Approval Section */}
+                        {!readOnly && (
+
+                          <QCReviewSection
+                            isReview={isReview}
+                            userRole={userRole}
+                            status={initialData?.inspectionData?.[`${sPrefix}_status`]}
+                            remarks={qcRemarks}
+                            setRemarks={setQcRemarks}
+                            onAction={handleReviewAction}
+                            isSubmitting={isSubmitting}
+                            reviewDate={
+                                initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleString() :
+                                    initialData?.inspectionData?.[`${sPrefix}_rejected_at`] ? new Date(initialData.inspectionData[`${sPrefix}_rejected_at`]).toLocaleString() : ""
+                            }
+                        />
+
+                        )}
+
+                        {!isReview && !readOnly && (
+                            <div className="mt-12 flex justify-end pb-10">
                                 <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+                                    {isSubmitting ? "Processing..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
                                 </Button>
-                            ) : (
-                                <>
-                                    {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
-                                        <Input
-                                            value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                                            readOnly
-                                            className="bg-muted w-auto min-w-[200px] text-center font-medium"
-                                        />
-                                    )}
-                                    <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                                        Reject
-                                    </Button>
-                                    <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                                        Approve
-                                    </Button>
-                                </>
-                            )}
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>

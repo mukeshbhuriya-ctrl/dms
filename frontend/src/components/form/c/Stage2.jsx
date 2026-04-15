@@ -16,14 +16,17 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
+import api from "@/api/api.client"
+import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess }) {
+function Stage2({ initialData, isReview = false, readOnly = false, stage = "stage2" , onSuccess }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-  const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
+  const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
+  const [qcRemarks, setQcRemarks] = useState("")
+  const [qcGroups, setQcGroups] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [userRole, setUserRole] = useState("")
-  const [qcEngineers, setQcEngineers] = useState([])
   const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
 
   // Although only 3 fields are shown, we keep the state structure for consistent payloads and synchronization with initialData
@@ -66,35 +69,20 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
     }
   }, [isReview])
 
+  // Fetch QC Groups
   useEffect(() => {
-    const fetchQcEngineers = async () => {
+    const fetchQcGroups = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
+        const response = await api.get('/api/qc-groups');
+        if (response && response.success) {
+          setQcGroups(response.data || []);
         }
-
-        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          setQcEngineers(data.data || [])
-        }
-      } catch (error) { console.error(error) }
-    }
-    fetchQcEngineers()
-  }, [])
+      } catch (error) {
+        console.error("Error fetching QC groups:", error);
+      }
+    };
+    fetchQcGroups();
+  }, []);
 
   const getCategoryKey = () => {
     return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'c';
@@ -108,11 +96,18 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         poNo: initialData.poNo || "",
       })
 
-      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/2`;
+      // Fetch dynamic report NO from dedicated API if not already present in inspection data
+      if (!initialData.inspectionData?.reportNo) {
+        api.get(`/api/wpj/report-no/${initialData.id}`).then(res => {
+          if (res.success && res.reportNo) {
+            setInputFields(prev => ({ ...prev, reportNo: res.reportNo }));
+          }
+        }).catch(err => console.error("Error fetching report no", err));
+      }
 
       setInputFields((prev) => ({
         ...prev,
-        reportNo: prev.reportNo || generatedReportNo,
+        reportNo: initialData.inspectionData?.reportNo || prev.reportNo || "",
         tagNo: initialData.tagNo || "",
         equipment: initialData.equipment || "",
         projectsId: initialData.projectsId || "",
@@ -125,8 +120,11 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         const categoryKey = getCategoryKey();
         const inspectionData = initialData.inspectionData;
 
-        if (inspectionData[`${sPrefix}_qc_eng_id`]) {
-          setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
+        if (inspectionData[`${sPrefix}_assigned_qc_group_id`]) {
+          setSelectedQcGroupId(inspectionData[`${sPrefix}_assigned_qc_group_id`]);
+        }
+        if (inspectionData[`${sPrefix}_remarks`]) {
+          setQcRemarks(inspectionData[`${sPrefix}_remarks`]);
         }
         if (inspectionData[`${sPrefix}_prod_eng_name`]) {
           setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
@@ -158,8 +156,10 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
             if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
             if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
-            if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
-              setBackChipQcEngineer(sbcData.assignedQcEngineerId);
+            if (inspectionData[`${sPrefix}_assigned_qc_group_id`]) {
+              setSelectedQcGroupId(inspectionData[`${sPrefix}_assigned_qc_group_id`]);
+            } else if (sbcData?.assignedQcGroupId) {
+              setSelectedQcGroupId(sbcData.assignedQcGroupId);
             }
           } catch (e) { console.error(e) }
         }
@@ -167,7 +167,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
     }
   }, [initialData])
 
-  const isReadOnly = isReview && userRole !== 'QC';
+  const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -183,8 +183,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
 
-      if (!backChipQcEngineer) {
-        setAlert({ show: true, type: 'error', message: "Please select QC Engineer" });
+      if (!selectedQcGroupId) {
+        setAlert({ show: true, type: 'error', message: "Please select QC Group" });
         setIsSubmitting(false);
         return;
       }
@@ -200,7 +200,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
       const currentStageData = {
         productionEngineerName,
         submissionDate: todayDate,
-        assignedQcEngineerId: backChipQcEngineer
+        assignedQcGroupId: selectedQcGroupId
       };
 
       const finalData = {
@@ -228,19 +228,13 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         basicInfo: basicInfo
       }
 
-      const res = await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-        body: JSON.stringify(payload),
-        credentials: "include",
-      });
+      const res = await api.post("/api/wpj/update-stage-status", payload);
 
-      if (res.ok) {
+      if (res.success) {
         setAlert({ show: true, type: 'success', message: "Back Chip submitted successfully" });
         setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
-        const data = await res.json();
-        setAlert({ show: true, type: 'error', message: data.message || "Submission failed" });
+        setAlert({ show: true, type: 'error', message: res.message || "Submission failed" });
       }
     } catch (error) {
       console.error(error);
@@ -274,7 +268,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         const currentStageData = {
           productionEngineerName,
           submissionDate: todayDate,
-          assignedQcEngineerId: backChipQcEngineer
+          assignedQcGroupId: selectedQcGroupId
         };
 
         const finalData = {
@@ -292,41 +286,31 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
           }
         };
 
-        await fetch(`${backendUrl}/api/wpj/update-stage-status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-          body: JSON.stringify({
-            jointId: initialData?.id,
-            stage: stage,
-            status: status,
-            engineerId: userId,
-            role: 'QC',
-            data: finalData,
-            basicInfo: basicInfo
-          }),
-          credentials: "include",
-        });
-      }
-
-      const res = await fetch(`${backendUrl}/api/wpj/review-stage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": token ? `Bearer ${token}` : "" },
-        body: JSON.stringify({
+        await api.post("/api/wpj/update-stage-status", {
           jointId: initialData?.id,
           stage: stage,
           status: status,
           engineerId: userId,
-          role: 'QC'
-        }),
-        credentials: "include",
+          role: 'QC',
+          data: finalData,
+          basicInfo: basicInfo
+        });
+      }
+
+      const res = await api.post("/api/wpj/review-stage", {
+        jointId: initialData?.id,
+        stage: stage,
+        status: status,
+        engineerId: userId,
+        role: 'QC',
+        remarks: qcRemarks
       });
 
-      if (res.ok) {
+      if (res.success) {
         setAlert({ show: true, type: 'success', message: `Back Chip ${status} successfully` });
         setTimeout(() => { if (onSuccess) onSuccess(); }, 1500);
       } else {
-        const data = await res.json();
-        setAlert({ show: true, type: 'error', message: data.message || "Review action failed" });
+        setAlert({ show: true, type: 'error', message: res.message || "Review action failed" });
       }
     } catch (error) {
       console.error(error);
@@ -395,19 +379,19 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="backChipQcEngineer">QC Engineer Name:</Label>
+                <Label>QC Group Name:</Label>
                 <Select
-                  value={backChipQcEngineer}
-                  onValueChange={setBackChipQcEngineer}
+                  value={selectedQcGroupId}
+                  onValueChange={setSelectedQcGroupId}
                   disabled={isReview}
                 >
                   <SelectTrigger className="w-full focus:ring-2 focus:ring-primary">
-                    <SelectValue placeholder="Select QC Engineer" />
+                    <SelectValue placeholder="Select QC Group" />
                   </SelectTrigger>
                   <SelectContent>
-                    {qcEngineers.map((engineer) => (
-                      <SelectItem key={engineer.id} value={engineer.id}>
-                        {engineer.name?.toUpperCase()}
+                    {qcGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name?.toUpperCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -416,45 +400,36 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
             </div>
           </div>
 
-          <div className="mt-8 flex justify-end gap-3 items-center border-t pt-6">
-            {!isReview ? (
-              <Button 
-                onClick={handleSubmit} 
-                className="min-w-[150px] shadow-sm hover:translate-y-[-1px] transition-all" 
+          {/* Shared QC Review & Approval Section */}
+          {!readOnly && (
+
+            <QCReviewSection
+            isReview={isReview}
+            userRole={userRole}
+            status={initialData?.inspectionData?.[`${sPrefix}_status`]}
+            remarks={qcRemarks}
+            setRemarks={setQcRemarks}
+            onAction={handleReviewAction}
+            isSubmitting={isSubmitting}
+            reviewDate={
+              initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleString() :
+                initialData?.inspectionData?.[`${sPrefix}_rejected_at`] ? new Date(initialData.inspectionData[`${sPrefix}_rejected_at`]).toLocaleString() : ""
+            }
+          />
+
+          )}
+
+          {!isReview && !readOnly && (
+            <div className="mt-12 flex justify-end pb-10 gap-3 border-t pt-6">
+              <Button
+                onClick={handleSubmit}
+                className="min-w-[150px] shadow-sm hover:translate-y-[-1px] transition-all"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
               </Button>
-            ) : (
-              <>
-                {(isReview || initialData?.inspectionData?.[`${sPrefix}_approved_at`]) && (
-                  <div className="flex items-center gap-2 mr-auto">
-                    <Label className="text-muted-foreground">Status:</Label>
-                    <span className="font-semibold text-green-600">
-                      Approved on {initialData?.inspectionData?.[`${sPrefix}_approved_at`] 
-                        ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() 
-                        : new Date().toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
-                <Button 
-                  onClick={() => handleReviewAction('rejected')} 
-                  variant="outline" 
-                  className="min-w-[100px] hover:bg-destructive/10"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Processing..." : "Reject"}
-                </Button>
-                <Button 
-                  onClick={() => handleReviewAction('approved')} 
-                  className="min-w-[100px] bg-primary hover:opacity-90 shadow-md"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? "Processing..." : "Approve"}
-                </Button>
-              </>
-            )}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -363,6 +363,32 @@ class PDFGenerator {
         doc.font(this.fonts.bold).fillColor(this.colors.black);
         const rtText = (data.rt) ? 'YES' : 'NO';
         doc.text(rtText, x + 2 * colW + pad, tY);
+
+        // SECOND ROW: RT Results
+        curY += rowH + 10;
+        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
+            .text('Radiography Testing Results', x, curY, { width: width, align: 'center' });
+        
+        curY += 20;
+        // Status Column
+        const statusColW = width * 0.4;
+        const remarkColW = width * 0.6;
+
+        doc.rect(x, curY, statusColW, rowH).stroke();
+        doc.rect(x + statusColW, curY, remarkColW, rowH).stroke();
+
+        doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10);
+        doc.text('RT Status:', x + pad, curY + 10);
+        doc.text('RT Remark:', x + statusColW + pad, curY + 10);
+        curY += rowH;
+
+        doc.rect(x, curY, statusColW, rowH).stroke();
+        doc.rect(x + statusColW, curY, remarkColW, rowH).stroke();
+
+        doc.font(this.fonts.bold).fillColor(this.colors.black);
+        doc.text(data.rtStatus || '-', x + pad, curY + 10);
+        doc.font(this.fonts.regular);
+        doc.text(data.rtRemark || '-', x + statusColW + pad, curY + 10);
     }
 
     drawStage5Content(doc, x, y, width, data, bottomY) {

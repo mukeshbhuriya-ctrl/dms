@@ -11,6 +11,8 @@ router.post('/create', MhcController.create);
 router.put('/update/:id', MhcController.update);
 router.put('/update-status/:id', MhcController.updateStatus);
 router.get('/next-report-no/:job_id', MhcController.getNextReportNo);
+router.get('/approved-items/:job_id', MhcController.getApprovedItemsByJob);
+router.get('/approved-items-by-msn/:msn', MhcController.getApprovedItemsByMsn);
 router.get('/:id', MhcController.getById);
 
 module.exports = router;

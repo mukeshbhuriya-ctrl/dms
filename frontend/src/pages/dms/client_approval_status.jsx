@@ -57,6 +57,7 @@ const ClientApprovalStatus = () => {
     const [view, setView] = useState("list"); // 'list' | 'review'
     const [selectedTransmission, setSelectedTransmission] = useState(null);
     const [rowUpdates, setRowUpdates] = useState({}); // { td_id: { status: 'Approved', remarks: '', file: null, loading: false, submitted: false } }
+    const [uploadProgress, setUploadProgress] = useState({});
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [statusFilter, setStatusFilter] = useState("all");
     const [activeListFilters, setActiveListFilters] = useState({ customers: [], pos: [] });
@@ -180,6 +181,7 @@ const ClientApprovalStatus = () => {
         }
 
         setRowUpdates(prev => ({ ...prev, [rowId]: { ...prev[rowId], loading: true } }));
+        setUploadProgress(prev => ({ ...prev, [rowId]: 0 }));
 
         try {
             const formData = new FormData();
@@ -190,7 +192,11 @@ const ClientApprovalStatus = () => {
                 formData.append('client_file', update.file);
             }
 
-            const res = await dccService.updateTransmissionDocumentClientStatus(formData);
+            const res = await dccService.updateTransmissionDocumentClientStatus(formData, {
+                onUploadProgress: (progressEvent) => {
+                    setUploadProgress(prev => ({ ...prev, [rowId]: progressEvent.progress }));
+                }
+            });
             if (res.success) {
                 toast.success("Document review submitted!");
                 setRowUpdates(prev => ({ 
@@ -206,6 +212,12 @@ const ClientApprovalStatus = () => {
             console.error("Error submitting row:", error);
             toast.error(error.message || "Submission failed");
             setRowUpdates(prev => ({ ...prev, [rowId]: { ...prev[rowId], loading: false } }));
+        } finally {
+            setUploadProgress(prev => {
+                const newProgress = { ...prev };
+                delete newProgress[rowId];
+                return newProgress;
+            });
         }
     };
 
@@ -408,49 +420,61 @@ const ClientApprovalStatus = () => {
                                   (update.status === 'Commented' || update.file || update.existingFile);
 
                 return (
-                    <div className="flex items-center gap-2">
-                        <Button 
-                            variant="outline"
-                            size="sm"
-                            className={`h-8 px-4 font-semibold text-[11px] ${
-                                update.submitted 
-                                ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-50 cursor-default' 
-                                : 'border-slate-200 text-slate-700'
-                            }`}
-                            disabled={update.loading || update.submitted || !canSubmit}
-                            onClick={() => handleSubmitRow(row.id)}
-                        >
-                            {update.loading ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                            ) : update.submitted ? (
-                                <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-                            ) : (
-                                <Save className="w-3.5 h-3.5 mr-1.5" />
-                            )}
-                            {update.submitted ? 'Submitted' : 'Submit'}
-                        </Button>
-                        <div className="flex gap-1.5 ml-2">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
                             <Button 
-                                variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500"
-                                onClick={() => {
-                                    setActivePreviewDoc({
-                                        documentName: row.doc_name,
-                                        versionNo: row.revision,
-                                        mimeType: row.mimeType,
-                                        filePath: row.filePath
-                                    });
-                                    setPreviewUrl(row.previewUrl);
-                                    setIsPreviewOpen(true);
-                                }}
+                                variant="outline"
+                                size="sm"
+                                className={`h-8 px-4 font-semibold text-[11px] ${
+                                    update.submitted 
+                                    ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-50 cursor-default' 
+                                    : 'border-slate-200 text-slate-700'
+                                }`}
+                                disabled={update.loading || update.submitted || !canSubmit}
+                                onClick={() => handleSubmitRow(row.id)}
                             >
-                                <Eye className="h-3.5 w-3.5" />
+                                {update.loading ? (
+                                    <div className="relative inline-flex items-center justify-center mr-1.5">
+                                        <svg className="w-3.5 h-3.5 transform -rotate-90">
+                                            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-slate-200" />
+                                            <circle 
+                                                cx="7" cy="7" r="5" 
+                                                stroke="currentColor" strokeWidth="2" fill="transparent" 
+                                                strokeDasharray={31.42} strokeDashoffset={typeof uploadProgress[row.id] === 'number' ? 31.42 - (uploadProgress[row.id] / 100) * 31.42 : 0} 
+                                                className="text-primary transition-all duration-300 ease-out" strokeLinecap="round" 
+                                            />
+                                        </svg>
+                                    </div>
+                                ) : update.submitted ? (
+                                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                                ) : (
+                                    <Save className="w-3.5 h-3.5 mr-1.5" />
+                                )}
+                                {update.loading ? (typeof uploadProgress[row.id] === 'number' ? `Submitting... ${uploadProgress[row.id]}%` : 'Submitting...') : update.submitted ? 'Submitted' : 'Submit'}
                             </Button>
-                            <Button 
-                                variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500"
-                                onClick={() => { setActiveDocId(row.group_document_id); setIsTrailOpen(true); }}
-                            >
-                                <History className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex gap-1.5 ml-2">
+                                <Button 
+                                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500"
+                                    onClick={() => {
+                                        setActivePreviewDoc({
+                                            documentName: row.doc_name,
+                                            versionNo: row.revision,
+                                            mimeType: row.mimeType,
+                                            filePath: row.filePath
+                                        });
+                                        setPreviewUrl(row.previewUrl);
+                                        setIsPreviewOpen(true);
+                                    }}
+                                >
+                                    <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button 
+                                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500"
+                                    onClick={() => { setActiveDocId(row.group_document_id); setIsTrailOpen(true); }}
+                                >
+                                    <History className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 );

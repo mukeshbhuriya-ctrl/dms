@@ -85,6 +85,28 @@ class MhcController {
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
+
+    async getApprovedItemsByJob(req, res) {
+        try {
+            const result = await MhcService.getApprovedItemsByJob(req.user.company_id, req.params.job_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('MHC getApprovedItemsByJob error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async getApprovedItemsByMsn(req, res) {
+        try {
+            const result = await MhcService.getApprovedItemsByMsn(req.user.company_id, req.params.msn);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('MHC getApprovedItemsByMsn error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new MhcController();

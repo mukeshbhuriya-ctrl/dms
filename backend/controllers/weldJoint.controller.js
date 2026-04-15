@@ -49,12 +49,17 @@ async function generateStageReport(req, res) {
             const config = WELD_STAGES_CONFIG[jt] || [];
             
             await Promise.all(config.map(async (stageObj) => {
+                // Skip if the stage requirement is disabled for this joint
+                if (stageObj.condition && !joint[stageObj.condition]) return;
+
                 const sKey = stageObj.id;
                 const sPrefix = sKey.replace('stage', 's');
-                const isRequired = !stageObj.condition || !!joint[stageObj.condition];
-                const hasStatus = !!insp[`${sPrefix}_status`];
+                
+                // Only include approved stages for the cumulative report
+                const isApproved = insp[`${sPrefix}_status`] === 'approved';
+                const isBaseStage = sKey === 'stage1';
 
-                if (isRequired || hasStatus || sKey === 'stage1') {
+                if (isApproved || isBaseStage) {
                     const sData = await extractStageData(insp, plan, job, joint, sKey, categoryKey);
                     allStagesData[sKey] = { ...sData, label: stageObj.label };
                 }
@@ -99,15 +104,20 @@ async function generateStageReport(req, res) {
 async function getWeldJoints(req, res) {
     try {
         const company_id = req.user.company_id;
-        const { page, limit, search, status, sortBy, sortOrder } = req.query;
-
+        const { page, limit, search, status, sortBy, sortOrder, client, po, job, cat, msn } = req.query;
+ 
         const result = await weldJointService.findAll(company_id, {
             page,
             limit,
             search,
             status,
             sortBy,
-            sortOrder
+            sortOrder,
+            client,
+            po,
+            job,
+            cat,
+            msn
         }, {
             userId: req.user.userid || req.user.id,
             roles: req.user.role
@@ -202,11 +212,106 @@ async function getWeldJointPlans(req, res) {
     }
 }
 
+async function getWeldJointActiveFilters(req, res) {
+    try {
+        const company_id = req.user.company_id;
+        const filters = await weldJointService.getActiveFilters(company_id);
+        res.status(200).json({ success: true, data: filters });
+    } catch (error) {
+        console.error('Get weld joint filters error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
+async function getCumulativeData(req, res) {
+    try {
+        const { jointId } = req.params;
+        const joint = await weldJointService.getWeldJointWithInspection(jointId);
+
+        if (!joint) {
+            return res.status(404).json({ success: false, message: 'Weld Joint not found' });
+        }
+
+        const jt = joint.joint_type ? joint.joint_type.toUpperCase() : 'A';
+        const config = WELD_STAGES_CONFIG[jt] || [];
+        const insp = joint.weld_joint_inspection || {};
+
+        // Build approved stages list
+        const approvedStages = config
+            .filter(stageObj => {
+                // Skip if the stage requirement is disabled for this joint
+                if (stageObj.condition && !joint[stageObj.condition]) return false;
+
+                // Check condition (e.g. back_chip_req, pwht, rt, pt)
+                const sPrefix = stageObj.id.replace('stage', 's');
+                return insp[`${sPrefix}_status`] === 'approved' || stageObj.id === 'stage1';
+            })
+            .map(stageObj => ({
+                id: stageObj.id,
+                label: stageObj.label,
+                component: stageObj.component
+            }));
+
+        res.status(200).json({
+            success: true,
+            data: {
+                joint,
+                approvedStages,
+                category: jt
+            }
+        });
+    } catch (error) {
+        console.error('Get cumulative data error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
+/**
+ * Dedicated API to fetch standardized Report No
+ */
+async function getReportNo(req, res) {
+    try {
+        const { jointId } = req.params;
+        const reportNo = await weldJointService.getReportNo(jointId);
+
+        if (!reportNo) {
+            return res.status(404).json({ success: false, message: 'Weld Joint not found' });
+        }
+
+        res.json({ success: true, reportNo });
+    } catch (error) {
+        console.error('Get Report No Error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
+/**
+ * Get full activity trail for a weld joint
+ */
+async function getJointTrail(req, res) {
+    try {
+        const { jointId } = req.params;
+        const trail = await weldJointService.getJointTrail(jointId);
+
+        res.json({
+            success: true,
+            data: trail
+        });
+    } catch (error) {
+        console.error('Get Joint Trail error:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+}
+
 module.exports = {
     getWeldJoints,
+    getWeldJointActiveFilters,
     updateStageStatus,
     reviewStageStatus,
     getWeldJointPlans,
     generateStageReport,
-    getStageConfig
+    getStageConfig,
+    getCumulativeData,
+    getReportNo,
+    getJointTrail
 };

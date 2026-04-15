@@ -1,4 +1,21 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History } from "lucide-react"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
@@ -10,9 +27,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { DataTable } from "@/components/shared/DataTable"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import { FormAlert } from "@/components/ui/form-alert"
+import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
+import WeldJointTrail from "@/components/wpj/WeldJointTrail"
 
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
@@ -60,6 +84,22 @@ function ViewWeldingJoints() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [downloadError, setDownloadError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [previewJointId, setPreviewJointId] = useState(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [userGroupIds, setUserGroupIds] = useState([])
+
+  // Trail Sheet State
+  const [isTrailOpen, setIsTrailOpen] = useState(false)
+  const [trailJointId, setTrailJointId] = useState(null)
+  const [trailJointCategory, setTrailJointCategory] = useState(null)
+  const [trailJointNo, setTrailJointNo] = useState("")
+  
+  // Filter States
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [columnFilters, setColumnFilters] = useState({})
+  const [masterFilters, setMasterFilters] = useState({
+      clients: [], pos: [], msns: [], jointNos: [], categories: []
+  })
 
   // Dynamic Component Mapping
   const componentMap = {
@@ -86,6 +126,36 @@ function ViewWeldingJoints() {
         setUserId(uid);
       } catch { }
     }
+  }, [])
+ 
+  // Fetch My Groups
+  useEffect(() => {
+    const fetchMyGroups = async () => {
+      try {
+        const response = await apiClient.get('/api/qc-groups/my-groups');
+        if (response && response.success) {
+          setUserGroupIds(response.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching my groups:", error);
+      }
+    };
+    if (userId) fetchMyGroups();
+  }, [userId])
+
+  // Fetch Master Filters
+  useEffect(() => {
+    const fetchMasterFilters = async () => {
+      try {
+        const response = await apiClient.get('/api/wpj/active-filters');
+        if (response && response.success) {
+          setMasterFilters(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching master filters:", error);
+      }
+    };
+    fetchMasterFilters();
   }, [])
 
   const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
@@ -138,10 +208,12 @@ function ViewWeldingJoints() {
     const isPending = joint.inspectionData?.[statusKey] === 'pending';
 
     const idKey = `${sPrefix}_qc_eng_id`;
+    const groupIdKey = `${sPrefix}_assigned_qc_group_id`;
     let assignedId = joint.inspectionData?.[idKey];
+    let assignedGroupId = joint.inspectionData?.[groupIdKey];
 
     // Fallback to data-encoded assignment if needed
-    if (!assignedId) {
+    if (!assignedId && !assignedGroupId) {
       const dataKey = `${sPrefix}_data`;
       const rawData = joint.inspectionData?.[dataKey];
       if (rawData) {
@@ -150,12 +222,14 @@ function ViewWeldingJoints() {
           const catKey = joint.jointCategory?.toLowerCase() || 'a';
           const stageData = parsed?.[catKey]?.[sPrefix] || parsed?.[catKey] || parsed;
           assignedId = stageData?.assignedQcEngineerId || stageData?.ndtEngineerId;
+          assignedGroupId = stageData?.assignedQcGroupId;
         } catch (e) { }
       }
     }
 
-    const isAssignedToMe = userId && assignedId && String(assignedId) === String(userId);
-    const hasAssignment = !!assignedId;
+    const isAssignedToMe = (userId && assignedId && String(assignedId) === String(userId)) ||
+                           (assignedGroupId && userGroupIds.includes(assignedGroupId));
+    const hasAssignment = !!(assignedId || assignedGroupId);
 
     const prodKey = `${sPrefix}_prod_eng_id`;
     const qcKey = `${sPrefix}_qc_eng_id`;
@@ -166,12 +240,28 @@ function ViewWeldingJoints() {
       joint.inspectionData?.[completedAtKey]);
 
     return { isPending, isAssignedToMe, hasAssignment, isSubmitted };
-  }, [userId]);
+  }, [userId, userGroupIds]);
 
 
-  const fetchJointsData = useCallback(async ({ page, limit, search }) => {
+  const fetchJointsData = useCallback(async ({ page, limit, search, columnFilters }) => {
     try {
-      const data = await apiClient.get('/api/wpj/get-all-weld-joints', { page, limit, search });
+      const params = { 
+        page, 
+        limit, 
+        status: statusFilter 
+      };
+      if (search) params.search = search;
+      
+      // Map column filters
+      if (columnFilters) {
+        if (columnFilters.client) params.client = columnFilters.client;
+        if (columnFilters.poNo) params.po = columnFilters.poNo;
+        if (columnFilters.msnNumber) params.msn = columnFilters.msnNumber;
+        if (columnFilters.jointNo) params.job = columnFilters.jointNo;
+        if (columnFilters.jointCategory) params.cat = columnFilters.jointCategory;
+      }
+
+      const response = await apiClient.get('/api/wpj/get-all-weld-joints', params);
 
       function getStatus(joint) {
         const category = joint.joint_type || 'A';
@@ -202,6 +292,7 @@ function ViewWeldingJoints() {
         code: item.weld_joint_plan?.job?.code || "",
         jointNo: item.joint_no,
         jointCategory: item.joint_type,
+        generatedReportNo: item.generatedReportNo || "",
         status: getStatus(item),
         backChip: item.back_chip_req || false,
         inspectionData: item.weld_joint_inspection || {},
@@ -209,14 +300,26 @@ function ViewWeldingJoints() {
       })
 
       return {
-        data: (data.data || []).map(mapData),
-        meta: data.meta || { total: (data.data || []).length, page: 1, limit: 1000, totalPages: 1 }
+        data: (response.data || []).map(mapData),
+        meta: response.meta || { total: (response.data || []).length, page: 1, limit: pageSize || 10, totalPages: 1 }
       }
     } catch (err) {
       console.error("Error fetching welding joints:", err);
       return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
     }
-  }, [refreshKey])
+  }, [refreshKey, statusFilter])
+
+  const onFilterChange = (newFilters) => {
+    setColumnFilters(prev => ({ ...prev, ...newFilters }));
+  };
+
+  const handleExport = async () => {
+    try {
+      await exportApi.exportModule('weld_joint', 'Welding Joints Export.xlsx')
+    } catch (error) {
+      console.error("Export failed:", error)
+    }
+  };
 
   const handleDownloadReport = async (joint, stage) => {
     setDownloadError("");
@@ -236,13 +339,30 @@ function ViewWeldingJoints() {
     }
   }
 
-  const columns = [
-    { header: "MSN No", accessorKey: "msnNumber" },
-    { header: "Client", accessorKey: "client" },
-    { header: "Joint No", accessorKey: "jointNo" },
+  const columns = useMemo(() => [
+    { 
+        header: "MSN No", 
+        accessorKey: "msnNumber",
+        filterType: "select",
+        filterOptions: masterFilters.msns
+    },
+    { 
+        header: "Client", 
+        accessorKey: "client",
+        filterType: "select",
+        filterOptions: masterFilters.clients
+    },
+    { 
+        header: "Joint No", 
+        accessorKey: "jointNo",
+        filterType: "select",
+        filterOptions: masterFilters.jointNos
+    },
     {
       header: "Category",
       accessorKey: "jointCategory",
+      filterType: "select",
+      filterOptions: masterFilters.categories,
       cell: (row) => getJointCategoryBadge(row.jointCategory)
     },
     {
@@ -313,96 +433,429 @@ function ViewWeldingJoints() {
           }
         })();
 
+        // Show preview button if at least one stage is approved (i.e. status is NOT stage1)
+        const hasApprovedStages = row.status !== 'stage1';
+
         return (
           <div className="flex items-center gap-2">
+            {hasApprovedStages && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setPreviewJointId(row.id); setIsPreviewOpen(true); }}
+                title="Preview approved stages"
+              >
+                <Eye className="h-4 w-4" /> Preview
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setTrailJointId(row.id);
+                setTrailJointCategory(row.jointCategory);
+                setTrailJointNo(row.jointNo);
+                setIsTrailOpen(true);
+              }}
+              title="View activity trail"
+            >
+              <History className="h-4 w-4" /> Trail
+            </Button>
             {actionButton}
           </div>
         );
       }
     }
-  ]
-
-  const handleExport = async () => {
-    try {
-      await exportApi.exportModule("weld_joint", "weld_joints_list_export.xlsx")
-    } catch (error) {
-      console.error("Export failed:", error)
-    }
-  };
+  ], [masterFilters, userGroupIds, userId, handleDownloadReport, handleOpenStage, isQCOrNDT, getStageActionState]);
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Welding Joints</h1>
-              <p className="text-muted-foreground">
-                List of all welding joints with their details and status.
-              </p>
-            </div>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold mb-2">Welding Joints</h1>
+            <p className="text-muted-foreground">List of all welding joints with their details and status.</p>
           </div>
 
-          <FormAlert type="error" message={downloadError} />
-          <div className="flex-1">
-            <DataTable
+          <div className="flex flex-col gap-4">
+             {/* Right-aligned Status Filter */}
+             <div className="flex justify-end mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by Status:</span>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <WeldJointTable
               columns={columns}
               fetchData={fetchJointsData}
               onExport={handleExport}
+              columnFilters={columnFilters}
+              onFilterChange={onFilterChange}
+              refreshKey={refreshKey}
             />
           </div>
-        </main>
+        </div>
+      </main>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
+        
+            <DialogHeader className="p-6">
+              <DialogTitle className="text-xl font-bold">
+                {(() => {
+                  const config = WELD_STAGES_CONFIG[selectedJoint?.joint_type]?.find(s => s.id === selectedStage);
+                  return config ? config.label : (selectedStage ? `Inspection Report - ${selectedStage}` : "Form");
+                })()}
+              </DialogTitle>
+            </DialogHeader>            
               {(() => {
-                const config = WELD_STAGES_CONFIG[selectedJoint?.joint_type]?.find(s => s.id === selectedStage);
-                return config ? config.label : (selectedStage ? `Inspection Report - ${selectedStage}` : "Form");
+                if (!selectedJoint || !selectedStage || !WELD_STAGES_CONFIG[selectedJoint.joint_type]) return null;
+
+                let isReviewMode = false;
+                if (isQCOrNDT) {
+                  const { isPending, isAssignedToMe } = getStageActionState({
+                    ...selectedJoint,
+                    status: selectedStage
+                  });
+                  if (isPending && isAssignedToMe) isReviewMode = true;
+                }
+
+                const activeConfig = WELD_STAGES_CONFIG[selectedJoint.joint_type].find(s => s.id === selectedStage);
+                if (!activeConfig) return null;
+
+                const StageComponent = componentMap[activeConfig.component];
+                if (!StageComponent) return <div className="p-4 text-destructive">Component {activeConfig.component} not found</div>;
+
+                return (
+                    <StageComponent 
+                        initialData={selectedJoint} 
+                        inspectionData={selectedJoint.weld_joint_inspection || selectedJoint.inspectionData} 
+                        isReview={isReviewMode} 
+                        stage={selectedStage}
+                        type={activeConfig.type}
+                        onSuccess={() => {
+                            setIsDialogOpen(false)
+                            setRefreshKey(prev => prev + 1)
+                        }}
+                    />
+                );
               })()}
-            </DialogTitle>
-          </DialogHeader>
-
-          {(() => {
-            if (!selectedJoint || !selectedStage || !WELD_STAGES_CONFIG[selectedJoint.joint_type]) return null;
-
-            let isReviewMode = false;
-            if (isQCOrNDT) {
-              const { isPending, isAssignedToMe } = getStageActionState({
-                ...selectedJoint,
-                status: selectedStage
-              });
-              if (isPending && isAssignedToMe) isReviewMode = true;
-            }
-
-            const activeConfig = WELD_STAGES_CONFIG[selectedJoint.joint_type].find(s => s.id === selectedStage);
-            if (!activeConfig) return null;
-
-            const StageComponent = componentMap[activeConfig.component];
-            if (!StageComponent) return <div className="p-4 text-destructive">Component {activeConfig.component} not found</div>;
-
-            return (
-                <StageComponent 
-                    initialData={selectedJoint} 
-                    inspectionData={selectedJoint.weld_joint_inspection || selectedJoint.inspectionData} 
-                    isReview={isReviewMode} 
-                    stage={selectedStage}
-                    type={activeConfig.type}
-                    onSuccess={() => {
-                        setIsDialogOpen(false)
-                        setRefreshKey(prev => prev + 1)
-                    }}
-                />
-            );
-          })()}
-
         </DialogContent>
       </Dialog>
+
+      {/* Cumulative Preview Dialog */}
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="sm:max-w-[95vw] max-w-[98vw] max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Inspection Preview — Approved Stages</DialogTitle>
+          </DialogHeader>
+          {isPreviewOpen && previewJointId && (
+            <WPJCumulativePreview jointId={previewJointId} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Activity Trail Sheet */}
+      <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+        <SheetContent className="sm:max-w-[500px] w-full p-0 overflow-y-auto">
+          <SheetHeader className="p-6 pb-2 border-b">
+            <SheetTitle className="text-xl font-bold flex flex-col gap-1">
+              <span>Weld Inspection Trail</span>
+              <span className="text-sm font-normal text-muted-foreground">Joint No: {trailJointNo}</span>
+            </SheetTitle>
+          </SheetHeader>
+          {isTrailOpen && trailJointId && (
+            <WeldJointTrail jointId={trailJointId} jointCategory={trailJointCategory} />
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   )
 }
+
+// --- Local Component-Based Table implementation ---
+const WeldJointTable = ({
+    columns,
+    fetchData,
+    onExport,
+    columnFilters,
+    onFilterChange,
+    refreshKey
+  }) => {
+    const [data, setData] = useState([]);
+    const [meta, setMeta] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+  
+    const isFirstRender = useRef(true);
+  
+    useEffect(() => {
+      if (isFirstRender.current) {
+          isFirstRender.current = false;
+          return;
+      }
+      const timer = setTimeout(() => {
+        setDebouncedSearch(search);
+        setPage(1);
+      }, 500);
+      return () => clearTimeout(timer);
+    }, [search]);
+  
+    useEffect(() => {
+      let cancelled = false;
+      const loadData = async () => {
+        setLoading(true);
+        try {
+          const result = await fetchData({
+            page,
+            limit: pageSize,
+            search: debouncedSearch,
+            columnFilters
+          });
+          if (!cancelled) {
+              setData(result.data || []);
+              setMeta(result.meta || {});
+          }
+        } catch (error) {
+          console.error("Failed to load table data", error);
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      };
+      loadData();
+      return () => { cancelled = true; };
+    }, [page, pageSize, debouncedSearch, columnFilters, fetchData, refreshKey]);
+  
+    const handleSearchChange = (e) => setSearch(e.target.value);
+    const handlePageChange = (newPage) => setPage(newPage);
+    const handlePageSizeChange = (val) => {
+      setPageSize(parseInt(val));
+      setPage(1);
+    };
+  
+    const resolvePath = (object, path) => {
+      if (!path) return undefined;
+      return path.split('.').reduce((o, p) => (o ? o[p] : undefined), object);
+    };
+  
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <Input
+            placeholder="Global Search..."
+            value={search}
+            onChange={handleSearchChange}
+            className="max-w-sm"
+          />
+          <Button variant="outline" onClick={onExport}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+        </div>
+  
+        <div className="rounded-md border bg-card overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {columns.map((col, idx) => (
+                  <TableHead key={idx} className={`${col.className} h-auto bg-slate-50/50 py-3`}>
+                    <div className="flex flex-col gap-1.5 py-1.5">
+                      <span className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
+                        {col.header}
+                      </span>
+                          {col.filterType === 'select' && (
+                            <MultiSelectFilter
+                              options={col.filterOptions || []}
+                              value={columnFilters[col.accessorKey] || []}
+                              onChange={(val) => onFilterChange({ [col.accessorKey]: val })}
+                              placeholder={`All ${col.header}`}
+                            />
+                          )}
+                    </div>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Loading...</TableCell></TableRow>
+              ) : data.length ? (
+                data.map((row, rIdx) => (
+                  <TableRow key={row.id || rIdx}>
+                    {columns.map((col, cIdx) => (
+                      <TableCell key={cIdx} className={`${col.className}`}>
+                        {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No results.</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+  
+        <div className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium">Rows per page</p>
+            <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
+              <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={pageSize} />
+              </SelectTrigger>
+              <SelectContent side="top">
+                  {[5, 10, 20, 50, 100].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-4">
+              <div className="text-sm text-muted-foreground">
+                  Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
+              </div>
+              <div className="flex items-center gap-2">
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(page - 1)}
+                      disabled={page <= 1 || loading}
+                  >
+                      <ChevronLeft className="h-4 w-4" /> Previous
+                  </Button>
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(page + 1)}
+                      disabled={page >= (meta.totalPages || 1) || loading}
+                  >
+                      Next <ChevronRight className="h-4 w-4" />
+                  </Button>
+              </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
+    const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
+    const [open, setOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+  
+    const filteredOptions = options.filter(opt => 
+      opt.label?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  
+    const toggleOption = (val) => {
+      const newVal = selectedValues.includes(val)
+        ? selectedValues.filter(v => v !== val)
+        : [...selectedValues, val];
+      onChange(newVal);
+    };
+  
+    const clearFilters = (e) => {
+      e.stopPropagation();
+      onChange([]);
+      setSearchTerm("");
+    };
+  
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px] justify-between px-2 bg-white"
+          >
+            <div className="flex items-center gap-1 truncate mr-1">
+              {selectedValues.length === 0 ? (
+                <span className="text-slate-400">{placeholder}</span>
+              ) : (
+                  <div className="flex items-center gap-1">
+                      <span className="font-medium text-primary bg-primary/10 px-1 rounded-sm text-[10px]">
+                          {selectedValues.length}
+                      </span>
+                      <span className="truncate">{options.find(o => o.value === selectedValues[0])?.label}</span>
+                      {selectedValues.length > 1 && <span className="text-slate-400">...</span>}
+                  </div>
+              )}
+            </div>
+            <div className="flex items-center">
+              {selectedValues.length > 0 && (
+                  <X 
+                    className="h-3 w-3 mr-1 text-slate-400 hover:text-slate-600 pointer-events-auto" 
+                    onClick={clearFilters}
+                  />
+              )}
+              <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+            </div>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[200px] p-0" align="start">
+          <div className="flex flex-col h-[300px]">
+            <div className="p-2 border-b">
+              <div className="relative">
+                  <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
+                  <Input
+                      placeholder="Search..."
+                      className="h-8 pl-8 text-xs shadow-none border-none focus-visible:ring-0"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-1 py-1">
+              {filteredOptions.length === 0 ? (
+                <div className="p-2 text-xs text-center text-slate-500">No results.</div>
+              ) : (
+                filteredOptions.map((opt) => (
+                  <div
+                    key={opt.value}
+                    className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-100 rounded-sm cursor-pointer"
+                    onClick={() => toggleOption(opt.value)}
+                  >
+                    <Checkbox 
+                      checked={selectedValues.includes(opt.value)}
+                      onCheckedChange={() => toggleOption(opt.value)}
+                      className="h-3.5 w-3.5"
+                    />
+                    <span className="text-xs truncate flex-1">{opt.label}</span>
+                    {selectedValues.includes(opt.value) && <Check className="h-3 w-3 text-primary shrink-0" />}
+                  </div>
+                ))
+              )}
+            </div>
+            {selectedValues.length > 0 && (
+              <div className="p-2 border-t mt-auto">
+                  <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full h-7 text-[10px] text-slate-500 hover:text-red-600"
+                      onClick={clearFilters}
+                  >
+                      Clear Selections
+                  </Button>
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  };
 
 export default ViewWeldingJoints

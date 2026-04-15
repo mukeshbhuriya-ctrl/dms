@@ -176,6 +176,25 @@ class QcGroupController {
             res.status(500).json({ success: false, message: "Internal server error" });
         }
     }
+    // Get Groups for current user
+    async getUserGroups(req, res) {
+        try {
+            const user_id = req.user.userid || req.user.id;
+            
+            const groups = await prisma.user_qc_group.findMany({
+                where: { user_id },
+                select: { qc_group_id: true }
+            });
+
+            res.status(200).json({ 
+                success: true, 
+                data: groups.map(g => g.qc_group_id) 
+            });
+        } catch (error) {
+            console.error("Get User Groups error:", error);
+            res.status(500).json({ success: false, message: "Internal server error" });
+        }
+    }
 }
 
 module.exports = new QcGroupController();

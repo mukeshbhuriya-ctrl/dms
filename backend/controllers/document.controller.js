@@ -12,7 +12,8 @@ class DocumentController {
     async downloadDocument(req, res) {
         try {
             const { documentId } = req.params;
-            const { version: versionNo } = req.query;
+            const { version: versionNo, activityId } = req.query;
+            const companyId = req.user.company_id;
             const userId = req.user.userid || req.user.id;
             const userRoles = req.user.role || [];
             const isAdminOrDcc = userRoles.includes('ADMIN') || userRoles.includes('DCC');
@@ -31,56 +32,68 @@ class DocumentController {
                 return res.status(403).json({ success: false, message: 'Access denied: You are not assigned to this document' });
             }
 
-            let version;
-            if (versionNo) {
-                // 1. Find specific version globally for this master document
-                version = await prisma.document_version.findFirst({
-                    where: { 
-                        group_document: { document_id: document.document_id },
-                        version_no: parseInt(versionNo) 
-                    }
-                });
-            } else {
-                // 2. Try to find the latest version for THIS specific task (assignment)
-                version = await prisma.document_version.findFirst({
-                    where: { group_document_id: documentId },
-                    orderBy: { version_no: 'desc' }
+            // ─── Resolve File Path ───
+            let filePathToServe = null;
+            let fileHashToVerify = null;
+
+            if (activityId) {
+                // Case A: Requesting an archived file from activity trail (e.g., Rejected copy)
+                const activity = await prisma.document_activity.findFirst({
+                    where: { id: activityId, company_id: companyId }
                 });
 
-                // 3. Fallback: If this task has no uploads (new re-entry), find the global active version
-                if (!version) {
+                if (!activity || !activity.metadata || !activity.metadata.file_path) {
+                    return res.status(404).json({ success: false, message: 'Archived file or activity record not found' });
+                }
+                filePathToServe = activity.metadata.file_path;
+                // Note: Archive files might not have a stored hash in activity metadata yet, 
+                // but we trust the internal archive path.
+            } else {
+                // Case B: standard version request
+                let version;
+                if (versionNo) {
                     version = await prisma.document_version.findFirst({
                         where: { 
                             group_document: { document_id: document.document_id },
-                            is_active: true 
+                            version_no: parseInt(versionNo) 
                         }
                     });
-                }
-                
-                // 4. Final Fallback: Latest global version regardless of active flag
-                if (!version) {
+                } else {
                     version = await prisma.document_version.findFirst({
+                        where: { group_document_id: documentId },
+                        orderBy: { version_no: 'desc' }
+                    }) || await prisma.document_version.findFirst({
+                        where: { group_document: { document_id: document.document_id }, is_active: true }
+                    }) || await prisma.document_version.findFirst({
                         where: { group_document: { document_id: document.document_id } },
                         orderBy: { version_no: 'desc' }
                     });
                 }
+
+                if (!version) {
+                    return res.status(404).json({ success: false, message: 'Document version not found' });
+                }
+                filePathToServe = version.file_path;
+                fileHashToVerify = version.file_hash;
             }
 
-            if (!version) {
-                return res.status(404).json({ success: false, message: 'Document version not found' });
+            if (!filePathToServe) {
+                return res.status(404).json({ success: false, message: 'File path not found' });
             }
 
-            // Reconstruct absolute path from relative file_path
-            const absolutePath = path.join(ROOT_DIR, version.file_path);
+            // Reconstruct absolute path
+            const absolutePath = path.join(ROOT_DIR, filePathToServe.replace(/^[\\/]+/, ''));
 
             if (!fs.existsSync(absolutePath)) {
                 return res.status(404).json({ success: false, message: 'File not found on server' });
             }
 
-            // Verify integrity (optional but requested)
-            const isValid = await verifyFileHash(absolutePath, version.file_hash);
-            if (!isValid) {
-                return res.status(500).json({ success: false, message: 'File integrity check failed' });
+            // Verify integrity if hash is available
+            if (fileHashToVerify) {
+                const isValid = await verifyFileHash(absolutePath, fileHashToVerify);
+                if (!isValid) {
+                    return res.status(500).json({ success: false, message: 'File integrity check failed' });
+                }
             }
 
             // Log access

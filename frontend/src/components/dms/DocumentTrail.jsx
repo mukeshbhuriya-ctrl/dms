@@ -123,7 +123,7 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                                         title="Download this version"
                                                     >
                                                         <FileText className="w-3 h-3" />
-                                                        <span>Rev {activity.metadata.version_no}</span>
+                                                        <span>Revision {activity.metadata.version_no}</span>
                                                         <Download className="w-3.5 h-3.5 ml-1 text-primary group-hover/dl:scale-110 transition-transform" />
                                                     </a>
                                                     

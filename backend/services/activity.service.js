@@ -80,7 +80,7 @@ class ActivityService {
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
         return activities.map(activity => {
             if (activity.metadata) {
-                // Backfill details from versions table if missing in metadata
+                // 1. Standard Revision Handling (Current Version State)
                 const vNo = activity.metadata.version_no;
                 if ((vNo !== null && vNo !== undefined) && versionMap[vNo]) {
                     const vInfo = versionMap[vNo];
@@ -94,14 +94,24 @@ class ActivityService {
                     }
                 }
 
-                if (activity.metadata.file_url || activity.metadata.feedback_url) {
-                    let url = activity.metadata.file_url || activity.metadata.feedback_url;
-                    if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('http')) {
-                        const fullUrl = `${backendUrl}${url}`;
-                        if (activity.metadata.file_url) activity.metadata.file_url = fullUrl;
-                        if (activity.metadata.feedback_url) activity.metadata.feedback_url = fullUrl;
-                    }
+                // 2. For Internal Rejected entries with an archived file_path,
+                //    generate preview_url and file_url from the archived path via activityId
+                if (activity.action === 'Internal Rejected' && activity.metadata.file_path) {
+                    const archivedPath = activity.metadata.file_path;
+                    const fileName = archivedPath.split('/').pop() || archivedPath.split('\\').pop();
+                    
+                    // Override standard URLs to point to the archived file
+                    activity.metadata.file_url = `${backendUrl}/api/dcc/document/${activity.group_document_id}/download?activityId=${activity.id}`;
+                    activity.metadata.preview_url = `${backendUrl}/api/dcc/document-preview/archived?activityId=${activity.id}&filename=${encodeURIComponent(fileName)}`;
                 }
+
+                // 3. Absolute URL expansion
+                ['file_url', 'feedback_url'].forEach(key => {
+                    const url = activity.metadata[key];
+                    if (typeof url === 'string' && url.startsWith('/') && !url.startsWith('http')) {
+                        activity.metadata[key] = `${backendUrl}${url}`;
+                    }
+                });
             }
             return activity;
         });

@@ -45,6 +45,7 @@ import DocumentTrail from "../../components/dms/DocumentTrail"
 
 function UploadDocument() {
     const [uploadingIds, setUploadingIds] = useState({})
+    const [uploadProgress, setUploadProgress] = useState({})
     const [statusFilter, setStatusFilter] = useState("all")
     const [approverStatusFilter, setApproverStatusFilter] = useState("all")
     const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -152,13 +153,18 @@ function UploadDocument() {
         if (!file) return
 
         setUploadingIds(prev => ({ ...prev, [documentId]: true }))
+        setUploadProgress(prev => ({ ...prev, [documentId]: 0 }))
 
         try {
             const formData = new FormData()
             formData.append('document_id', documentId)
             formData.append('file', file)
 
-            const result = await dccService.uploadDocumentVersion(formData)
+            const result = await dccService.uploadDocumentVersion(formData, {
+                onUploadProgress: (progressEvent) => {
+                    setUploadProgress(prev => ({ ...prev, [documentId]: progressEvent.progress }))
+                }
+            })
 
             if (result.success || result.data) {
                 toast.success("Document uploaded successfully")
@@ -171,6 +177,11 @@ function UploadDocument() {
             toast.error("An error occurred while uploading")
         } finally {
             setUploadingIds(prev => ({ ...prev, [documentId]: false }))
+            setUploadProgress(prev => {
+                const newProgress = { ...prev }
+                delete newProgress[documentId]
+                return newProgress
+            })
         }
     }
 
@@ -264,11 +275,6 @@ function UploadDocument() {
             cell: (row) => row.response_due_days || "-"
         },
         {
-            header: "Actual Due Days",
-            accessorKey: "actual_due_days",
-            cell: (row) => row.actual_due_days || "-"
-        },
-        {
             header: "Uploader Status",
             accessorKey: "uploader_status",
             filterType: "select",
@@ -336,34 +342,46 @@ function UploadDocument() {
             accessorKey: "id",
             cell: (row) => {
                 const isUploading = uploadingIds[row.id]
+                const progress = uploadProgress[row.id]
                 const isDisabled = row.approverStatus === "approved" || row.approverStatus === "pending for approval"
 
                 return (
-                    <div className="flex items-center gap-2">
-                        <Input
-                            id={`upload-${row.id}`}
-                            type="file"
-                            className="hidden"
-                            onChange={(e) => handleDirectUpload(row.id, e.target.files[0])}
-                            disabled={isDisabled || isUploading}
-                        />
-                        <Label
-                            htmlFor={`upload-${row.id}`}
-                            className={`
-                                inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
-                                border border-input bg-background hover:bg-accent hover:text-accent-foreground
-                                h-9 px-3
-                                cursor-pointer
-                                ${isDisabled || isUploading ? 'opacity-50 pointer-events-none' : ''}
-                            `}
-                        >
-                            {isUploading ? (
-                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                            ) : (
-                                <Upload className="h-4 w-4 mr-2" />
-                            )}
-                            {isUploading ? 'Uploading...' : 'Upload'}
-                        </Label>
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                            <Input
+                                id={`upload-${row.id}`}
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => handleDirectUpload(row.id, e.target.files[0])}
+                                disabled={isDisabled || isUploading}
+                            />
+                            <Label
+                                htmlFor={`upload-${row.id}`}
+                                className={`
+                                    inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
+                                    border border-input bg-background hover:bg-accent hover:text-accent-foreground
+                                    h-9 px-3
+                                    cursor-pointer
+                                    ${isDisabled || isUploading ? 'opacity-50 pointer-events-none' : ''}
+                                `}
+                            >
+                                {isUploading ? (
+                                    <div className="relative inline-flex items-center justify-center mr-2">
+                                        <svg className="w-4 h-4 transform -rotate-90">
+                                            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-slate-200" />
+                                            <circle 
+                                                cx="8" cy="8" r="6" 
+                                                stroke="currentColor" strokeWidth="2" fill="transparent" 
+                                                strokeDasharray={37.7} strokeDashoffset={typeof progress === 'number' ? 37.7 - (progress / 100) * 37.7 : 0} 
+                                                className="text-primary transition-all duration-300 ease-out" strokeLinecap="round" 
+                                            />
+                                        </svg>
+                                    </div>
+                                ) : (
+                                    <Upload className="h-4 w-4 mr-2" />
+                                )}
+                                {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : 'Upload'}
+                            </Label>
 
                         <Button
                             variant="outline"
@@ -397,6 +415,7 @@ function UploadDocument() {
                             <History className="h-4 w-4 mr-2" />
                             Trail
                         </Button>
+                        </div>
                     </div>
                 )
             },
@@ -454,7 +473,6 @@ function UploadDocument() {
                         createdAt: doc.createdAt,
                         upload_due_days: doc.upload_due_days,
                         response_due_days: doc.response_due_days,
-                        actual_due_days: doc.actual_due_days,
                         versionNo: doc.display_version_no || 0,
                         mimeType: latestVersion?.mime_type,
                         filePath: latestVersion?.file_path,

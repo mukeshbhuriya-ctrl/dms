@@ -71,7 +71,6 @@ function AssignDocument() {
       assignUserId: "",
       upload_due_days: "",
       response_due_days: "",
-      actual_due_days: "",
     }
   ])
   const [isLoading, setIsLoading] = useState(false)
@@ -199,13 +198,17 @@ function AssignDocument() {
       filterType: "text",
     },
     {
+      id: "shreno_doc_no",
       accessorKey: "shreno_doc_no",
       header: "Shreno Doc No",
+      filterType: "text",
       cell: (row) => row.shreno_doc_no || "-",
     },
     {
+      id: "client_doc_no",
       accessorKey: "client_doc_no",
       header: "Client Doc No",
+      filterType: "text",
       cell: (row) => row.client_doc_no || "-",
     },
     {
@@ -226,11 +229,6 @@ function AssignDocument() {
       accessorKey: "response_due_days",
       header: "Response Due Days",
       cell: (row) => row.response_due_days || "-",
-    },
-    {
-      accessorKey: "actual_due_days",
-      header: "Actual Due Days",
-      cell: (row) => row.actual_due_days || "-",
     },
     {
       id: "status",
@@ -328,6 +326,8 @@ function AssignDocument() {
         if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
         if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
         if (columnFilters.documentName) params.search = columnFilters.documentName;
+        if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+        if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
       }
 
       const response = await apiClient.get("/api/dcc/get-assigned-documents", params)
@@ -418,7 +418,6 @@ function AssignDocument() {
         assignUserId: "",
         upload_due_days: "",
         response_due_days: "",
-        actual_due_days: "",
       }
     ])
   }
@@ -525,7 +524,6 @@ function AssignDocument() {
         assignUserId: row.user_id || "",
         upload_due_days: row.upload_due_days || "",
         response_due_days: row.response_due_days || "",
-        actual_due_days: row.actual_due_days || "",
       }
     ])
   }
@@ -549,7 +547,6 @@ function AssignDocument() {
         assignUserId: "",
         upload_due_days: "",
         response_due_days: "",
-        actual_due_days: "",
       }
     ])
   }
@@ -574,7 +571,6 @@ function AssignDocument() {
         assign_user_id: a.assignUserId,
         upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
         response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
-        actual_due_days: a.actual_due_days ? parseInt(a.actual_due_days) : null,
       })),
     }
 
@@ -768,7 +764,7 @@ function AssignDocument() {
                           <TableHead className="min-w-[150px]">Client Document No</TableHead>
                           <TableHead className="min-w-[100px]">Upload Due Days</TableHead>
                           <TableHead className="min-w-[100px]">Response Due Days</TableHead>
-                          <TableHead className="min-w-[100px]">Actual Due Days</TableHead>
+                          <TableHead className="min-w-[150px]">Plant Submission Date</TableHead>
                           <TableHead className="min-w-[180px]">Assign User <span className="text-destructive">*</span></TableHead>
                           <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
@@ -968,13 +964,15 @@ function AssignDocument() {
 
                               <TableCell>
                                 <Input
-                                  type="number"
-                                  placeholder="Days"
-                                  value={assignment.actual_due_days}
-                                  onChange={e => handleAssignmentChange(assignment.tempId, 'actual_due_days', e.target.value)}
-                                  className="w-full"
-                                  min="0"
-                                  required
+                                  value={(() => {
+                                    if (!assignment.upload_due_days || isNaN(assignment.upload_due_days)) return "Enter Days First";
+                                    const d = new Date();
+                                    d.setDate(d.getDate() + parseInt(assignment.upload_due_days));
+                                    return d.toLocaleDateString("en-GB");
+                                  })()}
+                                  className="w-full bg-slate-50 text-slate-500 font-bold cursor-not-allowed"
+                                  readOnly
+                                  disabled
                                 />
                               </TableCell>
 

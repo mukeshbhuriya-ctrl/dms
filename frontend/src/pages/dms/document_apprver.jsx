@@ -219,13 +219,17 @@ function DocumentApprover() {
       filterType: "text",
     },
     {
+      id: "shreno_doc_no",
       accessorKey: "shreno_doc_no",
       header: "Shreno Doc No",
+      filterType: "text",
       cell: (row) => row.shreno_doc_no || "-",
     },
     {
+      id: "client_doc_no",
       accessorKey: "client_doc_no",
       header: "Client Doc No",
+      filterType: "text",
       cell: (row) => row.client_doc_no || "-",
     },
     
@@ -242,11 +246,6 @@ function DocumentApprover() {
     {
       header: "Uploaded By",
       accessorKey: "uploadedBy"
-    },
-    {
-      header: "Actual Due Days",
-      accessorKey: "actual_due_days",
-      cell: (row) => row.actual_due_days || "-"
     },
     {
       id: "status",
@@ -402,6 +401,8 @@ function DocumentApprover() {
         if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
         if (columnFilters.status) params.approver_status_filter = columnFilters.status;
         if (columnFilters.documentName) params.search = columnFilters.documentName;
+        if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+        if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
       }
 
       const response = await dccService.getDocumentsForApproval(params);
@@ -430,7 +431,6 @@ function DocumentApprover() {
             client_status: doc.client_status,
             shreno_doc_no: doc.shreno_doc_no || '-',
             client_doc_no: doc.client_doc_no || '-',
-            actual_due_days: doc.actual_due_days,
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,
             // Preview support fields

@@ -45,9 +45,9 @@ export const dccService = {
         return await apiClient.get("/api/dcc/upload-documents", params);
     },
 
-    uploadDocumentVersion: async (formData) => {
-        // apiClient handles FormData automatically by not setting Content-Type
-        return await apiClient.post("/api/dcc/upload-document-version", formData);
+    uploadDocumentVersion: async (formData, options = {}) => {
+        // Use the specialized XMLHttpRequest method for progress tracking
+        return await apiClient.uploadWithProgress("/api/dcc/upload-document-version", formData, options);
     },
 
     sendTransmissionEmail: async (data) => {
@@ -59,9 +59,9 @@ export const dccService = {
         return await apiClient.post("/api/dcc/transmission/client-status", formData);
     },
 
-    updateTransmissionDocumentClientStatus: async (formData) => {
-        // Accepts FormData for single doc status + file
-        return await apiClient.post("/api/dcc/transmission/document/client-status", formData);
+    updateTransmissionDocumentClientStatus: async (formData, options = {}) => {
+        // Accepts FormData for single doc status + file. Use uploadWithProgress for progress tracking.
+        return await apiClient.uploadWithProgress("/api/dcc/transmission/document/client-status", formData, options);
     },
 
     downloadTransmittalPDF: async (id) => {

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react"
+import api from "@/api/api.client"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,8 +18,9 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
+import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage1({ initialData, isReview = false, onSuccess }) {
+function Stage1({ initialData, isReview = false, readOnly = false, onSuccess }) {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [userRole, setUserRole] = useState("")
@@ -59,9 +62,10 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
 
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
-  const [qeEngineer, setQeEngineer] = useState("")
+  const [qcGroups, setQcGroups] = useState([])
+  const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [qeEngineers, setQeEngineers] = useState([])
+  const [qcRemarks, setQcRemarks] = useState("")
 
   useEffect(() => {
     const authData = localStorage.getItem("user_auth")
@@ -85,38 +89,20 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
     }
   }, [isReview])
 
-  // Fetch QC Engineers
+  // Fetch QC Groups
   useEffect(() => {
-    const fetchQeEngineers = async () => {
+    const fetchQcGroups = async () => {
       try {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-        const authData = localStorage.getItem("user_auth")
-        let token = null
-        if (authData) {
-          try {
-            const parsed = JSON.parse(authData)
-            token = parsed?.payload?.token || parsed?.token
-          } catch { }
-        }
-
-        const res = await fetch(`${backendUrl}/api/users/by-role/QC_ENGINEER`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": token ? `Bearer ${token}` : ""
-          },
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (res.ok && data.success) {
-          setQeEngineers(data.data || [])
+        const response = await api.get('/api/qc-groups');
+        if (response && response.success) {
+          setQcGroups(response.data || []);
         }
       } catch (error) {
-        console.error("Error fetching QE Engineers:", error)
+        console.error("Error fetching QC groups:", error);
       }
-    }
-    fetchQeEngineers()
-  }, [])
+    };
+    fetchQcGroups();
+  }, []);
 
   const getCategoryKey = () => {
         return initialData?.jointCategory?.toLowerCase() || initialData?.joint_type?.toLowerCase() || 'a';
@@ -131,11 +117,18 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         poNo: initialData.poNo || "",
       })
 
-      const generatedReportNo = `R/${initialData.msnNumber || '000'}/${initialData.jointNo}/1`;
+      // Fetch dynamic report NO from dedicated API
+      if (!initialData.inspectionData?.reportNo) {
+        api.get(`/api/wpj/report-no/${initialData.id}`).then(res => {
+          if (res.success && res.reportNo) {
+            setInputFields(prev => ({ ...prev, reportNo: res.reportNo }));
+          }
+        }).catch(err => console.error("Error fetching report no", err));
+      }
 
       setInputFields((prev) => ({
         ...prev,
-        reportNo: prev.reportNo || generatedReportNo,
+        reportNo: initialData.inspectionData?.reportNo || prev.reportNo || "",
         tagNo: initialData.tagNo || "",
         equipment: initialData.equipment || "",
         projectsId: initialData.projectsId || "",
@@ -162,7 +155,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
             if (s1Data.inputFields && !insp.data_json) {
               setInputFields(prev => ({ ...prev, ...s1Data.inputFields }));
             }
-            if (s1Data.assignedQcEngineerId) setQeEngineer(s1Data.assignedQcEngineerId);
+            if (s1Data.assignedQcGroupId) setSelectedQcGroupId(s1Data.assignedQcGroupId);
           } catch (e) {
             console.error("Error parsing s1_data", e)
           }
@@ -189,8 +182,9 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         }
 
         // Fallback / Override from columns if JSON missing/incomplete
-        if (insp.s1_qc_eng_id && !qeEngineer) setQeEngineer(insp.s1_qc_eng_id);
+        if (insp.s1_assigned_qc_group_id && !selectedQcGroupId) setSelectedQcGroupId(insp.s1_assigned_qc_group_id);
         if (insp.s1_prod_eng_name) setProductionEngineerName(insp.s1_prod_eng_name);
+        if (insp.s1_remarks) setQcRemarks(insp.s1_remarks);
       }
     }
   }, [initialData])
@@ -206,7 +200,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
   }
 
   // ReadOnly: Review mode AND not QC
-  const isReadOnly = isReview && userRole !== 'QC';
+  const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
@@ -224,12 +218,12 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         token = parsed?.payload?.token || parsed?.token
         userId = parsed?.payload?.user?.id || parsed?.user?.id
       }
-
-      if (!qeEngineer) {
-        setError("Please select QE Engineer");
-        setIsSubmitting(false);
-        return;
-      }
+ 
+       if (!selectedQcGroupId) {
+         setError("Please select QC Group");
+         setIsSubmitting(false);
+         return;
+       }
 
       const categoryKey = getCategoryKey();
 
@@ -244,7 +238,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
       // 1. Construct Stage Data (Nest s1 inside category)
       const currentStageInnerData = {
         inspectionRows,
-        assignedQcEngineerId: qeEngineer,
+        assignedQcGroupId: selectedQcGroupId,
         productionEngineerName: productionEngineerName,
         submissionDate: todayDate
       };
@@ -330,7 +324,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
 
         const currentStageInnerData = {
           inspectionRows,
-          assignedQcEngineerId: qeEngineer,
+          assignedQcGroupId: selectedQcGroupId,
           productionEngineerName,
           submissionDate: todayDate
         };
@@ -372,6 +366,7 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
         status: status,
         engineerId: userId,
         role: role,
+        remarks: qcRemarks,
         data: {} // No data update on simple status change review
       }
 
@@ -639,15 +634,15 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="qeEngineer">QE Engineer:</Label>
-              <Select value={qeEngineer} onValueChange={setQeEngineer} disabled={isReview}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select QE Engineer" />
+              <Label htmlFor="qcGroup">QC Group:</Label>
+              <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
+                <SelectTrigger id="qcGroup" className="w-full">
+                  <SelectValue placeholder="Select QC Group" />
                 </SelectTrigger>
                 <SelectContent>
-                  {qeEngineers.map((engineer) => (
-                    <SelectItem key={engineer.id} value={engineer.id}>
-                      {engineer.name?.toUpperCase()}
+                  {qcGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name?.toUpperCase()}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -655,34 +650,34 @@ function Stage1({ initialData, isReview = false, onSuccess }) {
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-2 items-center">
-            {!isReview ? (
-              <Button onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save & Complete Stage 1"}
-              </Button>
-            ) : (
-              <>
-                {(isReview || initialData?.inspectionData?.s1_approved_at) && (
-                  <Input
-                    type="text"
-                    value={`Approve Date: ${initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleDateString() : new Date().toLocaleDateString()}`}
-                    readOnly
-                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
-                    placeholder="Approve Date"
-                  />
-                )}
-                <Button onClick={() => handleReviewAction('rejected')} variant="outline" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Reject"}
-                </Button>
-                <Button onClick={() => handleReviewAction('approved')} className="bg-black hover:bg-gray-800 text-white" disabled={isSubmitting}>
-                  {isSubmitting ? "Processing..." : "Approve"}
-                </Button>
-              </>
-            )}
-          </div>
+
         </CardContent>
       </Card>
-    </div >
+
+      {!readOnly && (
+        <QCReviewSection
+          isReview={isReview}
+          userRole={userRole}
+          status={initialData?.inspectionData?.s1_status}
+          remarks={qcRemarks}
+          setRemarks={setQcRemarks}
+          onAction={handleReviewAction}
+          isSubmitting={isSubmitting}
+          reviewDate={
+            initialData?.inspectionData?.s1_approved_at ? new Date(initialData.inspectionData.s1_approved_at).toLocaleString() :
+            initialData?.inspectionData?.s1_rejected_at ? new Date(initialData.inspectionData.s1_rejected_at).toLocaleString() : ""
+          }
+        />
+      )}
+
+      {!isReview && !readOnly && (
+        <div className="mt-12 flex justify-end pb-10">
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Processing..." : "Save & Complete Stage 1"}
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
 

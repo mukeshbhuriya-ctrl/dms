@@ -60,7 +60,7 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         drgNo: plan.customer_drg_no || '-',
         code: job.code || '-',
         inspAgency: 'TPIA',
-        reportNo: `R/${plan.serial_no || '000'}/${joint.joint_no || '000'}/${sPrefix.replace('s', '')}`,
+        reportNo: `SHR/${job.job_number || '000'}/${plan.serial_no || '000'}`,
         jointNo: joint.joint_no || '-'
     };
 
@@ -183,6 +183,8 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         pwht: joint.pwht || false,
         rt: joint.rt || false,
         pt: joint.pt || false,
+        rtStatus: stageData.rtStatus || '',
+        rtRemark: stageData.rtRemark || '',
         rawData: stageData
     };
 };
