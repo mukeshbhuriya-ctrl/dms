@@ -30,6 +30,7 @@ import { toast } from "react-toastify"
 import { DataTable } from "@/components/shared/DataTable"
 import { Checkbox } from "@/components/ui/checkbox"
 import { exportApi } from "@/api/export.api"
+import ProDataTable from "../../components/shared/ProDataTable"
 import {
     Sheet,
     SheetContent,
@@ -197,7 +198,12 @@ function UploadDocument() {
         const selectedClient = columnFilters.customer_name;
         let filteredPos = allPos;
         if (selectedClient) {
-            filteredPos = allPos.filter(p => (p.customer?.customer_name || p.customer_name) === selectedClient);
+            filteredPos = allPos.filter(p => {
+                const val = (p.customer?.customer_name || p.customer_name);
+                return Array.isArray(selectedClient) 
+                    ? selectedClient.includes(val) 
+                    : val === selectedClient;
+            });
         }
         const uniquePosLabels = [...new Set(filteredPos.map(p => p.po_number || p.number))].filter(Boolean);
         return uniquePosLabels.map(p => ({ label: p.toString(), value: p.toString() }));
@@ -205,16 +211,31 @@ function UploadDocument() {
 
     const jobFilterOptions = useMemo(() => {
         const selectedPo = columnFilters.po_number;
+        const selectedClient = columnFilters.customer_name;
         let filteredJobs = allJobs;
+        if (selectedClient) {
+            filteredJobs = filteredJobs.filter(j => {
+                const val = (j.customer?.customer_name || j.customer_name);
+                return Array.isArray(selectedClient) 
+                    ? selectedClient.includes(val) 
+                    : val === selectedClient;
+            });
+        }
         if (selectedPo) {
-            filteredJobs = allJobs.filter(j => (j.po?.po_number || j.po_number) === selectedPo);
+            filteredJobs = filteredJobs.filter(j => {
+                const val = (j.po?.po_number || j.po_number);
+                return Array.isArray(selectedPo) 
+                    ? selectedPo.includes(val) 
+                    : val === selectedPo;
+            });
         }
         const uniqueJobsLabels = [...new Set(filteredJobs.map(j => j.job_number || j.number))].filter(Boolean);
-        return uniqueJobsLabels.map(j => ({ label: j.toString(), value: j.toString() }));
-    }, [allJobs, columnFilters.po_number]);
+        return uniqueJobsLabels.sort((a, b) => a.toString().localeCompare(b.toString(), undefined, { numeric: true })).map(j => ({ label: j.toString(), value: j.toString() }));
+    }, [allJobs, columnFilters.po_number, columnFilters.customer_name]);
 
     const columns = useMemo(() => [
         {
+            id: "documentNumber",
             header: "System Doc ID",
             accessorKey: "documentNumber"
         },
@@ -245,6 +266,7 @@ function UploadDocument() {
         },
 
         {
+            id: "documentName",
             header: "Document Name",
             accessorKey: "documentName",
             filterType: "text",
@@ -338,6 +360,7 @@ function UploadDocument() {
             }
         },
         {
+            id: "actions",
             header: "Action",
             accessorKey: "id",
             cell: (row) => {
@@ -422,6 +445,21 @@ function UploadDocument() {
             className: "w-[150px]"
         }
     ], [uploadingIds, backendUrl, clientFilterOptions, poFilterOptions, jobFilterOptions])
+
+    const proTableTopFilters = useMemo(() => [
+        {
+            value: statusFilter,
+            onChange: setStatusFilter,
+            placeholder: "All Status",
+            options: [
+                { label: "All Status", value: "all" },
+                { label: "Pending for Approval", value: "pending" },
+                { label: "Approved", value: "approved" },
+                { label: "Rejected", value: "rejected" },
+                { label: "Awaiting Upload", value: "NA" },
+            ]
+        }
+    ], [statusFilter, setStatusFilter]);
 
     const fetchDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
         try {
@@ -517,40 +555,21 @@ function UploadDocument() {
             </header>
             <main className="flex-1 overflow-auto p-6 flex flex-col">
                 <div className="flex-1 flex flex-col w-full">
-                    <div className="mb-6">
-                        <h1 className="text-3xl font-bold mb-2">Upload Document</h1>
-                        <p className="text-muted-foreground">
-                            View and upload documents assigned to you.
-                        </p>
+                    <div className="flex justify-between items-center mb-4">
+                        <h1 className="text-2xl font-bold">Upload Document</h1>
                     </div>
 
                     <div className="flex flex-col gap-4">
-                        {/* Right-aligned Status Filter */}
-                        <div className="flex justify-end mb-2">
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by Status:</span>
-                                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="w-[180px]">
-                                        <SelectValue placeholder="All Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All Status</SelectItem>
-                                        <SelectItem value="pending">Pending for Approval</SelectItem>
-                                        <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="rejected">Rejected</SelectItem>
-                                        <SelectItem value="NA">Awaiting Upload</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <UploaderTable
+                        <ProDataTable
                             columns={columns}
                             fetchData={fetchDocumentsWrapper}
                             onExport={handleExport}
                             columnFilters={columnFilters}
                             onFilterChange={onFilterChange}
-                            refreshTrigger={refreshTrigger}
+                            refreshKey={refreshTrigger}
+                            topFilters={proTableTopFilters}
+                            globalSearchPlaceholder="Search documents..."
+                            initialStickyColumns={["documentNumber", "documentName"]}
                         />
                     </div>
                 </div>
