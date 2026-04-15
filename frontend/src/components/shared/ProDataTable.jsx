@@ -164,9 +164,9 @@ const TableSettings = ({ columns, stickyColumns, setStickyColumns }) => {
         <div className="p-3 border-b bg-slate-50">
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Table Settings</h4>
         </div>
-        <div className="p-2">
+        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">
           <p className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase">Sticky Columns</p>
-          <div className="space-y-1">
+          <div className="space-y-0.5 pb-1">
             {columns.map(col => {
               const id = col.id || col.accessorKey;
               if (!id) return null;
