@@ -434,7 +434,17 @@ const ClientApprovalStatus = () => {
                                 onClick={() => handleSubmitRow(row.id)}
                             >
                                 {update.loading ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                                    <div className="relative inline-flex items-center justify-center mr-1.5">
+                                        <svg className="w-3.5 h-3.5 transform -rotate-90">
+                                            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-slate-200" />
+                                            <circle 
+                                                cx="7" cy="7" r="5" 
+                                                stroke="currentColor" strokeWidth="2" fill="transparent" 
+                                                strokeDasharray={31.42} strokeDashoffset={typeof uploadProgress[row.id] === 'number' ? 31.42 - (uploadProgress[row.id] / 100) * 31.42 : 0} 
+                                                className="text-primary transition-all duration-300 ease-out" strokeLinecap="round" 
+                                            />
+                                        </svg>
+                                    </div>
                                 ) : update.submitted ? (
                                     <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
                                 ) : (
@@ -466,16 +476,6 @@ const ClientApprovalStatus = () => {
                                 </Button>
                             </div>
                         </div>
-                        {update.loading && typeof uploadProgress[row.id] === 'number' && (
-                            <div className="w-full mt-0.5 pr-[88px]">
-                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
-                                    <div 
-                                        className="bg-primary h-1.5 transition-all duration-300 ease-out" 
-                                        style={{ width: `${uploadProgress[row.id]}%` }}
-                                    />
-                                </div>
-                            </div>
-                        )}
                     </div>
                 );
             }

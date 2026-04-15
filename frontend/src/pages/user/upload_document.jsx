@@ -366,7 +366,17 @@ function UploadDocument() {
                                 `}
                             >
                                 {isUploading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <div className="relative inline-flex items-center justify-center mr-2">
+                                        <svg className="w-4 h-4 transform -rotate-90">
+                                            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-slate-200" />
+                                            <circle 
+                                                cx="8" cy="8" r="6" 
+                                                stroke="currentColor" strokeWidth="2" fill="transparent" 
+                                                strokeDasharray={37.7} strokeDashoffset={typeof progress === 'number' ? 37.7 - (progress / 100) * 37.7 : 0} 
+                                                className="text-primary transition-all duration-300 ease-out" strokeLinecap="round" 
+                                            />
+                                        </svg>
+                                    </div>
                                 ) : (
                                     <Upload className="h-4 w-4 mr-2" />
                                 )}
@@ -406,16 +416,6 @@ function UploadDocument() {
                             Trail
                         </Button>
                         </div>
-                        {isUploading && typeof progress === 'number' && (
-                            <div className="w-full mt-1">
-                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
-                                    <div 
-                                        className="bg-primary h-1.5 transition-all duration-300 ease-out" 
-                                        style={{ width: `${progress}%` }}
-                                    />
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )
             },
