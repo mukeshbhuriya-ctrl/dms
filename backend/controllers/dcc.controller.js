@@ -395,28 +395,49 @@ class DccController {
     async previewDocument(req, res) {
         try {
             const { versionId } = req.params;
-            const version = await DccService.getDocumentVersionById(req.user.company_id, versionId);
+            const { activityId } = req.query;
+            const companyId = req.user.company_id;
 
-            if (!version || !version.file_path) {
-                return res.status(404).json({ success: false, message: 'Document version or file path not found' });
+            let filePathToServe = null;
+            let mimeType = null;
+
+            if (activityId) {
+                // Case A: Requesting an archived file from activity trail (e.g., Rejected copy)
+                const activity = await prisma.document_activity.findFirst({
+                    where: { id: activityId, company_id: companyId }
+                });
+
+                if (!activity || !activity.metadata || !activity.metadata.file_path) {
+                    return res.status(404).json({ success: false, message: 'Archived file or activity record not found' });
+                }
+                filePathToServe = activity.metadata.file_path;
+                // mimeType will be determined by extension below for archives
+            } else {
+                // Case B: standard version request
+                const version = await DccService.getDocumentVersionById(companyId, versionId);
+                if (!version || !version.file_path) {
+                    return res.status(404).json({ success: false, message: 'Document version or file path not found' });
+                }
+                filePathToServe = version.file_path;
+                mimeType = version.mime_type;
             }
 
-            // Normalize path to ensure it's relative (remove leading slash if present for Windows compatibility)
-            // path.join('C:\base', '\uploads\file') results in 'C:\uploads\file' which is wrong.
-            // We need to remove the leading slash.
-            const relativePath = version.file_path.replace(/^[\\/]+/, '');
-            const absolutePath = path.join(ROOT_DIR, relativePath);
+            if (!filePathToServe) {
+                return res.status(404).json({ success: false, message: 'File path not found' });
+            }
+
+            // Normalize path and reconstruct absolute path
+            const absolutePath = path.join(ROOT_DIR, filePathToServe.replace(/^[\\/]+/, ''));
 
             if (!fs.existsSync(absolutePath)) {
                 console.error(`Preview file not found: ${absolutePath}`);
                 return res.status(404).json({ success: false, message: 'Document file not found on server' });
             }
 
-            // Get file stats for Content-Length
             const stats = fs.statSync(absolutePath);
 
             // Determine content type
-            let contentType = version.mime_type;
+            let contentType = mimeType;
             if (!contentType || contentType === 'application/octet-stream') {
                 const ext = path.extname(absolutePath).toLowerCase();
                 if (ext === '.pdf') contentType = 'application/pdf';
@@ -425,16 +446,60 @@ class DccController {
                 else if (ext === '.webp') contentType = 'image/webp';
             }
 
-            // Standardize headers for browser preview
             res.setHeader('Content-Type', contentType || 'application/octet-stream');
             res.setHeader('Content-Length', stats.size);
             res.setHeader('Content-Disposition', 'inline');
 
-            // Stream the file
             const fileStream = fs.createReadStream(absolutePath);
             fileStream.pipe(res);
         } catch (error) {
             console.error('Preview document error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    /**
+     * Preview or Download an archived file from activity metadata (e.g., Rejected copies)
+     */
+    async previewArchivedFile(req, res) {
+        try {
+            const { activityId } = req.params;
+            const { company_id } = req.user;
+
+            const activity = await prisma.document_activity.findFirst({
+                where: { id: activityId, company_id }
+            });
+
+            if (!activity || !activity.metadata || !activity.metadata.rejected_file_archive) {
+                return res.status(404).json({ success: false, message: 'Archived file or activity record not found' });
+            }
+
+            const relativePath = activity.metadata.rejected_file_archive.replace(/^[\\/]+/, '');
+            const absolutePath = path.join(ROOT_DIR, relativePath);
+
+            if (!fs.existsSync(absolutePath)) {
+                console.error(`Archived file not found: ${absolutePath}`);
+                return res.status(404).json({ success: false, message: 'Archived file not found on server' });
+            }
+
+            const stats = fs.statSync(absolutePath);
+            
+            // Determine content type from extension
+            let contentType = 'application/octet-stream';
+            const ext = path.extname(absolutePath).toLowerCase();
+            if (ext === '.pdf') contentType = 'application/pdf';
+            else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+            else if (ext === '.png') contentType = 'image/png';
+            else if (ext === '.webp') contentType = 'image/webp';
+
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Length', stats.size);
+            res.setHeader('Content-Disposition', 'inline');
+
+            const fileStream = fs.createReadStream(absolutePath);
+            fileStream.pipe(res);
+        } catch (error) {
+            console.error('Preview archived file error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }

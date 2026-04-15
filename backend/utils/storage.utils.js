@@ -101,6 +101,31 @@ class StorageUtils {
     getRelativePath(fullPath) {
         return path.relative(ROOT_DIR, fullPath).replace(/\\/g, '/');
     }
+
+    /**
+     * Archive a rejected file into a _rejected/ subfolder within the same version directory.
+     * This preserves the rejected file for audit trail while allowing the version slot to be reused.
+     * Pattern: {version_dir}/_rejected/{timestamp}_{filename}
+     * @param {string} relativeFilePath - relative path stored in DB (from ROOT_DIR)
+     * @returns {string|null} relative path to the archived file, or null if source not found
+     */
+    archiveRejectedFile(relativeFilePath) {
+        if (!relativeFilePath) return null;
+
+        const fullPath = path.join(ROOT_DIR, relativeFilePath);
+        if (!fs.existsSync(fullPath)) return null;
+
+        const dir = path.dirname(fullPath);
+        const filename = path.basename(fullPath);
+        const archiveDir = path.join(dir, '_rejected');
+        this._ensureDir(archiveDir);
+
+        const timestamp = Date.now();
+        const archivedPath = path.join(archiveDir, `${timestamp}_${filename}`);
+        fs.renameSync(fullPath, archivedPath);
+
+        return this.getRelativePath(archivedPath);
+    }
 }
 
 module.exports = new StorageUtils();

@@ -40,7 +40,11 @@ class FileService {
   }
 
   /**
-   * Manages document versioning in the database
+   * Manages document versioning in the database.
+   * Handles 3 cases:
+   *   1. Pending placeholder (created at assignment) → fill it in
+   *   2. Rejected version (internal correction) → overwrite same version slot
+   *   3. Normal re-upload → create new incremented revision
    */
   async createNewVersion(tx, documentId, userId, fileData, remarks) {
     // 1. Fetch master document ID
@@ -52,48 +56,118 @@ class FileService {
     if (!groupDoc) throw new Error('Document assignment not found');
     const masterDocId = groupDoc.document_id;
 
-    // 2. Mark ALL previous versions of this Master Document as inactive across all tasks
-    await tx.document_version.updateMany({
-      where: { 
-        group_document: { document_id: masterDocId },
-        is_active: true 
-      },
-      data: { is_active: false },
+    // ── Determine which case applies ──────────────────────────────
+
+    // Case 1: Pending placeholder created at assignment time
+    const pendingPlaceholder = await tx.document_version.findFirst({
+      where: { group_document_id: documentId, status: 'Pending' },
+      orderBy: { version_no: 'asc' }
     });
 
-    // 3. Fetch latest version number to increment globally
-    const lastVersion = await tx.document_version.findFirst({
-      where: { 
-        group_document: { document_id: masterDocId }
-      },
-      orderBy: { version_no: 'desc' },
-    });
-    const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
+    // Case 2: Last version was internally rejected — overwrite same slot
+    const rejectedVersion = !pendingPlaceholder
+      ? await tx.document_version.findFirst({
+          where: { group_document_id: documentId, status: 'Rejected' },
+          orderBy: { version_no: 'desc' }
+        })
+      : null;
 
-    // 3. Create new document version
-    // Use the relative secure download API path
-    const fileUrl = `/api/dcc/document/${documentId}/download?version=${nextVersionNo}`;
+    let version;
+    let nextVersionNo;
 
-    const version = await tx.document_version.create({
-      data: {
-        group_document_id: documentId,
-        version_no: nextVersionNo,
-        file_url: fileUrl,
-        file_path: fileData.filePath,
-        file_hash: fileData.fileHash,
-        file_size: fileData.fileSize,
-        mime_type: fileData.mimeType,
-        is_active: true,
-        remarks,
-        status: 'Uploaded',
-        uploaded_by: userId,
-      },
-    });
+    if (pendingPlaceholder) {
+      // ── Case 1: Fill in the assignment placeholder ─────────────
+      nextVersionNo = pendingPlaceholder.version_no;
+      const fileUrl = `/api/dcc/document/${documentId}/download?version=${nextVersionNo}`;
 
-    // 4. Update the document's main status
+      // Mark all previous active versions inactive
+      await tx.document_version.updateMany({
+        where: { group_document: { document_id: masterDocId }, is_active: true },
+        data: { is_active: false }
+      });
+
+      version = await tx.document_version.update({
+        where: { id: pendingPlaceholder.id },
+        data: {
+          file_url: fileUrl,
+          file_path: fileData.filePath,
+          file_hash: fileData.fileHash,
+          file_size: fileData.fileSize,
+          mime_type: fileData.mimeType,
+          is_active: true,
+          status: 'Uploaded',
+          uploaded_by: userId,
+          remarks: remarks || null,
+        }
+      });
+
+    } else if (rejectedVersion) {
+      // ── Case 2: Overwrite rejected version (internal correction) ─
+      nextVersionNo = rejectedVersion.version_no;
+      const fileUrl = `/api/dcc/document/${documentId}/download?version=${nextVersionNo}`;
+
+      // Mark all previous active versions inactive
+      await tx.document_version.updateMany({
+        where: { group_document: { document_id: masterDocId }, is_active: true },
+        data: { is_active: false }
+      });
+
+      version = await tx.document_version.update({
+        where: { id: rejectedVersion.id },
+        data: {
+          file_url: fileUrl,
+          file_path: fileData.filePath,
+          file_hash: fileData.fileHash,
+          file_size: fileData.fileSize,
+          mime_type: fileData.mimeType,
+          is_active: true,
+          status: 'Uploaded',
+          uploaded_by: userId,
+          remarks: remarks || null,
+        }
+      });
+
+    } else {
+      // ── Case 3: Normal new revision (increment version number)───
+      // Mark all previous active versions of this master document inactive
+      await tx.document_version.updateMany({
+        where: {
+          group_document: { document_id: masterDocId },
+          is_active: true
+        },
+        data: { is_active: false }
+      });
+
+      // Get the highest version number globally for this master document
+      const lastVersion = await tx.document_version.findFirst({
+        where: { group_document: { document_id: masterDocId } },
+        orderBy: { version_no: 'desc' }
+      });
+      nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
+
+      const fileUrl = `/api/dcc/document/${documentId}/download?version=${nextVersionNo}`;
+
+      version = await tx.document_version.create({
+        data: {
+          group_document_id: documentId,
+          version_no: nextVersionNo,
+          file_url: fileUrl,
+          file_path: fileData.filePath,
+          file_hash: fileData.fileHash,
+          file_size: fileData.fileSize,
+          mime_type: fileData.mimeType,
+          is_active: true,
+          remarks,
+          status: 'Uploaded',
+          uploaded_by: userId,
+        }
+      });
+    }
+
+    // Update the document's main status to Pending for Approval
     await tx.group_document.update({
       where: { id: documentId },
-      data: { status: 'Pending for Approval' },
+      data: { status: 'Pending for Approval' }
     });
 
     return version;

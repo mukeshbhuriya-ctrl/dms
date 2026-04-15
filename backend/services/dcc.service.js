@@ -850,21 +850,48 @@ class DccService {
         if (!groupDoc) throw new Error('Document assignment not found');
 
         return await prisma.$transaction(async (tx) => {
-            // Get last version for folder naming
-            const lastVersion = await tx.document_version.findFirst({
-                where: { group_document_id: document_id },
-                orderBy: { version_no: 'desc' }
-            });
-            const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
+            // ── Resolve target directory version using the same 3-case logic as createNewVersion ──
+            // This ensures the file lands in the same folder number the DB record will use.
 
-            // 1. Process storage (move to structured directory)
+            // Case 1: Pending placeholder created at assignment → use its version_no (v0)
+            const pendingPlaceholder = await tx.document_version.findFirst({
+                where: { group_document_id: document_id, status: 'Pending' },
+                orderBy: { version_no: 'asc' }
+            });
+
+            // Case 2: Last version was internally rejected → overwrite same slot
+            const rejectedVersion = !pendingPlaceholder
+                ? await tx.document_version.findFirst({
+                    where: { group_document_id: document_id, status: 'Rejected' },
+                    orderBy: { version_no: 'desc' }
+                })
+                : null;
+
+            let targetVersionNo;
+            if (pendingPlaceholder) {
+                // Case 1: First upload — use the placeholder's version_no (always 0)
+                targetVersionNo = pendingPlaceholder.version_no;
+            } else if (rejectedVersion) {
+                // Case 2: Re-upload after rejection — use same version slot
+                targetVersionNo = rejectedVersion.version_no;
+            } else {
+                // Case 3: Normal new revision — find the highest existing version and increment
+                const masterDocId = groupDoc.document_id;
+                const lastVersion = await tx.document_version.findFirst({
+                    where: { group_document: { document_id: masterDocId } },
+                    orderBy: { version_no: 'desc' }
+                });
+                targetVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
+            }
+
+            // 1. Process storage — move file to the correct version directory
             const job_number = groupDoc.group?.job_group[0]?.job?.job_number || 'NA';
             const document_number = groupDoc.document?.document_number || 'NA';
 
-            const targetDir = StorageUtils.getDocRevisionDir(company_id, job_number, document_number, nextVersionNo);
+            const targetDir = StorageUtils.getDocRevisionDir(company_id, job_number, document_number, targetVersionNo);
             const storageData = await fileService.processStorage(file, targetDir);
 
-            // 2. Create new version in DB and update document status
+            // 2. Create / update version record in DB
             const version = await fileService.createNewVersion(tx, document_id, user_id, storageData, remarks);
 
             // 3. Log Activity
@@ -873,11 +900,11 @@ class DccService {
                 group_document_id: document_id,
                 user_id,
                 action: 'Uploaded',
-                remarks: `Version ${nextVersionNo} uploaded`,
+                remarks: `Version ${targetVersionNo} uploaded`,
                 metadata: {
-                    version_no: nextVersionNo,
+                    version_no: targetVersionNo,
                     file_name: file.originalname,
-                    file_url: version.file_url // Added for trail download
+                    file_url: version.file_url
                 }
             }, tx);
 
@@ -990,11 +1017,14 @@ class DccService {
             versionConditions.transmission_items = { none: {} };
         }
 
-        // Apply version conditions if any, or default to checking for existence if no status filter
+        // Apply version conditions if any, or default to checking for uploaded versions
+        // Exclude Pending placeholder versions (created at assignment, no file yet)
+        // The Approver should only see documents with an actual uploaded file
+        const nonPendingVersionFilter = { status: { not: 'Pending' } };
         if (Object.keys(versionConditions).length > 0) {
-            where.versions = { some: versionConditions };
+            where.versions = { some: { ...versionConditions, ...nonPendingVersionFilter } };
         } else if (!where.status) {
-            where.versions = { some: {} };
+            where.versions = { some: nonPendingVersionFilter };
         }
 
         // Filter by specific job IDs (from Create Transmission)
@@ -1034,7 +1064,9 @@ class DccService {
         }
 
         // Dynamic Version Include
+        // Always exclude Pending placeholder versions so display only shows real uploaded revisions
         let versionsInclude = {
+            where: { status: { not: 'Pending' } },
             orderBy: { version_no: 'desc' },
             take: 1,
             include: {
@@ -1103,19 +1135,31 @@ class DccService {
         if (!latestVersion) throw new Error('No version to review');
 
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Update Version Status
+            // 1. If rejecting, archive the current file for audit trail
+            // File moves from version dir to _rejected/ subfolder
+            let rejectedArchivePath = null;
+            if (status === 'Rejected' && latestVersion.file_path) {
+                rejectedArchivePath = StorageUtils.archiveRejectedFile(latestVersion.file_path);
+            }
+
+            // 2. Update Version Status + point file_path to _rejected/ location
+            const versionUpdateData = { status, remarks };
+            if (status === 'Rejected' && rejectedArchivePath) {
+                // Update file_path to the _rejected/ location (file was moved, not deleted)
+                versionUpdateData.file_path = rejectedArchivePath;
+            }
             await tx.document_version.update({
                 where: { id: latestVersion.id },
-                data: { status, remarks }
+                data: versionUpdateData
             });
 
-            // 2. Update Group Document Status
+            // 3. Update Group Document Status
             await tx.group_document.update({
                 where: { id: document_id },
                 data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
             });
 
-            // 3. Log Activity
+            // 4. Log Activity — store the _rejected/ file_path in metadata for trail access
             await ActivityService.logActivity({
                 company_id,
                 group_document_id: document_id,
@@ -1124,7 +1168,8 @@ class DccService {
                 remarks: remarks || null,
                 metadata: {
                     version_no: latestVersion.version_no,
-                    file_url: latestVersion.file_url
+                    file_url: latestVersion.file_url,
+                    ...(rejectedArchivePath && { file_path: rejectedArchivePath })
                 }
             }, tx);
 
@@ -2063,17 +2108,23 @@ class DccService {
     }
 
     /**
-     * Helper to show version context (v1, v2, v3...) only for uploaded documents
+     * Helper to show version context (v0, v1, v2...) for all documents.
+     * - For documents with uploaded versions: shows the latest uploaded version_no.
+     * - For pending-only documents (no file yet): shows the placeholder version_no (v0).
+     * The frontend status badge communicates whether a file has been uploaded.
      * @private
      */
     async _enrichWithVersionContext(docs) {
         if (!docs || docs.length === 0) return docs;
 
         return docs.map(doc => {
-            // If the task has a version, use it. Otherwise, return null (for Pending tasks)
             if (doc.versions && doc.versions.length > 0) {
-                doc.display_version_no = doc.versions[0].version_no;
+                // Prefer the first non-Pending version (real uploaded file)
+                const uploadedVersion = doc.versions.find(v => v.status !== 'Pending');
+                const versionToDisplay = uploadedVersion || doc.versions[0];
+                doc.display_version_no = versionToDisplay.version_no;
             } else {
+                // No versions at all (edge case: pre-existing docs before this feature)
                 doc.display_version_no = null;
             }
             return doc;
@@ -2206,13 +2257,35 @@ class DccService {
                     }
                 });
 
+                // 3. Create initial v0 directory + placeholder version record
+                const job_number = targetJob.job_number || 'NA';
+                const document_number = documentMaster.document_number || 'NA';
+
+                // Create the empty v0 directory on the filesystem
+                StorageUtils.getDocRevisionDir(company_id, job_number, document_number, 0);
+
+                // Create a placeholder document_version row (no file yet)
+                // The upload flow's Case 1 logic will fill this in on first upload
+                await tx.document_version.create({
+                    data: {
+                        group_document_id: groupDoc.id,
+                        version_no: 0,
+                        file_url: '',
+                        file_path: null,
+                        is_active: true,
+                        status: 'Pending',
+                        uploaded_by: assign_user_id,
+                        remarks: 'Initial assignment placeholder'
+                    }
+                });
+
                 results.push(groupDoc);
 
-                // 3. Log Activity
+                // 4. Log Activity
                 await ActivityService.logActivity({
                     company_id,
                     group_document_id: groupDoc.id,
-                    user_id: assign_user_id, // Logged against destination user
+                    user_id: assign_user_id,
                     action: 'Assigned',
                     remarks: `Document assigned for job ${targetJob.job_number || job_id}`
                 }, tx);
