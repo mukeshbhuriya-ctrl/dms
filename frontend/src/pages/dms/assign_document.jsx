@@ -700,12 +700,8 @@ function AssignDocument() {
 
           {/* List View */}
           {view === 'list' && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Assigned Documents List</CardTitle>
-                  <CardDescription>All documents assigned to jobs.</CardDescription>
-                </div>
+            <div className="space-y-6">
+              <div className="flex flex-row items-center justify-end">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">Filter by Status:</span>
@@ -721,8 +717,8 @@ function AssignDocument() {
                     </Select>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
+              </div>
+              <div>
                 <AssignDocumentTable
                   columns={columns}
                   fetchData={fetchAssignedDocuments}
@@ -731,29 +727,30 @@ function AssignDocument() {
                   onFilterChange={onFilterChange}
                   refreshKey={refreshKey}
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
           {view === 'assign' && (
             <div className="flex-1 flex flex-col w-full space-y-6">
               {/* Document Details Section */}
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-6">
+                <div className="flex flex-row items-center justify-between">
                   <div>
-                    <CardTitle>Document Details</CardTitle>
-                    <CardDescription>Enter details for the documents to be assigned</CardDescription>
+                    <h2 className="text-xl font-bold">Document Details</h2>
+                    <p className="text-sm text-muted-foreground">Enter details for the documents to be assigned</p>
                   </div>
                   <Button type="button" size="sm" onClick={addRow}>
                     <Plus className="mr-2 h-4 w-4" /> Add Row
                   </Button>
-                </CardHeader>
-                <CardContent>
+                </div>
+                <div>
                   <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50 whitespace-nowrap">
+                          {/* ... existing table headers ... */}
                           <TableHead className="w-[50px]">S.No</TableHead>
                           <TableHead className="min-w-[200px]">Customer <span className="text-destructive">*</span></TableHead>
                           <TableHead className="min-w-[150px]">PO Number <span className="text-destructive">*</span></TableHead>
@@ -1037,8 +1034,8 @@ function AssignDocument() {
                       {isLoading ? "Assigning..." : "Assign Documents"}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           )}
 
