@@ -44,6 +44,7 @@ import { dccService } from "../../services/dcc.service";
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import DocumentTrail from "../../components/dms/DocumentTrail"
+import ProDataTable from "../../components/shared/ProDataTable"
 
 function AssignDocument() {
   const [view, setView] = useState("list") // 'list' or 'assign'
@@ -311,6 +312,19 @@ function AssignDocument() {
       },
     },
   ], [activeClientOptions, activePoOptions, activeJobOptions])
+  
+  const proTableTopFilters = useMemo(() => [
+    {
+      value: statusFilter,
+      onChange: setStatusFilter,
+      placeholder: "All Status",
+      options: [
+        { label: "All Status", value: "all" },
+        { label: "Pending", value: "Pending" },
+        { label: "Uploaded", value: "Uploaded" },
+      ]
+    }
+  ], [statusFilter, setStatusFilter]);
 
   // --- Fetch Data for List View ---
   const fetchAssignedDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
@@ -670,65 +684,34 @@ function AssignDocument() {
       <main className="flex-1 overflow-auto p-6 flex flex-col">
         <div className="flex-1 flex flex-col w-full">
 
-          {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">
-                {view === "list" ? "Documents" : editingId ? "Edit Assignment" : "Assign Documents"}
-              </h1>
-              <p className="text-muted-foreground">
-                {view === "list"
-                  ? "View and manage assigned documents."
-                  : editingId ? "Update assignment details." : "Select customer, location, PO, and job to assign documents."}
-              </p>
-            </div>
-            <div>
-              {view === "list" ? (
-                <Button onClick={() => {
-                  handleBack()
-                  setView("assign")
-                }}>
-                  <Plus className="mr-2 h-4 w-4" /> Assign Documents
-                </Button>
-              ) : (
-                <Button variant="outline" onClick={handleBack}>
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                </Button>
-              )}
-            </div>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold">
+              {view === "list" ? "Documents" : editingId ? "Edit Assignment" : "Assign Documents"}
+            </h1>
+            {view !== "list" && (
+              <Button variant="outline" size="sm" onClick={handleBack}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+              </Button>
+            )}
           </div>
 
           {/* List View */}
           {view === 'list' && (
-            <div className="space-y-6">
-              <div className="flex flex-row items-center justify-end">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">Filter by Status:</span>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-[180px] h-9 bg-white border-slate-200">
-                        <SelectValue placeholder="All Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="Pending">Pending</SelectItem>
-                        <SelectItem value="Uploaded">Uploaded</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <AssignDocumentTable
+              <ProDataTable
                   columns={columns}
                   fetchData={fetchAssignedDocuments}
                   onExport={handleExport}
+                  onAdd={() => {
+                    handleBack();
+                    setView("assign");
+                  }}
                   columnFilters={columnFilters}
                   onFilterChange={onFilterChange}
                   refreshKey={refreshKey}
+                  topFilters={proTableTopFilters}
+                  globalSearchPlaceholder="Search documents..."
+                  initialStickyColumns={["document.document_number", "shreno_doc_no"]}
                 />
-              </div>
-            </div>
           )}
 
           {view === 'assign' && (

@@ -11,7 +11,7 @@ const UPLOAD_BASE = path.join(ROOT_DIR, 'uploads');
 class StorageUtils {
     /**
      * Get the directory for a specific document revision
-     * Pattern: {company_id}/{job_number}/documents/{document_number}/rev_{version}/
+     * Pattern: {company_id}/{job_number}/documents/{document_number}/{version}/
      */
     getDocRevisionDir(company_id, job_number, document_number, version) {
         const dir = path.join(
@@ -45,7 +45,7 @@ class StorageUtils {
 
     /**
      * Get the directory for a specific document's feedback within a transmission
-     * Pattern: {company_id}/transmissions/{transmission_number}/client_feedback/{document_number}/rev_{version}
+     * Pattern: {company_id}/transmissions/{transmission_number}/client_feedback/{document_number}/{version}
      */
     getTransmissionDocumentFeedbackDir(company_id, transmission_number, document_number, version) {
         const dir = path.join(
