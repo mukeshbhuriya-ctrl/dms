@@ -201,7 +201,8 @@ const ProDataTable = ({
   refreshKey = 0,
   topFilters = [], // Array of { value, onChange, options: [{label, value}], placeholder }
   globalSearchPlaceholder = "Search...",
-  initialStickyColumns = []
+  initialStickyColumns = [],
+  onAddTooltip = "Add New"
 }) => {
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({});
@@ -334,7 +335,7 @@ const ProDataTable = ({
                     <Plus className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p className="text-xs">Add New Result</p></TooltipContent>
+                <TooltipContent><p className="text-xs">{onAddTooltip}</p></TooltipContent>
               </Tooltip>
             )}
           </TooltipProvider>
