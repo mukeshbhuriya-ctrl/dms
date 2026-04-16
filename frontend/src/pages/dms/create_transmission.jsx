@@ -132,6 +132,12 @@ function CreateTransmission() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
 
+  // Ad-Hoc Email States
+  const [customShrenoEmails, setCustomShrenoEmails] = useState([]);
+  const [customClientEmails, setCustomClientEmails] = useState([]);
+  const [activeAddEmailType, setActiveAddEmailType] = useState(null); // 'shreno' | 'client' | null
+  const [tempEmailInput, setTempEmailInput] = useState("");
+
   // --- Initial Data Fetch (Customers & Jobs for metadata lookup/filtering) ---
   useEffect(() => {
     fetchActiveListFilters();
@@ -494,6 +500,27 @@ function CreateTransmission() {
     setSelectedEmails((prev) => ({ ...prev, [contactId]: !prev[contactId] }))
   }
 
+  const addCustomEmail = (type) => {
+    if (!tempEmailInput.trim() || !tempEmailInput.includes('@')) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (type === 'shreno') {
+      if (customShrenoEmails.includes(tempEmailInput)) { toast.error("Email already added"); return; }
+      setCustomShrenoEmails(prev => [...prev, tempEmailInput]);
+    } else {
+      if (customClientEmails.includes(tempEmailInput)) { toast.error("Email already added"); return; }
+      setCustomClientEmails(prev => [...prev, tempEmailInput]);
+    }
+    setTempEmailInput("");
+    setActiveAddEmailType(null);
+  };
+
+  const removeCustomEmail = (type, email) => {
+    if (type === 'shreno') setCustomShrenoEmails(prev => prev.filter(e => e !== email));
+    else setCustomClientEmails(prev => prev.filter(e => e !== email));
+  };
+
   // --- Email Template Logic ---
   const fetchTemplates = async () => {
     try {
@@ -597,10 +624,15 @@ function CreateTransmission() {
         let shrenoContact = communicationMatrix.shreno.find(c => c.id == id);
         if (shrenoContact) shrenoEmails.push(shrenoContact.email);
       });
+
+      // Merge custom ad-hoc emails
+      const finalClientEmails = [...clientEmails, ...customClientEmails];
+      const finalShrenoEmails = [...shrenoEmails, ...customShrenoEmails];
+
       const response = await dccService.sendTransmissionEmail({
         transmission_id: activeTransmission.id,
-        client_emails: clientEmails,
-        shreno_emails: shrenoEmails,
+        client_emails: finalClientEmails,
+        shreno_emails: finalShrenoEmails,
         include_zip: includeZipDownload,
         custom_subject: emailSubject || undefined,
         custom_body: emailBody || undefined
@@ -1053,10 +1085,33 @@ function CreateTransmission() {
           <div className="space-y-6 py-4">
             {/* Shreno Communication */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Shreno Communication</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Shreno Communication</h3>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full hover:bg-primary/10 text-primary"
+                  onClick={() => setActiveAddEmailType(activeAddEmailType === 'shreno' ? null : 'shreno')}
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
               </div>
+
+              {activeAddEmailType === 'shreno' && (
+                <div className="flex gap-2 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-2">
+                  <Input 
+                    placeholder="Enter extra email..." 
+                    className="h-9 flex-1 bg-white" 
+                    value={tempEmailInput}
+                    onChange={(e) => setTempEmailInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addCustomEmail('shreno')}
+                  />
+                  <Button size="sm" onClick={() => addCustomEmail('shreno')}>Add</Button>
+                </div>
+              )}
               {communicationMatrix.shreno.length > 0 ? (
                 <div className="space-y-3 pl-7">
                   {communicationMatrix.shreno.map((contact) => (
@@ -1086,6 +1141,34 @@ function CreateTransmission() {
                   No Shreno contacts found.
                 </p>
               )}
+
+              {/* Custom Shreno Emails */}
+              {customShrenoEmails.length > 0 && (
+                <div className="space-y-3 pl-7 pt-2">
+                  {customShrenoEmails.map((email) => (
+                    <div
+                      key={email}
+                      className="flex items-center justify-between p-3 border border-primary/30 bg-primary/5 rounded-lg group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Checkbox checked={true} disabled className="opacity-50" />
+                        <div>
+                          <div className="font-semibold text-sm text-primary">Extra Recipient</div>
+                          <div className="text-sm text-slate-600">{email}</div>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeCustomEmail('shreno', email)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Divider */}
@@ -1093,10 +1176,33 @@ function CreateTransmission() {
 
             {/* Client Side Communication */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Client Side Communication</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Client Side Communication</h3>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-8 w-8 rounded-full hover:bg-primary/10 text-primary"
+                  onClick={() => setActiveAddEmailType(activeAddEmailType === 'client' ? null : 'client')}
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
               </div>
+
+              {activeAddEmailType === 'client' && (
+                <div className="flex gap-2 p-2 bg-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-2">
+                  <Input 
+                    placeholder="Enter extra email..." 
+                    className="h-9 flex-1 bg-white" 
+                    value={tempEmailInput}
+                    onChange={(e) => setTempEmailInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addCustomEmail('client')}
+                  />
+                  <Button size="sm" onClick={() => addCustomEmail('client')}>Add</Button>
+                </div>
+              )}
               {communicationMatrix.client.length > 0 ? (
                 <div className="space-y-3 pl-7">
                   {communicationMatrix.client.map((contact) => (
@@ -1125,6 +1231,34 @@ function CreateTransmission() {
                 <p className="text-sm text-muted-foreground pl-7">
                   No Client contacts found.
                 </p>
+              )}
+
+              {/* Custom Client Emails */}
+              {customClientEmails.length > 0 && (
+                <div className="space-y-3 pl-7 pt-2">
+                  {customClientEmails.map((email) => (
+                    <div
+                      key={email}
+                      className="flex items-center justify-between p-3 border border-primary/30 bg-primary/5 rounded-lg group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Checkbox checked={true} disabled className="opacity-50" />
+                        <div>
+                          <div className="font-semibold text-sm text-primary">Extra Recipient</div>
+                          <div className="text-sm text-slate-600">{email}</div>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeCustomEmail('client', email)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
