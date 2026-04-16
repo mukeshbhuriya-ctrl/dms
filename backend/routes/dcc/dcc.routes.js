@@ -70,6 +70,12 @@ router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
 router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF);
 router.get('/preview-transmittal-pdf/:id', DccController.previewTransmittalPDF);
+
+// Email Templates
+router.get('/email-templates', DccController.getEmailTemplates);
+router.post('/email-templates', DccController.createEmailTemplate);
+router.put('/email-templates/:id', DccController.updateEmailTemplate);
+router.delete('/email-templates/:id', DccController.deleteEmailTemplate);
 // Client Approval Status
 router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
 router.post('/transmission/document/client-status', upload.single('client_file'), DccController.updateTransmissionDocumentClientStatus);

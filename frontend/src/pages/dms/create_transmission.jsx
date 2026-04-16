@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -26,7 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, Check } from "lucide-react"
+import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, Check, Layout, Save, Trash2, Loader2 } from "lucide-react"
 import {
   Popover,
   PopoverContent,
@@ -37,6 +38,21 @@ import { dccService } from "../../services/dcc.service";
 import { useNavigate } from "react-router-dom";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+
+const DEFAULT_TRANSMITTAL_SUBJECT = "Document Transmission: {{transmission_number}} - PO: {{po_number}}";
+const DEFAULT_TRANSMITTAL_BODY = `Dear Sir/Madam,
+
+Please find attached the document transmittal for {{transmission_number}} related to PO: {{po_number}} for {{customer_name}}.
+
+Total documents: {{document_count}}
+
+You can download the documents using the link below:
+{{zip_url}}
+
+Password: {{password}}
+
+Regards,
+DCC Team`;
 import { DataTable } from "@/components/shared/DataTable";
 import { exportApi } from "@/api/export.api";
 import {
@@ -52,6 +68,8 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
+  SheetFooter,
 } from "@/components/ui/sheet"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 
@@ -104,6 +122,15 @@ function CreateTransmission() {
   const [currentSearchParams, setCurrentSearchParams] = useState({ search: '', columnFilters: {} })
   const [isSelectingAll, setIsSelectingAll] = useState(false)
   const [includeZipDownload, setIncludeZipDownload] = useState(true)
+
+  // Email Template States
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [emailTemplates, setEmailTemplates] = useState([]);
+  const [isTemplateSheetOpen, setIsTemplateSheetOpen] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [templateName, setTemplateName] = useState("");
 
   // --- Initial Data Fetch (Customers & Jobs for metadata lookup/filtering) ---
   useEffect(() => {
@@ -467,6 +494,93 @@ function CreateTransmission() {
     setSelectedEmails((prev) => ({ ...prev, [contactId]: !prev[contactId] }))
   }
 
+  // --- Email Template Logic ---
+  const fetchTemplates = async () => {
+    try {
+      const res = await dccService.getEmailTemplates();
+      if (res.success) setEmailTemplates(res.data || []);
+    } catch (err) {
+      console.error("Error fetching templates:", err);
+    }
+  };
+
+  const handleApplyTemplate = (template) => {
+    setEmailSubject(template.subject);
+    setEmailBody(template.body);
+    setSelectedTemplateId(template.id);
+    setIsTemplateSheetOpen(false);
+    toast.success(`Template "${template.name}" applied`);
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim() || !emailSubject.trim() || !emailBody.trim()) {
+      toast.error("Template name, subject, and body are required");
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      let res;
+      if (selectedTemplateId) {
+        res = await dccService.updateEmailTemplate(selectedTemplateId, {
+          name: templateName,
+          subject: emailSubject,
+          body: emailBody
+        });
+      } else {
+        res = await dccService.createEmailTemplate({
+          name: templateName,
+          subject: emailSubject,
+          body: emailBody
+        });
+      }
+
+      if (res.success) {
+        toast.success(selectedTemplateId ? "Template updated" : "Template saved");
+        fetchTemplates();
+        setTemplateName("");
+      }
+    } catch (err) {
+      console.error("Save template error:", err);
+      toast.error(err.response?.data?.message || "Failed to save template");
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (!window.confirm("Are you sure you want to delete this template?")) return;
+    try {
+      const res = await dccService.deleteEmailTemplate(templateId);
+      if (res.success) {
+        toast.success("Template deleted");
+        fetchTemplates();
+        if (selectedTemplateId === templateId) {
+          setSelectedTemplateId("");
+          setTemplateName("");
+        }
+      }
+    } catch (err) {
+      console.error("Delete template error:", err);
+      toast.error("Failed to delete template");
+    }
+  };
+
+  useEffect(() => {
+    if (isTemplateSheetOpen) {
+      if (!emailSubject && !emailBody) {
+        setEmailSubject(DEFAULT_TRANSMITTAL_SUBJECT);
+        setEmailBody(DEFAULT_TRANSMITTAL_BODY);
+      }
+    }
+  }, [isTemplateSheetOpen]);
+
+  useEffect(() => {
+    if (isSendMailDialogOpen) {
+      fetchTemplates();
+    }
+  }, [isSendMailDialogOpen]);
+
   const handleSendMail = async () => {
     const selectedIds = Object.keys(selectedEmails).filter(id => selectedEmails[id]);
     if (selectedIds.length === 0) {
@@ -487,7 +601,9 @@ function CreateTransmission() {
         transmission_id: activeTransmission.id,
         client_emails: clientEmails,
         shreno_emails: shrenoEmails,
-        include_zip: includeZipDownload
+        include_zip: includeZipDownload,
+        custom_subject: emailSubject || undefined,
+        custom_body: emailBody || undefined
       });
       if (response && response.success) {
         toast.success("Email sent successfully!");
@@ -1014,34 +1130,65 @@ function CreateTransmission() {
           </div>
 
 
-          <DialogFooter className="bg-gray-50 -mx-6 -mb-6 p-4 rounded-b-lg border-t gap-4 flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setIsSendMailDialogOpen(false)}
-              disabled={isLoadingSend}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSendMail}
-              disabled={isLoadingSend || Object.values(selectedEmails).filter(Boolean).length === 0}
-              className="px-8"
-            >
-              {isLoadingSend ? (
-                <>
-                  <span className="animate-spin mr-2">⏳</span>
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
-                </>
-              )}
-            </Button>
+          <DialogFooter className="bg-gray-50 -mx-6 -mb-6 p-4 rounded-b-lg border-t gap-4 flex justify-between items-center">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsTemplateSheetOpen(true)}
+                className="border-primary text-primary hover:bg-primary/5 shadow-sm"
+              >
+                <Layout className="h-4 w-4 mr-2" />
+                Email Template
+              </Button>
+            </div>
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsSendMailDialogOpen(false)}
+                disabled={isLoadingSend}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSendMail}
+                disabled={isLoadingSend || Object.values(selectedEmails).filter(Boolean).length === 0}
+                className="px-8"
+              >
+                {isLoadingSend ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    {activeTransmission?.status === 'Sent' ? "Resend Mail" : "Send Mail"}
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EmailTemplateDrawer 
+        isOpen={isTemplateSheetOpen}
+        onOpenChange={setIsTemplateSheetOpen}
+        emailTemplates={emailTemplates}
+        fetchTemplates={fetchTemplates}
+        onApply={handleApplyTemplate}
+        emailSubject={emailSubject}
+        setEmailSubject={setEmailSubject}
+        emailBody={emailBody}
+        setEmailBody={setEmailBody}
+        templateName={templateName}
+        setTemplateName={setTemplateName}
+        selectedTemplateId={selectedTemplateId}
+        setSelectedTemplateId={setSelectedTemplateId}
+        handleSaveTemplate={handleSaveTemplate}
+        handleDeleteTemplate={handleDeleteTemplate}
+        isSavingTemplate={isSavingTemplate}
+      />
 
       {/* Shared Document Preview Dialog */}
       <DocumentPreviewDialog
@@ -1632,6 +1779,175 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
         </div>
       </PopoverContent>
     </Popover>
+  );
+};
+
+// --- Email Template Drawer Component ---
+const EmailTemplateDrawer = ({
+  isOpen,
+  onOpenChange,
+  emailTemplates = [],
+  onApply,
+  emailSubject,
+  setEmailSubject,
+  emailBody,
+  setEmailBody,
+  templateName,
+  setTemplateName,
+  selectedTemplateId,
+  setSelectedTemplateId,
+  handleSaveTemplate,
+  handleDeleteTemplate,
+  isSavingTemplate
+}) => {
+  return (
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="sm:max-w-[500px] w-full p-0 flex flex-col">
+        <SheetHeader className="p-6 border-b bg-slate-50/50">
+          <SheetTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-primary" />
+            Manage Email Templates
+          </SheetTitle>
+          <SheetDescription>
+            Define and reuse professional email content with dynamic placeholders.
+          </SheetDescription>
+        </SheetHeader>
+        
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          {/* Template Selector Dropdown */}
+          <div className="space-y-4">
+            <Label className="text-sm font-bold text-slate-700 uppercase tracking-wider">Select Existing Template</Label>
+            <Select 
+              value={selectedTemplateId || "default"} 
+              onValueChange={(val) => {
+                if (val === "default") {
+                  setSelectedTemplateId("");
+                  setTemplateName("");
+                  setEmailSubject(DEFAULT_TRANSMITTAL_SUBJECT);
+                  setEmailBody(DEFAULT_TRANSMITTAL_BODY);
+                } else if (val === "new") {
+                  setSelectedTemplateId("");
+                  setTemplateName("");
+                  setEmailSubject("");
+                  setEmailBody("");
+                } else {
+                  const tmp = emailTemplates.find(t => t.id === val);
+                  if (tmp) {
+                    setSelectedTemplateId(tmp.id);
+                    setTemplateName(tmp.name);
+                    onApply(tmp);
+                  }
+                }
+              }}
+            >
+              <SelectTrigger className="w-full h-11 border-slate-200">
+                <SelectValue placeholder="Choose a template..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">System Default</SelectItem>
+                <SelectItem value="new">+ Create New Template</SelectItem>
+                {emailTemplates.length > 0 && <div className="h-px bg-slate-100 my-1" />}
+                {emailTemplates.map(tmp => (
+                  <SelectItem key={tmp.id} value={tmp.id}>
+                    {tmp.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="border-t pt-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-bold text-slate-700 uppercase tracking-wider">
+                {selectedTemplateId ? "Edit Template" : "Template Content"}
+              </Label>
+              {selectedTemplateId && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-destructive h-7 px-2 hover:bg-destructive/5"
+                  onClick={() => handleDeleteTemplate(selectedTemplateId)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                </Button>
+              )}
+            </div>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="templateName" className="text-xs font-medium text-slate-500">Template Identifier (Name)</Label>
+                <Input 
+                  id="templateName"
+                  placeholder="e.g., Standard Transmittal"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  className="h-10 rounded-lg"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="emailSubject" className="text-xs font-medium text-slate-500">Email Subject</Label>
+                <Input 
+                  id="emailSubject"
+                  placeholder="Subject line..."
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="h-10 rounded-lg font-medium"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="emailBody" className="text-xs font-medium text-slate-500">Email Body Content</Label>
+                <Textarea 
+                  id="emailBody"
+                  placeholder="Type your email content here..."
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  className="min-h-[250px] rounded-xl resize-none font-sans text-sm p-4 border-slate-200 focus-visible:ring-primary/20"
+                />
+                <div className="bg-amber-50 border border-amber-100 p-3 rounded-lg">
+                  <p className="text-[10px] text-amber-800 font-bold mb-1">AVAILABLE PLACEHOLDERS:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {['{{transmission_number}}', '{{customer_name}}', '{{po_number}}', '{{document_count}}', '{{zip_url}}', '{{password}}'].map(tag => (
+                      <code 
+                        key={tag} 
+                        className="bg-white px-1.5 py-0.5 rounded border border-amber-200 text-[10px] text-amber-900 cursor-pointer hover:bg-amber-100 transition-colors"
+                        onClick={() => setEmailBody(prev => prev + tag)}
+                      >
+                        {tag}
+                      </code>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <SheetFooter className="p-6 border-t bg-slate-50/50 gap-2">
+          <Button 
+            variant="outline" 
+            className="flex-1 h-11"
+            onClick={() => {
+              setSelectedTemplateId("");
+              setTemplateName("");
+              setEmailSubject("");
+              setEmailBody("");
+            }}
+          >
+            Reset Form
+          </Button>
+          <Button 
+            className="flex-1 h-11 shadow-lg"
+            onClick={handleSaveTemplate}
+            disabled={isSavingTemplate}
+          >
+            {isSavingTemplate ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />}
+            {selectedTemplateId ? "Update Template" : "Save Template"}
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 };
 

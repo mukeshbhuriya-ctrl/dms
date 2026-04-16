@@ -47,11 +47,11 @@ class EmailService {
     }
 
     // Template for Transmission
-    async sendTransmissionEmail(to, cc, transmissionDetails, attachments = []) {
+    async sendTransmissionEmail(to, cc, transmissionDetails, attachments = [], customContent = {}) {
         const { getTransmissionEmailTemplate } = require('../utils/email-templates/transmission.template');
 
-        const subject = `Document Transmission: ${transmissionDetails.transmission_number} - PO: ${transmissionDetails.po_number}`;
-        const html = getTransmissionEmailTemplate(transmissionDetails);
+        const subject = customContent.subject || `Document Transmission: ${transmissionDetails.transmission_number} - PO: ${transmissionDetails.po_number}`;
+        const html = customContent.html || getTransmissionEmailTemplate(transmissionDetails);
 
         return this.sendEmail({ to, cc, subject, html, attachments });
     }

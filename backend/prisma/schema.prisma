@@ -52,6 +52,7 @@ model company{
   ncr ncr[]
   document_activities document_activity[]
   qc_groups qc_group[]
+  email_templates email_template[]
 }
 
 model department {
@@ -1279,3 +1280,18 @@ model ncr {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model email_template {
+  id         String   @id @default(uuid())
+  company_id String
+  name       String
+  subject    String
+  body       String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company    company  @relation(fields: [company_id], references: [id])
+
+  @@unique([company_id, name])
+}
+

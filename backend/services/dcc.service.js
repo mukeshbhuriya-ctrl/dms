@@ -1522,7 +1522,7 @@ class DccService {
     }
 
     async sendTransmissionEmail(company_id, data) {
-        const { transmission_id, shreno_emails, client_emails, include_zip = true } = data;
+        const { transmission_id, shreno_emails, client_emails, include_zip = true, custom_subject, custom_body } = data;
 
         // 1. Fetch transmission details with required relations for the PDF
         const transmission = await prisma.transmission.findFirst({
@@ -1542,30 +1542,34 @@ class DccService {
         const fullDocsResponse = await this.getTransmissionDocuments(company_id, transmission_id);
         const documentsData = fullDocsResponse || [];
 
-        // 3. Prepare attachments and format documents for email template
+        // 3. Prepare attachments
         let attachments = [];
-            const pdfBuffer = await generateTransmittalPDF(
-                transmission,
-                transmission.customer,
-                transmission.location,
-                transmission.po,
-                documentsData,
-                transmission.creator
-            );
+        const pdfBuffer = await generateTransmittalPDF(
+            transmission,
+            transmission.customer,
+            transmission.location,
+            transmission.po,
+            documentsData,
+            transmission.creator
+        );
 
-            attachments.push({
-                filename: `Document_Transmittal_${transmission.transmission_number}.pdf`,
-                content: pdfBuffer,
-                contentType: 'application/pdf'
-            });
+        attachments.push({
+            filename: `Document_Transmittal_${transmission.transmission_number}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf'
+        });
 
-        // 4. Send Email using EmailService and attach the PDF
-        // Client -> To, Shreno -> CC
-        // CC to Shreno, To Client
+        // 4. Send Email
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
         const absoluteZipUrl = (transmission.zip_url && transmission.zip_url.startsWith('/') && !transmission.zip_url.startsWith('http'))
             ? `${backendUrl}${transmission.zip_url}`
             : transmission.zip_url;
+
+        let customContent = {};
+        if (custom_subject || custom_body) {
+            customContent.subject = this._replacePlaceholders(custom_subject, transmission, documentsData, absoluteZipUrl);
+            customContent.html = this._replacePlaceholders(custom_body, transmission, documentsData, absoluteZipUrl, include_zip);
+        }
 
         await EmailService.sendTransmissionEmail(client_emails, shreno_emails, {
             transmission_number: transmission.transmission_number,
@@ -1575,7 +1579,7 @@ class DccService {
             password: transmission.password,
             zip_url: absoluteZipUrl || '#',
             include_zip: !!include_zip
-        }, attachments);
+        }, attachments, customContent);
 
         // Update status to 'Sent'
         await prisma.transmission.update({
@@ -1583,10 +1587,34 @@ class DccService {
             data: { status: 'Sent' }
         });
 
-        // Log locally as well
         console.log(`Email sent for transmission: ${transmission.transmission_number}`);
+        return { success: true, message: 'Email sent successfully' };
+    }
 
-        return { success: true, message: 'Email sent successfully via EmailService' };
+    _replacePlaceholders(text, transmission, documentsData, absoluteZipUrl, include_zip = true) {
+        if (!text) return '';
+        
+        let processedText = text;
+
+        // If include_zip is false, remove the download section if standard placeholders are found
+        if (!include_zip) {
+            // Regex to remove the part from "You can download" until after {{password}} if it exists
+            // This is a bit heuristic but matches the default template structure
+            processedText = processedText.replace(/You can download the documents using the link below:[\s\S]*?{{password}}/g, '');
+            // Also cleanup empty zip/pass if they were used standalone
+            processedText = processedText.replace(/{{zip_url}}/g, '').replace(/{{password}}/g, '');
+        }
+
+        processedText = processedText
+            .replace(/{{transmission_number}}/g, transmission.transmission_number || '')
+            .replace(/{{customer_name}}/g, transmission.customer?.customer_name || '')
+            .replace(/{{po_number}}/g, transmission.po?.po_number || '')
+            .replace(/{{document_count}}/g, documentsData?.length || 0)
+            .replace(/{{zip_url}}/g, absoluteZipUrl || '')
+            .replace(/{{password}}/g, transmission.password || '');
+
+        // Convert newlines to <br/> for HTML rendering (handle both Windows and Unix line endings)
+        return processedText.replace(/\r?\n/g, '<br/>');
     }
 
     async updateTransmissionClientStatus(company_id, transmission_id, status, remarks, files = []) {
@@ -2449,6 +2477,47 @@ class DccService {
         } catch (error) {
             console.error("[DccService] Overdue check error:", error);
         }
+    }
+
+    // --- Email Template CRUD ---
+
+    async getEmailTemplates(company_id) {
+        return await prisma.email_template.findMany({
+            where: { company_id },
+            orderBy: { name: 'asc' }
+        });
+    }
+
+    async createEmailTemplate(company_id, data) {
+        const { name, subject, body } = data;
+        if (!name || !subject || !body) throw new Error('Name, Subject, and Body are all required');
+
+        return await prisma.email_template.create({
+            data: {
+                company_id,
+                name: name.trim(),
+                subject: subject.trim(),
+                body: body.trim()
+            }
+        });
+    }
+
+    async updateEmailTemplate(company_id, id, data) {
+        const { name, subject, body } = data;
+        return await prisma.email_template.update({
+            where: { id, company_id },
+            data: {
+                name: name ? name.trim() : undefined,
+                subject: subject ? subject.trim() : undefined,
+                body: body ? body.trim() : undefined
+            }
+        });
+    }
+
+    async deleteEmailTemplate(company_id, id) {
+        return await prisma.email_template.delete({
+            where: { id, company_id }
+        });
     }
 }
 
