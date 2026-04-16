@@ -243,8 +243,12 @@ const ClientApprovalStatus = () => {
             cell: (row) => {
                 const colors = {
                     'Approved': 'bg-green-100 text-green-700 font-bold',
+                    'Final Approved': 'bg-green-100 text-green-700 font-bold',
                     'Rejected': 'bg-red-100 text-red-700 font-bold',
                     'Partially Approved': 'bg-blue-100 text-blue-700 font-bold',
+                    'As Built': 'bg-indigo-100 text-indigo-700 font-bold',
+                    'Re-approval': 'bg-amber-100 text-amber-700 font-bold',
+                    'Commented': 'bg-sky-100 text-sky-700 font-bold',
                     'default': 'bg-yellow-100 text-yellow-700 font-bold'
                 };
                 return (
@@ -341,21 +345,27 @@ const ClientApprovalStatus = () => {
                         onValueChange={(val) => updateRowStatus(row.id, val)}
                         disabled={isSubmitted}
                     >
-                        <SelectTrigger className={`h-8 w-[120px] text-[11px] font-semibold ${
+                        <SelectTrigger className={`h-8 w-[130px] text-[11px] font-semibold ${
                             isSubmitted 
-                            ? (update.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200 opacity-80 cursor-not-allowed'
-                              : update.status === 'Commented' ? 'bg-amber-50 text-amber-700 border-amber-200 opacity-80 cursor-not-allowed'
+                            ? (['Approved', 'Final Approved'].includes(update.status) ? 'bg-green-50 text-green-700 border-green-200 opacity-80 cursor-not-allowed'
+                              : update.status === 'Commented' ? 'bg-sky-50 text-sky-700 border-sky-200 opacity-80 cursor-not-allowed'
+                              : update.status === 'As Built' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 opacity-80 cursor-not-allowed'
+                              : update.status === 'Re-approval' ? 'bg-amber-50 text-amber-700 border-amber-200 opacity-80 cursor-not-allowed'
                               : 'bg-red-50 text-red-700 border-red-200 opacity-80 cursor-not-allowed')
-                            : update.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' 
-                            : update.status === 'Commented' ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-red-50 text-red-700 border-red-200'
+                            : (['Approved', 'Final Approved'].includes(update.status) ? 'bg-green-50 text-green-700 border-green-200' 
+                              : update.status === 'Commented' ? 'bg-sky-50 text-sky-700 border-sky-200'
+                              : update.status === 'As Built' ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                              : update.status === 'Re-approval' ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : 'bg-red-50 text-red-700 border-red-200')
                         }`}>
                             <SelectValue placeholder="SELECT STATUS" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="Approved">Approve</SelectItem>
-                            <SelectItem value="Rejected">Reject</SelectItem>
+                            <SelectItem value="Approved">Final Approved</SelectItem>
+                            <SelectItem value="Rejected">Rejected</SelectItem>
                             <SelectItem value="Commented">Commented</SelectItem>
+                            <SelectItem value="Re-approval">Re-approval</SelectItem>
+                            <SelectItem value="As Built">As Built</SelectItem>
                         </SelectContent>
                     </Select>
                 );
@@ -414,7 +424,7 @@ const ClientApprovalStatus = () => {
                 
                 // MANDATORY VALIDATION:
                 // Commented: only remarks required, file optional
-                // Approved/Rejected: remarks + file required
+                // Others: remarks + file required
                 const canSubmit = update.status && 
                                   update.remarks?.trim().length > 0 && 
                                   (update.status === 'Commented' || update.file || update.existingFile);

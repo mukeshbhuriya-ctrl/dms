@@ -9,7 +9,8 @@ import {
     FileText,
     History,
     Download,
-    Eye
+    Eye,
+    Mail
 } from 'lucide-react';
 import { dccService } from '../../services/dcc.service';
 import { format } from 'date-fns';
@@ -44,9 +45,15 @@ const DocumentTrail = ({ documentId, onPreview }) => {
             case 'Uploaded': return <Upload className="w-4 h-4 text-purple-500" />;
             case 'Internal Approved': return <CheckCircle2 className="w-4 h-4 text-green-500" />;
             case 'Internal Rejected': return <XCircle className="w-4 h-4 text-red-500" />;
+            case 'Transmittal Created': return <FileText className="w-4 h-4 text-indigo-500" />;
+            case 'Transmitted Mail Sent': return <Mail className="w-4 h-4 text-cyan-600" />;
             case 'Transmitted': return <Send className="w-4 h-4 text-indigo-500" />;
-            case 'Client Approved': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
+            case 'Client Approved': 
+            case 'Client Final Approved': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
             case 'Client Rejected': return <XCircle className="w-4 h-4 text-rose-500" />;
+            case 'Client As Built': return <CheckCircle2 className="w-4 h-4 text-indigo-500" />;
+            case 'Client Re-approval': return <Send className="w-4 h-4 text-amber-500" />;
+            case 'Client Commented': return <FileText className="w-4 h-4 text-sky-500" />;
             default: return <History className="w-4 h-4 text-gray-500" />;
         }
     };
@@ -166,7 +173,7 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                                     title="Download Feedback/Stamps"
                                                 >
                                                     <Download className="w-3.5 h-3.5 mr-1" />
-                                                    <span>Feedback ZIP</span>
+                                                    <span>Feedback/Stamp</span>
                                                 </a>
                                             )}
                                         </div>

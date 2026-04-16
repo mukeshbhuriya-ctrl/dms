@@ -894,17 +894,34 @@ class DccService {
             // 2. Create / update version record in DB
             const version = await fileService.createNewVersion(tx, document_id, user_id, storageData, remarks);
 
-            // 3. Log Activity
+            // 3. Automated Approval for "As Built" documents
+            // If the document was in "As Built" state, this upload is the final acknowledgment.
+            if (groupDoc.status === 'As Built') {
+                await tx.document_version.update({
+                    where: { id: version.id },
+                    data: { status: 'Approved' }
+                });
+                await tx.group_document.update({
+                    where: { id: document_id },
+                    data: { status: 'Approved' }
+                });
+                version.status = 'Approved'; // Update local object for activity log
+            }
+
+            // 4. Log Activity
             await ActivityService.logActivity({
                 company_id,
                 group_document_id: document_id,
                 user_id,
-                action: 'Uploaded',
-                remarks: `Version ${targetVersionNo} uploaded`,
+                action: groupDoc.status === 'As Built' ? 'As Built Finalized' : 'Uploaded',
+                remarks: groupDoc.status === 'As Built' 
+                    ? `Final As-Built version ${targetVersionNo} uploaded and automatically approved`
+                    : `Version ${targetVersionNo} uploaded`,
                 metadata: {
                     version_no: targetVersionNo,
                     file_name: file.originalname,
-                    file_url: version.file_url
+                    file_url: version.file_url,
+                    was_as_built: groupDoc.status === 'As Built'
                 }
             }, tx);
 
@@ -1064,9 +1081,8 @@ class DccService {
         }
 
         // Dynamic Version Include
-        // Always exclude Pending placeholder versions so display only shows real uploaded revisions
+        // Note: We used to exclude Pending, but now we include them to show pre-allocated revisions
         let versionsInclude = {
-            where: { status: { not: 'Pending' } },
             orderBy: { version_no: 'desc' },
             take: 1,
             include: {
@@ -1325,8 +1341,8 @@ class DccService {
                     group_document_id: doc.id,
                     transmission_id: transmission.id,
                     user_id,
-                    action: 'Transmitted',
-                    remarks: `Document transmitted in ${transNum}`,
+                    action: 'Transmittal Created',
+                    remarks: `Document included in Transmittal ${transNum}`,
                     metadata: { transmission_no: transNum, version_no: doc.versions[0].version_no }
                 }, tx);
             }
@@ -1336,7 +1352,7 @@ class DccService {
                 company_id,
                 transmission_id: transmission.id,
                 user_id,
-                action: 'Transmitted',
+                action: 'Transmittal Created',
                 remarks: `Transmission ${transNum} created and ready for client`,
                 metadata: { transmission_no: transNum, document_count: finalDocs.length }
             }, tx);
@@ -1521,7 +1537,7 @@ class DccService {
         return { filename, buffer: pdfBuffer };
     }
 
-    async sendTransmissionEmail(company_id, data) {
+    async sendTransmissionEmail(company_id, user_id, data) {
         const { transmission_id, shreno_emails, client_emails, include_zip = true, custom_subject, custom_body } = data;
 
         // 1. Fetch transmission details with required relations for the PDF
@@ -1580,6 +1596,37 @@ class DccService {
             zip_url: absoluteZipUrl || '#',
             include_zip: !!include_zip
         }, attachments, customContent);
+
+        // 5. Log activity for each document in the transmission
+        const transDocs = await prisma.transmission_document.findMany({
+            where: { transmission_id: transmission.id },
+            include: { group_document: true }
+        });
+
+        for (const td of transDocs) {
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: td.group_document_id,
+                transmission_id: transmission.id,
+                user_id,
+                action: 'Transmitted Mail Sent',
+                remarks: `Transmittal email sent for ${transmission.transmission_number}`,
+                metadata: { 
+                    transmission_no: transmission.transmission_number,
+                    recipients: [...(client_emails || []), ...(shreno_emails || [])].join(', ')
+                }
+            });
+        }
+
+        // Also log for the transmission itself
+        await ActivityService.logActivity({
+            company_id,
+            transmission_id: transmission.id,
+            user_id,
+            action: 'Transmitted Mail Sent',
+            remarks: `Notification email successfully sent for review`,
+            metadata: { transmission_no: transmission.transmission_number }
+        });
 
         // Update status to 'Sent'
         await prisma.transmission.update({
@@ -1745,7 +1792,8 @@ class DccService {
      * Statuses: Approved, Rejected, Commented
      */
     async updateTransmissionDocumentClientStatus(company_id, user_id, transmission_document_id, status, remarks, file) {
-        if (!['Approved', 'Rejected', 'Commented'].includes(status)) throw new Error('Invalid status');
+        const validStatuses = ['Approved', 'Rejected', 'Commented', 'Final Approved', 'Re-approval', 'As Built'];
+        if (!validStatuses.includes(status)) throw new Error('Invalid status');
 
         // 1. Fetch transmission document with all needed relations
         const transDoc = await prisma.transmission_document.findFirst({
@@ -1765,26 +1813,22 @@ class DccService {
         if (transDoc.transmission.company_id !== company_id) throw new Error('Unauthorized');
 
         const groupDoc = transDoc.group_document;
-        const masterDocId = groupDoc.document_id;
-
-        // Use global version counter across ALL group_documents sharing the same document_master
-        // This matches the pattern in file.service.js
-        const lastGlobalVersion = await prisma.document_version.findFirst({
-            where: { group_document: { document_id: masterDocId } },
-            orderBy: { version_no: 'desc' }
-        });
-        const nextVersionNo = lastGlobalVersion ? lastGlobalVersion.version_no + 1 : 0;
+        const reviewedVersionId = transDoc.version_id;
 
         return await prisma.$transaction(async (tx) => {
-            let newVersion = null;
+            let feedbackUrl = null;
 
-            // 2. Process File if provided (Create New Version)
+            // 2. Process File if provided (Store as Feedback Attachment)
             if (file) {
                 const docNumber = groupDoc.document.document_number;
                 const transNumber = transDoc.transmission.transmission_number;
                 
+                // Fetch version info for directory structure
+                const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
+                const vNo = reviewedVersion?.version_no ?? 0;
+
                 // Directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
-                const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, nextVersionNo);
+                const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, vNo);
                 const targetPath = path.join(targetDir, file.filename || file.originalname);
                 
                 // Move file from temp to final destination
@@ -1792,32 +1836,9 @@ class DccService {
 
                 const relativePath = StorageUtils.getRelativePath(targetPath);
                 
-                // Use the same URL pattern as file.service.js for consistency
-                const fileUrl = `/api/dcc/document/${groupDoc.id}/download?version=${nextVersionNo}`;
-
-                // Mark ALL previous versions of this Master Document as inactive (matching file.service.js)
-                await tx.document_version.updateMany({
-                    where: { 
-                        group_document: { document_id: masterDocId },
-                        is_active: true 
-                    },
-                    data: { is_active: false }
-                });
-
-                newVersion = await tx.document_version.create({
-                    data: {
-                        group_document_id: groupDoc.id,
-                        version_no: nextVersionNo,
-                        file_url: fileUrl,
-                        file_path: relativePath,
-                        file_size: file.size,
-                        mime_type: file.mimetype,
-                        status: status,
-                        remarks: remarks || `Client review ${status}`,
-                        uploaded_by: user_id,
-                        is_active: true
-                    }
-                });
+                // Feedback URL for the trail (Public/Secure route)
+                const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+                feedbackUrl = `${backendUrl}/api/dcc/document/feedback?filename=${encodeURIComponent(file.originalname)}&filepath=${encodeURIComponent(relativePath)}`;
             }
 
             // 3. Update the transmission_document with per-document client status
@@ -1829,22 +1850,30 @@ class DccService {
                 }
             });
 
-            // 4. Update Group Document Status
-            // Approved → Approved, Rejected → Pending (for re-upload), Commented → No change
-            if (status === 'Approved') {
+            // 4. Update the reviewed version record status
+            await tx.document_version.update({
+                where: { id: reviewedVersionId },
+                data: { status, remarks: remarks || `Reviewed by Client as ${status}` }
+            });
+
+            // 5. Update Group Document Status
+            let nextGroupStatus = groupDoc.status;
+            if (['Approved', 'Final Approved'].includes(status)) {
+                nextGroupStatus = 'Approved';
+            } else if (['Rejected', 'Commented', 'Re-approval'].includes(status)) {
+                nextGroupStatus = 'Pending';
+            } else if (status === 'As Built') {
+                nextGroupStatus = 'As Built';
+            }
+
+            if (nextGroupStatus !== groupDoc.status) {
                 await tx.group_document.update({
                     where: { id: groupDoc.id },
-                    data: { status: 'Approved' }
-                });
-            } else if (status === 'Rejected') {
-                await tx.group_document.update({
-                    where: { id: groupDoc.id },
-                    data: { status: 'Pending' }
+                    data: { status: nextGroupStatus }
                 });
             }
-            // Commented: no group_document status change
 
-            // 5. Auto-compute parent Transmission client_status
+            // 6. Bulk update parent Transmission client_status
             const allTransDocs = await tx.transmission_document.findMany({
                 where: { transmission_id: transDoc.transmission_id },
                 select: { client_status: true }
@@ -1852,24 +1881,24 @@ class DccService {
 
             const statuses = allTransDocs.map(d => d.client_status);
             let transmissionStatus = 'Pending';
-
-            if (statuses.every(s => s === 'Approved')) {
-                transmissionStatus = 'Approved';
-            } else if (statuses.every(s => s === 'Rejected')) {
-                transmissionStatus = 'Rejected';
-            } else if (statuses.some(s => s !== 'Pending')) {
-                transmissionStatus = 'Partially Approved';
-            }
+            if (statuses.every(s => s === 'Approved')) transmissionStatus = 'Approved';
+            else if (statuses.every(s => s === 'Rejected')) transmissionStatus = 'Rejected';
+            else if (statuses.some(s => s !== 'Pending')) transmissionStatus = 'Partially Approved';
 
             await tx.transmission.update({
                 where: { id: transDoc.transmission_id },
                 data: { client_status: transmissionStatus }
             });
 
-            // 6. Log Activity with complete metadata for audit trail
+            // 7. Log Activity with feedback_url for trail display
             const actionLabel = status === 'Approved' ? 'Client Approved' 
+                              : status === 'Final Approved' ? 'Client Final Approved'
                               : status === 'Rejected' ? 'Client Rejected' 
+                              : status === 'As Built' ? 'Client As Built' 
+                              : status === 'Re-approval' ? 'Client Re-approval'
                               : 'Client Commented';
+
+            const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
 
             await ActivityService.logActivity({
                 company_id,
@@ -1877,20 +1906,57 @@ class DccService {
                 transmission_id: transDoc.transmission_id,
                 user_id,
                 action: actionLabel,
-                remarks: remarks || `Document reviewed from Transmission ${transDoc.transmission.transmission_number}`,
+                remarks: remarks || `Document reviewed as ${status} from Transmission ${transDoc.transmission.transmission_number}`,
                 metadata: {
                     status,
-                    transmission_number: transDoc.transmission.transmission_number,
+                    transmission_no: transDoc.transmission.transmission_number,
                     document_number: groupDoc.document.document_number,
                     document_name: groupDoc.document.document_name,
-                    version_no: newVersion ? nextVersionNo : (lastGlobalVersion?.version_no ?? 0),
+                    version_no: reviewedVersion?.version_no,
                     has_file: !!file,
-                    new_version_id: newVersion?.id,
+                    feedback_url: feedbackUrl, // Critical for UI to show download/eye icons
                     transmission_status: transmissionStatus
                 }
             }, tx);
 
-            return { group_document: groupDoc, version: newVersion, transmission_status: transmissionStatus };
+            // 8. Pre-allocate Next Revision if status requires re-upload
+            // If Rejected, Commented, Re-approval, or As Built, we prepare the next Rev slot
+            if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
+                const reviewedVersion = await tx.document_version.findUnique({ 
+                    where: { id: reviewedVersionId },
+                    include: { group_document: { include: { group: { include: { job_group: { include: { job: true } } } } } } }
+                });
+
+                if (reviewedVersion) {
+                    const nextVersionNo = reviewedVersion.version_no + 1;
+                    const docNumber = groupDoc.document.document_number;
+                    const job_number = reviewedVersion.group_document.group?.job_group[0]?.job?.job_number || 'NA';
+
+                    // Create physical folder for the next revision
+                    StorageUtils.getDocRevisionDir(company_id, job_number, docNumber, nextVersionNo);
+
+                    // Deactivate current version and create Pending placeholder
+                    await tx.document_version.update({
+                        where: { id: reviewedVersionId },
+                        data: { is_active: false }
+                    });
+
+                    await tx.document_version.create({
+                        data: {
+                            group_document_id: groupDoc.id,
+                            version_no: nextVersionNo,
+                            file_url: '', // Empty until user uploads
+                            file_path: '',
+                            status: 'Pending',
+                            remarks: `Awaiting re-upload after Client Review (${status})`,
+                            uploaded_by: user_id,
+                            is_active: true
+                        }
+                    });
+                }
+            }
+
+            return { group_document: groupDoc, transmission_status: transmissionStatus };
         });
     }
 
