@@ -115,6 +115,8 @@ function ListView({ onCreateClick, onEditClick }) {
         return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 shadow-sm border border-red-200">Rejected</span>
       case "pending":
         return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800 shadow-sm border border-yellow-200">Pending</span>
+      case "draft":
+        return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 shadow-sm border border-blue-200">Draft</span>
       default:
         return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800 shadow-sm border border-gray-200">{status || "Pending"}</span>
     }
@@ -455,7 +457,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   const [tableRows, setTableRows] = useState([emptyRow(1)])
 
   // Submit state
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(null) // null | "Draft" | "Pending"
 
   useEffect(() => {
     apiClient.get("/api/common/jobs?limit=200")
@@ -605,7 +607,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   }
 
   // Submit
-  const handleSubmit = async () => {
+  const handleSubmit = async (targetStatus = "Pending") => {
     if (!selectedJobId) { 
       toast.warn("Please select a Job / MSN.")
       return 
@@ -644,11 +646,12 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       inspection_by: formData.inspectionBy || null,
       production_engineer_id: production_engineer_id || null,
       qc_engineer_id: qc_engineer_id || null,
+      status: targetStatus,
       items,
     }
 
     try {
-      setSubmitting(true)
+      setSubmitting(targetStatus)
       if (editId) {
         await apiClient.put(`/api/mhc/update/${editId}`, payload)
       } else {
@@ -658,7 +661,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     } catch (err) {
       toast.error(err.message || "Failed to save Material Heat Chart.")
     } finally {
-      setSubmitting(false)
+      setSubmitting(null)
     }
   }
 
@@ -670,7 +673,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
           <h1 className="text-3xl font-bold mb-1">Create Material Heat Chart</h1>
           <p className="text-muted-foreground">Fill in the details and add material rows.</p>
         </div>
-        <Button variant="outline" onClick={onBack} className="h-9">
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>
@@ -938,11 +941,19 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
       {/* ── Footer Buttons ── */}
       <div className="flex gap-3 justify-end">
-        <Button variant="outline" onClick={onBack} disabled={submitting}>
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "Saving…" : "Submit"}
+        <Button 
+          variant="secondary" 
+          onClick={() => handleSubmit("Draft")} 
+          disabled={submitting !== null}
+          className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200"
+        >
+          {submitting === "Draft" ? "Saving…" : "Save Draft"}
+        </Button>
+        <Button onClick={() => handleSubmit("Pending")} disabled={submitting !== null}>
+          {submitting === "Pending" ? "Submitting…" : "Submit"}
         </Button>
       </div>
     </div>

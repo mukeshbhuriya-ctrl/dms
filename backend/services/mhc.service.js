@@ -63,6 +63,7 @@ class MhcService {
             inspection_by,
             production_engineer_id,
             qc_engineer_id,
+            status,
             items = [],
         } = body;
 
@@ -108,7 +109,7 @@ class MhcService {
                     shreno_drg_no: shreno_drg_no || null,
                     customer_drg_no: customer_drg_no || null,
                     inspection_by: inspection_by || null,
-                    status: 'Pending',
+                    status: status || 'Pending',
                     production_engineer_id: production_engineer_id || creator_id,
                     qc_engineer_id: qc_engineer_id || null,
                     submitted_at: new Date(),
