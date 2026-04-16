@@ -377,9 +377,14 @@ class DccService {
                 whereClause.status = 'Approved';
             }
             if (options.isTransmittable) {
-                // Ensure document is approved AND not yet transmitted
+                // Ensure document has at least one approved version not yet transmitted
                 whereClause.status = 'Approved';
-                whereClause.transmission_items = { none: {} };
+                whereClause.versions = {
+                    some: {
+                        status: 'Approved',
+                        transmission_items: { none: {} }
+                    }
+                };
             }
 
             // Fetch the documents with their core relations
@@ -897,6 +902,24 @@ class DccService {
             // 3. Automated Approval for "As Built" documents
             // If the document was in "As Built" state, this upload is the final acknowledgment.
             if (groupDoc.status === 'As Built') {
+                // Find the original transmission where it was marked As Built
+                const lastTransDoc = await tx.transmission_document.findFirst({
+                    where: { group_document_id: document_id, client_status: 'As Built' }
+                });
+
+                if (lastTransDoc) {
+                    // Create a new entry for this version in the SAME transmission to append history
+                    await tx.transmission_document.create({
+                        data: {
+                            transmission_id: lastTransDoc.transmission_id,
+                            group_document_id: document_id,
+                            version_id: version.id,
+                            client_status: 'Approved',
+                            client_remarks: 'Finalized As-Built Version Uploaded'
+                        }
+                    });
+                }
+
                 await tx.document_version.update({
                     where: { id: version.id },
                     data: { status: 'Approved' }
