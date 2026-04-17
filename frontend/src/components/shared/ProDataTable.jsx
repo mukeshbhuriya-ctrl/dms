@@ -29,7 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { 
-  Search, 
+  Search,
   Plus, 
   Download, 
   Settings2, 
@@ -38,7 +38,9 @@ import {
   ChevronLeft, 
   ChevronRight, 
   ChevronDown, 
-  Check 
+  Check,
+  Upload,
+  FileText
 } from "lucide-react"
 
 /**
@@ -202,7 +204,9 @@ const ProDataTable = ({
   topFilters = [], // Array of { value, onChange, options: [{label, value}], placeholder }
   globalSearchPlaceholder = "Search...",
   initialStickyColumns = [],
-  onAddTooltip = "Add New"
+  onAddTooltip = "Add New",
+  onImport,
+  onDownloadTemplate
 }) => {
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({});
@@ -338,6 +342,34 @@ const ProDataTable = ({
                 <TooltipContent><p className="text-xs">{onAddTooltip}</p></TooltipContent>
               </Tooltip>
             )}
+
+            {onDownloadTemplate && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={onDownloadTemplate} className="h-9 w-9 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none ml-1">
+                    <FileText className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p className="text-xs">Download Sample Template</p></TooltipContent>
+              </Tooltip>
+            )}
+
+            {onImport && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.xlsx, .xls';
+                    input.onchange = (e) => onImport(e.target.files[0]);
+                    input.click();
+                  }} className="h-9 w-9 border-slate-200 bg-white text-green-600 hover:bg-green-50 shadow-none ml-1">
+                    <Upload className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p className="text-xs">Bulk Import from Excel</p></TooltipContent>
+              </Tooltip>
+            )}
           </TooltipProvider>
         </div>
       </div>
@@ -359,7 +391,9 @@ const ProDataTable = ({
                   const columnId = col.id || col.accessorKey;
                   const isSticky = stickyColumns.includes(columnId);
                   const stickyClass = isSticky ? "sticky left-[40px] z-40 bg-slate-100 border-r border-slate-200" : "";
-                  const hasFilter = !!(columnFilters[columnId]);
+                  const hasFilter = Array.isArray(columnFilters[columnId]) 
+                    ? columnFilters[columnId].length > 0 
+                    : !!(columnFilters[columnId]);
 
                   return (
                     <TableHead 

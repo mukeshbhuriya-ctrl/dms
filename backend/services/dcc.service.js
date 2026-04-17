@@ -2305,6 +2305,13 @@ class DccService {
 
                 if (!job_id || !document_name || !assign_user_id) continue;
 
+                // Backend Cleaning: Final trim and sanitize
+                const cleanDocName = document_name.trim();
+                const cleanShrenoNo = shreno_document_no?.trim() || null;
+                const cleanShrenoRef = shreno_reference_no?.trim() || null;
+                const cleanClientNo = client_document_no?.trim() || null;
+                const cleanClientRef = client_reference_no?.trim() || null;
+
                 // Extract customer, location, and po from the verified job mapping
                 const targetJob = jobMap[job_id];
                 if (!targetJob) continue;
@@ -2334,7 +2341,7 @@ class DccService {
                         data: {
                             company_id,
                             serial_no,
-                            document_name: document_name.trim(),
+                            document_name: cleanDocName,
                             document_number: document_number,
                             document_type_id: document_type_id || null
                         }
@@ -2342,6 +2349,29 @@ class DccService {
                 }
 
                 // 2. Create a unique Group for this specific assignment
+                // Check if this document name is already assigned to this job
+                const existingAssignment = await tx.group_document.findFirst({
+                    where: {
+                        company_id,
+                        document_id: documentMaster.id,
+                        group: {
+                            job_group: {
+                                some: { job_id: job_id }
+                            }
+                        }
+                    }
+                });
+
+                if (existingAssignment) {
+                    results.push({
+                        status: 'skipped',
+                        message: `Document "${document_name}" is already assigned to Job ID ${job_id}`,
+                        document_name,
+                        job_id
+                    });
+                    continue;
+                }
+
                 const group = await tx.group.create({
                     data: { company_id }
                 });

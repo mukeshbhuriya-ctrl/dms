@@ -39,12 +39,41 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Search, ArrowRight, Plus, ArrowLeft, Edit, Copy, History, ChevronLeft, ChevronRight, Download, X, ChevronDown, Check } from "lucide-react"
-import { dccService } from "../../services/dcc.service";
-import apiClient from "@/api/api.client"
-import { exportApi } from "@/api/export.api"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 import ProDataTable from "../../components/shared/ProDataTable"
+import apiClient from "../../api/api.client"
+import { dccService } from "../../services/dcc.service"
+import { exportApi } from "../../api/export.api"
+import * as XLSX from 'xlsx';
+import { downloadAssignmentTemplate } from "../../services/excel_template.service";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { 
+  Search, 
+  ArrowRight, 
+  Plus, 
+  ArrowLeft, 
+  Edit, 
+  Copy, 
+  History, 
+  ChevronLeft, 
+  ChevronRight, 
+  Download, 
+  X, 
+  ChevronDown, 
+  Check, 
+  FileText, 
+  Upload,
+  AlertCircle, 
+  CheckCircle2, 
+  XCircle 
+} from "lucide-react"
 
 function AssignDocument() {
   const [view, setView] = useState("list") // 'list' or 'assign'
@@ -129,51 +158,186 @@ function AssignDocument() {
     }
   };
 
+  // --- Bulk Excel Import Logic ---
+  const [importReview, setImportReview] = useState({ isOpen: false, data: [], summary: {} });
+
+  const handleDownloadTemplate = () => {
+    downloadAssignmentTemplate();
+    toast.info("Downloading assignment template...");
+  };
+
+  const handleImportExcel = async (file) => {
+    if (!file) return;
+
+    const REQUIRED_HEADERS = [
+      "Job Number",
+      "Document Name",
+      "Employee ID",
+      "Shreno Document No",
+      "Client Document No",
+      "Upload Due Days",
+      "Response Due Days"
+    ];
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const bstr = e.target.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const rawData = XLSX.utils.sheet_to_json(ws);
+
+      if (rawData.length > 0) {
+        const fileHeaders = Object.keys(rawData[0]);
+        const missingHeaders = REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h));
+        if (missingHeaders.length > 0) {
+          toast.error(`Invalid Excel Format. Missing columns: ${missingHeaders.join(", ")}`);
+          return;
+        }
+      }
+
+      const validatedRows = rawData.map((row, index) => {
+        const errors = [];
+        const jobNumber = String(row["Job Number"] || "").trim().toUpperCase();
+        const docName = String(row["Document Name"] || "").trim();
+        const empid = String(row["Employee ID"] || "").trim();
+        const shrenoNo = String(row["Shreno Document No"] || "").trim();
+        const clientNo = String(row["Client Document No"] || "").trim();
+        const uploadDaysRaw = row["Upload Due Days"];
+        const responseDaysRaw = row["Response Due Days"];
+
+        const targetJob = allJobs.find(j => String(j.job_number) === jobNumber);
+        const targetUser = users.find(u => String(u.empid) === empid);
+
+        if (!jobNumber) errors.push("Job Number is required");
+        else if (!targetJob) errors.push(`Job Number "${jobNumber}" not found`);
+
+        if (!docName) errors.push("Document Name is required");
+        if (!empid) errors.push("Employee ID is required");
+        else if (!targetUser) errors.push(`Employee ID "${empid}" not found`);
+
+        const uploadDays = parseInt(uploadDaysRaw);
+        if (uploadDaysRaw === undefined || isNaN(uploadDays) || uploadDays < 0) {
+          errors.push("Invalid Upload Due Days");
+        }
+        const responseDays = parseInt(responseDaysRaw);
+        if (responseDaysRaw === undefined || isNaN(responseDays) || responseDays < 0) {
+          errors.push("Invalid Response Due Days");
+        }
+
+        return {
+          rowNo: index + 1,
+          jobNumber, docName, empid, shrenoNo, clientNo,
+          uploadDays: uploadDays || 0,
+          responseDays: responseDays || 0,
+          status: errors.length === 0 ? "valid" : "error",
+          message: errors.length === 0 ? "Ready to assign" : errors.join(" | "),
+          jobId: targetJob?.id,
+          customerId: targetJob?.customer_id,
+          poId: targetJob?.po_id,
+          assignUserId: targetUser?.id,
+          userName: targetUser?.name
+        };
+      });
+
+      setImportReview({ 
+        isOpen: true, 
+        data: validatedRows, 
+        summary: {
+          total: validatedRows.length,
+          valid: validatedRows.filter(r => r.status === 'valid').length,
+          error: validatedRows.filter(r => r.status === 'error').length
+        }
+      });
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const finalizeImport = () => {
+    const validRows = importReview.data.filter(r => r.status === 'valid');
+    if (validRows.length === 0) return;
+
+    const newAssignments = validRows.map(r => ({
+      tempId: Date.now() + Math.random(),
+      jobId: r.jobId,
+      customerId: r.customerId,
+      poId: r.poId,
+      documentName: r.docName,
+      shrenoDocumentNo: r.shrenoNo,
+      clientDocumentNo: r.clientNo,
+      assignUserId: r.assignUserId,
+      upload_due_days: String(r.uploadDays),
+      response_due_days: String(r.responseDays),
+    }));
+
+    setAssignments(prev => {
+      if (prev.length === 1 && !prev[0].jobId && !prev[0].documentName) return newAssignments;
+      return [...prev, ...newAssignments];
+    });
+
+    setImportReview({ isOpen: false, data: [], summary: {} });
+    setView("assign");
+    toast.success(`Imported ${validRows.length} documents.`);
+  };
+
   // --- Restrictive (Active) Filter Options for List View ---
   const activeClientOptions = useMemo(() => {
-    return activeFilters.customers.map(c => ({ 
-      label: c.customer_name, 
-      value: c.customer_name 
-    }));
-  }, [activeFilters.customers]);
+    let filtered = activeFilters.jobs;
+    // Reverse filters
+    if (columnFilters.po_number) {
+      filtered = filtered.filter(j => 
+        String(j.po?.po_number || j.po_number || "") === String(columnFilters.po_number)
+      );
+    }
+    if (Array.isArray(columnFilters.job_number) && columnFilters.job_number.length > 0) {
+      const selectedJobs = columnFilters.job_number.map(String);
+      filtered = filtered.filter(j => selectedJobs.includes(String(j.job_number)));
+    }
+    
+    const clientNames = [...new Set(filtered.map(j => j.customer?.customer_name || j.customer_name))].filter(Boolean);
+    return clientNames.sort().map(name => ({ label: name, value: name }));
+  }, [activeFilters.jobs, columnFilters.po_number, columnFilters.job_number]);
 
   const activePoOptions = useMemo(() => {
-    const selectedClient = columnFilters.customer_name;
-    let filteredJobs = activeFilters.jobs;
-    if (selectedClient) {
-      filteredJobs = filteredJobs.filter(j => {
+    let filtered = activeFilters.jobs;
+    // Forward filter
+    if (columnFilters.customer_name) {
+      filtered = filtered.filter(j => {
         const val = (j.customer?.customer_name || j.customer_name);
-        return Array.isArray(selectedClient) 
-          ? selectedClient.includes(val) 
-          : val === selectedClient;
+        return Array.isArray(columnFilters.customer_name) 
+          ? columnFilters.customer_name.includes(val) 
+          : val === columnFilters.customer_name;
       });
     }
-    const uniquePosLabels = [...new Set(filteredJobs.map(j => j.po?.po_number || j.po_number))].filter(Boolean);
-    return uniquePosLabels.map(p => ({ label: p.toString(), value: p.toString() }));
-  }, [activeFilters.jobs, columnFilters.customer_name]);
+    // Reverse filter
+    if (Array.isArray(columnFilters.job_number) && columnFilters.job_number.length > 0) {
+      const selectedJobs = columnFilters.job_number.map(String);
+      filtered = filtered.filter(j => selectedJobs.includes(String(j.job_number)));
+    }
+
+    const poNumbers = [...new Set(filtered.map(j => j.po?.po_number || j.po_number))].filter(Boolean);
+    return poNumbers.sort().map(p => ({ label: p.toString(), value: p.toString() }));
+  }, [activeFilters.jobs, columnFilters.customer_name, columnFilters.job_number]);
 
   const activeJobOptions = useMemo(() => {
-    const selectedPo = columnFilters.po_number;
-    const selectedClient = columnFilters.customer_name;
-    let filteredJobs = activeFilters.jobs;
-    if (selectedClient) {
-      filteredJobs = filteredJobs.filter(j => {
+    let filtered = activeFilters.jobs;
+    // Forward filters
+    if (columnFilters.customer_name) {
+      filtered = filtered.filter(j => {
         const val = (j.customer?.customer_name || j.customer_name);
-        return Array.isArray(selectedClient) 
-          ? selectedClient.includes(val) 
-          : val === selectedClient;
+        return Array.isArray(columnFilters.customer_name) 
+          ? columnFilters.customer_name.includes(val) 
+          : val === columnFilters.customer_name;
       });
     }
-    if (selectedPo) {
-      filteredJobs = filteredJobs.filter(j => {
-        const val = (j.po?.po_number || j.po_number);
-        return Array.isArray(selectedPo) 
-          ? selectedPo.includes(val) 
-          : val === selectedPo;
-      });
+    if (columnFilters.po_number) {
+      filtered = filtered.filter(j => 
+        String(j.po?.po_number || j.po_number || "") === String(columnFilters.po_number)
+      );
     }
-    const uniqueJobsLabels = [...new Set(filteredJobs.map(j => j.job_number || j.number))].filter(Boolean);
-    return uniqueJobsLabels.sort((a, b) => a.toString().localeCompare(b.toString(), undefined, { numeric: true })).map(j => ({ label: j.toString(), value: j.toString() }));
+    
+    const jobNumbers = [...new Set(filtered.map(j => j.job_number))].filter(Boolean);
+    return jobNumbers.sort().map(j => ({ label: j.toString(), value: j.toString() }));
   }, [activeFilters.jobs, columnFilters.customer_name, columnFilters.po_number]);
 
   // --- List View Columns ---
@@ -335,44 +499,53 @@ function AssignDocument() {
       placeholder: "All Status",
       options: [
         { label: "All Status", value: "all" },
-        { label: "Pending", value: "Pending" },
+         { label: "Pending", value: "Pending" },
         { label: "Uploaded", value: "Uploaded" },
       ]
     }
-  ], [statusFilter, setStatusFilter]);
+  ], [statusFilter]);
 
-  // --- Fetch Data for List View ---
   const fetchAssignedDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
     try {
-      const params = { page, limit }
-      if (search) params.search = search
-      if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter
+      const p = page || 1;
+      const l = limit || 10;
+      const params = { page: p, limit: l };
+      
+      if (search) params.search = search.trim();
+      if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
 
-      // Map column-based filters to API params
+      // Map column-based filters to API params safely
       if (columnFilters) {
-        if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
-        if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
-        if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
-        if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
-        if (columnFilters.documentName) params.search = columnFilters.documentName;
-        if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
-        if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
+        Object.keys(columnFilters).forEach(key => {
+          const val = columnFilters[key];
+          if (val === undefined || val === null || val === "") return;
+          if (Array.isArray(val) && val.length === 0) return;
+
+          if (key === 'customer_name') params.customer_name_filter = val;
+          else if (key === 'po_number') params.po_number_filter = val;
+          else if (key === 'job_number') params.job_number_filter = val;
+          else if (key === 'status') params.uploader_status_filter = val;
+          else if (key === 'documentName') params.search = val;
+          else if (key === 'shreno_doc_no') params.shreno_doc_no_filter = val;
+          else if (key === 'client_doc_no') params.client_doc_no_filter = val;
+        });
       }
 
-      const response = await apiClient.get("/api/dcc/get-assigned-documents", params)
+      console.log("Fetching assigned documents with params:", params);
+      const response = await apiClient.get("/api/dcc/get-assigned-documents", params);
 
-      if (response.success) {
+      if (response && response.success) {
         return {
           data: response.data || [],
-          meta: response.meta || {}
-        }
+          meta: response.meta || { total: (response.data || []).length, page: p, limit: l }
+        };
       }
-      return { data: [], meta: {} }
+      return { data: [], meta: {} };
     } catch (err) {
-      console.error("Error fetching documents:", err)
-      return { data: [], meta: {} }
+      console.error("Error fetching documents:", err);
+      return { data: [], meta: {} };
     }
-  }, [statusFilter])
+  }, [statusFilter]);
 
   // Helper to fetch and merge POs
   const fetchPos = async (customerId = "", search = "") => {
@@ -720,8 +893,73 @@ function AssignDocument() {
                     handleBack();
                     setView("assign");
                   }}
+                  onImport={handleImportExcel}
+                  onDownloadTemplate={handleDownloadTemplate}
                   columnFilters={columnFilters}
-                  onFilterChange={onFilterChange}
+                  onFilterChange={(newFilter) => {
+                    setColumnFilters(prev => {
+                      const updated = { ...prev, ...newFilter };
+                      
+                      // Handle Multi-select Array vs Single value mapping
+                      Object.keys(newFilter).forEach(key => {
+                        const val = newFilter[key];
+                        if (Array.isArray(val) && val.length === 0) {
+                          delete updated[key];
+                        }
+                      });
+
+                      // Reverse Cascading Auto-Select Logic
+                      if (newFilter.hasOwnProperty('job_number')) {
+                        const jobVal = newFilter.job_number;
+                        const actualJobVal = Array.isArray(jobVal) ? (jobVal.length === 1 ? jobVal[0] : null) : jobVal;
+
+                        if (actualJobVal) {
+                            const selectedJob = activeFilters.jobs.find(j => (j.job_number || "").toString() === actualJobVal.toString());
+                            if (selectedJob) {
+                              const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
+                              const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
+                              if (poNum) updated.po_number = poNum;
+                              if (custName) updated.customer_name = custName;
+                            }
+                        }
+                      } else if (newFilter.hasOwnProperty('po_number')) {
+                        const poVal = newFilter.po_number;
+                        const actualPoVal = Array.isArray(poVal) ? (poVal.length === 1 ? poVal[0] : null) : poVal;
+
+                        if (actualPoVal) {
+                          const selectedPo = activeFilters.pos.find(p => (p.po_number || "").toString() === actualPoVal.toString());
+                          if (selectedPo) {
+                            const custName = (selectedPo.customer?.customer_name || selectedPo.customer_name || "").toString();
+                            if (custName) updated.customer_name = custName;
+                          }
+                        }
+                      }
+
+                      // Forward Cascading Reset Logic (Intelligent)
+                      if (newFilter.hasOwnProperty('customer_name')) {
+                         const newCust = Array.isArray(newFilter.customer_name) ? newFilter.customer_name : [newFilter.customer_name];
+                         if (newCust.length === 1 && newCust[0]) {
+                            const currentPo = updated.po_number;
+                            const poObj = activeFilters.pos.find(p => (p.po_number || "").toString() === (currentPo || "").toString());
+                            if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newCust[0].toString()) {
+                                delete updated.po_number;
+                                delete updated.job_number;
+                            }
+                         }
+                      } else if (newFilter.hasOwnProperty('po_number')) {
+                        const newPo = Array.isArray(newFilter.po_number) ? newFilter.po_number : [newFilter.po_number];
+                        if (newPo.length === 1 && newPo[0]) {
+                            const currentJob = Array.isArray(updated.job_number) ? updated.job_number[0] : updated.job_number;
+                            const jobObj = activeFilters.jobs.find(j => (j.job_number || "").toString() === (currentJob || "").toString());
+                            if (jobObj && (jobObj.po?.po_number || jobObj.po_number || "").toString() !== newPo[0].toString()) {
+                                delete updated.job_number;
+                            }
+                        }
+                      }
+                      
+                      return updated;
+                    });
+                  }}
                   refreshKey={refreshKey}
                   topFilters={proTableTopFilters}
                   globalSearchPlaceholder="Search documents..."
@@ -1053,6 +1291,42 @@ function AssignDocument() {
           </Sheet>
         </div>
       </main>
+
+      <Dialog open={importReview.isOpen} onOpenChange={(val) => setImportReview(prev => ({...prev, isOpen: val}))}>
+        <DialogContent className="sm:max-w-[1000px] w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2 border-b">
+            <DialogTitle>Review Import</DialogTitle>
+            <DialogDescription>Valid rows will be merged into your assignment list.</DialogDescription>
+            <div className="flex gap-4 mt-4 py-2 border-y bg-slate-50 px-4 rounded-lg">
+              <div className="text-sm font-medium">Total: {importReview.summary.total}</div>
+              <div className="text-sm font-medium text-green-600">Valid: {importReview.summary.valid}</div>
+              <div className="text-sm font-medium text-red-600">Errors: {importReview.summary.error}</div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            <Table>
+              <TableHeader><TableRow className="bg-slate-50"><TableHead>Row</TableHead><TableHead>Job</TableHead><TableHead>Document</TableHead><TableHead>Employee</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {importReview.data.map((row) => (
+                  <TableRow key={row.rowNo}>
+                    <TableCell>{row.rowNo}</TableCell>
+                    <TableCell className="font-bold">{row.jobNumber}</TableCell>
+                    <TableCell>{row.docName}</TableCell>
+                    <TableCell>{row.userName || row.empid}</TableCell>
+                    <TableCell>
+                      {row.status === 'valid' ? <div className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-4 w-4"/> Ready</div> : <div className="text-red-600 flex items-center gap-1"><XCircle className="h-4 w-4"/> {row.message}</div>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter className="p-6 border-t bg-slate-50">
+            <Button variant="outline" onClick={() => setImportReview(prev => ({...prev, isOpen: false}))}>Cancel</Button>
+            <Button className="bg-green-600" onClick={finalizeImport} disabled={importReview.summary.valid === 0}>Merge {importReview.summary.valid} Rows</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
