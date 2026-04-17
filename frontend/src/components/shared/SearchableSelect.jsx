@@ -158,6 +158,18 @@ export function SearchableSelect({
               })
             )}
           </div>
+          {multi && selectedValues.length > 0 && (
+            <div className="border-t p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-center text-[10px] uppercase font-bold tracking-tight h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/5"
+                onClick={clearSelection}
+              >
+                Clear all
+              </Button>
+            </div>
+          )}
         </div>
       </PopoverContent>
     </Popover>

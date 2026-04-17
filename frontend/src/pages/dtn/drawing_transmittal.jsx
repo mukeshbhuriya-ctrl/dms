@@ -58,7 +58,7 @@ function CreateView({ onBack }) {
 
   // Auto-fill (Identical state structure to MHC)
   const [autoFill, setAutoFill] = useState({
-    reportNo: "DESIGN-11", // Refers to Transmittal Ref No in DTN
+    reportNo: "SHR/DGN/001", // Refers to Transmittal Ref No in DTN
     client: "",
     poNo: "",
     projectId: "",
@@ -87,11 +87,33 @@ function CreateView({ onBack }) {
 
   useEffect(() => {
     setJobsLoading(true)
-    apiClient.get("/api/common/jobs?limit=200")
+    apiClient.get("/api/common/jobs")
       .then(res => setJobs(res.data || []))
       .catch(err => console.error("Failed to fetch jobs:", err))
       .finally(() => setJobsLoading(false))
   }, [])
+
+  // Options for Job Number dropdown (Cascading Logic)
+  const jobOptions = useMemo(() => {
+    // If no jobs are selected, show everything
+    if (!jobIds || jobIds.length === 0) {
+      return jobs.map((j) => ({ value: String(j.id), label: j.job_number }))
+    }
+
+    // Find the current PO context from the first selected job
+    const firstJob = jobs.find(j => String(j.id) === String(jobIds[0]))
+    const currentPoNo = firstJob?.po?.po_number
+
+    // If we can't find a PO Number, don't restrict (failsafe)
+    if (!currentPoNo) {
+      return jobs.map((j) => ({ value: String(j.id), label: j.job_number }))
+    }
+
+    // Filter list to only show jobs belonging to the SAME PO
+    return jobs
+      .filter(j => j.po?.po_number === currentPoNo)
+      .map(j => ({ value: String(j.id), label: j.job_number }))
+  }, [jobs, jobIds])
 
   // Matrix handlers
   const updateMatrixCell = (rowId, field, value) => {
@@ -172,7 +194,7 @@ function CreateView({ onBack }) {
               <Label className="uppercase text-xs font-semibold text-muted-foreground italic">MSN / JOB NO.:</Label>
               <SearchableSelect
                 multi={true}
-                options={jobs.map((j) => ({ value: j.id, label: j.job_number }))}
+                options={jobOptions}
                 value={jobIds}
                 onValueChange={handleJobSelect}
                 placeholder={jobsLoading ? "Loading jobs…" : "SELECT MSN"}
