@@ -81,6 +81,25 @@ class CommonService {
     }
 
     /**
+     * Get details of a single Job/MSN by Job Number string
+     */
+    async getJobByNumber(company_id, job_number) {
+        return await prisma.job.findFirst({
+            where: { job_number: String(job_number), company_id },
+            select: {
+                id: true,
+                job_number: true,
+                equipement_name: true,
+                project_id: true,
+                tag_number: true,
+                code: true,
+                customer: { select: { customer_name: true } },
+                po: { select: { po_number: true, po_date: true } }
+            }
+        });
+    }
+
+    /**
      * Get details of a single Job/MSN
      */
     async getJobDetails(company_id, id) {
@@ -103,11 +122,10 @@ class CommonService {
      * Get a standardized list of QC Engineers (Users)
      */
     async getQcEngineers(company_id) {
-        // Here we could filter by roles if 'QC Engineer' is a specific role
-        // For now, returning all users for the company or those resembling engineers
+        // Fetch users who are likely to be engineers, including their empid for Excel matching
         return await prisma.user.findMany({
             where: { company_id },
-            select: { id: true, name: true, email: true },
+            select: { id: true, name: true, email: true, empid: true },
             orderBy: { name: 'asc' }
         });
     }

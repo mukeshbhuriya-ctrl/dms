@@ -66,6 +66,23 @@ class CommonController {
         }
     }
 
+    async getJobByNumber(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { number } = req.params;
+            const data = await CommonService.getJobByNumber(company_id, number);
+
+            if (!data) {
+                return res.status(404).json({ success: false, message: "Job not found" });
+            }
+
+            res.status(200).json({ success: true, message: "Job details fetched successfully", data });
+        } catch (error) {
+            console.error("CommonController.getJobByNumber Error:", error);
+            res.status(500).json({ success: false, message: "Failed to fetch job details", error: error.message });
+        }
+    }
+
     async getQcEngineers(req, res) {
         try {
             const { company_id } = req.user;
