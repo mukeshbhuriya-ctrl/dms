@@ -16,6 +16,14 @@ import {
   Layers,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import ProDataTable from "@/components/shared/ProDataTable"
 import apiClient from "@/api/api.client"
@@ -141,36 +149,58 @@ function CreateView({ onBack }) {
   }
 
   // Auto-fill logic
-  const handleJobSelect = (ids) => {
+  const handleJobSelect = async (ids) => {
     setJobIds(ids)
     if (ids.length > 0) {
-      const firstJob = jobs.find(j => j.id === ids[0]);
+      const firstJob = jobs.find(j => String(j.id) === String(ids[0]));
       if (firstJob) {
         setAutoFill(prev => ({
           ...prev,
-          client: firstJob.customer?.customer_name || "Pall Corporation",
-          poNo: firstJob.po?.po_number || "4506553303",
+          client: firstJob.customer?.customer_name || "N/A",
+          poNo: firstJob.po?.po_number || "N/A",
           projectId: firstJob.project_id || "40540",
           equipmentName: firstJob.equipement_name || "E40340",
           tagNo: firstJob.tag_number || "T095656",
           code: firstJob.code || "ASME BPVC VIII-1",
         }))
       }
+
+      // Fetch related documents (Unique Union for all selected jobs)
+      try {
+        const res = await apiClient.get(`/api/dtn/documents-by-jobs?jobIds=${ids.join(',')}`)
+        if (res.success && res.data) {
+          const newRows = res.data.map((doc, index) => ({
+            id: doc.id || Date.now() + index,
+            srNo: (index + 1).toString().padStart(2, '0'),
+            // Combine System ID and Name for the title column
+            docNo: `[${doc.system_doc_id}] ${doc.document_name}`,
+            rev: "0", // Default to Rev 0
+            copies: "01", // Default to 1 copy
+            deps: {}
+          }))
+          setDistributionRows(newRows)
+        }
+      } catch (error) {
+        console.error("Error fetching documents for jobs:", error)
+        toast.error("Failed to fetch related documents")
+      }
+    } else {
+      // Clear matrix and auto-fill if no jobs selected
+      setDistributionRows([])
+      setAutoFill({
+        reportNo: "SHR/DGN/001",
+        client: "",
+        poNo: "",
+        projectId: "",
+        equipmentName: "",
+        tagNo: "",
+        code: "",
+      })
     }
   }
 
-  // Items Table Columns (ProDataTable Style)
-  const itemColumns = useMemo(() => [
-    { id: "selection", header: "Select", type: "checkbox", width: "50px" },
-    { id: "doc_no", header: "Document No.", accessorKey: "doc_no" },
-    { id: "description", header: "Description", accessorKey: "description" },
-    { id: "rev", header: "Rev", accessorKey: "rev", width: "80px" },
-    { id: "copies", header: "Copies", accessorKey: "copies", width: "100px" },
-  ], [])
-
   return (
     <div>
-      {/* Header (MHC Style) */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold mb-1">Create Drawing Transmittal</h1>
@@ -182,14 +212,12 @@ function CreateView({ onBack }) {
         </Button>
       </div>
 
-      {/* ── Section 1: Basic Information (Simplified) ── */}
       <Card className="mb-6 shadow-sm border border-muted-foreground/20">
         <CardHeader className="pb-4 border-b bg-muted/5 font-semibold text-lg">
           <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-            {/* MSN / Job Number */}
             <div className="space-y-2">
               <Label className="uppercase text-xs font-semibold text-muted-foreground italic">MSN / JOB NO.:</Label>
               <SearchableSelect
@@ -202,19 +230,16 @@ function CreateView({ onBack }) {
               />
             </div>
 
-            {/* Transmittal Ref No */}
             <div className="space-y-2">
               <Label className="uppercase text-xs font-semibold text-muted-foreground italic">TRANSMITTAL REF NO.:</Label>
               <Input value={autoFill.reportNo} readOnly className="bg-muted/40 h-10 border-muted-foreground/20 shadow-none text-sm font-medium" />
             </div>
 
-            {/* Client */}
             <div className="space-y-2">
               <Label className="uppercase text-xs font-semibold text-muted-foreground italic">CUSTOMER / VENDOR (CLIENT):</Label>
               <Input value={autoFill.client} readOnly className="bg-muted/40 h-10 border-muted-foreground/20 shadow-none text-sm font-medium" />
             </div>
 
-            {/* PO No */}
             <div className="space-y-2">
               <Label className="uppercase text-xs font-semibold text-muted-foreground italic">PURCHASE ORDER NO (PO. NO.):</Label>
               <Input value={autoFill.poNo} readOnly className="bg-muted/40 h-10 border-muted-foreground/20 shadow-none text-sm font-medium" />
@@ -223,7 +248,6 @@ function CreateView({ onBack }) {
         </CardContent>
       </Card>
       
-      {/* ── Section 2: ISSUED TO Table (SS8 Replication) ── */}
       <Card className="mb-6 shadow-sm border border-muted-foreground/20 overflow-hidden">
         <CardHeader className="pb-4 border-b bg-muted/5 py-4">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Issued To :</CardTitle>
@@ -257,7 +281,6 @@ function CreateView({ onBack }) {
                           </td>
                        </tr>
                     ))}
-                    {/* Empty row to match SS style */}
                     <tr className="h-10 border-b last:border-0">
                        <td className="border-r"></td>
                        <td></td>
@@ -266,7 +289,6 @@ function CreateView({ onBack }) {
               </table>
            </div>
            
-           {/* Dynamic Attention Summary */}
            {Object.values(issuedTo).some(v => v) && (
               <div className="p-4 bg-slate-50/80 border-t flex items-center gap-2">
                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider italic">ATTN:</span>
@@ -281,14 +303,12 @@ function CreateView({ onBack }) {
         </CardContent>
       </Card>
 
-      {/* ── Section 3: ISSUED FOR Table (SS9 Replication) ── */}
       <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
         <CardHeader className="pb-4 border-b bg-muted/5 py-4">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Issued For :</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
            <div className="grid grid-cols-1 md:grid-cols-2">
-              {/* Left Table: Reference, Planning, Construction */}
               <div className="border-r border-b md:border-b-0">
                  <table className="w-full border-collapse">
                     <tbody>
@@ -318,7 +338,6 @@ function CreateView({ onBack }) {
                  </table>
               </div>
 
-              {/* Right Table: MANUFACTURING, OUTSOURCING, PROCUREMENT */}
               <div>
                  <table className="w-full border-collapse">
                     <tbody>
@@ -350,7 +369,6 @@ function CreateView({ onBack }) {
            </div>
         </CardContent>
       </Card>
-      {/* ── Section 4: DISTRIBUTION Matrix (SS10 Replication) ── */}
       <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
         <CardHeader className="pb-4 border-b bg-muted/5 py-4 flex flex-row items-center justify-between">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
@@ -372,11 +390,9 @@ function CreateView({ onBack }) {
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">Sr. No</th>
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 text-left min-w-[300px]">Document Number / Title</th>
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">Rev No</th>
-                       <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">No. of Copy</th>
                        {depts.map(d => (
                           <th key={d} className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">{d}</th>
                        ))}
-                       {/* Empty columns for SS Match */}
                        <th className="p-2 border-r w-16"></th>
                        <th className="p-2 border-r w-16"></th>
                        <th className="p-2 w-16"></th>
@@ -403,13 +419,6 @@ function CreateView({ onBack }) {
                                className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
                              />
                           </td>
-                          <td className="p-1 border-r text-center">
-                             <Input 
-                               value={row.copies} 
-                               onChange={(e) => updateMatrixCell(row.id, 'copies', e.target.value)}
-                               className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
-                             />
-                          </td>
                           {depts.map(d => (
                              <td key={d} className="p-2 border-r">
                                 <div className="flex justify-center">
@@ -421,13 +430,11 @@ function CreateView({ onBack }) {
                                 </div>
                              </td>
                           ))}
-                          {/* Empty columns for SS Match */}
                           <td className="border-r"></td>
                           <td className="border-r"></td>
                           <td></td>
                        </tr>
                     ))}
-                    {/* Placeholder rows to match matrix look */}
                     {[1, 2, 3].map(i => (
                        <tr key={i} className="h-10 border-b last:border-0 opacity-40">
                           <td className="border-r px-2 text-[10px] text-slate-400 text-center font-bold">{(distributionRows.length + i).toString().padStart(2, '0')}</td>

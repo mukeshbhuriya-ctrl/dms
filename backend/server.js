@@ -64,6 +64,9 @@ app.use('/api/wpj', wpjRoutes);
 const mhcRoutes = require('#routes/mhc/mhc.routes.js');
 app.use('/api/mhc', mhcRoutes);
 
+const dtnRoutes = require('./routes/dtn/dtn.routes.js');
+app.use('/api/dtn', dtnRoutes);
+
 const inspectionReportRoutes = require('./routes/hydro/inspection_report.routes.js');
 app.use('/api/inspection-report', inspectionReportRoutes);
 
