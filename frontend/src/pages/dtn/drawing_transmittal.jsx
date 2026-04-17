@@ -136,15 +136,31 @@ function CreateView({ onBack }) {
     ))
   }
 
+  // Synchronized Issued To handler
+  const updateIssuedTo = (key, val) => {
+    setIssuedTo(prev => ({ ...prev, [key]: val }));
+    
+    // Sync to all rows in the distribution matrix
+    const upperKey = key.toUpperCase();
+    setDistributionRows(prev => prev.map(row => ({
+      ...row,
+      deps: { ...row.deps, [upperKey]: val }
+    })));
+  };
+
   const addMatrixRow = () => {
-    const nextSr = (distributionRows.length + 1).toString().padStart(2, '0')
+    const nextSr = (distributionRows.length + 1).toString().padStart(2, '0');
+    const currentDeps = Object.entries(issuedTo).reduce((acc, [k, v]) => ({
+      ...acc, [k.toUpperCase()]: v
+    }), {});
+
     setDistributionRows(prev => [...prev, { 
       id: Date.now(), 
       srNo: nextSr, 
       docNo: "", 
-      rev: "", 
+      rev: "0", 
       copies: "01", 
-      deps: {} 
+      deps: { ...currentDeps } 
     }])
   }
 
@@ -169,6 +185,11 @@ function CreateView({ onBack }) {
       try {
         const res = await apiClient.get(`/api/dtn/documents-by-jobs?jobIds=${ids.join(',')}`)
         if (res.success && res.data) {
+          // Pre-calculate current distribution defaults from Issued To
+          const currentDeps = Object.entries(issuedTo).reduce((acc, [k, v]) => ({
+            ...acc, [k.toUpperCase()]: v
+          }), {});
+
           const newRows = res.data.map((doc, index) => ({
             id: doc.id || Date.now() + index,
             srNo: (index + 1).toString().padStart(2, '0'),
@@ -176,7 +197,7 @@ function CreateView({ onBack }) {
             docNo: `[${doc.system_doc_id}] ${doc.document_name}`,
             rev: "0", // Default to Rev 0
             copies: "01", // Default to 1 copy
-            deps: {}
+            deps: { ...currentDeps } // Inherit current Issued To selection
           }))
           setDistributionRows(newRows)
         }
@@ -269,16 +290,16 @@ function CreateView({ onBack }) {
                           <td className="p-3 px-6 text-sm font-medium text-muted-foreground border-r w-2/3">
                              {item.label}
                           </td>
-                          <td className="p-3 text-center w-1/3">
-                             <div className="flex justify-center">
-                                <Checkbox 
-                                  id={`to-${item.key}`} 
-                                  checked={issuedTo[item.key]}
-                                  onCheckedChange={(val) => setIssuedTo(prev => ({ ...prev, [item.key]: val }))}
-                                  className="h-5 w-5 border-muted-foreground/40"
-                                />
-                             </div>
-                          </td>
+                           <td className="p-3 text-center w-1/3">
+                              <div className="flex justify-center">
+                                 <Checkbox 
+                                   id={`to-${item.key}`} 
+                                   checked={issuedTo[item.key]}
+                                   onCheckedChange={(val) => updateIssuedTo(item.key, val)}
+                                   className="h-5 w-5 border-muted-foreground/40"
+                                 />
+                              </div>
+                           </td>
                        </tr>
                     ))}
                     <tr className="h-10 border-b last:border-0">
