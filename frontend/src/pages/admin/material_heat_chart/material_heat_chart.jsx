@@ -260,7 +260,7 @@ function ListView({ onCreateClick, onEditClick }) {
           }
           reportGroups[key].items.push({
               is_heading: row.isHeading,
-              heading_text: row.isHeading ? (row.heading || row.itemNo || row.description) : null,
+              heading_text: row.heading || (row.isHeading ? (row.itemNo || row.description) : null),
               item_no: row.itemNo,
               description: row.description,
               materialSpecification: row.materialSpecification,
@@ -807,7 +807,7 @@ function ListView({ onCreateClick, onEditClick }) {
 
                         rows.push(
                           <tr key={row.id} className={row.is_heading ? "bg-[#f4f4f5] border-b border-border font-bold shadow-[inset_0_1px_0_0_#e4e4e7]" : "hover:bg-muted/30 border-b border-border last:border-0"}>
-                            <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{currentHeading || "-"}</td>
+                            <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{row.heading_text || currentHeading || "-"}</td>
                             <td className="border-r border-border p-3 align-top font-medium">{row.item_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.description || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.material_spec || "-"}</td>
