@@ -161,7 +161,7 @@ function CreateView({ onBack }) {
       </div>
 
       {/* ── Section 1: Basic Information (Simplified) ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
+      <Card className="mb-6 shadow-sm border border-muted-foreground/20">
         <CardHeader className="pb-4 border-b bg-muted/5 font-semibold text-lg">
           <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
         </CardHeader>
@@ -202,7 +202,7 @@ function CreateView({ onBack }) {
       </Card>
       
       {/* ── Section 2: ISSUED TO Table (SS8 Replication) ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20 overflow-hidden">
+      <Card className="mb-6 shadow-sm border border-muted-foreground/20 overflow-hidden">
         <CardHeader className="pb-4 border-b bg-muted/5 py-4">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Issued To :</CardTitle>
         </CardHeader>
@@ -243,11 +243,24 @@ function CreateView({ onBack }) {
                  </tbody>
               </table>
            </div>
+           
+           {/* Dynamic Attention Summary */}
+           {Object.values(issuedTo).some(v => v) && (
+              <div className="p-4 bg-slate-50/80 border-t flex items-center gap-2">
+                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider italic">ATTN:</span>
+                 <span className="text-sm font-bold text-slate-800 uppercase tracking-tight">
+                    {Object.entries(issuedTo)
+                       .filter(([_, checked]) => checked)
+                       .map(([key]) => key.toUpperCase())
+                       .join(", ")}
+                 </span>
+              </div>
+           )}
         </CardContent>
       </Card>
 
       {/* ── Section 3: ISSUED FOR Table (SS9 Replication) ── */}
-      <Card className="mb-8 rounded-xl shadow-sm border border-muted-foreground/20 overflow-hidden">
+      <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
         <CardHeader className="pb-4 border-b bg-muted/5 py-4">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Issued For :</CardTitle>
         </CardHeader>
@@ -316,7 +329,7 @@ function CreateView({ onBack }) {
         </CardContent>
       </Card>
       {/* ── Section 4: DISTRIBUTION Matrix (SS10 Replication) ── */}
-      <Card className="mb-8 rounded-xl shadow-sm border border-muted-foreground/20 overflow-hidden">
+      <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
         <CardHeader className="pb-4 border-b bg-muted/5 py-4 flex flex-row items-center justify-between">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
            <Button 
