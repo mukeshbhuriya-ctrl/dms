@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 
+import { Checkbox } from "@/components/ui/checkbox"
+
 export function SearchableSelect({
   options = [],
   value,
@@ -139,12 +141,18 @@ export function SearchableSelect({
                       key={option.value}
                       className={cn(
                         "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
-                        isSelected && "bg-accent/50"
+                        !multi && isSelected && "bg-accent/50"
                       )}
                       onClick={() => handleSelect(option.value.toString())}
                     >
+                      {multi && (
+                        <Checkbox 
+                          checked={isSelected} 
+                          className="mr-3 pointer-events-none"
+                        />
+                      )}
                       <span className="flex-1 truncate uppercase">{option.label?.toString().toUpperCase()}</span>
-                      {isSelected && <Check className="ml-2 h-4 w-4 text-primary shrink-0" />}
+                      {!multi && isSelected && <Check className="ml-2 h-4 w-4 text-primary shrink-0" />}
                     </div>
                 )
               })

@@ -39,6 +39,7 @@ import { CreateQARP } from "@/pages/admin/qap"
 import { CreateDCR } from "@/pages/dcr"
 import { RfqRegister, RfqLookupManager, RfqDashboard } from "@/pages/marketing"
 import { CreateNCR } from "@/pages/ncr"
+import { DrawingMaster, DrawingTransmittal } from "@/pages/dtn"
 
 // ─── Helper: wrap element with ProtectedRoute + role guard ─────
 const protect = (element, allowedRoles = null) => (
@@ -135,6 +136,14 @@ const dccRoutes = [
   {
     path: "/dcc/client-approval-status",
     element: protect(<ClientApprovalStatus />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dtn/drawing-transmittal",
+    element: protect(<DrawingTransmittal />, [ROLES.ADMIN, ROLES.DCC]),
+  },
+  {
+    path: "/dtn/drawing-master",
+    element: protect(<DrawingMaster />, [ROLES.ADMIN, ROLES.DCC]),
   },
 ]
 

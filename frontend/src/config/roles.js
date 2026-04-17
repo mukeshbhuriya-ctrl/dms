@@ -90,6 +90,16 @@ export const MENU_CONFIG = [
         roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
     },
 
+    // ── DTN ──
+    {
+        title: "DTN",
+        icon: Folder,
+        items: [
+            { title: "Drawing Transmittal (DTN)", path: "/dtn/drawing-transmittal", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Drawing Master", path: "/dtn/drawing-master", roles: [ROLES.ADMIN, ROLES.DCC, ] },
+        ],
+    },
+
     // ── DMS ──
     {
         title: "DMS",
