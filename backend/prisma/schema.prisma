@@ -37,6 +37,7 @@ model company{
   document_type document_type[]
   weld_joint_plans weld_joint_plan[]
   transmissions transmission[]
+  drawing_transmittals drawing_transmittal[]
   departments department[]
   material_heat_charts material_heat_chart[]
   hydrostatic_test_reports hydrostatic_test_report[]
@@ -132,8 +133,9 @@ model user{
   group_document group_document[]
   document_activities document_activity[]
   weld_joint_plans_created weld_joint_plan[]
-  uploaded_versions document_version[]
   created_transmissions transmission[]
+  created_drawing_transmittals drawing_transmittal[]
+  uploaded_versions document_version[]
   assigned_dish_end_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
@@ -303,6 +305,7 @@ model job{
   dcr_change_request dcr_change_request[]
 
   ncr ncr[]
+  drawing_transmittal_jobs drawing_transmittal_job[]
 }
 
 model document_type{
@@ -330,6 +333,7 @@ model document_master{
   document_type document_type? @relation(fields: [document_type_id], references: [id])
   single_document single_document[]
   group_document group_document[]
+  drawing_transmittal_items drawing_transmittal_item[]
 }
 
 model single_document{
@@ -660,6 +664,86 @@ model transmission_document {
   single_document single_document? @relation(fields: [single_document_id], references: [id])
   group_document  group_document?  @relation(fields: [group_document_id], references: [id])
   version         document_version @relation(fields: [version_id], references: [id])
+}
+
+model drawing_transmittal {
+  id                    String   @id @default(uuid())
+  company_id            String
+  ref_no                String   @unique
+  date                  DateTime @default(now())
+  customer_id           String?
+  customer_location_id  String?
+  po_id                 String?
+  
+  // Flattened metadata
+  client_name           String?
+  po_number             String?
+  project_id            String?
+  equipment_name        String?
+  tag_no                String?
+  code                  String?
+
+  // Issued To
+  to_hm                Boolean  @default(false)
+  to_hq                Boolean  @default(false)
+  to_hmf               Boolean  @default(false)
+  to_hpl               Boolean  @default(false)
+  to_hst               Boolean  @default(false)
+  to_hpc               Boolean  @default(false)
+  to_ppd               Boolean  @default(false)
+
+  // Issued For
+  for_reference        Boolean  @default(false)
+  for_planning         Boolean  @default(false)
+  for_construction     Boolean  @default(false)
+  for_manufacturing    Boolean  @default(false)
+  for_outsourcing      Boolean  @default(false)
+  for_procurement      Boolean  @default(false)
+  
+  status                String   @default("Draft")
+  created_by            String
+  
+  company               company  @relation(fields: [company_id], references: [id])
+  creator               user     @relation(fields: [created_by], references: [id])
+  
+  jobs                  drawing_transmittal_job[]
+  items                 drawing_transmittal_item[]
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model drawing_transmittal_job {
+  id                    String   @id @default(uuid())
+  dtn_id                String
+  job_id                String
+  
+  dtn                   drawing_transmittal @relation(fields: [dtn_id], references: [id], onDelete: Cascade)
+  job                   job                 @relation(fields: [job_id], references: [id])
+
+  @@unique([dtn_id, job_id])
+}
+
+model drawing_transmittal_item {
+  id                    String   @id @default(uuid())
+  dtn_id                String
+  sr_no                 String
+  doc_no_title          String
+  document_master_id    String?
+  rev                   String?
+  copies                String?
+  
+  // Matrix
+  dist_hm               Boolean  @default(false)
+  dist_hq               Boolean  @default(false)
+  dist_hmf              Boolean  @default(false)
+  dist_hpl              Boolean  @default(false)
+  dist_hst              Boolean  @default(false)
+  dist_hpc              Boolean  @default(false)
+  dist_ppd              Boolean  @default(false)
+
+  dtn                   drawing_transmittal @relation(fields: [dtn_id], references: [id], onDelete: Cascade)
+  document              document_master?    @relation(fields: [document_master_id], references: [id])
 }
 
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { toast } from "react-toastify"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -14,6 +14,7 @@ import {
   Plus,
   ArrowLeft,
   Layers,
+  Edit,
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -29,14 +30,60 @@ import ProDataTable from "@/components/shared/ProDataTable"
 import apiClient from "@/api/api.client"
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick }) {
+function ListView({ onCreateClick, onEditClick, refreshKey }) {
+  const fetchDtns = useCallback(async ({ page, limit, search }) => {
+    // ProDataTable expects { data, meta }
+    const res = await apiClient.get("/api/dtn", { page, limit, search })
+    return res;
+  }, [])
+
+  const getStatusBadge = (status) => {
+    let colorClass = "bg-gray-100 text-gray-700 border-gray-200"
+    if (status === "Draft") colorClass = "bg-slate-100 text-slate-700 border-slate-200"
+    if (status === "Pending") colorClass = "bg-amber-50 text-amber-700 border-amber-200"
+    if (status === "Approved") colorClass = "bg-emerald-50 text-emerald-700 border-emerald-200"
+
+    return (
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${colorClass}`}>
+        {status}
+      </span>
+    )
+  }
+
   const columns = useMemo(() => [
     { id: "ref_no", header: "Reference No", accessorKey: "ref_no" },
     { id: "customer", header: "Customer", accessorKey: "customer" },
     { id: "job_no", header: "Job Numbers", accessorKey: "job_no" },
-    { id: "date", header: "Date", accessorKey: "date" },
-    { id: "status", header: "Status", accessorKey: "status" },
-  ], [])
+    { 
+      id: "date", 
+      header: "Date", 
+      accessorKey: "date",
+      cell: (row) => row.date ? new Date(row.date).toLocaleDateString() : "N/A"
+    },
+    { 
+      id: "status", 
+      header: "Status", 
+      accessorKey: "status",
+      cell: (row) => getStatusBadge(row.status || "Draft")
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none" 
+            onClick={() => onEditClick(row.id)}
+          >
+            <Edit className="h-3.5 w-3.5 mr-1.5" />
+            <span className="text-[11px] font-medium">Edit</span>
+          </Button>
+        </div>
+      )
+    }
+  ], [onEditClick])
 
   return (
     <div>
@@ -48,9 +95,9 @@ function ListView({ onCreateClick }) {
       </div>
 
       <ProDataTable 
-        data={[]} 
+        fetchData={fetchDtns}
         columns={columns} 
-        isLoading={false}
+        refreshKey={refreshKey}
         onAdd={onCreateClick}
         globalSearchPlaceholder="Search reference no, msn, client..."
       />
@@ -59,14 +106,16 @@ function ListView({ onCreateClick }) {
 }
 
 // ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack }) {
+function CreateView({ onBack, editId, defaultRefNo }) {
   const [jobIds, setJobIds] = useState([])
   const [jobs, setJobs] = useState([])
   const [jobsLoading, setJobsLoading] = useState(false)
+  const [fetchingDtn, setFetchingDtn] = useState(false)
+  const [savingStatus, setSavingStatus] = useState(null) // 'Draft' or 'Pending'
 
   // Auto-fill (Identical state structure to MHC)
   const [autoFill, setAutoFill] = useState({
-    reportNo: "SHR/DGN/001", // Refers to Transmittal Ref No in DTN
+    reportNo: defaultRefNo || "SHR/DGN/001",
     client: "",
     poNo: "",
     projectId: "",
@@ -94,12 +143,47 @@ function CreateView({ onBack }) {
   const depts = ["HM", "HQ", "HMF", "HPL", "HST", "HPC", "PPD"]
 
   useEffect(() => {
-    setJobsLoading(true)
-    apiClient.get("/api/common/jobs")
-      .then(res => setJobs(res.data || []))
-      .catch(err => console.error("Failed to fetch jobs:", err))
-      .finally(() => setJobsLoading(false))
-  }, [])
+    const init = async () => {
+      setJobsLoading(true)
+      try {
+        const res = await apiClient.get("/api/common/jobs")
+        setJobs(res.data || [])
+        
+        if (editId) {
+          setFetchingDtn(true)
+          const dtnRes = await apiClient.get(`/api/dtn/${editId}`)
+          if (dtnRes.success && dtnRes.data) {
+            const d = dtnRes.data
+            setAutoFill({
+              reportNo: d.ref_no,
+              client: d.client_name,
+              poNo: d.po_number,
+              projectId: d.project_id || "",
+              equipmentName: d.equipment_name || "",
+              tagNo: d.tag_no || "",
+              code: d.code || "",
+            })
+            setJobIds(d.jobIds)
+            setIssuedTo(d.issued_to)
+            setIssuedFor(d.issued_for)
+            setDistributionRows(d.distributionRows)
+          }
+        } else {
+           // Fetch next reference number from backend
+           const nextRes = await apiClient.get("/api/dtn/next-ref")
+           if (nextRes.success) {
+              setAutoFill(prev => ({ ...prev, reportNo: nextRes.data }))
+           }
+        }
+      } catch (err) {
+        console.error("Failed to init CreateView:", err)
+      } finally {
+        setJobsLoading(false)
+        setFetchingDtn(false)
+      }
+    }
+    init()
+  }, [editId])
 
   // Options for Job Number dropdown (Cascading Logic)
   const jobOptions = useMemo(() => {
@@ -217,6 +301,56 @@ function CreateView({ onBack }) {
         tagNo: "",
         code: "",
       })
+    }
+  }
+
+  // Submission Logic (Draft or Pending)
+  const handleSubmit = async (status) => {
+    if (jobIds.length === 0) {
+      return toast.warning("Please select at least one Job Number.")
+    }
+
+    if (distributionRows.length === 0) {
+      return toast.warning("The distribution matrix cannot be empty.")
+    }
+
+    setSavingStatus(status)
+    const firstJob = jobs.find(j => String(j.id) === String(jobIds[0]))
+
+    const payload = {
+      ref_no: autoFill.reportNo,
+      date: new Date().toISOString(),
+      customer_id: firstJob?.customer_id,
+      client_name: autoFill.client,
+      po_id: firstJob?.po_id,
+      po_number: autoFill.poNo,
+      project_id: autoFill.projectId,
+      equipment_name: autoFill.equipmentName,
+      tag_no: autoFill.tagNo,
+      code: autoFill.code,
+      issued_to: issuedTo,
+      issued_for: issuedFor,
+      status, // New: Draft or Pending
+      jobIds: jobIds,
+      items: distributionRows
+    }
+
+    try {
+      const endpoint = editId ? `/api/dtn/${editId}` : "/api/dtn"
+      const method = editId ? "put" : "post"
+      
+      const res = await apiClient[method](endpoint, payload)
+      if (res.success) {
+        toast.success(status === "Draft" ? "Draft saved successfully!" : (editId ? "Transmittal updated successfully!" : "Transmittal generated successfully!"))
+        onBack(true)
+      } else {
+        toast.error(res.message || "Failed to process transmittal")
+      }
+    } catch (error) {
+      console.error("Submit DTN error:", error)
+      toast.error(`An error occurred while ${status === "Draft" ? "saving draft" : "generating transmittal"}`)
+    } finally {
+      setSavingStatus(null)
     }
   }
 
@@ -391,17 +525,8 @@ function CreateView({ onBack }) {
         </CardContent>
       </Card>
       <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 border-b bg-muted/5 py-4 flex flex-row items-center justify-between">
+        <CardHeader className="pb-4 border-b bg-muted/5 py-4">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
-           <Button 
-             variant="outline" 
-             size="sm" 
-             onClick={addMatrixRow}
-             className="h-8 text-[10px] font-bold uppercase tracking-tight"
-           >
-             <Plus className="h-3 w-3 mr-1" />
-             Add New Item
-           </Button>
         </CardHeader>
         <CardContent className="p-0">
            <div className="overflow-x-auto custom-scrollbar-x">
@@ -473,12 +598,30 @@ function CreateView({ onBack }) {
            </div>
         </CardContent>
       </Card>
-      <div className="flex gap-3 justify-end">
-        <Button variant="outline" onClick={onBack}>
-          Cancel
+      <div className="flex gap-4 justify-end items-center mt-6">
+        <Button 
+          variant="outline" 
+          onClick={onBack} 
+          disabled={savingStatus !== null} 
+          className="h-10 px-6 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all rounded-lg font-medium shadow-none gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
         </Button>
-        <Button>
-          Generate Transmittal
+        <Button 
+          variant="outline" 
+          onClick={() => handleSubmit("Draft")} 
+          disabled={savingStatus !== null}
+          className="h-10 px-6 border-slate-200 text-slate-600 hover:bg-slate-50 transition-all rounded-lg font-medium shadow-none"
+        >
+          {savingStatus === "Draft" ? "Saving..." : "Save Draft"}
+        </Button>
+        <Button 
+          onClick={() => handleSubmit("Pending")} 
+          disabled={savingStatus !== null}
+          className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] uppercase tracking-wide border-none"
+        >
+          {savingStatus === "Pending" ? "Processing..." : "Generate Transmittal"}
         </Button>
       </div>
     </div>
@@ -488,6 +631,23 @@ function CreateView({ onBack }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function DrawingTransmittal() {
   const [view, setView] = useState("list")
+  const [editId, setEditId] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const handleCreate = useCallback(() => {
+    setEditId(null)
+    setView("create")
+  }, [])
+
+  const handleEdit = useCallback((id) => {
+    setEditId(id)
+    setView("create")
+  }, [])
+
+  const handleBack = useCallback((refresh = false) => {
+    if (refresh) setRefreshKey(prev => prev + 1)
+    setView("list")
+  }, [])
 
   return (
     <div className="flex-1 flex flex-col w-full h-full bg-slate-50/20 overflow-hidden">
@@ -503,9 +663,16 @@ export default function DrawingTransmittal() {
         <main className="flex-1 overflow-auto p-6 flex flex-col">
           <div className="flex-1 flex flex-col w-full">
             {view === "list" ? (
-              <ListView onCreateClick={() => setView("create")} />
+              <ListView 
+                onCreateClick={handleCreate} 
+                onEditClick={handleEdit}
+                refreshKey={refreshKey}
+              />
             ) : (
-              <CreateView onBack={() => setView("list")} />
+              <CreateView 
+                onBack={handleBack} 
+                editId={editId}
+              />
             )}
           </div>
         </main>

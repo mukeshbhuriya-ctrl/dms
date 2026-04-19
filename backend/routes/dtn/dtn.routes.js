@@ -8,9 +8,28 @@ router.use(authenticateUserOnly);
 
 /**
  * @route GET /api/dtn/documents-by-jobs
- * @desc Get documents related to a set of job IDs
- * @access Private
  */
 router.get('/documents-by-jobs', DtnController.getDocumentsByJobs);
+router.get('/next-ref', DtnController.getNextRef);
+
+/**
+ * @route POST /api/dtn
+ */
+router.post('/', DtnController.create);
+
+/**
+ * @route PUT /api/dtn/:id
+ */
+router.put('/:id', DtnController.update);
+
+/**
+ * @route GET /api/dtn
+ */
+router.get('/', DtnController.list);
+
+/**
+ * @route GET /api/dtn/:id
+ */
+router.get('/:id', DtnController.getById);
 
 module.exports = router;

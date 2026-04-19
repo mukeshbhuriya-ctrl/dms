@@ -193,15 +193,18 @@ const TableSettings = ({ columns, stickyColumns, setStickyColumns }) => {
 /**
  * ProDataTable - The "Ideal Table" shared component
  */
+const DEFAULT_COLUMN_FILTERS = {};
+const DEFAULT_TOP_FILTERS = [];
+
 const ProDataTable = ({
   columns,
   fetchData,
   onAdd,
   onExport,
-  columnFilters = {},
+  columnFilters = DEFAULT_COLUMN_FILTERS,
   onFilterChange,
   refreshKey = 0,
-  topFilters = [], // Array of { value, onChange, options: [{label, value}], placeholder }
+  topFilters = DEFAULT_TOP_FILTERS,
   globalSearchPlaceholder = "Search...",
   initialStickyColumns = [],
   onAddTooltip = "Add New",
