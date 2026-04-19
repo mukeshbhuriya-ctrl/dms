@@ -1424,7 +1424,7 @@ class DccService {
     }
 
     async getTransmissions(company_id, params = {}) {
-        const { po_id, page = 1, limit = 10, search, status, customer_name_filter, po_number_filter } = params;
+        const { po_id, page = 1, limit = 10, search, status, customer_name_filter, po_number_filter, transmission_number_filter } = params;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
@@ -1444,11 +1444,14 @@ class DccService {
                 po_number: this._processFilter(po_number_filter)
             };
         }
+        if (transmission_number_filter) {
+            where.transmission_number = this._processFilter(transmission_number_filter);
+        }
 
         if (search) {
             where.OR = [
-                { transmission_number: { contains: search } },
-                { po: { po_number: { contains: search } } }
+                { transmission_number: { contains: search, mode: 'insensitive' } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } }
             ];
         }
 
