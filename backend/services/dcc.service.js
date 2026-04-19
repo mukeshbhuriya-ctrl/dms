@@ -263,6 +263,12 @@ class DccService {
         const where = { company_id };
 
         if (customer_id) where.customer_id = customer_id.trim();
+        if (params.location_id) where.customer_location_id = params.location_id.trim();
+        if (params.po_id) where.id = params.po_id.trim();
+
+        if (params.customer_name) {
+            where.customer = { customer_name: { contains: params.customer_name.trim(), mode: 'insensitive' } };
+        }
 
         if (search) {
             where.OR = [
@@ -299,6 +305,36 @@ class DccService {
         const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
 
         return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
+    }
+
+    /**
+     * Get unique filters for POs
+     */
+    async getPoFilters(company_id) {
+        const pos = await prisma.po.findMany({
+            where: { company_id },
+            include: {
+                customer: { select: { id: true, customer_name: true } },
+                customer_location: { select: { id: true, location_name: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const customersMap = new Map();
+        const locationsMap = new Map();
+        const posMap = new Map();
+
+        pos.forEach(p => {
+            if (p.customer) customersMap.set(p.customer.id, p.customer);
+            if (p.customer_location) locationsMap.set(p.customer_location.id, p.customer_location);
+            posMap.set(p.id, { id: p.id, po_number: p.po_number });
+        });
+
+        return {
+            customers: Array.from(customersMap.values()).map(c => ({ value: c.id, label: c.customer_name })),
+            locations: Array.from(locationsMap.values()).map(l => ({ value: l.id, label: l.location_name })),
+            pos: Array.from(posMap.values()).map(p => ({ value: p.id, label: p.po_number }))
+        };
     }
 
     /**

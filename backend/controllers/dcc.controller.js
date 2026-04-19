@@ -77,6 +77,15 @@ class DccController {
             res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    async getPoFilters(req, res) {
+        try {
+            const result = await DccService.getPoFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
     async createJob(req, res) {
         try {
             const result = await DccService.createJob(req.user.company_id, req.body);
