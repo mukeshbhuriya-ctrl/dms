@@ -209,7 +209,11 @@ const ProDataTable = ({
   initialStickyColumns = [],
   onAddTooltip = "Add New",
   onImport,
-  onDownloadTemplate
+  onDownloadTemplate,
+  // Controlled Selection Props
+  selectedRows: controlledSelectedRows,
+  onSelectionChange,
+  showSelectionColumn = true
 }) => {
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({});
@@ -218,9 +222,13 @@ const ProDataTable = ({
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [internalSelectedRows, setInternalSelectedRows] = useState(new Set());
   const [stickyColumns, setStickyColumns] = useState(initialStickyColumns);
   const [activeHeaderFilters, setActiveHeaderFilters] = useState(new Set());
+
+  // Use controlled or internal selection
+  const selectedRows = controlledSelectedRows || internalSelectedRows;
+  const isControlledSelection = !!onSelectionChange;
 
   const isFirstRender = useRef(true);
 
@@ -266,17 +274,34 @@ const ProDataTable = ({
 
   // Handlers
   const toggleRow = (id) => {
-    setSelectedRows(prev => {
-      const next = new Set(prev);
+    if (isControlledSelection) {
+      const next = new Set(selectedRows);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next;
-    });
+      onSelectionChange(next);
+    } else {
+      setInternalSelectedRows(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    }
   };
 
   const toggleAll = () => {
-    if (selectedRows.size === data.length) setSelectedRows(new Set());
-    else setSelectedRows(new Set(data.map(item => item.id)));
+    let next;
+    if (selectedRows.size === data.length) {
+      next = new Set();
+    } else {
+      next = new Set(data.map(item => item.id));
+    }
+
+    if (isControlledSelection) {
+      onSelectionChange(next);
+    } else {
+      setInternalSelectedRows(next);
+    }
   };
 
   const toggleHeaderFilter = (columnId) => {
@@ -383,13 +408,15 @@ const ProDataTable = ({
           <Table className="relative border-collapse w-max min-w-full">
             <TableHeader className="sticky top-0 z-20 bg-slate-100 border-b border-slate-200">
               <TableRow className="hover:bg-transparent h-9 border-none">
-                <TableHead className="w-[40px] sticky left-0 z-40 bg-slate-100 border-r border-slate-200 px-0 flex items-center justify-center h-9">
-                    <Checkbox
-                      checked={selectedRows.size === data.length && data.length > 0}
-                      onCheckedChange={() => toggleAll()}
-                      className="h-3.5 w-3.5"
-                    />
-                </TableHead>
+                {showSelectionColumn && (
+                  <TableHead className="w-[40px] sticky left-0 z-40 bg-slate-100 border-r border-slate-200 px-0 flex items-center justify-center h-9">
+                      <Checkbox
+                        checked={selectedRows.size === data.length && data.length > 0}
+                        onCheckedChange={() => toggleAll()}
+                        className="h-3.5 w-3.5"
+                      />
+                  </TableHead>
+                )}
                 {columns.map((col, idx) => {
                   const columnId = col.id || col.accessorKey;
                   const isSticky = stickyColumns.includes(columnId);
@@ -402,7 +429,10 @@ const ProDataTable = ({
                     <TableHead 
                       key={idx} 
                       className={`${col.className || ""} ${stickyClass} h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase text-slate-700 tracking-wider transition-all`}
-                      style={{ width: col.width || 'auto' }}
+                      style={{ 
+                        width: col.width || 'auto',
+                        left: isSticky ? (showSelectionColumn ? '40px' : '0') : 'auto'
+                      }}
                     >
                       <div className="flex items-center justify-between gap-1 h-full py-1">
                         {!activeHeaderFilters.has(columnId) ? (
@@ -477,7 +507,7 @@ const ProDataTable = ({
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={columns.length + 1} className="h-24 text-center">
+                <TableRow><TableCell colSpan={columns.length + (showSelectionColumn ? 1 : 0)} className="h-24 text-center">
                   <div className="flex items-center justify-center gap-2 text-slate-400">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
                     Loading...
@@ -485,26 +515,34 @@ const ProDataTable = ({
                 </TableCell></TableRow>
               ) : data.length ? (
                 data.map((row, rIdx) => {
-                  const isSelected = selectedRows.has(row.id);
+                const isSelected = selectedRows.has(row.id);
                   return (
                     <TableRow 
                       key={rIdx} 
                       className={`h-8 transition-colors group ${isSelected ? 'bg-[#e0f2fe] hover:bg-[#bae6fd]' : 'hover:bg-slate-50/50'}`}
                     >
-                      <TableCell className={`w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-30 border-r border-slate-100 p-0 h-8 ${isSelected ? 'bg-[#bae6fd] group-hover:bg-[#7dd3fc]' : 'bg-white group-hover:bg-slate-50/80'} transition-colors`}>
-                        <div className="flex items-center justify-center h-full w-full">
-                          <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(row.id)} className="h-3.5 w-3.5" />
-                        </div>
-                      </TableCell>
+                      {showSelectionColumn && (
+                        <TableCell className={`w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-30 border-r border-slate-100 p-0 h-8 ${isSelected ? 'bg-[#bae6fd] group-hover:bg-[#7dd3fc]' : 'bg-white group-hover:bg-slate-50/80'} transition-colors`}>
+                          <div className="flex items-center justify-center h-full w-full">
+                            <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(row.id)} className="h-3.5 w-3.5" />
+                          </div>
+                        </TableCell>
+                      )}
                       {columns.map((col, cIdx) => {
                         const columnId = col.id || col.accessorKey;
                         const isSticky = stickyColumns.includes(columnId);
                         const stickyClass = isSticky 
-                          ? `sticky left-[40px] z-30 border-r border-slate-100 ${isSelected ? 'bg-[#bae6fd] group-hover:bg-[#7dd3fc]' : 'bg-white group-hover:bg-slate-50/80'}` 
+                          ? `sticky z-30 border-r border-slate-100 ${isSelected ? 'bg-[#bae6fd] group-hover:bg-[#7dd3fc]' : 'bg-white group-hover:bg-slate-50/80'}` 
                           : "";
                         
                         return (
-                          <TableCell key={cIdx} className={`${col.className || ""} ${stickyClass} py-0 px-3 h-8 text-[11px] font-medium text-slate-600 truncate border-b border-slate-100/60 transition-colors`}>
+                          <TableCell 
+                            key={cIdx} 
+                            className={`${col.className || ""} ${stickyClass} py-0 px-3 h-8 text-[11px] font-medium text-slate-600 truncate border-b border-slate-100/60 transition-colors`}
+                            style={{
+                              left: isSticky ? (showSelectionColumn ? '40px' : '0') : 'auto'
+                            }}
+                          >
                             {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
                           </TableCell>
                         );
@@ -513,7 +551,7 @@ const ProDataTable = ({
                   );
                 })
               ) : (
-                <TableRow><TableCell colSpan={columns.length + 1} className="h-24 text-center text-slate-400 font-medium whitespace-nowrap">No records found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={columns.length + (showSelectionColumn ? 1 : 0)} className="h-24 text-center text-slate-400 font-medium whitespace-nowrap">No records found.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

@@ -267,7 +267,7 @@ class DccService {
         if (params.po_id) where.id = params.po_id.trim();
 
         if (params.customer_name) {
-            where.customer = { customer_name: { contains: params.customer_name.trim(), mode: 'insensitive' } };
+            where.customer = { customer_name: this._processFilter(params.customer_name) };
         }
 
         if (search) {
@@ -641,24 +641,16 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters (Robust Array/String handling for Multi-select)
-        const processFilter = (val) => {
-            if (!val) return null;
-            if (Array.isArray(val)) return { in: val };
-            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
-            return { contains: val, mode: 'insensitive' };
-        };
-
         if (customer_name_filter) {
-            where.customer = { customer_name: processFilter(customer_name_filter) };
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: processFilter(po_number_filter) };
+            where.po = { po_number: this._processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: processFilter(job_number_filter) } }
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
         }
@@ -766,33 +758,25 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters (Robust Array/String handling for Multi-select)
-        const processFilter = (val) => {
-            if (!val) return null;
-            if (Array.isArray(val)) return { in: val };
-            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
-            return { contains: val, mode: 'insensitive' };
-        };
-
         if (customer_name_filter) {
-            where.customer = { customer_name: processFilter(customer_name_filter) };
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: processFilter(po_number_filter) };
+            where.po = { po_number: this._processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: processFilter(job_number_filter) } }
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
         }
 
         if (shreno_doc_no_filter) {
-            where.shreno_doc_no = processFilter(shreno_doc_no_filter);
+            where.shreno_doc_no = this._processFilter(shreno_doc_no_filter);
         }
         if (client_doc_no_filter) {
-            where.client_doc_no = processFilter(client_doc_no_filter);
+            where.client_doc_no = this._processFilter(client_doc_no_filter);
         }
 
         // ID-based filters (existing)
@@ -1043,33 +1027,25 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters (Robust Array/String handling for Multi-select)
-        const processFilter = (val) => {
-            if (!val) return null;
-            if (Array.isArray(val)) return { in: val };
-            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
-            return { contains: val, mode: 'insensitive' };
-        };
-
         if (customer_name_filter) {
-            where.customer = { customer_name: processFilter(customer_name_filter) };
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: processFilter(po_number_filter) };
+            where.po = { po_number: this._processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: processFilter(job_number_filter) } }
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
         }
 
         if (shreno_doc_no_filter) {
-            where.shreno_doc_no = processFilter(shreno_doc_no_filter);
+            where.shreno_doc_no = this._processFilter(shreno_doc_no_filter);
         }
         if (client_doc_no_filter) {
-            where.client_doc_no = processFilter(client_doc_no_filter);
+            where.client_doc_no = this._processFilter(client_doc_no_filter);
         }
         if (approver_status_filter) {
             const filterVal = approver_status_filter.toLowerCase();
@@ -1078,7 +1054,7 @@ class DccService {
             } else if (filterVal === 'awaiting_upload') {
                 where.status = { in: ['Pending', 'Upload Due'] };
             } else {
-                where.status = { contains: approver_status_filter, mode: 'insensitive' };
+                where.status = this._processFilter(approver_status_filter);
             }
         }
 
@@ -1460,12 +1436,12 @@ class DccService {
         // Apply Column Specific Filters
         if (customer_name_filter) {
             where.customer = { 
-                customer_name: { contains: customer_name_filter, mode: 'insensitive' } 
+                customer_name: this._processFilter(customer_name_filter)
             };
         }
         if (po_number_filter) {
             where.po = { 
-                po_number: { contains: po_number_filter, mode: 'insensitive' } 
+                po_number: this._processFilter(po_number_filter)
             };
         }
 
@@ -2673,6 +2649,20 @@ class DccService {
         return await prisma.email_template.delete({
             where: { id, company_id }
         });
+    }
+
+    /**
+     * Shared filter processing utility
+     */
+    _processFilter(val) {
+        if (!val) return null;
+        if (Array.isArray(val)) return { in: val };
+        if (typeof val === 'string' && (val.includes(',') || val.includes('|'))) {
+            // Handle comma or pipe separated values
+            const splitChar = val.includes('|') ? '|' : ',';
+            return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
+        }
+        return { contains: val, mode: 'insensitive' };
     }
 }
 
