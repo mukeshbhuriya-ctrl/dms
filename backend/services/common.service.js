@@ -69,6 +69,9 @@ class CommonService {
             select: {
                 id: true,
                 job_number: true,
+                customer_id: true,
+                customer_location_id: true,
+                po_id: true,
                 equipement_name: true,
                 project_id: true,
                 tag_number: true,
@@ -89,6 +92,9 @@ class CommonService {
             select: {
                 id: true,
                 job_number: true,
+                customer_id: true,
+                customer_location_id: true,
+                po_id: true,
                 equipement_name: true,
                 project_id: true,
                 tag_number: true,
@@ -108,6 +114,9 @@ class CommonService {
             select: {
                 id: true,
                 job_number: true,
+                customer_id: true,
+                customer_location_id: true,
+                po_id: true,
                 equipement_name: true,
                 project_id: true,
                 tag_number: true,

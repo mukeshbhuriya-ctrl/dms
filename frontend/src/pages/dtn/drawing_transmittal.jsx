@@ -279,6 +279,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             srNo: (index + 1).toString().padStart(2, '0'),
             // Combine System ID and Name for the title column
             docNo: `[${doc.system_doc_id}] ${doc.document_name}`,
+            document_master_id: doc.document_master_id,
             rev: "0", // Default to Rev 0
             copies: "01", // Default to 1 copy
             deps: { ...currentDeps } // Inherit current Issued To selection
@@ -321,6 +322,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
       ref_no: autoFill.reportNo,
       date: new Date().toISOString(),
       customer_id: firstJob?.customer_id,
+      customer_location_id: firstJob?.customer_location_id,
       client_name: autoFill.client,
       po_id: firstJob?.po_id,
       po_number: autoFill.poNo,
