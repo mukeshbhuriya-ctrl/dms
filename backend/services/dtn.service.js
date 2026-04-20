@@ -430,7 +430,7 @@ class DtnService {
      * Get Master Drawing List for a specific Job
      */
     async getDrawingMasterByJob(companyId, jobId) {
-        // Find all transmittal items for this job
+        // 1. Find all transmittal items for this job
         const items = await prisma.drawing_transmittal_item.findMany({
             where: {
                 dtn: {
@@ -439,12 +439,40 @@ class DtnService {
                 }
             },
             include: {
-              document: { select: { document_number: true, document_name: true } }
+                document: { select: { id: true, document_number: true, document_name: true } }
             },
             orderBy: { dtn: { createdAt: 'desc' } }
         });
 
-        // Unique documents by id
+        // 2. Fetch Job-specific drawing aliases (Shreno Doc Nos)
+        // These are used in the DCR module as the primary drawing identifier
+        const groupDocs = await prisma.group_document.findMany({
+            where: {
+                company_id: companyId,
+                group: { job_group: { some: { job_id: jobId } } }
+            },
+            select: {
+                document_id: true,
+                shreno_doc_no: true
+            }
+        });
+
+        // 3. Map document IDs to Shreno Doc Nos for fallback matching
+        const shrenoMap = new Map();
+        groupDocs.forEach(gd => {
+            if (gd.document_id && gd.shreno_doc_no) {
+                if (!shrenoMap.has(gd.document_id)) shrenoMap.set(gd.document_id, new Set());
+                shrenoMap.get(gd.document_id).add(gd.shreno_doc_no);
+            }
+        });
+
+        // 4. Fetch all DCRs for this job
+        const dcrs = await prisma.dcr.findMany({
+            where: { job_id: jobId, company_id: companyId },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // 5. Group into unique documents and handle DCR mapping
         const docMap = new Map();
 
         items.forEach(item => {
@@ -452,16 +480,23 @@ class DtnService {
             const docId = item.document_master_id;
             
             if (!docMap.has(docId)) {
+                const systemDocNo = item.document.document_number;
+                const shrenoNos = shrenoMap.get(docId) || new Set();
+
+                // Find all DCRs that match either the System Doc No or any Shreno Doc No for this drawing
+                const matchingDcrs = dcrs.filter(d => 
+                    d.drg_no === systemDocNo || shrenoNos.has(d.drg_no)
+                ).map(d => d.dcr_no);
+
                 docMap.set(docId, {
-                    drgNo: item.document.document_number,
+                    id: docId,
+                    drgNo: systemDocNo,
                     docName: item.document.document_name,
                     rev: item.rev,
-                    sheets: [], // Note: sheets column removed per user request
-                    remark: "" // We will handle remark later
+                    sheets: [],
+                    remark: "",
+                    dcrs: [...new Set(matchingDcrs)] // Unique DCR numbers
                 });
-            } else {
-                // If we find an older revision, we keep the latest one (since we ordered by createdAt desc)
-                // Actually, findMany was ordered desc, so the first one we find is the newest.
             }
         });
 

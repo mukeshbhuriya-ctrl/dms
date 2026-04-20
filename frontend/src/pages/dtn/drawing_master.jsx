@@ -30,12 +30,17 @@ const MasterRow = ({ item, index }) => {
          </td>
 
          <td className="p-3 border-r text-center text-[11px] font-medium w-32">
-            {item.rev}
+            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100">
+               {item.rev}
+            </span>
          </td>
 
-         {[1, 2, 3, 4, 5].map(col => (
-            <td key={col} className="p-3 border-r text-center text-[11px] w-20">
-               {/* DCR AND DATE Columns - Placeholders for now */}
+         {[0, 1, 2, 3, 4].map(idx => (
+            <td key={idx} className={cn(
+               "p-3 border-r text-center text-[11px] w-20 transition-all font-semibold",
+               item.dcrs && item.dcrs[idx] ? "text-slate-800 bg-blue-50/10" : "text-slate-400"
+            )}>
+               {item.dcrs && item.dcrs[idx] ? item.dcrs[idx] : "-"}
             </td>
          ))}
 
@@ -190,7 +195,6 @@ export default function DrawingMaster() {
                                  <tr className="bg-slate-100/90 border-b">
                                     <th rowSpan={2} className="p-3 border-r text-[10px] font-bold uppercase text-slate-700 w-16 text-center">SR NO.</th>
                                     <th rowSpan={2} className="p-3 border-r text-[10px] font-bold uppercase text-slate-700 text-center w-64">DRG NO. / DOCUMENT NO.</th>
-                                    {/* SHEET NO REMOVED PER USER REQUEST */}
                                     <th rowSpan={2} className="p-3 border-r text-[10px] font-bold uppercase text-slate-700 w-32 text-center">LATEST REV. NO</th>
                                     <th colSpan={5} className="p-2 border-r text-[10px] font-bold uppercase text-slate-700 text-center">DCR AND DATE</th>
                                     <th rowSpan={2} className="p-3 text-[10px] font-bold uppercase text-slate-700 text-center w-48 border-l">REMARK</th>
