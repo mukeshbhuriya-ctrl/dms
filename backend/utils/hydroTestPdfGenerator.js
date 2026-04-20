@@ -16,6 +16,22 @@ class HydroTestPdfGenerator {
         };
     }
 
+    formatDate(date) {
+        if (!date) return '-';
+        try {
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return String(date);
+            
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            
+            return `${day}-${month}-${year}`;
+        } catch (e) {
+            return String(date);
+        }
+    }
+
     drawLogoAndTitle(doc, x, y, width, height, companyInfo) {
         const logoBoxW = 160;
         const titleBoxW = width - logoBoxW;
@@ -33,18 +49,27 @@ class HydroTestPdfGenerator {
         const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 10, { height: 30 });
+                // Fit logo within the box while preserving aspect ratio (no stretch)
+                doc.image(logoPath, x, y, { 
+                    fit: [logoBoxW, height], 
+                    align: 'center', 
+                    valign: 'center' 
+                });
             } catch (e) {
                 const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
-                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
+                if (fs.existsSync(altLogo)) {
+                    doc.image(altLogo, x, y, { 
+                        fit: [logoBoxW, height], 
+                        align: 'center', 
+                        valign: 'center' 
+                    });
+                }
             }
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // Company Name in Title Box Top
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
-            .text((companyInfo?.name || 'SHRENO ENGINEERING LIMITED').toUpperCase(), x + logoBoxW, y + 8, { width: titleBoxW, align: 'center' });
+            .text('SHRENO ENGINEERING LIMITED', x + logoBoxW, y + 8, { width: titleBoxW, align: 'center' });
         
         // Report Title in Title Box Bottom
         doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.red)
@@ -81,16 +106,16 @@ class HydroTestPdfGenerator {
         const infoRows = [
             [
                 { l: 'MSN :', v: data.msn, w: 0.35 },
-                { l: 'TAG No. :', v: data.tag_no, w: 0.35 },
-                { l: 'DATE :', v: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-', w: 0.3 }
+                { l: 'TAG NO. :', v: data.tag_no, w: 0.35 },
+                { l: 'DATE :', v: this.formatDate(data.createdAt), w: 0.3 }
             ],
             [
                 { l: 'CLIENT :', v: data.client, w: 0.5 },
-                { l: 'REPORT No. :', v: data.report_no, w: 0.5 }
+                { l: 'REPORT NO. :', v: data.report_no, w: 0.5 }
             ],
             [
-                { l: 'P.O. No. :', v: data.po_no, w: 0.5 },
-                { l: 'DRG. No. :', v: (data.shreno_drg_no || data.customer_drg_no || '-'), w: 0.5 }
+                { l: 'P.O. NO. :', v: data.po_no, w: 0.5 },
+                { l: 'DRG. NO. :', v: (data.shreno_drg_no || data.customer_drg_no || '-'), w: 0.5 }
             ],
             [
                 { l: 'CONSTRUCTION CODE :', v: data.construction_code, w: 0.5 },
@@ -102,14 +127,14 @@ class HydroTestPdfGenerator {
             ],
             [
                 { l: 'TEST POSITION :', v: data.test_position, w: 0.5 },
-                { l: 'PROCEDURE NO.', v: data.procedure_no, w: 0.5 }
+                { l: 'PROCEDURE NO :', v: data.procedure_no, w: 0.5 }
             ],
             [
                 { l: 'TEST MEDIUM :', v: data.test_medium || 'WATER', w: 0.5 },
                 { l: 'METAL TEMP.:', v: data.metal_temp || '-', w: 0.5 }
             ],
             [
-                { l: 'PROCEDURE No :', v: data.procedure_no, w: 1.0 }
+                { l: 'PROCEDURE NO :', v: data.procedure_no, w: 1.0 }
             ]
         ];
 
@@ -159,16 +184,16 @@ class HydroTestPdfGenerator {
         
         // Table Headers
         doc.text('PARTICULARS', startX, curY + 28, { width: c1, align: 'center' });
-        doc.text('MAWP INT. / EXT. PSI (g)', startX + c1, curY + 22, { width: c2, align: 'center' });
-        doc.text('REQUIRED TEST PRESSURE PSI (Kg/Cm2) (g)', startX + c1 + c2, curY + 18, { width: c3, align: 'center' });
-        doc.text('ACTUAL TEST PRESSURE Kg/Cm2 (g)', startX + c1 + c2 + c3, curY + 18, { width: c4, align: 'center' });
+        doc.text('MAWP INT. / EXT. PSI (G)', startX + c1, curY + 22, { width: c2, align: 'center' });
+        doc.text('REQUIRED TEST PRESSURE PSI (KG/CM2) (G)', startX + c1 + c2, curY + 18, { width: c3, align: 'center' });
+        doc.text('ACTUAL TEST PRESSURE KG/CM2 (G)', startX + c1 + c2 + c3, curY + 18, { width: c4, align: 'center' });
         
         doc.text('PRESSURE GAUGE DETAIL', startX + c1+c2+c3+c4, curY + 10, { width: c5, align: 'center' });
         doc.moveTo(startX + c1+c2+c3+c4, curY + 25).lineTo(startX + c1+c2+c3+c4 + c5, curY + 25).stroke();
         
         const gcW = c5 / 4;
-        doc.text('RANGE (Kg/Cm2) (g)', startX + c1+c2+c3+c4, curY + 32, { width: gcW, align: 'center' });
-        doc.text('I.D No.', startX + c1+c2+c3+c4 + gcW, curY + 38, { width: gcW, align: 'center' });
+        doc.text('RANGE (KG/CM2) (G)', startX + c1+c2+c3+c4, curY + 32, { width: gcW, align: 'center' });
+        doc.text('I.D NO.', startX + c1+c2+c3+c4 + gcW, curY + 38, { width: gcW, align: 'center' });
         doc.text('DATE OF CALIBRATION', startX + c1+c2+c3+c4 + 2*gcW, curY + 32, { width: gcW, align: 'center' });
         doc.text('DATE OF DUE', startX + c1+c2+c3+c4 + 3*gcW, curY + 38, { width: gcW, align: 'center' });
 
@@ -176,8 +201,20 @@ class HydroTestPdfGenerator {
         doc.text('TEST RESULT', startX + c1+c2+c3+c4+c5+c6, curY + 28, { width: c7, align: 'center' });
 
         // Vertical lines for header
-        [c1, c1+c2, c1+c2+c3, c1+c2+c3+c4, c1+c2+c3+c4+gcW, c1+c2+c3+c4+2*gcW, c1+c2+c3+c4+3*gcW, c1+c2+c3+c4+c5, c1+c2+c3+c4+c5+c6].forEach(lx => {
-            doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + greenHeaderH).stroke();
+        [
+            { lx: c1, full: true }, 
+            { lx: c1+c2, full: true }, 
+            { lx: c1+c2+c3, full: true }, 
+            { lx: c1+c2+c3+c4, full: true }, 
+            { lx: c1+c2+c3+c4+gcW, full: false }, 
+            { lx: c1+c2+c3+c4+2*gcW, full: false }, 
+            { lx: c1+c2+c3+c4+3*gcW, full: false }, 
+            { lx: c1+c2+c3+c4+c5, full: true }, 
+            { lx: c1+c2+c3+c4+c5+c6, full: true }
+        ].forEach(line => {
+            const lineStartX = startX + line.lx;
+            const lineStartOrder = line.full ? curY : curY + 25;
+            doc.moveTo(lineStartX, lineStartOrder).lineTo(lineStartX, curY + greenHeaderH).stroke();
         });
         curY += greenHeaderH;
 
@@ -208,14 +245,14 @@ class HydroTestPdfGenerator {
                 // Row 1 (PG1)
                 doc.text(item.pg1_range || '', startX + c1 + c2 + c3 + c4, curY + 6, { width: gcW, align: 'center' });
                 doc.text(item.pg1_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + 6, { width: gcW, align: 'center' });
-                doc.text(item.pg1_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + 6, { width: gcW, align: 'center' });
-                doc.text(item.pg1_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + 6, { width: gcW, align: 'center' });
+                doc.text(this.formatDate(item.pg1_calib_date), startX + c1 + c2 + c3 + c4 + 2*gcW, curY + 6, { width: gcW, align: 'center' });
+                doc.text(this.formatDate(item.pg1_due_date), startX + c1 + c2 + c3 + c4 + 3*gcW, curY + 6, { width: gcW, align: 'center' });
 
                 // Row 2 (PG2)
                 doc.text(item.pg2_range || '', startX + c1 + c2 + c3 + c4, curY + rowH/2 + 6, { width: gcW, align: 'center' });
                 doc.text(item.pg2_id_no || '', startX + c1 + c2 + c3 + c4 + gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
-                doc.text(item.pg2_calib_date || '', startX + c1 + c2 + c3 + c4 + 2*gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
-                doc.text(item.pg2_due_date || '', startX + c1 + c2 + c3 + c4 + 3*gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
+                doc.text(this.formatDate(item.pg2_calib_date), startX + c1 + c2 + c3 + c4 + 2*gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
+                doc.text(this.formatDate(item.pg2_due_date), startX + c1 + c2 + c3 + c4 + 3*gcW, curY + rowH/2 + 6, { width: gcW, align: 'center' });
 
                 doc.text(item.holding_time || '', startX + c1 + c2 + c3 + c4 + c5 + 2, curY + 15, { width: c6 - 4, align: 'center' });
                 doc.text(item.test_result || '', startX + c1 + c2 + c3 + c4 + c5 + c6 + 2, curY + 15, { width: c7 - 4, align: 'center' });
