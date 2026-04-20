@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const prisma = require('#prisma');
 
 class DtnService {
@@ -249,13 +251,27 @@ class DtnService {
             where: { id, company_id: companyId },
             include: {
                 jobs: { include: { job: true } },
-                items: true
+                items: {
+                    include: {
+                        document: {
+                            include: {
+                                drawing_versions: {
+                                    where: { is_active: true },
+                                    take: 1,
+                                    orderBy: { version_no: 'desc' }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
 
         if (!dtn) return null;
 
         // Recostruct objects for frontend
+        const ROOT_DIR = process.env.ROOT_DIR || 'C:/dms-data';
+
         return {
             ...dtn,
             issued_to: {
@@ -276,23 +292,34 @@ class DtnService {
                 procurement: dtn.for_procurement
             },
             jobIds: dtn.jobs.map(j => j.job_id),
-            distributionRows: dtn.items.map(item => ({
-                id: item.id,
-                srNo: item.sr_no,
-                docNo: item.doc_no_title,
-                rev: item.rev,
-                copies: item.copies,
-                document_master_id: item.document_master_id,
-                deps: {
-                    HM: item.dist_hm,
-                    HQ: item.dist_hq,
-                    HMF: item.dist_hmf,
-                    HPL: item.dist_hpl,
-                    HST: item.dist_hst,
-                    HPC: item.dist_hpc,
-                    PPD: item.dist_ppd
+            distributionRows: dtn.items.map(item => {
+                const latestVersion = item.document?.drawing_versions?.[0];
+                let hasPhysicalFile = false;
+                
+                if (latestVersion && latestVersion.file_path) {
+                    const absPath = path.join(ROOT_DIR, latestVersion.file_path);
+                    hasPhysicalFile = fs.existsSync(absPath);
                 }
-            }))
+
+                return {
+                    id: item.id,
+                    srNo: item.sr_no,
+                    docNo: item.doc_no_title,
+                    rev: item.rev,
+                    copies: item.copies,
+                    document_master_id: item.document_master_id,
+                    has_file: hasPhysicalFile,
+                    deps: {
+                        HM: item.dist_hm,
+                        HQ: item.dist_hq,
+                        HMF: item.dist_hmf,
+                        HPL: item.dist_hpl,
+                        HST: item.dist_hst,
+                        HPC: item.dist_hpc,
+                        PPD: item.dist_ppd
+                    }
+                };
+            })
         };
     }
 

@@ -12,6 +12,11 @@ router.use(authenticateUserOnly);
 router.get('/documents-by-jobs', DtnController.getDocumentsByJobs);
 router.get('/next-ref', DtnController.getNextRef);
 
+// Incorporate isolated Drawing Management routes
+const dtnDrawingRoutes = require('./dtn_drawing.routes.js');
+router.use('/', dtnDrawingRoutes);
+
+
 /**
  * @route POST /api/dtn
  */

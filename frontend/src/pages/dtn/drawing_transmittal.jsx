@@ -10,11 +10,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { 
+  DocumentPreviewDialog 
+} from "@/components/shared/DocumentPreviewDialog"
 import {
   Plus,
   ArrowLeft,
   Layers,
   Edit,
+  Upload,
+  History,
+  Eye,
+  Loader2
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -138,6 +145,18 @@ function CreateView({ onBack, editId, defaultRefNo }) {
   // Distribution Matrix (SS10 Replication)
   const [distributionRows, setDistributionRows] = useState([])
   const [availableDocuments, setAvailableDocuments] = useState([]) // New state
+  
+  // DTN Upload State Tracking
+  const [uploadingIds, setUploadingIds] = useState({})
+  const [versionHistory, setVersionHistory] = useState({}) // { rowId: latestRevNo }
+  const [stagedFiles, setStagedFiles] = useState({}) // { rowId: File object }
+  
+  // Preview Dialog State
+  const [previewDialog, setPreviewDialog] = useState({
+    isOpen: false,
+    url: "",
+    doc: null
+  })
 
   const depts = ["HM", "HQ", "HMF", "HPL", "HST", "HPC", "PPD"]
 
@@ -166,6 +185,19 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             setIssuedTo(d.issued_to)
             setIssuedFor(d.issued_for)
             setDistributionRows(d.distributionRows)
+            
+            // Populate version history state so Eye/History icons show up correctly
+            const initialHistory = {}
+            d.distributionRows.forEach(row => {
+              if (row.has_file && row.rev !== undefined && row.rev !== "") {
+                initialHistory[row.id] = parseInt(row.rev)
+              } else if (!row.has_file && row.rev !== undefined && row.rev !== "") {
+                initialHistory[row.id] = -2 // Version exists in DB but file missing on disk
+              } else {
+                initialHistory[row.id] = -1 // No version record at all
+              }
+            })
+            setVersionHistory(initialHistory)
             
             // Re-populate available documents so the dropdown can resolve labels
             if (d.jobIds && d.jobIds.length > 0) {
@@ -344,6 +376,44 @@ function CreateView({ onBack, editId, defaultRefNo }) {
     setSavingStatus(status)
     const firstJob = jobs.find(j => String(j.id) === String(jobIds[0]))
 
+    // --- STEP 1: Process Batch Uploads for Staged Files ---
+    const rowsWithFiles = distributionRows.filter(row => stagedFiles[row.id]);
+    let finalRows = [...distributionRows];
+
+    if (rowsWithFiles.length > 0) {
+      try {
+        const uploadPromises = rowsWithFiles.map(async (row) => {
+          const formData = new FormData();
+          formData.append('file', stagedFiles[row.id]);
+          
+          // Use first job number as directory context
+          const jobNumber = firstJob?.job_number || "NA";
+          
+          // Use 'overwrite' mode if editing an existing transmittal
+          const uploadMode = editId ? 'overwrite' : 'increment';
+          
+          const res = await apiClient.post(
+            `/api/dtn/drawing/${row.document_master_id}/upload?job_number=${encodeURIComponent(jobNumber)}&mode=${uploadMode}`, 
+            formData
+          );
+          
+          return { rowId: row.id, newRev: res.data.version_no };
+        });
+
+        const uploadResults = await Promise.all(uploadPromises);
+        
+        // Update revision numbers in final submission payload
+        uploadResults.forEach(({ rowId, newRev }) => {
+          finalRows = finalRows.map(r => r.id === rowId ? { ...r, rev: newRev.toString() } : r);
+        });
+      } catch (err) {
+        console.error("Batch upload failed:", err);
+        toast.error("Drawing upload failed. Please try again.");
+        setSavingStatus(null);
+        return;
+      }
+    }
+
     const payload = {
       ref_no: autoFill.reportNo,
       date: new Date().toISOString(),
@@ -358,9 +428,9 @@ function CreateView({ onBack, editId, defaultRefNo }) {
       code: autoFill.code,
       issued_to: issuedTo,
       issued_for: issuedFor,
-      status, // New: Draft or Pending
+      status, 
       jobIds: jobIds,
-      items: distributionRows
+      items: finalRows
     }
 
     try {
@@ -557,7 +627,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
            <Button 
              onClick={addMatrixRow}
-             className="h-9 px-4 bg-slate-900 hover:bg-black text-white rounded-md shadow-sm transition-all text-xs font-bold uppercase tracking-wide gap-2 border-none"
+             className="h-9 px-4 bg-slate-900 hover:bg-black text-white rounded-md shadow-sm transition-all text-xs font-bold tracking-wide gap-2 border-none"
            >
              <Plus className="h-4 w-4" />
              Add Item
@@ -575,9 +645,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                        {depts.map(d => (
                           <th key={d} className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">{d}</th>
                        ))}
-                       <th className="p-2 border-r w-16"></th>
-                       <th className="p-2 border-r w-16"></th>
-                       <th className="p-2 w-16"></th>
+                        <th className="p-2 border-l text-[10px] font-bold uppercase text-slate-600 w-32 text-center">Action</th>
                     </tr>
                  </thead>
                  <tbody>
@@ -590,11 +658,32 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                              <SearchableSelect 
                                options={availableDocuments}
                                value={row.document_master_id || ''}
-                               onValueChange={(val) => {
+                               onValueChange={async (val) => {
                                   const selectedDoc = availableDocuments.find(d => d.value === val);
                                   if (selectedDoc) {
                                      updateMatrixCell(row.id, 'document_master_id', val);
                                      updateMatrixCell(row.id, 'docNo', selectedDoc.label);
+                                     
+                                     // Poll backend for the latest history native to this Document Master
+                                     try {
+                                        const histRes = await apiClient.get(`/api/dtn/drawing/${val}/history`);
+                                        const latestRev = histRes.data.latestVersionNo || 0;
+                                        const hasFile = histRes.data.hasPhysicalFile;
+                                        
+                                        // Auto-bind
+                                        updateMatrixCell(row.id, 'rev', latestRev.toString());
+                                        updateMatrixCell(row.id, 'copies', "01"); // Auto initialize to 01
+                                        
+                                        setVersionHistory(prev => ({ 
+                                          ...prev, 
+                                          [row.id]: hasFile ? latestRev : -2 
+                                        }));
+                                     } catch (err) {
+                                        // Silent fallback to defaults if no history found
+                                        updateMatrixCell(row.id, 'rev', '0');
+                                        updateMatrixCell(row.id, 'copies', "01");
+                                        setVersionHistory(prev => ({ ...prev, [row.id]: -1 }));
+                                     }
                                   }
                                }}
                                placeholder="Select Document"
@@ -625,22 +714,89 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                                 </div>
                              </td>
                           ))}
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          <td></td>
+                          <td className="p-2 border-l text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {!row.document_master_id ? (
+                                  <span className="text-[10px] text-slate-400 font-medium">Select Doc</span>
+                                ) : (
+                                  <>
+                                     <Label 
+                                       htmlFor={`upload-dtn-${row.id}`} 
+                                       className={`cursor-pointer h-7 w-7 rounded-sm flex items-center justify-center hover:bg-slate-100 transition-colors ${stagedFiles[row.id] ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600'}`}
+                                       title={stagedFiles[row.id] ? `File Staged: ${stagedFiles[row.id].name}` : "Step 1: Choose Drawing File"}
+                                     >
+                                        {stagedFiles[row.id] ? <Plus className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                                     </Label>
+                                     <Input 
+                                       id={`upload-dtn-${row.id}`} 
+                                       type="file" 
+                                       className="hidden" 
+                                       onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file || !row.document_master_id) return;
+                                          
+                                          setStagedFiles(prev => ({ ...prev, [row.id]: file }));
+                                       }}
+                                     />
+                                     
+                                     {stagedFiles[row.id] && (
+                                       <span className="text-[9px] text-emerald-600 font-bold truncate max-w-[60px]" title={stagedFiles[row.id].name}>
+                                         {stagedFiles[row.id].name}
+                                       </span>
+                                     )}
+
+                                     {(versionHistory[row.id] !== undefined && (versionHistory[row.id] >= 0 || versionHistory[row.id] === -2) && !stagedFiles[row.id]) && (
+                                       <>
+                                         <Button 
+                                           variant="ghost" 
+                                           size="icon" 
+                                           className={`h-7 w-7 rounded-sm ${versionHistory[row.id] === -2 ? 'text-slate-300 pointer-events-none' : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'}`}
+                                           title={versionHistory[row.id] === -2 ? "File not found on server" : "Preview Last Upload"}
+                                           disabled={versionHistory[row.id] === -2}
+                                           onClick={async () => {
+                                             if (versionHistory[row.id] === -2) return;
+                                             try {
+                                               const rev = versionHistory[row.id];
+                                               // The download endpoint returns a file stream
+                                               const previewUrl = `/api/dtn/drawing/${row.document_master_id}/download?version=${rev}&mode=preview`;
+                                               
+                                               // Pre-identify doc for preview component
+                                               const activeDoc = {
+                                                 documentName: row.doc_no_title,
+                                                 filePath: `rev_${rev}.pdf` // Hinting to component
+                                               };
+
+                                               setPreviewDialog({
+                                                 isOpen: true,
+                                                 url: `${import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"}${previewUrl}`,
+                                                 doc: activeDoc
+                                               });
+                                             } catch (err) {
+                                               toast.error("Failed to prepare preview.");
+                                             }
+                                           }}
+                                         >
+                                           <Eye className="h-4 w-4" />
+                                         </Button>
+                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-sm" title="Audit Trail">
+                                            <History className="h-4 w-4" />
+                                         </Button>
+                                       </>
+                                     )}
+                                  </>
+                                )}
+                              </div>
+                          </td>
                        </tr>
                     ))}
                     {[1, 2, 3].map(i => (
                        <tr key={i} className="h-10 border-b last:border-0 opacity-40">
                           <td className="border-r px-2 text-[10px] text-slate-400 text-center font-bold">{(distributionRows.length + i).toString().padStart(2, '0')}</td>
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          {depts.map(d => <td key={d} className="border-r"></td>)}
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          <td></td>
+                           <td className="border-r"></td>
+                           <td className="border-r"></td>
+                           <td className="border-r"></td>
+                           {depts.map(d => <td key={d} className="border-r"></td>)}
+                           <td className="border-l"></td>
                        </tr>
                     ))}
                  </tbody>
@@ -669,11 +825,18 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         <Button 
           onClick={() => handleSubmit("Pending")} 
           disabled={savingStatus !== null}
-          className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] uppercase tracking-wide border-none"
+          className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] tracking-wide border-none"
         >
           {savingStatus === "Pending" ? "Processing..." : "Generate Transmittal"}
         </Button>
       </div>
+
+      <DocumentPreviewDialog 
+        isOpen={previewDialog.isOpen}
+        onOpenChange={(open) => setPreviewDialog(prev => ({ ...prev, isOpen: open }))}
+        previewUrl={previewDialog.url}
+        activePreviewDoc={previewDialog.doc}
+      />
     </div>
   )
 }
