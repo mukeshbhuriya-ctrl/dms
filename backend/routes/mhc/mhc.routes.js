@@ -8,6 +8,7 @@ router.use(authenticateUser(['DCC', 'ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER
 
 router.get('/list', MhcController.list);
 router.post('/create', MhcController.create);
+router.post('/bulk-create', MhcController.bulkCreate);
 router.put('/update/:id', MhcController.update);
 router.put('/update-status/:id', MhcController.updateStatus);
 router.get('/next-report-no/:job_id', MhcController.getNextReportNo);

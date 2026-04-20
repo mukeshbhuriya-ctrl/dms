@@ -46,6 +46,7 @@ import {
 import { Search, ArrowRight, Plus, ArrowLeft, Edit, Copy, History, ChevronLeft, ChevronRight, Download, X, ChevronDown, Check, CheckCircle, XCircle, Eye, FileText } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { exportApi } from "@/api/export.api"
+import ProDataTable from "../../components/shared/ProDataTable"
 
 function DocumentApprover() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -104,7 +105,12 @@ function DocumentApprover() {
     const selectedClient = columnFilters.customer_name;
     let filteredPos = allPos;
     if (selectedClient) {
-      filteredPos = allPos.filter(p => (p.customer?.customer_name || p.customer_name) === selectedClient);
+      filteredPos = allPos.filter(p => {
+        const val = (p.customer?.customer_name || p.customer_name);
+        return Array.isArray(selectedClient) 
+          ? selectedClient.includes(val) 
+          : val === selectedClient;
+      });
     }
     const uniquePosLabels = [...new Set(filteredPos.map(p => p.po_number || p.number))].filter(Boolean);
     return uniquePosLabels.map(p => ({ label: p.toString(), value: p.toString() }));
@@ -112,13 +118,27 @@ function DocumentApprover() {
 
   const jobFilterOptions = useMemo(() => {
     const selectedPo = columnFilters.po_number;
+    const selectedClient = columnFilters.customer_name;
     let filteredJobs = allJobs;
+    if (selectedClient) {
+      filteredJobs = filteredJobs.filter(j => {
+        const val = (j.customer?.customer_name || j.customer_name);
+        return Array.isArray(selectedClient) 
+          ? selectedClient.includes(val) 
+          : val === selectedClient;
+      });
+    }
     if (selectedPo) {
-      filteredJobs = allJobs.filter(j => (j.po?.po_number || j.po_number) === selectedPo);
+      filteredJobs = filteredJobs.filter(j => {
+        const val = (j.po?.po_number || j.po_number);
+        return Array.isArray(selectedPo) 
+          ? selectedPo.includes(val) 
+          : val === selectedPo;
+      });
     }
     const uniqueJobsLabels = [...new Set(filteredJobs.map(j => j.job_number || j.number))].filter(Boolean);
     return uniqueJobsLabels.map(j => ({ label: j.toString(), value: j.toString() }));
-  }, [allJobs, columnFilters.po_number]);
+  }, [allJobs, columnFilters.po_number, columnFilters.customer_name]);
 
   // Preview State
   const [previewUrl, setPreviewUrl] = useState(null)
@@ -184,6 +204,7 @@ function DocumentApprover() {
 
   const columns = useMemo(() => [
     {
+      id: "documentNumber",
       header: "System Doc ID",
       accessorKey: "documentNumber"
     },
@@ -317,6 +338,7 @@ function DocumentApprover() {
       },
     },
     {
+      id: "actions",
       header: "Action",
       accessorKey: "id",
       cell: (row) => (
@@ -384,6 +406,21 @@ function DocumentApprover() {
       )
     }
   ], [clientFilterOptions, poFilterOptions, jobFilterOptions, reviewDialogOpen, isPreviewOpen]); // Memo dependencies
+  
+  const proTableTopFilters = useMemo(() => [
+    {
+      value: statusFilter,
+      onChange: setStatusFilter,
+      placeholder: "All Status",
+      options: [
+        { label: "All Status", value: "all" },
+        { label: "Awaiting Upload", value: "awaiting_upload" },
+        { label: "Pending for Approval", value: "pending_approval" },
+        { label: "Approved", value: "approved" },
+        { label: "Rejected", value: "rejected" },
+      ]
+    }
+  ], [statusFilter, setStatusFilter]);
 
   const fetchDocuments = useCallback(async ({ page, limit, search, columnFilters }) => {
     try {
@@ -548,38 +585,21 @@ function DocumentApprover() {
       </header>
       <main className="flex-1 overflow-auto p-6 flex flex-col">
         <div className="flex-1 flex flex-col w-full">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold mb-2">Document Approver</h1>
-            <p className="text-muted-foreground">View and approve documents uploaded by users.</p>
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold">Document Approver</h1>
           </div>
 
           <div className="flex flex-col gap-4">
-            {/* Right-aligned Status Filter */}
-            <div className="flex justify-end mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by Status:</span>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="awaiting_upload">Awaiting Upload</SelectItem>
-                    <SelectItem value="pending_approval">Pending for Approval</SelectItem>
-                    <SelectItem value="approved">Approved</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <ApproverTable
+            <ProDataTable
               columns={columns}
               fetchData={fetchDocumentsWrapper}
               onExport={handleExport}
               columnFilters={columnFilters}
               onFilterChange={onFilterChange}
-              refreshTrigger={refreshTrigger}
+              refreshKey={refreshTrigger}
+              topFilters={proTableTopFilters}
+              globalSearchPlaceholder="Search documents..."
+              initialStickyColumns={["documentNumber"]}
             />
           </div>
         </div>

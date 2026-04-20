@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import { Plus, Mail, ArrowLeft, Edit, X } from "lucide-react"
 import { poApi } from "@/api/po.api"
 
@@ -24,6 +24,26 @@ function CommunicationMatrix() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [columnFilters, setColumnFilters] = useState({})
+  const [filterOptions, setFilterOptions] = useState({
+    customers: [],
+    locations: [],
+    pos: []
+  })
+
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const res = await poApi.getPoFilters()
+        if (res.success) {
+          setFilterOptions(res.data)
+        }
+      } catch (err) {
+        console.error("Error fetching filters:", err)
+      }
+    }
+    fetchFilters()
+  }, [])
 
   const [selectedPoId, setSelectedPoId] = useState("")
   
@@ -34,13 +54,16 @@ function CommunicationMatrix() {
     { name: "", email: "" },
   ])
 
-  const fetchPos = useCallback(async ({ page, limit, search, sorting }) => {
+  const fetchPos = useCallback(async ({ page, limit, search, columnFilters }) => {
     try {
       const params = { page, limit }
       if (search) params.search = search
-      if (sorting && sorting.length > 0) {
-        params.sortBy = sorting[0].id
-        params.sortOrder = sorting[0].desc ? "desc" : "asc"
+      
+      // Map column filters to backend params
+      if (columnFilters) {
+        if (columnFilters.po_number) params.po_id = columnFilters.po_number;
+        if (columnFilters.customer_name) params.customer_id = columnFilters.customer_name;
+        if (columnFilters.location_name) params.location_id = columnFilters.location_name;
       }
 
       const responseData = await poApi.getPos(params)
@@ -107,21 +130,31 @@ function CommunicationMatrix() {
 
   const columns = useMemo(() => [
     {
+      id: "po_number",
       accessorKey: "po_number",
       header: "PO Number",
+      filterType: "select",
+      filterOptions: filterOptions.pos,
     },
     {
+      id: "customer_name",
       accessorKey: "customer.customer_name",
       header: "Customer",
+      filterType: "select",
+      filterOptions: filterOptions.customers,
     },
     {
+      id: "location_name",
       accessorKey: "customer_location.location_name",
       header: "Location",
+      filterType: "select",
+      filterOptions: filterOptions.locations,
     },
     {
+      id: "po_date",
       accessorKey: "po_date",
       header: "PO Date",
-      cell: (row) => new Date(row.po_date).toLocaleDateString(),
+      cell: (row) => row.po_date ? new Date(row.po_date).toLocaleDateString() : "N/A",
     },
     {
       id: "actions",
@@ -130,14 +163,15 @@ function CommunicationMatrix() {
         <Button
           variant="outline"
           size="sm"
+          className="h-8 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none"
           onClick={() => handleEdit(row)}
         >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Matrix
+          <Edit className="h-3.5 w-3.5 mr-2" />
+          <span className="text-[11px] font-medium text-nowrap">Edit Matrix</span>
         </Button>
       ),
     },
-  ], [handleEdit])
+  ], [handleEdit, filterOptions])
 
 
   // Communication Matrix Handlers
@@ -250,16 +284,7 @@ function CommunicationMatrix() {
               </p>
             </div>
             <div>
-              {view === "list" ? (
-                <Button onClick={() => {
-                  setSelectedPoId("")
-                  setShrenoCommunication([{ name: "", email: "" }])
-                  setClientCommunication([{ name: "", email: "" }])
-                  setView("create")
-                }}>
-                  <Plus className="mr-2 h-4 w-4" /> Create Matrix
-                </Button>
-              ) : (
+              {view !== "list" && (
                 <Button variant="outline" onClick={() => setView("list")}>
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                 </Button>
@@ -269,10 +294,20 @@ function CommunicationMatrix() {
 
           {view === "list" ? (
             <div className="flex-1 flex flex-col">
-              <DataTable
+              <ProDataTable
                 columns={columns}
                 fetchData={fetchPos}
-                key={refreshKey}
+                refreshKey={refreshKey}
+                columnFilters={columnFilters}
+                onFilterChange={setColumnFilters}
+                onAdd={() => {
+                  setSelectedPoId("")
+                  setShrenoCommunication([{ name: "", email: "" }])
+                  setClientCommunication([{ name: "", email: "" }])
+                  setView("create")
+                }}
+                onAddTooltip="Create New Matrix"
+                globalSearchPlaceholder="Search PO Number, Customer..."
               />
             </div>
           ) : (

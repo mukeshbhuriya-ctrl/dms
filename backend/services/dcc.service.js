@@ -263,6 +263,12 @@ class DccService {
         const where = { company_id };
 
         if (customer_id) where.customer_id = customer_id.trim();
+        if (params.location_id) where.customer_location_id = params.location_id.trim();
+        if (params.po_id) where.id = params.po_id.trim();
+
+        if (params.customer_name) {
+            where.customer = { customer_name: this._processFilter(params.customer_name) };
+        }
 
         if (search) {
             where.OR = [
@@ -299,6 +305,36 @@ class DccService {
         const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
 
         return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
+    }
+
+    /**
+     * Get unique filters for POs
+     */
+    async getPoFilters(company_id) {
+        const pos = await prisma.po.findMany({
+            where: { company_id },
+            include: {
+                customer: { select: { id: true, customer_name: true } },
+                customer_location: { select: { id: true, location_name: true } }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        const customersMap = new Map();
+        const locationsMap = new Map();
+        const posMap = new Map();
+
+        pos.forEach(p => {
+            if (p.customer) customersMap.set(p.customer.id, p.customer);
+            if (p.customer_location) locationsMap.set(p.customer_location.id, p.customer_location);
+            posMap.set(p.id, { id: p.id, po_number: p.po_number });
+        });
+
+        return {
+            customers: Array.from(customersMap.values()).map(c => ({ value: c.id, label: c.customer_name })),
+            locations: Array.from(locationsMap.values()).map(l => ({ value: l.id, label: l.location_name })),
+            pos: Array.from(posMap.values()).map(p => ({ value: p.id, label: p.po_number }))
+        };
     }
 
     /**
@@ -377,9 +413,14 @@ class DccService {
                 whereClause.status = 'Approved';
             }
             if (options.isTransmittable) {
-                // Ensure document is approved AND not yet transmitted
+                // Ensure document has at least one approved version not yet transmitted
                 whereClause.status = 'Approved';
-                whereClause.transmission_items = { none: {} };
+                whereClause.versions = {
+                    some: {
+                        status: 'Approved',
+                        transmission_items: { none: {} }
+                    }
+                };
             }
 
             // Fetch the documents with their core relations
@@ -600,24 +641,16 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters (Robust Array/String handling for Multi-select)
-        const processFilter = (val) => {
-            if (!val) return null;
-            if (Array.isArray(val)) return { in: val };
-            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
-            return { contains: val, mode: 'insensitive' };
-        };
-
         if (customer_name_filter) {
-            where.customer = { customer_name: processFilter(customer_name_filter) };
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: processFilter(po_number_filter) };
+            where.po = { po_number: this._processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: processFilter(job_number_filter) } }
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
         }
@@ -725,33 +758,25 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters (Robust Array/String handling for Multi-select)
-        const processFilter = (val) => {
-            if (!val) return null;
-            if (Array.isArray(val)) return { in: val };
-            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
-            return { contains: val, mode: 'insensitive' };
-        };
-
         if (customer_name_filter) {
-            where.customer = { customer_name: processFilter(customer_name_filter) };
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: processFilter(po_number_filter) };
+            where.po = { po_number: this._processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: processFilter(job_number_filter) } }
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
         }
 
         if (shreno_doc_no_filter) {
-            where.shreno_doc_no = processFilter(shreno_doc_no_filter);
+            where.shreno_doc_no = this._processFilter(shreno_doc_no_filter);
         }
         if (client_doc_no_filter) {
-            where.client_doc_no = processFilter(client_doc_no_filter);
+            where.client_doc_no = this._processFilter(client_doc_no_filter);
         }
 
         // ID-based filters (existing)
@@ -894,17 +919,52 @@ class DccService {
             // 2. Create / update version record in DB
             const version = await fileService.createNewVersion(tx, document_id, user_id, storageData, remarks);
 
-            // 3. Log Activity
+            // 3. Automated Approval for "As Built" documents
+            // If the document was in "As Built" state, this upload is the final acknowledgment.
+            if (groupDoc.status === 'As Built') {
+                // Find the original transmission where it was marked As Built
+                const lastTransDoc = await tx.transmission_document.findFirst({
+                    where: { group_document_id: document_id, client_status: 'As Built' }
+                });
+
+                if (lastTransDoc) {
+                    // Create a new entry for this version in the SAME transmission to append history
+                    await tx.transmission_document.create({
+                        data: {
+                            transmission_id: lastTransDoc.transmission_id,
+                            group_document_id: document_id,
+                            version_id: version.id,
+                            client_status: 'Approved',
+                            client_remarks: 'Finalized As-Built Version Uploaded'
+                        }
+                    });
+                }
+
+                await tx.document_version.update({
+                    where: { id: version.id },
+                    data: { status: 'Approved' }
+                });
+                await tx.group_document.update({
+                    where: { id: document_id },
+                    data: { status: 'Approved' }
+                });
+                version.status = 'Approved'; // Update local object for activity log
+            }
+
+            // 4. Log Activity
             await ActivityService.logActivity({
                 company_id,
                 group_document_id: document_id,
                 user_id,
-                action: 'Uploaded',
-                remarks: `Version ${targetVersionNo} uploaded`,
+                action: groupDoc.status === 'As Built' ? 'As Built Finalized' : 'Uploaded',
+                remarks: groupDoc.status === 'As Built' 
+                    ? `Final As-Built version ${targetVersionNo} uploaded and automatically approved`
+                    : `Version ${targetVersionNo} uploaded`,
                 metadata: {
                     version_no: targetVersionNo,
                     file_name: file.originalname,
-                    file_url: version.file_url
+                    file_url: version.file_url,
+                    was_as_built: groupDoc.status === 'As Built'
                 }
             }, tx);
 
@@ -967,33 +1027,25 @@ class DccService {
             }
         }
 
-        // Explicit Column Filters (Robust Array/String handling for Multi-select)
-        const processFilter = (val) => {
-            if (!val) return null;
-            if (Array.isArray(val)) return { in: val };
-            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
-            return { contains: val, mode: 'insensitive' };
-        };
-
         if (customer_name_filter) {
-            where.customer = { customer_name: processFilter(customer_name_filter) };
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
         }
         if (po_number_filter) {
-            where.po = { po_number: processFilter(po_number_filter) };
+            where.po = { po_number: this._processFilter(po_number_filter) };
         }
         if (job_number_filter) {
             where.group = {
                 job_group: {
-                    some: { job: { job_number: processFilter(job_number_filter) } }
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
         }
 
         if (shreno_doc_no_filter) {
-            where.shreno_doc_no = processFilter(shreno_doc_no_filter);
+            where.shreno_doc_no = this._processFilter(shreno_doc_no_filter);
         }
         if (client_doc_no_filter) {
-            where.client_doc_no = processFilter(client_doc_no_filter);
+            where.client_doc_no = this._processFilter(client_doc_no_filter);
         }
         if (approver_status_filter) {
             const filterVal = approver_status_filter.toLowerCase();
@@ -1002,7 +1054,7 @@ class DccService {
             } else if (filterVal === 'awaiting_upload') {
                 where.status = { in: ['Pending', 'Upload Due'] };
             } else {
-                where.status = { contains: approver_status_filter, mode: 'insensitive' };
+                where.status = this._processFilter(approver_status_filter);
             }
         }
 
@@ -1064,9 +1116,8 @@ class DccService {
         }
 
         // Dynamic Version Include
-        // Always exclude Pending placeholder versions so display only shows real uploaded revisions
+        // Note: We used to exclude Pending, but now we include them to show pre-allocated revisions
         let versionsInclude = {
-            where: { status: { not: 'Pending' } },
             orderBy: { version_no: 'desc' },
             take: 1,
             include: {
@@ -1325,8 +1376,8 @@ class DccService {
                     group_document_id: doc.id,
                     transmission_id: transmission.id,
                     user_id,
-                    action: 'Transmitted',
-                    remarks: `Document transmitted in ${transNum}`,
+                    action: 'Transmittal Created',
+                    remarks: `Document included in Transmittal ${transNum}`,
                     metadata: { transmission_no: transNum, version_no: doc.versions[0].version_no }
                 }, tx);
             }
@@ -1336,7 +1387,7 @@ class DccService {
                 company_id,
                 transmission_id: transmission.id,
                 user_id,
-                action: 'Transmitted',
+                action: 'Transmittal Created',
                 remarks: `Transmission ${transNum} created and ready for client`,
                 metadata: { transmission_no: transNum, document_count: finalDocs.length }
             }, tx);
@@ -1373,7 +1424,7 @@ class DccService {
     }
 
     async getTransmissions(company_id, params = {}) {
-        const { po_id, page = 1, limit = 10, search, status, customer_name_filter, po_number_filter } = params;
+        const { po_id, page = 1, limit = 10, search, status, customer_name_filter, po_number_filter, transmission_number_filter } = params;
         const pageNum = parseInt(page);
         const limitNum = parseInt(limit);
         const skip = (pageNum - 1) * limitNum;
@@ -1385,19 +1436,22 @@ class DccService {
         // Apply Column Specific Filters
         if (customer_name_filter) {
             where.customer = { 
-                customer_name: { contains: customer_name_filter, mode: 'insensitive' } 
+                customer_name: this._processFilter(customer_name_filter)
             };
         }
         if (po_number_filter) {
             where.po = { 
-                po_number: { contains: po_number_filter, mode: 'insensitive' } 
+                po_number: this._processFilter(po_number_filter)
             };
+        }
+        if (transmission_number_filter) {
+            where.transmission_number = this._processFilter(transmission_number_filter);
         }
 
         if (search) {
             where.OR = [
-                { transmission_number: { contains: search } },
-                { po: { po_number: { contains: search } } }
+                { transmission_number: { contains: search, mode: 'insensitive' } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } }
             ];
         }
 
@@ -1521,8 +1575,8 @@ class DccService {
         return { filename, buffer: pdfBuffer };
     }
 
-    async sendTransmissionEmail(company_id, data) {
-        const { transmission_id, shreno_emails, client_emails, include_zip = true } = data;
+    async sendTransmissionEmail(company_id, user_id, data) {
+        const { transmission_id, shreno_emails, client_emails, include_zip = true, custom_subject, custom_body } = data;
 
         // 1. Fetch transmission details with required relations for the PDF
         const transmission = await prisma.transmission.findFirst({
@@ -1542,30 +1596,34 @@ class DccService {
         const fullDocsResponse = await this.getTransmissionDocuments(company_id, transmission_id);
         const documentsData = fullDocsResponse || [];
 
-        // 3. Prepare attachments and format documents for email template
+        // 3. Prepare attachments
         let attachments = [];
-            const pdfBuffer = await generateTransmittalPDF(
-                transmission,
-                transmission.customer,
-                transmission.location,
-                transmission.po,
-                documentsData,
-                transmission.creator
-            );
+        const pdfBuffer = await generateTransmittalPDF(
+            transmission,
+            transmission.customer,
+            transmission.location,
+            transmission.po,
+            documentsData,
+            transmission.creator
+        );
 
-            attachments.push({
-                filename: `Document_Transmittal_${transmission.transmission_number}.pdf`,
-                content: pdfBuffer,
-                contentType: 'application/pdf'
-            });
+        attachments.push({
+            filename: `Document_Transmittal_${transmission.transmission_number}.pdf`,
+            content: pdfBuffer,
+            contentType: 'application/pdf'
+        });
 
-        // 4. Send Email using EmailService and attach the PDF
-        // Client -> To, Shreno -> CC
-        // CC to Shreno, To Client
+        // 4. Send Email
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
         const absoluteZipUrl = (transmission.zip_url && transmission.zip_url.startsWith('/') && !transmission.zip_url.startsWith('http'))
             ? `${backendUrl}${transmission.zip_url}`
             : transmission.zip_url;
+
+        let customContent = {};
+        if (custom_subject || custom_body) {
+            customContent.subject = this._replacePlaceholders(custom_subject, transmission, documentsData, absoluteZipUrl);
+            customContent.html = this._replacePlaceholders(custom_body, transmission, documentsData, absoluteZipUrl, include_zip);
+        }
 
         await EmailService.sendTransmissionEmail(client_emails, shreno_emails, {
             transmission_number: transmission.transmission_number,
@@ -1575,7 +1633,38 @@ class DccService {
             password: transmission.password,
             zip_url: absoluteZipUrl || '#',
             include_zip: !!include_zip
-        }, attachments);
+        }, attachments, customContent);
+
+        // 5. Log activity for each document in the transmission
+        const transDocs = await prisma.transmission_document.findMany({
+            where: { transmission_id: transmission.id },
+            include: { group_document: true }
+        });
+
+        for (const td of transDocs) {
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: td.group_document_id,
+                transmission_id: transmission.id,
+                user_id,
+                action: 'Transmitted Mail Sent',
+                remarks: `Transmittal email sent for ${transmission.transmission_number}`,
+                metadata: { 
+                    transmission_no: transmission.transmission_number,
+                    recipients: [...(client_emails || []), ...(shreno_emails || [])].join(', ')
+                }
+            });
+        }
+
+        // Also log for the transmission itself
+        await ActivityService.logActivity({
+            company_id,
+            transmission_id: transmission.id,
+            user_id,
+            action: 'Transmitted Mail Sent',
+            remarks: `Notification email successfully sent for review`,
+            metadata: { transmission_no: transmission.transmission_number }
+        });
 
         // Update status to 'Sent'
         await prisma.transmission.update({
@@ -1583,10 +1672,34 @@ class DccService {
             data: { status: 'Sent' }
         });
 
-        // Log locally as well
         console.log(`Email sent for transmission: ${transmission.transmission_number}`);
+        return { success: true, message: 'Email sent successfully' };
+    }
 
-        return { success: true, message: 'Email sent successfully via EmailService' };
+    _replacePlaceholders(text, transmission, documentsData, absoluteZipUrl, include_zip = true) {
+        if (!text) return '';
+        
+        let processedText = text;
+
+        // If include_zip is false, remove the download section if standard placeholders are found
+        if (!include_zip) {
+            // Regex to remove the part from "You can download" until after {{password}} if it exists
+            // This is a bit heuristic but matches the default template structure
+            processedText = processedText.replace(/You can download the documents using the link below:[\s\S]*?{{password}}/g, '');
+            // Also cleanup empty zip/pass if they were used standalone
+            processedText = processedText.replace(/{{zip_url}}/g, '').replace(/{{password}}/g, '');
+        }
+
+        processedText = processedText
+            .replace(/{{transmission_number}}/g, transmission.transmission_number || '')
+            .replace(/{{customer_name}}/g, transmission.customer?.customer_name || '')
+            .replace(/{{po_number}}/g, transmission.po?.po_number || '')
+            .replace(/{{document_count}}/g, documentsData?.length || 0)
+            .replace(/{{zip_url}}/g, absoluteZipUrl || '')
+            .replace(/{{password}}/g, transmission.password || '');
+
+        // Convert newlines to <br/> for HTML rendering (handle both Windows and Unix line endings)
+        return processedText.replace(/\r?\n/g, '<br/>');
     }
 
     async updateTransmissionClientStatus(company_id, transmission_id, status, remarks, files = []) {
@@ -1717,7 +1830,8 @@ class DccService {
      * Statuses: Approved, Rejected, Commented
      */
     async updateTransmissionDocumentClientStatus(company_id, user_id, transmission_document_id, status, remarks, file) {
-        if (!['Approved', 'Rejected', 'Commented'].includes(status)) throw new Error('Invalid status');
+        const validStatuses = ['Approved', 'Rejected', 'Commented', 'Final Approved', 'Re-approval', 'As Built'];
+        if (!validStatuses.includes(status)) throw new Error('Invalid status');
 
         // 1. Fetch transmission document with all needed relations
         const transDoc = await prisma.transmission_document.findFirst({
@@ -1737,26 +1851,22 @@ class DccService {
         if (transDoc.transmission.company_id !== company_id) throw new Error('Unauthorized');
 
         const groupDoc = transDoc.group_document;
-        const masterDocId = groupDoc.document_id;
-
-        // Use global version counter across ALL group_documents sharing the same document_master
-        // This matches the pattern in file.service.js
-        const lastGlobalVersion = await prisma.document_version.findFirst({
-            where: { group_document: { document_id: masterDocId } },
-            orderBy: { version_no: 'desc' }
-        });
-        const nextVersionNo = lastGlobalVersion ? lastGlobalVersion.version_no + 1 : 0;
+        const reviewedVersionId = transDoc.version_id;
 
         return await prisma.$transaction(async (tx) => {
-            let newVersion = null;
+            let feedbackUrl = null;
 
-            // 2. Process File if provided (Create New Version)
+            // 2. Process File if provided (Store as Feedback Attachment)
             if (file) {
                 const docNumber = groupDoc.document.document_number;
                 const transNumber = transDoc.transmission.transmission_number;
                 
+                // Fetch version info for directory structure
+                const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
+                const vNo = reviewedVersion?.version_no ?? 0;
+
                 // Directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
-                const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, nextVersionNo);
+                const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, vNo);
                 const targetPath = path.join(targetDir, file.filename || file.originalname);
                 
                 // Move file from temp to final destination
@@ -1764,32 +1874,9 @@ class DccService {
 
                 const relativePath = StorageUtils.getRelativePath(targetPath);
                 
-                // Use the same URL pattern as file.service.js for consistency
-                const fileUrl = `/api/dcc/document/${groupDoc.id}/download?version=${nextVersionNo}`;
-
-                // Mark ALL previous versions of this Master Document as inactive (matching file.service.js)
-                await tx.document_version.updateMany({
-                    where: { 
-                        group_document: { document_id: masterDocId },
-                        is_active: true 
-                    },
-                    data: { is_active: false }
-                });
-
-                newVersion = await tx.document_version.create({
-                    data: {
-                        group_document_id: groupDoc.id,
-                        version_no: nextVersionNo,
-                        file_url: fileUrl,
-                        file_path: relativePath,
-                        file_size: file.size,
-                        mime_type: file.mimetype,
-                        status: status,
-                        remarks: remarks || `Client review ${status}`,
-                        uploaded_by: user_id,
-                        is_active: true
-                    }
-                });
+                // Feedback URL for the trail (Public/Secure route)
+                const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+                feedbackUrl = `${backendUrl}/api/dcc/document/feedback?filename=${encodeURIComponent(file.originalname)}&filepath=${encodeURIComponent(relativePath)}`;
             }
 
             // 3. Update the transmission_document with per-document client status
@@ -1801,22 +1888,30 @@ class DccService {
                 }
             });
 
-            // 4. Update Group Document Status
-            // Approved → Approved, Rejected → Pending (for re-upload), Commented → No change
-            if (status === 'Approved') {
+            // 4. Update the reviewed version record status
+            await tx.document_version.update({
+                where: { id: reviewedVersionId },
+                data: { status, remarks: remarks || `Reviewed by Client as ${status}` }
+            });
+
+            // 5. Update Group Document Status
+            let nextGroupStatus = groupDoc.status;
+            if (['Approved', 'Final Approved'].includes(status)) {
+                nextGroupStatus = 'Approved';
+            } else if (['Rejected', 'Commented', 'Re-approval'].includes(status)) {
+                nextGroupStatus = 'Pending';
+            } else if (status === 'As Built') {
+                nextGroupStatus = 'As Built';
+            }
+
+            if (nextGroupStatus !== groupDoc.status) {
                 await tx.group_document.update({
                     where: { id: groupDoc.id },
-                    data: { status: 'Approved' }
-                });
-            } else if (status === 'Rejected') {
-                await tx.group_document.update({
-                    where: { id: groupDoc.id },
-                    data: { status: 'Pending' }
+                    data: { status: nextGroupStatus }
                 });
             }
-            // Commented: no group_document status change
 
-            // 5. Auto-compute parent Transmission client_status
+            // 6. Bulk update parent Transmission client_status
             const allTransDocs = await tx.transmission_document.findMany({
                 where: { transmission_id: transDoc.transmission_id },
                 select: { client_status: true }
@@ -1824,24 +1919,24 @@ class DccService {
 
             const statuses = allTransDocs.map(d => d.client_status);
             let transmissionStatus = 'Pending';
-
-            if (statuses.every(s => s === 'Approved')) {
-                transmissionStatus = 'Approved';
-            } else if (statuses.every(s => s === 'Rejected')) {
-                transmissionStatus = 'Rejected';
-            } else if (statuses.some(s => s !== 'Pending')) {
-                transmissionStatus = 'Partially Approved';
-            }
+            if (statuses.every(s => s === 'Approved')) transmissionStatus = 'Approved';
+            else if (statuses.every(s => s === 'Rejected')) transmissionStatus = 'Rejected';
+            else if (statuses.some(s => s !== 'Pending')) transmissionStatus = 'Partially Approved';
 
             await tx.transmission.update({
                 where: { id: transDoc.transmission_id },
                 data: { client_status: transmissionStatus }
             });
 
-            // 6. Log Activity with complete metadata for audit trail
+            // 7. Log Activity with feedback_url for trail display
             const actionLabel = status === 'Approved' ? 'Client Approved' 
+                              : status === 'Final Approved' ? 'Client Final Approved'
                               : status === 'Rejected' ? 'Client Rejected' 
+                              : status === 'As Built' ? 'Client As Built' 
+                              : status === 'Re-approval' ? 'Client Re-approval'
                               : 'Client Commented';
+
+            const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
 
             await ActivityService.logActivity({
                 company_id,
@@ -1849,20 +1944,57 @@ class DccService {
                 transmission_id: transDoc.transmission_id,
                 user_id,
                 action: actionLabel,
-                remarks: remarks || `Document reviewed from Transmission ${transDoc.transmission.transmission_number}`,
+                remarks: remarks || `Document reviewed as ${status} from Transmission ${transDoc.transmission.transmission_number}`,
                 metadata: {
                     status,
-                    transmission_number: transDoc.transmission.transmission_number,
+                    transmission_no: transDoc.transmission.transmission_number,
                     document_number: groupDoc.document.document_number,
                     document_name: groupDoc.document.document_name,
-                    version_no: newVersion ? nextVersionNo : (lastGlobalVersion?.version_no ?? 0),
+                    version_no: reviewedVersion?.version_no,
                     has_file: !!file,
-                    new_version_id: newVersion?.id,
+                    feedback_url: feedbackUrl, // Critical for UI to show download/eye icons
                     transmission_status: transmissionStatus
                 }
             }, tx);
 
-            return { group_document: groupDoc, version: newVersion, transmission_status: transmissionStatus };
+            // 8. Pre-allocate Next Revision if status requires re-upload
+            // If Rejected, Commented, Re-approval, or As Built, we prepare the next Rev slot
+            if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
+                const reviewedVersion = await tx.document_version.findUnique({ 
+                    where: { id: reviewedVersionId },
+                    include: { group_document: { include: { group: { include: { job_group: { include: { job: true } } } } } } }
+                });
+
+                if (reviewedVersion) {
+                    const nextVersionNo = reviewedVersion.version_no + 1;
+                    const docNumber = groupDoc.document.document_number;
+                    const job_number = reviewedVersion.group_document.group?.job_group[0]?.job?.job_number || 'NA';
+
+                    // Create physical folder for the next revision
+                    StorageUtils.getDocRevisionDir(company_id, job_number, docNumber, nextVersionNo);
+
+                    // Deactivate current version and create Pending placeholder
+                    await tx.document_version.update({
+                        where: { id: reviewedVersionId },
+                        data: { is_active: false }
+                    });
+
+                    await tx.document_version.create({
+                        data: {
+                            group_document_id: groupDoc.id,
+                            version_no: nextVersionNo,
+                            file_url: '', // Empty until user uploads
+                            file_path: '',
+                            status: 'Pending',
+                            remarks: `Awaiting re-upload after Client Review (${status})`,
+                            uploaded_by: user_id,
+                            is_active: true
+                        }
+                    });
+                }
+            }
+
+            return { group_document: groupDoc, transmission_status: transmissionStatus };
         });
     }
 
@@ -2188,6 +2320,13 @@ class DccService {
 
                 if (!job_id || !document_name || !assign_user_id) continue;
 
+                // Backend Cleaning: Final trim and sanitize
+                const cleanDocName = document_name.trim();
+                const cleanShrenoNo = shreno_document_no?.trim() || null;
+                const cleanShrenoRef = shreno_reference_no?.trim() || null;
+                const cleanClientNo = client_document_no?.trim() || null;
+                const cleanClientRef = client_reference_no?.trim() || null;
+
                 // Extract customer, location, and po from the verified job mapping
                 const targetJob = jobMap[job_id];
                 if (!targetJob) continue;
@@ -2217,7 +2356,7 @@ class DccService {
                         data: {
                             company_id,
                             serial_no,
-                            document_name: document_name.trim(),
+                            document_name: cleanDocName,
                             document_number: document_number,
                             document_type_id: document_type_id || null
                         }
@@ -2225,6 +2364,29 @@ class DccService {
                 }
 
                 // 2. Create a unique Group for this specific assignment
+                // Check if this document name is already assigned to this job
+                const existingAssignment = await tx.group_document.findFirst({
+                    where: {
+                        company_id,
+                        document_id: documentMaster.id,
+                        group: {
+                            job_group: {
+                                some: { job_id: job_id }
+                            }
+                        }
+                    }
+                });
+
+                if (existingAssignment) {
+                    results.push({
+                        status: 'skipped',
+                        message: `Document "${document_name}" is already assigned to Job ID ${job_id}`,
+                        document_name,
+                        job_id
+                    });
+                    continue;
+                }
+
                 const group = await tx.group.create({
                     data: { company_id }
                 });
@@ -2449,6 +2611,61 @@ class DccService {
         } catch (error) {
             console.error("[DccService] Overdue check error:", error);
         }
+    }
+
+    // --- Email Template CRUD ---
+
+    async getEmailTemplates(company_id) {
+        return await prisma.email_template.findMany({
+            where: { company_id },
+            orderBy: { name: 'asc' }
+        });
+    }
+
+    async createEmailTemplate(company_id, data) {
+        const { name, subject, body } = data;
+        if (!name || !subject || !body) throw new Error('Name, Subject, and Body are all required');
+
+        return await prisma.email_template.create({
+            data: {
+                company_id,
+                name: name.trim(),
+                subject: subject.trim(),
+                body: body.trim()
+            }
+        });
+    }
+
+    async updateEmailTemplate(company_id, id, data) {
+        const { name, subject, body } = data;
+        return await prisma.email_template.update({
+            where: { id, company_id },
+            data: {
+                name: name ? name.trim() : undefined,
+                subject: subject ? subject.trim() : undefined,
+                body: body ? body.trim() : undefined
+            }
+        });
+    }
+
+    async deleteEmailTemplate(company_id, id) {
+        return await prisma.email_template.delete({
+            where: { id, company_id }
+        });
+    }
+
+    /**
+     * Shared filter processing utility
+     */
+    _processFilter(val) {
+        if (!val) return null;
+        if (Array.isArray(val)) return { in: val };
+        if (typeof val === 'string' && (val.includes(',') || val.includes('|'))) {
+            // Handle comma or pipe separated values
+            const splitChar = val.includes('|') ? '|' : ',';
+            return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
+        }
+        return { contains: val, mode: 'insensitive' };
     }
 }
 

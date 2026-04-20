@@ -77,6 +77,15 @@ class DccController {
             res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    async getPoFilters(req, res) {
+        try {
+            const result = await DccService.getPoFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
     async createJob(req, res) {
         try {
             const result = await DccService.createJob(req.user.company_id, req.body);
@@ -273,7 +282,7 @@ class DccController {
 
     async sendTransmissionEmail(req, res) {
         try {
-            const result = await DccService.sendTransmissionEmail(req.user.company_id, req.body);
+            const result = await DccService.sendTransmissionEmail(req.user.company_id, req.user.userid || req.user.id, req.body);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -501,6 +510,84 @@ class DccController {
         } catch (error) {
             console.error('Preview archived file error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    /**
+     * Preview or Download a feedback file using path and filename from query
+     */
+    async downloadFeedbackFile(req, res) {
+        try {
+            const { filepath, filename } = req.query;
+            
+            if (!filepath) {
+                return res.status(400).json({ success: false, message: 'File path is required' });
+            }
+
+            // Normalize path and reconstruct absolute path
+            // ROOT_DIR comes from upload utils
+            const absolutePath = path.join(ROOT_DIR, filepath.replace(/^[\\/]+/, ''));
+
+            if (!fs.existsSync(absolutePath)) {
+                return res.status(404).json({ success: false, message: 'File not found on server' });
+            }
+
+            const stats = fs.statSync(absolutePath);
+
+            // Determine content type
+            let contentType = 'application/octet-stream';
+            const ext = path.extname(absolutePath).toLowerCase();
+            if (ext === '.pdf') contentType = 'application/pdf';
+            else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
+            else if (ext === '.png') contentType = 'image/png';
+            
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Content-Length', stats.size);
+            res.setHeader('Content-Disposition', `inline; filename="${filename || 'feedback-file'}"`);
+            
+            const fileStream = fs.createReadStream(absolutePath);
+            fileStream.pipe(res);
+        } catch (error) {
+            console.error('Download feedback file error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    // --- Email Template CRUD ---
+
+    async getEmailTemplates(req, res) {
+        try {
+            const result = await DccService.getEmailTemplates(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async createEmailTemplate(req, res) {
+        try {
+            const result = await DccService.createEmailTemplate(req.user.company_id, req.body);
+            res.status(201).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async updateEmailTemplate(req, res) {
+        try {
+            const result = await DccService.updateEmailTemplate(req.user.company_id, req.params.id, req.body);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async deleteEmailTemplate(req, res) {
+        try {
+            await DccService.deleteEmailTemplate(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: 'Template deleted successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
         }
     }
 }

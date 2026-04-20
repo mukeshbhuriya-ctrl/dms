@@ -63,6 +63,7 @@ class MhcService {
             inspection_by,
             production_engineer_id,
             qc_engineer_id,
+            status,
             items = [],
         } = body;
 
@@ -79,7 +80,7 @@ class MhcService {
 
         if (!job) throw new Error('Job not found');
 
-        const mhc = await prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx) => {
             // Calculate next serial_no for this job
             const lastMhc = await tx.material_heat_chart.findFirst({
                 where: { company_id },
@@ -108,7 +109,7 @@ class MhcService {
                     shreno_drg_no: shreno_drg_no || null,
                     customer_drg_no: customer_drg_no || null,
                     inspection_by: inspection_by || null,
-                    status: 'Pending',
+                    status: status || 'Pending',
                     production_engineer_id: production_engineer_id || creator_id,
                     qc_engineer_id: qc_engineer_id || null,
                     submitted_at: new Date(),
@@ -117,25 +118,38 @@ class MhcService {
 
             // Create item rows
             if (items.length > 0) {
-                await tx.material_heat_chart_item.createMany({
-                    data: items.map((item, idx) => ({
+                const itemsToCreate = [];
+                let currentHeadingText = null;
+
+                items.forEach((item, idx) => {
+                    // Logic: If it is a heading row, capture the text and SKIP insertion
+                    if (item.is_heading) {
+                        currentHeadingText = item.heading_text || item.itemNo || item.item_no || "HEADING";
+                        return; // Done with this row
+                    }
+
+                    // Otherwise, it is a material item. Group it under the currentHeadingText
+                    itemsToCreate.push({
                         mhc_id: header.id,
-                        sort_order: item.sort_order !== undefined ? item.sort_order : idx,
-                        is_heading: item.is_heading || false,
-                        heading_text: item.heading_text || null,
-                        parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
+                        sort_order: itemsToCreate.length, // use length of final array for order
+                        is_heading: false,
+                        heading_text: currentHeadingText,
                         item_no: item.itemNo || item.item_no || null,
                         description: item.description || null,
                         size: item.size || null,
                         material_spec: item.materialSpecification || item.material_spec || null,
                         quantity_unit: item.quantityUnit || item.quantity_unit || null,
                         heat_no: item.heatNo || item.heat_no || null,
-                        grn_app_ap_no: item.grn_app_ap_no || null,
+                        grn_app_ap_no: item.grn_app_ap_no || item.grnAppApNo || null,
                         mtr_no: item.mtrNo || item.mtr_no || null,
                         manufacturer: item.manufacturerName || item.manufacturer || null,
                         remarks: item.remarks || null,
-                    })),
+                    });
                 });
+
+                if (itemsToCreate.length > 0) {
+                    await tx.material_heat_chart_item.createMany({ data: itemsToCreate });
+                }
             }
 
             // Return with items
@@ -148,8 +162,58 @@ class MhcService {
                 },
             });
         });
+    }
 
-        return mhc;
+    /**
+     * Bulk create MHC records from Excel grouped data
+     */
+    async bulkCreate(company_id, reports, creator_id) {
+        if (!Array.isArray(reports) || reports.length === 0) throw new Error('No report data provided');
+
+        const results = [];
+        for (const report of reports) {
+            try {
+                // Determine job_id from msn if not provided
+                if (!report.job_id && report.msn) {
+                    const job = await prisma.job.findFirst({
+                        where: { job_number: String(report.msn), company_id },
+                        select: { id: true }
+                    });
+                    if (job) report.job_id = job.id;
+                }
+
+                if (report.job_id) {
+                    // Strict Validation: QC Engineer is required for MHC reports
+                    if (!report.qc_engineer_id) {
+                        console.log(`[MhcService] Skipping report for Job ${report.msn}: QC Engineer ID is required.`);
+                        continue;
+                    }
+
+                    // Deduplication: Check if a report with same Job and Shreno Drawing Number already exists
+                    if (report.shreno_drg_no) {
+                        const existing = await prisma.material_heat_chart.findFirst({
+                            where: { 
+                                job_id: report.job_id,
+                                shreno_drg_no: String(report.shreno_drg_no).trim(),
+                                company_id 
+                            },
+                            select: { id: true }
+                        });
+                        if (existing) {
+                            console.log(`[MhcService] Skipping duplicate report for Job ${report.msn} and Drawing ${report.shreno_drg_no}`);
+                            continue;
+                        }
+                    }
+
+                    const created = await this.create(company_id, report, creator_id);
+                    results.push(created);
+                }
+            } catch (err) {
+                console.error(`[MhcService] Failed to create bulk report for MSN ${report.msn}:`, err);
+                // Continue with others
+            }
+        }
+        return results;
     }
 
     /**

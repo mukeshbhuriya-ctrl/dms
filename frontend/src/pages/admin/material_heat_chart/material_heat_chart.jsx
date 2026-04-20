@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { toast } from "react-toastify"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -24,12 +24,21 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database } from "lucide-react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable";
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { formatDateTimeSQL } from "@/utils/time"
 import { useAuth } from "@/context/AuthContext"
+import * as XLSX from "xlsx";
 
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -63,6 +72,226 @@ function ListView({ onCreateClick, onEditClick }) {
   const isAdmin = roles?.includes("ADMIN");
   const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Bulk Import State
+  const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
+  const [excelData, setExcelData] = useState([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState({ total: 0, processed: 0 });
+  const [jobMetadata, setJobMetadata] = useState({}); // MSN -> Job Details
+  const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
+  const [allUsers, setAllUsers] = useState([]);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await apiClient.get("/api/common/qc-engineers");
+        if (res.success) setAllUsers(res.data || []);
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      ["Job Number", "Shreno Drg No", "Customer Drg No", "Inspection By", "QC Engineer Emp ID", "Is Heading (Yes/No)", "Heading", "Item No", "Description", "Material Spec", "Size", "Quantity", "Heat No", "GRN No", "MTR No", "Manufacturer", "Remarks"],
+      ["101010232", "DRG-001", "CUS-DRG-001", "John Doe", "EMP001", "Yes", "101", "101", "HEADING SECTION", "", "", "", "", "", "", "", ""],
+      ["101010232", "DRG-001", "CUS-DRG-001", "John Doe", "EMP001", "No", "", "101", "PLATE", "ASTM A234", "10mm", "5 NOS", "HN123", "GRN456", "MTR789", "XYZ Steel", "Accepted"]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(headers);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "MHC_Import_Template.xlsx");
+  };
+
+  const fetchJobMetadata = useCallback(async (data) => {
+    const uniqueMsns = [...new Set(data.map(d => d.msn))];
+    setIsFetchingMetadata(true);
+    const metadataMap = {};
+
+    try {
+      await Promise.all(uniqueMsns.map(async (msn) => {
+        try {
+          const res = await apiClient.get(`/api/common/jobs/by-number/${msn}`);
+          if (res.success && res.data) {
+            metadataMap[msn] = res.data;
+          } else {
+            metadataMap[msn] = { error: "Job Not Found" };
+          }
+        } catch (err) {
+          metadataMap[msn] = { error: "Job Not Found" };
+        }
+      }));
+      setJobMetadata(metadataMap);
+    } catch (err) {
+      console.error("Failed to fetch metadata:", err);
+    } finally {
+      setIsFetchingMetadata(false);
+    }
+  }, []);
+
+  const handleImportExcel = useCallback((file) => {
+    if (!file) return;
+
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (!json || json.length < 1) {
+          toast.error("Excel file appears to be empty.");
+          return;
+        }
+
+        let headerIdx = -1;
+        for (let i = 0; i < Math.min(json.length, 15); i++) {
+          const firstCell = String(json[i][0] || "").toLowerCase().trim();
+          if (firstCell === "job number" || firstCell === "msn") {
+            headerIdx = i;
+            break;
+          }
+        }
+
+        if (headerIdx === -1) {
+           toast.warn("Warning: Could not find 'Job Number' header. Defaulting to first row.");
+           headerIdx = 0;
+        }
+
+        const rows = json.slice(headerIdx + 1);
+        const seenKeys = new Set();
+
+        const parsedData = rows.map((row, idx) => {
+          const msn = String(row[0] || "").trim();
+          const shreno_drg_no = String(row[1] || "").trim();
+          const customer_drg_no = String(row[2] || "").trim();
+          const inspection_by = String(row[3] || "").trim();
+          const qcEmpId = String(row[4] || "").trim();
+          
+          const isHeading = String(row[5] || "").trim().toLowerCase() === "yes";
+          const heading = String(row[6] || "").trim();
+          
+          const errors = [];
+          if (!msn) errors.push("Job Number is required");
+          if (!shreno_drg_no) errors.push("Shreno Drg No is required");
+          
+          const targetQC = allUsers.find(u => String(u.empid || "").trim().toUpperCase() === qcEmpId.toUpperCase());
+          
+          if (!qcEmpId) {
+            errors.push("QC Engineer Emp ID is required");
+          } else if (!targetQC) {
+            errors.push(`QC Employee ID "${qcEmpId}" not found`);
+          }
+          
+          const batchKey = `${msn}-${shreno_drg_no}-${row[7] || ''}-${row[12] || ''}`.toUpperCase();
+          let isDuplicate = false;
+          if (!isHeading && msn && shreno_drg_no) {
+             if (seenKeys.has(batchKey)) isDuplicate = true;
+             else seenKeys.add(batchKey);
+          }
+
+          return {
+            msn,
+            isHeading,
+            heading,
+            shreno_drg_no,
+            customer_drg_no,
+            inspection_by,
+            itemNo: String(row[7] || "").trim(),
+            description: String(row[8] || "").trim(),
+            materialSpecification: String(row[9] || "").trim(),
+            size: String(row[10] || "").trim(),
+            quantityUnit: String(row[11] || "").trim(),
+            heatNo: String(row[12] || "").trim(),
+            grnAppApNo: String(row[13] || "").trim(),
+            mtrNo: String(row[14] || "").trim(),
+            manufacturerName: String(row[15] || "").trim(),
+            remarks: String(row[16] || "").trim(),
+            qc_empid_raw: qcEmpId,
+            qc_engineer_id: targetQC?.id || null,
+            qc_engineer_name: targetQC?.name || null,
+            status: errors.length > 0 ? "error" : (isDuplicate ? "duplicate" : "valid"),
+            message: errors.length > 0 ? errors.join(" | ") : (isDuplicate ? "Duplicate entry in file" : "Ready")
+          };
+        }).filter(r => r.msn || r.shreno_drg_no);
+
+        if (parsedData.length === 0) {
+          toast.warn("No valid records found in file.");
+          return;
+        }
+
+        setExcelData(parsedData);
+        setTimeout(() => {
+          setBulkImportDialogOpen(true);
+          fetchJobMetadata(parsedData);
+        }, 100);
+
+      } catch (err) {
+        console.error("Excel read error:", err);
+        toast.error("Failed to read Excel file format.");
+      }
+    };
+    reader.onerror = () => toast.error("File reading error.");
+    reader.readAsArrayBuffer(file);
+  }, [fetchJobMetadata, allUsers]);
+
+  const confirmBulkImport = async () => {
+      setIsImporting(true);
+      
+      // Group flat rows into Reports
+      const reportGroups = {};
+      excelData.forEach(row => {
+          const key = `${row.msn}-${row.shreno_drg_no}`;
+          if (!reportGroups[key]) {
+              reportGroups[key] = {
+                  msn: row.msn,
+                  shreno_drg_no: row.shreno_drg_no,
+                  customer_drg_no: row.customer_drg_no,
+                  inspection_by: row.inspection_by,
+                  qc_engineer_id: row.qc_engineer_id,
+                  items: []
+              };
+          }
+          reportGroups[key].items.push({
+              is_heading: row.isHeading,
+              heading_text: row.heading || (row.isHeading ? (row.itemNo || row.description) : null),
+              item_no: row.itemNo,
+              description: row.description,
+              materialSpecification: row.materialSpecification,
+              size: row.size,
+              quantityUnit: row.quantityUnit,
+              heatNo: row.heatNo,
+              grn_app_ap_no: row.grnAppApNo,
+              mtrNo: row.mtrNo,
+              manufacturerName: row.manufacturerName,
+              remarks: row.remarks
+          });
+      });
+
+      const payload = Object.values(reportGroups);
+      
+      try {
+          const res = await apiClient.post("/api/mhc/bulk-create", payload);
+          if (res.success) {
+              toast.success(res.message || "Bulk import completed successfully");
+              setBulkImportDialogOpen(false);
+              setRefreshTrigger(prev => prev + 1);
+          } else {
+              toast.error(res.message || "Failed to complete bulk import");
+          }
+      } catch (err) {
+          console.error(err);
+          toast.error("Failed to save MHC records");
+      } finally {
+          setIsImporting(false);
+      }
+  };
 
   // Review Dialog State
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
@@ -115,6 +344,8 @@ function ListView({ onCreateClick, onEditClick }) {
         return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 shadow-sm border border-red-200">Rejected</span>
       case "pending":
         return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800 shadow-sm border border-yellow-200">Pending</span>
+      case "draft":
+        return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 shadow-sm border border-blue-200">Draft</span>
       default:
         return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800 shadow-sm border border-gray-200">{status || "Pending"}</span>
     }
@@ -138,12 +369,14 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
-  const columns = [
+  // Define columnFilters state for stable reference
+  const [columnFilters, setColumnFilters] = useState({});
+
+  const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
     { header: "MSN", accessorKey: "msn" },
     { header: "Client", accessorKey: "client" },
     { header: "PO No.", accessorKey: "po_no" },
-    // { header: "Project ID", accessorKey: "project_id" },
     { header: "Equipment", accessorKey: "equipment_name" },
     {
       header: "Created At",
@@ -204,20 +437,22 @@ function ListView({ onCreateClick, onEditClick }) {
         )
       },
     },
-  ]
+  ], [isQE, isAdmin]);
 
-  const fetchData = useCallback(async ({ page, limit, search }) => {
-    const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
-    const res = await apiClient.get(`/api/mhc/list`, Object.fromEntries(params))
-    return { data: res.data, meta: res.meta }
-  }, [refreshTrigger])
-
-  const [refreshKey, setRefreshKey] = useState(0);
+  const fetchData = useCallback(async (params) => {
+    try {
+      const res = await apiClient.get(`/api/mhc/list`, params)
+      return res;
+    } catch (err) {
+      console.error("Fetch MHC error:", err);
+      return { data: [], meta: {} };
+    }
+  }, []); // refreshTrigger is passed as refreshKey to ProDataTable now
 
   const handleExport = async () => {
     try {
       await exportApi.exportMHC();
-      setRefreshKey(prev => prev + 1);
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error("MHC Export failed:", error);
     }
@@ -230,19 +465,205 @@ function ListView({ onCreateClick, onEditClick }) {
           <h1 className="text-3xl font-bold mb-1">Material Heat Charts</h1>
           <p className="text-muted-foreground">View and manage all material heat charts.</p>
         </div>
-        {(isAdmin || !isQE) && (
-          <Button onClick={onCreateClick}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create
-          </Button>
-        )}
       </div>
 
-      <DataTable 
-        columns={columns} 
-        fetchData={fetchData} 
+      <ProDataTable
+        columns={columns}
+        fetchData={fetchData}
         onExport={handleExport}
+        onAdd={onCreateClick}
+        onImport={handleImportExcel}
+        onDownloadTemplate={handleDownloadTemplate}
+        columnFilters={columnFilters}
+        onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+        refreshKey={refreshTrigger}
+        globalSearchPlaceholder="Search report no, msn, client..."
       />
+
+      {/* Bulk Import Review Dialog */}
+      <Dialog open={bulkImportDialogOpen} onOpenChange={setBulkImportDialogOpen}>
+        <DialogContent className="sm:max-w-[1100px] w-full max-h-[95vh] flex flex-col p-0 overflow-hidden shadow-2xl border-none">
+          <DialogHeader className="p-6 pb-2 border-b">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+               <FileText className="h-6 w-6 text-primary" />
+               Review MHC Import
+            </DialogTitle>
+            <DialogDescription>
+              Verify the material heat chart details and Job (MSN) metadata before confirming.
+            </DialogDescription>
+            <div className="flex gap-4 mt-4 py-2 border-y bg-slate-50 px-4 rounded-lg">
+               <div className="text-sm font-medium">Total: {excelData.length}</div>
+               <div className="text-sm font-medium text-green-600">Valid: {excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length}</div>
+               <div className="text-sm font-medium text-red-600">Errors: {excelData.filter(r => r.status === 'error' || jobMetadata[r.msn]?.error).length}</div>
+               {excelData.some(r => r.status === 'duplicate') && (
+                 <div className="text-sm font-medium text-amber-600">Duplicates: {excelData.filter(r => r.status === 'duplicate').length}</div>
+               )}
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-x-auto p-6 bg-white custom-scrollbar-x">
+            <div className="border rounded-xl w-fit min-w-full">
+              <table className="w-full border-collapse text-sm">
+                <thead className="sticky top-0 bg-slate-100 shadow-sm z-10">
+                  <tr className="border-b divide-x divide-slate-200">
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[100px]">Job No</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[120px]">SHRENO DRG. NO.</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[140px]">CUSTOMER DRG. NO.</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[120px]">INSPECTION BY</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[120px]">ASSIGNED QC</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[80px]">Item No</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[180px]">Description</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[100px]">Spec</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[80px]">Size</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[60px]">Qty</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[100px]">Heat No</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[100px]">GRN / MTR</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[150px]">Mfg / Remarks</th>
+                    <th className="p-2 text-center font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[250px]">Status</th>
+                  </tr>
+                </thead>
+              <tbody>
+                {excelData.map((row, idx) => {
+                  const job = jobMetadata[row.msn];
+                  const hasMsnError = job?.error || !row.msn;
+                  const isDup = row.status === 'duplicate';
+                  const isErr = row.status === 'error' || hasMsnError;
+                  
+                  return (
+                    <tr key={idx} className={`border-b divide-x divide-slate-100 transition-colors ${row.isHeading ? 'bg-slate-50/80 font-bold' : isErr ? 'bg-red-50/20' : 'hover:bg-slate-50'}`}>
+                      {/* Job No */}
+                      <td className="p-2 align-top text-[11px]">
+                        <div className="font-semibold">{row.msn}</div>
+                        {job && !job.error && (
+                           <div className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tight">{job.customer?.customer_name}</div>
+                        )}
+                      </td>
+
+                      {/* Shreno Ref */}
+                      <td className="p-2 align-top text-[11px] font-medium">
+                         {row.shreno_drg_no || "-"}
+                      </td>
+
+                      {/* Client Ref */}
+                      <td className="p-2 align-top text-[11px] text-slate-500 italic">
+                         {row.customer_drg_no || "-"}
+                      </td>
+
+                      {/* Inspection By */}
+                      <td className="p-2 align-top text-[11px]">
+                         {row.inspection_by || "-"}
+                      </td>
+
+                      {/* Assigned QC */}
+                      <td className="p-2 align-top text-[11px]">
+                         {row.qc_engineer_name ? (
+                            <div className="font-bold text-green-600">{row.qc_engineer_name}</div>
+                         ) : (
+                            <div className="font-bold text-red-600">{row.qc_empid_raw || "-"}</div>
+                         )}
+                      </td>
+
+                      {/* Item No */}
+                      <td className="p-2 align-top text-[11px]">
+                         {row.isHeading ? (row.itemNo || row.heading) : (row.itemNo || "-")}
+                      </td>
+
+                      {/* Description */}
+                      <td className="p-2 align-top text-[11px]">
+                         <div className={`line-clamp-2 ${row.isHeading ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+                           {row.description || (row.isHeading ? "" : "-")}
+                         </div>
+                      </td>
+
+                      {/* Spec */}
+                      <td className="p-2 align-top text-[11px]">
+                         {row.materialSpecification || "-"}
+                      </td>
+
+                      {/* Size */}
+                      <td className="p-2 align-top text-[11px]">
+                         {row.size || "-"}
+                      </td>
+
+                      {/* Qty */}
+                      <td className="p-2 align-top text-[11px]">
+                         {row.quantityUnit || "-"}
+                      </td>
+
+                      {/* Heat No */}
+                      <td className="p-2 align-top text-[11px]">
+                        {row.heatNo || "-"}
+                      </td>
+
+                      {/* GRN / MTR */}
+                      <td className="p-2 align-top text-xs">
+                        <div>{row.grnAppApNo || "-"}</div>
+                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.mtrNo || "-"}</div>
+                      </td>
+
+                      {/* Mfg / Remarks */}
+                      <td className="p-2 align-top text-xs">
+                         <div className="font-medium text-slate-700 line-clamp-1">{row.manufacturerName || "-"}</div>
+                         <div className="text-[10px] text-slate-400 italic line-clamp-1">{row.remarks || "-"}</div>
+                      </td>
+
+                      {/* Status (Far Right) */}
+                      <td className="p-2 align-top text-left min-w-[250px]">
+                         {isFetchingMetadata ? (
+                            <div className="flex items-center gap-2">
+                               <div className="h-3 w-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                               <span className="text-[10px] text-slate-400">Validating...</span>
+                            </div>
+                         ) : isErr ? (
+                            <div className="text-red-600 font-medium text-[10px] flex items-start gap-1 p-1 rounded bg-red-50/50 leading-normal">
+                               <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                               <span className="break-words">
+                                  {hasMsnError ? `Job Number "${row.msn || 'Empty'}" not found` : ""}
+                                  {hasMsnError && row.message ? " | " : ""}
+                                  {row.message || ""}
+                               </span>
+                            </div>
+                         ) : isDup ? (
+                            <div className="text-amber-600 font-medium text-[10px] flex items-center gap-1.5 p-1 rounded bg-amber-50/50">
+                               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                               <span>{row.message}</span>
+                            </div>
+                         ) : (
+                            <div className="text-green-600 font-medium text-[10px] flex items-center gap-1.5 p-1 rounded bg-green-50/50">
+                               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                               <span>Ready</span>
+                            </div>
+                         )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+          <DialogFooter className="p-6 border-t bg-slate-50 flex items-center sm:justify-between w-full">
+            <Button variant="outline" onClick={() => setBulkImportDialogOpen(false)} disabled={isImporting} className="bg-white border-slate-200">
+               Cancel
+            </Button>
+            <Button 
+                onClick={confirmBulkImport} 
+                className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all px-8 h-10 font-medium"
+                disabled={isImporting || excelData.length === 0 || excelData.some(r => r.status === 'error' || jobMetadata[r.msn]?.error)}
+            >
+                {isImporting ? (
+                    <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                        Processing...
+                    </div>
+                ) : (
+                    `Merge ${excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length} Reports`
+                )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
@@ -386,7 +807,7 @@ function ListView({ onCreateClick, onEditClick }) {
 
                         rows.push(
                           <tr key={row.id} className={row.is_heading ? "bg-[#f4f4f5] border-b border-border font-bold shadow-[inset_0_1px_0_0_#e4e4e7]" : "hover:bg-muted/30 border-b border-border last:border-0"}>
-                            <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{currentHeading || "-"}</td>
+                            <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{row.heading_text || currentHeading || "-"}</td>
                             <td className="border-r border-border p-3 align-top font-medium">{row.item_no || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.description || "-"}</td>
                             <td className="border-r border-border p-3 align-top">{row.material_spec || "-"}</td>
@@ -455,7 +876,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   const [tableRows, setTableRows] = useState([emptyRow(1)])
 
   // Submit state
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(null) // null | "Draft" | "Pending"
 
   useEffect(() => {
     apiClient.get("/api/common/jobs?limit=200")
@@ -605,7 +1026,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   }
 
   // Submit
-  const handleSubmit = async () => {
+  const handleSubmit = async (targetStatus = "Pending") => {
     if (!selectedJobId) { 
       toast.warn("Please select a Job / MSN.")
       return 
@@ -644,11 +1065,12 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       inspection_by: formData.inspectionBy || null,
       production_engineer_id: production_engineer_id || null,
       qc_engineer_id: qc_engineer_id || null,
+      status: targetStatus,
       items,
     }
 
     try {
-      setSubmitting(true)
+      setSubmitting(targetStatus)
       if (editId) {
         await apiClient.put(`/api/mhc/update/${editId}`, payload)
       } else {
@@ -658,7 +1080,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     } catch (err) {
       toast.error(err.message || "Failed to save Material Heat Chart.")
     } finally {
-      setSubmitting(false)
+      setSubmitting(null)
     }
   }
 
@@ -670,7 +1092,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
           <h1 className="text-3xl font-bold mb-1">Create Material Heat Chart</h1>
           <p className="text-muted-foreground">Fill in the details and add material rows.</p>
         </div>
-        <Button variant="outline" onClick={onBack} className="h-9">
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>
@@ -938,11 +1360,19 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
       {/* ── Footer Buttons ── */}
       <div className="flex gap-3 justify-end">
-        <Button variant="outline" onClick={onBack} disabled={submitting}>
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
-          {submitting ? "Saving…" : "Submit"}
+        <Button 
+          variant="secondary" 
+          onClick={() => handleSubmit("Draft")} 
+          disabled={submitting !== null}
+          className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200"
+        >
+          {submitting === "Draft" ? "Saving…" : "Save Draft"}
+        </Button>
+        <Button onClick={() => handleSubmit("Pending")} disabled={submitting !== null}>
+          {submitting === "Pending" ? "Submitting…" : "Submit"}
         </Button>
       </div>
     </div>

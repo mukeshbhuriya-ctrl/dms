@@ -19,6 +19,7 @@ router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumen
 router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);
 router.get('/document-preview/:versionId', authenticateUserOnly, DccController.previewDocument);
 router.get('/document-preview/:versionId/:filename', authenticateUserOnly, DccController.previewDocument);
+router.get('/document/feedback', authenticateUserOnly, DccController.downloadFeedbackFile);
 router.get('/get-active-filters', authenticateUserOnly, DccController.getActiveFilters);
 
 
@@ -36,6 +37,7 @@ router.post('/create-customer-location', createCustomerLocation);
 router.put('/update-customer-location/:id', updateCustomerLocation);
 
 router.get('/get-pos', DccController.getPos);
+router.get('/get-po-filters', DccController.getPoFilters);
 router.post('/create-po', upload.single('po_document'), createPo);
 router.put('/update-po/:id', upload.single('po_document'), updatePo);
 router.put('/update-po-communication-matrix/:id', updatePoCommunicationMatrix);
@@ -70,6 +72,12 @@ router.post('/create-transmission', DccController.createTransmission);
 router.post('/send-transmission-email', DccController.sendTransmissionEmail);
 router.get('/download-transmittal-pdf/:id', DccController.downloadTransmittalPDF);
 router.get('/preview-transmittal-pdf/:id', DccController.previewTransmittalPDF);
+
+// Email Templates
+router.get('/email-templates', DccController.getEmailTemplates);
+router.post('/email-templates', DccController.createEmailTemplate);
+router.put('/email-templates/:id', DccController.updateEmailTemplate);
+router.delete('/email-templates/:id', DccController.deleteEmailTemplate);
 // Client Approval Status
 router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
 router.post('/transmission/document/client-status', upload.single('client_file'), DccController.updateTransmissionDocumentClientStatus);

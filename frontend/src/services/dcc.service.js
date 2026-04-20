@@ -79,5 +79,22 @@ export const dccService = {
 
     downloadTransmissionFeedback: async (id) => {
         return await apiClient.get(`/api/dcc/transmission/${id}/download-feedback`, {}, { responseType: 'blob' });
+    },
+
+    // Email Templates
+    getEmailTemplates: async () => {
+        return await apiClient.get("/api/dcc/email-templates");
+    },
+
+    createEmailTemplate: async (data) => {
+        return await apiClient.post("/api/dcc/email-templates", data);
+    },
+
+    updateEmailTemplate: async (id, data) => {
+        return await apiClient.put(`/api/dcc/email-templates/${id}`, data);
+    },
+
+    deleteEmailTemplate: async (id) => {
+        return await apiClient.delete(`/api/dcc/email-templates/${id}`);
     }
 };

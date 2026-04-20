@@ -89,14 +89,14 @@ class PDFGenerator {
         const innerW = pageW - 10;
         const innerX = startX + 5;
 
-        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'SET UP & WELD VISUAL INSPECTION REPORT', companyInfo);
+        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, 'SET UP INSPECTION REPORT', companyInfo);
         currentY = this.drawInfoGrid(doc, innerX, currentY, innerW, data);
 
         const footerH = 130;
         const footerStartY = (startY + pageH) - footerH - 5;
 
         // Inspection Table
-        const tableTitle = 'LONG SEAM / CIRCUMFERENCE SEAM INSPECTION REPORT';
+        const tableTitle = `LONG SEAM / CIRCUMFERENCE SEAM INSPECTION REPORT - ${data.jointNo || '-'}`;
         this.drawInspectionTable(doc, innerX, currentY, innerW, data, footerStartY, tableTitle);
 
         this.drawFooter(doc, innerX, footerStartY, innerW, data, 'Set Up Inspection by');
@@ -126,7 +126,7 @@ class PDFGenerator {
         // C/D Specific Content Area
         this.drawStage1_CD_Content(doc, innerX, currentY, innerW, data, footerStartY);
 
-        this.drawFooter(doc, innerX, footerStartY, innerW, data, 'Set Up Inspection by');
+        this.drawFooter(doc, innerX, footerStartY, innerW, data, 'Inspection by');
     }
 
     drawStage1_CD_Content(doc, x, y, width, data, bottomY) {
@@ -199,7 +199,7 @@ class PDFGenerator {
         // F Specific Content Area
         this.drawStage1_F_Content(doc, innerX, currentY, innerW, data, footerStartY);
 
-        this.drawFooter(doc, innerX, footerStartY, innerW, data, 'Set Up Inspection by');
+        this.drawFooter(doc, innerX, footerStartY, innerW, data, 'Inspection by');
     }
 
     drawStage1_F_Content(doc, x, y, width, data, bottomY) {
@@ -293,14 +293,14 @@ class PDFGenerator {
             this.drawGeneralStatusContent(doc, innerX, currentY, innerW, data, footerStartY, stageKey);
         }
 
-        const footerTitle = 'Set Up Inspection by';
+        const footerTitle = 'Inspection by';
         this.drawFooter(doc, innerX, footerStartY, innerW, data, footerTitle);
     }
 
     drawStage2Content(doc, x, y, width, data, bottomY) {
         const headerH = 25;
         // Title: Back chip – Required / not required
-        const title = 'Back chip – Required / not required';
+        const title = `Back chip - ${data.jointNo || '-'}`;
         doc.rect(x, y, width, headerH).stroke();
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
             .text(title, x, y + 8, { width: width, align: 'center' });
@@ -335,7 +335,7 @@ class PDFGenerator {
 
     drawStage4Content(doc, x, y, width, data, bottomY) {
         const headerH = 25;
-        const title = 'Radiography Testing Requirement';
+        const title = `Radiography Testing Requirement - ${data.jointNo || '-'}`;
         doc.rect(x, y, width, headerH).stroke();
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red) // Header title stays Red as per pattern
             .text(title, x, y + 8, { width: width, align: 'center' });
@@ -393,7 +393,7 @@ class PDFGenerator {
 
     drawStage5Content(doc, x, y, width, data, bottomY) {
         const headerH = 25;
-        const title = 'Liquid Penetrant Testing (Required / Not required)';
+        const title = `Liquid Penetrant Testing - ${data.jointNo || '-'}`;
         doc.rect(x, y, width, headerH).stroke();
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
             .text(title, x, y + 8, { width: width, align: 'center' });
@@ -424,7 +424,7 @@ class PDFGenerator {
 
     drawStage6Content(doc, x, y, width, data, bottomY) {
         const headerH = 25;
-        const title = 'PWHT (Required / Not required)';
+        const title = `PWHT - ${data.jointNo || '-'}`;
         doc.rect(x, y, width, headerH).stroke();
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
             .text(title, x, y + 8, { width: width, align: 'center' });
@@ -485,7 +485,7 @@ class PDFGenerator {
     drawStage7Content(doc, x, y, width, data, bottomY) {
         const headerH = 25;
         // CHANGED: Title is now PWHT (same as Stage 6)
-        const title = 'PWHT (Required / Not required)';
+        const title = `PWHT - ${data.jointNo || '-'}`;
         doc.rect(x, y, width, headerH).stroke();
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
             .text(title, x, y + 8, { width: width, align: 'center' });
@@ -648,17 +648,20 @@ class PDFGenerator {
 
         // Rows
         const rows = data.inspectionRows || [];
-        const rowH = 19; // Fixed height mostly
-
         doc.fontSize(9);
 
         rows.forEach(row => {
-            // Lines
-            doc.moveTo(x, curY + rowH).lineTo(x + width, curY + rowH).stroke(); // Horizontal bottom
+            // Calculate height for this specific row based on the longest column
+            const nameH = row.name ? doc.heightOfString(row.name, { width: col1W - 8 }) : 0;
+            const valueH = row.value ? doc.heightOfString(row.value, { width: col2W - 8 }) : 0;
+            const currentRowH = Math.max(nameH, valueH, 19) + 4; // Min height 19, plus 4px padding
 
-            // Text
-            const textY = curY + 6;
+            // Draw Horizontal boundary line
+            doc.moveTo(x, curY + currentRowH).lineTo(x + width, curY + currentRowH).stroke();
+
+            // Text Placement
             const pad = 4;
+            const textY = curY + 4; // Start slightly below the top of the row
 
             if (row.name) {
                 doc.font(this.fonts.bold).fillColor(this.colors.red);
@@ -670,7 +673,7 @@ class PDFGenerator {
                 doc.text(row.value, x2 + pad, textY, { width: col2W - pad * 2 });
             }
 
-            curY += rowH;
+            curY += currentRowH;
         });
 
         // Vertical Lines for the list part
@@ -685,7 +688,7 @@ class PDFGenerator {
     }
 
     drawStage3Content(doc, x, y, width, data, bottomY) {
-        const title = 'WELDING DETAILS';
+        const title = `WELDING DETAILS - ${data.jointNo || '-'}`;
         const headerH = 25;
         doc.rect(x, y, width, headerH).stroke();
         doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.black)

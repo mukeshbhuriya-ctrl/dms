@@ -18,7 +18,7 @@ class MhcController {
 
     async create(req, res) {
         try {
-            const result = await MhcService.create(req.user.company_id, req.body, req.user.userid);
+            const result = await MhcService.create(req.user.company_id, req.body, req.user.userid || req.user.id);
             res.status(201).json({
                 success: true,
                 message: 'Material heat chart created successfully',
@@ -28,6 +28,20 @@ class MhcController {
             console.error('MHC create error:', error);
             const status = error.message.includes('not found') ? 404 : 400;
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async bulkCreate(req, res) {
+        try {
+            const result = await MhcService.bulkCreate(req.user.company_id, req.body, req.user.userid || req.user.id);
+            res.status(201).json({
+                success: true,
+                message: `${result.length} Material heat charts created successfully`,
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC bulkCreate error:', error);
+            res.status(400).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
 
@@ -50,7 +64,7 @@ class MhcController {
         try {
             const result = await MhcService.updateStatus(req.user.company_id, req.params.id, {
                 ...req.body,
-                user_id: req.user.id
+                user_id: req.user.userid || req.user.id
             });
             res.status(200).json({
                 success: true,
