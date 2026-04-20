@@ -648,17 +648,20 @@ class PDFGenerator {
 
         // Rows
         const rows = data.inspectionRows || [];
-        const rowH = 19; // Fixed height mostly
-
         doc.fontSize(9);
 
         rows.forEach(row => {
-            // Lines
-            doc.moveTo(x, curY + rowH).lineTo(x + width, curY + rowH).stroke(); // Horizontal bottom
+            // Calculate height for this specific row based on the longest column
+            const nameH = row.name ? doc.heightOfString(row.name, { width: col1W - 8 }) : 0;
+            const valueH = row.value ? doc.heightOfString(row.value, { width: col2W - 8 }) : 0;
+            const currentRowH = Math.max(nameH, valueH, 19) + 4; // Min height 19, plus 4px padding
 
-            // Text
-            const textY = curY + 6;
+            // Draw Horizontal boundary line
+            doc.moveTo(x, curY + currentRowH).lineTo(x + width, curY + currentRowH).stroke();
+
+            // Text Placement
             const pad = 4;
+            const textY = curY + 4; // Start slightly below the top of the row
 
             if (row.name) {
                 doc.font(this.fonts.bold).fillColor(this.colors.red);
@@ -670,7 +673,7 @@ class PDFGenerator {
                 doc.text(row.value, x2 + pad, textY, { width: col2W - pad * 2 });
             }
 
-            curY += rowH;
+            curY += currentRowH;
         });
 
         // Vertical Lines for the list part
