@@ -105,9 +105,6 @@ class DtnController {
         }
     }
 
-    /**
-     * Get by ID
-     */
     async getById(req, res) {
         try {
             const { company_id } = req.user;
@@ -122,6 +119,44 @@ class DtnController {
             res.status(200).json({ success: true, data: dtn });
         } catch (error) {
             console.error('getTransmittalById error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    /**
+     * List unique jobs with DTNs
+     */
+    async listMasterSummaries(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { search } = req.query;
+            const summaries = await DtnService.listJobSummariesWithDtns(company_id, search);
+            res.status(200).json({ 
+                success: true, 
+                data: summaries,
+                meta: {
+                    total: summaries.length,
+                    page: 1,
+                    totalPages: 1
+                }
+            });
+        } catch (error) {
+            console.error('listMasterSummaries error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    /**
+     * Get Master Details for a specific job
+     */
+    async getJobMasterDetails(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { jobId } = req.params;
+            const details = await DtnService.getDrawingMasterByJob(company_id, jobId);
+            res.status(200).json({ success: true, data: details });
+        } catch (error) {
+            console.error('getJobMasterDetails error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }

@@ -371,6 +371,102 @@ class DtnService {
         const nextNum = (lastNum + 1).toString().padStart(3, '0');
         return `SHR/DGN/${nextNum}`;
     }
+
+    /**
+     * List unique Job Summary combinations for those that have at least one DTN created
+     */
+    async listJobSummariesWithDtns(companyId, search = "") {
+        const transmittals = await prisma.drawing_transmittal.findMany({
+            where: { company_id: companyId },
+            include: {
+                jobs: {
+                    include: { job: { select: { id: true, job_number: true } } }
+                }
+            }
+        });
+
+        const summaries = [];
+        const seen = new Set();
+        const searchLower = search?.toLowerCase();
+
+        transmittals.forEach(t => {
+            t.jobs.forEach(gj => {
+                const jobNum = gj.job?.job_number;
+                if (!jobNum) return;
+
+                const clientName = t.client_name || 'N/A';
+                const poNum = t.po_number || 'N/A';
+
+                // Apply search filter if provided
+                if (searchLower) {
+                    const matchesSearch = 
+                        clientName.toLowerCase().includes(searchLower) ||
+                        poNum.toLowerCase().includes(searchLower) ||
+                        jobNum.toLowerCase().includes(searchLower);
+                    
+                    if (!matchesSearch) return;
+                }
+
+                const key = `${clientName}-${poNum}-${jobNum}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    summaries.push({
+                        id: gj.job.id, // Important: ProDataTable uses 'id' for selection
+                        customer: clientName,
+                        po: poNum,
+                        job_number: jobNum,
+                        job_id: gj.job.id,
+                        customer_id: t.customer_id,
+                        po_id: t.po_id
+                    });
+                }
+            });
+        });
+
+        return summaries;
+    }
+
+    /**
+     * Get Master Drawing List for a specific Job
+     */
+    async getDrawingMasterByJob(companyId, jobId) {
+        // Find all transmittal items for this job
+        const items = await prisma.drawing_transmittal_item.findMany({
+            where: {
+                dtn: {
+                    company_id: companyId,
+                    jobs: { some: { job_id: jobId } }
+                }
+            },
+            include: {
+              document: { select: { document_number: true, document_name: true } }
+            },
+            orderBy: { dtn: { createdAt: 'desc' } }
+        });
+
+        // Unique documents by id
+        const docMap = new Map();
+
+        items.forEach(item => {
+            if (!item.document) return;
+            const docId = item.document_master_id;
+            
+            if (!docMap.has(docId)) {
+                docMap.set(docId, {
+                    drgNo: item.document.document_number,
+                    docName: item.document.document_name,
+                    rev: item.rev,
+                    sheets: [], // Note: sheets column removed per user request
+                    remark: "" // We will handle remark later
+                });
+            } else {
+                // If we find an older revision, we keep the latest one (since we ordered by createdAt desc)
+                // Actually, findMany was ordered desc, so the first one we find is the newest.
+            }
+        });
+
+        return Array.from(docMap.values());
+    }
 }
 
 module.exports = new DtnService();

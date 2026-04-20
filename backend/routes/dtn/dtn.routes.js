@@ -11,6 +11,8 @@ router.use(authenticateUserOnly);
  */
 router.get('/documents-by-jobs', DtnController.getDocumentsByJobs);
 router.get('/next-ref', DtnController.getNextRef);
+router.get('/master/summaries', DtnController.listMasterSummaries);
+router.get('/master/job/:jobId', DtnController.getJobMasterDetails);
 
 // Incorporate isolated Drawing Management routes
 const dtnDrawingRoutes = require('./dtn_drawing.routes.js');
