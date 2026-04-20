@@ -136,9 +136,8 @@ function CreateView({ onBack, editId, defaultRefNo }) {
   })
 
   // Distribution Matrix (SS10 Replication)
-  const [distributionRows, setDistributionRows] = useState([
-    { id: Date.now(), srNo: "01", docNo: "MASTER LIST OF DRAWING & DOCUMENT", rev: "10", copies: "01", deps: {} }
-  ])
+  const [distributionRows, setDistributionRows] = useState([])
+  const [availableDocuments, setAvailableDocuments] = useState([]) // New state
 
   const depts = ["HM", "HQ", "HMF", "HPL", "HST", "HPC", "PPD"]
 
@@ -167,6 +166,23 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             setIssuedTo(d.issued_to)
             setIssuedFor(d.issued_for)
             setDistributionRows(d.distributionRows)
+            
+            // Re-populate available documents so the dropdown can resolve labels
+            if (d.jobIds && d.jobIds.length > 0) {
+              try {
+                const docsRes = await apiClient.get(`/api/dtn/documents-by-jobs?jobIds=${d.jobIds.join(',')}`)
+                if (docsRes.success && docsRes.data) {
+                  const docs = docsRes.data.map(doc => ({
+                    value: doc.document_master_id,
+                    label: `[${doc.shreno_doc_no}] ${doc.document_name}`,
+                    docData: doc
+                  }))
+                  setAvailableDocuments(docs)
+                }
+              } catch (e) {
+                console.error("Failed to load documents for edit", e)
+              }
+            }
           }
         } else {
            // Fetch next reference number from backend
@@ -274,17 +290,26 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             ...acc, [k.toUpperCase()]: v
           }), {});
 
-          const newRows = res.data.map((doc, index) => ({
-            id: doc.id || Date.now() + index,
-            srNo: (index + 1).toString().padStart(2, '0'),
-            // Combine System ID and Name for the title column
-            docNo: `[${doc.system_doc_id}] ${doc.document_name}`,
-            document_master_id: doc.document_master_id,
-            rev: "0", // Default to Rev 0
-            copies: "01", // Default to 1 copy
-            deps: { ...currentDeps } // Inherit current Issued To selection
+          // Populate available documents instead of direct rows
+          const docs = res.data.map(doc => ({
+            value: doc.document_master_id,
+            label: `[${doc.shreno_doc_no}] ${doc.document_name}`,
+            docData: doc
           }))
-          setDistributionRows(newRows)
+          setAvailableDocuments(docs)
+
+          // Auto-add one empty row if matrix is empty
+          if (distributionRows.length === 0) {
+            setDistributionRows([{
+              id: Date.now(),
+              srNo: "01",
+              docNo: "",
+              document_master_id: "",
+              rev: "0",
+              copies: "01",
+              deps: { ...currentDeps }
+            }])
+          }
         }
       } catch (error) {
         console.error("Error fetching documents for jobs:", error)
@@ -293,6 +318,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
     } else {
       // Clear matrix and auto-fill if no jobs selected
       setDistributionRows([])
+      setAvailableDocuments([])
       setAutoFill({
         reportNo: "SHR/DGN/001",
         client: "",
@@ -527,8 +553,15 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         </CardContent>
       </Card>
       <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 border-b bg-muted/5 py-4">
+        <CardHeader className="pb-4 border-b bg-muted/5 py-3 flex flex-row items-center justify-between">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
+           <Button 
+             onClick={addMatrixRow}
+             className="h-9 px-4 bg-slate-900 hover:bg-black text-white rounded-md shadow-sm transition-all text-xs font-bold uppercase tracking-wide gap-2 border-none"
+           >
+             <Plus className="h-4 w-4" />
+             Add Item
+           </Button>
         </CardHeader>
         <CardContent className="p-0">
            <div className="overflow-x-auto custom-scrollbar-x">
@@ -538,6 +571,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">Sr. No</th>
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 text-left min-w-[300px]">Document Number / Title</th>
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">Rev No</th>
+                       <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">No. of Copy</th>
                        {depts.map(d => (
                           <th key={d} className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">{d}</th>
                        ))}
@@ -553,17 +587,30 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                              {row.srNo}
                           </td>
                           <td className="p-1 border-r">
-                             <Input 
-                               value={row.docNo} 
-                               onChange={(e) => updateMatrixCell(row.id, 'docNo', e.target.value)}
-                               className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 font-medium placeholder:italic uppercase"
-                               placeholder="ENTER DOC NO / TITLE"
+                             <SearchableSelect 
+                               options={availableDocuments}
+                               value={row.document_master_id || ''}
+                               onValueChange={(val) => {
+                                  const selectedDoc = availableDocuments.find(d => d.value === val);
+                                  if (selectedDoc) {
+                                     updateMatrixCell(row.id, 'document_master_id', val);
+                                     updateMatrixCell(row.id, 'docNo', selectedDoc.label);
+                                  }
+                               }}
+                               placeholder="Select Document"
                              />
                           </td>
                           <td className="p-1 border-r text-center">
                              <Input 
                                value={row.rev} 
                                onChange={(e) => updateMatrixCell(row.id, 'rev', e.target.value)}
+                               className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
+                             />
+                          </td>
+                          <td className="p-1 border-r text-center">
+                             <Input 
+                               value={row.copies} 
+                               onChange={(e) => updateMatrixCell(row.id, 'copies', e.target.value)}
                                className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
                              />
                           </td>
@@ -586,6 +633,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                     {[1, 2, 3].map(i => (
                        <tr key={i} className="h-10 border-b last:border-0 opacity-40">
                           <td className="border-r px-2 text-[10px] text-slate-400 text-center font-bold">{(distributionRows.length + i).toString().padStart(2, '0')}</td>
+                          <td className="border-r"></td>
                           <td className="border-r"></td>
                           <td className="border-r"></td>
                           <td className="border-r"></td>
