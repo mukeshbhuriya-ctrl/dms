@@ -34,24 +34,13 @@ class MasterListPdfGenerator {
         const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                // Center logo absolutely in the logo box using fit/align/valign as per reference
-                doc.image(logoPath, x + 5, y + 5, { 
-                    fit: [logoBoxW - 10, totalH - 10], 
-                    align: 'center', 
-                    valign: 'center' 
-                });
+                doc.image(logoPath, x + 5, y + 15, { height: 35 });
             } catch (e) {
-                // Fallback if image fails
-                if (companyInfo?.name) {
-                    doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-                        .text(companyInfo.name, x, y + totalH / 2 - 5, { width: logoBoxW, align: 'center' });
-                }
+                // Silently skip if image fails
             }
-        } else if (companyInfo?.name) {
-            // Fallback if no logo file
-            doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-                .text(companyInfo.name, x, y + totalH / 2 - 5, { width: logoBoxW, align: 'center' });
         }
+        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+            .text('Shreno Engineering Limited', x + 50, y + 25, { width: logoBoxW - 55, align: 'left' });
 
         // 2. Main Title Box
         const titleX = x + logoBoxW;

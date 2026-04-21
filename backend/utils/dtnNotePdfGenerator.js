@@ -59,24 +59,11 @@ class DtnNotePdfGenerator {
         const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                // Center logo absolutely in the logo box using fit/align/valign as per reference
-                doc.image(logoPath, startX + 5, curY + 5, { 
-                    fit: [logoW - 10, headerH - 10], 
-                    align: 'center', 
-                    valign: 'center' 
-                });
-            } catch (e) {
-                // Fallback to name if image fails
-                if (companyInfo?.name) {
-                    doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-                        .text(companyInfo.name, startX, curY + headerH / 2 - 5, { width: logoW, align: 'center' });
-                }
-            }
-        } else if (companyInfo?.name) {
-            // Fallback if no logo file
-            doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-                .text(companyInfo.name, startX, curY + headerH / 2 - 5, { width: logoW, align: 'center' });
+                doc.image(logoPath, startX + 5, curY + 10, { height: 30 });
+            } catch (e) {}
         }
+        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+            .text('Shreno Engineering Limited', startX + 45, curY + 18, { width: logoW - 50 });
 
         // Vertical Line after logo
         this.drawLine(doc, startX + logoW, curY, startX + logoW, curY + headerH, 1);
