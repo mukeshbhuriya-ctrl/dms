@@ -1,4 +1,8 @@
+const path = require('path');
+const prisma = require('#prisma');
 const DtnService = require('../services/dtn.service');
+const MasterListPdfGenerator = require('../utils/masterListPdfGenerator');
+const DtnNotePdfGenerator = require('../utils/dtnNotePdfGenerator');
 
 class DtnController {
     /**
@@ -153,11 +157,98 @@ class DtnController {
         try {
             const { company_id } = req.user;
             const { jobId } = req.params;
-            const details = await DtnService.getDrawingMasterByJob(company_id, jobId);
+            const { search } = req.query;
+            const details = await DtnService.getDrawingMasterByJob(company_id, jobId, search);
             res.status(200).json({ success: true, data: details });
         } catch (error) {
             console.error('getJobMasterDetails error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+    /**
+     * Download Master List PDF
+     */
+    async downloadMasterPdf(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { jobId } = req.params;
+            const { search } = req.query;
+
+            // 1. Fetch Drawing Data
+            const drawings = await DtnService.getDrawingMasterByJob(company_id, jobId, search);
+
+            // 2. Fetch Job/PO Header Info
+            const job = await DtnService.getJobHeaderInfo(jobId);
+
+            if (!job) {
+                return res.status(404).json({ success: false, message: 'Job details not found' });
+            }
+
+            const headerInfo = {
+                po_number: job.po?.po_number,
+                po_date: job.po?.po_date,
+                msn: `${job.job_number} (${job.equipement_name || ''})`.toUpperCase()
+            };
+
+            // 3. Set Headers for Download
+            res.setHeader('Content-Type', 'application/pdf');
+            // filename should be safe
+            const filename = `MasterList_${job.job_number.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+
+            // 4. Generate
+            MasterListPdfGenerator.generatePDF(drawings, res, headerInfo);
+
+        } catch (error) {
+            console.error('downloadMasterPdf error:', error);
+            res.status(500).send('Error generating PDF report');
+        }
+    }
+
+    /**
+     * Download Drawing Transmittal Note PDF
+     */
+    async downloadDtnNotePdf(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+
+            // 1. Fetch DTN with items and jobs
+            const dtn = await DtnService.getTransmittalById(company_id, id);
+
+            if (!dtn) {
+                return res.status(404).json({ success: false, message: 'Transmittal details not found' });
+            }
+
+            // 2. Fetch PO Date (not in DTN record)
+            let poDate = '-';
+            if (dtn.po_id) {
+                const po = await prisma.po.findUnique({ where: { id: dtn.po_id } });
+                if (po?.po_date) poDate = new Date(po.po_date).toLocaleDateString('en-GB').replace(/\//g, '-');
+            }
+
+            // 3. Format header data
+            // Combine all job numbers for the MSN field
+            const jobNums = (dtn.jobs || []).map(j => j.job?.job_number).filter(Boolean);
+            const msn = `${jobNums.join('-')} (${dtn.equipment_name || ''})`.toUpperCase();
+
+            const pdfData = {
+                ...dtn,
+                po_date: poDate,
+                msn: msn
+            };
+
+            // 4. Set Headers for Preview/Download
+            res.setHeader('Content-Type', 'application/pdf');
+            const filename = `Transmittal_${dtn.ref_no.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+
+            // 5. Generate
+            DtnNotePdfGenerator.generatePDF(pdfData, res);
+
+        } catch (error) {
+            console.error('downloadDtnNotePdf error:', error);
+            res.status(500).send('Error generating transmittal note');
         }
     }
 }

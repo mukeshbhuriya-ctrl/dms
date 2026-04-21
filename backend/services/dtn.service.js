@@ -429,14 +429,19 @@ class DtnService {
     /**
      * Get Master Drawing List for a specific Job
      */
-    async getDrawingMasterByJob(companyId, jobId) {
+    async getDrawingMasterByJob(companyId, jobId, search = "") {
         // 1. Find all transmittal items for this job
         const items = await prisma.drawing_transmittal_item.findMany({
             where: {
                 dtn: {
                     company_id: companyId,
                     jobs: { some: { job_id: jobId } }
-                }
+                },
+                // Apply search filter if provided
+                OR: search ? [
+                    { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                    { document: { document_name: { contains: search, mode: 'insensitive' } } }
+                ] : undefined
             },
             include: {
                 document: { select: { id: true, document_number: true, document_name: true } }
@@ -445,7 +450,8 @@ class DtnService {
         });
 
         // 2. Fetch Job-specific drawing aliases (Shreno Doc Nos)
-        // These are used in the DCR module as the primary drawing identifier
+        // Note: For large datasets, we could pre-fetch these only once or filter them too.
+        // But for now, we'll keep the bridge active for the filtered items.
         const groupDocs = await prisma.group_document.findMany({
             where: {
                 company_id: companyId,
@@ -501,6 +507,19 @@ class DtnService {
         });
 
         return Array.from(docMap.values());
+    }
+    async getJobHeaderInfo(jobId) {
+        return await prisma.job.findUnique({
+            where: { id: jobId },
+            include: { 
+                po: {
+                    select: {
+                        po_number: true,
+                        po_date: true
+                    }
+                }
+            }
+        });
     }
 }
 

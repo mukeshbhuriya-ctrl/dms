@@ -21,7 +21,9 @@ import {
   Upload,
   History,
   Eye,
-  Loader2
+  Loader2,
+  Printer,
+  Download
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -35,6 +37,7 @@ import {
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import ProDataTable from "@/components/shared/ProDataTable"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick, refreshKey }) {
@@ -56,6 +59,30 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
       </span>
     )
   }
+
+  const handleExport = useCallback(async (id, refNo, mode = 'download') => {
+    const endpoint = `/api/dtn/download-note/${id}`;
+    const filename = `Transmittal_${refNo.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+
+    try {
+      if (mode === 'print') {
+        const response = await apiClient.get(endpoint, {}, { responseType: 'blob' });
+        const blob = new Blob([response], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
+      } else {
+        await exportApi.download(endpoint, filename, {}, { contentType: 'application/pdf' });
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Could not generate report. Please try again.");
+    }
+  }, []);
 
   const columns = useMemo(() => [
     { id: "ref_no", header: "Reference No", accessorKey: "ref_no" },
@@ -81,23 +108,46 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
           <Button 
             variant="outline" 
             size="sm" 
-            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none" 
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg" 
             onClick={() => onEditClick(row.id)}
+            title="Edit Transmittal"
           >
-            <Edit className="h-3.5 w-3.5 mr-1.5" />
-            <span className="text-[11px] font-medium">Edit</span>
+            <Edit className="h-3.5 w-3.5 mr-1" />
+            <span className="text-[10px] font-bold uppercase">Edit</span>
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg" 
+            onClick={() => handleExport(row.id, row.ref_no, 'print')}
+            title="Print Report"
+          >
+            <Printer className="h-3.5 w-3.5 mr-1" />
+            <span className="text-[10px] font-bold uppercase">Print</span>
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-400 transition-colors shadow-none rounded-lg bg-slate-950 text-white hover:bg-slate-800" 
+            onClick={() => handleExport(row.id, row.ref_no, 'download')}
+            title="Download PDF"
+          >
+            <Download className="h-3.5 w-3.5 mr-1" />
+            <span className="text-[10px] font-bold uppercase text-white/90">PDF</span>
           </Button>
         </div>
       )
     }
-  ], [onEditClick])
+  ], [onEditClick, handleExport])
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Drawing Transmittals</h1>
-          <p className="text-muted-foreground text-sm font-medium">View and manage all drawing transmittals.</p>
+          <h1 className="text-3xl font-black mb-1 tracking-tighter text-slate-900">Drawing Transmittals</h1>
+          <p className="text-slate-500 text-sm font-medium">Global repository for project transmittal records.</p>
         </div>
       </div>
 
