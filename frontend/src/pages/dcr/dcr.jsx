@@ -712,7 +712,7 @@ function CreateDCR() {
                   </>
                 ) : (
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setView("list")}>
+                    <Button variant="outline" onClick={() => { handleReset(); setView("list"); }}>
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back to List
                     </Button>
