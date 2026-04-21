@@ -1,28 +1,35 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import apiClient from "@/api/api.client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, User, Lock, Info } from "lucide-react"
+import "./login.css"
 
 function App() {
   const navigate = useNavigate()
   const { refetch } = useAuth()
   const [employeeId, setEmployeeId] = useState("")
   const [password, setPassword] = useState("")
+  const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
+
+  // Load saved employee code if Remember Me was checked
+  useEffect(() => {
+    const savedCode = localStorage.getItem("remember_emp_id")
+    if (savedCode) {
+      setEmployeeId(savedCode)
+      setRememberMe(true)
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -36,115 +43,148 @@ function App() {
         { skipAuthRedirect: true }
       )
 
-      // Store authentication data
+      if (rememberMe) {
+        localStorage.setItem("remember_emp_id", employeeId)
+      } else {
+        localStorage.removeItem("remember_emp_id")
+      }
+
       localStorage.setItem(
         "user_auth",
         JSON.stringify({ payload, loggedInAt: Date.now() }),
       )
 
-      // Refresh AuthContext so ProtectedRoute knows we're authenticated
       await refetch()
-
       const role = payload?.roles?.[0]?.name
 
-      if (role === "ADMIN") {
-        navigate("/admin/dashboard")
-      } else if (role === "DCC") {
-        navigate("/user/dashboard")
-      } else if (role === "MARKETING") {
-        navigate("/marketing/dashboard")
-      } else {
-        // ✅ fallback
-        navigate("/user/dashboard")
-      }
+      if (role === "ADMIN") navigate("/admin/dashboard")
+      else if (role === "DCC") navigate("/user/dashboard")
+      else if (role === "MARKETING") navigate("/marketing/dashboard")
+      else navigate("/user/dashboard")
+      
     } catch (err) {
-      setError(err?.message || "Something went wrong")
+      setError(err?.message || "Invalid Employee Code or Password.")
     } finally {
       setIsLoading(false)
     }
   }
 
+  // Create an array for the repeating watermark text
+  const watermarkItems = Array.from({ length: 48 }, (_, i) => "SHRENO ENGINEERING PVT LTD")
+
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-          <CardDescription>
-            Enter your employee ID and password to sign in to your account
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="employeeId">Employee ID</Label>
-              <Input
-                id="employeeId"
-                type="text"
-                placeholder="Enter your employee ID"
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
-                required
-                disabled={isLoading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                  className="pr-10"
+    <div className="relative min-h-screen w-full h-screen flex flex-col items-center justify-center p-6 bg-white overflow-hidden selection:bg-[#337ab7]/20">
+      
+      {/* Premium Watermark Background */}
+      <div className="watermark-text-grid">
+        {watermarkItems.map((text, i) => (
+          <div key={i} className="watermark-item">{text}</div>
+        ))}
+      </div>
+
+      <div className="relative z-10 w-full max-w-[480px] flex flex-col items-center">
+        
+        {/* Exact Replica Login Box */}
+        <Card className="replica-card w-full shadow-[0_15px_30px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+          <div className="replica-header">
+            <span>Sign In</span>
+            <a href="#" className="text-[11px] font-normal hover:underline opacity-90">
+              Forgot password?
+            </a>
+          </div>
+          
+          <CardContent className="p-10 space-y-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-5">
+                {/* Employee Code Input */}
+                <div className="flex">
+                  <div className="replica-icon-box">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <Input
+                    id="employeeId"
+                    type="text"
+                    placeholder="Employee Code"
+                    value={employeeId}
+                    onChange={(e) => setEmployeeId(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className="replica-input flex-1 focus-visible:ring-0 focus-visible:border-[#337ab7] focus:border-[#337ab7] outline-none transition-all"
+                  />
+                </div>
+
+                {/* Password Input */}
+                <div className="flex">
+                  <div className="replica-icon-box">
+                    <Lock className="h-4 w-4" />
+                  </div>
+                  <div className="relative flex-1">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={isLoading}
+                      className="replica-input w-full focus-visible:ring-0 focus-visible:border-[#337ab7] focus:border-[#337ab7] outline-none pr-10 transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#337ab7]"
+                      disabled={isLoading}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Remember Me Toggle */}
+              <div className="flex items-center space-x-2 px-1">
+                <Checkbox 
+                  id="rememberMe" 
+                  checked={rememberMe} 
+                  onCheckedChange={setRememberMe}
+                  className="h-4 w-4 border-slate-300 data-[state=checked]:bg-[#337ab7] data-[state=checked]:border-[#337ab7] rounded-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  disabled={isLoading}
+                <label
+                  htmlFor="rememberMe"
+                  className="text-[13px] text-slate-500 cursor-pointer select-none font-medium"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+                  Remember Me
+                </label>
               </div>
-            </div>
 
-            {error && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
+              {error && (
+                <div className="flex items-center gap-2 text-[13px] text-red-600 font-bold px-1 animate-in fade-in slide-in-from-top-1">
+                  <Info className="h-4 w-4" />
+                  <p>{error}</p>
+                </div>
+              )}
+
+              {/* Exact Replica Login Button */}
+              <div className="flex justify-center pt-4 pb-2">
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="replica-button shadow-none active:scale-[0.98] transition-all"
+                >
+                   {isLoading ? "Signing in..." : "Login"}
+                </Button>
               </div>
-            )}
+            </form>
           </CardContent>
-          <CardFooter className="flex flex-col space-y-4 pt-6">
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
+        </Card>
 
-            <div className="text-sm text-center text-muted-foreground">
-              <a
-                href="#"
-                className="underline hover:text-foreground transition-colors"
-                onClick={(e) => {
-                  e.preventDefault()
-                  // Add forgot password logic
-                }}
-              >
-                Forgot your password?
-              </a>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
+        {/* Professional Minimal Footer */}
+        <div className="mt-8 flex flex-col items-center gap-3 opacity-50">
+          <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">
+            Shreno Engineering Pvt Ltd
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
