@@ -112,11 +112,19 @@ exports.getDtnDrawingHistory = async (req, res) => {
         const latestVersionNo = latestVersionRecord ? latestVersionRecord.version_no : 0;
         const hasPhysicalFile = latestVersionRecord ? latestVersionRecord.exists : false;
 
+        // Formula: If no history exists, start at 0. 
+        // If history exists and has a file, increment.
+        // If history exists but no physical file (pending slot), re-use it.
+        const nextVersionNo = (enrichedVersions.length === 0) 
+            ? 0 
+            : (hasPhysicalFile ? latestVersionNo + 1 : latestVersionNo);
+
         return res.status(200).json({ 
             success: true, 
             data: { 
                 versions: enrichedVersions, 
                 latestVersionNo,
+                nextVersionNo,
                 hasPhysicalFile 
             }, 
             message: "Drawing history fetched." 

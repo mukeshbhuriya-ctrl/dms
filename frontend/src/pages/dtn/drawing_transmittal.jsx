@@ -718,11 +718,14 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                                      try {
                                         const histRes = await apiClient.get(`/api/dtn/drawing/${val}/history`);
                                         const latestRev = histRes.data.latestVersionNo || 0;
+                                        const nextRev = histRes.data.nextVersionNo || 0;
                                         const hasFile = histRes.data.hasPhysicalFile;
-                                        
-                                        // Auto-bind
-                                        updateMatrixCell(row.id, 'rev', latestRev.toString());
-                                        updateMatrixCell(row.id, 'copies', "01"); // Auto initialize to 01
+
+                                        // ── Context-Aware Revision Logic ──
+                                        const assignedRev = editId ? latestRev : nextRev;
+
+                                        updateMatrixCell(row.id, 'rev', assignedRev.toString());
+                                        updateMatrixCell(row.id, 'copies', "01");
                                         
                                         setVersionHistory(prev => ({ 
                                           ...prev, 
