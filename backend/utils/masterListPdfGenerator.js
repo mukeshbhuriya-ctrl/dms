@@ -16,6 +16,10 @@ class MasterListPdfGenerator {
         };
     }
 
+    drawLine(doc, x1, y1, x2, y2, lineWidth = 0.5) {
+        doc.lineWidth(lineWidth).strokeColor(this.colors.black).moveTo(x1, y1).lineTo(x2, y2).stroke();
+    }
+
     drawHeader(doc, x, y, width, jobData) {
         const logoBoxW = 160;
         const mainTitleW = 180;
@@ -157,22 +161,22 @@ class MasterListPdfGenerator {
 
             // SR
             doc.text(String(idx + 1), cx, curY + 6, { width: colWs.sr, align: 'center' });
-            doc.lineWidth(0.5).moveTo(cx + colWs.sr, curY).lineTo(cx + colWs.sr, curY + rowH).stroke();
+            this.drawLine(doc, cx + colWs.sr, curY, cx + colWs.sr, curY + rowH);
             cx += colWs.sr;
 
             // DRG NO
             doc.text(item.drgNo || '-', cx + 3, curY + 6, { width: colWs.drg - 6, align: 'center' });
-            doc.moveTo(cx + colWs.drg, curY).lineTo(cx + colWs.drg, curY + rowH).stroke();
+            this.drawLine(doc, cx + colWs.drg, curY, cx + colWs.drg, curY + rowH);
             cx += colWs.drg;
 
             // SHEET
             doc.text('1 OF 1', cx, curY + 6, { width: colWs.sheet, align: 'center' });
-            doc.moveTo(cx + colWs.sheet, curY).lineTo(cx + colWs.sheet, curY + rowH).stroke();
+            this.drawLine(doc, cx + colWs.sheet, curY, cx + colWs.sheet, curY + rowH);
             cx += colWs.sheet;
 
             // REV
             doc.text(item.rev || '00', cx, curY + 6, { width: colWs.rev, align: 'center' });
-            doc.moveTo(cx + colWs.rev, curY).lineTo(cx + colWs.rev, curY + rowH).stroke();
+            this.drawLine(doc, cx + colWs.rev, curY, cx + colWs.rev, curY + rowH);
             cx += colWs.rev;
 
             // DCRs
@@ -181,7 +185,7 @@ class MasterListPdfGenerator {
                 if (rowDcrs[i]) {
                     doc.fontSize(5).text(rowDcrs[i], cx + (i * dcrSubW), curY + 7, { width: dcrSubW, align: 'center' });
                 }
-                doc.moveTo(cx + (i + 1) * dcrSubW, curY).lineTo(cx + (i + 1) * dcrSubW, curY + rowH).stroke();
+                this.drawLine(doc, cx + (i + 1) * dcrSubW, curY, cx + (i + 1) * dcrSubW, curY + rowH);
             }
             cx += colWs.dcrs;
 
@@ -191,19 +195,12 @@ class MasterListPdfGenerator {
             curY += rowH;
         });
 
-        // Fill remaining rows to end of page OR at least some empty rows
+        // Fill remaining rows to end of page OR at least some empty rows (Optimization: Purely blank box)
         const bottomY = doc.page.height - 40;
-        while (curY < bottomY) {
-            doc.rect(startX, curY, pageWidth, rowH).stroke();
-            let cx = startX;
-            [colWs.sr, colWs.drg, colWs.sheet, colWs.rev].forEach(w => {
-                 doc.moveTo(cx + w, curY).lineTo(cx + w, curY + rowH).stroke();
-                 cx += w;
-            });
-            for (let i = 0; i < 5; i++) {
-                doc.moveTo(cx + (i + 1) * dcrSubW, curY).lineTo(cx + (i + 1) * dcrSubW, curY + rowH).stroke();
-            }
-            curY += rowH;
+        if (curY < bottomY) {
+            const emptyAreaH = bottomY - curY;
+            doc.rect(startX, curY, pageWidth, emptyAreaH).stroke();
+            curY = bottomY;
         }
 
         // Add Footer to all pages
