@@ -42,7 +42,7 @@ class DtnNotePdfGenerator {
            .stroke();
     }
 
-    generatePDF(data, res) {
+    generatePDF(data, res, companyInfo) {
         const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
@@ -56,7 +56,7 @@ class DtnNotePdfGenerator {
         
         // Logo Section
         const logoW = 180;
-        const logoPath = path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
             try {
                 doc.image(logoPath, startX + 5, curY + 10, { height: 30 });
@@ -69,8 +69,9 @@ class DtnNotePdfGenerator {
         this.drawLine(doc, startX + logoW, curY, startX + logoW, curY + headerH, 1);
 
         // Company Name Central
+        const companyName = (companyInfo?.name || 'SHRENO ENGINEERING LIMITED').toUpperCase();
         doc.font(this.fonts.bold).fontSize(this.fontSize.header).fillColor(this.colors.black)
-            .text('SHRENO ENGINEERING LIMITED', startX + logoW, curY + 15, { width: pageWidth - logoW, align: 'center' });
+            .text(companyName, startX + logoW, curY + 15, { width: pageWidth - logoW, align: 'center' });
 
         curY += headerH;
 

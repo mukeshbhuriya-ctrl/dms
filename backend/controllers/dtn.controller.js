@@ -3,6 +3,7 @@ const prisma = require('#prisma');
 const DtnService = require('../services/dtn.service');
 const MasterListPdfGenerator = require('../utils/masterListPdfGenerator');
 const DtnNotePdfGenerator = require('../utils/dtnNotePdfGenerator');
+const { getCompanyInfo } = require('../utils/companyInfo');
 
 class DtnController {
     /**
@@ -196,8 +197,11 @@ class DtnController {
             const filename = `MasterList_${job.job_number.replace(/[^a-z0-9]/gi, '_')}.pdf`;
             res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
 
-            // 4. Generate
-            MasterListPdfGenerator.generatePDF(drawings, res, headerInfo);
+            // 4. Fetch company branding
+            const companyInfo = await getCompanyInfo(company_id);
+
+            // 5. Generate
+            MasterListPdfGenerator.generatePDF(drawings, res, headerInfo, companyInfo);
 
         } catch (error) {
             console.error('downloadMasterPdf error:', error);
@@ -243,8 +247,11 @@ class DtnController {
             const filename = `Transmittal_${dtn.ref_no.replace(/[^a-z0-9]/gi, '_')}.pdf`;
             res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
 
-            // 5. Generate
-            DtnNotePdfGenerator.generatePDF(pdfData, res);
+            // 5. Fetch company branding
+            const companyInfo = await getCompanyInfo(company_id);
+
+            // 6. Generate
+            DtnNotePdfGenerator.generatePDF(pdfData, res, companyInfo);
 
         } catch (error) {
             console.error('downloadDtnNotePdf error:', error);
