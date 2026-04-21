@@ -245,18 +245,22 @@ class DtnNotePdfGenerator {
             // SR
             doc.text(String(idx + 1).padStart(2, '0'), cx, curY + 8, { width: cols.sr, align: 'center' });
             cx += cols.sr;
+            this.drawLine(doc, cx, curY, cx, curY + rowHItem, 0.3);
 
             // TITLE
             doc.text(item.doc_no_title || '-', cx + 5, curY + 5, { width: cols.title - 10 });
             cx += cols.title;
+            this.drawLine(doc, cx, curY, cx, curY + rowHItem, 0.3);
 
             // REV
             doc.text(item.rev || '-', cx, curY + 8, { width: cols.rev, align: 'center' });
             cx += cols.rev;
+            this.drawLine(doc, cx, curY, cx, curY + rowHItem, 0.3);
 
             // COPY
             doc.text(item.copies || '-', cx, curY + 8, { width: cols.copy, align: 'center' });
             cx += cols.copy;
+            this.drawLine(doc, cx, curY, cx, curY + rowHItem, 0.3);
 
             // Checklist Matrix
             const deps = ['dist_hm', 'dist_hq', 'dist_hmf', 'dist_hpl', 'dist_hst', 'dist_hpc', 'dist_ppd'];
@@ -271,15 +275,31 @@ class DtnNotePdfGenerator {
             curY += rowHItem;
         });
 
-        // Fill empty rows to page bottom
+        // Fill empty rows to page bottom (Optimization: Single blank box with vertical lines)
         const bottomY = doc.page.height - 150;
-        while (curY < bottomY) {
-            doc.rect(startX, curY, pageWidth, rowHItem).stroke();
-            let cx = startX + cols.sr + cols.title + cols.rev + cols.copy;
+        if (curY < bottomY) {
+            const emptyAreaH = bottomY - curY;
+            this.drawBox(doc, startX, curY, pageWidth, emptyAreaH);
+
+            let vx = startX + cols.sr;
+            this.drawLine(doc, vx, curY, vx, bottomY, 0.3); // Sr line
+            
+            vx += cols.title;
+            this.drawLine(doc, vx, curY, vx, bottomY, 0.3); // Title line
+            
+            vx += cols.rev;
+            this.drawLine(doc, vx, curY, vx, bottomY, 0.3); // Rev line
+            
+            vx += cols.copy;
+            this.drawLine(doc, vx, curY, vx, bottomY, 0.3); // Copy line
+            
+            // Matrix vertical lines
             for (let i = 0; i < 11; i++) {
-                this.drawLine(doc, cx + (i * dW), curY, cx + (i * dW), curY + rowHItem, 0.3);
+                const mx = vx + (i * dW);
+                this.drawLine(doc, mx, curY, mx, bottomY, 0.3);
             }
-            curY += rowHItem;
+            
+            curY = bottomY;
         }
 
         // ─── 6. FOOTER (Integrated with Table) ──────────────────────────────────
