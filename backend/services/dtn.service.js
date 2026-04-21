@@ -1,3 +1,5 @@
+const fs = require('fs');
+const path = require('path');
 const prisma = require('#prisma');
 
 class DtnService {
@@ -249,13 +251,27 @@ class DtnService {
             where: { id, company_id: companyId },
             include: {
                 jobs: { include: { job: true } },
-                items: true
+                items: {
+                    include: {
+                        document: {
+                            include: {
+                                drawing_versions: {
+                                    where: { is_active: true },
+                                    take: 1,
+                                    orderBy: { version_no: 'desc' }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
 
         if (!dtn) return null;
 
         // Recostruct objects for frontend
+        const ROOT_DIR = process.env.ROOT_DIR || 'C:/dms-data';
+
         return {
             ...dtn,
             issued_to: {
@@ -276,23 +292,34 @@ class DtnService {
                 procurement: dtn.for_procurement
             },
             jobIds: dtn.jobs.map(j => j.job_id),
-            distributionRows: dtn.items.map(item => ({
-                id: item.id,
-                srNo: item.sr_no,
-                docNo: item.doc_no_title,
-                rev: item.rev,
-                copies: item.copies,
-                document_master_id: item.document_master_id,
-                deps: {
-                    HM: item.dist_hm,
-                    HQ: item.dist_hq,
-                    HMF: item.dist_hmf,
-                    HPL: item.dist_hpl,
-                    HST: item.dist_hst,
-                    HPC: item.dist_hpc,
-                    PPD: item.dist_ppd
+            distributionRows: dtn.items.map(item => {
+                const latestVersion = item.document?.drawing_versions?.[0];
+                let hasPhysicalFile = false;
+                
+                if (latestVersion && latestVersion.file_path) {
+                    const absPath = path.join(ROOT_DIR, latestVersion.file_path);
+                    hasPhysicalFile = fs.existsSync(absPath);
                 }
-            }))
+
+                return {
+                    id: item.id,
+                    srNo: item.sr_no,
+                    docNo: item.doc_no_title,
+                    rev: item.rev,
+                    copies: item.copies,
+                    document_master_id: item.document_master_id,
+                    has_file: hasPhysicalFile,
+                    deps: {
+                        HM: item.dist_hm,
+                        HQ: item.dist_hq,
+                        HMF: item.dist_hmf,
+                        HPL: item.dist_hpl,
+                        HST: item.dist_hst,
+                        HPC: item.dist_hpc,
+                        PPD: item.dist_ppd
+                    }
+                };
+            })
         };
     }
 
@@ -343,6 +370,156 @@ class DtnService {
 
         const nextNum = (lastNum + 1).toString().padStart(3, '0');
         return `SHR/DGN/${nextNum}`;
+    }
+
+    /**
+     * List unique Job Summary combinations for those that have at least one DTN created
+     */
+    async listJobSummariesWithDtns(companyId, search = "") {
+        const transmittals = await prisma.drawing_transmittal.findMany({
+            where: { company_id: companyId },
+            include: {
+                jobs: {
+                    include: { job: { select: { id: true, job_number: true } } }
+                }
+            }
+        });
+
+        const summaries = [];
+        const seen = new Set();
+        const searchLower = search?.toLowerCase();
+
+        transmittals.forEach(t => {
+            t.jobs.forEach(gj => {
+                const jobNum = gj.job?.job_number;
+                if (!jobNum) return;
+
+                const clientName = t.client_name || 'N/A';
+                const poNum = t.po_number || 'N/A';
+
+                // Apply search filter if provided
+                if (searchLower) {
+                    const matchesSearch = 
+                        clientName.toLowerCase().includes(searchLower) ||
+                        poNum.toLowerCase().includes(searchLower) ||
+                        jobNum.toLowerCase().includes(searchLower);
+                    
+                    if (!matchesSearch) return;
+                }
+
+                const key = `${clientName}-${poNum}-${jobNum}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    summaries.push({
+                        id: gj.job.id, // Important: ProDataTable uses 'id' for selection
+                        customer: clientName,
+                        po: poNum,
+                        job_number: jobNum,
+                        job_id: gj.job.id,
+                        customer_id: t.customer_id,
+                        po_id: t.po_id
+                    });
+                }
+            });
+        });
+
+        return summaries;
+    }
+
+    /**
+     * Get Master Drawing List for a specific Job
+     */
+    async getDrawingMasterByJob(companyId, jobId, search = "") {
+        // 1. Find all transmittal items for this job
+        const items = await prisma.drawing_transmittal_item.findMany({
+            where: {
+                dtn: {
+                    company_id: companyId,
+                    jobs: { some: { job_id: jobId } }
+                },
+                // Apply search filter if provided
+                OR: search ? [
+                    { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                    { document: { document_name: { contains: search, mode: 'insensitive' } } }
+                ] : undefined
+            },
+            include: {
+                document: { select: { id: true, document_number: true, document_name: true } }
+            },
+            orderBy: { dtn: { createdAt: 'desc' } }
+        });
+
+        // 2. Fetch Job-specific drawing aliases (Shreno Doc Nos)
+        // Note: For large datasets, we could pre-fetch these only once or filter them too.
+        // But for now, we'll keep the bridge active for the filtered items.
+        const groupDocs = await prisma.group_document.findMany({
+            where: {
+                company_id: companyId,
+                group: { job_group: { some: { job_id: jobId } } }
+            },
+            select: {
+                document_id: true,
+                shreno_doc_no: true
+            }
+        });
+
+        // 3. Map document IDs to Shreno Doc Nos for fallback matching
+        const shrenoMap = new Map();
+        groupDocs.forEach(gd => {
+            if (gd.document_id && gd.shreno_doc_no) {
+                if (!shrenoMap.has(gd.document_id)) shrenoMap.set(gd.document_id, new Set());
+                shrenoMap.get(gd.document_id).add(gd.shreno_doc_no);
+            }
+        });
+
+        // 4. Fetch all DCRs for this job
+        const dcrs = await prisma.dcr.findMany({
+            where: { job_id: jobId, company_id: companyId },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // 5. Group into unique documents and handle DCR mapping
+        const docMap = new Map();
+
+        items.forEach(item => {
+            if (!item.document) return;
+            const docId = item.document_master_id;
+            
+            if (!docMap.has(docId)) {
+                const systemDocNo = item.document.document_number;
+                const shrenoNos = shrenoMap.get(docId) || new Set();
+
+                // Find all DCRs that match either the System Doc No or any Shreno Doc No for this drawing
+                const matchingDcrs = dcrs.filter(d => 
+                    d.drg_no === systemDocNo || shrenoNos.has(d.drg_no)
+                ).map(d => d.dcr_no);
+
+                docMap.set(docId, {
+                    id: docId,
+                    drgNo: systemDocNo,
+                    docName: item.document.document_name,
+                    rev: item.rev,
+                    sheets: [],
+                    remark: "",
+                    dcrs: [...new Set(matchingDcrs)] // Unique DCR numbers
+                });
+            }
+        });
+
+        return Array.from(docMap.values());
+    }
+    async getJobHeaderInfo(jobId) {
+        return await prisma.job.findUnique({
+            where: { id: jobId },
+            include: { 
+                po: {
+                    select: {
+                        po_number: true,
+                        po_date: true
+                    }
+                }
+            }
+        });
     }
 }
 

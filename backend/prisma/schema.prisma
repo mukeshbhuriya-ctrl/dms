@@ -143,6 +143,8 @@ model user{
   mhc_production_reports material_heat_chart[] @relation("MhcProductionEngineer")
   mhc_qc_reports         material_heat_chart[] @relation("MhcQcEngineer")
   rfq_registers rfq_register[]
+  drawing_versions drawing_version[]
+  drawing_activities_performed drawing_activity[]
 
   // NCR relations
   ncr_raised_at_user ncr[] @relation("NcrRaisedAt")
@@ -334,6 +336,8 @@ model document_master{
   single_document single_document[]
   group_document group_document[]
   drawing_transmittal_items drawing_transmittal_item[]
+  drawing_versions drawing_version[]
+  drawing_activities drawing_activity[]
 }
 
 model single_document{
@@ -746,6 +750,36 @@ model drawing_transmittal_item {
   document              document_master?    @relation(fields: [document_master_id], references: [id])
 }
 
+// New Model for storing drawing revisions (DTN Native)
+model drawing_version {
+  id                 String   @id @default(uuid())
+  document_master_id String
+  version_no         Int      
+  file_url           String
+  file_path          String?
+  file_hash          String?
+  file_size          Int?
+  mime_type          String?
+  is_active          Boolean  @default(true)
+  uploaded_by        String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  document           document_master @relation(fields: [document_master_id], references: [id], onDelete: Cascade)
+  uploader           user @relation(fields: [uploaded_by], references: [id])
+}
+
+// New Model for creating the Audit Trail (DTN Native)
+model drawing_activity {
+  id                 String   @id @default(uuid())
+  document_master_id String
+  action             String   
+  performed_by       String?
+  createdAt          DateTime @default(now())
+
+  document           document_master @relation(fields: [document_master_id], references: [id], onDelete: Cascade)
+  user               user? @relation(fields: [performed_by], references: [id])
+}
 
 model material_heat_chart {
   id               String   @id @default(uuid())

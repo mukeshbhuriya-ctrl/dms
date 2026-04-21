@@ -502,13 +502,14 @@ class DccService {
 
         if (!document_name) throw new Error('Document name is required');
 
-        // Generate System Document Number: DOC-1
+        // Generate System Document Number: DOC-YYYY-MM-XXXXX
         const maxDoc = await prisma.document_master.findFirst({
             where: { company_id },
             orderBy: { serial_no: 'desc' }
         });
+
         const serial_no = (maxDoc?.serial_no || 0) + 1;
-        const document_number = `DOC-${serial_no}`;
+        const document_number = this._getFormattedDocNumber(serial_no);
 
         return await prisma.document_master.create({
             data: {
@@ -2304,6 +2305,13 @@ class DccService {
             });
             const jobMap = Object.fromEntries(foundJobs.map(j => [j.id, j]));
 
+            // Pre-fetch latest serial number once for the batch to ensure concurrency-safe consecutive numbering
+            const maxDocAtStart = await tx.document_master.findFirst({
+                where: { company_id },
+                orderBy: { serial_no: 'desc' }
+            });
+            let batchSerialCounter = maxDocAtStart?.serial_no || 0;
+
             for (const assign of assignments) {
                 const {
                     job_id,
@@ -2322,10 +2330,6 @@ class DccService {
 
                 // Backend Cleaning: Final trim and sanitize
                 const cleanDocName = document_name.trim();
-                const cleanShrenoNo = shreno_document_no?.trim() || null;
-                const cleanShrenoRef = shreno_reference_no?.trim() || null;
-                const cleanClientNo = client_document_no?.trim() || null;
-                const cleanClientRef = client_reference_no?.trim() || null;
 
                 // Extract customer, location, and po from the verified job mapping
                 const targetJob = jobMap[job_id];
@@ -2344,20 +2348,16 @@ class DccService {
                 });
 
                 if (!documentMaster) {
-                    // Generate a unique sequential document number
-                    const maxDoc = await tx.document_master.findFirst({
-                        where: { company_id },
-                        orderBy: { serial_no: 'desc' }
-                    });
-                    const serial_no = (maxDoc?.serial_no || 0) + 1;
-                    const document_number = `DOC-${serial_no}`;
+                    // Increment batch counter for the new document
+                    batchSerialCounter++;
+                    const docNumber = this._getFormattedDocNumber(batchSerialCounter);
 
                     documentMaster = await tx.document_master.create({
                         data: {
                             company_id,
-                            serial_no,
+                            serial_no: batchSerialCounter,
                             document_name: cleanDocName,
-                            document_number: document_number,
+                            document_number: docNumber,
                             document_type_id: document_type_id || null
                         }
                     });
@@ -2666,6 +2666,13 @@ class DccService {
             return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
         }
         return { contains: val, mode: 'insensitive' };
+    }
+
+    _getFormattedDocNumber(serial_no) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        return `DOC-${year}-${month}-${String(serial_no).padStart(5, '0')}`;
     }
 }
 

@@ -62,6 +62,23 @@ class StorageUtils {
     }
 
     /**
+     * Get the directory for a DTN target drawing revision
+     * Pattern: {company_id}/DTN/{job_number}/{document_number}/{version}/
+     */
+    getDtnDrawingRevisionDir(company_id, job_number, document_number, version) {
+        const dir = path.join(
+            UPLOAD_BASE,
+            company_id,
+            'DTN',
+            this._sanitize(job_number),
+            this._sanitize(document_number),
+            version.toString()
+        );
+        this._ensureDir(dir);
+        return dir;
+    }
+
+    /**
      * Get the directory for outgoing transmission packages
      */
     getTransmissionOutgoingDir(company_id, transmission_number) {

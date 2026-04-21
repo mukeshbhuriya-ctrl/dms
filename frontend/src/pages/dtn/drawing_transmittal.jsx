@@ -10,11 +10,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { 
+  DocumentPreviewDialog 
+} from "@/components/shared/DocumentPreviewDialog"
 import {
   Plus,
   ArrowLeft,
   Layers,
   Edit,
+  Upload,
+  History,
+  Eye,
+  Loader2,
+  Printer,
+  Download
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -28,6 +37,7 @@ import {
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import ProDataTable from "@/components/shared/ProDataTable"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick, refreshKey }) {
@@ -49,6 +59,30 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
       </span>
     )
   }
+
+  const handleExport = useCallback(async (id, refNo, mode = 'download') => {
+    const endpoint = `/api/dtn/download-note/${id}`;
+    const filename = `Transmittal_${refNo.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+
+    try {
+      if (mode === 'print') {
+        const response = await apiClient.get(endpoint, {}, { responseType: 'blob' });
+        const blob = new Blob([response], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
+      } else {
+        await exportApi.download(endpoint, filename, {}, { contentType: 'application/pdf' });
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Could not generate report. Please try again.");
+    }
+  }, []);
 
   const columns = useMemo(() => [
     { id: "ref_no", header: "Reference No", accessorKey: "ref_no" },
@@ -74,23 +108,46 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
           <Button 
             variant="outline" 
             size="sm" 
-            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none" 
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg" 
             onClick={() => onEditClick(row.id)}
+            title="Edit Transmittal"
           >
-            <Edit className="h-3.5 w-3.5 mr-1.5" />
-            <span className="text-[11px] font-medium">Edit</span>
+            <Edit className="h-3.5 w-3.5 mr-1" />
+            <span className="text-[10px] font-bold uppercase">Edit</span>
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg" 
+            onClick={() => handleExport(row.id, row.ref_no, 'print')}
+            title="Print Report"
+          >
+            <Printer className="h-3.5 w-3.5 mr-1" />
+            <span className="text-[10px] font-bold uppercase">Print</span>
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-400 transition-colors shadow-none rounded-lg bg-slate-950 text-white hover:bg-slate-800" 
+            onClick={() => handleExport(row.id, row.ref_no, 'download')}
+            title="Download PDF"
+          >
+            <Download className="h-3.5 w-3.5 mr-1" />
+            <span className="text-[10px] font-bold uppercase text-white/90">PDF</span>
           </Button>
         </div>
       )
     }
-  ], [onEditClick])
+  ], [onEditClick, handleExport])
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Drawing Transmittals</h1>
-          <p className="text-muted-foreground text-sm font-medium">View and manage all drawing transmittals.</p>
+          <h1 className="text-3xl font-black mb-1 tracking-tighter text-slate-900">Drawing Transmittals</h1>
+          <p className="text-slate-500 text-sm font-medium">Global repository for project transmittal records.</p>
         </div>
       </div>
 
@@ -136,9 +193,20 @@ function CreateView({ onBack, editId, defaultRefNo }) {
   })
 
   // Distribution Matrix (SS10 Replication)
-  const [distributionRows, setDistributionRows] = useState([
-    { id: Date.now(), srNo: "01", docNo: "MASTER LIST OF DRAWING & DOCUMENT", rev: "10", copies: "01", deps: {} }
-  ])
+  const [distributionRows, setDistributionRows] = useState([])
+  const [availableDocuments, setAvailableDocuments] = useState([]) // New state
+  
+  // DTN Upload State Tracking
+  const [uploadingIds, setUploadingIds] = useState({})
+  const [versionHistory, setVersionHistory] = useState({}) // { rowId: latestRevNo }
+  const [stagedFiles, setStagedFiles] = useState({}) // { rowId: File object }
+  
+  // Preview Dialog State
+  const [previewDialog, setPreviewDialog] = useState({
+    isOpen: false,
+    url: "",
+    doc: null
+  })
 
   const depts = ["HM", "HQ", "HMF", "HPL", "HST", "HPC", "PPD"]
 
@@ -167,6 +235,36 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             setIssuedTo(d.issued_to)
             setIssuedFor(d.issued_for)
             setDistributionRows(d.distributionRows)
+            
+            // Populate version history state so Eye/History icons show up correctly
+            const initialHistory = {}
+            d.distributionRows.forEach(row => {
+              if (row.has_file && row.rev !== undefined && row.rev !== "") {
+                initialHistory[row.id] = parseInt(row.rev)
+              } else if (!row.has_file && row.rev !== undefined && row.rev !== "") {
+                initialHistory[row.id] = -2 // Version exists in DB but file missing on disk
+              } else {
+                initialHistory[row.id] = -1 // No version record at all
+              }
+            })
+            setVersionHistory(initialHistory)
+            
+            // Re-populate available documents so the dropdown can resolve labels
+            if (d.jobIds && d.jobIds.length > 0) {
+              try {
+                const docsRes = await apiClient.get(`/api/dtn/documents-by-jobs?jobIds=${d.jobIds.join(',')}`)
+                if (docsRes.success && docsRes.data) {
+                  const docs = docsRes.data.map(doc => ({
+                    value: doc.document_master_id,
+                    label: `[${doc.shreno_doc_no}] ${doc.document_name}`,
+                    docData: doc
+                  }))
+                  setAvailableDocuments(docs)
+                }
+              } catch (e) {
+                console.error("Failed to load documents for edit", e)
+              }
+            }
           }
         } else {
            // Fetch next reference number from backend
@@ -274,17 +372,26 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             ...acc, [k.toUpperCase()]: v
           }), {});
 
-          const newRows = res.data.map((doc, index) => ({
-            id: doc.id || Date.now() + index,
-            srNo: (index + 1).toString().padStart(2, '0'),
-            // Combine System ID and Name for the title column
-            docNo: `[${doc.system_doc_id}] ${doc.document_name}`,
-            document_master_id: doc.document_master_id,
-            rev: "0", // Default to Rev 0
-            copies: "01", // Default to 1 copy
-            deps: { ...currentDeps } // Inherit current Issued To selection
+          // Populate available documents instead of direct rows
+          const docs = res.data.map(doc => ({
+            value: doc.document_master_id,
+            label: `[${doc.shreno_doc_no}] ${doc.document_name}`,
+            docData: doc
           }))
-          setDistributionRows(newRows)
+          setAvailableDocuments(docs)
+
+          // Auto-add one empty row if matrix is empty
+          if (distributionRows.length === 0) {
+            setDistributionRows([{
+              id: Date.now(),
+              srNo: "01",
+              docNo: "",
+              document_master_id: "",
+              rev: "0",
+              copies: "01",
+              deps: { ...currentDeps }
+            }])
+          }
         }
       } catch (error) {
         console.error("Error fetching documents for jobs:", error)
@@ -293,6 +400,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
     } else {
       // Clear matrix and auto-fill if no jobs selected
       setDistributionRows([])
+      setAvailableDocuments([])
       setAutoFill({
         reportNo: "SHR/DGN/001",
         client: "",
@@ -318,6 +426,44 @@ function CreateView({ onBack, editId, defaultRefNo }) {
     setSavingStatus(status)
     const firstJob = jobs.find(j => String(j.id) === String(jobIds[0]))
 
+    // --- STEP 1: Process Batch Uploads for Staged Files ---
+    const rowsWithFiles = distributionRows.filter(row => stagedFiles[row.id]);
+    let finalRows = [...distributionRows];
+
+    if (rowsWithFiles.length > 0) {
+      try {
+        const uploadPromises = rowsWithFiles.map(async (row) => {
+          const formData = new FormData();
+          formData.append('file', stagedFiles[row.id]);
+          
+          // Use first job number as directory context
+          const jobNumber = firstJob?.job_number || "NA";
+          
+          // Use 'overwrite' mode if editing an existing transmittal
+          const uploadMode = editId ? 'overwrite' : 'increment';
+          
+          const res = await apiClient.post(
+            `/api/dtn/drawing/${row.document_master_id}/upload?job_number=${encodeURIComponent(jobNumber)}&mode=${uploadMode}`, 
+            formData
+          );
+          
+          return { rowId: row.id, newRev: res.data.version_no };
+        });
+
+        const uploadResults = await Promise.all(uploadPromises);
+        
+        // Update revision numbers in final submission payload
+        uploadResults.forEach(({ rowId, newRev }) => {
+          finalRows = finalRows.map(r => r.id === rowId ? { ...r, rev: newRev.toString() } : r);
+        });
+      } catch (err) {
+        console.error("Batch upload failed:", err);
+        toast.error("Drawing upload failed. Please try again.");
+        setSavingStatus(null);
+        return;
+      }
+    }
+
     const payload = {
       ref_no: autoFill.reportNo,
       date: new Date().toISOString(),
@@ -332,9 +478,9 @@ function CreateView({ onBack, editId, defaultRefNo }) {
       code: autoFill.code,
       issued_to: issuedTo,
       issued_for: issuedFor,
-      status, // New: Draft or Pending
+      status, 
       jobIds: jobIds,
-      items: distributionRows
+      items: finalRows
     }
 
     try {
@@ -527,8 +673,15 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         </CardContent>
       </Card>
       <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 border-b bg-muted/5 py-4">
+        <CardHeader className="pb-4 border-b bg-muted/5 py-3 flex flex-row items-center justify-between">
            <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
+           <Button 
+             onClick={addMatrixRow}
+             className="h-9 px-4 bg-slate-900 hover:bg-black text-white rounded-md shadow-sm transition-all text-xs font-bold tracking-wide gap-2 border-none"
+           >
+             <Plus className="h-4 w-4" />
+             Add Item
+           </Button>
         </CardHeader>
         <CardContent className="p-0">
            <div className="overflow-x-auto custom-scrollbar-x">
@@ -538,12 +691,11 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">Sr. No</th>
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 text-left min-w-[300px]">Document Number / Title</th>
                        <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">Rev No</th>
+                       <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">No. of Copy</th>
                        {depts.map(d => (
                           <th key={d} className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">{d}</th>
                        ))}
-                       <th className="p-2 border-r w-16"></th>
-                       <th className="p-2 border-r w-16"></th>
-                       <th className="p-2 w-16"></th>
+                        <th className="p-2 border-l text-[10px] font-bold uppercase text-slate-600 w-32 text-center">Action</th>
                     </tr>
                  </thead>
                  <tbody>
@@ -553,17 +705,54 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                              {row.srNo}
                           </td>
                           <td className="p-1 border-r">
-                             <Input 
-                               value={row.docNo} 
-                               onChange={(e) => updateMatrixCell(row.id, 'docNo', e.target.value)}
-                               className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 font-medium placeholder:italic uppercase"
-                               placeholder="ENTER DOC NO / TITLE"
+                             <SearchableSelect 
+                               options={availableDocuments}
+                               value={row.document_master_id || ''}
+                               onValueChange={async (val) => {
+                                  const selectedDoc = availableDocuments.find(d => d.value === val);
+                                  if (selectedDoc) {
+                                     updateMatrixCell(row.id, 'document_master_id', val);
+                                     updateMatrixCell(row.id, 'docNo', selectedDoc.label);
+                                     
+                                     // Poll backend for the latest history native to this Document Master
+                                     try {
+                                        const histRes = await apiClient.get(`/api/dtn/drawing/${val}/history`);
+                                        const latestRev = histRes.data.latestVersionNo || 0;
+                                        const nextRev = histRes.data.nextVersionNo || 0;
+                                        const hasFile = histRes.data.hasPhysicalFile;
+
+                                        // ── Context-Aware Revision Logic ──
+                                        const assignedRev = editId ? latestRev : nextRev;
+
+                                        updateMatrixCell(row.id, 'rev', assignedRev.toString());
+                                        updateMatrixCell(row.id, 'copies', "01");
+                                        
+                                        setVersionHistory(prev => ({ 
+                                          ...prev, 
+                                          [row.id]: hasFile ? latestRev : -2 
+                                        }));
+                                     } catch (err) {
+                                        // Silent fallback to defaults if no history found
+                                        updateMatrixCell(row.id, 'rev', '0');
+                                        updateMatrixCell(row.id, 'copies', "01");
+                                        setVersionHistory(prev => ({ ...prev, [row.id]: -1 }));
+                                     }
+                                  }
+                               }}
+                               placeholder="Select Document"
                              />
                           </td>
                           <td className="p-1 border-r text-center">
                              <Input 
                                value={row.rev} 
                                onChange={(e) => updateMatrixCell(row.id, 'rev', e.target.value)}
+                               className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
+                             />
+                          </td>
+                          <td className="p-1 border-r text-center">
+                             <Input 
+                               value={row.copies} 
+                               onChange={(e) => updateMatrixCell(row.id, 'copies', e.target.value)}
                                className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
                              />
                           </td>
@@ -578,21 +767,89 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                                 </div>
                              </td>
                           ))}
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          <td></td>
+                          <td className="p-2 border-l text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {!row.document_master_id ? (
+                                  <span className="text-[10px] text-slate-400 font-medium">Select Doc</span>
+                                ) : (
+                                  <>
+                                     <Label 
+                                       htmlFor={`upload-dtn-${row.id}`} 
+                                       className={`cursor-pointer h-7 w-7 rounded-sm flex items-center justify-center hover:bg-slate-100 transition-colors ${stagedFiles[row.id] ? 'text-emerald-600 bg-emerald-50' : 'text-blue-600'}`}
+                                       title={stagedFiles[row.id] ? `File Staged: ${stagedFiles[row.id].name}` : "Step 1: Choose Drawing File"}
+                                     >
+                                        {stagedFiles[row.id] ? <Plus className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+                                     </Label>
+                                     <Input 
+                                       id={`upload-dtn-${row.id}`} 
+                                       type="file" 
+                                       className="hidden" 
+                                       onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (!file || !row.document_master_id) return;
+                                          
+                                          setStagedFiles(prev => ({ ...prev, [row.id]: file }));
+                                       }}
+                                     />
+                                     
+                                     {stagedFiles[row.id] && (
+                                       <span className="text-[9px] text-emerald-600 font-bold truncate max-w-[60px]" title={stagedFiles[row.id].name}>
+                                         {stagedFiles[row.id].name}
+                                       </span>
+                                     )}
+
+                                     {(versionHistory[row.id] !== undefined && (versionHistory[row.id] >= 0 || versionHistory[row.id] === -2) && !stagedFiles[row.id]) && (
+                                       <>
+                                         <Button 
+                                           variant="ghost" 
+                                           size="icon" 
+                                           className={`h-7 w-7 rounded-sm ${versionHistory[row.id] === -2 ? 'text-slate-300 pointer-events-none' : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'}`}
+                                           title={versionHistory[row.id] === -2 ? "File not found on server" : "Preview Last Upload"}
+                                           disabled={versionHistory[row.id] === -2}
+                                           onClick={async () => {
+                                             if (versionHistory[row.id] === -2) return;
+                                             try {
+                                               const rev = versionHistory[row.id];
+                                               // The download endpoint returns a file stream
+                                               const previewUrl = `/api/dtn/drawing/${row.document_master_id}/download?version=${rev}&mode=preview`;
+                                               
+                                               // Pre-identify doc for preview component
+                                               const activeDoc = {
+                                                 documentName: row.doc_no_title,
+                                                 filePath: `rev_${rev}.pdf` // Hinting to component
+                                               };
+
+                                               setPreviewDialog({
+                                                 isOpen: true,
+                                                 url: `${import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"}${previewUrl}`,
+                                                 doc: activeDoc
+                                               });
+                                             } catch (err) {
+                                               toast.error("Failed to prepare preview.");
+                                             }
+                                           }}
+                                         >
+                                           <Eye className="h-4 w-4" />
+                                         </Button>
+                                         <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-sm" title="Audit Trail">
+                                            <History className="h-4 w-4" />
+                                         </Button>
+                                       </>
+                                     )}
+                                  </>
+                                )}
+                              </div>
+                          </td>
                        </tr>
                     ))}
                     {[1, 2, 3].map(i => (
                        <tr key={i} className="h-10 border-b last:border-0 opacity-40">
                           <td className="border-r px-2 text-[10px] text-slate-400 text-center font-bold">{(distributionRows.length + i).toString().padStart(2, '0')}</td>
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          {depts.map(d => <td key={d} className="border-r"></td>)}
-                          <td className="border-r"></td>
-                          <td className="border-r"></td>
-                          <td></td>
+                           <td className="border-r"></td>
+                           <td className="border-r"></td>
+                           <td className="border-r"></td>
+                           {depts.map(d => <td key={d} className="border-r"></td>)}
+                           <td className="border-l"></td>
                        </tr>
                     ))}
                  </tbody>
@@ -621,11 +878,18 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         <Button 
           onClick={() => handleSubmit("Pending")} 
           disabled={savingStatus !== null}
-          className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] uppercase tracking-wide border-none"
+          className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] tracking-wide border-none"
         >
           {savingStatus === "Pending" ? "Processing..." : "Generate Transmittal"}
         </Button>
       </div>
+
+      <DocumentPreviewDialog 
+        isOpen={previewDialog.isOpen}
+        onOpenChange={(open) => setPreviewDialog(prev => ({ ...prev, isOpen: open }))}
+        previewUrl={previewDialog.url}
+        activePreviewDoc={previewDialog.doc}
+      />
     </div>
   )
 }

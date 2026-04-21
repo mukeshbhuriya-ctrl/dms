@@ -172,6 +172,108 @@ class FileService {
 
     return version;
   }
+
+  /**
+   * Manages Drawing Versions natively for DTN (Drawing Transmittals)
+   * Starts at version_no = 0 safely and logs the activity.
+   */
+  async createNewDrawingVersion(tx, documentMasterId, userId, fileData) {
+    // 1. Mark all previous active versions of this drawing inactive
+    await tx.drawing_version.updateMany({
+      where: { document_master_id: documentMasterId, is_active: true },
+      data: { is_active: false }
+    });
+
+    // 2. Identify the logical Next Version Number
+    const lastVersion = await tx.drawing_version.findFirst({
+      where: { document_master_id: documentMasterId },
+      orderBy: { version_no: 'desc' }
+    });
+    
+    // Starts at 0 per user instruction
+    const nextVersionNo = lastVersion ? lastVersion.version_no + 1 : 0;
+
+    // Secure custom download URL endpoint
+    const fileUrl = `/api/dtn/drawing/${documentMasterId}/download?version=${nextVersionNo}`;
+
+    // 3. Insert the new Drawing Version (using connect for relations)
+    const version = await tx.drawing_version.create({
+      data: {
+        document:  { connect: { id: documentMasterId } },
+        uploader:  { connect: { id: userId } },
+        version_no: nextVersionNo,
+        file_url: fileUrl,
+        file_path: fileData.filePath,
+        file_hash: fileData.fileHash,
+        file_size: fileData.fileSize,
+        mime_type: fileData.mimeType,
+        is_active: true,
+      }
+    });
+
+    // 4. Record to the Audit Trail
+    await tx.drawing_activity.create({
+      data: {
+        document: { connect: { id: documentMasterId } },
+        action: `Uploaded Revision ${nextVersionNo}`,
+        ...(userId ? { user: { connect: { id: userId } } } : {})
+      }
+    });
+
+    return version;
+  }
+
+  /**
+   * Overwrites the latest active drawing version record for a document.
+   * Used strictly for corrections during Edit mode.
+   */
+  async updateLatestDrawingVersion(tx, documentMasterId, userId, fileData) {
+    // 1. Find the latest active version
+    const activeVersion = await tx.drawing_version.findFirst({
+      where: { document_master_id: documentMasterId, is_active: true },
+      orderBy: { version_no: 'desc' }
+    });
+
+    if (!activeVersion) {
+      // Fallback: if no version exists, create one (rev 0)
+      return await this.createNewDrawingVersion(tx, documentMasterId, userId, fileData);
+    }
+
+    // 2. Cleanup: Physically delete the old file if it exists
+    if (activeVersion.file_path) {
+      try {
+        const oldPath = path.join(ROOT_DIR, activeVersion.file_path);
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      } catch (err) {
+        console.warn(`Failed to delete old revision file: ${activeVersion.file_path}`, err);
+      }
+    }
+
+    // 3. Update existing record with new file metadata
+    const updated = await tx.drawing_version.update({
+      where: { id: activeVersion.id },
+      data: {
+        file_path: fileData.filePath,
+        file_hash: fileData.fileHash,
+        file_size: fileData.fileSize,
+        mime_type: fileData.mimeType,
+        uploader: { connect: { id: userId } }
+      }
+    });
+
+    // 3. Log the overwrite activity
+    await tx.drawing_activity.create({
+      data: {
+        document: { connect: { id: documentMasterId } },
+        action: `Overwrote Revision ${activeVersion.version_no}`,
+        ...(userId ? { user: { connect: { id: userId } } } : {})
+      }
+    });
+
+    return updated;
+  }
 }
 
 module.exports = new FileService();
