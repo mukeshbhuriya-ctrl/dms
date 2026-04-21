@@ -20,7 +20,7 @@ class MasterListPdfGenerator {
         doc.lineWidth(lineWidth).strokeColor(this.colors.black).moveTo(x1, y1).lineTo(x2, y2).stroke();
     }
 
-    drawHeader(doc, x, y, width, jobData) {
+    drawHeader(doc, x, y, width, jobData, companyInfo) {
         const logoBoxW = 160;
         const mainTitleW = 180;
         const infoGridW = width - logoBoxW - mainTitleW;
@@ -31,16 +31,27 @@ class MasterListPdfGenerator {
         
         // 1. Logo Box
         doc.rect(x, y, logoBoxW, totalH).stroke();
-        const logoPath = path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png'); // Standard logo path
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 15, { height: 35 });
+                // Center logo absolutely in the logo box using fit/align/valign as per reference
+                doc.image(logoPath, x + 5, y + 5, { 
+                    fit: [logoBoxW - 10, totalH - 10], 
+                    align: 'center', 
+                    valign: 'center' 
+                });
             } catch (e) {
-                // Silently skip if image fails
+                // Fallback if image fails
+                if (companyInfo?.name) {
+                    doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+                        .text(companyInfo.name, x, y + totalH / 2 - 5, { width: logoBoxW, align: 'center' });
+                }
             }
+        } else if (companyInfo?.name) {
+            // Fallback if no logo file
+            doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+                .text(companyInfo.name, x, y + totalH / 2 - 5, { width: logoBoxW, align: 'center' });
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text('Shreno Engineering Limited', x + 50, y + 25, { width: logoBoxW - 55, align: 'left' });
 
         // 2. Main Title Box
         const titleX = x + logoBoxW;
@@ -126,7 +137,7 @@ class MasterListPdfGenerator {
         return { height: totalH, colWs: cols, dcrSubW };
     }
 
-    generatePDF(data, res, jobHeader) {
+    generatePDF(data, res, jobHeader, companyInfo) {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
@@ -135,7 +146,7 @@ class MasterListPdfGenerator {
         const pageWidth = doc.page.width - 40;
 
         // Header
-        curY += this.drawHeader(doc, startX, curY, pageWidth, jobHeader);
+        curY += this.drawHeader(doc, startX, curY, pageWidth, jobHeader, companyInfo);
         curY += 5;
 
         // Table Header

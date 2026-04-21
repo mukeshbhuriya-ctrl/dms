@@ -42,7 +42,7 @@ class DtnNotePdfGenerator {
            .stroke();
     }
 
-    generatePDF(data, res) {
+    generatePDF(data, res, companyInfo) {
         const doc = new PDFDocument({ margin: 30, size: 'A4', bufferPages: true });
         doc.pipe(res);
 
@@ -56,21 +56,35 @@ class DtnNotePdfGenerator {
         
         // Logo Section
         const logoW = 180;
-        const logoPath = path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
+        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, startX + 5, curY + 10, { height: 30 });
-            } catch (e) {}
+                // Center logo absolutely in the logo box using fit/align/valign as per reference
+                doc.image(logoPath, startX + 5, curY + 5, { 
+                    fit: [logoW - 10, headerH - 10], 
+                    align: 'center', 
+                    valign: 'center' 
+                });
+            } catch (e) {
+                // Fallback to name if image fails
+                if (companyInfo?.name) {
+                    doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+                        .text(companyInfo.name, startX, curY + headerH / 2 - 5, { width: logoW, align: 'center' });
+                }
+            }
+        } else if (companyInfo?.name) {
+            // Fallback if no logo file
+            doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
+                .text(companyInfo.name, startX, curY + headerH / 2 - 5, { width: logoW, align: 'center' });
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text('Shreno Engineering Limited', startX + 45, curY + 18, { width: logoW - 50 });
 
         // Vertical Line after logo
         this.drawLine(doc, startX + logoW, curY, startX + logoW, curY + headerH, 1);
 
         // Company Name Central
+        const companyName = (companyInfo?.name || 'SHRENO ENGINEERING LIMITED').toUpperCase();
         doc.font(this.fonts.bold).fontSize(this.fontSize.header).fillColor(this.colors.black)
-            .text('SHRENO ENGINEERING LIMITED', startX + logoW, curY + 15, { width: pageWidth - logoW, align: 'center' });
+            .text(companyName, startX + logoW, curY + 15, { width: pageWidth - logoW, align: 'center' });
 
         curY += headerH;
 
