@@ -91,6 +91,9 @@ app.use('/api/rfq', rfqRoutes);
 const ncrRoutes = require('#routes/ncr/ncr.routes.js');
 app.use('/api/ncr', ncrRoutes);
 
+const adminDashboardRoutes = require('#routes/admin/dashboard.routes.js');
+app.use('/api/admin/dashboard', adminDashboardRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
