@@ -146,7 +146,7 @@ export function ImportReviewDialog({
                 <Button 
                     onClick={onConfirm} 
                     className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all px-8 h-10 font-medium whitespace-nowrap"
-                    disabled={isImporting || isValidating || disableConfirm || data.length === 0 || errorCount > 0}
+                    disabled={isImporting || isValidating || disableConfirm || validCount === 0}
                 >
                     {isImporting ? (
                         <div className="flex items-center gap-2">
