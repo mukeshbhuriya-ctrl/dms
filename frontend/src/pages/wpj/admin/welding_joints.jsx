@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -33,10 +34,14 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
-import { Eye, Plus, X, Copy, Pencil } from "lucide-react"
-import { exportApi } from "@/api/export.api"
+import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircle, Download } from "lucide-react"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { toast } from "react-toastify"
+import apiClient from "@/api/api.client"
+import { generateExcelTemplate, parseExcelFile } from "@/utils/excelImportEngine"
+import ImportReviewDialog from "@/components/shared/ImportReviewDialog"
 
 function WeldingJoints() {
   const [formData, setFormData] = useState({
@@ -84,6 +89,196 @@ function WeldingJoints() {
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [isViewLoading, setIsViewLoading] = useState(false)
+
+  // Bulk Import State
+  const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
+  const [excelData, setExcelData] = useState([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [jobMetadata, setJobMetadata] = useState({});
+  const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
+  const [columnFilters, setColumnFilters] = useState({});
+
+  const fetchJobMetadata = useCallback(async (data) => {
+    const uniqueMsns = [...new Set(data.map(d => d.msn))];
+    setIsFetchingMetadata(true);
+    const metadataMap = {};
+
+    try {
+      await Promise.all(uniqueMsns.map(async (msn) => {
+        try {
+          const res = await apiClient.get(`/api/common/jobs/by-number/${msn}`);
+          if (res.success && res.data) {
+            metadataMap[msn] = res.data;
+          } else {
+            metadataMap[msn] = { error: "Job Not Found" };
+          }
+        } catch (err) {
+          metadataMap[msn] = { error: "Job Not Found" };
+        }
+      }));
+      setJobMetadata(metadataMap);
+    } catch (err) {
+      console.error("Failed to fetch metadata:", err);
+    } finally {
+      setIsFetchingMetadata(false);
+    }
+  }, []);
+
+  const handleDownloadTemplate = () => {
+    const headers = [
+      ["Job Number", "SHRENO DRG NO.", "Customer DRG. NO.", "CODE OF CONSTRUCTION", "Joint No", "Joint Type (A/B/C/D/F)", "Description", "Base Metal Thk P1", "Base Metal Thk P2", "Base Metal Spec P1", "Base Metal Spec P2", "Consumable", "WPS/PQR No", "Process", "Impact Test", "Back Chip Req", "PWHT", "RT", "PT", "Remarks"],
+      ["101010232", "DRG-1234", "CUST-456", "ASME Section VIII", "J-01", "A", "Long Seam", "10", "15", "SA 516 Gr 70", "SA 516 Gr 70", "E7018", "WPS-01/PQR-01", "SMAW", "yes", "yes", "yes", "yes", "yes", "No Remarks"],
+      ["101010232", "DRG-1234", "CUST-456", "ASME Section VIII", "J-02", "F", "Fillet Weld", "10", "15", "SA 516 Gr 70", "SA 516 Gr 70", "E7018", "WPS-01/PQR-01", "SMAW", "no", "no", "yes", "no", "yes", "Typical row"]
+    ];
+    generateExcelTemplate(headers, "WPJ_Import_Template.xlsx", "WPJ_Template");
+  };
+
+  const handleImportExcel = useCallback(async (file) => {
+    if (!file) return;
+
+    try {
+        const { rows, warning } = await parseExcelFile(file, ["job number", "msn"]);
+        if (warning) toast.warn(warning);
+
+        const seenKeys = new Set();
+        const parsedData = rows.map((row, idx) => {
+          const msn = String(row[0] || "").trim();
+          const shrDrgNo = String(row[1] || "").trim();
+          const codeOfConstruction = String(row[3] || "").trim();
+          const jointNo = String(row[4] || "").trim();
+          const jointType = String(row[5] || "").trim().toUpperCase();
+          const description = String(row[6] || "").trim();
+          
+          const errors = [];
+          if (!msn) errors.push("Job Number is required");
+          if (!shrDrgNo) errors.push("SHRENO DRG NO is required");
+          if (!codeOfConstruction) errors.push("Code of Construction is required");
+          if (!jointNo) errors.push("Joint No is required");
+          if (!description) errors.push("Description is required");
+          
+          let backChip = String(row[15] || "").trim().toLowerCase();
+          if (jointType === 'F') {
+              backChip = "no";
+          } else {
+              backChip = backChip === 'y' || backChip === 'yes' || backChip === 'true' ? 'yes' : (backChip === 'n' || backChip === 'no' || backChip === 'false' ? 'no' : '');
+          }
+          
+          const pwht = String(row[16] || "").trim().toLowerCase();
+          const rt = String(row[17] || "").trim().toLowerCase();
+          const pt = String(row[18] || "").trim().toLowerCase();
+
+          const formatBooleanStr = (val) => val === 'y' || val === 'yes' || val === 'true' ? 'yes' : (val === 'n' || val === 'no' || val === 'false' ? 'no' : '');
+
+          const batchKey = `${msn}-${jointNo}`.toUpperCase();
+          let isDuplicate = false;
+          if (msn && jointNo) {
+             if (seenKeys.has(batchKey)) isDuplicate = true;
+             else seenKeys.add(batchKey);
+          }
+
+          return {
+            msn,
+            shrDrgNo,
+            customerDrgNo: String(row[2] || "").trim(),
+            codeOfConstruction,
+            jointNo,
+            jointType,
+            joint: description,
+            baseMetalThicknessPart1: String(row[7] || "").trim(),
+            baseMetalThicknessPart2: String(row[8] || "").trim(),
+            baseMetalSpecPart1: String(row[9] || "").trim(),
+            baseMetalSpecPart2: String(row[10] || "").trim(),
+            consumable: String(row[11] || "").trim(),
+            wpsNoPqrNo: String(row[12] || "").trim(),
+            process: String(row[13] || "").trim(),
+            impactTest: String(row[14] || "").trim(),
+            backChipReq: backChip,
+            pwht: formatBooleanStr(pwht),
+            rt: formatBooleanStr(rt),
+            pt: formatBooleanStr(pt),
+            remarks: String(row[19] || "").trim(),
+            status: errors.length > 0 ? "error" : (isDuplicate ? "duplicate" : "valid"),
+            message: errors.length > 0 ? errors.join(" | ") : (isDuplicate ? "Duplicate Joint No in file" : "Ready")
+          };
+        }).filter(r => r.msn || r.jointNo);
+
+        if (parsedData.length === 0) {
+          toast.warn("No valid records found in file.");
+          return;
+        }
+
+        setExcelData(parsedData);
+        setTimeout(() => {
+          setBulkImportDialogOpen(true);
+          fetchJobMetadata(parsedData);
+        }, 100);
+
+    } catch (err) {
+        toast.error(err.message);
+    }
+  }, [fetchJobMetadata]);
+
+  const confirmBulkImport = async () => {
+      setIsImporting(true);
+      
+      // Group flat rows into Reports
+      const reportGroups = {};
+      excelData.forEach(row => {
+          if (row.status !== 'error' && !jobMetadata[row.msn]?.error && row.status !== 'duplicate') {
+              const key = row.msn; // Group by Job Number
+              if (!reportGroups[key]) {
+                  reportGroups[key] = {
+                      msn: row.msn,
+                      shrDrgNo: row.shrDrgNo,
+                      customerDrgNo: row.customerDrgNo,
+                      codeOfConstruction: row.codeOfConstruction,
+                      items: []
+                  };
+              }
+              reportGroups[key].items.push({
+                  jointNo: row.jointNo,
+                  jointType: row.jointType,
+                  joint: row.joint,
+                  baseMetalThicknessPart1: row.baseMetalThicknessPart1,
+                  baseMetalThicknessPart2: row.baseMetalThicknessPart2,
+                  baseMetalSpecPart1: row.baseMetalSpecPart1,
+                  baseMetalSpecPart2: row.baseMetalSpecPart2,
+                  consumable: row.consumable,
+                  wpsNoPqrNo: row.wpsNoPqrNo,
+                  process: row.process,
+                  impactTest: row.impactTest,
+                  backChipReq: row.backChipReq,
+                  pwht: row.pwht,
+                  rt: row.rt,
+                  pt: row.pt,
+                  remarks: row.remarks
+              });
+          }
+      });
+
+      const payload = Object.values(reportGroups);
+      if (payload.length === 0) {
+          toast.info("No valid records to import.");
+          setIsImporting(false);
+          return;
+      }
+      
+      try {
+          const res = await apiClient.post("/api/wpj/bulk-create", payload);
+          if (res.success) {
+              toast.success(res.message || "Bulk import completed successfully");
+              setBulkImportDialogOpen(false);
+              setRefreshKey(prev => prev + 1);
+          } else {
+              toast.error(res.message || "Failed to complete bulk import");
+          }
+      } catch (err) {
+          console.error(err);
+          toast.error("Failed to save WPJ records");
+      } finally {
+          setIsImporting(false);
+      }
+  };
 
   const handleExport = async () => {
     try {
@@ -602,12 +797,7 @@ function WeldingJoints() {
               </div>
               <div>
                 {view === "list" ? (
-                  <Button onClick={() => {
-                    handleReset()
-                    setView("create")
-                  }}>
-                    <Plus className="mr-2 h-4 w-4" /> Create Plan
-                  </Button>
+                  null
                 ) : (
                   <Button variant="outline" onClick={() => setView("list")}>
                     Back to List
@@ -629,11 +819,22 @@ function WeldingJoints() {
             )}
 
             {view === "list" ? (
-              <div className="flex-1">
-                <DataTable
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <ProDataTable
                   columns={columns}
                   fetchData={fetchPlans}
                   onExport={handleExport}
+                  onAdd={() => {
+                    handleReset()
+                    setView("create")
+                  }}
+                  onImport={handleImportExcel}
+                  onDownloadTemplate={handleDownloadTemplate}
+                  columnFilters={columnFilters}
+                  onFilterChange={(newFilter) => {
+                    setColumnFilters(prev => ({ ...prev, ...newFilter }));
+                  }}
+                  refreshKey={refreshKey}
                 />
               </div>
             ) : (
@@ -1360,6 +1561,58 @@ function WeldingJoints() {
                 )}
               </DialogContent>
             </Dialog>
+
+            <ImportReviewDialog
+                open={bulkImportDialogOpen}
+                onOpenChange={setBulkImportDialogOpen}
+                title="Review WPJ Import"
+                description="Verify the welding joint plan details and Job (MSN) validation before confirming."
+                data={excelData.map(row => {
+                    const job = jobMetadata[row.msn];
+                    const hasMsnError = job?.error || !row.msn;
+                    return {
+                        ...row,
+                        status: hasMsnError ? 'error' : row.status,
+                        message: hasMsnError ? `Job Number "${row.msn || 'Empty'}" not found | ${row.message !== 'Ready' ? row.message : ''}` : row.message,
+                        jobEquip: job && !job.error ? job.equipement_name : null
+                    }
+                })}
+                columns={[
+                    { header: "Job No", key: "msn", minWidth: "120px", render: (row) => (
+                        <div>
+                             <div className="font-semibold">{row.msn}</div>
+                             {row.jobEquip && <div className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[150px]">{row.jobEquip}</div>}
+                        </div>
+                    )},
+                    { header: "SHR Drg No", key: "shrDrgNo", minWidth: "120px" },
+                    { header: "Customer Drg No", key: "customerDrgNo", minWidth: "120px" },
+                    { header: "Code of Const.", key: "codeOfConstruction", minWidth: "120px" },
+                    { header: "Joint No", key: "jointNo", minWidth: "80px", render: (row) => <div className="font-semibold text-xs">{row.jointNo || "-"}</div> },
+                    { header: "Joint Type", key: "jointType", minWidth: "80px", render: (row) => <div className="text-center font-bold text-slate-700">{row.jointType || "-"}</div> },
+                    { header: "Description", key: "joint", minWidth: "150px", render: (row) => <div className="text-[11px] truncate max-w-[150px]" title={row.joint}>{row.joint || "-"}</div> },
+                    { header: "Thk P1", key: "baseMetalThicknessPart1", minWidth: "80px" },
+                    { header: "Thk P2", key: "baseMetalThicknessPart2", minWidth: "80px" },
+                    { header: "Base Spec P1", key: "baseMetalSpecPart1", minWidth: "100px" },
+                    { header: "Base Spec P2", key: "baseMetalSpecPart2", minWidth: "100px" },
+                    { header: "Consumable", key: "consumable", minWidth: "100px" },
+                    { header: "WPS/PQR No", key: "wpsNoPqrNo", minWidth: "120px" },
+                    { header: "Process", key: "process", minWidth: "80px" },
+                    { header: "Impact Test", key: "impactTest", minWidth: "80px" },
+                    { header: "Back Chip", key: "backChipReq", minWidth: "80px", render: (row) => <div className="text-center text-[10px]">{row.backChipReq ? row.backChipReq.toUpperCase() : "-"}</div> },
+                    { header: "PWHT", key: "pwht", minWidth: "60px", render: (row) => <div className="text-center text-[10px]">{row.pwht ? row.pwht.toUpperCase() : "-"}</div> },
+                    { header: "RT", key: "rt", minWidth: "60px", render: (row) => <div className="text-center text-[10px]">{row.rt ? row.rt.toUpperCase() : "-"}</div> },
+                    { header: "PT", key: "pt", minWidth: "60px", render: (row) => <div className="text-center text-[10px]">{row.pt ? row.pt.toUpperCase() : "-"}</div> },
+                    { header: "Remarks", key: "remarks", minWidth: "150px", render: (row) => <div className="max-w-[150px] truncate text-[10px]" title={row.remarks}>{row.remarks || "-"}</div> }
+                ]}
+                onConfirm={confirmBulkImport}
+                isImporting={isImporting}
+                isValidating={isFetchingMetadata}
+                totalCount={excelData.length}
+                validCount={excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length}
+                errorCount={excelData.filter(r => r.status === 'error' || jobMetadata[r.msn]?.error).length}
+                duplicateCount={excelData.filter(r => r.status === 'duplicate').length}
+                confirmLabel={`Create ${Object.keys(excelData.reduce((acc, row) => { if (row.status === 'valid' && !jobMetadata[row.msn]?.error) acc[row.msn] = true; return acc; }, {})).length} Plans`}
+            />
           </div>
         </main>
     </>
