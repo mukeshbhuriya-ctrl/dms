@@ -474,9 +474,106 @@ async function updateWeldJointPlan(req, res) {
     }
 }
 
+/**
+ * Bulk Create Weld Joint Plans API
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ */
+async function bulkCreateWeldJointPlan(req, res) {
+    try {
+        const payload = req.body;
+        const company_id = req.user.company_id;
+        const user_id = req.user.id;
+
+        if (!Array.isArray(payload) || payload.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid payload' });
+        }
+
+        const stats = { total: 0, created: 0, failed: 0 };
+
+        for (const report of payload) {
+            stats.total++;
+            try {
+                // Find job
+                const job = await prisma.job.findFirst({
+                    where: { job_number: report.msn, company_id },
+                    include: { weld_joint_plans: { select: { serial_no: true }, orderBy: { serial_no: 'desc' }, take: 1 } }
+                });
+
+                if (!job) {
+                    console.error(`Bulk Create: Job not found for ${report.msn}`);
+                    stats.failed++;
+                    continue;
+                }
+
+                const lastSerial = job.weld_joint_plans?.[0]?.serial_no || 0;
+                const nextSerial = lastSerial + 1;
+                const generatedWeldPlanNo = `SHR/${job.job_number}/WTP/${nextSerial}`;
+
+                await prisma.$transaction(async (tx) => {
+                    const plan = await tx.weld_joint_plan.create({
+                        data: {
+                            company_id,
+                            job_id: job.id,
+                            shreno_drg_no: String(report.shrDrgNo || ''),
+                            customer_drg_no: String(report.customerDrgNo || ''),
+                            code_of_construction: String(report.codeOfConstruction || ''),
+                            created_by: user_id,
+                            weld_plan_no: generatedWeldPlanNo,
+                            serial_no: nextSerial
+                        }
+                    });
+
+                    if (report.items && report.items.length > 0) {
+                        await tx.weld_joint.createMany({
+                            data: report.items.map(row => ({
+                                weld_joint_plan_id: plan.id,
+                                joint_no: String(row.jointNo || ''),
+                                joint_type: String(row.jointType || ''),
+                                joint_description: String(row.joint || ''),
+                                base_metal_thickness_p1: String(row.baseMetalThicknessPart1 || ''),
+                                base_metal_thickness_p2: String(row.baseMetalThicknessPart2 || ''),
+                                base_metal_spec_p1: String(row.baseMetalSpecPart1 || ''),
+                                base_metal_spec_p2: String(row.baseMetalSpecPart2 || ''),
+                                consumable: String(row.consumable || ''),
+                                wps_pqr_no: String(row.wpsNoPqrNo || ''),
+                                process: String(row.process || ''),
+                                impact_test: String(row.impactTest || ''),
+                                back_chip_req: row.backChipReq === 'yes' ? true : (row.backChipReq === 'no' ? false : null),
+                                pwht: row.pwht === 'yes' ? true : (row.pwht === 'no' ? false : null),
+                                rt: row.rt === 'yes' ? true : (row.rt === 'no' ? false : null),
+                                pt: row.pt === 'yes' ? true : (row.pt === 'no' ? false : null),
+                                remarks: String(row.remarks || '')
+                            }))
+                        });
+                    }
+                });
+                stats.created++;
+            } catch (err) {
+                console.error(`Error bulk creating plan for job ${report.msn}:`, err);
+                stats.failed++;
+            }
+        }
+
+        res.status(201).json({
+            success: true,
+            message: `Bulk creation complete. Created: ${stats.created}, Failed: ${stats.failed}`,
+            data: stats
+        });
+
+    } catch (error) {
+        console.error('Bulk create weld joint plan error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
+    }
+}
+
 module.exports = {
     getjobInfo, createWeldJointPlan, updateWeldJointPlan, getWeldJointPlans, getWeldJointPlanDetails, getWeldJoints,
     updateStageStatus,
     getAssignedWeldJoints,
-    reviewStageStatus
+    reviewStageStatus,
+    bulkCreateWeldJointPlan
 };

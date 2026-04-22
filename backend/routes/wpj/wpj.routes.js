@@ -1,5 +1,5 @@
 const express = require('express');
-const { getjobInfo, createWeldJointPlan, updateWeldJointPlan, getWeldJointPlanDetails, getAssignedWeldJoints, updateStageStatus, reviewStageStatus } = require('#api/wpj/weld-joint.js');
+const { getjobInfo, createWeldJointPlan, updateWeldJointPlan, getWeldJointPlanDetails, getAssignedWeldJoints, updateStageStatus, reviewStageStatus, bulkCreateWeldJointPlan } = require('#api/wpj/weld-joint.js');
 const { getWeldJoints, getWeldJointPlans, generateStageReport, getWeldJointActiveFilters, getCumulativeData, getReportNo, getJointTrail } = require('../../controllers/weldJoint.controller.js');
 const { authenticateUser } = require('#api/middleware/user.middleware.js');
 
@@ -11,6 +11,7 @@ router.use(authenticateUser(['ADMIN', 'WELD_PLAN_ADMIN', 'PRODUCTION_ENGINEER', 
 
 router.get('/get-job-info', getjobInfo);
 router.post('/create-weld-joint-plan', createWeldJointPlan);
+router.post('/bulk-create', bulkCreateWeldJointPlan);
 router.put('/update-weld-joint-plan/:id', updateWeldJointPlan);
 router.get('/get-weld-joint-plans', getWeldJointPlans);
 router.get('/get-weld-joint-plan/:id', getWeldJointPlanDetails);
