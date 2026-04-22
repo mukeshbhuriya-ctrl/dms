@@ -1,13 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   AlertTriangle,
   BarChart3,
+  Bell,
   Building2,
   CircleCheck,
+  Clock3,
   ExternalLink,
   FileStack,
   FolderGit2,
@@ -20,6 +30,7 @@ import {
 import { toast } from "react-toastify";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import adminDashboardApi from "@/api/admin-dashboard.api";
+import { useNotifications } from "@/context/NotificationContext";
 import {
   ChartContainer,
   ChartLegend,
@@ -29,6 +40,14 @@ import {
 } from "@/components/ui/chart";
 
 const fmt = new Intl.NumberFormat("en-IN");
+const AUTO_REFRESH_MS = 300000;
+const HIDDEN_NOTIFICATION_TITLES = new Set([
+  "Task Started",
+  "Task Completed",
+  "Task Failed",
+  "Dashboard Load Failed",
+  "Auto Refresh Failed",
+]);
 
 function formatValue(value) {
   const num = Number(value || 0);
@@ -62,6 +81,18 @@ function getSeverity(days) {
     badgeClass: "border-yellow-300 bg-yellow-100 text-yellow-700",
     cardClass: "border-yellow-200 bg-yellow-50",
   };
+}
+
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return "now";
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 function StatusRow({ title, values }) {
@@ -151,8 +182,183 @@ function TopAlertList({ title, rows, buildLabel, onOpen }) {
   );
 }
 
+function NotificationDrawer({
+  open,
+  onOpenChange,
+  notifications,
+  markRead,
+  markAllRead,
+  onOpenAction,
+}) {
+  const [filter, setFilter] = useState("all");
+  const filterOptions = [
+    { key: "all", label: "All" },
+    { key: "unread", label: "Unread" },
+    { key: "action", label: "Action Required" },
+    { key: "system", label: "System" },
+  ];
+  const visibleNotifications = useMemo(
+    () => notifications.filter((n) => !HIDDEN_NOTIFICATION_TITLES.has(n?.title || "")),
+    [notifications],
+  );
+
+  const filtered = useMemo(() => {
+    if (filter === "unread") return visibleNotifications.filter((n) => !n.read);
+    if (filter === "action") return visibleNotifications.filter((n) => n.kind === "action");
+    if (filter === "system") return visibleNotifications.filter((n) => n.kind === "system");
+    return visibleNotifications;
+  }, [filter, visibleNotifications]);
+
+  const unread = visibleNotifications.filter((n) => !n.read).length;
+
+  const getVisual = (severity, read) => {
+    switch (severity) {
+      case "critical":
+        return {
+          Icon: AlertTriangle,
+          iconTone: read ? "text-red-400" : "text-red-600",
+        };
+      case "warning":
+        return {
+          Icon: AlertTriangle,
+          iconTone: read ? "text-amber-400" : "text-amber-600",
+        };
+      case "success":
+        return {
+          Icon: CircleCheck,
+          iconTone: read ? "text-emerald-400" : "text-emerald-600",
+        };
+      default:
+        return {
+          Icon: Bell,
+          iconTone: read ? "text-slate-400" : "text-slate-600",
+        };
+    }
+  };
+
+  const buildOneLine = (n) => {
+    const title = String(n?.title || "").trim();
+    const message = String(n?.message || "").trim();
+    if (!title) return message || "Notification";
+    if (!message) return title;
+    if (message.toLowerCase().startsWith(title.toLowerCase())) return message;
+    return `${title}: ${message}`;
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-[460px] p-0 sm:max-w-[460px]">
+        <SheetHeader className="space-y-3 border-b px-5 py-4">
+          <SheetTitle className="flex items-center justify-between pr-8">
+            <span className="text-xl font-semibold text-slate-900">Notifications</span>
+            <Badge variant="outline" className="rounded-full text-xs font-semibold">
+              Unread: {unread}
+            </Badge>
+          </SheetTitle>
+          <SheetDescription className="text-sm text-slate-600">
+            Minimal live feed for workflow events and approvals.
+          </SheetDescription>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {filterOptions.map((f) => (
+              <Button
+                key={f.key}
+                size="sm"
+                variant={filter === f.key ? "default" : "outline"}
+                className="h-8 rounded-md px-3 text-xs font-semibold"
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={markAllRead}
+              disabled={unread === 0}
+              className="ml-auto h-8 rounded-md px-3 text-xs font-semibold"
+            >
+              Mark all read
+            </Button>
+          </div>
+        </SheetHeader>
+
+        <div className="max-h-[78vh] overflow-auto px-5 py-2">
+            {filtered.length === 0 ? (
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                No notifications in this view right now.
+              </div>
+            ) : (
+              filtered.map((n) => (
+                (() => {
+                  const visual = getVisual(n.severity, n.read);
+                  const VisualIcon = visual.Icon;
+
+                  return (
+                    <div
+                      key={n.id}
+                      className={`border-b py-3 ${n.read ? "opacity-75" : ""}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <VisualIcon className={`h-4 w-4 shrink-0 ${visual.iconTone}`} />
+                        <p className="min-w-0 flex-1 truncate text-sm text-slate-800">
+                          {buildOneLine(n)}
+                        </p>
+                        {!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
+                      </div>
+
+                      <div className="mt-1 flex items-center justify-between pl-6">
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                          <Clock3 className="h-3 w-3" />
+                          <span>{formatRelativeTime(n.createdAt)}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {!n.read && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 rounded px-2 text-[11px]"
+                              onClick={() => markRead(n.id)}
+                            >
+                              Read
+                            </Button>
+                          )}
+                          {n.actionPath && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 gap-1 rounded px-2 text-[11px]"
+                              onClick={() => onOpenAction(n)}
+                            >
+                              Open
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              ))
+            )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function AdminDashboard() {
   const navigate = useNavigate();
+  const {
+    notifications,
+    unreadCount,
+    drawerOpen,
+    setDrawerOpen,
+    markRead,
+    markAllRead,
+    addNotification,
+  } = useNotifications();
 
   const [overview, setOverview] = useState(null);
   const [alerts, setAlerts] = useState(null);
@@ -162,40 +368,135 @@ function AdminDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [trendWindow, setTrendWindow] = useState(30);
 
-  const fetchDashboard = async ({ silent = false, days = trendWindow } = {}) => {
+  const [activeTask, setActiveTask] = useState(null);
+
+  const requestInFlightRef = useRef(false);
+
+  const pushNotification = useCallback((payload) => {
+    addNotification(payload).catch(() => {
+      // keep dashboard flow resilient even when notifications API is unavailable
+    });
+  }, [addNotification]);
+
+  const openPath = useCallback((path, params = {}) => {
+    const search = new URLSearchParams(params).toString();
+    navigate(search ? `${path}?${search}` : path);
+  }, [navigate]);
+
+  const openFromNotification = useCallback((n) => {
+    if (!n.actionPath) return;
+    markRead(n.id);
+    setDrawerOpen(false);
+    openPath(n.actionPath, n.actionParams || {});
+  }, [markRead, openPath]);
+
+  const loadDashboardData = useCallback(async (days) => {
+    const [overviewRes, alertsRes, trendsRes] = await Promise.all([
+      adminDashboardApi.getOverview(),
+      adminDashboardApi.getAlerts({ stalledDays: 7 }),
+      adminDashboardApi.getTrends({ days }),
+    ]);
+
+    return {
+      overview: overviewRes?.data || null,
+      alerts: alertsRes?.data || null,
+      trends: trendsRes?.data || null,
+    };
+  }, []);
+
+  const fetchDashboard = useCallback(async ({ silent = false, days = trendWindow, source = "manual" } = {}) => {
+    if (requestInFlightRef.current && source !== "manual" && source !== "trend") {
+      return;
+    }
+
     try {
+      requestInFlightRef.current = true;
       if (silent) setIsRefreshing(true);
       else setIsLoading(true);
 
-      const [overviewRes, alertsRes, trendsRes] = await Promise.all([
-        adminDashboardApi.getOverview(),
-        adminDashboardApi.getAlerts({ stalledDays: 7 }),
-        adminDashboardApi.getTrends({ days }),
-      ]);
-
-      setOverview(overviewRes?.data || null);
-      setAlerts(alertsRes?.data || null);
-      setTrends(trendsRes?.data || null);
-    } catch (error) {
-      toast.error(error?.message || "Failed to load dashboard data");
+      const data = await loadDashboardData(days);
+      setOverview(data.overview);
+      setAlerts(data.alerts);
+      setTrends(data.trends);
     } finally {
+      requestInFlightRef.current = false;
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, [loadDashboardData, trendWindow]);
+
+  const runUserTask = useCallback(async ({ label, taskFn, successMessage, failureMessage }) => {
+    const startedAt = Date.now();
+    setActiveTask({ label, startedAt });
+
+    try {
+      await taskFn();
+      const elapsed = Math.round((Date.now() - startedAt) / 1000);
+      const doneMessage = `${successMessage} (${elapsed}s)`;
+      toast.success(doneMessage);
+    } catch (error) {
+      const errorText = error?.message || failureMessage;
+      toast.error(errorText);
+      throw error;
+    } finally {
+      setActiveTask(null);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchDashboard({ days: trendWindow });
-  }, []);
+    fetchDashboard({ days: trendWindow, source: "init" }).catch((error) => {
+      toast.error(error?.message || "Failed to load dashboard data");
+    });
+  }, [fetchDashboard, trendWindow]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      fetchDashboard({ silent: true, days: trendWindow, source: "auto" }).catch(() => {});
+    }, AUTO_REFRESH_MS);
+
+    const onFocus = () => {
+      fetchDashboard({ silent: true, days: trendWindow, source: "focus" }).catch(() => {});
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchDashboard({ silent: true, days: trendWindow, source: "visible" }).catch(() => {});
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [fetchDashboard, trendWindow]);
 
   const onTrendWindowChange = async (days) => {
     setTrendWindow(days);
-    await fetchDashboard({ silent: true, days });
+
+    await runUserTask({
+      label: `Refreshing ${days}-day trend data`,
+      taskFn: async () => {
+        await fetchDashboard({ silent: true, days, source: "trend" });
+      },
+      successMessage: `Trend data updated for ${days} days`,
+      failureMessage: `Failed to refresh ${days}-day trend data`,
+    });
   };
 
-  const openPath = (path, params = {}) => {
-    const search = new URLSearchParams(params).toString();
-    navigate(search ? `${path}?${search}` : path);
+  const onManualRefresh = async () => {
+    await runUserTask({
+      label: "Refreshing dashboard snapshot",
+      taskFn: async () => {
+        await fetchDashboard({ silent: true, days: trendWindow, source: "manual" });
+      },
+      successMessage: "Dashboard refreshed",
+      failureMessage: "Dashboard refresh failed",
+    });
   };
 
   const topKpis = useMemo(() => {
@@ -286,19 +587,54 @@ function AdminDashboard() {
           <h1 className="text-lg font-semibold">Admin Control Dashboard</h1>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fetchDashboard({ silent: true, days: trendWindow })}
-          disabled={isRefreshing || isLoading}
-          className="gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onManualRefresh}
+            disabled={isRefreshing || isLoading || !!activeTask}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setDrawerOpen(true)}
+            className="relative"
+            aria-label="Open notifications"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </Button>
+        </div>
       </header>
 
+      <NotificationDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        notifications={notifications}
+        markRead={markRead}
+        markAllRead={markAllRead}
+        onOpenAction={openFromNotification}
+      />
+
       <main className="flex-1 overflow-auto p-6">
+        {activeTask && (
+          <Card className="mb-4 border-blue-200 bg-blue-50">
+            <CardContent className="flex items-center gap-2 p-3 text-sm text-blue-800">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span>{activeTask.label}...</span>
+            </CardContent>
+          </Card>
+        )}
+
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, idx) => (
@@ -464,9 +800,9 @@ function AdminDashboard() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" />
-                      Throughput Trends
+                      Throughput Trends (shadcn chart)
                     </CardTitle>
-                    <CardDescription>Workload and movement trends for last 7/30/90 days.</CardDescription>
+                    <CardDescription>Auto-refresh enabled every 30s, plus focus and visibility refresh.</CardDescription>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -476,7 +812,7 @@ function AdminDashboard() {
                         size="sm"
                         variant={trendWindow === days ? "default" : "outline"}
                         onClick={() => onTrendWindowChange(days)}
-                        disabled={isRefreshing}
+                        disabled={isRefreshing || !!activeTask}
                       >
                         {days}D
                       </Button>

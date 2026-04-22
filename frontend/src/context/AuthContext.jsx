@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import apiClient from "@/api/api.client"
 import { ROLE_KEY_MAP } from "@/config/roles"
+import { NotificationProvider } from "@/context/NotificationContext"
 
 const AuthContext = createContext(null)
 
@@ -75,7 +76,11 @@ export function AuthProvider({ children }) {
         refetch: fetchAuth,
     }
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+    return (
+        <AuthContext.Provider value={value}>
+            <NotificationProvider>{children}</NotificationProvider>
+        </AuthContext.Provider>
+    )
 }
 
 // ─── Hook ────────────────────────────────────────────────────────

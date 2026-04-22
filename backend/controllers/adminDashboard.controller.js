@@ -1,4 +1,5 @@
 const AdminDashboardService = require('#services/adminDashboard.service.js');
+const NotificationService = require('#services/notification.service.js');
 
 class AdminDashboardController {
     async getOverview(req, res) {
@@ -23,9 +24,16 @@ class AdminDashboardController {
 
     async getAlerts(req, res) {
         try {
-            const { company_id } = req.user;
+            const { company_id, userid } = req.user;
             const { stalledDays } = req.query;
             const data = await AdminDashboardService.getAlerts(company_id, { stalledDays });
+
+            // Keep notification inbox in sync with latest alert summary.
+            await NotificationService.syncAlertNotifications({
+                user_id: userid,
+                company_id,
+                alertsSummary: data?.summary || {},
+            });
 
             res.status(200).json({
                 success: true,
