@@ -28,7 +28,7 @@ const MasterRow = ({ item, index }) => {
          </td>
 
          <td className="p-3 border-r text-center text-[12px] font-bold uppercase w-64">
-            {item.drgNo}
+            [{item.shreno_doc_no || item.drgNo}] {item.docName}
          </td>
 
          <td className="p-3 border-r text-center text-[11px] font-medium w-32">
