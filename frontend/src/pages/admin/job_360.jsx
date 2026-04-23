@@ -103,7 +103,7 @@ function QualityCheck({ label, status, onNav }) {
   )
 }
 
-export default function Job360Dashboard() {
+export default function JobOverview() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [selectedJobId, setSelectedJobId] = useState("");
@@ -122,6 +122,10 @@ export default function Job360Dashboard() {
           rawJobNumber: j.job_number
         }));
         setJobs(opts);
+        // Default selection: If a job is available and none is selected, pick the first one
+        if (opts.length > 0 && !selectedJobId) {
+          setSelectedJobId(opts[0].value);
+        }
       } catch (err) {
         toast.error("Failed to load jobs");
       } finally {
@@ -136,12 +140,12 @@ export default function Job360Dashboard() {
     if (!jobId) return;
     setIsLoading(true);
     try {
-      const res = await job360Api.getJob360Snapshot(jobId);
+      const res = await job360Api.getJobOverviewSnapshot(jobId);
       setData(res);
       if (isRefresh) toast.success("Snapshot refreshed");
     } catch (err) {
       setData(null);
-      toast.error(err?.response?.data?.message || "Failed to load job snapshot");
+      toast.error(err?.response?.data?.message || "Failed to load Job Overview");
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +202,7 @@ export default function Job360Dashboard() {
             <FolderGit2 className="h-12 w-12 text-slate-300 mb-4" />
             <h2 className="text-xl font-semibold text-slate-700">Select a Job</h2>
             <p className="text-sm text-slate-500 max-w-sm mt-2">
-              Choose a specific Job Number from the header dropdown to view its full snapshot.
+              Choose a specific Job Number from the header dropdown to view its full overview.
             </p>
           </div>
         ) : isLoading && !data ? (
