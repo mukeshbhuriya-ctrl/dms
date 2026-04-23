@@ -31,6 +31,7 @@ import {
   FinalInspectionReports,
   Reports,
 } from "@/pages/admin"
+import JobOverview from "@/pages/admin/job_360"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
@@ -152,6 +153,10 @@ const adminRoutes = [
   {
     path: "/admin/dashboard",
     element: protect(<AdminDashboard />, [ROLES.ADMIN]),
+  },
+  {
+    path: "/admin/job-overview",
+    element: protect(<JobOverview />, [ROLES.ADMIN]),
   },
   {
     path: "/admin/reports",

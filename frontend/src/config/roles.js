@@ -39,6 +39,12 @@ export const MENU_CONFIG = [
         roles: [ROLES.ADMIN],
     },
     {
+        title: "Job Overview",
+        icon: LayoutDashboard,
+        path: "/admin/job-overview",
+        roles: [ROLES.ADMIN],
+    },
+    {
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",
