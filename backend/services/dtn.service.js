@@ -76,7 +76,7 @@ class DtnService {
             code,
             issued_to, // { hm: true, ... }
             issued_for, // { reference: true, ... }
-            status, // Draft, Pending
+            status, // Draft, Uploaded
             jobIds, // Array
             items // Array [{ doc_no_title, rev, copies, deps: { HM: true, ... } }]
         } = data;
@@ -171,7 +171,7 @@ class DtnService {
             code,
             issued_to,
             issued_for,
-            status,
+            status, // Draft, Uploaded
             jobIds,
             items
         } = data;
@@ -497,6 +497,7 @@ class DtnService {
                 docMap.set(docId, {
                     id: docId,
                     drgNo: systemDocNo,
+                    shreno_doc_no: Array.from(shrenoNos)[0] || systemDocNo,
                     docName: item.document.document_name,
                     rev: item.rev,
                     sheets: [],

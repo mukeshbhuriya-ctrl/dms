@@ -150,9 +150,17 @@ const TableSettings = ({ columns, stickyColumns, setStickyColumns }) => {
   const [open, setOpen] = useState(false)
 
   const toggleSticky = (colId) => {
-    setStickyColumns(prev => 
-      prev.includes(colId) ? prev.filter(id => id !== colId) : [...prev, colId]
-    )
+    setStickyColumns(prev => {
+      const isCurrentlySticky = prev.includes(colId);
+      if (isCurrentlySticky) {
+        return prev.filter(id => id !== colId);
+      }
+      // Max 3 columns can be sticky
+      if (prev.length >= 3) {
+        return prev;
+      }
+      return [...prev, colId];
+    });
   }
 
   return (
@@ -230,7 +238,65 @@ const ProDataTable = ({
   const selectedRows = controlledSelectedRows || internalSelectedRows;
   const isControlledSelection = !!onSelectionChange;
 
+  const [stickyOffsets, setStickyOffsets] = useState({});
+  const headerRefs = useRef({});
   const isFirstRender = useRef(true);
+
+  // Measure actual header widths for sticky positioning
+  useEffect(() => {
+    const observer = new ResizeObserver((entries) => {
+      const newOffsets = {};
+      let currentOffset = showSelectionColumn ? 40 : 0;
+      
+      // Calculate based on the order in processedColumns to match rendered DOM
+      const stickyColIds = columns
+        .map(c => c.id || c.accessorKey)
+        .filter(id => stickyColumns.includes(id));
+      
+      // We must follow the hoisted order
+      stickyColIds.forEach((id) => {
+        newOffsets[id] = currentOffset;
+        const el = headerRefs.current[id];
+        if (el) {
+          currentOffset += el.getBoundingClientRect().width;
+        } else {
+          currentOffset += 150; // Fallback for safety
+        }
+      });
+      setStickyOffsets(newOffsets);
+    });
+
+    // Observe all sticky header elements
+    stickyColumns.forEach(id => {
+      if (headerRefs.current[id]) observer.observe(headerRefs.current[id]);
+    });
+
+    return () => observer.disconnect();
+  }, [stickyColumns, showSelectionColumn, columns, data, loading]); // also re-run when data loads as it impacts widths
+
+  const processedColumns = React.useMemo(() => {
+    const sticky = [];
+    const nonSticky = [];
+    
+    columns.forEach(col => {
+      const id = col.id || col.accessorKey;
+      if (stickyColumns.includes(id)) {
+        sticky.push(col);
+      } else {
+        nonSticky.push(col);
+      }
+    });
+
+    const sorted = [...sticky, ...nonSticky];
+    
+    return sorted.map(col => {
+      const colId = col.id || col.accessorKey;
+      const isSticky = stickyColumns.includes(colId);
+      const offset = stickyOffsets[colId] || 0;
+      
+      return { ...col, isSticky, stickyOffset: offset };
+    });
+  }, [columns, stickyColumns, showSelectionColumn, stickyOffsets]);
 
   // Debounce global search
   useEffect(() => {
@@ -405,11 +471,11 @@ const ProDataTable = ({
       {/* Grid */}
       <div className="rounded border bg-white relative flex flex-col flex-1 overflow-hidden">
         <div className="flex-1 overflow-auto custom-scrollbar bg-white">
-          <Table className="relative border-collapse w-max min-w-full">
+          <Table className="relative border-separate border-spacing-0 w-max min-w-full">
             <TableHeader className="sticky top-0 z-20 bg-slate-100 border-b border-slate-200">
               <TableRow className="hover:bg-transparent h-9 border-none">
                 {showSelectionColumn && (
-                  <TableHead className="w-[40px] sticky left-0 z-40 bg-slate-100 border-r border-slate-200 px-0 flex items-center justify-center h-9">
+                  <TableHead className="w-[40px] sticky left-0 z-40 !bg-slate-100 border-r border-slate-200 px-0 flex items-center justify-center h-9">
                       <Checkbox
                         checked={selectedRows.size === data.length && data.length > 0}
                         onCheckedChange={() => toggleAll()}
@@ -417,21 +483,24 @@ const ProDataTable = ({
                       />
                   </TableHead>
                 )}
-                {columns.map((col, idx) => {
+                {processedColumns.map((col, idx) => {
                   const columnId = col.id || col.accessorKey;
-                  const isSticky = stickyColumns.includes(columnId);
-                  const stickyClass = isSticky ? "sticky left-[40px] z-40 bg-slate-100 border-r border-slate-200" : "";
+                  const isSticky = col.isSticky;
+                  const stickyClass = isSticky ? "sticky z-40 !bg-slate-100 border-r border-slate-200" : "";
                   const hasFilter = Array.isArray(columnFilters[columnId]) 
                     ? columnFilters[columnId].length > 0 
                     : !!(columnFilters[columnId]);
 
                   return (
                     <TableHead 
-                      key={idx} 
+                      key={columnId || idx} 
+                      ref={el => headerRefs.current[columnId] = el}
                       className={`${col.className || ""} ${stickyClass} h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase text-slate-700 tracking-wider transition-all`}
                       style={{ 
                         width: col.width || 'auto',
-                        left: isSticky ? (showSelectionColumn ? '40px' : '0') : 'auto'
+                        left: isSticky ? `${col.stickyOffset}px` : 'auto',
+                        backgroundColor: isSticky ? '#f1f5f9' : 'inherit', // solid slate-100
+                        zIndex: isSticky ? 50 : 10
                       }}
                     >
                       <div className="flex items-center justify-between gap-1 h-full py-1">
@@ -522,25 +591,34 @@ const ProDataTable = ({
                       className={`h-8 transition-colors group ${isSelected ? 'bg-[#e0f2fe] hover:bg-[#bae6fd]' : 'hover:bg-slate-50/50'}`}
                     >
                       {showSelectionColumn && (
-                        <TableCell className={`w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-30 border-r border-slate-100 p-0 h-8 ${isSelected ? 'bg-[#bae6fd] group-hover:bg-[#7dd3fc]' : 'bg-white group-hover:bg-slate-50/80'} transition-colors`}>
+                        <TableCell 
+                          className={`w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-40 border-r border-slate-100 p-0 h-8 transition-colors`}
+                          style={{
+                            backgroundColor: isSelected ? '#bae6fd' : 'white',
+                            zIndex: 40
+                          }}
+                        >
                           <div className="flex items-center justify-center h-full w-full">
                             <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(row.id)} className="h-3.5 w-3.5" />
                           </div>
                         </TableCell>
                       )}
-                      {columns.map((col, cIdx) => {
+                      {processedColumns.map((col, cIdx) => {
                         const columnId = col.id || col.accessorKey;
-                        const isSticky = stickyColumns.includes(columnId);
+                        const isSticky = col.isSticky;
                         const stickyClass = isSticky 
-                          ? `sticky z-30 border-r border-slate-100 ${isSelected ? 'bg-[#bae6fd] group-hover:bg-[#7dd3fc]' : 'bg-white group-hover:bg-slate-50/80'}` 
+                          ? `sticky z-30 border-r border-slate-100 ${isSelected ? '!bg-[#bae6fd] group-hover:!bg-[#7dd3fc]' : '!bg-white group-hover:!bg-slate-50'}` 
                           : "";
                         
                         return (
                           <TableCell 
-                            key={cIdx} 
+                            key={columnId || cIdx} 
                             className={`${col.className || ""} ${stickyClass} py-0 px-3 h-8 text-[11px] font-medium text-slate-600 truncate border-b border-slate-100/60 transition-colors`}
                             style={{
-                              left: isSticky ? (showSelectionColumn ? '40px' : '0') : 'auto'
+                              width: col.width || 'auto',
+                              left: isSticky ? `${col.stickyOffset}px` : 'auto',
+                              backgroundColor: isSelected ? '#bae6fd' : 'white',
+                              zIndex: isSticky ? 40 : 1
                             }}
                           >
                             {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}

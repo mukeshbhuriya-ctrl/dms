@@ -50,8 +50,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
   const getStatusBadge = (status) => {
     let colorClass = "bg-gray-100 text-gray-700 border-gray-200"
     if (status === "Draft") colorClass = "bg-slate-100 text-slate-700 border-slate-200"
-    if (status === "Pending") colorClass = "bg-amber-50 text-amber-700 border-amber-200"
-    if (status === "Approved") colorClass = "bg-emerald-50 text-emerald-700 border-emerald-200"
+    if (status === "Uploaded") colorClass = "bg-amber-50 text-amber-700 border-amber-200"
 
     return (
       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${colorClass}`}>
@@ -168,7 +167,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
   const [jobs, setJobs] = useState([])
   const [jobsLoading, setJobsLoading] = useState(false)
   const [fetchingDtn, setFetchingDtn] = useState(false)
-  const [savingStatus, setSavingStatus] = useState(null) // 'Draft' or 'Pending'
+  const [savingStatus, setSavingStatus] = useState(null) // 'Draft' or 'Uploaded'
 
   // Auto-fill (Identical state structure to MHC)
   const [autoFill, setAutoFill] = useState({
@@ -413,7 +412,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
     }
   }
 
-  // Submission Logic (Draft or Pending)
+  // Submission Logic (Draft or Uploaded)
   const handleSubmit = async (status) => {
     if (jobIds.length === 0) {
       return toast.warning("Please select at least one Job Number.")
@@ -876,11 +875,11 @@ function CreateView({ onBack, editId, defaultRefNo }) {
           {savingStatus === "Draft" ? "Saving..." : "Save Draft"}
         </Button>
         <Button 
-          onClick={() => handleSubmit("Pending")} 
+          onClick={() => handleSubmit("Uploaded")} 
           disabled={savingStatus !== null}
           className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] tracking-wide border-none"
         >
-          {savingStatus === "Pending" ? "Processing..." : "Generate Transmittal"}
+          {savingStatus === "Uploaded" ? "Processing..." : "Generate Transmittal"}
         </Button>
       </div>
 

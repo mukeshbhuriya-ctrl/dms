@@ -378,6 +378,12 @@ function AssignDocument() {
       filterType: "text",
     },
     {
+      id: "revision_no",
+      accessorKey: "display_version_no",
+      header: "Revision No",
+      cell: (row) => (row.display_version_no === 0 || row.display_version_no) ? `${row.display_version_no}` : "-",
+    },
+    {
       id: "shreno_doc_no",
       accessorKey: "shreno_doc_no",
       header: "Shreno Doc No",
@@ -404,6 +410,17 @@ function AssignDocument() {
       accessorKey: "upload_due_days",
       header: "Upload Due Days",
       cell: (row) => row.upload_due_days || "-",
+    },
+    {
+      id: "plant_submission_date",
+      accessorKey: "upload_due_days",
+      header: "Plant Submission Date",
+      cell: (row) => {
+        if (!row.upload_due_days) return "-";
+        const created = new Date(row.createdAt);
+        const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
+        return deadline.toLocaleDateString("en-GB");
+      },
     },
     {
       accessorKey: "response_due_days",
