@@ -256,7 +256,7 @@ function NotificationDrawer({
             </Badge>
           </SheetTitle>
           <SheetDescription className="text-sm text-slate-600">
-            Minimal live feed for workflow events and approvals.
+            live feed for workflow events and approvals.
           </SheetDescription>
 
           <div className="flex flex-wrap items-center gap-2">
