@@ -27,6 +27,12 @@ class MhcService {
             ];
         }
 
+        const cFilters = params.columnFilters || {};
+        if (cFilters.msn) where.msn = this._processFilter(cFilters.msn);
+        if (cFilters.client) where.client = this._processFilter(cFilters.client);
+        if (cFilters.po_no) where.po_no = this._processFilter(cFilters.po_no);
+        if (cFilters.status) where.status = this._processFilter(cFilters.status);
+
         const [total, data] = await prisma.$transaction([
             prisma.material_heat_chart.count({ where }),
             prisma.material_heat_chart.findMany({
@@ -50,6 +56,30 @@ class MhcService {
                 totalPages: Math.ceil(total / take),
             },
         };
+    }
+
+    async getFilters(company_id) {
+        const rawData = await prisma.material_heat_chart.findMany({
+            where: { company_id },
+            select: { msn: true, client: true, po_no: true, status: true }
+        });
+        const records = [];
+        const seen = new Set();
+        for (const item of rawData) {
+            const key = `${item.msn}|${item.client}|${item.po_no}|${item.status}`;
+            if (!seen.has(key)) { seen.add(key); records.push(item); }
+        }
+        return { records };
+    }
+
+    _processFilter(value) {
+        if (!value) return undefined;
+        if (Array.isArray(value)) {
+            if (value.length === 0) return undefined;
+            return { in: value.map(v => v.toString()) };
+        }
+        if (typeof value === 'string' && value.trim() === '') return undefined;
+        return { contains: value.toString(), mode: 'insensitive' };
     }
 
     /**
