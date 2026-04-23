@@ -626,15 +626,6 @@ function AdminDashboard() {
       />
 
       <main className="flex-1 overflow-auto p-6">
-        {activeTask && (
-          <Card className="mb-4 border-blue-200 bg-blue-50">
-            <CardContent className="flex items-center gap-2 p-3 text-sm text-blue-800">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <span>{activeTask.label}...</span>
-            </CardContent>
-          </Card>
-        )}
-
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, idx) => (
@@ -800,7 +791,7 @@ function AdminDashboard() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <BarChart3 className="h-4 w-4" />
-                      Throughput Trends (shadcn chart)
+                      Throughput Trends
                     </CardTitle>
                     <CardDescription>Auto-refresh enabled every 30s, plus focus and visibility refresh.</CardDescription>
                   </div>
