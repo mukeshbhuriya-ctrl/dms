@@ -497,6 +497,7 @@ class DtnService {
                 docMap.set(docId, {
                     id: docId,
                     drgNo: systemDocNo,
+                    shreno_doc_no: Array.from(shrenoNos)[0] || systemDocNo,
                     docName: item.document.document_name,
                     rev: item.rev,
                     sheets: [],

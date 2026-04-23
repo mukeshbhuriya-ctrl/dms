@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: dms-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: toor
+      POSTGRES_DB: dms
+    ports:
+      - "5432:5432"
+    volumes:
+      - dms-db-data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dms-backend
+    restart: always
+    depends_on:
+      - db
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:toor@db:5432/dms
+      - CORS_ORIGIN=http://localhost:5173
+      - JWT_SECRET=8fK9zQ2LmXpR7vYw3N6tB1cDeF5hJkLA
+      - JWT_EXPIRES_IN=7d
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=mukesh.bhuriya@sharpandtannan.com
+      - SMTP_PASS=gniq fpfn ylog flcb
+      - EMAIL_ENABLED=false
+      - FRONTEND_URL=http://localhost:5173
+      - BACKEND_URL=http://localhost:3001
+      - ROOT_DIR=/app/data
+      - MAX_FILE_SIZE=1073741824
+    ports:
+      - "3001:3001"
+    volumes:
+      - dms-backend-data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_BACKEND_URL=http://localhost:3001
+    container_name: dms-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  dms-db-data:
+  dms-backend-data:

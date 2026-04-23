@@ -151,7 +151,7 @@ const dccRoutes = [
 const adminRoutes = [
   {
     path: "/admin/dashboard",
-    element: protect(<AdminDashboard />, [ROLES.ADMIN, ROLES.PRODUCTION]),
+    element: protect(<AdminDashboard />, [ROLES.ADMIN]),
   },
   {
     path: "/admin/reports",

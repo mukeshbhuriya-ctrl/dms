@@ -6,13 +6,16 @@ require('module-alias/register');
 require('tsx/cjs');
 
 const express = require('express');
+const http = require('http');
 const cookieParser = require('cookie-parser');
 const cors = require('./utils/cors');
 const { setupAdmin } = require('./utils/startup/steup_admin');
 const { initScheduler } = require('./utils/scheduler');
+const NotificationSocketService = require('#services/notification.socket.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
 
 // Middleware
 app.use(cors);
@@ -91,6 +94,12 @@ app.use('/api/rfq', rfqRoutes);
 const ncrRoutes = require('#routes/ncr/ncr.routes.js');
 app.use('/api/ncr', ncrRoutes);
 
+const adminDashboardRoutes = require('#routes/admin/dashboard.routes.js');
+app.use('/api/admin/dashboard', adminDashboardRoutes);
+
+const notificationRoutes = require('#routes/notification.routes.js');
+app.use('/api/notifications', notificationRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -128,7 +137,9 @@ async function startServer() {
     // Initialize daily overdue checks
     initScheduler();
 
-    app.listen(PORT, () => {
+    NotificationSocketService.init(server);
+
+    server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   } catch (error) {

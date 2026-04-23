@@ -54,6 +54,7 @@ model company{
   document_activities document_activity[]
   qc_groups qc_group[]
   email_templates email_template[]
+  notifications notification[]
 }
 
 model department {
@@ -162,6 +163,7 @@ model user{
   // Weld Inspection Trail relations
   weld_stage_prod_reports weld_joint_stage[] @relation("WeldStageProdEng")
   weld_stage_qc_reports   weld_joint_stage[] @relation("WeldStageQcEng")
+  notifications notification[]
 }
 
 model user_roles{
@@ -1411,5 +1413,29 @@ model email_template {
   company    company  @relation(fields: [company_id], references: [id])
 
   @@unique([company_id, name])
+}
+
+model notification {
+  id            String   @id @default(uuid())
+  company_id    String
+  user_id       String
+  kind          String   @default("system") // action | system
+  severity      String   @default("info")   // info | warning | critical | success
+  title         String
+  message       String   @db.Text
+  action_path   String?
+  action_params Json?
+  signature     String?
+  is_read       Boolean  @default(false)
+  read_at       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company company @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  user    user    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, is_read, createdAt(sort: Desc)])
+  @@index([company_id, createdAt(sort: Desc)])
+  @@index([user_id, signature])
 }
 

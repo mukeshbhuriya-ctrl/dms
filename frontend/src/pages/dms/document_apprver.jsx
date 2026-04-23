@@ -269,6 +269,19 @@ function DocumentApprover() {
       accessorKey: "uploadedBy"
     },
     {
+      id: "plant_submission_date",
+      accessorKey: "upload_due_days",
+      header: "Plant Submission Date",
+      cell: (row) => {
+        const upload_due_days = row.originalDoc?.upload_due_days;
+        const createdAt = row.originalDoc?.createdAt;
+        if (!upload_due_days) return "-";
+        const created = new Date(createdAt);
+        const deadline = new Date(created.getTime() + (upload_due_days * 24 * 60 * 60 * 1000));
+        return deadline.toLocaleDateString("en-GB");
+      },
+    },
+    {
       id: "status",
       header: "Status",
       filterType: "select",
