@@ -40,7 +40,16 @@ class Job360Service {
             dishEndRaw,
             finalInspRaw,
             // NCR latest to show
-            latestNcr
+            latestNcr,
+            recentNcrs,
+            recentDcrs,
+            recentWeldPlans,
+            // Quality Records
+            mhcRecords,
+            hydroRecords,
+            dishEndRecords,
+            finalInspRecords,
+            qapRecords
         ] = await Promise.all([
             // DMS: Single Docs
             prisma.single_document.groupBy({
@@ -149,6 +158,50 @@ class Job360Service {
                 where: { job_id, company_id },
                 orderBy: { createdAt: 'desc' },
                 select: { ncr_no: true, current_stage: true }
+            }),
+            prisma.ncr.findMany({
+                where: { job_id, company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            }),
+            prisma.dcr.findMany({
+                where: { job_id, company_id },
+                include: {
+                    dcr_status: { orderBy: { createdAt: 'desc' }, take: 1 }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            }),
+            prisma.weld_joint_plan.findMany({
+                where: { job_id, company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            }),
+            // Quality Deep Dive
+            prisma.material_heat_chart.findMany({
+                where: { job_id, company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            }),
+            prisma.hydrostatic_test_report.findMany({
+                where: { job_id, company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            }),
+            prisma.dish_end_inspection_report.findMany({
+                where: { job_id, company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            }),
+            prisma.final_inspection_report.findMany({
+                where: { job_id, company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5
+            }),
+            prisma.quality_assurance_plan.findMany({
+                where: { job_id, company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5
             })
         ]);
 
@@ -231,6 +284,38 @@ class Job360Service {
             else dcrCounts.pending++;
         });
 
+        // Unified Recent Lists
+        const processedNcrs = recentNcrs.map(n => ({
+            id: n.id,
+            no: n.ncr_no,
+            status: n.status,
+            stage: n.current_stage,
+            date: n.createdAt
+        }));
+
+        const processedDcrs = recentDcrs.map(d => ({
+            id: d.id,
+            no: d.dcr_no,
+            status: d.dcr_status[0]?.status || 'PENDING',
+            date: d.createdAt
+        }));
+
+        const processedWeldPlans = recentWeldPlans.map(wp => ({
+            id: wp.id,
+            no: wp.weld_plan_no,
+            drg: wp.shreno_drg_no,
+            date: wp.createdAt
+        }));
+
+        // Flatten Quality reports for a unified timeline
+        const qualityTimeline = [
+            ...mhcRecords.map(r => ({ type: 'MHC', no: r.report_no, status: r.status, date: r.createdAt })),
+            ...hydroRecords.map(r => ({ type: 'HYDRO', no: r.report_no, status: r.status, date: r.createdAt })),
+            ...dishEndRecords.map(r => ({ type: 'DISH END', no: r.report_no, status: r.status, date: r.createdAt })),
+            ...finalInspRecords.map(r => ({ type: 'FINAL INSP', no: r.report_no, status: r.status, date: r.createdAt })),
+            ...qapRecords.map(r => ({ type: 'QAP', no: r.ref_no || r.id.split('-')[0], status: r.status, date: r.createdAt }))
+        ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+
         // Process RFQ
         const rfq = rfqsRaw.length > 0 ? rfqsRaw[0] : null;
 
@@ -262,21 +347,23 @@ class Job360Service {
             },
             dms: dmsCounts,
             dtn: { ...dtnCounts, recentTransmittals },
-            wpj: wpjCounts,
-            exceptions: { ncr: ncrCounts, dcr: dcrCounts },
+            wpj: { ...wpjCounts, recentPlans: processedWeldPlans },
+            exceptions: { ncr: ncrCounts, dcr: dcrCounts, recentNcrs: processedNcrs, recentDcrs: processedDcrs },
             rfq: rfq ? {
                 id: rfq.id,
                 enqDate: rfq.enq_date,
                 clientStatus: rfq.client_status,
                 shrenoStatus: rfq.shreno_status,
-                quotedValue: rfq.total_value || rfq.po_value || 0
+                quotedValue: rfq.total_value || rfq.po_value || 0,
+                rfqNo: rfq.rfq_no || 'N/A'
             } : null,
             quality: {
                 mhc: getQualStatus(mhcRaw),
                 qap: getQualStatus(qapRaw),
                 hydro: getQualStatus(hydroRaw),
                 dishEnd: getQualStatus(dishEndRaw),
-                finalInsp: getQualStatus(finalInspRaw)
+                finalInsp: getQualStatus(finalInspRaw),
+                timeline: qualityTimeline
             }
         };
     }

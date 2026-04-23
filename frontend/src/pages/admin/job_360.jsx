@@ -255,29 +255,7 @@ export default function Job360Dashboard() {
               } description="Across inspection checkpoints" Icon={CheckCircle2} />
             </div>
 
-            {/* FULL WIDTH Module Cards */}
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
-                   <div>
-                      <CardTitle className="text-sm">Document Management System (DMS)</CardTitle>
-                      <CardDescription className="text-xs">Master assignment index and linked documents.</CardDescription>
-                   </div>
-                   <div className="flex gap-2 mt-0">
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => navTo('/dcc/documents', { jobId: data.job.id })}>Open Matrix</Button>
-                   </div>
-              </CardHeader>
-              <CardContent className="pt-4">
-                 <div className="flex flex-col md:flex-row gap-8">
-                    <div className="w-full">
-                       <StatusRow title="DMS Workflow Status" entries={{ "Pending Upload": data.dms.pending, "Awaiting Appr.": data.dms.uploaded, "Approved": data.dms.approved, "Rejected": data.dms.rejected }} />
-                       <div className="mt-4">
-                          <ProgressBar value={(data.dms.approved || 0) + (data.dms.uploaded || 0)} max={data.dms.total} label="DMS Pipeline Progression" colorClass="bg-blue-600" />
-                       </div>
-                    </div>
-                 </div>
-              </CardContent>
-            </Card>
-
+            {/* MODULE CONSOLE 1: DTN (Drawing Transmittals) */}
             <Card className="border-slate-200 shadow-sm overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 bg-slate-50/50">
                    <div>
@@ -287,156 +265,248 @@ export default function Job360Dashboard() {
                    <Button size="sm" variant="outline" className="h-7 text-xs shadow-sm bg-white" onClick={() => navTo('/dtn/drawing-transmittal')}>DTN Console</Button>
               </CardHeader>
               <CardContent className="p-0">
-                 {/* Top KPI row specific to DTN */}
                  <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100">
                     <div className="p-4 flex flex-col items-center justify-center bg-white">
                         <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">TOTAL DTNs</p>
                         <p className="text-2xl font-black text-slate-800">{formatValue(data.dtn.total)}</p>
                     </div>
                     <div className="p-4 flex flex-col items-center justify-center bg-white">
-                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">AWAITING DISPATCH (DRAFT)</p>
+                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">DRAFT</p>
                         <p className="text-2xl font-black text-amber-600">{formatValue(data.dtn.draft)}</p>
                     </div>
                     <div className="p-4 flex flex-col items-center justify-center bg-white">
-                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">DISTRIBUTED (SENT)</p>
+                        <p className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-1">DISTRIBUTED</p>
                         <p className="text-2xl font-black text-emerald-600">{formatValue(data.dtn.sent)}</p>
                     </div>
                  </div>
-
-                 {/* Recent Transmittals Data Table */}
                  <div className="p-0 bg-white overflow-x-auto">
-                    {data.dtn.recentTransmittals && data.dtn.recentTransmittals.length > 0 ? (
+                    {data.dtn.recentTransmittals?.length > 0 ? (
                         <table className="w-full text-left text-sm border-collapse">
                             <thead>
                                 <tr className="bg-slate-50 border-b border-slate-100">
                                     <th className="px-5 py-3 font-bold text-[10px] uppercase text-slate-500 tracking-wider">Ref No</th>
                                     <th className="px-5 py-3 font-bold text-[10px] uppercase text-slate-500 tracking-wider">Date</th>
                                     <th className="px-5 py-3 font-bold text-[10px] uppercase text-slate-500 tracking-wider">Status</th>
-                                    <th className="px-5 py-3 font-bold text-[10px] uppercase text-slate-500 tracking-wider">Items Embedded</th>
+                                    <th className="px-5 py-3 font-bold text-[10px] uppercase text-slate-500 tracking-wider">Items</th>
                                     <th className="px-5 py-3 font-bold text-[10px] uppercase text-slate-500 tracking-wider">Intents</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {data.dtn.recentTransmittals.map(t => (
-                                    <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group">
-                                        <td className="px-5 py-3 font-semibold text-slate-800 text-xs group-hover:text-blue-600 transition-colors cursor-pointer" onClick={() => navTo('/dtn/drawing-transmittal')}>{t.ref_no}</td>
-                                        <td className="px-5 py-3 text-slate-600 text-[13px]">{new Date(t.date).toLocaleDateString()}</td>
-                                        <td className="px-5 py-3">
-                                            <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold border ${t.status?.toLowerCase() === 'draft' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                                                {t.status || 'Draft'}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-3 text-slate-600 text-[13px] font-semibold">{t.itemsCount} Documents</td>
-                                        <td className="px-5 py-3">
-                                            <div className="flex gap-1.5 flex-wrap items-center">
-                                                {t.intents.slice(0, 2).map((intent, idx) => (
-                                                    <span key={idx} className="bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider">{intent}</span>
-                                                ))}
-                                                {t.intents.length > 2 && (
-                                                    <span className="bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider">+{t.intents.length - 2}</span>
-                                                )}
-                                                {t.intents.length === 0 && <span className="text-slate-400 text-[10px] italic">Not Specified</span>}
-                                            </div>
+                                    <tr key={t.id} className="hover:bg-slate-50/50 transition-colors group border-b border-slate-50">
+                                        <td className="px-5 py-3 font-semibold text-slate-800 text-xs">{t.ref_no}</td>
+                                        <td className="px-5 py-3 text-slate-600 text-[12px]">{new Date(t.date).toLocaleDateString()}</td>
+                                        <td className="px-5 py-3 text-[10px] font-bold uppercase">{t.status || 'Draft'}</td>
+                                        <td className="px-5 py-3 text-[12px]">{t.itemsCount} Docs</td>
+                                        <td className="px-5 py-3 flex gap-1">
+                                            {t.intents.slice(0, 2).map((it, idx) => (
+                                                <span key={idx} className="bg-slate-100 px-1 py-0.5 rounded text-[8px] font-bold">{it}</span>
+                                            ))}
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                    ) : (
-                        <div className="p-10 text-center bg-slate-50/50">
-                            <Layers className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-                            <p className="text-sm font-semibold text-slate-500">No transmittals generated for this job yet.</p>
-                            <Button size="sm" variant="outline" className="mt-4 shadow-sm h-8" onClick={() => navTo('/dtn/drawing-transmittal')}>Create First DTN</Button>
+                    ) : <div className="p-6 text-center text-xs text-slate-400 italic">No recent activity</div>}
+                 </div>
+              </CardContent>
+            </Card>
+
+            {/* MODULE CONSOLE 2: DMS (Documents) */}
+            <Card className="border-slate-200">
+              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
+                   <div>
+                      <CardTitle className="text-sm">Document Management System (DMS)</CardTitle>
+                      <CardDescription className="text-xs">Master assignment index and linked documents.</CardDescription>
+                   </div>
+                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => navTo('/dcc/documents', { jobId: data.job.id })}>Open Matrix</Button>
+              </CardHeader>
+              <CardContent className="pt-4">
+                 <div className="space-y-4">
+                    <StatusRow title="DMS Workflow Status" entries={{ "Pending": data.dms.pending, "Uploaded": data.dms.uploaded, "Approved": data.dms.approved, "Rejected": data.dms.rejected }} />
+                    <ProgressBar value={(data.dms.approved || 0) + (data.dms.uploaded || 0)} max={data.dms.total} label="Project Documentation Completion" colorClass="bg-blue-600" />
+                 </div>
+              </CardContent>
+            </Card>
+
+            {/* MODULE CONSOLE 3: Exceptions (DCR & NCR) */}
+            <Card className="border-slate-200 shadow-sm overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 bg-slate-50/50">
+                   <div>
+                      <CardTitle className="text-sm font-bold">Engineering Exceptions (NCR / DCR)</CardTitle>
+                      <CardDescription className="text-xs font-medium">Non-conformities and design change requests.</CardDescription>
+                   </div>
+                   <div className="flex gap-2">
+                       <Button size="sm" variant="outline" className="h-7 text-xs bg-white" onClick={() => navTo('/ncr/view-ncr', { jobId: data.job.id })}>NCR Logs</Button>
+                       <Button size="sm" variant="outline" className="h-7 text-xs bg-white" onClick={() => navTo('/dcr/view-dcr', { jobId: data.job.id })}>DCR Logs</Button>
+                   </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                 <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100">
+                    <div className="p-4 flex flex-col items-center justify-center bg-white">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">OPEN NCRs</p>
+                        <p className="text-2xl font-black text-red-600">{formatValue(data.exceptions.ncr.open)}</p>
+                    </div>
+                    <div className="p-4 flex flex-col items-center justify-center bg-white">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">PENDING DCRs</p>
+                        <p className="text-2xl font-black text-amber-600">{formatValue(data.exceptions.dcr.pending)}</p>
+                    </div>
+                 </div>
+                 <div className="p-0 bg-white overflow-x-auto">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 divide-x divide-slate-100">
+                        {/* Recent NCRs */}
+                        <div className="p-0">
+                            <p className="px-4 py-2 border-b text-[10px] font-bold text-slate-500 uppercase bg-slate-50/30">Latest NCR Action Items</p>
+                            {data.exceptions.recentNcrs?.length > 0 ? (
+                                <table className="w-full text-xs">
+                                    <tbody className="divide-y divide-slate-50">
+                                        {data.exceptions.recentNcrs.map(n => (
+                                            <tr key={n.id} className="hover:bg-slate-50">
+                                                <td className="px-4 py-2 font-bold">{n.no}</td>
+                                                <td className="px-4 py-2 text-slate-500">Stage {n.stage}</td>
+                                                <td className="px-4 py-2 text-right"><span className="p-1 rounded bg-slate-100 font-bold uppercase text-[9px]">{n.status}</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : <p className="p-4 text-[10px] italic text-slate-400">No active NCRs</p>}
                         </div>
-                    )}
-                 </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
-                   <div>
-                      <CardTitle className="text-sm">Welding Pipeline (WPJ)</CardTitle>
-                      <CardDescription className="text-xs">Joint tracking and NDT inspection progression.</CardDescription>
-                   </div>
-                   <Button size="sm" variant="outline" className="h-7 text-xs mt-0" onClick={() => navTo('/view-weldingjoints', { type: 'job', value: data.job.id })}>WPJ Console</Button>
-              </CardHeader>
-              <CardContent className="pt-4">
-                 <div className="flex flex-col md:flex-row gap-8">
-                    <div className="w-full md:w-1/3">
-                       <div className="rounded border border-slate-200 bg-slate-50 p-4 h-full flex flex-col justify-center">
-                          <p className="text-xs font-semibold text-slate-500 uppercase">Registered Joints</p>
-                          <p className="text-3xl font-extrabold text-slate-900 mt-1">{formatValue(data.wpj.totalJoints)}</p>
-                          <p className="text-xs text-slate-500 mt-1">across {formatValue(data.wpj.plans)} weld plans</p>
-                       </div>
-                    </div>
-                    <div className="flex-1 space-y-2">
-                       <ProgressBar value={data.wpj.s1.completed} max={data.wpj.totalJoints} label="Phase S1 Status (Fit-up & Visual)" colorClass="bg-slate-700" />
-                       <ProgressBar value={data.wpj.s2.completed} max={data.wpj.totalJoints} label="Phase S2 Status (RT/NDT Clearances)" colorClass="bg-slate-800" />
-                       <ProgressBar value={data.wpj.s3.completed} max={data.wpj.totalJoints} label="Phase S3 Status (Final Release)" colorClass="bg-emerald-600" />
+                        {/* Recent DCRs */}
+                        <div className="p-0">
+                            <p className="px-4 py-2 border-b text-[10px] font-bold text-slate-500 uppercase bg-slate-50/30">Latest DCR Submissions</p>
+                            {data.exceptions.recentDcrs?.length > 0 ? (
+                                <table className="w-full text-xs">
+                                    <tbody className="divide-y divide-slate-50">
+                                        {data.exceptions.recentDcrs.map(d => (
+                                            <tr key={d.id} className="hover:bg-slate-50">
+                                                <td className="px-4 py-2 font-bold">{d.no}</td>
+                                                <td className="px-4 py-2 text-slate-500">{new Date(d.date).toLocaleDateString()}</td>
+                                                <td className="px-4 py-2 text-right"><span className="p-1 rounded bg-slate-100 font-bold uppercase text-[9px]">{d.status}</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : <p className="p-4 text-[10px] italic text-slate-400">No active DCRs</p>}
+                        </div>
                     </div>
                  </div>
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
+            {/* MODULE CONSOLE 4: Quality & Inspection (MHC, QAP, etc) */}
+            <Card className="border-slate-200 shadow-sm overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 bg-slate-50/50">
                    <div>
-                      <CardTitle className="text-sm">Quality Assurance Checklist</CardTitle>
-                      <CardDescription className="text-xs">Mandatory product checkout and sign-offs.</CardDescription>
+                      <CardTitle className="text-sm font-bold">Quality & Inspection Protocols</CardTitle>
+                      <CardDescription className="text-xs font-medium">Compliance verification and operational checkpoints.</CardDescription>
                    </div>
               </CardHeader>
-              <CardContent className="pt-4">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-12 gap-y-1">
-                     <QualityCheck label="1. Quality Assurance Plan (QAP)" status={data.quality.qap.status} onNav={() => navTo('/qap/view')} />
-                     <QualityCheck label="2. Material Heat Chart (MHC)" status={data.quality.mhc.status} onNav={() => navTo('/mhc/view-mhc')} />
-                     <QualityCheck label="3. Hydrostatic Test Execution" status={data.quality.hydro.status} onNav={() => navTo('/hydro-test/view')} />
-                     <QualityCheck label="4. Dish End Log Validation" status={data.quality.dishEnd.status} onNav={() => navTo('/inspection-report/dish-end')} />
-                     <QualityCheck label="5. Final Inspection Clearance" status={data.quality.finalInsp.status} onNav={() => navTo('/inspection-report/final-inspection')} />
+              <CardContent className="p-0">
+                  <div className="grid grid-cols-1 md:grid-cols-5 divide-x divide-slate-100 border-b border-slate-100 text-center">
+                     <div className="p-3"><p className="text-[9px] font-bold text-slate-500 uppercase">MHC</p><p className="text-xs font-bold text-slate-900">{data.quality.mhc.status}</p></div>
+                     <div className="p-3"><p className="text-[9px] font-bold text-slate-500 uppercase">QAP</p><p className="text-xs font-bold text-slate-900">{data.quality.qap.status}</p></div>
+                     <div className="p-3"><p className="text-[9px] font-bold text-slate-500 uppercase">Hydro</p><p className="text-xs font-bold text-slate-900">{data.quality.hydro.status}</p></div>
+                     <div className="p-3"><p className="text-[9px] font-bold text-slate-500 uppercase">Dish End</p><p className="text-xs font-bold text-slate-900">{data.quality.dishEnd.status}</p></div>
+                     <div className="p-3"><p className="text-[9px] font-bold text-slate-500 uppercase">Final Insp</p><p className="text-xs font-bold text-slate-900">{data.quality.finalInsp.status}</p></div>
+                  </div>
+                  <div className="p-0 bg-white">
+                     <p className="px-4 py-2 border-b text-[10px] font-bold text-slate-500 uppercase bg-slate-50/30">Unified Quality Activity Timeline</p>
+                     {data.quality.timeline?.length > 0 ? (
+                         <table className="w-full text-xs">
+                             <tbody className="divide-y divide-slate-50">
+                                 {data.quality.timeline.map((r, i) => (
+                                     <tr key={i} className="hover:bg-slate-50">
+                                         <td className="px-4 py-3"><span className="bg-slate-900 text-white px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold">{r.type}</span></td>
+                                         <td className="px-4 py-3 font-semibold">{r.no}</td>
+                                         <td className="px-4 py-3 text-slate-500">{new Date(r.date).toLocaleDateString()}</td>
+                                         <td className="px-4 py-3 text-right"><span className={`p-1 rounded font-bold uppercase text-[9px] ${r.status === 'APPROVED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{r.status}</span></td>
+                                     </tr>
+                                 ))}
+                             </tbody>
+                         </table>
+                     ) : <p className="p-6 text-center text-xs text-slate-400 italic">No quality records detected</p>}
                   </div>
               </CardContent>
             </Card>
 
-            <Card className="border-slate-200">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
+            {/* MODULE CONSOLE 5: Welding Pipeline (WPJ) */}
+            <Card className="border-slate-200 shadow-sm overflow-hidden">
+              <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 bg-slate-50/50">
                    <div>
-                      <CardTitle className="text-sm">Engineering Exceptions (NCR / DCR)</CardTitle>
-                      <CardDescription className="text-xs">Identified non-conformities and change request deviations.</CardDescription>
+                      <CardTitle className="text-sm font-bold">Welding Pipeline (WPJ)</CardTitle>
+                      <CardDescription className="text-xs font-medium">Joint tracking and NDT inspection progression.</CardDescription>
                    </div>
-                   <div className="flex gap-2 mt-0">
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => navTo('/ncr/view-ncr', { jobId: data.job.id })}>NCR Logs</Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => navTo('/dcr/view-dcr', { jobId: data.job.id })}>DCR Logs</Button>
-                   </div>
+                   <Button size="sm" variant="outline" className="h-7 text-xs bg-white shadow-sm" onClick={() => navTo('/view-weldingjoints', { type: 'job', value: data.job.id })}>WPJ Console</Button>
               </CardHeader>
-              <CardContent className="pt-4">
-                 <div className="flex flex-col md:flex-row gap-8">
-                    <div className="flex-1">
-                       <StatusRow title="NCR Workflow Summary" entries={{ "Open (Requires Action)": data.exceptions.ncr.open, "Closed / Resolved": data.exceptions.ncr.closed }} />
-                       <div className="mt-4 pt-3 border-t border-slate-100">
-                          {data.exceptions.ncr.open > 0 ? (
-                             <div className="flex items-center gap-2 text-red-600 font-semibold bg-red-50 px-3 py-2 rounded">
-                                <AlertTriangle className="h-4 w-4" /> Action Required: {data.exceptions.ncr.open} Open NCRs
-                             </div>
-                          ) : (
-                             <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> All logged NCRs are closed.</p>
-                          )}
-                       </div>
-                    </div>
-                    <div className="w-px bg-slate-100 hidden md:block"></div>
-                    <div className="flex-1">
-                       <StatusRow title="DCR Workflow Summary" entries={{ "Pending Engineering/QC": data.exceptions.dcr.pending, "Fully Approved": data.exceptions.dcr.approved }} />
-                       <div className="mt-4 pt-3 border-t border-slate-100">
-                          {data.exceptions.dcr.pending > 0 ? (
-                             <div className="flex items-center gap-2 text-amber-600 font-semibold bg-amber-50 px-3 py-2 rounded">
-                                <AlertTriangle className="h-4 w-4" /> Pending Approval: {data.exceptions.dcr.pending} DCRs
-                             </div>
-                          ) : (
-                             <p className="text-xs font-semibold text-slate-500 flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Processed {data.exceptions.dcr.approved} DCRs.</p>
-                          )}
-                       </div>
-                    </div>
-                 </div>
+              <CardContent className="p-0 pt-0">
+                  <div className="p-4 border-b border-slate-100 bg-white grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div className="flex flex-col justify-center">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Active Joints</p>
+                        <p className="text-3xl font-black text-slate-800">{formatValue(data.wpj.totalJoints)}</p>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase mt-1">Spanning {data.wpj.plans} engineering plans</p>
+                     </div>
+                     <div className="space-y-3">
+                        <ProgressBar value={data.wpj.s1.completed} max={data.wpj.totalJoints} label="S1: Visual Clearance" colorClass="bg-slate-500" />
+                        <ProgressBar value={data.wpj.s2.completed} max={data.wpj.totalJoints} label="S2: NDT (RT/PT) Clearance" colorClass="bg-slate-700" />
+                        <ProgressBar value={data.wpj.s3.completed} max={data.wpj.totalJoints} label="S3: Final Weld Release" colorClass="bg-emerald-600" />
+                     </div>
+                  </div>
+                  <div className="p-0 bg-white overflow-x-auto">
+                    <p className="px-4 py-2 border-b text-[10px] font-bold text-slate-500 uppercase bg-slate-50/30">Detailed Weld Plans</p>
+                    {data.wpj.recentPlans?.length > 0 ? (
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-100">
+                                    <th className="px-4 py-2 font-bold text-[9px] uppercase text-slate-500">Plan No</th>
+                                    <th className="px-4 py-2 font-bold text-[9px] uppercase text-slate-500">Drg No</th>
+                                    <th className="px-4 py-2 font-bold text-[9px] uppercase text-slate-500">Created</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {data.wpj.recentPlans.map(p => (
+                                    <tr key={p.id} className="hover:bg-slate-50">
+                                        <td className="px-4 py-2 font-bold text-slate-800">{p.no}</td>
+                                        <td className="px-4 py-2 text-slate-600">{p.drg}</td>
+                                        <td className="px-4 py-2 text-slate-400">{new Date(p.date).toLocaleDateString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    ) : <p className="p-6 text-center text-xs text-slate-400 italic">No plans registered</p>}
+                  </div>
               </CardContent>
+            </Card>
+
+            {/* MODULE CONSOLE 6: Marketing (RFQ) */}
+            <Card className="border-slate-200 shadow-sm overflow-hidden">
+               <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-slate-100 bg-slate-50/50">
+                    <div>
+                       <CardTitle className="text-sm font-bold">Commercial & Marketing Snapshot</CardTitle>
+                       <CardDescription className="text-xs font-medium">RFQ mappings and commercial status.</CardDescription>
+                    </div>
+               </CardHeader>
+               <CardContent className="p-4 bg-white">
+                  {data.rfq ? (
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="rounded-lg border border-slate-100 p-4 bg-slate-50/50">
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">RFQ Reference</p>
+                           <p className="text-lg font-bold text-slate-900">{data.rfq.rfqNo}</p>
+                           <p className="text-[10px] text-slate-500 mt-1">Logged on {new Date(data.rfq.enqDate).toLocaleDateString()}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 p-4 bg-slate-50/50">
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contract Value</p>
+                           <p className="text-lg font-bold text-emerald-700">₹ {formatValue(data.rfq.quotedValue)}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 p-4 bg-slate-50/50">
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Pipeline Status</p>
+                           <div className="flex gap-2 mt-1">
+                              <span className="bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-bold uppercase">{data.rfq.shrenoStatus}</span>
+                              <span className="bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-bold uppercase">{data.rfq.clientStatus}</span>
+                           </div>
+                        </div>
+                     </div>
+                  ) : <div className="p-10 text-center text-slate-400 italic text-xs">No commercial RFQ records linked to this PO context.</div>}
+               </CardContent>
             </Card>
 
           </div>
