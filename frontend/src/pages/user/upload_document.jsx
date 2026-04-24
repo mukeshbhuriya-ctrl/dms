@@ -237,7 +237,36 @@ function UploadDocument() {
         {
             id: "documentNumber",
             header: "System Doc ID",
-            accessorKey: "documentNumber"
+            accessorKey: "documentNumber",
+            filterType: "text",
+        },
+        {
+            id: "shreno_doc_no",
+            header: "SHRENO DOC NO",
+            accessorKey: "shreno_doc_no",
+            filterType: "text",
+        },
+        {
+            id: "client_doc_no",
+            header: "CLIENT DOC NO",
+            accessorKey: "client_doc_no",
+            filterType: "text",
+        },
+        {
+            id: "documentName",
+            header: "Document Name",
+            accessorKey: "documentName",
+            filterType: "text",
+        },
+        {
+            header: "Revision No",
+            accessorKey: "versionNo",
+            cell: (row) => (
+                <span className={row.versionNo !== null && row.versionNo !== undefined ? "font-semibold text-blue-600" : "text-muted-foreground"}>
+                    {row.versionNo !== null && row.versionNo !== undefined ? `${row.versionNo}` : '-'}
+                </span>
+            ),
+            className: "w-[80px]"
         },
         {
             id: "customer_name",
@@ -263,23 +292,6 @@ function UploadDocument() {
             isMulti: true,
             filterOptions: jobFilterOptions,
             cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
-        },
-
-        {
-            id: "documentName",
-            header: "Document Name",
-            accessorKey: "documentName",
-            filterType: "text",
-        },
-        {
-            header: "Revision",
-            accessorKey: "versionNo",
-            cell: (row) => (
-                <span className={row.versionNo !== null && row.versionNo !== undefined ? "font-semibold text-blue-600" : "text-muted-foreground"}>
-                    {row.versionNo !== null && row.versionNo !== undefined ? `${row.versionNo}` : '-'}
-                </span>
-            ),
-            className: "w-[80px]"
         },
         {
             header: "Created At",
@@ -476,6 +488,9 @@ function UploadDocument() {
                 if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
                 if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
                 if (columnFilters.documentName) params.search = columnFilters.documentName;
+                if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+                if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
+                if (columnFilters.documentNumber) params.document_number_filter = columnFilters.documentNumber;
                 if (columnFilters.uploader_status) params.uploader_status_filter = columnFilters.uploader_status;
                 if (columnFilters.status) params.approver_status_filter = columnFilters.status;
             }
@@ -502,6 +517,8 @@ function UploadDocument() {
                     return {
                         id: doc.id,
                         s_no: (page - 1) * limit + index + 1,
+                        shreno_doc_no: doc.shreno_doc_no || '-',
+                        client_doc_no: doc.client_doc_no || '-',
                         documentName: doc.document.document_name,
                         documentNumber: doc.document.document_number,
                         job_number: doc.group?.job_group?.[0]?.job?.job_number || 'N/A',
@@ -569,7 +586,7 @@ function UploadDocument() {
                             refreshKey={refreshTrigger}
                             topFilters={proTableTopFilters}
                             globalSearchPlaceholder="Search documents..."
-                            initialStickyColumns={["documentNumber", "documentName"]}
+                            initialStickyColumns={["documentNumber"]}
                         />
                     </div>
                 </div>

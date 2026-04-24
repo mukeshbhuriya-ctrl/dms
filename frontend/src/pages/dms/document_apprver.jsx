@@ -208,6 +208,35 @@ function DocumentApprover() {
       header: "System Doc ID",
       accessorKey: "documentNumber"
     },
+        {
+      id: "shreno_doc_no",
+      accessorKey: "shreno_doc_no",
+      header: "Shreno Doc No",
+      filterType: "text",
+      cell: (row) => row.shreno_doc_no || "-",
+    },
+    {
+      id: "client_doc_no",
+      accessorKey: "client_doc_no",
+      header: "Client Doc No",
+      filterType: "text",
+      cell: (row) => row.client_doc_no || "-",
+    },
+        {
+      id: "documentName",
+      header: "Document Name",
+      accessorKey: "documentName",
+      filterType: "text",
+    },
+    {
+      header: "Revision",
+      accessorKey: "versionNo",
+      cell: (row) => (
+        <span className={row.versionNo !== null && row.versionNo !== undefined ? "font-semibold text-blue-600" : "text-muted-foreground"}>
+          {row.versionNo !== null && row.versionNo !== undefined ? `${row.versionNo}` : '-'}
+        </span>
+      ),
+    },
     {
       id: "customer_name",
       header: "Client",
@@ -233,37 +262,7 @@ function DocumentApprover() {
       filterOptions: jobFilterOptions,
       cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
     },
-    {
-      id: "documentName",
-      header: "Document Name",
-      accessorKey: "documentName",
-      filterType: "text",
-    },
-    {
-      id: "shreno_doc_no",
-      accessorKey: "shreno_doc_no",
-      header: "Shreno Doc No",
-      filterType: "text",
-      cell: (row) => row.shreno_doc_no || "-",
-    },
-    {
-      id: "client_doc_no",
-      accessorKey: "client_doc_no",
-      header: "Client Doc No",
-      filterType: "text",
-      cell: (row) => row.client_doc_no || "-",
-    },
-    
-    {
-      header: "Revision",
-      accessorKey: "versionNo",
-      cell: (row) => (
-        <span className={row.versionNo !== null && row.versionNo !== undefined ? "font-semibold text-blue-600" : "text-muted-foreground"}>
-          {row.versionNo !== null && row.versionNo !== undefined ? `${row.versionNo}` : '-'}
-        </span>
-      ),
-      className: "w-[80px]"
-    },
+
     {
       header: "Uploaded By",
       accessorKey: "uploadedBy"

@@ -617,7 +617,10 @@ class DccService {
             uploader_status_filter,
             customer_name_filter,
             po_number_filter,
-            job_number_filter
+            job_number_filter,
+            shreno_doc_no_filter,
+            client_doc_no_filter,
+            document_number_filter
         } = params;
 
         const where = { company_id, user_id };
@@ -654,6 +657,16 @@ class DccService {
                     some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
+        }
+
+        if (shreno_doc_no_filter) {
+            where.shreno_doc_no = this._processFilter(shreno_doc_no_filter);
+        }
+        if (client_doc_no_filter) {
+            where.client_doc_no = this._processFilter(client_doc_no_filter);
+        }
+        if (document_number_filter) {
+            where.document = { ...where.document, document_number: this._processFilter(document_number_filter) };
         }
 
         if (search) {
