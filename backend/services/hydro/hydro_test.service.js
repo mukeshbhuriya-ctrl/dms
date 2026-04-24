@@ -10,7 +10,8 @@ class HydroTestService {
             limit = 10,
             search = '',
             sortBy = 'createdAt',
-            sortOrder = 'desc'
+            sortOrder = 'desc',
+            columnFilters = null
         } = params;
 
         const skip = (Number(page) - 1) * Number(limit);
@@ -24,6 +25,24 @@ class HydroTestService {
                 { client: { contains: search, mode: 'insensitive' } },
                 { po_no: { contains: search, mode: 'insensitive' } },
             ];
+        }
+
+        if (columnFilters) {
+            try {
+                const filters = typeof columnFilters === 'string' ? JSON.parse(columnFilters) : columnFilters;
+                
+                const handleMultiFilter = (field, value) => {
+                    if (!value) return;
+                    const values = Array.isArray(value) ? value : value.split(',').map(v => v.trim());
+                    if (values.length > 0) where[field] = { in: values };
+                };
+
+                handleMultiFilter('client', filters.client);
+                handleMultiFilter('po_no', filters.poNo || filters.po_no);
+                handleMultiFilter('msn', filters.msn || filters.msnNumber);
+            } catch (e) {
+                console.error("Error parsing columnFilters:", e);
+            }
         }
 
         const [total, data] = await prisma.$transaction([
@@ -306,6 +325,29 @@ class HydroTestService {
         const reportNo = `SHR/${job.job_number}/HYDRO/${paddedSerial}`;
 
         return { next_report_no: reportNo, next_serial_no: nextSerialNo };
+    }
+
+    /**
+     * Get active filters metadata
+     */
+    async getActiveFilters(company_id) {
+        const records = await prisma.hydrostatic_test_report.findMany({
+            where: { company_id },
+            select: {
+                client: true,
+                po_no: true,
+                msn: true
+            },
+            distinct: ['client', 'po_no', 'msn']
+        });
+
+        const mapped = records.map(r => ({
+            client: r.client,
+            po: r.po_no,
+            msn: r.msn
+        }));
+
+        return { records: mapped };
     }
 }
 
