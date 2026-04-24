@@ -366,22 +366,42 @@ class DccService {
 
     async getJobs(company_id, params = {}) {
         const { page = 1, limit, search = '', po_id, customer_id, customer_location_id } = params;
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (customer_id) where.customer_id = customer_id.trim();
-        if (po_id) {
-            where.job_group = {
-                some: { group: { group_document: { some: { po_id: po_id.trim() } } } }
-            };
-        }
+        if (po_id) where.po_id = po_id.trim();
+        if (customer_location_id) where.customer_location_id = customer_location_id.trim();
 
         if (search) {
             where.OR = [
                 { job_number: { contains: search, mode: 'insensitive' } },
-                { customer: { customer_name: { contains: search, mode: 'insensitive' } } }
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                { equipement_name: { contains: search, mode: 'insensitive' } }
             ];
+        }
+
+        if (columnFilters.job_number) {
+            where.job_number = { in: Array.isArray(columnFilters.job_number) ? columnFilters.job_number : [columnFilters.job_number] };
+        }
+        if (columnFilters.customer) {
+            where.customer = { customer_name: { in: Array.isArray(columnFilters.customer) ? columnFilters.customer : [columnFilters.customer] } };
+        }
+        if (columnFilters.location) {
+            where.customer_location = { location_name: { in: Array.isArray(columnFilters.location) ? columnFilters.location : [columnFilters.location] } };
+        }
+        if (columnFilters.po_number) {
+            where.po = { po_number: { in: Array.isArray(columnFilters.po_number) ? columnFilters.po_number : [columnFilters.po_number] } };
+        }
+        if (columnFilters.project_id) {
+            where.project_id = { contains: columnFilters.project_id, mode: 'insensitive' };
+        }
+        if (columnFilters.equipment) {
+            where.equipement_name = { contains: columnFilters.equipment, mode: 'insensitive' };
         }
 
         const [total, data] = await prisma.$transaction([
@@ -400,6 +420,27 @@ class DccService {
         return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
     }
 
+    async getManageJobFilters(company_id) {
+        const jobs = await prisma.job.findMany({
+            where: { company_id },
+            select: {
+                job_number: true,
+                customer: { select: { customer_name: true } },
+                customer_location: { select: { location_name: true } },
+                po: { select: { po_number: true } }
+            }
+        });
+
+        const records = jobs.map(j => ({
+            job_number: j.job_number,
+            customer: j.customer?.customer_name || 'N/A',
+            location: j.customer_location?.location_name || 'N/A',
+            po_number: j.po?.po_number || 'N/A'
+        }));
+
+        return { records };
+    }
+
     /**
      * Get unique filters (Customers, POs, Jobs) that actually have assigned documents
      */
@@ -407,7 +448,7 @@ class DccService {
         const getFilters = async (uid = null) => {
             const whereClause = { company_id };
             if (uid) whereClause.user_id = uid;
-            
+
             // Check for specific document status/approval filters
             if (options.isApproved) {
                 whereClause.status = 'Approved';
@@ -458,11 +499,11 @@ class DccService {
 
             activeDocs.forEach(doc => {
                 if (doc.customer) customersMap.set(doc.customer.id, doc.customer);
-                if (doc.po) posMap.set(doc.po.id, { 
-                    ...doc.po, 
-                    customer: doc.customer 
+                if (doc.po) posMap.set(doc.po.id, {
+                    ...doc.po,
+                    customer: doc.customer
                 });
-                
+
                 // Jobs are nested in group -> job_group
                 doc.group?.job_group?.forEach(jg => {
                     if (jg.job) {
@@ -987,7 +1028,7 @@ class DccService {
                 group_document_id: document_id,
                 user_id,
                 action: groupDoc.status === 'As Built' ? 'As Built Finalized' : 'Uploaded',
-                remarks: groupDoc.status === 'As Built' 
+                remarks: groupDoc.status === 'As Built'
                     ? `Final As-Built version ${targetVersionNo} uploaded and automatically approved`
                     : `Version ${targetVersionNo} uploaded`,
                 metadata: {
@@ -1465,12 +1506,12 @@ class DccService {
 
         // Apply Column Specific Filters
         if (customer_name_filter) {
-            where.customer = { 
+            where.customer = {
                 customer_name: this._processFilter(customer_name_filter)
             };
         }
         if (po_number_filter) {
-            where.po = { 
+            where.po = {
                 po_number: this._processFilter(po_number_filter)
             };
         }
@@ -1679,7 +1720,7 @@ class DccService {
                 user_id,
                 action: 'Transmitted Mail Sent',
                 remarks: `Transmittal email sent for ${transmission.transmission_number}`,
-                metadata: { 
+                metadata: {
                     transmission_no: transmission.transmission_number,
                     recipients: [...(client_emails || []), ...(shreno_emails || [])].join(', ')
                 }
@@ -1708,7 +1749,7 @@ class DccService {
 
     _replacePlaceholders(text, transmission, documentsData, absoluteZipUrl, include_zip = true) {
         if (!text) return '';
-        
+
         let processedText = text;
 
         // If include_zip is false, remove the download section if standard placeholders are found
@@ -1890,7 +1931,7 @@ class DccService {
             if (file) {
                 const docNumber = groupDoc.document.document_number;
                 const transNumber = transDoc.transmission.transmission_number;
-                
+
                 // Fetch version info for directory structure
                 const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
                 const vNo = reviewedVersion?.version_no ?? 0;
@@ -1898,12 +1939,12 @@ class DccService {
                 // Directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
                 const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, vNo);
                 const targetPath = path.join(targetDir, file.filename || file.originalname);
-                
+
                 // Move file from temp to final destination
                 fs.renameSync(file.path, targetPath);
 
                 const relativePath = StorageUtils.getRelativePath(targetPath);
-                
+
                 // Feedback URL for the trail (Public/Secure route)
                 const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
                 feedbackUrl = `${backendUrl}/api/dcc/document/feedback?filename=${encodeURIComponent(file.originalname)}&filepath=${encodeURIComponent(relativePath)}`;
@@ -1959,12 +2000,12 @@ class DccService {
             });
 
             // 7. Log Activity with feedback_url for trail display
-            const actionLabel = status === 'Approved' ? 'Client Approved' 
-                              : status === 'Final Approved' ? 'Client Final Approved'
-                              : status === 'Rejected' ? 'Client Rejected' 
-                              : status === 'As Built' ? 'Client As Built' 
-                              : status === 'Re-approval' ? 'Client Re-approval'
-                              : 'Client Commented';
+            const actionLabel = status === 'Approved' ? 'Client Approved'
+                : status === 'Final Approved' ? 'Client Final Approved'
+                    : status === 'Rejected' ? 'Client Rejected'
+                        : status === 'As Built' ? 'Client As Built'
+                            : status === 'Re-approval' ? 'Client Re-approval'
+                                : 'Client Commented';
 
             const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
 
@@ -1990,7 +2031,7 @@ class DccService {
             // 8. Pre-allocate Next Revision if status requires re-upload
             // If Rejected, Commented, Re-approval, or As Built, we prepare the next Rev slot
             if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
-                const reviewedVersion = await tx.document_version.findUnique({ 
+                const reviewedVersion = await tx.document_version.findUnique({
                     where: { id: reviewedVersionId },
                     include: { group_document: { include: { group: { include: { job_group: { include: { job: true } } } } } } }
                 });
@@ -2109,7 +2150,7 @@ class DccService {
                 const { document_id, id, assignUserId, assign_user_id, uploadDueDays, upload_due_days, responseDueDays, response_due_days, shrenoDocumentNo, shreno_document_no, shrenoReferenceNo, shreno_reference_no, clientDocumentNo, client_document_no, clientReferenceNo, client_reference_no } = docData;
                 const document_master_id = document_id || id;
                 const assignedUserId = assignUserId || assign_user_id || user_id; // Prefer doc specific, then global
-                
+
                 // Manual Assignment requirement: user_id is mandatory
                 if (!assignedUserId) throw new Error("Assignee (User) is mandatory for document assignment. Please select a user for all documents.");
 

@@ -23,6 +23,7 @@ router.get('/document/feedback', authenticateUserOnly, DccController.downloadFee
 router.get('/get-active-filters', authenticateUserOnly, DccController.getActiveFilters);
 
 
+
 // Apply authentication middleware to all routes in this router
 router.use(authenticateUser(['DCC', 'ADMIN', 'TAXATION']));
 
@@ -49,6 +50,7 @@ router.get('/document/:documentId/versions', authenticateUserOnly, documentContr
 router.get('/document/:documentId/versions/:versionNumber', authenticateUserOnly, documentController.getSpecificVersion);
 
 router.get('/get-jobs', DccController.getJobs);
+router.get('/get-manage-job-filters', DccController.getManageJobFilters);
 router.post('/create-job', createJob);
 router.put('/update-job/:id', updateJob);
 
