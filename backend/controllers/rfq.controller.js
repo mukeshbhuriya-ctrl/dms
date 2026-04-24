@@ -29,7 +29,8 @@ class RfqController {
 
     async getDashboardStats(req, res) {
         try {
-            const data = await RfqService.getDashboardStats(req.user.company_id);
+            const { type } = req.query;
+            const data = await RfqService.getDashboardStats(req.user.company_id, type);
             res.status(200).json({ success: true, data });
         } catch (error) {
             console.error('RFQ getDashboardStats error:', error);

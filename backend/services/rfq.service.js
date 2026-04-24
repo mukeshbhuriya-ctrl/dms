@@ -445,10 +445,15 @@ class RfqService {
     /**
      * Get RFQ Dashboard Statistics
      */
-    async getDashboardStats(company_id) {
-        // Fetch all RFQs and sum up items for financials
+    async getDashboardStats(company_id, quotation_category) {
+        // Fetch RFQs filtered by company and optionally by category
+        const where = { company_id };
+        if (quotation_category) {
+            where.quotation_category = quotation_category;
+        }
+
         const rfqs = await prisma.rfq_register.findMany({
-            where: { company_id },
+            where,
             include: { items: true },
         });
 
