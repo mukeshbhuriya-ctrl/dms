@@ -14,6 +14,7 @@ router.get('/get-assigned-drawings/:jobId', authenticateUserOnly, DcrController.
 router.use(authenticateUser(['ADMIN', 'DCR', 'QC_ENGINEER', 'DESIGN_ENGINEER']));
 
 router.get('/get-dcr', DcrController.getDcr);
+router.get('/active-filters', DcrController.getActiveFilters);
 router.get('/get-dcr-by-id/:id', DcrController.getDcrById);
 router.post('/create-dcr', DcrController.createDcr);
 router.get('/get-jobs', DcrController.getDcrNumber);
