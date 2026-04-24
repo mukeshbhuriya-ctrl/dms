@@ -747,7 +747,8 @@ class DccService {
             po_number_filter,
             job_number_filter,
             shreno_doc_no_filter,
-            client_doc_no_filter
+            client_doc_no_filter,
+            user_id_filter
         } = params;
 
         const where = { company_id };
@@ -791,6 +792,21 @@ class DccService {
         }
         if (client_doc_no_filter) {
             where.client_doc_no = this._processFilter(client_doc_no_filter);
+        }
+
+        if (user_id_filter) {
+            if (user_id_filter === 'pending_assignee' || (Array.isArray(user_id_filter) && user_id_filter.includes('pending_assignee'))) {
+                if (Array.isArray(user_id_filter)) {
+                    where.OR = [
+                        { user_id: null },
+                        { user_id: { in: user_id_filter.filter(v => v !== 'pending_assignee') } }
+                    ];
+                } else {
+                    where.user_id = null;
+                }
+            } else {
+                where.user_id = this._processFilter(user_id_filter);
+            }
         }
 
         // ID-based filters (existing)
@@ -2093,6 +2109,9 @@ class DccService {
                 const { document_id, id, assignUserId, assign_user_id, uploadDueDays, upload_due_days, responseDueDays, response_due_days, shrenoDocumentNo, shreno_document_no, shrenoReferenceNo, shreno_reference_no, clientDocumentNo, client_document_no, clientReferenceNo, client_reference_no } = docData;
                 const document_master_id = document_id || id;
                 const assignedUserId = assignUserId || assign_user_id || user_id; // Prefer doc specific, then global
+                
+                // Manual Assignment requirement: user_id is mandatory
+                if (!assignedUserId) throw new Error("Assignee (User) is mandatory for document assignment. Please select a user for all documents.");
 
                 if (!document_master_id) continue;
 
@@ -2172,13 +2191,13 @@ class DccService {
                 where: { id },
                 data: {
                     document_id: document_id || undefined,
-                    user_id: assign_user_id || undefined,
-                    upload_due_days: upload_due_days !== undefined ? parseInt(upload_due_days) : undefined,
-                    response_due_days: response_due_days !== undefined ? parseInt(response_due_days) : undefined,
-                    shreno_doc_no: shreno_document_no || undefined,
-                    shreno_reference_no: shreno_reference_no || undefined,
-                    client_doc_no: client_document_no || undefined,
-                    client_reference_no: client_reference_no || undefined
+                    user_id: assign_user_id === undefined ? undefined : assign_user_id,
+                    upload_due_days: upload_due_days === undefined ? undefined : (upload_due_days ? parseInt(upload_due_days) : null),
+                    response_due_days: response_due_days === undefined ? undefined : (response_due_days ? parseInt(response_due_days) : null),
+                    shreno_doc_no: shreno_document_no === undefined ? undefined : (shreno_document_no || null),
+                    shreno_reference_no: shreno_reference_no === undefined ? undefined : (shreno_reference_no || null),
+                    client_doc_no: client_document_no === undefined ? undefined : (client_document_no || null),
+                    client_reference_no: client_reference_no === undefined ? undefined : (client_reference_no || null)
                 }
             });
 
@@ -2299,7 +2318,7 @@ class DccService {
     /**
      * Bulk Assign Documents
      */
-    async bulkAssignDocuments(company_id, data) {
+    async bulkAssignDocuments(company_id, data, performer_id) {
         const { assignments } = data;
 
         if (!assignments || !Array.isArray(assignments)) {
@@ -2339,7 +2358,7 @@ class DccService {
                     client_reference_no
                 } = assign;
 
-                if (!job_id || !document_name || !assign_user_id) continue;
+                if (!job_id || !document_name) continue;
 
                 // Backend Cleaning: Final trim and sanitize
                 const cleanDocName = document_name.trim();
@@ -2460,7 +2479,7 @@ class DccService {
                 await ActivityService.logActivity({
                     company_id,
                     group_document_id: groupDoc.id,
-                    user_id: assign_user_id,
+                    user_id: performer_id,
                     action: 'Assigned',
                     remarks: `Document assigned for job ${targetJob.job_number || job_id}`
                 }, tx);

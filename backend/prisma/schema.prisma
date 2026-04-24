@@ -413,7 +413,7 @@ model group_document{
   upload_due_days Int?
   response_due_days Int?
   actual_due_days Int?
-  user_id String
+  user_id String?
   status String @default("Pending") // Pending, Uploaded, Approved, Rejected
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -421,7 +421,7 @@ model group_document{
   company company @relation(fields: [company_id], references: [id])
   group group @relation(fields: [group_id], references: [id])
   document document_master @relation(fields: [document_id], references: [id])
-  user user @relation(fields: [user_id], references: [id])
+  user user? @relation(fields: [user_id], references: [id])
   customer customer @relation(fields: [customer_id], references: [id])
   customer_location customer_location @relation(fields: [customer_location_id], references: [id])
   po po @relation(fields: [po_id], references: [id])
@@ -596,13 +596,13 @@ model document_version {
   is_active          Boolean  @default(true) // User requirement: isActive
   remarks            String?
   status             String   @default("Uploaded") // Uploaded, Approved, Rejected
-  uploaded_by        String
+  uploaded_by        String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   single_document single_document? @relation(fields: [single_document_id], references: [id])
   group_document  group_document?  @relation(fields: [group_document_id], references: [id])
-  uploader        user             @relation(fields: [uploaded_by], references: [id])
+  uploader        user?            @relation(fields: [uploaded_by], references: [id])
   transmission_items transmission_document[]
 }
 

@@ -250,7 +250,7 @@ class DccController {
 
     async bulkAssignDocuments(req, res) {
         try {
-            const result = await DccService.bulkAssignDocuments(req.user.company_id, req.body);
+            const result = await DccService.bulkAssignDocuments(req.user.company_id, req.body, req.user.userid || req.user.id);
             res.status(201).json({ success: true, data: result, message: 'Documents assigned successfully' });
         } catch (error) {
             console.error('Bulk assign document error:', error);

@@ -192,8 +192,8 @@ function AssignDocument() {
         const fileHeaders = Object.keys(rawData[0]);
         const missingHeaders = REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h));
         if (missingHeaders.length > 0) {
-          toast.error(`Invalid Excel Format. Missing columns: ${missingHeaders.join(", ")}`);
-          return;
+          // If headers are missing, we still try to proceed if possible or toast warning
+          console.warn(`Excel missing columns: ${missingHeaders.join(", ")}`);
         }
       }
 
@@ -214,8 +214,11 @@ function AssignDocument() {
         else if (!targetJob) errors.push(`Job Number "${jobNumber}" not found`);
 
         if (!docName) errors.push("Document Name is required");
-        if (!empid) errors.push("Employee ID is required");
-        else if (!targetUser) errors.push(`Employee ID "${empid}" not found`);
+        
+        // Employee ID is now optional. If provided but not found, we still mark as valid (Pending)
+        if (empid && !targetUser) {
+           console.log(`Employee ID "${empid}" not found, treating as Pending Assignee.`);
+        }
 
         const uploadDays = parseInt(uploadDaysRaw);
         if (uploadDaysRaw === undefined || isNaN(uploadDays) || uploadDays < 0) {
@@ -254,31 +257,39 @@ function AssignDocument() {
     reader.readAsBinaryString(file);
   };
 
-  const finalizeImport = () => {
+  const finalizeImport = async () => {
     const validRows = importReview.data.filter(r => r.status === 'valid');
     if (validRows.length === 0) return;
 
-    const newAssignments = validRows.map(r => ({
-      tempId: Date.now() + Math.random(),
-      jobId: r.jobId,
-      customerId: r.customerId,
-      poId: r.poId,
-      documentName: r.docName,
-      shrenoDocumentNo: r.shrenoNo,
-      clientDocumentNo: r.clientNo,
-      assignUserId: r.assignUserId,
-      upload_due_days: String(r.uploadDays),
-      response_due_days: String(r.responseDays),
-    }));
+    setIsLoading(true);
 
-    setAssignments(prev => {
-      if (prev.length === 1 && !prev[0].jobId && !prev[0].documentName) return newAssignments;
-      return [...prev, ...newAssignments];
-    });
+    const requestBody = {
+      assignments: validRows.map(r => ({
+        job_id: r.jobId,
+        document_name: r.docName,
+        shreno_document_no: r.shrenoNo,
+        client_document_no: r.clientNo,
+        assign_user_id: r.assignUserId || null,
+        upload_due_days: r.uploadDays ? parseInt(r.uploadDays) : null,
+        response_due_days: r.responseDays ? parseInt(r.responseDays) : null,
+      }))
+    };
 
-    setImportReview({ isOpen: false, data: [], summary: {} });
-    setView("assign");
-    toast.success(`Imported ${validRows.length} documents.`);
+    try {
+      const response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody);
+
+      if (response.success) {
+        toast.success(`Imported and assigned ${validRows.length} documents successfully!`);
+        setImportReview({ isOpen: false, data: [], summary: {} });
+        setRefreshKey(prev => prev + 1);
+        setView("list");
+      }
+    } catch (err) {
+      console.error("Error importing documents:", err);
+      toast.error(err.message || "Failed to import documents.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // --- Restrictive (Active) Filter Options for List View ---
@@ -399,12 +410,31 @@ function AssignDocument() {
       cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
     },
     {
-      accessorKey: "user.name",
+      id: "assignee",
       header: "Assigned To",
+      accessorKey: "user.name",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Pending Assignee", value: "pending_assignee" },
+        ...users.map(u => ({
+          label: u.empid ? `${u.name || u.full_name} (${u.empid})` : (u.name || u.full_name),
+          value: String(u.id)
+        }))
+      ],
       cell: (row) => {
-        const name = String(row.user?.name || row.user?.full_name || row.user?.email || "Unassigned")
-        const empid = String(row.user?.empid || row.user?.employeeId || "")
-        return (name !== "Unassigned" && empid) ? `${name} (${empid})` : name;
+        const name = row.user ? (row.user.name || row.user.full_name || row.user.email) : "Pending Assignee";
+        const empid = row.user?.empid || row.user?.employeeId || "";
+        
+        if (!row.user) {
+          return <span className="text-slate-400 italic font-medium">Pending Assignee</span>;
+        }
+
+        return empid ? (
+          <div className="flex flex-col">
+            <span className="font-medium text-slate-700">{name} ({empid})</span>
+          </div>
+        ) : name;
       },
     },
     {
@@ -546,6 +576,7 @@ function AssignDocument() {
           else if (key === 'documentName') params.search = val;
           else if (key === 'shreno_doc_no') params.shreno_doc_no_filter = val;
           else if (key === 'client_doc_no') params.client_doc_no_filter = val;
+          else if (key === 'assignee') params.user_id_filter = val;
         });
       }
 
@@ -744,6 +775,7 @@ function AssignDocument() {
         customerId: row.group?.job_group?.[0]?.job?.customer_id || "",
         poId: row.group?.job_group?.[0]?.job?.po_id || "",
         documentName: row.document?.document_name || "",
+        documentId: row.document_id || "",
         shrenoDocumentNo: row.shreno_doc_no || "",
         clientDocumentNo: row.client_doc_no || "",
         assignUserId: row.user_id || "",
@@ -777,9 +809,9 @@ function AssignDocument() {
   }
 
   const handleAssign = async () => {
-    const validAssignments = assignments.filter(a => a.jobId && a.documentName && a.assignUserId)
+    const validAssignments = assignments.filter(a => a.jobId && a.documentName)
     if (validAssignments.length === 0) {
-      toast.error("Please complete at least one assignment row (Job, Name, User).");
+      toast.error("Please complete at least one assignment row (Job, Name).");
       return;
     }
 
@@ -802,12 +834,27 @@ function AssignDocument() {
     }
 
     try {
-      const response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody)
+      let response;
+      if (editingId) {
+        const a = validAssignments[0];
+        const updateBody = {
+          job_ids: a.jobId,
+          document_id: a.documentId,
+          assign_user_id: a.assignUserId || null,
+          upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
+          response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
+          shreno_document_no: a.shrenoDocumentNo,
+          client_document_no: a.clientDocumentNo,
+        };
+        response = await apiClient.put(`/api/dcc/update-assigned-document/${editingId}`, updateBody);
+      } else {
+        response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody);
+      }
 
       if (response.success) {
-        toast.success("Documents assigned successfully!")
-        handleBack()
-        setRefreshKey(prev => prev + 1)
+        toast.success(editingId ? "Assignment updated successfully!" : "Documents assigned successfully!");
+        handleBack();
+        setRefreshKey(prev => prev + 1);
       }
     } catch (err) {
       console.error("Error assigning documents:", err)
@@ -899,7 +946,7 @@ function AssignDocument() {
 
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl ">
-              {view === "list" ? "Documents" : editingId ? "Edit Assignment" : "Assign Documents"}
+              {view === "list" ? "Documents" : editingId ? "Update Document Details" : "Assign Documents"}
             </h1>
             {view !== "list" && (
               <Button variant="outline" size="sm" onClick={handleBack}>
@@ -1256,7 +1303,7 @@ function AssignDocument() {
                   <div className="flex justify-end gap-3 mt-6">
                     <Button variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
                     <Button onClick={handleAssign} disabled={isSubmitDisabled}>
-                      {isLoading ? "Assigning..." : "Assign Documents"}
+                      {isLoading ? (editingId ? "Updating..." : "Assigning...") : (editingId ? "Update Document" : "Assign Documents")}
                     </Button>
                   </div>
                 </div>
@@ -1285,7 +1332,7 @@ function AssignDocument() {
         <DialogContent className="sm:max-w-[1000px] w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-2 border-b">
             <DialogTitle>Review Import</DialogTitle>
-            <DialogDescription>Valid rows will be merged into your assignment list.</DialogDescription>
+            <DialogDescription>Valid rows will be directly imported and assigned in the system.</DialogDescription>
             <div className="flex gap-4 mt-4 py-2 border-y bg-slate-50 px-4 rounded-lg">
               <div className="text-sm font-medium">Total: {importReview.summary.total}</div>
               <div className="text-sm font-medium text-green-600">Valid: {importReview.summary.valid}</div>
@@ -1301,7 +1348,7 @@ function AssignDocument() {
                     <TableCell>{row.rowNo}</TableCell>
                     <TableCell className="">{row.jobNumber}</TableCell>
                     <TableCell>{row.docName}</TableCell>
-                    <TableCell>{row.userName || row.empid}</TableCell>
+                    <TableCell className="font-semibold text-slate-700">{row.userName || row.empid || <span className="text-slate-400 italic font-normal text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">Pending Assignee</span>}</TableCell>
                     <TableCell>
                       {row.status === 'valid' ? <div className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-4 w-4" /> Ready</div> : <div className="text-red-600 flex items-center gap-1"><XCircle className="h-4 w-4" /> {row.message}</div>}
                     </TableCell>
