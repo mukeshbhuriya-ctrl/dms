@@ -9,49 +9,123 @@ const emailService = require('../../services/email.service');
  */
 async function getUsers(req, res) {
   try {
-    const company_id = req.user.company_id; // Get company_id from authenticated user
+    const company_id = req.user.company_id;
+    const { 
+      page = 1, 
+      limit = 10, 
+      search = '', 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      columnFilters: columnFiltersRaw
+    } = req.query;
 
-    // Fetch all users for the company
-    const users = await prisma.user.findMany({
-      where: {
-        company_id: company_id, // Only fetch users for the authenticated user's company
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        empid: true,
-        mobile: true,
-        department_id: true,
-        department: {
-          select: {
-            name: true,
-          }
-        },
-        designation: true,
-        user_roles: {
-          include: {
-            role: true,
+    const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
+
+    const where = {
+      company_id: company_id,
+    };
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { empid: { contains: search, mode: 'insensitive' } },
+        { designation: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    // Column Filters
+    if (columnFilters.name && columnFilters.name !== 'all') {
+      where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+    }
+    if (columnFilters.email && columnFilters.email !== 'all') {
+      where.email = { in: Array.isArray(columnFilters.email) ? columnFilters.email : [columnFilters.email] };
+    }
+    if (columnFilters.empid && columnFilters.empid !== 'all') {
+      where.empid = { in: Array.isArray(columnFilters.empid) ? columnFilters.empid : [columnFilters.empid] };
+    }
+    if (columnFilters.department && columnFilters.department !== 'all') {
+      where.department = { name: { in: Array.isArray(columnFilters.department) ? columnFilters.department : [columnFilters.department] } };
+    }
+
+    const [total, users] = await prisma.$transaction([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        skip,
+        take,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          empid: true,
+          mobile: true,
+          department_id: true,
+          department: {
+            select: {
+              name: true,
+            }
           },
+          designation: true,
+          user_roles: {
+            include: {
+              role: true,
+            },
+          },
+          createdAt: true,
         },
-      },
-      orderBy: {
-        createdAt: 'desc', // Order by creation date, newest first
-      },
-    });
+        orderBy: {
+          [sortBy]: sortOrder,
+        },
+      })
+    ]);
 
     res.status(200).json({
       success: true,
       message: 'Users fetched successfully',
       data: users,
+      meta: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / take)
+      }
     });
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
+  }
+}
+
+async function getUserFilters(req, res) {
+  try {
+    const company_id = req.user.company_id;
+    const users = await prisma.user.findMany({
+      where: { company_id },
+      select: {
+        name: true,
+        email: true,
+        empid: true,
+        department: { select: { name: true } }
+      }
+    });
+
+    const records = users.map(u => ({
+      name: u.name,
+      email: u.email,
+      empid: u.empid,
+      department: u.department?.name
+    }));
+
+    res.status(200).json({ success: true, data: { records } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 }
 

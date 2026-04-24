@@ -6,7 +6,7 @@ class UserService {
     /**
      * Get all users with pagination, filtering, and sorting
      */
-    async getUsers({ company_id, page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc' }) {
+    async getUsers({ company_id, page = 1, limit = 10, search = '', sortBy = 'createdAt', sortOrder = 'desc', columnFilters = {} }) {
         const pageNum = parseInt(page) || 1;
         const limitNum = parseInt(limit) || 10;
         const skip = (pageNum - 1) * limitNum;
@@ -15,15 +15,30 @@ class UserService {
         // Build where clause
         const where = {
             company_id: company_id,
-            ...(search && {
-                OR: [
-                    { name: { contains: search } }, // Case-insensitive handled by Prisma/DB collation usually, or add mode: 'insensitive' if PG
-                    { email: { contains: search } },
-                    { empid: { contains: search } },
-                    { department: { name: { contains: search } } },
-                ],
-            }),
         };
+
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { empid: { contains: search, mode: 'insensitive' } },
+                { department: { name: { contains: search, mode: 'insensitive' } } },
+            ];
+        }
+
+        // Column Filters
+        if (columnFilters.name && columnFilters.name !== 'all') {
+            where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+        }
+        if (columnFilters.email && columnFilters.email !== 'all') {
+            where.email = { in: Array.isArray(columnFilters.email) ? columnFilters.email : [columnFilters.email] };
+        }
+        if (columnFilters.empid && columnFilters.empid !== 'all') {
+            where.empid = { in: Array.isArray(columnFilters.empid) ? columnFilters.empid : [columnFilters.empid] };
+        }
+        if (columnFilters.department && columnFilters.department !== 'all') {
+            where.department = { name: { in: Array.isArray(columnFilters.department) ? columnFilters.department : [columnFilters.department] } };
+        }
 
         // Get total count
         const total = await prisma.user.count({ where });
@@ -268,6 +283,27 @@ class UserService {
         return await prisma.user.delete({
             where: { id },
         });
+    }
+
+    async getUserFilters(company_id) {
+        const users = await prisma.user.findMany({
+            where: { company_id },
+            select: {
+                name: true,
+                email: true,
+                empid: true,
+                department: { select: { name: true } }
+            }
+        });
+
+        const records = users.map(u => ({
+            name: u.name,
+            email: u.email,
+            empid: u.empid,
+            department: u.department?.name
+        }));
+
+        return { records };
     }
 }
 

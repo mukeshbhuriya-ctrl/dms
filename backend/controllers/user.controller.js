@@ -3,7 +3,7 @@ const userService = require('#services/user.service.js');
 class UserController {
     async getUsers(req, res) {
         try {
-            const { page, limit, search, sortBy, sortOrder } = req.query;
+            const { page, limit, search, sortBy, sortOrder, columnFilters } = req.query;
             const result = await userService.getUsers({
                 company_id: req.user.company_id,
                 page,
@@ -11,6 +11,7 @@ class UserController {
                 search,
                 sortBy,
                 sortOrder,
+                columnFilters: typeof columnFilters === 'string' ? JSON.parse(columnFilters) : columnFilters
             });
 
             res.status(200).json({
@@ -26,6 +27,15 @@ class UserController {
                 message: 'Internal server error',
                 error: process.env.NODE_ENV === 'development' ? error.message : undefined,
             });
+        }
+    }
+
+    async getUserFilters(req, res) {
+        try {
+            const result = await userService.getUserFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 
