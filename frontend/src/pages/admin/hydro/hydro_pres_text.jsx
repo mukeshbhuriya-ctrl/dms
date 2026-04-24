@@ -263,10 +263,6 @@ function ListView({ onCreateClick, onEditClick }) {
           <h1 className="text-3xl font-bold mb-1">Hydrostatic Pressure Test Reports</h1>
           <p className="text-muted-foreground">View and manage all hydrostatic pressure test reports.</p>
         </div>
-        <Button onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create
-        </Button>
       </div>
 
       {error && (
@@ -282,6 +278,8 @@ function ListView({ onCreateClick, onEditClick }) {
         columnFilters={columnFilters}
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshKey}
+        onAdd={onCreateClick}
+        onAddTooltip="Add New"
       />
 
       {/* View Details Modal */}
