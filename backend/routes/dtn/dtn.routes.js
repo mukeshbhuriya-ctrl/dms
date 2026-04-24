@@ -12,6 +12,7 @@ router.use(authenticateUserOnly);
 router.get('/documents-by-jobs', DtnController.getDocumentsByJobs);
 router.get('/next-ref', DtnController.getNextRef);
 router.get('/master/summaries', DtnController.listMasterSummaries);
+router.get('/master/get-filters', DtnController.getMasterFilters);
 router.get('/master/job/:jobId', DtnController.getJobMasterDetails);
 router.get('/master/download/:jobId', DtnController.downloadMasterPdf);
 router.get('/download-note/:id', DtnController.downloadDtnNotePdf);

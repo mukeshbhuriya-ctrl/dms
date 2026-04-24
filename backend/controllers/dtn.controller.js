@@ -134,8 +134,18 @@ class DtnController {
     async listMasterSummaries(req, res) {
         try {
             const { company_id } = req.user;
-            const { search } = req.query;
-            const summaries = await DtnService.listJobSummariesWithDtns(company_id, search);
+            const query = { ...req.query };
+
+            // Parse columnFilters if sent as JSON from ProDataTable
+            if (typeof query.columnFilters === 'string') {
+                try {
+                    query.columnFilters = JSON.parse(query.columnFilters);
+                } catch (e) {
+                    query.columnFilters = {};
+                }
+            }
+
+            const summaries = await DtnService.listJobSummariesWithDtns(company_id, query);
             res.status(200).json({ 
                 success: true, 
                 data: summaries,
@@ -147,6 +157,20 @@ class DtnController {
             });
         } catch (error) {
             console.error('listMasterSummaries error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    /**
+     * Get unique combinations for Master Filtering
+     */
+    async getMasterFilters(req, res) {
+        try {
+            const { company_id } = req.user;
+            const result = await DtnService.getMasterFilters(company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('getMasterFilters error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }

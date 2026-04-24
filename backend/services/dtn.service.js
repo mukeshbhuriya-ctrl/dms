@@ -375,7 +375,10 @@ class DtnService {
     /**
      * List unique Job Summary combinations for those that have at least one DTN created
      */
-    async listJobSummariesWithDtns(companyId, search = "") {
+    async listJobSummariesWithDtns(companyId, params = {}) {
+        const { search = "" } = params;
+        const columnFilters = params.columnFilters || {};
+
         const transmittals = await prisma.drawing_transmittal.findMany({
             where: { company_id: companyId },
             include: {
@@ -397,7 +400,7 @@ class DtnService {
                 const clientName = t.client_name || 'N/A';
                 const poNum = t.po_number || 'N/A';
 
-                // Apply search filter if provided
+                // 1. Global Search Filter
                 if (searchLower) {
                     const matchesSearch = 
                         clientName.toLowerCase().includes(searchLower) ||
@@ -406,6 +409,11 @@ class DtnService {
                     
                     if (!matchesSearch) return;
                 }
+
+                // 2. Column Based Filters
+                if (columnFilters.customer && !this._processArrayFilter(columnFilters.customer, clientName)) return;
+                if (columnFilters.po && !this._processArrayFilter(columnFilters.po, poNum)) return;
+                if (columnFilters.job_number && !this._processArrayFilter(columnFilters.job_number, jobNum)) return;
 
                 const key = `${clientName}-${poNum}-${jobNum}`;
                 if (!seen.has(key)) {
@@ -424,6 +432,17 @@ class DtnService {
         });
 
         return summaries;
+    }
+
+    async getMasterFilters(companyId) {
+        const summaries = await this.listJobSummariesWithDtns(companyId, {});
+        // Return unique combinations as records for cascading
+        return { records: summaries };
+    }
+
+    _processArrayFilter(filterValues, actualValue) {
+        if (!filterValues || !Array.isArray(filterValues) || filterValues.length === 0) return true;
+        return filterValues.map(v => v.toString()).includes(actualValue?.toString());
     }
 
     /**
