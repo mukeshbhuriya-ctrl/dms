@@ -257,7 +257,17 @@ class DccService {
     }
 
     async getPos(company_id, params = {}) {
-        const { page = 1, limit, search = '', customer_id } = params;
+        const { 
+            page = 1, 
+            limit, 
+            search = '', 
+            customer_id,
+            sortBy = 'createdAt',
+            sortOrder = 'desc'
+        } = params;
+
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
@@ -266,15 +276,22 @@ class DccService {
         if (params.location_id) where.customer_location_id = params.location_id.trim();
         if (params.po_id) where.id = params.po_id.trim();
 
-        if (params.customer_name) {
-            where.customer = { customer_name: this._processFilter(params.customer_name) };
-        }
-
         if (search) {
             where.OR = [
                 { po_number: { contains: search, mode: 'insensitive' } },
                 { customer: { customer_name: { contains: search, mode: 'insensitive' } } }
             ];
+        }
+
+        // Column Filters
+        if (columnFilters.po_number && columnFilters.po_number !== 'all') {
+            where.po_number = { in: Array.isArray(columnFilters.po_number) ? columnFilters.po_number : [columnFilters.po_number] };
+        }
+        if (columnFilters.customer_name && columnFilters.customer_name !== 'all') {
+            where.customer = { customer_name: { in: Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name] } };
+        }
+        if (columnFilters.location_name && columnFilters.location_name !== 'all') {
+            where.customer_location = { location_name: { in: Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name] } };
         }
 
         const [total, data] = await prisma.$transaction([
@@ -284,21 +301,50 @@ class DccService {
                 include: {
                     customer: { select: { id: true, customer_name: true } },
                     customer_location: { select: { id: true, location_name: true, gst_number: true } },
-                    po_communication_matrix: true
+                    po_communication_matrix: true,
+                    po_attachment_history: {
+                        orderBy: { revision: 'desc' }
+                    }
                 },
-                orderBy: { createdAt: 'desc' }
+                orderBy: { [sortBy]: sortOrder }
             })
         ]);
 
         // Expand PO URLs for UI use
         const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
         const expandedData = data.map(po => {
-            if (po.po_doc_url && !po.po_doc_url.startsWith('http')) {
-                const rawUrl = po.po_doc_url;
-                const pathUrl = rawUrl.startsWith('/') ? rawUrl : `/api/files/${rawUrl}`;
-                return { ...po, po_doc_url: `${backendUrl}${pathUrl}` };
+            // Expand main URL
+            let mainUrl = po.po_doc_url;
+            if (mainUrl && !mainUrl.startsWith('http')) {
+                const pathUrl = mainUrl.startsWith('/') ? mainUrl : `/api/files/${mainUrl}`;
+                mainUrl = `${backendUrl}${pathUrl}`;
             }
-            return po;
+
+            // Expand history attachments
+            const formattedHistory = po.po_attachment_history ? po.po_attachment_history.map(history => {
+                let parsed = history.po_attachments;
+                if (typeof parsed === 'string') {
+                    try { parsed = JSON.parse(parsed); } catch(e) { parsed = []; }
+                }
+                if (!Array.isArray(parsed)) parsed = [];
+                
+                const mappedAttachments = parsed.map(doc => {
+                    let safeUrl = doc.url;
+                    if (safeUrl && !safeUrl.startsWith('http')) {
+                        if (safeUrl.startsWith('/')) safeUrl = `${backendUrl}${safeUrl}`;
+                        else safeUrl = `${backendUrl}/api/files/${safeUrl}`;
+                    }
+                    return { ...doc, url: safeUrl };
+                });
+
+                return { ...history, po_attachments: mappedAttachments };
+            }) : [];
+
+            return { 
+                ...po, 
+                po_doc_url: mainUrl,
+                po_attachment_history: formattedHistory
+            };
         });
 
         const metaLimit = (limit === undefined || limit === null) ? total : take;
@@ -311,30 +357,22 @@ class DccService {
      * Get unique filters for POs
      */
     async getPoFilters(company_id) {
-        const pos = await prisma.po.findMany({
+        const data = await prisma.po.findMany({
             where: { company_id },
-            include: {
-                customer: { select: { id: true, customer_name: true } },
-                customer_location: { select: { id: true, location_name: true } }
-            },
-            orderBy: { createdAt: 'desc' }
+            select: {
+                po_number: true,
+                customer: { select: { customer_name: true } },
+                customer_location: { select: { location_name: true } }
+            }
         });
 
-        const customersMap = new Map();
-        const locationsMap = new Map();
-        const posMap = new Map();
+        const records = data.map(po => ({
+            po_number: po.po_number,
+            customer_name: po.customer?.customer_name || 'N/A',
+            location_name: po.customer_location?.location_name || 'N/A'
+        }));
 
-        pos.forEach(p => {
-            if (p.customer) customersMap.set(p.customer.id, p.customer);
-            if (p.customer_location) locationsMap.set(p.customer_location.id, p.customer_location);
-            posMap.set(p.id, { id: p.id, po_number: p.po_number });
-        });
-
-        return {
-            customers: Array.from(customersMap.values()).map(c => ({ value: c.id, label: c.customer_name })),
-            locations: Array.from(locationsMap.values()).map(l => ({ value: l.id, label: l.location_name })),
-            pos: Array.from(posMap.values()).map(p => ({ value: p.id, label: p.po_number }))
-        };
+        return { records };
     }
 
     /**
