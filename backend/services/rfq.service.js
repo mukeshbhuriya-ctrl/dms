@@ -18,6 +18,10 @@ class RfqService {
 
         const where = { company_id };
 
+        const { quotation_no_filter } = params;
+
+        if (quotation_no_filter) where.quotation_no = this._processFilter(quotation_no_filter);
+
         if (search) {
             where.OR = [
                 { quotation_no: { contains: search, mode: 'insensitive' } },
@@ -528,6 +532,16 @@ class RfqService {
                 winPercentage
             }
         };
+    }
+
+    _processFilter(val) {
+        if (!val) return null;
+        if (Array.isArray(val)) return { in: val };
+        if (typeof val === 'string' && (val.includes(',') || val.includes('|'))) {
+            const splitChar = val.includes('|') ? '|' : ',';
+            return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
+        }
+        return { contains: val, mode: 'insensitive' };
     }
 }
 

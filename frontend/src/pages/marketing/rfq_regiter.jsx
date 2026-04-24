@@ -34,7 +34,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Plus, Trash2, ArrowLeft, Eye, Edit } from "lucide-react"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
@@ -90,6 +90,9 @@ function ListView({ onCreateClick, onEditClick }) {
     const [viewLoading, setViewLoading] = useState(false)
     const [refreshKey, setRefreshKey] = useState(0)
 
+    // Advanced Cascading Filters State (Used for Quotation No. text filter)
+    const [columnFilters, setColumnFilters] = useState({})
+
     const handleViewClick = async (id) => {
         try {
             setViewLoading(true)
@@ -120,7 +123,7 @@ function ListView({ onCreateClick, onEditClick }) {
     }
 
     const columns = [
-        { header: "Quotation No.", accessorKey: "quotation_no" },
+        { header: "Quotation No.",  accessorKey: "quotation_no", filterType: "text",},
         { header: "Client Name", accessorKey: "client_name" },
         { header: "RFQ Type", accessorKey: "rfq_type" },
         { header: "Consultancy", accessorKey: "consultancy" },
@@ -172,9 +175,21 @@ function ListView({ onCreateClick, onEditClick }) {
         },
     ]
 
-    // Real API fetch for DataTable
-    const fetchData = useCallback(async ({ page, limit, search }) => {
-        const res = await apiClient.get("/api/rfq/list", { page, limit, search })
+    // Real API fetch for ProDataTable
+    const fetchData = useCallback(async (params) => {
+        const queryParams = { ...params };
+        if (queryParams.columnFilters) {
+            // Process specialized filters (e.g. shreno_status -> shreno_status_filter)
+            const cf = queryParams.columnFilters;
+            const finalFilters = {};
+            Object.keys(cf).forEach(key => {
+                if (cf[key]) finalFilters[`${key}_filter`] = cf[key];
+            });
+            Object.assign(queryParams, finalFilters);
+            delete queryParams.columnFilters;
+        }
+
+        const res = await apiClient.get("/api/rfq/list", queryParams)
         return { data: res.data || [], meta: res.meta || {} }
     }, [refreshKey])
 
@@ -200,10 +215,12 @@ function ListView({ onCreateClick, onEditClick }) {
                 </Button>
             </div>
 
-            <DataTable 
+            <ProDataTable 
                 columns={columns} 
                 fetchData={fetchData} 
                 onExport={handleExport}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
             />
 
             {/* View Dialog */}
