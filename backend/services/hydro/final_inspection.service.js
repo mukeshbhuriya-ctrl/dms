@@ -4,7 +4,7 @@ class FinalInspectionService {
     /**
      * Get paginated list of reports
      */
-    async getList(company_id, { page, limit, search }) {
+    async getList(company_id, { page, limit, search, columnFilters }) {
         const skip = (page - 1) * limit;
 
         let whereClause = { company_id };
@@ -17,6 +17,25 @@ class FinalInspectionService {
                     { msn: { contains: search, mode: 'insensitive' } }
                 ]
             };
+        }
+
+        if (columnFilters) {
+            const filters = typeof columnFilters === 'string' ? JSON.parse(columnFilters) : columnFilters;
+            const andConditions = [];
+
+            if (filters.client && filters.client.length > 0) {
+                andConditions.push({ client: { in: filters.client } });
+            }
+            if (filters.po_no && filters.po_no.length > 0) {
+                andConditions.push({ po_no: { in: filters.po_no } });
+            }
+            if (filters.msn && filters.msn.length > 0) {
+                andConditions.push({ msn: { in: filters.msn } });
+            }
+
+            if (andConditions.length > 0) {
+                whereClause.AND = andConditions;
+            }
         }
 
         const [data, total] = await Promise.all([
@@ -321,6 +340,20 @@ class FinalInspectionService {
                 approver_remarks: remarks || null
             }
         });
+    }
+
+    async getListFilters(company_id) {
+        const records = await prisma.final_inspection_report.findMany({
+            where: { company_id },
+            select: {
+                client: true,
+                po_no: true,
+                msn: true
+            },
+            distinct: ['client', 'po_no', 'msn']
+        });
+
+        return { records };
     }
 }
 

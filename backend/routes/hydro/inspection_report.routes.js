@@ -16,6 +16,7 @@ router.get('/:id/download', authenticateUserOnly, InspectionReportController.dow
 
 // Final Inspection
 router.get('/final/list', authenticateUserOnly, FinalInspectionController.getList);
+router.get('/final/get-filters', authenticateUserOnly, FinalInspectionController.getFilters);
 router.get('/final/:id', authenticateUserOnly, FinalInspectionController.getById);
 router.get('/final/next-report-no/:jobId', authenticateUserOnly, FinalInspectionController.getNextReportNo);
 router.post('/final/create', authenticateUserOnly, FinalInspectionController.createReport);

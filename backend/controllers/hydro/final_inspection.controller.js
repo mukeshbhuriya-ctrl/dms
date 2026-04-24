@@ -8,12 +8,13 @@ class FinalInspectionController {
     async getList(req, res) {
         try {
             const { company_id } = req.user;
-            const { page = 1, limit = 10, search = '' } = req.query;
+            const { page = 1, limit = 10, search = '', columnFilters } = req.query;
 
             const result = await FinalInspectionService.getList(company_id, {
                 page: parseInt(page),
                 limit: parseInt(limit),
-                search
+                search,
+                columnFilters
             });
 
             res.status(200).json({ success: true, ...result });
@@ -149,6 +150,17 @@ class FinalInspectionController {
         } catch (error) {
             console.error("FinalInspectionController.downloadPdf Error:", error);
             res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });
+        }
+    }
+
+    async getFilters(req, res) {
+        try {
+            const { company_id } = req.user;
+            const data = await FinalInspectionService.getListFilters(company_id);
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error("FinalInspectionController.getFilters Error:", error);
+            res.status(500).json({ success: false, message: "Failed to fetch filters", error: error.message });
         }
     }
 }
