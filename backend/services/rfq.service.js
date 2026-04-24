@@ -136,6 +136,10 @@ class RfqService {
             items = [],
         } = body;
 
+        // Enforce system-side rules
+        this._enforceStatusRules(body);
+        body.time_taken = this._calculateTimeTaken(body.enq_date, body.actual_submission_date);
+
         const rfq = await prisma.$transaction(async (tx) => {
             // 1. Calculate next global serial_no
             const lastGlobalRfq = await tx.rfq_register.findFirst({
@@ -225,6 +229,95 @@ class RfqService {
     /**
      * Update an existing RFQ record
      */
+    async bulkCreate(company_id, user_id, rfqDataList) {
+        return await prisma.$transaction(async (tx) => {
+            const results = [];
+            
+            // Get current global last serial
+            const lastGlobalRfq = await tx.rfq_register.findFirst({
+                where: { company_id },
+                orderBy: { serial_no: 'desc' },
+                select: { serial_no: true },
+            });
+            let nextGlobalSerialNo = lastGlobalRfq ? lastGlobalRfq.serial_no + 1 : 1;
+
+            // Track category-specific serials to handle them within the same batch
+            const categoryLastSerials = {};
+            const fySuffix = this.getFinancialYearSuffix();
+
+            for (const body of rfqDataList) {
+                const quotation_category = body.quotation_category || 'Core';
+                const prefix = this.getCategoryPrefix(quotation_category);
+
+                // Enforce system-side rules
+                this._enforceStatusRules(body);
+                body.time_taken = this._calculateTimeTaken(body.enq_date, body.actual_submission_date);
+
+                // If we haven't fetched the last serial for this category yet, do it
+                if (categoryLastSerials[quotation_category] === undefined) {
+                    const lastTypeRfq = await tx.rfq_register.findFirst({
+                        where: {
+                            company_id,
+                            quotation_category,
+                            quotation_no: { contains: `/${fySuffix}` }
+                        },
+                        orderBy: { type_serial_no: 'desc' },
+                        select: { type_serial_no: true },
+                    });
+                    categoryLastSerials[quotation_category] = lastTypeRfq ? lastTypeRfq.type_serial_no : 0;
+                }
+
+                categoryLastSerials[quotation_category] += 1;
+                const nextTypeSerialNo = categoryLastSerials[quotation_category];
+                const quotation_no = `SHR/${prefix}/${String(nextTypeSerialNo).padStart(3, '0')}/${fySuffix}`;
+
+                const createdRfq = await tx.rfq_register.create({
+                    data: {
+                        company_id,
+                        created_by: user_id,
+                        serial_no: nextGlobalSerialNo++,
+                        quotation_no,
+                        quotation_category,
+                        type_serial_no: nextTypeSerialNo,
+                        client_ref: body.client_ref,
+                        rfq_type: body.rfq_type,
+                        client_name: body.client_name,
+                        consultancy: body.consultancy,
+                        contact_person: body.contact_person,
+                        mode_of_enquiry: body.mode_of_enquiry,
+                        enq_date: body.enq_date ? new Date(body.enq_date) : null,
+                        target_date: body.target_date ? new Date(body.target_date) : null,
+                        actual_submission_date: body.actual_submission_date ? new Date(body.actual_submission_date) : null,
+                        time_taken: body.time_taken,
+                        mediator: body.mediator,
+                        estimator: body.estimator,
+                        shreno_status: body.shreno_status || "Quoted",
+                        client_status: body.client_status || "Under Review",
+                        remark: body.remark,
+                        made_by: body.made_by,
+                        po_no: body.po_no,
+                        po_date: body.po_date ? new Date(body.po_date) : null,
+                        po_value: body.po_value ? parseFloat(body.po_value) : null,
+                        po_remark: body.po_remark,
+                        items: (body.enq_description || body.equip_qty) ? {
+                            create: [{
+                                sr_no: 1,
+                                enq_description: body.enq_description,
+                                equip_qty: body.equip_qty ? parseInt(body.equip_qty) : null,
+                                rev: body.rev,
+                                total_value: body.total_value ? parseFloat(body.total_value) : null,
+                            }]
+                        } : undefined
+                    }
+                });
+
+                results.push(createdRfq);
+            }
+
+            return results;
+        });
+    }
+
     async update(company_id, id, body) {
         const existing = await prisma.rfq_register.findFirst({
             where: { id, company_id },
@@ -255,6 +348,10 @@ class RfqService {
             po_remark,
             items = [],
         } = body;
+
+        // Enforce system-side rules
+        this._enforceStatusRules(body);
+        body.time_taken = this._calculateTimeTaken(body.enq_date, body.actual_submission_date);
 
         const rfq = await prisma.$transaction(async (tx) => {
             // Update header
@@ -532,6 +629,29 @@ class RfqService {
                 winPercentage
             }
         };
+    }
+
+    _calculateTimeTaken(enq_date, submission_date) {
+        if (!enq_date || !submission_date) return "";
+        try {
+            const start = new Date(enq_date);
+            const end = new Date(submission_date);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) return "";
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return `${diffDays} Days`;
+        } catch (e) {
+            return "";
+        }
+    }
+
+    _enforceStatusRules(body) {
+        if (body.client_status !== 'Order Received') {
+            body.po_no = null;
+            body.po_date = null;
+            body.po_value = null;
+            body.po_remark = null;
+        }
     }
 
     _processFilter(val) {

@@ -11,6 +11,7 @@ router.get('/list', RfqController.list);
 router.get('/dashboard', RfqController.getDashboardStats);
 router.get('/next-quotation-no', RfqController.getNextQuotationNo);
 router.post('/create', RfqController.create);
+router.post('/bulk-create', RfqController.bulkCreate);
 router.put('/update/:id', RfqController.update);
 router.get('/users', RfqController.getUsers);
 router.get('/lookups/:type', RfqController.getLookups);

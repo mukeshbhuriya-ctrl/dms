@@ -235,6 +235,16 @@ class RfqController {
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
+
+    async bulkCreate(req, res) {
+        try {
+            const data = await RfqService.bulkCreate(req.user.company_id, req.user.id, req.body);
+            res.status(201).json({ success: true, message: `${data.length} RFQ records imported successfully`, data });
+        } catch (error) {
+            console.error('RFQ bulkCreate error:', error);
+            res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new RfqController();
