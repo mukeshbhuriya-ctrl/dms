@@ -171,7 +171,11 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
   }, []);
 
   const columns = useMemo(() => [
-    { header: "Reference No", accessorKey: "ref_no" },
+    { 
+      header: "Reference No", 
+      accessorKey: "ref_no",
+      filterType: "text"
+    },
     {
       header: "Customer",
       accessorKey: "customer",
@@ -252,12 +256,6 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-black mb-1 tracking-tighter text-slate-900">Drawing Transmittals</h1>
-          <p className="text-slate-500 text-sm font-medium">Global repository for project transmittal records.</p>
-        </div>
-      </div>
 
       <ProDataTable
         fetchData={fetchDtns}

@@ -341,6 +341,10 @@ class DtnService {
             ];
         }
 
+        if (columnFilters.ref_no) {
+            where.ref_no = { contains: columnFilters.ref_no, mode: 'insensitive' };
+        }
+
         if (columnFilters.customer) {
             where.client_name = { in: Array.isArray(columnFilters.customer) ? columnFilters.customer : [columnFilters.customer] };
         }
