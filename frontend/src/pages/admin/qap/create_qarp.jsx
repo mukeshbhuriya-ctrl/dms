@@ -255,10 +255,6 @@ function ListView({ onCreateClick, onEditClick }) {
           <h1 className="text-3xl font-bold mb-1">Quality Assurance Plans</h1>
           <p className="text-muted-foreground">View and manage all quality assurance plans.</p>
         </div>
-        <Button onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create
-        </Button>
       </div>
 
       {error && (
