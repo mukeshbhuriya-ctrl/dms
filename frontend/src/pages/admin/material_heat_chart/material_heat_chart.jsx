@@ -81,6 +81,10 @@ function ListView({ onCreateClick, onEditClick }) {
   const [jobMetadata, setJobMetadata] = useState({}); // MSN -> Job Details
   const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
+  
+  // Cascading Filters State
+  const [activeFilters, setActiveFilters] = useState({ records: [] });
+  const [columnFilters, setColumnFilters] = useState({});
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -93,6 +97,19 @@ function ListView({ onCreateClick, onEditClick }) {
     };
     fetchUsers();
   }, []);
+
+  const fetchActiveFilters = async () => {
+    try {
+      const res = await apiClient.get("/api/mhc/get-filters");
+      if (res.success) setActiveFilters(res.data);
+    } catch (err) {
+      console.error("Error fetching active filters:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveFilters();
+  }, [refreshTrigger]);
 
   const handleDownloadTemplate = () => {
     const headers = [
@@ -368,15 +385,103 @@ function ListView({ onCreateClick, onEditClick }) {
       setIsViewLoading(false)
     }
   }
+  // Cascading Filter Logic
+  const activeClientOptions = useMemo(() => {
+    let filtered = activeFilters.records || [];
+    if (columnFilters.po_no) {
+      const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()];
+      filtered = filtered.filter(c => selected.includes(c.po_no?.toString()));
+    }
+    if (columnFilters.msn) {
+      const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()];
+      filtered = filtered.filter(c => selected.includes(c.msn?.toString()));
+    }
+    const clients = [...new Set(filtered.map(c => c.client))].filter(Boolean).sort();
+    return clients.map(c => ({ label: c, value: c }));
+  }, [activeFilters.records, columnFilters.po_no, columnFilters.msn]);
 
-  // Define columnFilters state for stable reference
-  const [columnFilters, setColumnFilters] = useState({});
+  const activePoOptions = useMemo(() => {
+    let filtered = activeFilters.records || [];
+    if (columnFilters.client) {
+      const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()];
+      filtered = filtered.filter(c => selected.includes(c.client?.toString()));
+    }
+    if (columnFilters.msn) {
+      const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()];
+      filtered = filtered.filter(c => selected.includes(c.msn?.toString()));
+    }
+    const pos = [...new Set(filtered.map(c => c.po_no))].filter(Boolean).sort();
+    return pos.map(p => ({ label: p, value: p }));
+  }, [activeFilters.records, columnFilters.client, columnFilters.msn]);
+
+  const activeMsnOptions = useMemo(() => {
+    let filtered = activeFilters.records || [];
+    if (columnFilters.client) {
+      const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()];
+      filtered = filtered.filter(c => selected.includes(c.client?.toString()));
+    }
+    if (columnFilters.po_no) {
+      const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()];
+      filtered = filtered.filter(c => selected.includes(c.po_no?.toString()));
+    }
+    const msns = [...new Set(filtered.map(c => c.msn))].filter(Boolean).sort();
+    return msns.map(m => ({ label: m, value: m }));
+  }, [activeFilters.records, columnFilters.client, columnFilters.po_no]);
+
+  const activeStatusOptions = useMemo(() => {
+    const statuses = [...new Set((activeFilters.records || []).map(c => c.status))].filter(Boolean).sort();
+    return statuses.map(s => ({ label: s, value: s }));
+  }, [activeFilters.records]);
+
+  // Auto-selection logic for reverse cascading
+  useEffect(() => {
+    if (!activeFilters.records || activeFilters.records.length === 0) return;
+
+    const updates = {};
+    if (columnFilters.msn && Array.isArray(columnFilters.msn) && columnFilters.msn.length === 1) {
+      const selectedMsn = columnFilters.msn[0];
+      const match = activeFilters.records.find(r => r.msn?.toString() === selectedMsn?.toString());
+      if (match) {
+        if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client];
+        if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po_no];
+      }
+    } 
+    else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
+      const selectedPo = columnFilters.po_no[0];
+      const match = activeFilters.records.find(r => r.po_no?.toString() === selectedPo?.toString());
+      if (match && (!columnFilters.client || columnFilters.client.length === 0)) {
+        updates.client = [match.client];
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setColumnFilters(prev => ({ ...prev, ...updates }));
+    }
+  }, [columnFilters.msn, columnFilters.po_no, activeFilters.records]);
 
   const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
-    { header: "MSN", accessorKey: "msn" },
-    { header: "Client", accessorKey: "client" },
-    { header: "PO No.", accessorKey: "po_no" },
+    { 
+      header: "Client", 
+      accessorKey: "client",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeClientOptions
+    },
+    { 
+      header: "PO No", 
+      accessorKey: "po_no",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activePoOptions
+    },
+    { 
+      header: "MSN", 
+      accessorKey: "msn",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeMsnOptions
+    },
     { header: "Equipment", accessorKey: "equipment_name" },
     {
       header: "Created At",
@@ -387,6 +492,9 @@ function ListView({ onCreateClick, onEditClick }) {
       header: "Status",
       accessorKey: "status",
       cell: (row) => getStatusBadge(row.status),
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeStatusOptions
     },
     {
       id: "actions",
@@ -437,11 +545,15 @@ function ListView({ onCreateClick, onEditClick }) {
         )
       },
     },
-  ], [isQE, isAdmin]);
+  ], [isQE, isAdmin, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions]);
 
   const fetchData = useCallback(async (params) => {
     try {
-      const res = await apiClient.get(`/api/mhc/list`, params)
+      const queryParams = { ...params };
+      if (queryParams.columnFilters) {
+        queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
+      }
+      const res = await apiClient.get(`/api/mhc/list`, queryParams)
       return res;
     } catch (err) {
       console.error("Fetch MHC error:", err);

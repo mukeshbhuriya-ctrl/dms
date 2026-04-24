@@ -104,7 +104,10 @@ async function generateStageReport(req, res) {
 async function getWeldJoints(req, res) {
     try {
         const company_id = req.user.company_id;
-        const { page, limit, search, status, sortBy, sortOrder, client, po, job, cat, msn } = req.query;
+        const { 
+            page, limit, search, status, sortBy, sortOrder, 
+            client, po, job, cat, msn, columnFilters 
+        } = req.query;
  
         const result = await weldJointService.findAll(company_id, {
             page,
@@ -117,7 +120,8 @@ async function getWeldJoints(req, res) {
             po,
             job,
             cat,
-            msn
+            msn,
+            columnFilters
         }, {
             userId: req.user.userid || req.user.id,
             roles: req.user.role

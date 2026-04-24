@@ -34,7 +34,9 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { Plus, Trash2, ArrowLeft, Eye, Edit } from "lucide-react"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
+import ImportReviewDialog from "@/components/shared/ImportReviewDialog"
+import { generateExcelTemplate, parseExcelFile } from "@/utils/excelImportEngine"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
@@ -90,6 +92,14 @@ function ListView({ onCreateClick, onEditClick }) {
     const [viewLoading, setViewLoading] = useState(false)
     const [refreshKey, setRefreshKey] = useState(0)
 
+    // Advanced Cascading Filters State (Used for Quotation No. text filter)
+    const [columnFilters, setColumnFilters] = useState({})
+
+    // Bulk Import State
+    const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
+    const [excelData, setExcelData] = useState([]);
+    const [isImporting, setIsImporting] = useState(false);
+
     const handleViewClick = async (id) => {
         try {
             setViewLoading(true)
@@ -120,7 +130,7 @@ function ListView({ onCreateClick, onEditClick }) {
     }
 
     const columns = [
-        { header: "Quotation No.", accessorKey: "quotation_no" },
+        { header: "Quotation No.",  accessorKey: "quotation_no", filterType: "text",},
         { header: "Client Name", accessorKey: "client_name" },
         { header: "RFQ Type", accessorKey: "rfq_type" },
         { header: "Consultancy", accessorKey: "consultancy" },
@@ -160,23 +170,238 @@ function ListView({ onCreateClick, onEditClick }) {
                         title="Edit">
                         <Edit className="h-4 w-4 mr-2" /> Edit
                     </Button>
-                    <Button
+                    {/* <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDeleteClick(row.id)}
                         title="Delete">
                         <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </Button> */}
                 </div>
             ),
         },
     ]
 
-    // Real API fetch for DataTable
-    const fetchData = useCallback(async ({ page, limit, search }) => {
-        const res = await apiClient.get("/api/rfq/list", { page, limit, search })
+    // Real API fetch for ProDataTable
+    const fetchData = useCallback(async (params) => {
+        const queryParams = { ...params };
+        if (queryParams.columnFilters) {
+            // Process specialized filters (e.g. shreno_status -> shreno_status_filter)
+            const cf = queryParams.columnFilters;
+            const finalFilters = {};
+            Object.keys(cf).forEach(key => {
+                if (cf[key]) finalFilters[`${key}_filter`] = cf[key];
+            });
+            Object.assign(queryParams, finalFilters);
+            delete queryParams.columnFilters;
+        }
+
+        const res = await apiClient.get("/api/rfq/list", queryParams)
         return { data: res.data || [], meta: res.meta || {} }
     }, [refreshKey])
+
+    const handleDownloadTemplate = () => {
+        const headers = [
+            [
+                "Quotation Category (Core / Spare)*", 
+                "Client Name*", 
+                "Client Ref.", 
+                "RFQ Type (Material / Service / etc.)", 
+                "Consultancy", 
+                "Contact Person", 
+                "Mode of Enquiry (Email / Phone / etc.)", 
+                "Enquiry Date (DD/MM/YYYY)", 
+                "Client Target Date (DD/MM/YYYY)", 
+                "Actual Submission Date (DD/MM/YYYY)", 
+                "Mediator", 
+                "Estimator", 
+                "Shreno Status (Quoted / Tech. Submitted / Under Review / Hold / Cancel / Duplicate / Regret)", 
+                "Status at Client End (Regret / Lost / Ongoing / Order Received / Under Review / Cancel)", 
+                "PO No.", 
+                "PO Date (DD/MM/YYYY)", 
+                "PO Value", 
+                "PO Remark", 
+                "Made By", 
+                "Remark",
+                "Enquiry Description",
+                "Equipment Qty",
+                "Revision (Rev.)",
+                "Item Total Value"
+            ],
+            [
+                "Core", 
+                "Sample Client Ltd", 
+                "REF-101", 
+                "Material", 
+                "ABC Consultants", 
+                "Mr. Robert", 
+                "Email", 
+                "24/04/2026", 
+                "30/04/2026", 
+                "28/04/2026", 
+                "Mediator A", 
+                "Estimator B", 
+                "Quoted", 
+                "Under Review", 
+                "PO-999", 
+                "01/05/2026", 
+                "50000", 
+                "Standard PO", 
+                "Admin", 
+                "General Remark",
+                "Detailed Enquiry for pressure vessel",
+                "5",
+                "0",
+                "250000"
+            ]
+        ];
+        generateExcelTemplate(headers, "RFQ_Detailed_Import_Template.xlsx", "RFQ_Template");
+    };
+
+    const handleImportExcel = useCallback(async (file) => {
+        if (!file) return;
+        try {
+            // Using a broader header identification to match the hybrid headers
+            const { rows, warning } = await parseExcelFile(file, [
+                "quotation category (core / spare)*", 
+                "quotation category (core/spare)*",
+                "client name*",
+                "category"
+            ]);
+            if (warning) toast.warn(warning);
+
+            const parsedData = rows.map((row, idx) => {
+                const quotation_category = String(row[0] || "").trim();
+                const client_name = String(row[1] || "").trim();
+                const client_ref = String(row[2] || "").trim();
+                const rfq_type = String(row[3] || "").trim();
+                const consultancy = String(row[4] || "").trim();
+                const contact_person = String(row[5] || "").trim();
+                const mode_of_enquiry = String(row[6] || "").trim();
+                const enq_date_str = String(row[7] || "").trim();
+                const target_date_str = String(row[8] || "").trim();
+                const actual_submission_date_str = String(row[9] || "").trim();
+                const mediator = String(row[10] || "").trim();
+                const estimator = String(row[11] || "").trim();
+                const shreno_status = String(row[12] || "").trim();
+                const client_status = String(row[13] || "").trim();
+                const po_no = String(row[14] || "").trim();
+                const po_date_str = String(row[15] || "").trim();
+                const po_value = String(row[16] || "").trim();
+                const po_remark = String(row[17] || "").trim();
+                const made_by = String(row[18] || "").trim();
+                const remark = String(row[19] || "").trim();
+                const enq_description = String(row[20] || "").trim();
+                const equip_qty = String(row[21] || "").trim();
+                const rev = String(row[22] || "").trim();
+                const total_value = String(row[23] || "").trim();
+
+                // Validation
+                const errors = [];
+                if (!client_name) errors.push("Client Name is required");
+                if (!quotation_category) errors.push("Category is required");
+                if (quotation_category && !["Core", "Spare"].includes(quotation_category)) {
+                    errors.push("Category must be 'Core' or 'Spare'");
+                }
+
+                const warnings = [];
+                if (shreno_status !== "Order Received" && (po_no || po_value || po_date_str)) {
+                    warnings.push("PO data ignored (Status is not 'Order Received')");
+                }
+                // Also check client_status as backup
+                if (client_status !== "Order Received" && (po_no || po_value || po_date_str) && !warnings.length) {
+                    warnings.push("PO data ignored (Status is not 'Order Received')");
+                }
+
+                // Simple date parse helper - handles DD/MM/YYYY
+                const parseDate = (dStr) => {
+                    if (!dStr) return null;
+                    const parts = dStr.split("/");
+                    if (parts.length === 3) {
+                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                    }
+                    const d = new Date(dStr); 
+                    return isNaN(d.getTime()) ? null : d;
+                };
+
+                // Calculate timeTaken if dates are present
+                let timeTaken = "";
+                const eDate = parseDate(enq_date_str);
+                const aDate = parseDate(actual_submission_date_str);
+                if (eDate && aDate) {
+                    const diffTime = Math.abs(aDate - eDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    timeTaken = `${diffDays} Days`;
+                }
+
+                return {
+                    quotation_category,
+                    client_name,
+                    client_ref,
+                    rfq_type,
+                    consultancy,
+                    contact_person,
+                    mode_of_enquiry,
+                    enq_date: eDate,
+                    target_date: parseDate(target_date_str),
+                    actual_submission_date: aDate,
+                    time_taken: timeTaken,
+                    mediator,
+                    estimator,
+                    shreno_status: shreno_status || "Quoted",
+                    client_status: client_status || "Under Review",
+                    po_no,
+                    po_date: parseDate(po_date_str),
+                    po_value,
+                    po_remark,
+                    made_by,
+                    remark,
+                    enq_description,
+                    equip_qty,
+                    rev,
+                    total_value,
+                    status: errors.length > 0 ? "error" : "valid",
+                    message: [...errors, ...warnings].join(" | ") || "Ready"
+                };
+            }).filter(r => r.client_name || r.quotation_category);
+
+            if (parsedData.length === 0) {
+                toast.warn("No valid records found in file.");
+                return;
+            }
+
+            setExcelData(parsedData);
+            setBulkImportDialogOpen(true);
+        } catch (err) {
+            toast.error(err.message);
+        }
+    }, []);
+
+    const confirmBulkImport = async () => {
+        setIsImporting(true);
+        const validData = excelData.filter(r => r.status === 'valid');
+        if (validData.length === 0) {
+            toast.info("No valid records to import.");
+            setIsImporting(false);
+            return;
+        }
+
+        try {
+            const res = await apiClient.post("/api/rfq/bulk-create", validData);
+            if (res.success) {
+                toast.success(res.message || "Bulk import completed successfully");
+                setBulkImportDialogOpen(false);
+                setRefreshKey(prev => prev + 1);
+            } else {
+                toast.error(res.message || "Failed to complete bulk import");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Failed to save RFQ records");
+        } finally {
+            setIsImporting(false);
+        }
+    };
 
     const handleExport = async () => {
         try {
@@ -200,10 +425,55 @@ function ListView({ onCreateClick, onEditClick }) {
                 </Button>
             </div>
 
-            <DataTable 
+            <ProDataTable 
                 columns={columns} 
                 fetchData={fetchData} 
                 onExport={handleExport}
+                onImport={handleImportExcel}
+                onDownloadTemplate={handleDownloadTemplate}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+            />
+
+            <ImportReviewDialog
+                open={bulkImportDialogOpen}
+                onOpenChange={setBulkImportDialogOpen}
+                data={excelData}
+                totalCount={excelData.length}
+                validCount={excelData.filter(r => r.status === 'valid').length}
+                errorCount={excelData.filter(r => r.status === 'error').length}
+                columns={[
+                    { header: "Category", key: "quotation_category", minWidth: "100px" },
+                    { header: "Client Name", key: "client_name", minWidth: "150px" },
+                    { header: "Client Ref.", key: "client_ref", minWidth: "120px" },
+                    { header: "RFQ Type", key: "rfq_type", minWidth: "100px" },
+                    { header: "Consultancy", key: "consultancy", minWidth: "150px" },
+                    { header: "Contact Person", key: "contact_person", minWidth: "120px" },
+                    { header: "Mode", key: "mode_of_enquiry", minWidth: "100px" },
+                    { header: "Enq Date", key: "enq_date", minWidth: "100px", render: (r) => r.enq_date ? new Date(r.enq_date).toLocaleDateString("en-GB") : "-" },
+                    { header: "Target Date", key: "target_date", minWidth: "100px", render: (r) => r.target_date ? new Date(r.target_date).toLocaleDateString("en-GB") : "-" },
+                    { header: "Submission", key: "actual_submission_date", minWidth: "100px", render: (r) => r.actual_submission_date ? new Date(r.actual_submission_date).toLocaleDateString("en-GB") : "-" },
+                    { header: "Time Taken", key: "time_taken", minWidth: "100px" },
+                    { header: "Mediator", key: "mediator", minWidth: "120px" },
+                    { header: "Estimator", key: "estimator", minWidth: "120px" },
+                    { header: "Shreno Status", key: "shreno_status", minWidth: "120px" },
+                    { header: "Client Status", key: "client_status", minWidth: "120px" },
+                    { header: "PO No.", key: "po_no", minWidth: "120px" },
+                    { header: "PO Date", key: "po_date", minWidth: "100px", render: (r) => r.po_date ? new Date(r.po_date).toLocaleDateString("en-GB") : "-" },
+                    { header: "PO Value", key: "po_value", minWidth: "100px" },
+                    { header: "PO Remark", key: "po_remark", minWidth: "150px" },
+                    { header: "Made By", key: "made_by", minWidth: "120px" },
+                    { header: "General Remark", key: "remark", minWidth: "150px" },
+                    { header: "Enq Description", key: "enq_description", minWidth: "200px" },
+                    { header: "Qty", key: "equip_qty", minWidth: "80px" },
+                    { header: "Rev", key: "rev", minWidth: "80px" },
+                    { header: "Total Value", key: "total_value", minWidth: "100px" },
+                ]}
+                onConfirm={confirmBulkImport}
+                isImporting={isImporting}
+                confirmLabel={`Import (${excelData.filter(r => r.status === 'valid').length} Rows)`}
+                title="Review RFQ Import"
+                description="Please review the RFQ records from Excel. Only valid rows will be imported."
             />
 
             {/* View Dialog */}

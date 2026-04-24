@@ -18,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import { Plus, Trash2, ArrowLeft, Edit } from "lucide-react"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
@@ -44,6 +44,45 @@ function CreateLocation() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
 
+  const [columnFilters, setColumnFilters] = useState({})
+  const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const fetchActiveFilters = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/api/dcc/get-location-filters")
+      if (res.success) setActiveFilters(res.data)
+    } catch (err) {
+      console.error("Error fetching location filters:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (view === "list") {
+      fetchActiveFilters()
+    }
+  }, [fetchActiveFilters, view, refreshKey])
+
+  // Cascading Logic
+  const activeClientOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.location_name) {
+      const selected = Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name.toString()]
+      filtered = filtered.filter(f => selected.includes(f.location_name))
+    }
+    const names = [...new Set(filtered.map(f => f.customer_name))].filter(Boolean).sort()
+    return names.map(n => ({ label: n, value: n }))
+  }, [activeFilters.records, columnFilters.location_name])
+
+  const activeLocationOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.customer_name) {
+      const selected = Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name.toString()]
+      filtered = filtered.filter(f => selected.includes(f.customer_name))
+    }
+    const locs = [...new Set(filtered.map(f => f.location_name))].filter(Boolean).sort()
+    return locs.map(l => ({ label: l, value: l }))
+  }, [activeFilters.records, columnFilters.customer_name])
+
   const handleEdit = useCallback((locationItem) => {
     setSelectedCustomer(String(locationItem.customer_id))
     setLocations([
@@ -62,20 +101,29 @@ function CreateLocation() {
 
   const columns = useMemo(() => [
     {
-      accessorKey: "customer.customer_name",
-      header: "Customer",
+      accessorKey: "customer_name",
+      header: "Client",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeClientOptions,
+      cell: (row) => row.customer?.customer_name || "-"
     },
     {
       accessorKey: "location_name",
       header: "Location Name",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeLocationOptions
     },
     {
       accessorKey: "customer_number_as_per_sap",
       header: "SAP Number",
+      filterType: "text"
     },
     {
       accessorKey: "gst_number",
       header: "GST Number",
+      filterType: "text",
       cell: (row) => row.gst_number || "-",
     },
     {
@@ -97,31 +145,19 @@ function CreateLocation() {
         </Button>
       ),
     },
-  ], [handleEdit])
+  ], [handleEdit, activeClientOptions, activeLocationOptions])
 
-  const fetchCustomerLocations = useCallback(async ({ page, limit, search, sorting }) => {
+  const fetchCustomerLocations = useCallback(async (params) => {
     try {
-      const params = { page, limit }
-      if (search) params.search = search
-      if (sorting && sorting.length > 0) {
-        params.sortBy = sorting[0].id
-        params.sortOrder = sorting[0].desc ? "desc" : "asc"
+      const queryParams = { ...params };
+      if (queryParams.columnFilters) {
+        queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
       }
-
-      const responseData = await apiClient.get('/api/dcc/get-customer-locations', params)
-
-      if (responseData.success) {
-        return {
-          data: responseData.data || [],
-          meta: responseData.meta || {}
-        }
-      } else {
-        console.error("Failed to fetch locations", responseData)
-        return { data: [], meta: {} }
-      }
+      const responseData = await apiClient.get('/api/dcc/get-customer-locations', queryParams)
+      return responseData;
     } catch (err) {
       console.error("Error fetching locations:", err)
-      return { data: [], meta: {} }
+      return { success: false, data: [], meta: {} }
     }
   }, [])
 
@@ -247,58 +283,44 @@ function CreateLocation() {
         </header>
         <main className="flex-1 flex flex-col overflow-auto p-6">
           <div className="w-full flex-1 flex flex-col">
+            {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Locations List" : (editingId ? "Update Location" : "Create Location")}
+                  {editingId ? "Update Location" : "Create Location"}
                 </h1>
                 <p className="text-muted-foreground">
-                  {view === "list"
-                    ? "List of all customer locations"
-                    : (editingId ? "Update the details for the selected location." : "Add one or more locations for a customer.")}
+                  {editingId ? "Update the details for the selected location." : "Add one or more locations for a client."}
                 </p>
               </div>
               <div>
-                {view === "list" ? (
-                  <Button onClick={() => {
-                    setEditingId(null)
-                    setSelectedCustomer("")
-                    setLocations([{ id: 1, location: "", customerNumber: "", gstNumber: "" }])
-                    setView("create")
-                  }}>
-                    <Plus className="mr-2 h-4 w-4" /> Create Location
-                  </Button>
-                ) : (
                   <Button variant="outline" onClick={() => setView("list")}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
-                )}
               </div>
             </div>
+            )}
 
             {view === "list" ? (
-              <Card className="flex-1 flex flex-col">
-                <CardHeader>
-                  <CardTitle>Locations</CardTitle>
-                  <CardDescription>View and manage locations.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <DataTable
-                    columns={columns}
-                    fetchData={fetchCustomerLocations}
-                    onExport={handleExport}
-                  />
-                </CardContent>
-              </Card>
+              <ProDataTable
+                columns={columns}
+                fetchData={fetchCustomerLocations}
+                onExport={handleExport}
+                onAdd={() => setView("create")}
+                onAddTooltip="Create Location"
+                refreshKey={refreshKey}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+              />
             ) : (
               <form onSubmit={handleSubmit}>
                 <div className="grid gap-6">
-                  {/* Customer Selection */}
+                  {/* Client Selection */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Select Customer</CardTitle>
+                      <CardTitle>Select Client</CardTitle>
                       <CardDescription>
-                        Choose the customer for which you want to add locations
+                        Choose the client for which you want to add locations
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -314,7 +336,7 @@ function CreateLocation() {
                       )}
                       <div className="space-y-2">
                         <Label htmlFor="customer">
-                          Customer <span className="text-destructive">*</span>
+                          Client <span className="text-destructive">*</span>
                         </Label>
                         <Select
                           value={selectedCustomer}
@@ -326,20 +348,20 @@ function CreateLocation() {
                             <SelectValue
                               placeholder={
                                 isLoadingCustomers
-                                  ? "Loading customers..."
-                                  : "Select a customer"
+                                  ? "Loading clients..."
+                                  : "Select a client"
                               }
                             />
                           </SelectTrigger>
                           <SelectContent>
                             {customers.length === 0 && !isLoadingCustomers ? (
                               <SelectItem value="no-customers" disabled>
-                                No customers found
+                                No clients found
                               </SelectItem>
                             ) : (
                               customers.map((customer) => (
                                 <SelectItem key={customer.id} value={String(customer.id)}>
-                                  {customer.customer_name || customer.name || `Customer ${customer.id}`}
+                                  {customer.customer_name || customer.name || `Client ${customer.id}`}
                                 </SelectItem>
                               ))
                             )}
@@ -357,7 +379,7 @@ function CreateLocation() {
                           <div>
                             <CardTitle>Locations</CardTitle>
                             <CardDescription>
-                              Add one or more locations for the selected customer
+                              Add one or more locations for the selected client
                             </CardDescription>
                           </div>
                           <Button

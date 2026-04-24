@@ -80,6 +80,16 @@ class QapController {
             res.status(500).json({ success: false, message: 'Failed to generate PDF.' });
         }
     }
+
+    async getFilters(req, res) {
+        try {
+            const result = await QapService.getFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('QAP getFilters error:', error);
+            res.status(500).json({ success: false, message: 'Failed to fetch filters.' });
+        }
+    }
 }
 
 module.exports = new QapController();

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog"
 import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick }) {
@@ -80,11 +81,116 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
-  const columns = [
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  // Cascading Filters State
+  const [activeFilters, setActiveFilters] = useState({ records: [] });
+  const [columnFilters, setColumnFilters] = useState({});
+
+  const fetchActiveFilters = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/api/qap/get-filters");
+      if (res.success) setActiveFilters(res.data);
+    } catch (err) {
+      console.error("Error fetching active filters:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchActiveFilters();
+  }, [fetchActiveFilters, refreshTrigger]);
+
+  // Auto-selection logic for reverse cascading
+  useEffect(() => {
+    if (!activeFilters.records || activeFilters.records.length === 0) return;
+
+    const updates = {};
+    if (columnFilters.msn && Array.isArray(columnFilters.msn) && columnFilters.msn.length === 1) {
+      const selectedMsn = columnFilters.msn[0];
+      const match = activeFilters.records.find(r => r.msn?.toString() === selectedMsn?.toString());
+      if (match) {
+        if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client];
+        if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po_no];
+      }
+    } 
+    else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
+      const selectedPo = columnFilters.po_no[0];
+      const match = activeFilters.records.find(r => r.po_no?.toString() === selectedPo?.toString());
+      if (match && (!columnFilters.client || columnFilters.client.length === 0)) {
+        updates.client = [match.client];
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setColumnFilters(prev => ({ ...prev, ...updates }));
+    }
+  }, [columnFilters.msn, columnFilters.po_no, activeFilters.records]);
+
+  // Cascading Filter Logic
+  const activeClientOptions = useMemo(() => {
+    let filtered = activeFilters.records || [];
+    if (columnFilters.po_no) {
+      const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()];
+      filtered = filtered.filter(c => selected.includes(c.po_no?.toString()));
+    }
+    if (columnFilters.msn) {
+      const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()];
+      filtered = filtered.filter(c => selected.includes(c.msn?.toString()));
+    }
+    const clients = [...new Set(filtered.map(c => c.client))].filter(Boolean).sort();
+    return clients.map(c => ({ label: c, value: c }));
+  }, [activeFilters.records, columnFilters.po_no, columnFilters.msn]);
+
+  const activePoOptions = useMemo(() => {
+    let filtered = activeFilters.records || [];
+    if (columnFilters.client) {
+      const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()];
+      filtered = filtered.filter(c => selected.includes(c.client?.toString()));
+    }
+    if (columnFilters.msn) {
+      const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()];
+      filtered = filtered.filter(c => selected.includes(c.msn?.toString()));
+    }
+    const pos = [...new Set(filtered.map(c => c.po_no))].filter(Boolean).sort();
+    return pos.map(p => ({ label: p, value: p }));
+  }, [activeFilters.records, columnFilters.client, columnFilters.msn]);
+
+  const activeMsnOptions = useMemo(() => {
+    let filtered = activeFilters.records || [];
+    if (columnFilters.client) {
+      const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()];
+      filtered = filtered.filter(c => selected.includes(c.client?.toString()));
+    }
+    if (columnFilters.po_no) {
+      const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()];
+      filtered = filtered.filter(c => selected.includes(c.po_no?.toString()));
+    }
+    const msns = [...new Set(filtered.map(c => c.msn))].filter(Boolean).sort();
+    return msns.map(m => ({ label: m, value: m }));
+  }, [activeFilters.records, columnFilters.client, columnFilters.po_no]);
+
+  const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
-    { header: "MSN", accessorKey: "msn" },
-    { header: "Client", accessorKey: "client" },
-    { header: "PO No.", accessorKey: "po_no" },
+    {
+      header: "Client",
+      accessorKey: "client",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeClientOptions
+    },
+    {
+      header: "PO No.",
+      accessorKey: "po_no",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activePoOptions
+    },
+    {
+      header: "Job Number",
+      accessorKey: "msn",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeMsnOptions
+    },
     { header: "Project ID", accessorKey: "project_id" },
     { header: "Equipment", accessorKey: "equipment_name" },
     {
@@ -122,20 +228,21 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       ),
     },
-  ]
+  ], [onEditClick, activeClientOptions, activePoOptions, activeMsnOptions])
 
-  const fetchData = useCallback(async ({ page, limit, search }) => {
-    const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
-    const res = await apiClient.get(`/api/qap/list`, Object.fromEntries(params))
+  const fetchData = useCallback(async (params) => {
+    const queryParams = { ...params };
+    if (queryParams.columnFilters) {
+      queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
+    }
+    const res = await apiClient.get(`/api/qap/list`, queryParams)
     return { data: res.data, meta: res.meta }
   }, [])
-
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleExport = async () => {
     try {
       await exportApi.exportQAP();
-      setRefreshKey(prev => prev + 1);
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error("QAP Export failed:", error);
     }
@@ -148,10 +255,6 @@ function ListView({ onCreateClick, onEditClick }) {
           <h1 className="text-3xl font-bold mb-1">Quality Assurance Plans</h1>
           <p className="text-muted-foreground">View and manage all quality assurance plans.</p>
         </div>
-        <Button onClick={onCreateClick}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create
-        </Button>
       </div>
 
       {error && (
@@ -160,10 +263,15 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       )}
 
-      <DataTable 
-        columns={columns} 
-        fetchData={fetchData} 
+      <ProDataTable
+        columns={columns}
+        fetchData={fetchData}
         onExport={handleExport}
+        onAdd={onCreateClick}
+        columnFilters={columnFilters}
+        onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+        refreshKey={refreshTrigger}
+        globalSearchPlaceholder="Search report no, job, client..."
       />
 
       {/* View Details Modal */}
@@ -1287,26 +1395,26 @@ function QualityAssurancePlan() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
-            {view === "list" && (
-              <ListView
-                onCreateClick={handleCreateClick}
-                onEditClick={handleEditClick}
-              />
-            )}
-            {(view === "create" || view === "edit") && (
-              <CreateView
-                onBack={handleBackToList}
-                onSuccess={handleBackToList}
-                editId={editId}
-              />
-            )}
-          </div>
-        </main>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
+          {view === "list" && (
+            <ListView
+              onCreateClick={handleCreateClick}
+              onEditClick={handleEditClick}
+            />
+          )}
+          {(view === "create" || view === "edit") && (
+            <CreateView
+              onBack={handleBackToList}
+              onSuccess={handleBackToList}
+              editId={editId}
+            />
+          )}
+        </div>
+      </main>
     </>
   )
 }

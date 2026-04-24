@@ -394,9 +394,46 @@ class WeldJointService {
         const handleMultiFilter = (val) => {
             if (!val) return undefined;
             if (Array.isArray(val)) return { in: val };
-            if (typeof val === 'string' && val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
-            return { equals: val, mode: 'insensitive' };
+            if (typeof val === 'string') {
+                if (val.startsWith('[')) {
+                    try {
+                        const parsed = JSON.parse(val);
+                        if (Array.isArray(parsed)) return { in: parsed };
+                    } catch (e) { }
+                }
+                if (val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
+                return { equals: val, mode: 'insensitive' };
+            }
+            return { equals: val };
         };
+
+        if (params.columnFilters) {
+            const cFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : params.columnFilters;
+            if (cFilters.client) {
+                where.weld_joint_plan = { 
+                    ...where.weld_joint_plan, 
+                    job: { ...where.weld_joint_plan?.job, customer: { customer_name: handleMultiFilter(cFilters.client) } } 
+                };
+            }
+            if (cFilters.po || cFilters.poNo) {
+                where.weld_joint_plan = { 
+                    ...where.weld_joint_plan, 
+                    job: { ...where.weld_joint_plan?.job, po: { po_number: handleMultiFilter(cFilters.po || cFilters.poNo) } } 
+                };
+            }
+            if (cFilters.job || cFilters.jointNo) {
+                where.joint_no = handleMultiFilter(cFilters.job || cFilters.jointNo);
+            }
+            if (cFilters.cat || cFilters.jointCategory) {
+                where.joint_type = handleMultiFilter(cFilters.cat || cFilters.jointCategory);
+            }
+            if (cFilters.msn || cFilters.msnNumber) {
+                where.weld_joint_plan = { 
+                    ...where.weld_joint_plan, 
+                    job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(cFilters.msn || cFilters.msnNumber) } 
+                };
+            }
+        }
 
         if (client) {
             where.weld_joint_plan = { 
@@ -798,25 +835,34 @@ class WeldJointService {
                 }
             });
 
-            // Extract unique categories from weld_joint
             const joints = await prisma.weld_joint.findMany({
                 where: { weld_joint_plan: { company_id } },
-                select: { joint_type: true, joint_no: true }
+                select: { 
+                    joint_type: true, 
+                    joint_no: true,
+                    weld_joint_plan: {
+                        select: {
+                            job: {
+                                select: {
+                                    job_number: true,
+                                    customer: { select: { customer_name: true } },
+                                    po: { select: { po_number: true } }
+                                }
+                            }
+                        }
+                    }
+                }
             });
 
-            const uniqueClients = [...new Set(jobs.map(j => j.customer?.customer_name))].filter(Boolean).sort();
-            const uniquePos = [...new Set(jobs.map(j => j.po?.po_number))].filter(Boolean).sort();
-            const uniqueMsns = [...new Set(jobs.map(j => j.job_number))].filter(Boolean).sort();
-            const uniqueJointNos = [...new Set(joints.map(j => j.joint_no))].filter(Boolean).sort();
-            const uniqueCats = [...new Set(joints.map(j => j.joint_type))].filter(Boolean).sort();
+            const records = joints.map(j => ({
+                client: j.weld_joint_plan?.job?.customer?.customer_name,
+                po: j.weld_joint_plan?.job?.po?.po_number,
+                msn: j.weld_joint_plan?.job?.job_number,
+                joint_no: j.joint_no,
+                cat: j.joint_type
+            }));
 
-            return {
-                clients: uniqueClients.map(c => ({ label: c, value: c })),
-                pos: uniquePos.map(p => ({ label: p, value: p })),
-                msns: uniqueMsns.map(m => ({ label: m, value: m })),
-                jointNos: uniqueJointNos.map(j => ({ label: j, value: j })),
-                categories: uniqueCats.map(c => ({ label: c, value: c }))
-            };
+            return { records };
         } catch (error) {
             console.error("Get Active Filters error:", error);
             throw error;

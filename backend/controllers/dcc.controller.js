@@ -42,6 +42,15 @@ class DccController {
             });
         }
     }
+
+    async getCustomerFilters(req, res) {
+        try {
+            const result = await DccService.getCustomerFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
     async createCustomerLocation(req, res) {
         try {
             const result = await DccService.createCustomerLocation(req.user.company_id, req.body);
@@ -55,6 +64,15 @@ class DccController {
         try {
             const result = await DccService.getCustomerLocations(req.user.company_id, req.query);
             res.status(200).json({ success: true, data: result.data, meta: result.meta });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async getLocationFilters(req, res) {
+        try {
+            const result = await DccService.getLocationFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }
@@ -97,9 +115,26 @@ class DccController {
 
     async getJobs(req, res) {
         try {
-            const result = await DccService.getJobs(req.user.company_id, req.query);
+            const params = {
+                ...req.query,
+                page: parseInt(req.query.page) || 1,
+                limit: parseInt(req.query.limit) || 50,
+                search: req.query.search || ""
+            };
+            const result = await DccService.getJobs(req.user.company_id, params);
             res.status(200).json({ success: true, data: result.data, meta: result.meta });
         } catch (error) {
+            console.error('getJobs error:', error);
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async getManageJobFilters(req, res) {
+        try {
+            const result = await DccService.getManageJobFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('getManageJobFilters error:', error);
             res.status(500).json({ success: false, message: error.message });
         }
     }
@@ -117,21 +152,20 @@ class DccController {
         try {
             const { userid, role, company_id: companyId } = req.user;
             const { is_approved, is_transmittable } = req.query;
-            
+
             const roles = Array.isArray(role) ? role : [role];
             const upperRoles = roles.map(r => r.toUpperCase());
-            
+
             // Case-insensitive role check for robustness
             const isPowerUser = upperRoles.includes('ADMIN') || upperRoles.includes('DCC');
             const isUploader = upperRoles.includes('USER');
-            
-            const getOnlyForUser = !isPowerUser && isUploader ? userid : null;
 
+            const getOnlyForUser = !isPowerUser && isUploader ? userid : null;
             const options = {
                 isApproved: is_approved === 'true',
                 isTransmittable: is_transmittable === 'true'
             };
-            
+
             const result = await DccService.getActiveFilters(companyId, getOnlyForUser, options);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
@@ -250,7 +284,7 @@ class DccController {
 
     async bulkAssignDocuments(req, res) {
         try {
-            const result = await DccService.bulkAssignDocuments(req.user.company_id, req.body);
+            const result = await DccService.bulkAssignDocuments(req.user.company_id, req.body, req.user.userid || req.user.id);
             res.status(201).json({ success: true, data: result, message: 'Documents assigned successfully' });
         } catch (error) {
             console.error('Bulk assign document error:', error);
@@ -270,10 +304,10 @@ class DccController {
     async getTransmissions(req, res) {
         try {
             const result = await DccService.getTransmissions(req.user.company_id, req.query);
-            res.status(200).json({ 
-                success: true, 
-                data: result.data, 
-                meta: result.meta 
+            res.status(200).json({
+                success: true,
+                data: result.data,
+                meta: result.meta
             });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -326,16 +360,16 @@ class DccController {
             const { transmission_document_id, status, remarks } = req.body;
             const file = req.file; // single file for individual doc
             const userId = req.user.userid || req.user.id;
-            
+
             const result = await DccService.updateTransmissionDocumentClientStatus(
-                req.user.company_id, 
+                req.user.company_id,
                 userId,
-                transmission_document_id, 
-                status, 
-                remarks, 
+                transmission_document_id,
+                status,
+                remarks,
                 file
             );
-            
+
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             console.error('Update transmission document client status error:', error);
@@ -492,7 +526,7 @@ class DccController {
             }
 
             const stats = fs.statSync(absolutePath);
-            
+
             // Determine content type from extension
             let contentType = 'application/octet-stream';
             const ext = path.extname(absolutePath).toLowerCase();
@@ -519,7 +553,7 @@ class DccController {
     async downloadFeedbackFile(req, res) {
         try {
             const { filepath, filename } = req.query;
-            
+
             if (!filepath) {
                 return res.status(400).json({ success: false, message: 'File path is required' });
             }
@@ -540,11 +574,11 @@ class DccController {
             if (ext === '.pdf') contentType = 'application/pdf';
             else if (ext === '.jpg' || ext === '.jpeg') contentType = 'image/jpeg';
             else if (ext === '.png') contentType = 'image/png';
-            
+
             res.setHeader('Content-Type', contentType);
             res.setHeader('Content-Length', stats.size);
             res.setHeader('Content-Disposition', `inline; filename="${filename || 'feedback-file'}"`);
-            
+
             const fileStream = fs.createReadStream(absolutePath);
             fileStream.pipe(res);
         } catch (error) {

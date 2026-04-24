@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 
 import {
     SidebarProvider,
@@ -24,9 +24,9 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { StatusBadge } from "@/components/shared/StatusBadge"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
-import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download, Upload, FileText, Trash2, Paperclip, ExternalLink, X } from "lucide-react"
+import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download, Upload, FileText, Trash2, Paperclip, ExternalLink, X, Search, ChevronDown, ChevronLeft, ChevronRight, Check } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { useAuth } from "@/context/AuthContext"
@@ -198,14 +198,113 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
         return false
     }
 
-    const columns = [
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [columnFilters, setColumnFilters] = useState({});
+    const [activeFilters, setActiveFilters] = useState({ records: [] });
+
+    const fetchActiveFilters = useCallback(async () => {
+        try {
+            const res = await apiClient.get("/api/ncr/active-filters");
+            if (res.success) setActiveFilters(res.data);
+        } catch (err) {
+            console.error("Error fetching active filters:", err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchActiveFilters();
+    }, [fetchActiveFilters, refreshKey]);
+
+    // Auto-selection for reverse cascading
+    useEffect(() => {
+        if (!activeFilters.records || activeFilters.records.length === 0) return;
+
+        const updates = {};
+        if (columnFilters.msn && Array.isArray(columnFilters.msn) && columnFilters.msn.length === 1) {
+            const selectedMsn = columnFilters.msn[0];
+            const match = activeFilters.records.find(r => r.msn?.toString() === selectedMsn?.toString());
+            if (match) {
+                if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client];
+                if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po];
+            }
+        } else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
+            const selectedPo = columnFilters.po_no[0];
+            const match = activeFilters.records.find(r => r.po?.toString() === selectedPo?.toString());
+            if (match && (!columnFilters.client || columnFilters.client.length === 0)) {
+                updates.client = [match.client];
+            }
+        }
+
+        if (Object.keys(updates).length > 0) {
+            setColumnFilters(prev => ({ ...prev, ...updates }));
+        }
+    }, [columnFilters.msn, columnFilters.po_no, activeFilters.records]);
+
+    // Cascading Logic
+    const activeClientOptions = useMemo(() => {
+        let filtered = activeFilters.records || [];
+        if (columnFilters.po_no) {
+            const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()];
+            filtered = filtered.filter(c => selected.includes(c.po?.toString()));
+        }
+        if (columnFilters.msn) {
+            const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()];
+            filtered = filtered.filter(c => selected.includes(c.msn?.toString()));
+        }
+        const clients = [...new Set(filtered.map(c => c.client))].filter(Boolean).sort();
+        return clients.map(c => ({ label: c, value: c }));
+    }, [activeFilters.records, columnFilters.po_no, columnFilters.msn]);
+
+    const activePoOptions = useMemo(() => {
+        let filtered = activeFilters.records || [];
+        if (columnFilters.client) {
+            const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()];
+            filtered = filtered.filter(c => selected.includes(c.client?.toString()));
+        }
+        if (columnFilters.msn) {
+            const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()];
+            filtered = filtered.filter(c => selected.includes(c.msn?.toString()));
+        }
+        const pos = [...new Set(filtered.map(c => c.po))].filter(Boolean).sort();
+        return pos.map(p => ({ label: p, value: p }));
+    }, [activeFilters.records, columnFilters.client, columnFilters.msn]);
+
+    const activeMsnOptions = useMemo(() => {
+        let filtered = activeFilters.records || [];
+        if (columnFilters.client) {
+            const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()];
+            filtered = filtered.filter(c => selected.includes(c.client?.toString()));
+        }
+        if (columnFilters.po_no) {
+            const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()];
+            filtered = filtered.filter(c => selected.includes(c.po?.toString()));
+        }
+        const msns = [...new Set(filtered.map(c => c.msn))].filter(Boolean).sort();
+        return msns.map(m => ({ label: m, value: m }));
+    }, [activeFilters.records, columnFilters.client, columnFilters.po_no]);
+
+    const columns = useMemo(() => [
         { header: "NCR No", accessorKey: "ncr_no" },
-        { header: "MSN", accessorKey: "msn" },
-        { header: "Client", accessorKey: "client" },
         {
-            header: "Stage",
-            accessorKey: "current_stage",
-            cell: (row) => `Stage ${row.current_stage}/5`
+            header: "Client",
+            accessorKey: "client",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: activeClientOptions
+        },
+        {
+            header: "PO No.",
+            accessorKey: "po_no",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: activePoOptions
+        },
+        {
+            header: "Job Number",
+            accessorKey: "msn",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: activeMsnOptions
         },
         {
             header: "Head Design",
@@ -257,10 +356,10 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                         <Eye className="h-3.5 w-3.5 mr-1" /> View
                     </Button>
                     {row.status === "CLOSED" && row.ncr_status === "closed" && (
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleDownload(row.id, row.ncr_no)} 
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownload(row.id, row.ncr_no)}
                             title="Download NCR PDF"
                             disabled={isDownloading}
                             className="text-blue-600 border-blue-200 hover:bg-blue-50"
@@ -271,15 +370,21 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                 </div>
             ),
         },
-    ]
+    ], [activeClientOptions, activePoOptions, activeMsnOptions, isDownloading, currentUserId]);
 
-    const fetchData = useCallback(async ({ page, limit, search }) => {
-        const params = new URLSearchParams({ page, limit, ...(search ? { search } : {}) })
-        const res = await apiClient.get(`/api/ncr/list`, Object.fromEntries(params))
-        return { data: res.data, meta: res.meta }
+    const fetchData = useCallback(async (params) => {
+        try {
+            const queryParams = { ...params };
+            if (queryParams.columnFilters) {
+                queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
+            }
+            const res = await apiClient.get(`/api/ncr/list`, queryParams)
+            return { data: res.data, meta: res.meta }
+        } catch (err) {
+            console.error("Fetch NCR error:", err);
+            return { data: [], meta: {} };
+        }
     }, [])
-
-    const [refreshKey, setRefreshKey] = useState(0);
 
     const handleExport = async () => {
         try {
@@ -297,9 +402,6 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                     <h1 className="text-3xl font-bold mb-1">NCR List</h1>
                     <p className="text-muted-foreground">Manage Non-Conformance Reports</p>
                 </div>
-                <Button onClick={onCreateClick}>
-                    <Plus className="h-4 w-4 mr-2" /> Create NCR
-                </Button>
             </div>
 
             {error && (
@@ -308,10 +410,15 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                 </div>
             )}
 
-            <DataTable 
-                columns={columns} 
-                fetchData={fetchData} 
+            <ProDataTable
+                columns={columns}
+                fetchData={fetchData}
                 onExport={handleExport}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+                refreshKey={refreshKey}
+                onAdd={onCreateClick}
+                onAddTooltip="Create NCR"
             />
         </div>
     )
@@ -453,7 +560,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         if (files.length === 0) return
 
         const file = files[0] // Only take the first file
-        
+
         // Enforce only images for Stage 1 as requested
         const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
         if (!allowedTypes.includes(file.type)) {
@@ -464,15 +571,15 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
         setAttachment(file)
         const isImage = file.type.startsWith('image/')
-        
+
         // Generate blob URL for local preview
         const blobUrl = URL.createObjectURL(file)
-        
-        setPreview({ 
-            name: file.name, 
-            type: 'image', 
+
+        setPreview({
+            name: file.name,
+            type: 'image',
             mimeType: file.type,
-            url: blobUrl 
+            url: blobUrl
         })
     }
 
@@ -778,9 +885,9 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                     />
                 ) : (
                     <SearchableSelect
-                        options={assignedDrawings.map(doc => ({ 
-                            label: `${doc.shreno_doc_no} - ${doc.document_name}`, 
-                            value: doc.shreno_doc_no 
+                        options={assignedDrawings.map(doc => ({
+                            label: `${doc.shreno_doc_no} - ${doc.document_name}`,
+                            value: doc.shreno_doc_no
                         }))}
                         value={formData.drgNo}
                         onValueChange={(val) => handleSelectChange("drgNo", val)}
@@ -848,7 +955,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                         <Label className="text-md flex items-center gap-2">
                                             <Paperclip className="h-4 w-4" />Attachment:
                                         </Label>
-                                        
+
                                         {/* Attachment UI (Single File) */}
                                         <div className="flex flex-wrap gap-4">
                                             {/* Saved Attachment */}
@@ -1336,11 +1443,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             </form>
 
             {/* Document Preview Dialog */}
-            <DocumentPreviewDialog 
-                isOpen={isPreviewOpen} 
-                onOpenChange={setIsPreviewOpen} 
-                previewUrl={activePreviewUrl} 
-                activePreviewDoc={activePreviewDoc} 
+            <DocumentPreviewDialog
+                isOpen={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                previewUrl={activePreviewUrl}
+                activePreviewDoc={activePreviewDoc}
             />
         </div>
     )
@@ -1373,28 +1480,28 @@ function CreateNCR() {
 
     return (
         <>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                    <SidebarTrigger className="-ml-1" />
-                </header>
-                <main className="flex-1 overflow-auto p-6 flex flex-col">
-                    <div className="flex-1 flex flex-col w-full">
-                        {view === "list" ? (
-                            <ListView
-                                onCreateClick={() => { setViewNcrId(null); setView("create") }}
-                                onViewClick={handleViewClick}
-                                onOpenClick={handleOpenClick}
-                            />
-                        ) : (
-                            <FormView
-                                ncrId={viewNcrId}
-                                onBack={() => { setView("list"); setViewNcrId(null) }}
-                                onSuccess={handleSuccess}
-                                isViewOnly={view === "view"}
-                                isOpenMode={view === "open"}
-                            />
-                        )}
-                    </div>
-                </main>
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger className="-ml-1" />
+            </header>
+            <main className="flex-1 overflow-auto p-6 flex flex-col">
+                <div className="flex-1 flex flex-col w-full">
+                    {view === "list" ? (
+                        <ListView
+                            onCreateClick={() => { setViewNcrId(null); setView("create") }}
+                            onViewClick={handleViewClick}
+                            onOpenClick={handleOpenClick}
+                        />
+                    ) : (
+                        <FormView
+                            ncrId={viewNcrId}
+                            onBack={() => { setView("list"); setViewNcrId(null) }}
+                            onSuccess={handleSuccess}
+                            isViewOnly={view === "view"}
+                            isOpenMode={view === "open"}
+                        />
+                    )}
+                </div>
+            </main>
         </>
     )
 }

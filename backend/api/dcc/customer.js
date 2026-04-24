@@ -764,18 +764,59 @@ async function getCustomerLocations(req, res) {
 async function getPos(req, res) {
   try {
     const company_id = req.user.company_id;
-    const pos = await prisma.po.findMany({
-      where: { company_id },
-      include: {
-        customer: { select: { id: true, customer_name: true } },
-        customer_location: { select: { id: true, location_name: true, gst_number: true } },
-        po_communication_matrix: true,
-        po_attachment_history: {
-          orderBy: { revision: 'desc' }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    });
+    const { 
+      page = 1, 
+      limit, 
+      search = '', 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      columnFilters: columnFiltersRaw 
+    } = req.query;
+
+    const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+    
+    const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+    const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
+
+    const where = { company_id };
+
+    if (search) {
+      where.OR = [
+        { po_number: { contains: search, mode: 'insensitive' } },
+        { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+        { customer_location: { location_name: { contains: search, mode: 'insensitive' } } }
+      ];
+    }
+
+    // Column Filters
+    if (columnFilters.po_number && columnFilters.po_number !== 'all') {
+      where.po_number = { in: Array.isArray(columnFilters.po_number) ? columnFilters.po_number : [columnFilters.po_number] };
+    }
+    if (columnFilters.customer_name && columnFilters.customer_name !== 'all') {
+      where.customer = { customer_name: { in: Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name] } };
+    }
+    if (columnFilters.location_name && columnFilters.location_name !== 'all') {
+      where.customer_location = { location_name: { in: Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name] } };
+    }
+
+    const [total, pos] = await prisma.$transaction([
+      prisma.po.count({ where }),
+      prisma.po.findMany({
+        where,
+        skip,
+        take,
+        include: {
+          customer: { select: { id: true, customer_name: true } },
+          customer_location: { select: { id: true, location_name: true, gst_number: true } },
+          po_communication_matrix: true,
+          po_attachment_history: {
+            orderBy: { revision: 'desc' }
+          }
+        },
+        orderBy: { [sortBy]: sortOrder }
+      })
+    ]);
+
     const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const formattedPos = pos.map(po => {
       const formattedHistory = po.po_attachment_history ? po.po_attachment_history.map(history => {
@@ -809,9 +850,47 @@ async function getPos(req, res) {
       };
     });
 
-    res.status(200).json({ success: true, data: formattedPos });
+    res.status(200).json({ 
+      success: true, 
+      data: formattedPos,
+      meta: {
+        total,
+        page: parseInt(page),
+        limit: (limit === undefined || limit === null) ? total : take,
+        totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take)
+      }
+    });
   } catch (error) {
     console.error('Get POs error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
+/**
+ * Get PO Filter Metadata API - For cascading filters
+ */
+async function getPoFilters(req, res) {
+  try {
+    const company_id = req.user.company_id;
+
+    const data = await prisma.po.findMany({
+      where: { company_id },
+      select: {
+        po_number: true,
+        customer: { select: { customer_name: true } },
+        customer_location: { select: { location_name: true } }
+      }
+    });
+
+    const records = data.map(po => ({
+      po_number: po.po_number,
+      customer_name: po.customer?.customer_name,
+      location_name: po.customer_location?.location_name
+    }));
+
+    res.status(200).json({ success: true, data: { records } });
+  } catch (error) {
+    console.error('Get PO filters error:', error);
     res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }

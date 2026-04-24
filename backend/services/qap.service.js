@@ -114,7 +114,7 @@ class QapService {
     }
 
     async list(company_id, queryParams) {
-        const { page = 1, limit = 10, search = "" } = queryParams;
+        const { page = 1, limit = 10, search = "", columnFilters } = queryParams;
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const where = { company_id };
 
@@ -125,6 +125,25 @@ class QapService {
                 { client: { contains: search, mode: 'insensitive' } },
                 { equipment_name: { contains: search, mode: 'insensitive' } }
             ];
+        }
+
+        if (columnFilters) {
+            const filters = typeof columnFilters === 'string' ? JSON.parse(columnFilters) : columnFilters;
+            const andConditions = [];
+
+            if (filters.client && filters.client.length > 0) {
+                andConditions.push({ client: { in: filters.client } });
+            }
+            if (filters.po_no && filters.po_no.length > 0) {
+                andConditions.push({ po_no: { in: filters.po_no } });
+            }
+            if (filters.msn && filters.msn.length > 0) {
+                andConditions.push({ msn: { in: filters.msn } });
+            }
+
+            if (andConditions.length > 0) {
+                where.AND = andConditions;
+            }
         }
 
         const [qaps, total] = await Promise.all([
@@ -143,6 +162,20 @@ class QapService {
                 totalPages: Math.ceil(total / parseInt(limit))
             }
         };
+    }
+
+    async getFilters(company_id) {
+        const records = await prisma.quality_assurance_plan.findMany({
+            where: { company_id },
+            select: {
+                client: true,
+                po_no: true,
+                msn: true
+            },
+            distinct: ['client', 'po_no', 'msn']
+        });
+
+        return { records };
     }
 
     async getById(company_id, id) {

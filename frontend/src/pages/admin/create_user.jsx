@@ -29,7 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import {
   Dialog,
   DialogContent,
@@ -68,16 +68,78 @@ function CreateUser() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState(null)
 
-  // DataTable State
-  const [data, setData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [pageCount, setPageCount] = useState(0)
-  const [totalItems, setTotalItems] = useState(0)
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 10,
-  })
-  const [sorting, setSorting] = useState([])
+  const [columnFilters, setColumnFilters] = useState({})
+  const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const fetchActiveFilters = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/api/users/get-user-filters")
+      if (res.success) setActiveFilters(res.data)
+    } catch (err) {
+      console.error("Error fetching user filters:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (view === "list") {
+      fetchActiveFilters()
+    }
+  }, [fetchActiveFilters, view, refreshKey])
+
+  // Cascading Logic
+  const activeNameOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.department) {
+      const selected = Array.isArray(columnFilters.department) ? columnFilters.department : [columnFilters.department.toString()]
+      filtered = filtered.filter(f => selected.includes(f.department))
+    }
+    const names = [...new Set(filtered.map(f => f.name))].filter(Boolean).sort()
+    return names.map(n => ({ label: n, value: n }))
+  }, [activeFilters.records, columnFilters.department])
+
+  const activeDeptOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.name) {
+      const selected = Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name.toString()]
+      filtered = filtered.filter(f => selected.includes(f.name))
+    }
+    const depts = [...new Set(filtered.map(f => f.department))].filter(Boolean).sort()
+    return depts.map(d => ({ label: d, value: d }))
+  }, [activeFilters.records, columnFilters.name])
+
+  const activeEmailOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.name) {
+      const selected = Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name.toString()]
+      filtered = filtered.filter(f => selected.includes(f.name))
+    }
+    const emails = [...new Set(filtered.map(f => f.email))].filter(Boolean).sort()
+    return emails.map(e => ({ label: e, value: e }))
+  }, [activeFilters.records, columnFilters.name])
+
+  const activeEmpIdOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.name) {
+      const selected = Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name.toString()]
+      filtered = filtered.filter(f => selected.includes(f.name))
+    }
+    const ids = [...new Set(filtered.map(f => f.empid))].filter(Boolean).sort()
+    return ids.map(i => ({ label: i, value: i }))
+  }, [activeFilters.records, columnFilters.name])
+
+  const fetchUsers = useCallback(async (params) => {
+    try {
+      const queryParams = { ...params };
+      if (queryParams.columnFilters) {
+        queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
+      }
+      const responseData = await apiClient.get('/api/users/get-users', queryParams)
+      return responseData;
+    } catch (err) {
+      console.error("Error fetching users:", err)
+      return { success: false, data: [], meta: {} }
+    }
+  }, [])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -115,36 +177,6 @@ function CreateUser() {
     }
     fetchData();
   }, []);
-
-  // Fetch Users for DataTable
-  const fetchUsers = useCallback(async ({ page, limit, search, sorting }) => {
-    try {
-      setLoading(true)
-      const params = { page, limit }
-      if (search) params.search = search
-      if (sorting && sorting.length > 0) {
-        params.sortBy = sorting[0].id
-        params.sortOrder = sorting[0].desc ? "desc" : "asc"
-      }
-
-      const responseData = await apiClient.get('/api/users/get-users', params)
-
-      if (responseData.success) {
-        return {
-          data: responseData.data || [],
-          meta: responseData.meta || {}
-        }
-      } else {
-        console.error("Failed to fetch users", responseData)
-        return { data: [], meta: {} }
-      }
-    } catch (err) {
-      console.error("Error fetching users:", err)
-      return { data: [], meta: {} }
-    } finally {
-      setLoading(false)
-    }
-  }, [])
 
   const handleEdit = (user) => {
     setEditingId(user.id)
@@ -192,19 +224,31 @@ function CreateUser() {
     {
       accessorKey: "empid",
       header: "Employee ID",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeEmpIdOptions,
       cell: (row) => row.empid || "-",
     },
     {
       accessorKey: "name",
       header: "Full Name",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeNameOptions
     },
     {
       accessorKey: "email",
       header: "Email",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeEmailOptions
     },
     {
       accessorKey: "department",
       header: "Department",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeDeptOptions,
       cell: (row) => {
         return row.department?.name || "-";
       },
@@ -254,7 +298,7 @@ function CreateUser() {
       ),
       enableSorting: false,
     }
-  ], [departmentMap])
+  ], [handleEdit, activeEmpIdOptions, activeNameOptions, activeEmailOptions, activeDeptOptions, departmentMap])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -330,59 +374,35 @@ function CreateUser() {
         </header>
         <main className="flex-1 flex flex-col overflow-auto p-6">
           <div className="w-full flex-1 flex flex-col">
+            {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Manage Users" : (editingId ? "Edit User" : "Create User")}
+                  {editingId ? "Edit User" : "Create User"}
                 </h1>
                 <p className="text-muted-foreground">
-                  {view === "list"
-                    ? "List of all users in the system"
-                    : "Fill in the user information below."}
+                  Fill in the user information below.
                 </p>
               </div>
               <div>
-                {view === "list" ? (
-                  <Button onClick={() => {
-                    setFormData({
-                      fullName: "",
-                      email: "",
-                      employeeId: "",
-                      department: "",
-                      designation: "",
-                      mobileNumber: "",
-                      roles: [],
-                      password: "",
-                    })
-                    setEditingId(null)
-                    setView("create")
-                  }}>
-                    <Plus className="mr-2 h-4 w-4" /> Create User
-                  </Button>
-                ) : (
                   <Button variant="outline" onClick={() => setView("list")}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
-                )}
               </div>
             </div>
+            )}
 
             {view === "list" ? (
-              <Card className="flex-1 flex flex-col">
-                <CardHeader>
-                  <CardTitle>Users</CardTitle>
-                  <CardDescription>
-                    View and manage system users.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <DataTable
-                    columns={columns}
-                    fetchData={fetchUsers}
-                    onExport={handleExport}
-                  />
-                </CardContent>
-              </Card>
+              <ProDataTable
+                columns={columns}
+                fetchData={fetchUsers}
+                onExport={handleExport}
+                onAdd={() => setView("create")}
+                onAddTooltip="Create User"
+                refreshKey={refreshKey}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+              />
             ) : (
               <div className="space-y-6">
                 <form onSubmit={handleSubmit}>

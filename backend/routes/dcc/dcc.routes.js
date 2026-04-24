@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs, updateCustomer, updateCustomerLocation, updatePo, updateJob, updatePoCommunicationMatrix, getPoAttachments } = require('#api/dcc/customer.js');
+const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs, updateCustomer, updateCustomerLocation, updatePo, updateJob, updatePoCommunicationMatrix, getPoAttachments, getPoFilters } = require('#api/dcc/customer.js');
 const { getDocumentType, createDocumentType, getDocumentMaster, createDocumentMaster } = require('#api/dcc/document.js');
 const { getUsers } = require('#api/users/user.js');
 
@@ -23,16 +23,19 @@ router.get('/document/feedback', authenticateUserOnly, DccController.downloadFee
 router.get('/get-active-filters', authenticateUserOnly, DccController.getActiveFilters);
 
 
+
 // Apply authentication middleware to all routes in this router
 router.use(authenticateUser(['DCC', 'ADMIN', 'TAXATION']));
 
 router.get('/get-active-filters', DccController.getActiveFilters);
 router.get('/get-transmission-filters', DccController.getTransmissionFilters);
 router.get('/get-customers', DccController.getCustomers);
+router.get('/get-customer-filters', DccController.getCustomerFilters);
 router.post('/create-customer', createCustomer);
 router.put('/update-customer/:id', updateCustomer);
 
 router.get('/get-customer-locations', DccController.getCustomerLocations);
+router.get('/get-location-filters', DccController.getLocationFilters);
 router.post('/create-customer-location', createCustomerLocation);
 router.put('/update-customer-location/:id', updateCustomerLocation);
 
@@ -49,6 +52,7 @@ router.get('/document/:documentId/versions', authenticateUserOnly, documentContr
 router.get('/document/:documentId/versions/:versionNumber', authenticateUserOnly, documentController.getSpecificVersion);
 
 router.get('/get-jobs', DccController.getJobs);
+router.get('/get-manage-job-filters', DccController.getManageJobFilters);
 router.post('/create-job', createJob);
 router.put('/update-job/:id', updateJob);
 

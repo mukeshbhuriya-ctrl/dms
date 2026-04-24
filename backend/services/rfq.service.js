@@ -18,6 +18,10 @@ class RfqService {
 
         const where = { company_id };
 
+        const { quotation_no_filter } = params;
+
+        if (quotation_no_filter) where.quotation_no = this._processFilter(quotation_no_filter);
+
         if (search) {
             where.OR = [
                 { quotation_no: { contains: search, mode: 'insensitive' } },
@@ -132,6 +136,10 @@ class RfqService {
             items = [],
         } = body;
 
+        // Enforce system-side rules
+        this._enforceStatusRules(body);
+        body.time_taken = this._calculateTimeTaken(body.enq_date, body.actual_submission_date);
+
         const rfq = await prisma.$transaction(async (tx) => {
             // 1. Calculate next global serial_no
             const lastGlobalRfq = await tx.rfq_register.findFirst({
@@ -221,6 +229,95 @@ class RfqService {
     /**
      * Update an existing RFQ record
      */
+    async bulkCreate(company_id, user_id, rfqDataList) {
+        return await prisma.$transaction(async (tx) => {
+            const results = [];
+            
+            // Get current global last serial
+            const lastGlobalRfq = await tx.rfq_register.findFirst({
+                where: { company_id },
+                orderBy: { serial_no: 'desc' },
+                select: { serial_no: true },
+            });
+            let nextGlobalSerialNo = lastGlobalRfq ? lastGlobalRfq.serial_no + 1 : 1;
+
+            // Track category-specific serials to handle them within the same batch
+            const categoryLastSerials = {};
+            const fySuffix = this.getFinancialYearSuffix();
+
+            for (const body of rfqDataList) {
+                const quotation_category = body.quotation_category || 'Core';
+                const prefix = this.getCategoryPrefix(quotation_category);
+
+                // Enforce system-side rules
+                this._enforceStatusRules(body);
+                body.time_taken = this._calculateTimeTaken(body.enq_date, body.actual_submission_date);
+
+                // If we haven't fetched the last serial for this category yet, do it
+                if (categoryLastSerials[quotation_category] === undefined) {
+                    const lastTypeRfq = await tx.rfq_register.findFirst({
+                        where: {
+                            company_id,
+                            quotation_category,
+                            quotation_no: { contains: `/${fySuffix}` }
+                        },
+                        orderBy: { type_serial_no: 'desc' },
+                        select: { type_serial_no: true },
+                    });
+                    categoryLastSerials[quotation_category] = lastTypeRfq ? lastTypeRfq.type_serial_no : 0;
+                }
+
+                categoryLastSerials[quotation_category] += 1;
+                const nextTypeSerialNo = categoryLastSerials[quotation_category];
+                const quotation_no = `SHR/${prefix}/${String(nextTypeSerialNo).padStart(3, '0')}/${fySuffix}`;
+
+                const createdRfq = await tx.rfq_register.create({
+                    data: {
+                        company_id,
+                        created_by: user_id,
+                        serial_no: nextGlobalSerialNo++,
+                        quotation_no,
+                        quotation_category,
+                        type_serial_no: nextTypeSerialNo,
+                        client_ref: body.client_ref,
+                        rfq_type: body.rfq_type,
+                        client_name: body.client_name,
+                        consultancy: body.consultancy,
+                        contact_person: body.contact_person,
+                        mode_of_enquiry: body.mode_of_enquiry,
+                        enq_date: body.enq_date ? new Date(body.enq_date) : null,
+                        target_date: body.target_date ? new Date(body.target_date) : null,
+                        actual_submission_date: body.actual_submission_date ? new Date(body.actual_submission_date) : null,
+                        time_taken: body.time_taken,
+                        mediator: body.mediator,
+                        estimator: body.estimator,
+                        shreno_status: body.shreno_status || "Quoted",
+                        client_status: body.client_status || "Under Review",
+                        remark: body.remark,
+                        made_by: body.made_by,
+                        po_no: body.po_no,
+                        po_date: body.po_date ? new Date(body.po_date) : null,
+                        po_value: body.po_value ? parseFloat(body.po_value) : null,
+                        po_remark: body.po_remark,
+                        items: (body.enq_description || body.equip_qty) ? {
+                            create: [{
+                                sr_no: 1,
+                                enq_description: body.enq_description,
+                                equip_qty: body.equip_qty ? parseInt(body.equip_qty) : null,
+                                rev: body.rev,
+                                total_value: body.total_value ? parseFloat(body.total_value) : null,
+                            }]
+                        } : undefined
+                    }
+                });
+
+                results.push(createdRfq);
+            }
+
+            return results;
+        });
+    }
+
     async update(company_id, id, body) {
         const existing = await prisma.rfq_register.findFirst({
             where: { id, company_id },
@@ -251,6 +348,10 @@ class RfqService {
             po_remark,
             items = [],
         } = body;
+
+        // Enforce system-side rules
+        this._enforceStatusRules(body);
+        body.time_taken = this._calculateTimeTaken(body.enq_date, body.actual_submission_date);
 
         const rfq = await prisma.$transaction(async (tx) => {
             // Update header
@@ -353,12 +454,57 @@ class RfqService {
     /**
      * Get lookup values by type (rfq_type, mode_of_enquiry, remark)
      */
-    async getLookups(company_id, type) {
-        return await prisma.rfq_lookup.findMany({
+    async getLookups(company_id, type, params = {}) {
+        const {
+            page = 1,
+            limit = 10,
+            search = '',
+            sortBy = 'name',
+            sortOrder = 'asc',
+            columnFilters: columnFiltersRaw
+        } = params;
+
+        const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const take = parseInt(limit);
+
+        const where = { company_id, type };
+        if (search) {
+            where.name = { contains: search, mode: 'insensitive' };
+        }
+
+        // Column Filters
+        if (columnFilters.name && columnFilters.name !== 'all') {
+            where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+        }
+
+        const [total, data] = await prisma.$transaction([
+            prisma.rfq_lookup.count({ where }),
+            prisma.rfq_lookup.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { [sortBy]: sortOrder },
+            }),
+        ]);
+
+        return {
+            data,
+            meta: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / take)
+            }
+        };
+    }
+
+    async getLookupFilters(company_id, type) {
+        const records = await prisma.rfq_lookup.findMany({
             where: { company_id, type },
-            select: { id: true, name: true, type: true },
-            orderBy: { name: 'asc' },
+            select: { name: true }
         });
+        return { records };
     }
 
     /**
@@ -402,12 +548,63 @@ class RfqService {
 
     // ─── Estimator & Mediator Management ─────────────────────────────────────
 
-    async getPersons(company_id, modelName) {
-        return await prisma[modelName].findMany({
+    async getPersons(company_id, modelName, params = {}) {
+        const {
+            page = 1,
+            limit = 10,
+            search = '',
+            sortBy = 'name',
+            sortOrder = 'asc',
+            columnFilters: columnFiltersRaw
+        } = params;
+
+        const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const take = parseInt(limit);
+
+        const where = { company_id };
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        // Column Filters
+        if (columnFilters.name && columnFilters.name !== 'all') {
+            where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+        }
+        if (columnFilters.email && columnFilters.email !== 'all') {
+            where.email = { in: Array.isArray(columnFilters.email) ? columnFilters.email : [columnFilters.email] };
+        }
+
+        const [total, data] = await prisma.$transaction([
+            prisma[modelName].count({ where }),
+            prisma[modelName].findMany({
+                where,
+                skip,
+                take,
+                orderBy: { [sortBy]: sortOrder },
+            }),
+        ]);
+
+        return {
+            data,
+            meta: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / take)
+            }
+        };
+    }
+
+    async getPersonFilters(company_id, modelName) {
+        const records = await prisma[modelName].findMany({
             where: { company_id },
-            select: { id: true, name: true, email: true },
-            orderBy: { name: 'asc' },
+            select: { name: true, email: true }
         });
+        return { records };
     }
 
     async createPerson(company_id, modelName, body) {
@@ -445,10 +642,15 @@ class RfqService {
     /**
      * Get RFQ Dashboard Statistics
      */
-    async getDashboardStats(company_id) {
-        // Fetch all RFQs and sum up items for financials
+    async getDashboardStats(company_id, quotation_category) {
+        // Fetch RFQs filtered by company and optionally by category
+        const where = { company_id };
+        if (quotation_category) {
+            where.quotation_category = quotation_category;
+        }
+
         const rfqs = await prisma.rfq_register.findMany({
-            where: { company_id },
+            where,
             include: { items: true },
         });
 
@@ -523,6 +725,39 @@ class RfqService {
                 winPercentage
             }
         };
+    }
+
+    _calculateTimeTaken(enq_date, submission_date) {
+        if (!enq_date || !submission_date) return "";
+        try {
+            const start = new Date(enq_date);
+            const end = new Date(submission_date);
+            if (isNaN(start.getTime()) || isNaN(end.getTime())) return "";
+            const diffTime = Math.abs(end - start);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return `${diffDays} Days`;
+        } catch (e) {
+            return "";
+        }
+    }
+
+    _enforceStatusRules(body) {
+        if (body.client_status !== 'Order Received') {
+            body.po_no = null;
+            body.po_date = null;
+            body.po_value = null;
+            body.po_remark = null;
+        }
+    }
+
+    _processFilter(val) {
+        if (!val) return null;
+        if (Array.isArray(val)) return { in: val };
+        if (typeof val === 'string' && (val.includes(',') || val.includes('|'))) {
+            const splitChar = val.includes('|') ? '|' : ',';
+            return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
+        }
+        return { contains: val, mode: 'insensitive' };
     }
 }
 

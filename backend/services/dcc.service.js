@@ -54,6 +54,8 @@ class DccService {
             sortOrder = 'desc'
         } = params;
 
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
@@ -68,6 +70,17 @@ class DccService {
                 { email: { contains: search, mode: 'insensitive' } },
                 { mobile: { contains: search, mode: 'insensitive' } }
             ];
+        }
+
+        // Column Filters
+        if (columnFilters.customer_name && columnFilters.customer_name !== 'all') {
+            where.customer_name = { in: Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name] };
+        }
+        if (columnFilters.customer_short_name && columnFilters.customer_short_name !== 'all') {
+            where.customer_short_name = { in: Array.isArray(columnFilters.customer_short_name) ? columnFilters.customer_short_name : [columnFilters.customer_short_name] };
+        }
+        if (columnFilters.email && columnFilters.email !== 'all') {
+            where.email = { in: Array.isArray(columnFilters.email) ? columnFilters.email : [columnFilters.email] };
         }
 
         const [total, customers] = await prisma.$transaction([
@@ -100,9 +113,28 @@ class DccService {
                 total,
                 page: parseInt(page),
                 limit: (limit === undefined || limit === null) ? total : take,
-                totalPages: (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take))
+                totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take)
             }
         };
+    }
+
+    async getCustomerFilters(company_id) {
+        const customers = await prisma.customer.findMany({
+            where: { company_id },
+            select: {
+                customer_name: true,
+                customer_short_name: true,
+                email: true
+            }
+        });
+
+        const records = customers.map(c => ({
+            customer_name: c.customer_name,
+            customer_short_name: c.customer_short_name,
+            email: c.email
+        }));
+
+        return { records };
     }
 
     /**
@@ -140,7 +172,9 @@ class DccService {
     }
 
     async getCustomerLocations(company_id, params = {}) {
-        const { page = 1, limit, search = '' } = params;
+        const { page = 1, limit, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = params;
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
@@ -152,16 +186,38 @@ class DccService {
             ];
         }
 
+        // Column Filters
+        if (columnFilters.customer_name && columnFilters.customer_name !== 'all') {
+            where.customer = { customer_name: { in: Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name] } };
+        }
+        if (columnFilters.location_name && columnFilters.location_name !== 'all') {
+            where.location_name = { in: Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name] };
+        }
+
         const [total, data] = await prisma.$transaction([
             prisma.customer_location.count({ where }),
             prisma.customer_location.findMany({
                 where, skip, take,
                 include: { customer: { select: { customer_name: true } } },
-                orderBy: { createdAt: 'desc' }
+                orderBy: { [sortBy]: sortOrder }
             })
         ]);
 
         return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
+    }
+
+    async getLocationFilters(company_id) {
+        const locations = await prisma.customer_location.findMany({
+            where: { company_id },
+            include: { customer: { select: { customer_name: true } } }
+        });
+
+        const records = locations.map(l => ({
+            customer_name: l.customer?.customer_name,
+            location_name: l.location_name
+        }));
+
+        return { records };
     }
 
     /**
@@ -257,7 +313,17 @@ class DccService {
     }
 
     async getPos(company_id, params = {}) {
-        const { page = 1, limit, search = '', customer_id } = params;
+        const { 
+            page = 1, 
+            limit, 
+            search = '', 
+            customer_id,
+            sortBy = 'createdAt',
+            sortOrder = 'desc'
+        } = params;
+
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
@@ -266,15 +332,22 @@ class DccService {
         if (params.location_id) where.customer_location_id = params.location_id.trim();
         if (params.po_id) where.id = params.po_id.trim();
 
-        if (params.customer_name) {
-            where.customer = { customer_name: this._processFilter(params.customer_name) };
-        }
-
         if (search) {
             where.OR = [
                 { po_number: { contains: search, mode: 'insensitive' } },
                 { customer: { customer_name: { contains: search, mode: 'insensitive' } } }
             ];
+        }
+
+        // Column Filters
+        if (columnFilters.po_number && columnFilters.po_number !== 'all') {
+            where.po_number = { in: Array.isArray(columnFilters.po_number) ? columnFilters.po_number : [columnFilters.po_number] };
+        }
+        if (columnFilters.customer_name && columnFilters.customer_name !== 'all') {
+            where.customer = { customer_name: { in: Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name] } };
+        }
+        if (columnFilters.location_name && columnFilters.location_name !== 'all') {
+            where.customer_location = { location_name: { in: Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name] } };
         }
 
         const [total, data] = await prisma.$transaction([
@@ -284,21 +357,50 @@ class DccService {
                 include: {
                     customer: { select: { id: true, customer_name: true } },
                     customer_location: { select: { id: true, location_name: true, gst_number: true } },
-                    po_communication_matrix: true
+                    po_communication_matrix: true,
+                    po_attachment_history: {
+                        orderBy: { revision: 'desc' }
+                    }
                 },
-                orderBy: { createdAt: 'desc' }
+                orderBy: { [sortBy]: sortOrder }
             })
         ]);
 
         // Expand PO URLs for UI use
         const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
         const expandedData = data.map(po => {
-            if (po.po_doc_url && !po.po_doc_url.startsWith('http')) {
-                const rawUrl = po.po_doc_url;
-                const pathUrl = rawUrl.startsWith('/') ? rawUrl : `/api/files/${rawUrl}`;
-                return { ...po, po_doc_url: `${backendUrl}${pathUrl}` };
+            // Expand main URL
+            let mainUrl = po.po_doc_url;
+            if (mainUrl && !mainUrl.startsWith('http')) {
+                const pathUrl = mainUrl.startsWith('/') ? mainUrl : `/api/files/${mainUrl}`;
+                mainUrl = `${backendUrl}${pathUrl}`;
             }
-            return po;
+
+            // Expand history attachments
+            const formattedHistory = po.po_attachment_history ? po.po_attachment_history.map(history => {
+                let parsed = history.po_attachments;
+                if (typeof parsed === 'string') {
+                    try { parsed = JSON.parse(parsed); } catch(e) { parsed = []; }
+                }
+                if (!Array.isArray(parsed)) parsed = [];
+                
+                const mappedAttachments = parsed.map(doc => {
+                    let safeUrl = doc.url;
+                    if (safeUrl && !safeUrl.startsWith('http')) {
+                        if (safeUrl.startsWith('/')) safeUrl = `${backendUrl}${safeUrl}`;
+                        else safeUrl = `${backendUrl}/api/files/${safeUrl}`;
+                    }
+                    return { ...doc, url: safeUrl };
+                });
+
+                return { ...history, po_attachments: mappedAttachments };
+            }) : [];
+
+            return { 
+                ...po, 
+                po_doc_url: mainUrl,
+                po_attachment_history: formattedHistory
+            };
         });
 
         const metaLimit = (limit === undefined || limit === null) ? total : take;
@@ -311,30 +413,22 @@ class DccService {
      * Get unique filters for POs
      */
     async getPoFilters(company_id) {
-        const pos = await prisma.po.findMany({
+        const data = await prisma.po.findMany({
             where: { company_id },
-            include: {
-                customer: { select: { id: true, customer_name: true } },
-                customer_location: { select: { id: true, location_name: true } }
-            },
-            orderBy: { createdAt: 'desc' }
+            select: {
+                po_number: true,
+                customer: { select: { customer_name: true } },
+                customer_location: { select: { location_name: true } }
+            }
         });
 
-        const customersMap = new Map();
-        const locationsMap = new Map();
-        const posMap = new Map();
+        const records = data.map(po => ({
+            po_number: po.po_number,
+            customer_name: po.customer?.customer_name || 'N/A',
+            location_name: po.customer_location?.location_name || 'N/A'
+        }));
 
-        pos.forEach(p => {
-            if (p.customer) customersMap.set(p.customer.id, p.customer);
-            if (p.customer_location) locationsMap.set(p.customer_location.id, p.customer_location);
-            posMap.set(p.id, { id: p.id, po_number: p.po_number });
-        });
-
-        return {
-            customers: Array.from(customersMap.values()).map(c => ({ value: c.id, label: c.customer_name })),
-            locations: Array.from(locationsMap.values()).map(l => ({ value: l.id, label: l.location_name })),
-            pos: Array.from(posMap.values()).map(p => ({ value: p.id, label: p.po_number }))
-        };
+        return { records };
     }
 
     /**
@@ -366,22 +460,42 @@ class DccService {
 
     async getJobs(company_id, params = {}) {
         const { page = 1, limit, search = '', po_id, customer_id, customer_location_id } = params;
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
 
         if (customer_id) where.customer_id = customer_id.trim();
-        if (po_id) {
-            where.job_group = {
-                some: { group: { group_document: { some: { po_id: po_id.trim() } } } }
-            };
-        }
+        if (po_id) where.po_id = po_id.trim();
+        if (customer_location_id) where.customer_location_id = customer_location_id.trim();
 
         if (search) {
             where.OR = [
                 { job_number: { contains: search, mode: 'insensitive' } },
-                { customer: { customer_name: { contains: search, mode: 'insensitive' } } }
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                { equipement_name: { contains: search, mode: 'insensitive' } }
             ];
+        }
+
+        if (columnFilters.job_number) {
+            where.job_number = { in: Array.isArray(columnFilters.job_number) ? columnFilters.job_number : [columnFilters.job_number] };
+        }
+        if (columnFilters.customer) {
+            where.customer = { customer_name: { in: Array.isArray(columnFilters.customer) ? columnFilters.customer : [columnFilters.customer] } };
+        }
+        if (columnFilters.location) {
+            where.customer_location = { location_name: { in: Array.isArray(columnFilters.location) ? columnFilters.location : [columnFilters.location] } };
+        }
+        if (columnFilters.po_number) {
+            where.po = { po_number: { in: Array.isArray(columnFilters.po_number) ? columnFilters.po_number : [columnFilters.po_number] } };
+        }
+        if (columnFilters.project_id) {
+            where.project_id = { contains: columnFilters.project_id, mode: 'insensitive' };
+        }
+        if (columnFilters.equipment) {
+            where.equipement_name = { contains: columnFilters.equipment, mode: 'insensitive' };
         }
 
         const [total, data] = await prisma.$transaction([
@@ -400,6 +514,27 @@ class DccService {
         return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
     }
 
+    async getManageJobFilters(company_id) {
+        const jobs = await prisma.job.findMany({
+            where: { company_id },
+            select: {
+                job_number: true,
+                customer: { select: { customer_name: true } },
+                customer_location: { select: { location_name: true } },
+                po: { select: { po_number: true } }
+            }
+        });
+
+        const records = jobs.map(j => ({
+            job_number: j.job_number,
+            customer: j.customer?.customer_name || 'N/A',
+            location: j.customer_location?.location_name || 'N/A',
+            po_number: j.po?.po_number || 'N/A'
+        }));
+
+        return { records };
+    }
+
     /**
      * Get unique filters (Customers, POs, Jobs) that actually have assigned documents
      */
@@ -407,7 +542,7 @@ class DccService {
         const getFilters = async (uid = null) => {
             const whereClause = { company_id };
             if (uid) whereClause.user_id = uid;
-            
+
             // Check for specific document status/approval filters
             if (options.isApproved) {
                 whereClause.status = 'Approved';
@@ -458,11 +593,11 @@ class DccService {
 
             activeDocs.forEach(doc => {
                 if (doc.customer) customersMap.set(doc.customer.id, doc.customer);
-                if (doc.po) posMap.set(doc.po.id, { 
-                    ...doc.po, 
-                    customer: doc.customer 
+                if (doc.po) posMap.set(doc.po.id, {
+                    ...doc.po,
+                    customer: doc.customer
                 });
-                
+
                 // Jobs are nested in group -> job_group
                 doc.group?.job_group?.forEach(jg => {
                     if (jg.job) {
@@ -617,7 +752,10 @@ class DccService {
             uploader_status_filter,
             customer_name_filter,
             po_number_filter,
-            job_number_filter
+            job_number_filter,
+            shreno_doc_no_filter,
+            client_doc_no_filter,
+            document_number_filter
         } = params;
 
         const where = { company_id, user_id };
@@ -654,6 +792,16 @@ class DccService {
                     some: { job: { job_number: this._processFilter(job_number_filter) } }
                 }
             };
+        }
+
+        if (shreno_doc_no_filter) {
+            where.shreno_doc_no = this._processFilter(shreno_doc_no_filter);
+        }
+        if (client_doc_no_filter) {
+            where.client_doc_no = this._processFilter(client_doc_no_filter);
+        }
+        if (document_number_filter) {
+            where.document = { ...where.document, document_number: this._processFilter(document_number_filter) };
         }
 
         if (search) {
@@ -734,7 +882,8 @@ class DccService {
             po_number_filter,
             job_number_filter,
             shreno_doc_no_filter,
-            client_doc_no_filter
+            client_doc_no_filter,
+            user_id_filter
         } = params;
 
         const where = { company_id };
@@ -778,6 +927,21 @@ class DccService {
         }
         if (client_doc_no_filter) {
             where.client_doc_no = this._processFilter(client_doc_no_filter);
+        }
+
+        if (user_id_filter) {
+            if (user_id_filter === 'pending_assignee' || (Array.isArray(user_id_filter) && user_id_filter.includes('pending_assignee'))) {
+                if (Array.isArray(user_id_filter)) {
+                    where.OR = [
+                        { user_id: null },
+                        { user_id: { in: user_id_filter.filter(v => v !== 'pending_assignee') } }
+                    ];
+                } else {
+                    where.user_id = null;
+                }
+            } else {
+                where.user_id = this._processFilter(user_id_filter);
+            }
         }
 
         // ID-based filters (existing)
@@ -958,7 +1122,7 @@ class DccService {
                 group_document_id: document_id,
                 user_id,
                 action: groupDoc.status === 'As Built' ? 'As Built Finalized' : 'Uploaded',
-                remarks: groupDoc.status === 'As Built' 
+                remarks: groupDoc.status === 'As Built'
                     ? `Final As-Built version ${targetVersionNo} uploaded and automatically approved`
                     : `Version ${targetVersionNo} uploaded`,
                 metadata: {
@@ -1436,12 +1600,12 @@ class DccService {
 
         // Apply Column Specific Filters
         if (customer_name_filter) {
-            where.customer = { 
+            where.customer = {
                 customer_name: this._processFilter(customer_name_filter)
             };
         }
         if (po_number_filter) {
-            where.po = { 
+            where.po = {
                 po_number: this._processFilter(po_number_filter)
             };
         }
@@ -1650,7 +1814,7 @@ class DccService {
                 user_id,
                 action: 'Transmitted Mail Sent',
                 remarks: `Transmittal email sent for ${transmission.transmission_number}`,
-                metadata: { 
+                metadata: {
                     transmission_no: transmission.transmission_number,
                     recipients: [...(client_emails || []), ...(shreno_emails || [])].join(', ')
                 }
@@ -1679,7 +1843,7 @@ class DccService {
 
     _replacePlaceholders(text, transmission, documentsData, absoluteZipUrl, include_zip = true) {
         if (!text) return '';
-        
+
         let processedText = text;
 
         // If include_zip is false, remove the download section if standard placeholders are found
@@ -1861,7 +2025,7 @@ class DccService {
             if (file) {
                 const docNumber = groupDoc.document.document_number;
                 const transNumber = transDoc.transmission.transmission_number;
-                
+
                 // Fetch version info for directory structure
                 const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
                 const vNo = reviewedVersion?.version_no ?? 0;
@@ -1869,12 +2033,12 @@ class DccService {
                 // Directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
                 const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, vNo);
                 const targetPath = path.join(targetDir, file.filename || file.originalname);
-                
+
                 // Move file from temp to final destination
                 fs.renameSync(file.path, targetPath);
 
                 const relativePath = StorageUtils.getRelativePath(targetPath);
-                
+
                 // Feedback URL for the trail (Public/Secure route)
                 const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
                 feedbackUrl = `${backendUrl}/api/dcc/document/feedback?filename=${encodeURIComponent(file.originalname)}&filepath=${encodeURIComponent(relativePath)}`;
@@ -1930,12 +2094,12 @@ class DccService {
             });
 
             // 7. Log Activity with feedback_url for trail display
-            const actionLabel = status === 'Approved' ? 'Client Approved' 
-                              : status === 'Final Approved' ? 'Client Final Approved'
-                              : status === 'Rejected' ? 'Client Rejected' 
-                              : status === 'As Built' ? 'Client As Built' 
-                              : status === 'Re-approval' ? 'Client Re-approval'
-                              : 'Client Commented';
+            const actionLabel = status === 'Approved' ? 'Client Approved'
+                : status === 'Final Approved' ? 'Client Final Approved'
+                    : status === 'Rejected' ? 'Client Rejected'
+                        : status === 'As Built' ? 'Client As Built'
+                            : status === 'Re-approval' ? 'Client Re-approval'
+                                : 'Client Commented';
 
             const reviewedVersion = await tx.document_version.findUnique({ where: { id: reviewedVersionId } });
 
@@ -1961,7 +2125,7 @@ class DccService {
             // 8. Pre-allocate Next Revision if status requires re-upload
             // If Rejected, Commented, Re-approval, or As Built, we prepare the next Rev slot
             if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
-                const reviewedVersion = await tx.document_version.findUnique({ 
+                const reviewedVersion = await tx.document_version.findUnique({
                     where: { id: reviewedVersionId },
                     include: { group_document: { include: { group: { include: { job_group: { include: { job: true } } } } } } }
                 });
@@ -2081,6 +2245,9 @@ class DccService {
                 const document_master_id = document_id || id;
                 const assignedUserId = assignUserId || assign_user_id || user_id; // Prefer doc specific, then global
 
+                // Manual Assignment requirement: user_id is mandatory
+                if (!assignedUserId) throw new Error("Assignee (User) is mandatory for document assignment. Please select a user for all documents.");
+
                 if (!document_master_id) continue;
 
                 const groupDoc = await tx.group_document.create({
@@ -2159,13 +2326,13 @@ class DccService {
                 where: { id },
                 data: {
                     document_id: document_id || undefined,
-                    user_id: assign_user_id || undefined,
-                    upload_due_days: upload_due_days !== undefined ? parseInt(upload_due_days) : undefined,
-                    response_due_days: response_due_days !== undefined ? parseInt(response_due_days) : undefined,
-                    shreno_doc_no: shreno_document_no || undefined,
-                    shreno_reference_no: shreno_reference_no || undefined,
-                    client_doc_no: client_document_no || undefined,
-                    client_reference_no: client_reference_no || undefined
+                    user_id: assign_user_id === undefined ? undefined : assign_user_id,
+                    upload_due_days: upload_due_days === undefined ? undefined : (upload_due_days ? parseInt(upload_due_days) : null),
+                    response_due_days: response_due_days === undefined ? undefined : (response_due_days ? parseInt(response_due_days) : null),
+                    shreno_doc_no: shreno_document_no === undefined ? undefined : (shreno_document_no || null),
+                    shreno_reference_no: shreno_reference_no === undefined ? undefined : (shreno_reference_no || null),
+                    client_doc_no: client_document_no === undefined ? undefined : (client_document_no || null),
+                    client_reference_no: client_reference_no === undefined ? undefined : (client_reference_no || null)
                 }
             });
 
@@ -2286,7 +2453,7 @@ class DccService {
     /**
      * Bulk Assign Documents
      */
-    async bulkAssignDocuments(company_id, data) {
+    async bulkAssignDocuments(company_id, data, performer_id) {
         const { assignments } = data;
 
         if (!assignments || !Array.isArray(assignments)) {
@@ -2326,7 +2493,7 @@ class DccService {
                     client_reference_no
                 } = assign;
 
-                if (!job_id || !document_name || !assign_user_id) continue;
+                if (!job_id || !document_name) continue;
 
                 // Backend Cleaning: Final trim and sanitize
                 const cleanDocName = document_name.trim();
@@ -2447,7 +2614,7 @@ class DccService {
                 await ActivityService.logActivity({
                     company_id,
                     group_document_id: groupDoc.id,
-                    user_id: assign_user_id,
+                    user_id: performer_id,
                     action: 'Assigned',
                     remarks: `Document assigned for job ${targetJob.job_number || job_id}`
                 }, tx);

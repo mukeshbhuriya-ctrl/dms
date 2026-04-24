@@ -135,6 +135,16 @@ class NcrController {
         }
     }
 
+    async getActiveFilters(req, res) {
+        try {
+            const result = await NcrService.getActiveFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('NCR getActiveFilters error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
     async downloadPdf(req, res) {
         try {
             const ncr = await NcrService.getById(req.user.company_id, req.params.id);

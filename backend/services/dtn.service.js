@@ -326,25 +326,90 @@ class DtnService {
     /**
      * List Transmittals
      */
-    async listTransmittals(companyId) {
-        return await prisma.drawing_transmittal.findMany({
-            where: { company_id: companyId },
-            orderBy: { createdAt: 'desc' },
-            select: {
-                id: true,
-                ref_no: true,
-                date: true,
-                client_name: true,
-                po_number: true,
-                status: true,
-                createdAt: true,
-                jobs: {
-                    select: {
-                        job: { select: { job_number: true } }
-                    }
+    async listTransmittals(companyId, params = {}) {
+        const { search = "", page = 1, limit = 50 } = params;
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
+        const where = { company_id: companyId };
+
+        if (search) {
+            where.OR = [
+                { ref_no: { contains: search, mode: 'insensitive' } },
+                { client_name: { contains: search, mode: 'insensitive' } },
+                { po_number: { contains: search, mode: 'insensitive' } },
+                { jobs: { some: { job: { job_number: { contains: search, mode: 'insensitive' } } } } }
+            ];
+        }
+
+        if (columnFilters.ref_no) {
+            where.ref_no = { contains: columnFilters.ref_no, mode: 'insensitive' };
+        }
+
+        if (columnFilters.customer) {
+            where.client_name = { in: Array.isArray(columnFilters.customer) ? columnFilters.customer : [columnFilters.customer] };
+        }
+        if (columnFilters.po) {
+            where.po_number = { in: Array.isArray(columnFilters.po) ? columnFilters.po : [columnFilters.po] };
+        }
+        if (columnFilters.job_no) {
+            where.jobs = { some: { job: { job_number: { in: Array.isArray(columnFilters.job_no) ? columnFilters.job_no : [columnFilters.job_no] } } } };
+        }
+        if (columnFilters.status) {
+            where.status = { in: Array.isArray(columnFilters.status) ? columnFilters.status : [columnFilters.status] };
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [total, dtns] = await prisma.$transaction([
+            prisma.drawing_transmittal.count({ where }),
+            prisma.drawing_transmittal.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    jobs: { include: { job: { select: { job_number: true } } } }
                 }
+            })
+        ]);
+
+        return { total, dtns };
+    }
+
+    async getDtnFilters(companyId) {
+        const transmittals = await prisma.drawing_transmittal.findMany({
+            where: { company_id: companyId },
+            include: {
+                jobs: { include: { job: { select: { job_number: true } } } }
             }
         });
+
+        const records = [];
+        transmittals.forEach(t => {
+            const clientName = t.client_name || 'N/A';
+            const poNum = t.po_number || 'N/A';
+            const status = t.status || 'Draft';
+            
+            if (t.jobs && t.jobs.length > 0) {
+                t.jobs.forEach(gj => {
+                    records.push({
+                        customer: clientName,
+                        po: poNum,
+                        job_no: gj.job?.job_number || 'N/A',
+                        status: status
+                    });
+                });
+            } else {
+                records.push({
+                    customer: clientName,
+                    po: poNum,
+                    job_no: 'N/A',
+                    status: status
+                });
+            }
+        });
+
+        return { records };
     }
     /**
      * Get the next available Reference Number
@@ -375,7 +440,10 @@ class DtnService {
     /**
      * List unique Job Summary combinations for those that have at least one DTN created
      */
-    async listJobSummariesWithDtns(companyId, search = "") {
+    async listJobSummariesWithDtns(companyId, params = {}) {
+        const { search = "" } = params;
+        const columnFilters = params.columnFilters || {};
+
         const transmittals = await prisma.drawing_transmittal.findMany({
             where: { company_id: companyId },
             include: {
@@ -397,7 +465,7 @@ class DtnService {
                 const clientName = t.client_name || 'N/A';
                 const poNum = t.po_number || 'N/A';
 
-                // Apply search filter if provided
+                // 1. Global Search Filter
                 if (searchLower) {
                     const matchesSearch = 
                         clientName.toLowerCase().includes(searchLower) ||
@@ -406,6 +474,11 @@ class DtnService {
                     
                     if (!matchesSearch) return;
                 }
+
+                // 2. Column Based Filters
+                if (columnFilters.customer && !this._processArrayFilter(columnFilters.customer, clientName)) return;
+                if (columnFilters.po && !this._processArrayFilter(columnFilters.po, poNum)) return;
+                if (columnFilters.job_number && !this._processArrayFilter(columnFilters.job_number, jobNum)) return;
 
                 const key = `${clientName}-${poNum}-${jobNum}`;
                 if (!seen.has(key)) {
@@ -424,6 +497,17 @@ class DtnService {
         });
 
         return summaries;
+    }
+
+    async getMasterFilters(companyId) {
+        const summaries = await this.listJobSummariesWithDtns(companyId, {});
+        // Return unique combinations as records for cascading
+        return { records: summaries };
+    }
+
+    _processArrayFilter(filterValues, actualValue) {
+        if (!filterValues || !Array.isArray(filterValues) || filterValues.length === 0) return true;
+        return filterValues.map(v => v.toString()).includes(actualValue?.toString());
     }
 
     /**

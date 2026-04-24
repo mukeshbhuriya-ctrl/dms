@@ -69,13 +69,21 @@ class DtnController {
     async list(req, res) {
         try {
             const { company_id } = req.user;
-            const dtns = await DtnService.listTransmittals(company_id);
+            const params = {
+                ...req.query,
+                page: parseInt(req.query.page) || 1,
+                limit: parseInt(req.query.limit) || 50,
+                search: req.query.search || ""
+            };
+
+            const { total, dtns } = await DtnService.listTransmittals(company_id, params);
 
             // Format for Frontend table
             const formattedDtns = dtns.map(d => ({
                 id: d.id,
                 ref_no: d.ref_no,
                 customer: d.client_name,
+                po: d.po_number,
                 job_no: d.jobs.map(j => j.job.job_number).join(', '),
                 date: d.date,
                 status: d.status
@@ -85,13 +93,25 @@ class DtnController {
                 success: true, 
                 data: formattedDtns,
                 meta: {
-                    total: dtns.length,
-                    page: 1,
-                    totalPages: 1
+                    total: total,
+                    page: params.page,
+                    limit: params.limit,
+                    totalPages: Math.ceil(total / params.limit)
                 }
             });
         } catch (error) {
             console.error('listTransmittals error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async getDtnFilters(req, res) {
+        try {
+            const { company_id } = req.user;
+            const result = await DtnService.getDtnFilters(company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('getDtnFilters error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }
@@ -134,8 +154,18 @@ class DtnController {
     async listMasterSummaries(req, res) {
         try {
             const { company_id } = req.user;
-            const { search } = req.query;
-            const summaries = await DtnService.listJobSummariesWithDtns(company_id, search);
+            const query = { ...req.query };
+
+            // Parse columnFilters if sent as JSON from ProDataTable
+            if (typeof query.columnFilters === 'string') {
+                try {
+                    query.columnFilters = JSON.parse(query.columnFilters);
+                } catch (e) {
+                    query.columnFilters = {};
+                }
+            }
+
+            const summaries = await DtnService.listJobSummariesWithDtns(company_id, query);
             res.status(200).json({ 
                 success: true, 
                 data: summaries,
@@ -147,6 +177,20 @@ class DtnController {
             });
         } catch (error) {
             console.error('listMasterSummaries error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    /**
+     * Get unique combinations for Master Filtering
+     */
+    async getMasterFilters(req, res) {
+        try {
+            const { company_id } = req.user;
+            const result = await DtnService.getMasterFilters(company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('getMasterFilters error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }

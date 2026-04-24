@@ -94,6 +94,16 @@ class HydroTestController {
             res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });
         }
     }
+
+    async getActiveFilters(req, res) {
+        try {
+            const result = await HydroTestService.getActiveFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('Hydro test getActiveFilters error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new HydroTestController();

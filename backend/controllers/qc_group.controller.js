@@ -59,42 +59,88 @@ class QcGroupController {
     async getQcGroups(req, res) {
         try {
             const company_id = req.user.company_id;
-            const { search } = req.query;
+            const { 
+                page = 1, 
+                limit = 10, 
+                search = '', 
+                sortBy = 'name', 
+                sortOrder = 'asc',
+                columnFilters: columnFiltersRaw
+            } = req.query;
+
+            const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+
+            const skip = (parseInt(page) - 1) * parseInt(limit);
+            const take = parseInt(limit);
 
             const where = { company_id };
             if (search) {
-                where.name = { contains: search, mode: 'insensitive' }; // Case insensitive search
+                where.name = { contains: search, mode: 'insensitive' };
             }
 
-            const qcGroups = await prisma.qc_group.findMany({
-                where,
-                include: {
-                    users: {
-                        include: {
-                            user: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    email: true,
-                                    empid: true,
-                                    user_roles: {
-                                        include: {
-                                            role: true
+            // Column Filters
+            if (columnFilters.name && columnFilters.name !== 'all') {
+                where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+            }
+
+            const [total, qcGroups] = await prisma.$transaction([
+                prisma.qc_group.count({ where }),
+                prisma.qc_group.findMany({
+                    where,
+                    skip,
+                    take,
+                    include: {
+                        users: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        email: true,
+                                        empid: true,
+                                        user_roles: {
+                                            include: {
+                                                role: true
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                },
-                orderBy: { name: 'asc' }
-            });
+                    },
+                    orderBy: { [sortBy]: sortOrder }
+                })
+            ]);
 
-            res.status(200).json({ success: true, data: qcGroups });
+            res.status(200).json({ 
+                success: true, 
+                data: qcGroups,
+                meta: {
+                    total,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    totalPages: Math.ceil(total / take)
+                }
+            });
 
         } catch (error) {
             console.error("Get QC Groups error:", error);
             res.status(500).json({ success: false, message: "Internal server error" });
+        }
+    }
+
+    async getQCGroupFilters(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const groups = await prisma.qc_group.findMany({
+                where: { company_id },
+                select: { name: true }
+            });
+
+            const records = groups.map(g => ({ name: g.name }));
+            res.status(200).json({ success: true, data: { records } });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 

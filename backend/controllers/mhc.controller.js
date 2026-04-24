@@ -3,7 +3,11 @@ const MhcService = require('../services/mhc.service');
 class MhcController {
     async list(req, res) {
         try {
-            const result = await MhcService.list(req.user.company_id, req.query);
+            const query = { ...req.query };
+            if (typeof query.columnFilters === "string") {
+                try { query.columnFilters = JSON.parse(query.columnFilters); } catch (e) { query.columnFilters = {}; }
+            }
+            const result = await MhcService.list(req.user.company_id, query);
             res.status(200).json({
                 success: true,
                 message: 'Material heat charts fetched successfully',
@@ -12,6 +16,16 @@ class MhcController {
             });
         } catch (error) {
             console.error('MHC list error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async getFilters(req, res) {
+        try {
+            const result = await MhcService.getFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('MHC getFilters error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }

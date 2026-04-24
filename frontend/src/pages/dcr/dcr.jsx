@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useState, useMemo } from "react"
 
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -33,8 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download } from "lucide-react"
+import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download, Search, ChevronDown, ChevronLeft, ChevronRight, Check } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import ProDataTable from "@/components/shared/ProDataTable"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 
@@ -121,6 +122,9 @@ const normalizeRecord = (item, index) => {
     quality_engineer_status: statuses.qualityStatus,
     design_engineer_id: item?.design_engineer_id || "",
     quality_engineer_id: item?.quality_engineer_id || "",
+    client: item?.client || "-",
+    po_no: item?.po_no || "-",
+    msn: item?.msn || "-",
     change_requests: requests.map((request, requestIndex) =>
       normalizeChangeRequest(request, requestIndex)
     ),
@@ -290,16 +294,90 @@ function CreateDCR() {
       setIsReviewing(false)
     }
   }
-  const [dcrList, setDcrList] = useState([])
-  const [isLoadingList, setIsLoadingList] = useState(false)
-  const [listError, setListError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
-  const [listPagination, setListPagination] = useState({
-    page: 1,
-    limit: 50,
-    total: 0,
-    totalPages: 1,
-  })
+  const [columnFilters, setColumnFilters] = useState({})
+  const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const fetchActiveFilters = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/api/dcr/active-filters")
+      if (res.success) setActiveFilters(res.data)
+    } catch (err) {
+      console.error("Error fetching active filters:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchActiveFilters()
+  }, [fetchActiveFilters, refreshKey])
+
+  // Auto-selection for reverse cascading
+  useEffect(() => {
+    if (!activeFilters.records || activeFilters.records.length === 0) return
+
+    const updates = {}
+    if (columnFilters.msn && Array.isArray(columnFilters.msn) && columnFilters.msn.length === 1) {
+      const selectedMsn = columnFilters.msn[0]
+      const match = activeFilters.records.find(r => r.msn?.toString() === selectedMsn?.toString())
+      if (match) {
+        if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client]
+        if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po]
+      }
+    } else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
+      const selectedPo = columnFilters.po_no[0]
+      const match = activeFilters.records.find(r => r.po?.toString() === selectedPo?.toString())
+      if (match && (!columnFilters.client || columnFilters.client.length === 0)) {
+        updates.client = [match.client]
+      }
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setColumnFilters(prev => ({ ...prev, ...updates }))
+    }
+  }, [columnFilters.msn, columnFilters.po_no, activeFilters.records])
+
+  // Cascading Logic
+  const activeClientOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.po_no) {
+      const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()]
+      filtered = filtered.filter(c => selected.includes(c.po?.toString()))
+    }
+    if (columnFilters.msn) {
+      const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()]
+      filtered = filtered.filter(c => selected.includes(c.msn?.toString()))
+    }
+    const clients = [...new Set(filtered.map(c => c.client))].filter(Boolean).sort()
+    return clients.map(c => ({ label: c, value: c }))
+  }, [activeFilters.records, columnFilters.po_no, columnFilters.msn])
+
+  const activePoOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.client) {
+      const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()]
+      filtered = filtered.filter(c => selected.includes(c.client?.toString()))
+    }
+    if (columnFilters.msn) {
+      const selected = Array.isArray(columnFilters.msn) ? columnFilters.msn : [columnFilters.msn.toString()]
+      filtered = filtered.filter(c => selected.includes(c.msn?.toString()))
+    }
+    const pos = [...new Set(filtered.map(c => c.po))].filter(Boolean).sort()
+    return pos.map(p => ({ label: p, value: p }))
+  }, [activeFilters.records, columnFilters.client, columnFilters.msn])
+
+  const activeMsnOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.client) {
+      const selected = Array.isArray(columnFilters.client) ? columnFilters.client : [columnFilters.client.toString()]
+      filtered = filtered.filter(c => selected.includes(c.client?.toString()))
+    }
+    if (columnFilters.po_no) {
+      const selected = Array.isArray(columnFilters.po_no) ? columnFilters.po_no : [columnFilters.po_no.toString()]
+      filtered = filtered.filter(c => selected.includes(c.po?.toString()))
+    }
+    const msns = [...new Set(filtered.map(c => c.msn))].filter(Boolean).sort()
+    return msns.map(m => ({ label: m, value: m }))
+  }, [activeFilters.records, columnFilters.client, columnFilters.po_no])
 
   const [jobs, setJobs] = useState([])
   const [designEngineers, setDesignEngineers] = useState([])
@@ -348,42 +426,161 @@ function CreateDCR() {
     }
   };
 
-  const fetchDcrList = useCallback(async () => {
-    setIsLoadingList(true)
-    setListError("")
-
-    try {
-      const params = {
-        page: listPagination.page,
-        limit: listPagination.limit,
+  const columns = useMemo(() => [
+    { header: "DCR No", accessorKey: "dcr_no" },
+    {
+      header: "Client",
+      accessorKey: "client",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeClientOptions
+    },
+    {
+      header: "PO No",
+      accessorKey: "po_no",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activePoOptions
+    },
+    {
+      header: "Job Number",
+      accessorKey: "msn",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeMsnOptions
+    },
+    { header: "DRG No", accessorKey: "drg_no" },
+    { header: "Inspect By", accessorKey: "inspect_by" },
+    {
+      header: "Main Status",
+      accessorKey: "status",
+      cell: (row) => <StatusBadge status={row.status} />
+    },
+    {
+      header: "Design Status",
+      accessorKey: "design_engineer_status",
+      cell: (row) => <StatusBadge status={row.design_engineer_status} />
+    },
+    {
+      header: "Quality Status",
+      accessorKey: "quality_engineer_status",
+      cell: (row) => {
+        if (row.quality_engineer_status === "pending") {
+          if (row.design_engineer_status === "rejected") return <StatusBadge status="design_rejected" />
+          if (row.design_engineer_status !== "approved") return <StatusBadge status="waiting" />
+          return <StatusBadge status="pending" />
+        }
+        return <StatusBadge status={row.quality_engineer_status} />
       }
+    },
+    {
+      id: "actions",
+      header: "Action",
+      cell: (row) => (
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleViewDcr(row.id)}
+            title="View"
+            className="h-8 px-2"
+          >
+            <Eye className="h-3.5 w-3.5 mr-1" /> View
+          </Button>
+          {(roles?.includes("QC_ENGINEER") && row.quality_engineer_id === user?.id &&
+            row.design_engineer_status === "approved" && row.quality_engineer_status === "pending") && (
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleReviewClick(row, "approved")}
+                  title="Approve"
+                  className="h-8 px-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleReviewClick(row, "rejected")}
+                  title="Reject"
+                  className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                </Button>
+              </div>
+            )}
+          {(roles?.includes("DESIGN_ENGINEER") && row.design_engineer_id === user?.id &&
+            row.design_engineer_status === "pending") && (
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleReviewClick(row, "approved")}
+                  title="Approve"
+                  className="h-8 px-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleReviewClick(row, "rejected")}
+                  title="Reject"
+                  className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                </Button>
+              </div>
+            )}
+          {row.status === "approved" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownloadPdf(row.id, row.dcr_no)}
+              title="Download PDF"
+              className="h-8 px-2 border-blue-200 text-blue-600 hover:bg-blue-50"
+            >
+              <Download className="h-3.5 w-3.5 mr-1" /> PDF
+            </Button>
+          )}
+        </div>
+      )
+    }
+  ], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles])
 
-      const payload = await apiClient.get('/api/dcr/get-dcr', params)
+  const fetchDcrList = useCallback(async (params) => {
+    try {
+      const queryParams = { ...params };
+      if (queryParams.columnFilters) {
+        queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
+      }
+      const payload = await apiClient.get('/api/dcr/get-dcr', queryParams)
 
       const records = extractRecords(payload).map((item, index) =>
         normalizeRecord(item, index)
       )
 
-      setDcrList(records)
-      setListPagination((prev) => ({
-        ...prev,
-        page: Number(payload?.meta?.page) || prev.page,
-        limit: Number(payload?.meta?.limit) || prev.limit,
-        total: Number(payload?.meta?.total) || records.length || 0,
-        totalPages: Number(payload?.meta?.totalPages) || 1,
-      }))
+      return {
+        data: records,
+        meta: {
+          total: Number(payload?.meta?.total) || records.length || 0,
+          page: Number(payload?.meta?.page) || 1,
+          limit: Number(payload?.meta?.limit) || 10,
+          totalPages: Number(payload?.meta?.totalPages) || 1
+        }
+      }
     } catch (err) {
-      setListError(err?.message || "Unable to load DCR list")
-      setDcrList([])
-      setListPagination((prev) => ({
-        ...prev,
-        total: 0,
-        totalPages: 1,
-      }))
-    } finally {
-      setIsLoadingList(false)
+      console.error("Unable to load DCR list", err)
+      return { data: [], meta: {} }
     }
-  }, [listPagination.page, listPagination.limit])
+  }, [])
 
   const fetchJobs = useCallback(async () => {
     setIsLoadingJobs(true)
@@ -416,7 +613,7 @@ function CreateDCR() {
       const designList = Array.isArray(designRes?.data)
         ? designRes.data.map(normalizeUser).filter((u) => u.id)
         : []
-      
+
       const qualityList = Array.isArray(qualityRes?.data)
         ? qualityRes.data.map(normalizeUser).filter((u) => u.id)
         : []
@@ -667,647 +864,420 @@ function CreateDCR() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
 
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
+          {view !== "list" && (
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "DCR List" : view === "create" ? "Create DCR" : "View DCR"}
+                  {view === "create" ? "Create DCR" : "View DCR"}
                 </h1>
                 <p className="text-muted-foreground">
-                  {view === "list"
-                    ? "All DCR records fetched from /api/dcr/get-dcr"
-                    : view === "create"
-                      ? "Fill in the DCR (Design Change Request) information below."
-                      : "DCR details fetched from /api/dcr/get-dcr-by-id/:id"}
+                  {view === "create"
+                    ? "Fill in the DCR (Design Change Request) information below."
+                    : "DCR details fetched from /api/dcr/get-dcr-by-id/:id"}
                 </p>
               </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { handleReset(); setView("list"); }}>
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to List
+                </Button>
+              </div>
+            </div>
+          )}
 
-              <div className="flex items-center gap-2">
-                {view === "list" ? (
-                  <>
+          {view === "list" ? (
+            <ProDataTable
+              columns={columns}
+              fetchData={fetchDcrList}
+              onExport={handleExport}
+              onAdd={() => setView("create")}
+              onAddTooltip="Create DCR"
+              refreshKey={refreshKey}
+              columnFilters={columnFilters}
+              onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+            />
+          ) : (
+            <form onSubmit={isCreateMode ? handleSubmit : (e) => e.preventDefault()}>
+              <div className="grid gap-6">
+                {formError && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {formError}
+                  </div>
+                )}
+
+                {formSuccess && (
+                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
+                    {formSuccess}
+                  </div>
+                )}
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Basic Information</CardTitle>
+                    <CardDescription>Enter the basic DCR details</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="msmNumber">
+                          MSM Number <span className="text-destructive">*</span>
+                        </Label>
+                        {isViewMode ? (
+                          <Input
+                            id="msmNumber"
+                            type="text"
+                            value={viewDetails.jobNumber}
+                            readOnly
+                            disabled
+                          />
+                        ) : (
+                          <Select
+                            value={formData.msmNumber}
+                            onValueChange={handleJobChange}
+                            disabled={isSubmitting || isLoadingJobs}
+                          >
+                            <SelectTrigger id="msmNumber" className="w-full">
+                              <SelectValue
+                                placeholder={
+                                  isLoadingJobs ? "Loading job numbers..." : "Select job no"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {jobs.map((job) => (
+                                <SelectItem key={job.id} value={job.id}>
+                                  <div className="flex flex-col text-left">
+                                    <span className="font-medium">{job.job_number}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      Next DCR: {job.next_dcr_no || "-"}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="dcrNo">
+                          DCR NO. <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="dcrNo"
+                          name="dcrNo"
+                          type="text"
+                          placeholder="Auto-filled from selected job"
+                          value={formData.dcrNo}
+                          onChange={handleInputChange}
+                          required
+                          readOnly
+                          disabled={isFormDisabled}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="drawingNo">
+                          DRAWING NO. <span className="text-destructive">*</span>
+                        </Label>
+                        {isViewMode ? (
+                          <Input
+                            id="drawingNo"
+                            type="text"
+                            value={formData.drawingNo}
+                            readOnly
+                            disabled
+                          />
+                        ) : (
+                          <Select
+                            value={formData.drawingNo}
+                            onValueChange={(value) => handleSelectChange("drawingNo", value)}
+                            disabled={isSubmitting || isLoadingDocs || !formData.msmNumber}
+                          >
+                            <SelectTrigger id="drawingNo" className="w-full">
+                              <SelectValue
+                                placeholder={
+                                  !formData.msmNumber
+                                    ? "Select job no first"
+                                    : isLoadingDocs
+                                      ? "Loading drawings..."
+                                      : "Select drawing no"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {assignedDocs.length === 0 && !isLoadingDocs ? (
+                                <div className="p-2 text-sm text-muted-foreground text-center">
+                                  No drawings assigned to this job
+                                </div>
+                              ) : (
+                                assignedDocs.map((doc) => (
+                                  <SelectItem key={doc.id} value={doc.shreno_doc_no}>
+                                    <div className="flex flex-col text-left">
+                                      <span className="font-medium">{doc.shreno_doc_no}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {doc.document_name}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="equipmentNo">
+                          EQUIPMENT NO. <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="equipmentNo"
+                          name="equipmentNo"
+                          type="text"
+                          placeholder="Enter equipment number"
+                          value={formData.equipmentNo}
+                          onChange={handleInputChange}
+                          required
+                          disabled={isFormDisabled}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="inspBy">
+                          INSP. BY <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          id="inspBy"
+                          name="inspBy"
+                          type="text"
+                          placeholder="Enter inspector name"
+                          value={formData.inspBy}
+                          onChange={handleInputChange}
+                          required
+                          disabled={isFormDisabled}
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Change Details</CardTitle>
+                        <CardDescription>Add items and specify the changes</CardDescription>
+                      </div>
+                      {!isViewMode && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addTableRow}
+                          disabled={isSubmitting}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Row
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">S.No</TableHead>
+                            <TableHead>ITEM / PART NO.</TableHead>
+                            <TableHead>CHANGE FROM</TableHead>
+                            <TableHead>CHANGE TO</TableHead>
+                            <TableHead>REASON FOR CHANGE</TableHead>
+                            <TableHead className="w-[100px]">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {tableRows.map((row, index) => (
+                            <TableRow key={row.id}>
+                              <TableCell className="font-medium">{index + 1}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter item/part no."
+                                  value={row.itemPartNo}
+                                  onChange={(e) =>
+                                    handleTableRowChange(row.id, "itemPartNo", e.target.value)
+                                  }
+                                  disabled={isFormDisabled}
+                                  className="min-w-[150px]"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter change from"
+                                  value={row.changeFrom}
+                                  onChange={(e) =>
+                                    handleTableRowChange(row.id, "changeFrom", e.target.value)
+                                  }
+                                  disabled={isFormDisabled}
+                                  className="min-w-[150px]"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter change to"
+                                  value={row.changeTo}
+                                  onChange={(e) =>
+                                    handleTableRowChange(row.id, "changeTo", e.target.value)
+                                  }
+                                  disabled={isFormDisabled}
+                                  className="min-w-[150px]"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  placeholder="Enter reason"
+                                  value={row.reasonForChange}
+                                  onChange={(e) =>
+                                    handleTableRowChange(row.id, "reasonForChange", e.target.value)
+                                  }
+                                  disabled={isFormDisabled}
+                                  className="min-w-[200px]"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeTableRow(row.id)}
+                                  disabled={isFormDisabled || tableRows.length === 1}
+                                  className="text-destructive hover:text-destructive"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Approval</CardTitle>
+                    <CardDescription>Assign quality and design personnel</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+                      <div className="space-y-2">
+                        <Label htmlFor="designEngineerId">
+                          DESIGN <span className="text-destructive">*</span>
+                        </Label>
+                        {isViewMode ? (
+                          <Input
+                            id="designEngineerId"
+                            type="text"
+                            value={viewDetails.designEngineerName}
+                            readOnly
+                            disabled
+                          />
+                        ) : (
+                          <Select
+                            value={formData.designEngineerId}
+                            onValueChange={(value) => handleSelectChange("designEngineerId", value)}
+                            disabled={isSubmitting || isLoadingUsers}
+                          >
+                            <SelectTrigger id="designEngineerId" className="w-full">
+                              <SelectValue
+                                placeholder={
+                                  isLoadingUsers ? "Loading users..." : "Select design engineer"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {designEngineers.map((user) => (
+                                <SelectItem key={`design-${user.id}`} value={user.id}>
+                                  {user.displayName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="qualityEngineerId">
+                          QUALITY <span className="text-destructive">*</span>
+                        </Label>
+                        {isViewMode ? (
+                          <Input
+                            id="qualityEngineerId"
+                            type="text"
+                            value={viewDetails.qualityEngineerName}
+                            readOnly
+                            disabled
+                          />
+                        ) : (
+                          <Select
+                            value={formData.qualityEngineerId}
+                            onValueChange={(value) => handleSelectChange("qualityEngineerId", value)}
+                            disabled={isSubmitting || isLoadingUsers}
+                          >
+                            <SelectTrigger id="qualityEngineerId" className="w-full">
+                              <SelectValue
+                                placeholder={
+                                  isLoadingUsers ? "Loading users..." : "Select quality engineer"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {qualityEngineers.map((user) => (
+                                <SelectItem key={`quality-${user.id}`} value={user.id}>
+                                  {user.displayName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {isCreateMode && (
+                  <div className="flex justify-end gap-4">
                     <Button
+                      type="button"
                       variant="outline"
-                      onClick={fetchDcrList}
-                      disabled={isLoadingList || isLoadingDetail}
+                      onClick={handleReset}
+                      disabled={isSubmitting}
                     >
-                      {isLoadingList ? "Refreshing..." : "Refresh"}
+                      Reset
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleExport}
-                      disabled={isLoadingList || isLoadingDetail}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Export
-                    </Button>
-                    <Button onClick={() => setView("create")}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create DCR
-                    </Button>
-                  </>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => { handleReset(); setView("list"); }}>
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back to List
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? "Creating..." : "Create DCR"}
                     </Button>
                   </div>
                 )}
               </div>
-            </div>
-
-            {view === "list" ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>DCR Records</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {listError ? (
-                    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      {listError}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="rounded-md border overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>DCR No</TableHead>
-                              <TableHead>DRG No</TableHead>
-                              <TableHead>Inspect By</TableHead>
-                              <TableHead>Main Status</TableHead>
-                              <TableHead>Design Status</TableHead>
-                              <TableHead>Quality Status</TableHead>
-                              <TableHead className="w-[120px]">Action</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {isLoadingList ? (
-                              <TableRow>
-                                <TableCell colSpan={7} className="text-center h-24">
-                                  Loading DCR data...
-                                </TableCell>
-                              </TableRow>
-                            ) : dcrList.length === 0 ? (
-                              <TableRow>
-                                <TableCell colSpan={7} className="text-center h-24">
-                                  No DCR records found.
-                                </TableCell>
-                              </TableRow>
-                            ) : (
-                              dcrList.map((record) => (
-                                <TableRow key={record.id}>
-                                  <TableCell className="font-medium">{record.dcr_no}</TableCell>
-                                  <TableCell>{record.drg_no}</TableCell>
-                                  <TableCell>{record.inspect_by}</TableCell>
-                                  <TableCell>
-                                    <StatusBadge status={record.status} />
-                                  </TableCell>
-                                  <TableCell>
-                                    <StatusBadge status={record.design_engineer_status} />
-                                  </TableCell>
-                                  <TableCell>
-                                    {record.quality_engineer_status === "pending" ? (
-                                      record.design_engineer_status === "rejected" ? (
-                                        <StatusBadge status="design_rejected" />
-                                      ) : record.design_engineer_status !== "approved" ? (
-                                        <StatusBadge status="waiting" />
-                                      ) : (
-                                        <StatusBadge status="pending" />
-                                      )
-                                    ) : (
-                                      <StatusBadge status={record.quality_engineer_status} />
-                                    )}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleViewDcr(record.id)}
-                                        disabled={isLoadingDetail}
-                                        title="View"
-                                      >
-                                        <Eye className="h-4 w-4" />View
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        className={`${normalizeStatus(record.design_engineer_status) === "approved" && normalizeStatus(record.quality_engineer_status) === "approved"
-                                          ? "text-blue-600 border-blue-200 hover:bg-blue-50"
-                                          : "opacity-50 cursor-not-allowed text-gray-400 border-gray-200"
-                                          }`}
-                                        onClick={() => {
-                                          if (normalizeStatus(record.design_engineer_status) === "approved" && normalizeStatus(record.quality_engineer_status) === "approved") {
-                                            handleDownloadPdf(record.id, record.dcr_no)
-                                          } else {
-                                            toast.info("DCR can only be downloaded after approval from both Design and Quality.")
-                                          }
-                                        }}
-                                        title="Download PDF"
-                                      >
-                                        <Download className="h-4 w-4 mr-2" /> Download
-                                      </Button>
-
-                                      {/* Design Engineer Actions */}
-                                      {roles?.includes("DESIGN_ENGINEER") &&
-                                        record.design_engineer_id === user?.id && (
-                                          <>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
-                                              onClick={() => handleReviewClick(record, "approved")}
-                                              disabled={record.design_engineer_status !== "pending" || isLoadingDetail}
-                                              title="Approve"
-                                            >
-                                              <CheckCircle className="h-4 w-4" /> Approve
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
-                                              onClick={() => handleReviewClick(record, "rejected")}
-                                              disabled={record.design_engineer_status !== "pending" || isLoadingDetail}
-                                              title="Reject"
-                                            >
-                                              <XCircle className="h-4 w-4" /> Reject
-                                            </Button>
-                                          </>
-                                        )}
-
-                                      {/* Quality Engineer Actions */}
-                                      {roles?.includes("QC_ENGINEER") &&
-                                        record.quality_engineer_id === user?.id && (
-                                          <>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="bg-green-50 text-green-600 hover:bg-green-100 border-green-200"
-                                              onClick={() => handleReviewClick(record, "approved")}
-                                              disabled={
-                                                record.design_engineer_status !== "approved" ||
-                                                record.quality_engineer_status !== "pending" ||
-                                                isLoadingDetail
-                                              }
-                                              title="Approve"
-                                            >
-                                              <CheckCircle className="h-4 w-4" /> Approve
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className="bg-red-50 text-red-600 hover:bg-red-100 border-red-200"
-                                              onClick={() => handleReviewClick(record, "rejected")}
-                                              disabled={
-                                                record.design_engineer_status !== "approved" ||
-                                                record.quality_engineer_status !== "pending" ||
-                                                isLoadingDetail
-                                              }
-                                              title="Reject"
-                                            >
-                                              <XCircle className="h-4 w-4" /> Reject
-                                            </Button>
-                                          </>
-                                        )}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-4 py-4">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium">Rows per page</p>
-                          <Select
-                            value={String(listPagination.limit)}
-                            onValueChange={handleListLimitChange}
-                            disabled={isLoadingList}
-                          >
-                            <SelectTrigger className="h-8 w-[80px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent side="top">
-                              <SelectItem value="10">10</SelectItem>
-                              <SelectItem value="20">20</SelectItem>
-                              <SelectItem value="50">50</SelectItem>
-                              <SelectItem value="100">100</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <p className="text-sm text-muted-foreground">
-                            Page {listPagination.page} of {listPagination.totalPages} ({listPagination.total} items)
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleListPageChange(listPagination.page - 1)}
-                            disabled={isLoadingList || listPagination.page <= 1}
-                          >
-                            Previous
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleListPageChange(listPagination.page + 1)}
-                            disabled={isLoadingList || listPagination.page >= listPagination.totalPages}
-                          >
-                            Next
-                          </Button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <form onSubmit={isCreateMode ? handleSubmit : (e) => e.preventDefault()}>
-                <div className="grid gap-6">
-                  {formError && (
-                    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                      {formError}
-                    </div>
-                  )}
-
-                  {formSuccess && (
-                    <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
-                      {formSuccess}
-                    </div>
-                  )}
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Basic Information</CardTitle>
-                      <CardDescription>Enter the basic DCR details</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="msmNumber">
-                            MSM Number <span className="text-destructive">*</span>
-                          </Label>
-                          {isViewMode ? (
-                            <Input
-                              id="msmNumber"
-                              type="text"
-                              value={viewDetails.jobNumber}
-                              readOnly
-                              disabled
-                            />
-                          ) : (
-                            <Select
-                              value={formData.msmNumber}
-                              onValueChange={handleJobChange}
-                              disabled={isSubmitting || isLoadingJobs}
-                            >
-                              <SelectTrigger id="msmNumber" className="w-full">
-                                <SelectValue
-                                  placeholder={
-                                    isLoadingJobs ? "Loading job numbers..." : "Select job no"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {jobs.map((job) => (
-                                  <SelectItem key={job.id} value={job.id}>
-                                    <div className="flex flex-col text-left">
-                                      <span className="font-medium">{job.job_number}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        Next DCR: {job.next_dcr_no || "-"}
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="dcrNo">
-                            DCR NO. <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="dcrNo"
-                            name="dcrNo"
-                            type="text"
-                            placeholder="Auto-filled from selected job"
-                            value={formData.dcrNo}
-                            onChange={handleInputChange}
-                            required
-                            readOnly
-                            disabled={isFormDisabled}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="drawingNo">
-                            DRAWING NO. <span className="text-destructive">*</span>
-                          </Label>
-                          {isViewMode ? (
-                            <Input
-                              id="drawingNo"
-                              type="text"
-                              value={formData.drawingNo}
-                              readOnly
-                              disabled
-                            />
-                          ) : (
-                            <Select
-                              value={formData.drawingNo}
-                              onValueChange={(value) => handleSelectChange("drawingNo", value)}
-                              disabled={isSubmitting || isLoadingDocs || !formData.msmNumber}
-                            >
-                              <SelectTrigger id="drawingNo" className="w-full">
-                                <SelectValue
-                                  placeholder={
-                                    !formData.msmNumber
-                                      ? "Select job no first"
-                                      : isLoadingDocs
-                                        ? "Loading drawings..."
-                                        : "Select drawing no"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {assignedDocs.length === 0 && !isLoadingDocs ? (
-                                  <div className="p-2 text-sm text-muted-foreground text-center">
-                                    No drawings assigned to this job
-                                  </div>
-                                ) : (
-                                  assignedDocs.map((doc) => (
-                                    <SelectItem key={doc.id} value={doc.shreno_doc_no}>
-                                      <div className="flex flex-col text-left">
-                                        <span className="font-medium">{doc.shreno_doc_no}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {doc.document_name}
-                                        </span>
-                                      </div>
-                                    </SelectItem>
-                                  ))
-                                )}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="equipmentNo">
-                            EQUIPMENT NO. <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="equipmentNo"
-                            name="equipmentNo"
-                            type="text"
-                            placeholder="Enter equipment number"
-                            value={formData.equipmentNo}
-                            onChange={handleInputChange}
-                            required
-                            disabled={isFormDisabled}
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="inspBy">
-                            INSP. BY <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="inspBy"
-                            name="inspBy"
-                            type="text"
-                            placeholder="Enter inspector name"
-                            value={formData.inspBy}
-                            onChange={handleInputChange}
-                            required
-                            disabled={isFormDisabled}
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Change Details</CardTitle>
-                          <CardDescription>Add items and specify the changes</CardDescription>
-                        </div>
-                        {!isViewMode && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={addTableRow}
-                            disabled={isSubmitting}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Row
-                          </Button>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="rounded-md border overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-[50px]">S.No</TableHead>
-                              <TableHead>ITEM / PART NO.</TableHead>
-                              <TableHead>CHANGE FROM</TableHead>
-                              <TableHead>CHANGE TO</TableHead>
-                              <TableHead>REASON FOR CHANGE</TableHead>
-                              <TableHead className="w-[100px]">Action</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {tableRows.map((row, index) => (
-                              <TableRow key={row.id}>
-                                <TableCell className="font-medium">{index + 1}</TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="text"
-                                    placeholder="Enter item/part no."
-                                    value={row.itemPartNo}
-                                    onChange={(e) =>
-                                      handleTableRowChange(row.id, "itemPartNo", e.target.value)
-                                    }
-                                    disabled={isFormDisabled}
-                                    className="min-w-[150px]"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="text"
-                                    placeholder="Enter change from"
-                                    value={row.changeFrom}
-                                    onChange={(e) =>
-                                      handleTableRowChange(row.id, "changeFrom", e.target.value)
-                                    }
-                                    disabled={isFormDisabled}
-                                    className="min-w-[150px]"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="text"
-                                    placeholder="Enter change to"
-                                    value={row.changeTo}
-                                    onChange={(e) =>
-                                      handleTableRowChange(row.id, "changeTo", e.target.value)
-                                    }
-                                    disabled={isFormDisabled}
-                                    className="min-w-[150px]"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    type="text"
-                                    placeholder="Enter reason"
-                                    value={row.reasonForChange}
-                                    onChange={(e) =>
-                                      handleTableRowChange(row.id, "reasonForChange", e.target.value)
-                                    }
-                                    disabled={isFormDisabled}
-                                    className="min-w-[200px]"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => removeTableRow(row.id)}
-                                    disabled={isFormDisabled || tableRows.length === 1}
-                                    className="text-destructive hover:text-destructive"
-                                  >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Approval</CardTitle>
-                      <CardDescription>Assign quality and design personnel</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-
-                        <div className="space-y-2">
-                          <Label htmlFor="designEngineerId">
-                            DESIGN <span className="text-destructive">*</span>
-                          </Label>
-                          {isViewMode ? (
-                            <Input
-                              id="designEngineerId"
-                              type="text"
-                              value={viewDetails.designEngineerName}
-                              readOnly
-                              disabled
-                            />
-                          ) : (
-                            <Select
-                              value={formData.designEngineerId}
-                              onValueChange={(value) => handleSelectChange("designEngineerId", value)}
-                              disabled={isSubmitting || isLoadingUsers}
-                            >
-                              <SelectTrigger id="designEngineerId" className="w-full">
-                                <SelectValue
-                                  placeholder={
-                                    isLoadingUsers ? "Loading users..." : "Select design engineer"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {designEngineers.map((user) => (
-                                  <SelectItem key={`design-${user.id}`} value={user.id}>
-                                    {user.displayName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="qualityEngineerId">
-                            QUALITY <span className="text-destructive">*</span>
-                          </Label>
-                          {isViewMode ? (
-                            <Input
-                              id="qualityEngineerId"
-                              type="text"
-                              value={viewDetails.qualityEngineerName}
-                              readOnly
-                              disabled
-                            />
-                          ) : (
-                            <Select
-                              value={formData.qualityEngineerId}
-                              onValueChange={(value) => handleSelectChange("qualityEngineerId", value)}
-                              disabled={isSubmitting || isLoadingUsers}
-                            >
-                              <SelectTrigger id="qualityEngineerId" className="w-full">
-                                <SelectValue
-                                  placeholder={
-                                    isLoadingUsers ? "Loading users..." : "Select quality engineer"
-                                  }
-                                />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {qualityEngineers.map((user) => (
-                                  <SelectItem key={`quality-${user.id}`} value={user.id}>
-                                    {user.displayName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {isCreateMode && (
-                    <div className="flex justify-end gap-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleReset}
-                        disabled={isSubmitting}
-                      >
-                        Reset
-                      </Button>
-                      <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Creating..." : "Create DCR"}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </form>
-            )}
-          </div>
-        </main>
+            </form>
+          )}
+        </div>
+      </main>
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>

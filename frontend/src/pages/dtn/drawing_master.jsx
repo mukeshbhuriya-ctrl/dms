@@ -61,14 +61,100 @@ export default function DrawingMaster() {
    const [masterData, setMasterData] = useState([])
    const [loading, setLoading] = useState(false)
    const [searchTerm, setSearchTerm] = useState("")
+   
+   // Cascading Filters State
+   const [activeFilters, setActiveFilters] = useState({ records: [] })
+   const [columnFilters, setColumnFilters] = useState({})
+
+   useEffect(() => {
+      const fetchActiveFilters = async () => {
+         try {
+            const res = await apiClient.get("/api/dtn/master/get-filters")
+            if (res.success) setActiveFilters(res.data)
+         } catch (err) {
+            console.error("Error fetching master filters:", err)
+         }
+      }
+      fetchActiveFilters()
+   }, [])
+
+   // Cascading Filter Logic
+   const activeCustomerOptions = useMemo(() => {
+      let filtered = activeFilters.records || []
+      if (columnFilters.po) {
+         const selected = Array.isArray(columnFilters.po) ? columnFilters.po : [columnFilters.po.toString()]
+         filtered = filtered.filter(c => selected.includes(c.po?.toString()))
+      }
+      if (columnFilters.job_number) {
+         const selected = Array.isArray(columnFilters.job_number) ? columnFilters.job_number : [columnFilters.job_number.toString()]
+         filtered = filtered.filter(c => selected.includes(c.job_number?.toString()))
+      }
+      const customers = [...new Set(filtered.map(c => c.customer))].filter(Boolean).sort()
+      return customers.map(c => ({ label: c, value: c }))
+   }, [activeFilters.records, columnFilters.po, columnFilters.job_number])
+
+   const activePoOptions = useMemo(() => {
+      let filtered = activeFilters.records || []
+      if (columnFilters.customer) {
+         const selected = Array.isArray(columnFilters.customer) ? columnFilters.customer : [columnFilters.customer.toString()]
+         filtered = filtered.filter(c => selected.includes(c.customer?.toString()))
+      }
+      if (columnFilters.job_number) {
+         const selected = Array.isArray(columnFilters.job_number) ? columnFilters.job_number : [columnFilters.job_number.toString()]
+         filtered = filtered.filter(c => selected.includes(c.job_number?.toString()))
+      }
+      const pos = [...new Set(filtered.map(c => c.po))].filter(Boolean).sort()
+      return pos.map(p => ({ label: p, value: p }))
+   }, [activeFilters.records, columnFilters.customer, columnFilters.job_number])
+
+   const activeJobOptions = useMemo(() => {
+      let filtered = activeFilters.records || []
+      if (columnFilters.customer) {
+         const selected = Array.isArray(columnFilters.customer) ? columnFilters.customer : [columnFilters.customer.toString()]
+         filtered = filtered.filter(c => selected.includes(c.customer?.toString()))
+      }
+      if (columnFilters.po) {
+         const selected = Array.isArray(columnFilters.po) ? columnFilters.po : [columnFilters.po.toString()]
+         filtered = filtered.filter(c => selected.includes(c.po?.toString()))
+      }
+      const jobs = [...new Set(filtered.map(c => c.job_number))].filter(Boolean).sort()
+      return jobs.map(j => ({ label: j, value: j }))
+   }, [activeFilters.records, columnFilters.customer, columnFilters.po])
+
+   // Auto-selection logic for reverse cascading
+   useEffect(() => {
+      if (!activeFilters.records || activeFilters.records.length === 0) return
+
+      const updates = {}
+      if (columnFilters.job_number && Array.isArray(columnFilters.job_number) && columnFilters.job_number.length === 1) {
+         const selectedJob = columnFilters.job_number[0]
+         const match = activeFilters.records.find(r => r.job_number?.toString() === selectedJob?.toString())
+         if (match) {
+            if (!columnFilters.customer || columnFilters.customer.length === 0) updates.customer = [match.customer]
+            if (!columnFilters.po || columnFilters.po.length === 0) updates.po = [match.po]
+         }
+      } 
+      else if (columnFilters.po && Array.isArray(columnFilters.po) && columnFilters.po.length === 1) {
+         const selectedPo = columnFilters.po[0]
+         const match = activeFilters.records.find(r => r.po?.toString() === selectedPo?.toString())
+         if (match && (!columnFilters.customer || columnFilters.customer.length === 0)) {
+            updates.customer = [match.customer]
+         }
+      }
+
+      if (Object.keys(updates).length > 0) {
+         setColumnFilters(prev => ({ ...prev, ...updates }))
+      }
+   }, [columnFilters.job_number, columnFilters.po, activeFilters.records])
 
    // Standardized fetchData for ProDataTable
    const fetchMasterSummaries = async (params) => {
       try {
-         // ProDataTable passes { page, limit, search, columnFilters }
-         const res = await apiClient.get("/api/dtn/master/summaries", {
-            search: params.search
-         })
+         const queryParams = { ...params };
+         if (queryParams.columnFilters) {
+            queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
+         }
+         const res = await apiClient.get("/api/dtn/master/summaries", queryParams)
          return res; // Already contains { success, data, meta }
       } catch (err) {
          console.error("Error fetching summaries:", err)
@@ -148,9 +234,29 @@ export default function DrawingMaster() {
 
    // Summary Table ColumnsInspection Preview —
    const summaryColumns = [
-      { header: "Customer", accessorKey: "customer", className: "font-semibold" },
-      { header: "PO", accessorKey: "po" },
-      { header: "Job Number", accessorKey: "job_number", className: "font-bold text-blue-600" },
+      { 
+         header: "Customer", 
+         accessorKey: "customer", 
+         className: "font-semibold",
+         filterType: "select",
+         isMulti: true,
+         filterOptions: activeCustomerOptions
+      },
+      { 
+         header: "PO", 
+         accessorKey: "po",
+         filterType: "select",
+         isMulti: true,
+         filterOptions: activePoOptions
+      },
+      { 
+         header: "Job Number", 
+         accessorKey: "job_number", 
+         className: "font-bold text-blue-600",
+         filterType: "select",
+         isMulti: true,
+         filterOptions: activeJobOptions
+      },
       {
          header: "Action",
          id: "action",
@@ -195,6 +301,8 @@ export default function DrawingMaster() {
                      showSearch={true}
                      globalSearchPlaceholder="Quick search projects..."
                      className="border border-slate-200/60 shadow-lg rounded-2xl overflow-hidden bg-white"
+                     columnFilters={columnFilters}
+                     onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
                   />
                </div>
             ) : (

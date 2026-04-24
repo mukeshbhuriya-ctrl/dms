@@ -9,12 +9,13 @@ class InspectionReportController {
     async getList(req, res) {
         try {
             const { company_id } = req.user;
-            const { page = 1, limit = 10, search = '' } = req.query;
+            const { page = 1, limit = 10, search = '', columnFilters } = req.query;
 
             const result = await InspectionReportService.getList(company_id, {
                 page: parseInt(page),
                 limit: parseInt(limit),
-                search
+                search,
+                columnFilters
             });
 
             res.status(200).json({ success: true, ...result });
@@ -148,6 +149,17 @@ class InspectionReportController {
         } catch (error) {
             console.error("DishEndController.downloadPdf Error:", error);
             res.status(500).json({ success: false, message: "Failed to generate PDF", error: error.message });
+        }
+    }
+
+    async getFilters(req, res) {
+        try {
+            const { company_id } = req.user;
+            const data = await InspectionReportService.getListFilters(company_id);
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            console.error("DishEndController.getFilters Error:", error);
+            res.status(500).json({ success: false, message: "Failed to fetch filters", error: error.message });
         }
     }
 }

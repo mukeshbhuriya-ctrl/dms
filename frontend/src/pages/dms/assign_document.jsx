@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/popover"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 import ProDataTable from "../../components/shared/ProDataTable"
+import { SearchableSelect } from "../../components/shared/SearchableSelect"
 import apiClient from "../../api/api.client"
 import { dccService } from "../../services/dcc.service"
 import { exportApi } from "../../api/export.api"
@@ -54,25 +55,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { 
-  Search, 
-  ArrowRight, 
-  Plus, 
-  ArrowLeft, 
-  Edit, 
-  Copy, 
-  History, 
-  ChevronLeft, 
-  ChevronRight, 
-  Download, 
-  X, 
-  ChevronDown, 
-  Check, 
-  FileText, 
+import {
+  Search,
+  ArrowRight,
+  Plus,
+  ArrowLeft,
+  Edit,
+  Copy,
+  History,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  X,
+  ChevronDown,
+  Check,
+  FileText,
   Upload,
-  AlertCircle, 
-  CheckCircle2, 
-  XCircle 
+  AlertCircle,
+  CheckCircle2,
+  XCircle
 } from "lucide-react"
 
 function AssignDocument() {
@@ -89,7 +90,7 @@ function AssignDocument() {
   const [assignments, setAssignments] = useState([
     {
       tempId: Date.now(),
-      jobId: "",
+      jobId: [], // Support array for UI selection
       searchQuery: "", // Job search
       customerId: "",
       customerSearch: "", // Customer search
@@ -126,7 +127,7 @@ function AssignDocument() {
   const fetchMasterData = async () => {
     try {
       setIsLoadingData(true);
-      
+
       // Fetch ALL Master Data (not just active)
       const [customersRes, posRes, jobsRes, usersRes] = await Promise.all([
         apiClient.get("/api/dcc/get-customers", { limit: 9999 }),
@@ -138,10 +139,10 @@ function AssignDocument() {
       if (customersRes?.success) setCustomers(customersRes.data || []);
       if (posRes?.success) setAllPos(posRes.data || []);
       if (jobsRes?.success) setAllJobs(jobsRes.data || []);
-      
+
       const userList = usersRes?.data || usersRes || [];
       setUsers(Array.isArray(userList) ? userList : []);
-      
+
       setIsLoadingData(false);
     } catch (err) {
       console.error("Error fetching master data:", err);
@@ -191,8 +192,8 @@ function AssignDocument() {
         const fileHeaders = Object.keys(rawData[0]);
         const missingHeaders = REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h));
         if (missingHeaders.length > 0) {
-          toast.error(`Invalid Excel Format. Missing columns: ${missingHeaders.join(", ")}`);
-          return;
+          // If headers are missing, we still try to proceed if possible or toast warning
+          console.warn(`Excel missing columns: ${missingHeaders.join(", ")}`);
         }
       }
 
@@ -213,8 +214,11 @@ function AssignDocument() {
         else if (!targetJob) errors.push(`Job Number "${jobNumber}" not found`);
 
         if (!docName) errors.push("Document Name is required");
-        if (!empid) errors.push("Employee ID is required");
-        else if (!targetUser) errors.push(`Employee ID "${empid}" not found`);
+        
+        // Employee ID is now optional. If provided but not found, we still mark as valid (Pending)
+        if (empid && !targetUser) {
+           console.log(`Employee ID "${empid}" not found, treating as Pending Assignee.`);
+        }
 
         const uploadDays = parseInt(uploadDaysRaw);
         if (uploadDaysRaw === undefined || isNaN(uploadDays) || uploadDays < 0) {
@@ -240,9 +244,9 @@ function AssignDocument() {
         };
       });
 
-      setImportReview({ 
-        isOpen: true, 
-        data: validatedRows, 
+      setImportReview({
+        isOpen: true,
+        data: validatedRows,
         summary: {
           total: validatedRows.length,
           valid: validatedRows.filter(r => r.status === 'valid').length,
@@ -253,31 +257,39 @@ function AssignDocument() {
     reader.readAsBinaryString(file);
   };
 
-  const finalizeImport = () => {
+  const finalizeImport = async () => {
     const validRows = importReview.data.filter(r => r.status === 'valid');
     if (validRows.length === 0) return;
 
-    const newAssignments = validRows.map(r => ({
-      tempId: Date.now() + Math.random(),
-      jobId: r.jobId,
-      customerId: r.customerId,
-      poId: r.poId,
-      documentName: r.docName,
-      shrenoDocumentNo: r.shrenoNo,
-      clientDocumentNo: r.clientNo,
-      assignUserId: r.assignUserId,
-      upload_due_days: String(r.uploadDays),
-      response_due_days: String(r.responseDays),
-    }));
+    setIsLoading(true);
 
-    setAssignments(prev => {
-      if (prev.length === 1 && !prev[0].jobId && !prev[0].documentName) return newAssignments;
-      return [...prev, ...newAssignments];
-    });
+    const requestBody = {
+      assignments: validRows.map(r => ({
+        job_id: r.jobId,
+        document_name: r.docName,
+        shreno_document_no: r.shrenoNo,
+        client_document_no: r.clientNo,
+        assign_user_id: r.assignUserId || null,
+        upload_due_days: r.uploadDays ? parseInt(r.uploadDays) : null,
+        response_due_days: r.responseDays ? parseInt(r.responseDays) : null,
+      }))
+    };
 
-    setImportReview({ isOpen: false, data: [], summary: {} });
-    setView("assign");
-    toast.success(`Imported ${validRows.length} documents.`);
+    try {
+      const response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody);
+
+      if (response.success) {
+        toast.success(`Imported and assigned ${validRows.length} documents successfully!`);
+        setImportReview({ isOpen: false, data: [], summary: {} });
+        setRefreshKey(prev => prev + 1);
+        setView("list");
+      }
+    } catch (err) {
+      console.error("Error importing documents:", err);
+      toast.error(err.message || "Failed to import documents.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // --- Restrictive (Active) Filter Options for List View ---
@@ -285,7 +297,7 @@ function AssignDocument() {
     let filtered = activeFilters.jobs;
     // Reverse filters
     if (columnFilters.po_number) {
-      filtered = filtered.filter(j => 
+      filtered = filtered.filter(j =>
         String(j.po?.po_number || j.po_number || "") === String(columnFilters.po_number)
       );
     }
@@ -293,7 +305,7 @@ function AssignDocument() {
       const selectedJobs = columnFilters.job_number.map(String);
       filtered = filtered.filter(j => selectedJobs.includes(String(j.job_number)));
     }
-    
+
     const clientNames = [...new Set(filtered.map(j => j.customer?.customer_name || j.customer_name))].filter(Boolean);
     return clientNames.sort().map(name => ({ label: name, value: name }));
   }, [activeFilters.jobs, columnFilters.po_number, columnFilters.job_number]);
@@ -304,8 +316,8 @@ function AssignDocument() {
     if (columnFilters.customer_name) {
       filtered = filtered.filter(j => {
         const val = (j.customer?.customer_name || j.customer_name);
-        return Array.isArray(columnFilters.customer_name) 
-          ? columnFilters.customer_name.includes(val) 
+        return Array.isArray(columnFilters.customer_name)
+          ? columnFilters.customer_name.includes(val)
           : val === columnFilters.customer_name;
       });
     }
@@ -325,17 +337,17 @@ function AssignDocument() {
     if (columnFilters.customer_name) {
       filtered = filtered.filter(j => {
         const val = (j.customer?.customer_name || j.customer_name);
-        return Array.isArray(columnFilters.customer_name) 
-          ? columnFilters.customer_name.includes(val) 
+        return Array.isArray(columnFilters.customer_name)
+          ? columnFilters.customer_name.includes(val)
           : val === columnFilters.customer_name;
       });
     }
     if (columnFilters.po_number) {
-      filtered = filtered.filter(j => 
+      filtered = filtered.filter(j =>
         String(j.po?.po_number || j.po_number || "") === String(columnFilters.po_number)
       );
     }
-    
+
     const jobNumbers = [...new Set(filtered.map(j => j.job_number))].filter(Boolean);
     return jobNumbers.sort().map(j => ({ label: j.toString(), value: j.toString() }));
   }, [activeFilters.jobs, columnFilters.customer_name, columnFilters.po_number]);
@@ -345,6 +357,32 @@ function AssignDocument() {
     {
       accessorKey: "document.document_number",
       header: "System Doc ID",
+    },
+        {
+      id: "shreno_doc_no",
+      accessorKey: "shreno_doc_no",
+      header: "Shreno Doc No",
+      filterType: "text",
+      cell: (row) => row.shreno_doc_no || "-",
+    },
+    {
+      id: "client_doc_no",
+      accessorKey: "client_doc_no",
+      header: "Client Doc No",
+      filterType: "text",
+      cell: (row) => row.client_doc_no || "-",
+    },
+    {
+      id: "documentName",
+      header: "Document Name",
+      accessorKey: "document.document_name",
+      filterType: "text",
+    },
+    {
+      id: "revision_no",
+      accessorKey: "display_version_no",
+      header: "Revision No",
+      cell: (row) => (row.display_version_no === 0 || row.display_version_no) ? `${row.display_version_no}` : "-",
     },
     {
       id: "customer_name",
@@ -372,38 +410,31 @@ function AssignDocument() {
       cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
     },
     {
-      id: "documentName",
-      header: "Document Name",
-      accessorKey: "document.document_name",
-      filterType: "text",
-    },
-    {
-      id: "revision_no",
-      accessorKey: "display_version_no",
-      header: "Revision No",
-      cell: (row) => (row.display_version_no === 0 || row.display_version_no) ? `${row.display_version_no}` : "-",
-    },
-    {
-      id: "shreno_doc_no",
-      accessorKey: "shreno_doc_no",
-      header: "Shreno Doc No",
-      filterType: "text",
-      cell: (row) => row.shreno_doc_no || "-",
-    },
-    {
-      id: "client_doc_no",
-      accessorKey: "client_doc_no",
-      header: "Client Doc No",
-      filterType: "text",
-      cell: (row) => row.client_doc_no || "-",
-    },
-    {
-      accessorKey: "user.name",
+      id: "assignee",
       header: "Assigned To",
+      accessorKey: "user.name",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Pending Assignee", value: "pending_assignee" },
+        ...users.map(u => ({
+          label: u.empid ? `${u.name || u.full_name} (${u.empid})` : (u.name || u.full_name),
+          value: String(u.id)
+        }))
+      ],
       cell: (row) => {
-        const name = String(row.user?.name || row.user?.full_name || row.user?.email || "Unassigned")
-        const empid = String(row.user?.empid || row.user?.employeeId || "")
-        return (name !== "Unassigned" && empid) ? `${name} (${empid})` : name;
+        const name = row.user ? (row.user.name || row.user.full_name || row.user.email) : "Pending Assignee";
+        const empid = row.user?.empid || row.user?.employeeId || "";
+        
+        if (!row.user) {
+          return <span className="text-slate-400 italic font-medium">Pending Assignee</span>;
+        }
+
+        return empid ? (
+          <div className="flex flex-col">
+            <span className="font-medium text-slate-700">{name} ({empid})</span>
+          </div>
+        ) : name;
       },
     },
     {
@@ -508,7 +539,7 @@ function AssignDocument() {
       },
     },
   ], [activeClientOptions, activePoOptions, activeJobOptions])
-  
+
   const proTableTopFilters = useMemo(() => [
     {
       value: statusFilter,
@@ -516,7 +547,7 @@ function AssignDocument() {
       placeholder: "All Status",
       options: [
         { label: "All Status", value: "all" },
-         { label: "Pending", value: "Pending" },
+        { label: "Pending", value: "Pending" },
         { label: "Uploaded", value: "Uploaded" },
       ]
     }
@@ -527,7 +558,7 @@ function AssignDocument() {
       const p = page || 1;
       const l = limit || 10;
       const params = { page: p, limit: l };
-      
+
       if (search) params.search = search.trim();
       if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
 
@@ -545,6 +576,7 @@ function AssignDocument() {
           else if (key === 'documentName') params.search = val;
           else if (key === 'shreno_doc_no') params.shreno_doc_no_filter = val;
           else if (key === 'client_doc_no') params.client_doc_no_filter = val;
+          else if (key === 'assignee') params.user_id_filter = val;
         });
       }
 
@@ -702,14 +734,19 @@ function AssignDocument() {
           fetchJobs(value, selectedPo.customer_id);
         }
       } else if (field === 'jobId') {
-        const selectedJob = allJobs.find(j => j.id === value);
-        if (selectedJob) {
-          updatedRow.poId = selectedJob.po_id || "";
-          updatedRow.customerId = selectedJob.customer_id || "";
-          updatedRow.searchQuery = "";
-          // Ensure we have current PO data for location auto-fill if not present
-          if (selectedJob.po_id && !allPos.find(p => p.id === selectedJob.po_id)) {
-            fetchPos("", "", selectedJob.po_id);
+        const jobIds = Array.isArray(value) ? value : (value ? [value] : []);
+        updatedRow.jobId = jobIds;
+
+        if (jobIds.length > 0) {
+          const firstJobId = jobIds[0];
+          const selectedJob = allJobs.find(j => String(j.id) === String(firstJobId));
+          if (selectedJob) {
+            updatedRow.poId = selectedJob.po_id || "";
+            updatedRow.customerId = selectedJob.customer_id || "";
+            updatedRow.searchQuery = "";
+            if (selectedJob.po_id && !allPos.find(p => p.id === selectedJob.po_id)) {
+              fetchPos("", "", selectedJob.po_id);
+            }
           }
         }
       }
@@ -734,10 +771,11 @@ function AssignDocument() {
     setAssignments([
       {
         tempId: Date.now(),
-        jobId: row.group?.job_group?.[0]?.job_id || "",
+        jobId: row.group?.job_group?.[0]?.job_id ? [row.group.job_group[0].job_id] : [],
         customerId: row.group?.job_group?.[0]?.job?.customer_id || "",
         poId: row.group?.job_group?.[0]?.job?.po_id || "",
         documentName: row.document?.document_name || "",
+        documentId: row.document_id || "",
         shrenoDocumentNo: row.shreno_doc_no || "",
         clientDocumentNo: row.client_doc_no || "",
         assignUserId: row.user_id || "",
@@ -757,7 +795,7 @@ function AssignDocument() {
     setAssignments([
       {
         tempId: Date.now(),
-        jobId: "",
+        jobId: [],
         documentName: "",
         shrenoDocumentNo: "",
         shrenoReferenceNo: "",
@@ -771,35 +809,52 @@ function AssignDocument() {
   }
 
   const handleAssign = async () => {
-    const validAssignments = assignments.filter(a => a.jobId && a.documentName && a.assignUserId)
+    const validAssignments = assignments.filter(a => a.jobId && a.documentName)
     if (validAssignments.length === 0) {
-      toast.error("Please complete at least one assignment row (Job, Name, User).");
+      toast.error("Please complete at least one assignment row (Job, Name).");
       return;
     }
 
     setIsLoading(true)
 
     const requestBody = {
-      assignments: validAssignments.map(a => ({
-        job_id: a.jobId,
-        document_name: a.documentName,
-        shreno_document_no: a.shrenoDocumentNo,
-        shreno_reference_no: a.shrenoReferenceNo,
-        client_document_no: a.clientDocumentNo,
-        client_reference_no: a.clientReferenceNo,
-        assign_user_id: a.assignUserId,
-        upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
-        response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
-      })),
+      assignments: validAssignments.flatMap(a =>
+        a.jobId.map(jid => ({
+          job_id: jid,
+          document_name: a.documentName,
+          shreno_document_no: a.shrenoDocumentNo,
+          shreno_reference_no: a.shrenoReferenceNo,
+          client_document_no: a.clientDocumentNo,
+          client_reference_no: a.clientReferenceNo,
+          assign_user_id: a.assignUserId,
+          upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
+          response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
+        }))
+      ),
     }
 
     try {
-      const response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody)
+      let response;
+      if (editingId) {
+        const a = validAssignments[0];
+        const updateBody = {
+          job_ids: a.jobId,
+          document_id: a.documentId,
+          assign_user_id: a.assignUserId || null,
+          upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
+          response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
+          shreno_document_no: a.shrenoDocumentNo,
+          client_document_no: a.clientDocumentNo,
+        };
+        response = await apiClient.put(`/api/dcc/update-assigned-document/${editingId}`, updateBody);
+      } else {
+        response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody);
+      }
 
       if (response.success) {
-        toast.success("Documents assigned successfully!")
-        handleBack()
-        setRefreshKey(prev => prev + 1)
+        toast.success(editingId ? "Assignment updated successfully!" : "Documents assigned successfully!");
+        handleBack();
+        setRefreshKey(prev => prev + 1);
       }
     } catch (err) {
       console.error("Error assigning documents:", err)
@@ -811,7 +866,7 @@ function AssignDocument() {
   const onFilterChange = (newFilters) => {
     setColumnFilters(prev => {
       const updated = { ...prev, ...newFilters };
-      
+
       // Handle Multi-select Array vs Single value mapping
       Object.keys(newFilters).forEach(key => {
         const val = newFilters[key];
@@ -825,15 +880,15 @@ function AssignDocument() {
       if (newFilters.hasOwnProperty('job_number')) {
         const jobVal = newFilters.job_number;
         const actualJobVal = Array.isArray(jobVal) ? (jobVal.length === 1 ? jobVal[0] : null) : jobVal;
-        
+
         if (actualJobVal) {
-           const selectedJob = activeFilters.jobs.find(j => (j.job_number || j.number || "").toString() === actualJobVal.toString());
-           if (selectedJob) {
-             const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
-             const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
-             if (poNum) updated.po_number = poNum;
-             if (custName) updated.customer_name = custName;
-           }
+          const selectedJob = activeFilters.jobs.find(j => (j.job_number || j.number || "").toString() === actualJobVal.toString());
+          if (selectedJob) {
+            const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
+            const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
+            if (poNum) updated.po_number = poNum;
+            if (custName) updated.customer_name = custName;
+          }
         }
       } else if (newFilters.hasOwnProperty('po_number')) {
         const poVal = newFilters.po_number;
@@ -850,21 +905,21 @@ function AssignDocument() {
 
       // Forward Cascading Reset Logic (only if manually changing a parent)
       if (newFilters.hasOwnProperty('customer_name')) {
-         // If customer changed, reset children if they are not compatible
-         const newCust = Array.isArray(newFilters.customer_name) ? newFilters.customer_name : [newFilters.customer_name];
-         // For simplicity, we mostly reset if it's a single select change. 
-         // If it's multi-select, we might just keep them and let the user refine.
-         if (newCust.length === 1 && newCust[0]) {
-            // Check current PO
-            const currentPo = Array.isArray(updated.po_number) ? updated.po_number[0] : updated.po_number;
-            const poObj = activeFilters.pos.find(p => (p.po_number || p.number || "").toString() === (currentPo || "").toString());
-            if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newCust[0].toString()) {
-                delete updated.po_number;
-                delete updated.job_number;
-            }
-         }
+        // If customer changed, reset children if they are not compatible
+        const newCust = Array.isArray(newFilters.customer_name) ? newFilters.customer_name : [newFilters.customer_name];
+        // For simplicity, we mostly reset if it's a single select change. 
+        // If it's multi-select, we might just keep them and let the user refine.
+        if (newCust.length === 1 && newCust[0]) {
+          // Check current PO
+          const currentPo = Array.isArray(updated.po_number) ? updated.po_number[0] : updated.po_number;
+          const poObj = activeFilters.pos.find(p => (p.po_number || p.number || "").toString() === (currentPo || "").toString());
+          if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newCust[0].toString()) {
+            delete updated.po_number;
+            delete updated.job_number;
+          }
+        }
       }
-      
+
       return updated;
     });
   };
@@ -890,8 +945,8 @@ function AssignDocument() {
         <div className="flex-1 flex flex-col w-full">
 
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold">
-              {view === "list" ? "Documents" : editingId ? "Edit Assignment" : "Assign Documents"}
+            <h1 className="text-2xl ">
+              {view === "list" ? "Documents" : editingId ? "Update Document Details" : "Assign Documents"}
             </h1>
             {view !== "list" && (
               <Button variant="outline" size="sm" onClick={handleBack}>
@@ -902,86 +957,86 @@ function AssignDocument() {
 
           {/* List View */}
           {view === 'list' && (
-              <ProDataTable
-                  columns={columns}
-                  fetchData={fetchAssignedDocuments}
-                  onExport={handleExport}
-                  onAdd={() => {
-                    handleBack();
-                    setView("assign");
-                  }}
-                  onImport={handleImportExcel}
-                  onDownloadTemplate={handleDownloadTemplate}
-                  columnFilters={columnFilters}
-                  onFilterChange={(newFilter) => {
-                    setColumnFilters(prev => {
-                      const updated = { ...prev, ...newFilter };
-                      
-                      // Handle Multi-select Array vs Single value mapping
-                      Object.keys(newFilter).forEach(key => {
-                        const val = newFilter[key];
-                        if (Array.isArray(val) && val.length === 0) {
-                          delete updated[key];
-                        }
-                      });
+            <ProDataTable
+              columns={columns}
+              fetchData={fetchAssignedDocuments}
+              onExport={handleExport}
+              onAdd={() => {
+                handleBack();
+                setView("assign");
+              }}
+              onImport={handleImportExcel}
+              onDownloadTemplate={handleDownloadTemplate}
+              columnFilters={columnFilters}
+              onFilterChange={(newFilter) => {
+                setColumnFilters(prev => {
+                  const updated = { ...prev, ...newFilter };
 
-                      // Reverse Cascading Auto-Select Logic
-                      if (newFilter.hasOwnProperty('job_number')) {
-                        const jobVal = newFilter.job_number;
-                        const actualJobVal = Array.isArray(jobVal) ? (jobVal.length === 1 ? jobVal[0] : null) : jobVal;
+                  // Handle Multi-select Array vs Single value mapping
+                  Object.keys(newFilter).forEach(key => {
+                    const val = newFilter[key];
+                    if (Array.isArray(val) && val.length === 0) {
+                      delete updated[key];
+                    }
+                  });
 
-                        if (actualJobVal) {
-                            const selectedJob = activeFilters.jobs.find(j => (j.job_number || "").toString() === actualJobVal.toString());
-                            if (selectedJob) {
-                              const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
-                              const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
-                              if (poNum) updated.po_number = poNum;
-                              if (custName) updated.customer_name = custName;
-                            }
-                        }
-                      } else if (newFilter.hasOwnProperty('po_number')) {
-                        const poVal = newFilter.po_number;
-                        const actualPoVal = Array.isArray(poVal) ? (poVal.length === 1 ? poVal[0] : null) : poVal;
+                  // Reverse Cascading Auto-Select Logic
+                  if (newFilter.hasOwnProperty('job_number')) {
+                    const jobVal = newFilter.job_number;
+                    const actualJobVal = Array.isArray(jobVal) ? (jobVal.length === 1 ? jobVal[0] : null) : jobVal;
 
-                        if (actualPoVal) {
-                          const selectedPo = activeFilters.pos.find(p => (p.po_number || "").toString() === actualPoVal.toString());
-                          if (selectedPo) {
-                            const custName = (selectedPo.customer?.customer_name || selectedPo.customer_name || "").toString();
-                            if (custName) updated.customer_name = custName;
-                          }
-                        }
+                    if (actualJobVal) {
+                      const selectedJob = activeFilters.jobs.find(j => (j.job_number || "").toString() === actualJobVal.toString());
+                      if (selectedJob) {
+                        const poNum = (selectedJob.po?.po_number || selectedJob.po_number || "").toString();
+                        const custName = (selectedJob.customer?.customer_name || selectedJob.customer_name || "").toString();
+                        if (poNum) updated.po_number = poNum;
+                        if (custName) updated.customer_name = custName;
                       }
+                    }
+                  } else if (newFilter.hasOwnProperty('po_number')) {
+                    const poVal = newFilter.po_number;
+                    const actualPoVal = Array.isArray(poVal) ? (poVal.length === 1 ? poVal[0] : null) : poVal;
 
-                      // Forward Cascading Reset Logic (Intelligent)
-                      if (newFilter.hasOwnProperty('customer_name')) {
-                         const newCust = Array.isArray(newFilter.customer_name) ? newFilter.customer_name : [newFilter.customer_name];
-                         if (newCust.length === 1 && newCust[0]) {
-                            const currentPo = updated.po_number;
-                            const poObj = activeFilters.pos.find(p => (p.po_number || "").toString() === (currentPo || "").toString());
-                            if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newCust[0].toString()) {
-                                delete updated.po_number;
-                                delete updated.job_number;
-                            }
-                         }
-                      } else if (newFilter.hasOwnProperty('po_number')) {
-                        const newPo = Array.isArray(newFilter.po_number) ? newFilter.po_number : [newFilter.po_number];
-                        if (newPo.length === 1 && newPo[0]) {
-                            const currentJob = Array.isArray(updated.job_number) ? updated.job_number[0] : updated.job_number;
-                            const jobObj = activeFilters.jobs.find(j => (j.job_number || "").toString() === (currentJob || "").toString());
-                            if (jobObj && (jobObj.po?.po_number || jobObj.po_number || "").toString() !== newPo[0].toString()) {
-                                delete updated.job_number;
-                            }
-                        }
+                    if (actualPoVal) {
+                      const selectedPo = activeFilters.pos.find(p => (p.po_number || "").toString() === actualPoVal.toString());
+                      if (selectedPo) {
+                        const custName = (selectedPo.customer?.customer_name || selectedPo.customer_name || "").toString();
+                        if (custName) updated.customer_name = custName;
                       }
-                      
-                      return updated;
-                    });
-                  }}
-                  refreshKey={refreshKey}
-                  topFilters={proTableTopFilters}
-                  globalSearchPlaceholder="Search documents..."
-                  initialStickyColumns={["document.document_number"]}
-                />
+                    }
+                  }
+
+                  // Forward Cascading Reset Logic (Intelligent)
+                  if (newFilter.hasOwnProperty('customer_name')) {
+                    const newCust = Array.isArray(newFilter.customer_name) ? newFilter.customer_name : [newFilter.customer_name];
+                    if (newCust.length === 1 && newCust[0]) {
+                      const currentPo = updated.po_number;
+                      const poObj = activeFilters.pos.find(p => (p.po_number || "").toString() === (currentPo || "").toString());
+                      if (poObj && (poObj.customer?.customer_name || poObj.customer_name || "").toString() !== newCust[0].toString()) {
+                        delete updated.po_number;
+                        delete updated.job_number;
+                      }
+                    }
+                  } else if (newFilter.hasOwnProperty('po_number')) {
+                    const newPo = Array.isArray(newFilter.po_number) ? newFilter.po_number : [newFilter.po_number];
+                    if (newPo.length === 1 && newPo[0]) {
+                      const currentJob = Array.isArray(updated.job_number) ? updated.job_number[0] : updated.job_number;
+                      const jobObj = activeFilters.jobs.find(j => (j.job_number || "").toString() === (currentJob || "").toString());
+                      if (jobObj && (jobObj.po?.po_number || jobObj.po_number || "").toString() !== newPo[0].toString()) {
+                        delete updated.job_number;
+                      }
+                    }
+                  }
+
+                  return updated;
+                });
+              }}
+              refreshKey={refreshKey}
+              topFilters={proTableTopFilters}
+              globalSearchPlaceholder="Search documents..."
+              initialStickyColumns={["document.document_number"]}
+            />
           )}
 
           {view === 'assign' && (
@@ -991,7 +1046,7 @@ function AssignDocument() {
               <div className="space-y-6">
                 <div className="flex flex-row items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold">Document Details</h2>
+                    <h2 className="text-xl ">Document Details</h2>
                     <p className="text-sm text-muted-foreground">Enter details for the documents to be assigned</p>
                   </div>
                   <Button type="button" size="sm" onClick={addRow}>
@@ -1036,7 +1091,7 @@ function AssignDocument() {
                                   onValueChange={val => handleAssignmentChange(assignment.tempId, 'customerId', val)}
                                   required
                                 >
-                                  <SelectTrigger className="w-full font-bold">
+                                  <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Customer" />
                                   </SelectTrigger>
                                   <SelectContent position="popper" sideOffset={5} className="min-w-[var(--radix-select-trigger-width)] max-w-[400px]">
@@ -1055,7 +1110,7 @@ function AssignDocument() {
                                       {customers
                                         .filter(c => !assignment.customerSearch || c.customer_name.toLowerCase().includes(assignment.customerSearch.toLowerCase()))
                                         .map(c => (
-                                          <SelectItem key={c.id} value={c.id} className="font-bold cursor-pointer">
+                                          <SelectItem key={c.id} value={c.id} className="cursor-pointer">
                                             {c.customer_name}
                                           </SelectItem>
                                         ))}
@@ -1071,7 +1126,7 @@ function AssignDocument() {
                                   onValueChange={val => handleAssignmentChange(assignment.tempId, 'poId', val)}
                                   required
                                 >
-                                  <SelectTrigger className="w-full font-bold">
+                                  <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select PO" />
                                   </SelectTrigger>
                                   <SelectContent position="popper" sideOffset={5} className="min-w-[var(--radix-select-trigger-width)] max-w-[400px]">
@@ -1091,7 +1146,7 @@ function AssignDocument() {
                                         .filter(p => !assignment.customerId || p.customer_id === assignment.customerId)
                                         .filter(p => !assignment.poSearch || p.po_number.toLowerCase().includes(assignment.poSearch.toLowerCase()))
                                         .map(p => (
-                                          <SelectItem key={p.id} value={p.id} className="font-bold cursor-pointer">
+                                          <SelectItem key={p.id} value={p.id} className="cursor-pointer">
                                             <div className="flex flex-col text-left">
                                               <span>{p.po_number}</span>
                                               {!assignment.customerId && p.customer?.customer_name && (
@@ -1116,48 +1171,24 @@ function AssignDocument() {
                                 />
                               </TableCell>
 
-                              {/* MSN/JOB No Select */}
+                              {/* MSN/JOB No Multi-Select Dropdown */}
                               <TableCell>
-                                <Select
+                                <SearchableSelect
+                                  multi
                                   value={assignment.jobId}
                                   onValueChange={val => handleAssignmentChange(assignment.tempId, 'jobId', val)}
-                                  required
-                                >
-                                  <SelectTrigger className="w-full font-bold">
-                                    <SelectValue placeholder="Select Job" />
-                                  </SelectTrigger>
-                                  <SelectContent position="popper" sideOffset={5} className="min-w-[var(--radix-select-trigger-width)] max-w-[400px]">
-                                    <div className="p-2 sticky top-0 bg-popover z-10 w-full mb-1 border-b">
-                                      <Input
-                                        placeholder="Search Job..."
-                                        value={assignment.searchQuery || ""}
-                                        onChange={e => handleAssignmentChange(assignment.tempId, 'searchQuery', e.target.value)}
-                                        onKeyDown={e => e.stopPropagation()}
-                                        onClick={e => e.stopPropagation()}
-                                        className="h-8 shadow-none border-none focus-visible:ring-0 px-1"
-                                        autoFocus
-                                      />
-                                    </div>
-                                    <div className="max-h-[250px] overflow-y-auto">
-                                      {allJobs
-                                        .filter(j => !assignment.poId || j.po_id === assignment.poId)
-                                        .filter(j => !assignment.customerId || j.customer_id === assignment.customerId)
-                                        .filter(job => !assignment.searchQuery || job.job_number.toLowerCase().includes(assignment.searchQuery.toLowerCase()))
-                                        .map(job => (
-                                          <SelectItem key={job.id} value={job.id} className="font-bold cursor-pointer">
-                                            <div className="flex flex-col text-left">
-                                              <span>{job.job_number}</span>
-                                              {!assignment.poId && job.po?.po_number && (
-                                                <span className="text-[10px] text-muted-foreground font-normal">
-                                                  {job.po.po_number}
-                                                </span>
-                                              )}
-                                            </div>
-                                          </SelectItem>
-                                        ))}
-                                    </div>
-                                  </SelectContent>
-                                </Select>
+                                  options={allJobs
+                                    .filter(j => !assignment.poId || String(j.po_id) === String(assignment.poId))
+                                    .filter(j => !assignment.customerId || String(j.customer_id) === String(assignment.customerId))
+                                    .map(job => ({
+                                      value: String(job.id),
+                                      label: job.job_number
+                                    }))
+                                  }
+                                  placeholder="Select Jobs"
+                                  searchPlaceholder="Search Job..."
+                                  className=" h-9"
+                                />
                               </TableCell>
 
                               {/* Document Name Input */}
@@ -1220,37 +1251,25 @@ function AssignDocument() {
                                     d.setDate(d.getDate() + parseInt(assignment.upload_due_days));
                                     return d.toLocaleDateString("en-GB");
                                   })()}
-                                  className="w-full bg-slate-50 text-slate-500 font-bold cursor-not-allowed"
+                                  className="w-full bg-slate-50 text-slate-500  cursor-not-allowed"
                                   readOnly
                                   disabled
                                 />
                               </TableCell>
 
-                              {/* User Select */}
+                              {/* User Selection with SearchableSelect */}
                               <TableCell>
-                                <Select
+                                <SearchableSelect
                                   value={assignment.assignUserId}
                                   onValueChange={val => handleAssignmentChange(assignment.tempId, 'assignUserId', val)}
-                                  required
-                                >
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select user" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {users.map(user => {
-                                      const id = String(user?.id || "")
-                                      const name = String(user?.name || user?.full_name || user?.email || "User")
-                                      const empid = String(user?.empid || user?.employeeId || "")
-                                      const displayName = empid ? `${name} (${empid})` : name
-
-                                      return (
-                                        <SelectItem key={id} value={id}>
-                                          {displayName}
-                                        </SelectItem>
-                                      )
-                                    })}
-                                  </SelectContent>
-                                </Select>
+                                  options={users.map(user => ({
+                                    value: String(user.id),
+                                    label: user.empid ? `${user.name || user.full_name} (${user.empid})` : (user.name || user.full_name || user.email)
+                                  }))}
+                                  placeholder="Select User"
+                                  searchPlaceholder="Search User..."
+                                  className="h-9"
+                                />
                               </TableCell>
 
                               <TableCell>
@@ -1284,7 +1303,7 @@ function AssignDocument() {
                   <div className="flex justify-end gap-3 mt-6">
                     <Button variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
                     <Button onClick={handleAssign} disabled={isSubmitDisabled}>
-                      {isLoading ? "Assigning..." : "Assign Documents"}
+                      {isLoading ? (editingId ? "Updating..." : "Assigning...") : (editingId ? "Update Document" : "Assign Documents")}
                     </Button>
                   </div>
                 </div>
@@ -1309,11 +1328,11 @@ function AssignDocument() {
         </div>
       </main>
 
-      <Dialog open={importReview.isOpen} onOpenChange={(val) => setImportReview(prev => ({...prev, isOpen: val}))}>
+      <Dialog open={importReview.isOpen} onOpenChange={(val) => setImportReview(prev => ({ ...prev, isOpen: val }))}>
         <DialogContent className="sm:max-w-[1000px] w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-2 border-b">
             <DialogTitle>Review Import</DialogTitle>
-            <DialogDescription>Valid rows will be merged into your assignment list.</DialogDescription>
+            <DialogDescription>Valid rows will be directly imported and assigned in the system.</DialogDescription>
             <div className="flex gap-4 mt-4 py-2 border-y bg-slate-50 px-4 rounded-lg">
               <div className="text-sm font-medium">Total: {importReview.summary.total}</div>
               <div className="text-sm font-medium text-green-600">Valid: {importReview.summary.valid}</div>
@@ -1327,11 +1346,11 @@ function AssignDocument() {
                 {importReview.data.map((row) => (
                   <TableRow key={row.rowNo}>
                     <TableCell>{row.rowNo}</TableCell>
-                    <TableCell className="font-bold">{row.jobNumber}</TableCell>
+                    <TableCell className="">{row.jobNumber}</TableCell>
                     <TableCell>{row.docName}</TableCell>
-                    <TableCell>{row.userName || row.empid}</TableCell>
+                    <TableCell className="font-semibold text-slate-700">{row.userName || row.empid || <span className="text-slate-400 italic font-normal text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">Pending Assignee</span>}</TableCell>
                     <TableCell>
-                      {row.status === 'valid' ? <div className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-4 w-4"/> Ready</div> : <div className="text-red-600 flex items-center gap-1"><XCircle className="h-4 w-4"/> {row.message}</div>}
+                      {row.status === 'valid' ? <div className="text-green-600 flex items-center gap-1"><CheckCircle2 className="h-4 w-4" /> Ready</div> : <div className="text-red-600 flex items-center gap-1"><XCircle className="h-4 w-4" /> {row.message}</div>}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1339,7 +1358,7 @@ function AssignDocument() {
             </Table>
           </div>
           <DialogFooter className="p-6 border-t bg-slate-50">
-            <Button variant="outline" onClick={() => setImportReview(prev => ({...prev, isOpen: false}))}>Cancel</Button>
+            <Button variant="outline" onClick={() => setImportReview(prev => ({ ...prev, isOpen: false }))}>Cancel</Button>
             <Button className="bg-green-600" onClick={finalizeImport} disabled={importReview.summary.valid === 0}>Merge {importReview.summary.valid} Rows</Button>
           </DialogFooter>
         </DialogContent>
@@ -1382,12 +1401,12 @@ const AssignDocumentTable = ({
   // Debounce column-level filters
   useEffect(() => {
     if (isFirstRender.current) {
-        isFirstRender.current = false;
-        return;
+      isFirstRender.current = false;
+      return;
     }
     const timer = setTimeout(() => {
-        setDebouncedColumnFilters(columnFilters);
-        setPage(1);
+      setDebouncedColumnFilters(columnFilters);
+      setPage(1);
     }, 800);
     return () => clearTimeout(timer);
   }, [columnFilters]);
@@ -1405,8 +1424,8 @@ const AssignDocumentTable = ({
           columnFilters // Use prop directly for immediate response in cascading filter reset
         });
         if (!cancelled) {
-            setData(result.data || []);
-            setMeta(result.meta || {});
+          setData(result.data || []);
+          setMeta(result.meta || {});
         }
       } catch (error) {
         console.error("Failed to load assign table data", error);
@@ -1458,44 +1477,44 @@ const AssignDocumentTable = ({
               {columns.map((col, idx) => (
                 <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50 ${col.filterType ? 'min-w-[150px]' : ''}`}>
                   <div className="flex flex-col gap-1.5 py-1.5">
-                    <span className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
+                    <span className=" uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
                       {col.header}
                     </span>
-                        {col.filterType === 'select' && (
-                          col.isMulti ? (
-                            <MultiSelectFilter
-                              options={col.filterOptions || []}
-                              value={columnFilters[col.id || col.accessorKey] || []}
-                              onChange={(val) => onFilterChange({ [col.id || col.accessorKey]: val })}
-                              placeholder={`All ${col.header}`}
-                            />
-                          ) : (
-                          <Select
-                            value={(columnFilters[col.id || col.accessorKey] || "all").toString()}
-                            onValueChange={(val) => onFilterChange({ [col.id || col.accessorKey]: val === 'all' ? "" : val })}
-                          >
-                            <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
-                              <SelectValue placeholder="All" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                              <SelectItem value="all">All</SelectItem>
-                              {col.filterOptions?.map((opt, idx) => (
-                                <SelectItem key={`${opt.value}-${idx}`} value={opt.value.toString()}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          )
-                        )}
-                        {col.filterType === 'text' && (
-                          <Input
-                            placeholder={`Search ${col.header}...`}
-                            className="h-7 text-xs font-normal w-full max-w-[150px]"
-                            value={columnFilters[col.id || col.accessorKey] || ""}
-                            onChange={(e) => onFilterChange({ [col.id || col.accessorKey]: e.target.value })}
-                          />
-                        )}
+                    {col.filterType === 'select' && (
+                      col.isMulti ? (
+                        <MultiSelectFilter
+                          options={col.filterOptions || []}
+                          value={columnFilters[col.id || col.accessorKey] || []}
+                          onChange={(val) => onFilterChange({ [col.id || col.accessorKey]: val })}
+                          placeholder={`All ${col.header}`}
+                        />
+                      ) : (
+                        <Select
+                          value={(columnFilters[col.id || col.accessorKey] || "all").toString()}
+                          onValueChange={(val) => onFilterChange({ [col.id || col.accessorKey]: val === 'all' ? "" : val })}
+                        >
+                          <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
+                            <SelectValue placeholder="All" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            <SelectItem value="all">All</SelectItem>
+                            {col.filterOptions?.map((opt, idx) => (
+                              <SelectItem key={`${opt.value}-${idx}`} value={opt.value.toString()}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )
+                    )}
+                    {col.filterType === 'text' && (
+                      <Input
+                        placeholder={`Search ${col.header}...`}
+                        className="h-7 text-xs font-normal w-full max-w-[150px]"
+                        value={columnFilters[col.id || col.accessorKey] || ""}
+                        onChange={(e) => onFilterChange({ [col.id || col.accessorKey]: e.target.value })}
+                      />
+                    )}
                   </div>
                 </TableHead>
               ))}
@@ -1527,41 +1546,41 @@ const AssignDocumentTable = ({
           <p className="text-sm font-medium">Rows per page</p>
           <Select value={pageSize.toString()} onValueChange={handlePageSizeChange}>
             <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue placeholder={pageSize} />
+              <SelectValue placeholder={pageSize} />
             </SelectTrigger>
             <SelectContent side="top">
-                <SelectItem value="5">5</SelectItem>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-                <SelectItem value="100">100</SelectItem>
+              <SelectItem value="5">5</SelectItem>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="flex items-center gap-4">
-            <div className="text-sm text-muted-foreground">
-                Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
-            </div>
-            <div className="flex items-center gap-2">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(page - 1)}
-                    disabled={page <= 1 || loading}
-                >
-                    <ChevronLeft className="h-4 w-4" />
-                    Previous
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={page >= (meta.totalPages || 1) || loading}
-                >
-                    Next
-                    <ChevronRight className="h-4 w-4" />
-                </Button>
-            </div>
+          <div className="text-sm text-muted-foreground">
+            Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1 || loading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= (meta.totalPages || 1) || loading}
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -1573,7 +1592,7 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOptions = options.filter(opt => 
+  const filteredOptions = options.filter(opt =>
     opt.label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -1593,30 +1612,30 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px] justify-between px-2 bg-white"
         >
           <div className="flex items-center gap-1 truncate mr-1">
             {selectedValues.length === 0 ? (
               <span className="text-slate-400">{placeholder}</span>
             ) : (
-                <div className="flex items-center gap-1">
-                    <span className="font-medium text-primary bg-primary/10 px-1 rounded-sm text-[10px]">
-                        {selectedValues.length}
-                    </span>
-                    <span className="truncate">{options.find(o => o.value === selectedValues[0])?.label}</span>
-                    {selectedValues.length > 1 && <span className="text-slate-400">...</span>}
-                </div>
+              <div className="flex items-center gap-1">
+                <span className="font-medium text-primary bg-primary/10 px-1 rounded-sm text-[10px]">
+                  {selectedValues.length}
+                </span>
+                <span className="truncate">{options.find(o => o.value === selectedValues[0])?.label}</span>
+                {selectedValues.length > 1 && <span className="text-slate-400">...</span>}
+              </div>
             )}
           </div>
           <div className="flex items-center">
             {selectedValues.length > 0 && (
-                <X 
-                  className="h-3 w-3 mr-1 text-slate-400 hover:text-slate-600 pointer-events-auto" 
-                  onClick={clearFilters}
-                />
+              <X
+                className="h-3 w-3 mr-1 text-slate-400 hover:text-slate-600 pointer-events-auto"
+                onClick={clearFilters}
+              />
             )}
             <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
           </div>
@@ -1626,13 +1645,13 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
         <div className="flex flex-col h-[300px]">
           <div className="p-2 border-b">
             <div className="relative">
-                <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
-                <Input
-                    placeholder="Search..."
-                    className="h-8 pl-8 text-xs shadow-none border-none focus-visible:ring-0"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                placeholder="Search..."
+                className="h-8 pl-8 text-xs shadow-none border-none focus-visible:ring-0"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
@@ -1645,7 +1664,7 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
                   className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-100 rounded-sm cursor-pointer"
                   onClick={() => toggleOption(opt.value)}
                 >
-                  <Checkbox 
+                  <Checkbox
                     checked={selectedValues.includes(opt.value)}
                     onCheckedChange={() => toggleOption(opt.value)}
                     className="h-3.5 w-3.5"
@@ -1658,14 +1677,14 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
           </div>
           {selectedValues.length > 0 && (
             <div className="p-2 border-t mt-auto">
-                <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="w-full h-7 text-[10px] text-slate-500 hover:text-red-600"
-                    onClick={clearFilters}
-                >
-                    Clear Selections
-                </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-7 text-[10px] text-slate-500 hover:text-red-600"
+                onClick={clearFilters}
+              >
+                Clear Selections
+              </Button>
             </div>
           )}
         </div>

@@ -1,18 +1,21 @@
 import { useState, useEffect } from "react"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import apiClient from "@/api/api.client"
 
 export default function RfqDashboard() {
     const [data, setData] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
+    const [category, setCategory] = useState("Core") // Default to Core
 
     useEffect(() => {
         const fetchDashboardStats = async () => {
             try {
-                setLoading(true)
-                const res = await apiClient.get('/api/rfq/dashboard')
+                // Keep minimal loading flicker if we already have data
+                if (!data) setLoading(true)
+                const res = await apiClient.get('/api/rfq/dashboard', { type: category })
                 if (res.success) {
                     setData(res.data)
                 } else {
@@ -27,7 +30,7 @@ export default function RfqDashboard() {
         }
 
         fetchDashboardStats()
-    }, [])
+    }, [category])
 
     if (loading) return (
         <>
@@ -66,6 +69,20 @@ export default function RfqDashboard() {
                     <div className="flex items-center gap-2">
                         <SidebarTrigger className="-ml-1" />
                         <h1 className="font-semibold text-lg">RFQ Dashboard</h1>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Quotation Type:</span>
+                            <Select value={category} onValueChange={setCategory}>
+                                <SelectTrigger className="w-[180px] h-9 text-xs font-semibold">
+                                    <SelectValue placeholder="Select Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Core">Core - MKT</SelectItem>
+                                    <SelectItem value="Spare">Spare - SPR</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </header>
 

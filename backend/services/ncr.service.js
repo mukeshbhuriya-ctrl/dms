@@ -27,6 +27,24 @@ class NcrService {
             ];
         }
 
+        if (params.columnFilters) {
+            try {
+                const filters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : params.columnFilters;
+                
+                const handleMultiFilter = (field, value) => {
+                    if (!value) return;
+                    const values = Array.isArray(value) ? value : value.split(',').map(v => v.trim());
+                    if (values.length > 0) where[field] = { in: values };
+                };
+
+                handleMultiFilter('client', filters.client);
+                handleMultiFilter('po_no', filters.po_no);
+                handleMultiFilter('msn', filters.msn);
+            } catch (e) {
+                console.error("Error parsing columnFilters:", e);
+            }
+        }
+
         const [total, data] = await prisma.$transaction([
             prisma.ncr.count({ where }),
             prisma.ncr.findMany({
@@ -572,6 +590,29 @@ class NcrService {
             console.error('Notify error:', error);
             return null;
         }
+    }
+
+    /**
+     * Get active filters metadata (Client, PO, MSN)
+     */
+    async getActiveFilters(company_id) {
+        const records = await prisma.ncr.findMany({
+            where: { company_id },
+            select: {
+                client: true,
+                po_no: true,
+                msn: true
+            },
+            distinct: ['client', 'po_no', 'msn']
+        });
+
+        return {
+            records: records.map(r => ({
+                client: r.client,
+                po: r.po_no,
+                msn: r.msn
+            }))
+        };
     }
 }
 

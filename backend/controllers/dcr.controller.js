@@ -300,8 +300,44 @@ class DcrController {
             const company_id = req.user.company_id;
             const page = toPositiveInt(req.query.page, 1);
             const limit = Math.min(toPositiveInt(req.query.limit, 50), 200);
+            const search = req.query.search || '';
 
             const where = { company_id };
+
+            if (search) {
+                where.OR = [
+                    { dcr_no: { contains: search, mode: 'insensitive' } },
+                    { drg_no: { contains: search, mode: 'insensitive' } },
+                    { inspect_by: { contains: search, mode: 'insensitive' } },
+                ];
+            }
+
+            if (req.query.columnFilters) {
+                try {
+                    const filters = typeof req.query.columnFilters === 'string' ? JSON.parse(req.query.columnFilters) : req.query.columnFilters;
+                    
+                    if (filters.client) {
+                        const clients = Array.isArray(filters.client) ? filters.client : filters.client.split(',').map(v => v.trim());
+                        if (clients.length > 0) {
+                            where.job = { ...where.job, customer: { customer_name: { in: clients } } };
+                        }
+                    }
+                    if (filters.po_no) {
+                        const pos = Array.isArray(filters.po_no) ? filters.po_no : filters.po_no.split(',').map(v => v.trim());
+                        if (pos.length > 0) {
+                            where.job = { ...where.job, po: { po_number: { in: pos } } };
+                        }
+                    }
+                    if (filters.msn) {
+                        const msns = Array.isArray(filters.msn) ? filters.msn : filters.msn.split(',').map(v => v.trim());
+                        if (msns.length > 0) {
+                            where.job = { ...where.job, job_number: { in: msns } };
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing columnFilters:", e);
+                }
+            }
 
             const skip = (page - 1) * limit;
 
@@ -319,6 +355,13 @@ class DcrController {
                         inspect_by: true,
                         design_engineer_id: true,
                         quality_engineer_id: true,
+                        job: {
+                            select: {
+                                job_number: true,
+                                customer: { select: { customer_name: true } },
+                                po: { select: { po_number: true } }
+                            }
+                        },
                         dcr_status: {
                             select: {
                                 id: true,
@@ -341,6 +384,9 @@ class DcrController {
                 inspect_by: item.inspect_by,
                 design_engineer_id: item.design_engineer_id,
                 quality_engineer_id: item.quality_engineer_id,
+                client: item.job?.customer?.customer_name || '-',
+                po_no: item.job?.po?.po_number || '-',
+                msn: item.job?.job_number || '-',
                 dcr_status: item.dcr_status,
             }));
 
@@ -588,6 +634,43 @@ class DcrController {
                 success: false,
                 message: 'Internal server error',
                 error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            });
+        }
+    }
+
+    async getActiveFilters(req, res) {
+        try {
+            const company_id = req.user.company_id;
+
+            const records = await prisma.dcr.findMany({
+                where: { company_id },
+                select: {
+                    job: {
+                        select: {
+                            job_number: true,
+                            customer: { select: { customer_name: true } },
+                            po: { select: { po_number: true } }
+                        }
+                    }
+                },
+                distinct: ['job_id']
+            });
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    records: records.map(r => ({
+                        client: r.job?.customer?.customer_name,
+                        po: r.job?.po?.po_number,
+                        msn: r.job?.job_number
+                    }))
+                }
+            });
+        } catch (error) {
+            console.error('Get DCR active filters error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error',
             });
         }
     }
