@@ -16,6 +16,7 @@ router.get('/master/get-filters', DtnController.getMasterFilters);
 router.get('/master/job/:jobId', DtnController.getJobMasterDetails);
 router.get('/master/download/:jobId', DtnController.downloadMasterPdf);
 router.get('/download-note/:id', DtnController.downloadDtnNotePdf);
+router.get('/get-filters', DtnController.getDtnFilters);
 
 // Incorporate isolated Drawing Management routes
 const dtnDrawingRoutes = require('./dtn_drawing.routes.js');

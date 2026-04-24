@@ -326,25 +326,86 @@ class DtnService {
     /**
      * List Transmittals
      */
-    async listTransmittals(companyId) {
-        return await prisma.drawing_transmittal.findMany({
-            where: { company_id: companyId },
-            orderBy: { createdAt: 'desc' },
-            select: {
-                id: true,
-                ref_no: true,
-                date: true,
-                client_name: true,
-                po_number: true,
-                status: true,
-                createdAt: true,
-                jobs: {
-                    select: {
-                        job: { select: { job_number: true } }
-                    }
+    async listTransmittals(companyId, params = {}) {
+        const { search = "", page = 1, limit = 50 } = params;
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
+        const where = { company_id: companyId };
+
+        if (search) {
+            where.OR = [
+                { ref_no: { contains: search, mode: 'insensitive' } },
+                { client_name: { contains: search, mode: 'insensitive' } },
+                { po_number: { contains: search, mode: 'insensitive' } },
+                { jobs: { some: { job: { job_number: { contains: search, mode: 'insensitive' } } } } }
+            ];
+        }
+
+        if (columnFilters.customer) {
+            where.client_name = { in: Array.isArray(columnFilters.customer) ? columnFilters.customer : [columnFilters.customer] };
+        }
+        if (columnFilters.po) {
+            where.po_number = { in: Array.isArray(columnFilters.po) ? columnFilters.po : [columnFilters.po] };
+        }
+        if (columnFilters.job_no) {
+            where.jobs = { some: { job: { job_number: { in: Array.isArray(columnFilters.job_no) ? columnFilters.job_no : [columnFilters.job_no] } } } };
+        }
+        if (columnFilters.status) {
+            where.status = { in: Array.isArray(columnFilters.status) ? columnFilters.status : [columnFilters.status] };
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [total, dtns] = await prisma.$transaction([
+            prisma.drawing_transmittal.count({ where }),
+            prisma.drawing_transmittal.findMany({
+                where,
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    jobs: { include: { job: { select: { job_number: true } } } }
                 }
+            })
+        ]);
+
+        return { total, dtns };
+    }
+
+    async getDtnFilters(companyId) {
+        const transmittals = await prisma.drawing_transmittal.findMany({
+            where: { company_id: companyId },
+            include: {
+                jobs: { include: { job: { select: { job_number: true } } } }
             }
         });
+
+        const records = [];
+        transmittals.forEach(t => {
+            const clientName = t.client_name || 'N/A';
+            const poNum = t.po_number || 'N/A';
+            const status = t.status || 'Draft';
+            
+            if (t.jobs && t.jobs.length > 0) {
+                t.jobs.forEach(gj => {
+                    records.push({
+                        customer: clientName,
+                        po: poNum,
+                        job_no: gj.job?.job_number || 'N/A',
+                        status: status
+                    });
+                });
+            } else {
+                records.push({
+                    customer: clientName,
+                    po: poNum,
+                    job_no: 'N/A',
+                    status: status
+                });
+            }
+        });
+
+        return { records };
     }
     /**
      * Get the next available Reference Number
