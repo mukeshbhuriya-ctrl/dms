@@ -6,6 +6,7 @@ const { authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 
 // Dish End Inspection
 router.get('/list', authenticateUserOnly, InspectionReportController.getList);
+router.get('/get-filters', authenticateUserOnly, InspectionReportController.getFilters);
 router.get('/:id', authenticateUserOnly, InspectionReportController.getById);
 router.get('/next-report-no/:jobId', authenticateUserOnly, InspectionReportController.getNextReportNo);
 router.post('/create', authenticateUserOnly, InspectionReportController.createReport);

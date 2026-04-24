@@ -131,9 +131,9 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const columns = [
     { header: "Report No.", accessorKey: "report_no" },
-    { header: "MSN", accessorKey: "msn" },
     { header: "Client", accessorKey: "client" },
-    { header: "PO No.", accessorKey: "po_no" },
+    { header: "PO No", accessorKey: "po_no" },
+    { header: "MSN", accessorKey: "msn" },
     { header: "Project ID", accessorKey: "project_id" },
     { header: "Equipment", accessorKey: "equipment_name" },
     {

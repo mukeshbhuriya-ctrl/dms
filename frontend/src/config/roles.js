@@ -176,8 +176,8 @@ export const MENU_CONFIG = [
         title: "Inspection",
         icon: Folder,
         items: [
-            { title: "Dish End Inspection", path: "/inspections/dish-end", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
-            { title: "Final Dimension Inspection", path: "/inspections/final", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
+            { title: "Dish End", path: "/inspections/dish-end", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
+            { title: "Final Dimension", path: "/inspections/final", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
         ],
     },
 
