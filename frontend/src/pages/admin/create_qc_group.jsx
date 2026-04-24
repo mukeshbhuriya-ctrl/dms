@@ -13,7 +13,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import {
     Popover,
     PopoverContent,
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog"
 import { FormAlert } from "@/components/ui/form-alert"
 import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
 
 const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
     const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
@@ -156,14 +157,50 @@ function CreateQcGroup() {
     // Selected Group for detail views
     const [selectedGroup, setSelectedGroup] = useState(null)
 
-    // Delete Dialog State
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [groupToDelete, setGroupToDelete] = useState(null)
 
-    const handleViewClick = (group) => {
+    const [columnFilters, setColumnFilters] = useState({})
+    const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+    const handleViewClick = useCallback((group) => {
         setSelectedGroup(group)
         setView('members')
-    }
+    }, [])
+
+    const handleEdit = useCallback((group) => {
+        const userIds = group.users?.map(u => u.user_id.toString()) || []
+        setFormData({ name: group.name, user_ids: userIds })
+        setEditingId(group.id)
+        setView("create")
+        setError("")
+        setSuccess("")
+    }, [])
+
+    const handleDeleteClick = useCallback((group) => {
+        setGroupToDelete(group)
+        setDeleteDialogOpen(true)
+    }, [])
+
+    const fetchActiveFilters = useCallback(async () => {
+        try {
+            const res = await apiClient.get("/api/qc-groups/filters")
+            if (res.success) setActiveFilters(res.data)
+        } catch (err) {
+            console.error("Error fetching QC group filters:", err)
+        }
+    }, [])
+
+    useEffect(() => {
+        if (view === "list") {
+            fetchActiveFilters()
+        }
+    }, [fetchActiveFilters, view, refreshKey])
+
+    const activeGroupNameOptions = useMemo(() => {
+        const names = [...new Set((activeFilters.records || []).map(f => f.name))].filter(Boolean).sort()
+        return names.map(n => ({ label: n, value: n }))
+    }, [activeFilters.records])
 
     // Fetch QC Engineers for selection
     useEffect(() => {
@@ -212,32 +249,17 @@ function CreateQcGroup() {
     }
 
     // Fetch QC Groups
-    const fetchQcGroups = useCallback(async ({ page, limit, search, sorting }) => {
+    const fetchQcGroups = useCallback(async (params) => {
         try {
-            const params = { page, limit }
-            if (search) params.search = search
-            if (sorting && sorting.length > 0) {
-                params.sortBy = sorting[0].id
-                params.sortOrder = sorting[0].desc ? "desc" : "asc"
+            const queryParams = { ...params };
+            if (queryParams.columnFilters) {
+                queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
             }
-
-            const responseData = await apiClient.get('/api/qc-groups', params)
-
-            if (responseData.success) {
-                return {
-                    data: responseData.data || [],
-                    meta: {
-                        total: responseData.data?.length || 0,
-                        page: 1,
-                        totalPages: 1
-                    }
-                }
-            } else {
-                return { data: [], meta: {} }
-            }
+            const responseData = await apiClient.get('/api/qc-groups', queryParams)
+            return responseData;
         } catch (err) {
             console.error("Error fetching QC groups:", err)
-            return { data: [], meta: {} }
+            return { success: false, data: [], meta: {} }
         }
     }, [])
 
@@ -245,6 +267,9 @@ function CreateQcGroup() {
         {
             accessorKey: "name",
             header: "Group Name",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: activeGroupNameOptions
         },
         {
             accessorKey: "createdAt",
@@ -285,7 +310,7 @@ function CreateQcGroup() {
             ),
             enableSorting: false,
         },
-    ], [])
+    ], [handleViewClick, handleEdit, handleDeleteClick, activeGroupNameOptions])
 
     const memberColumns = useMemo(() => [
         {
@@ -329,19 +354,7 @@ function CreateQcGroup() {
         }
     }, [selectedGroup])
 
-    const handleEdit = (group) => {
-        const userIds = group.users?.map(u => u.user_id.toString()) || []
-        setFormData({ name: group.name, user_ids: userIds })
-        setEditingId(group.id)
-        setView("create")
-        setError("")
-        setSuccess("")
-    }
-
-    const handleDeleteClick = (group) => {
-        setGroupToDelete(group)
-        setDeleteDialogOpen(true)
-    }
+    // Redundant function removed as it is now defined at the top
 
     const confirmDelete = async () => {
         if (!groupToDelete) return
@@ -401,80 +414,52 @@ function CreateQcGroup() {
             </header>
             <main className="flex-1 flex flex-col overflow-auto p-6">
                 <div className="w-full flex-1 flex flex-col">
+                    {view !== "list" && (
                     <div className="flex justify-between items-center mb-6">
                         <div>
                             <h1 className="text-3xl font-bold mb-2">
-                                {view === "list" ? "Manage QC Groups" : (editingId ? "Update QC Group" : "Create QC Group")}
+                                {view === "members" ? `Members: ${selectedGroup?.name}` : (editingId ? "Update QC Group" : "Create QC Group")}
                             </h1>
                             <p className="text-muted-foreground">
-                                {view === "list"
-                                    ? "List of all defined QC groups"
+                                {view === "members"
+                                    ? "Personnel assigned to this QC group."
                                     : "Define a group and assign QC Engineers to it."}
                             </p>
                         </div>
-                        <div>
-                            {view === "list" ? (
-                                <Button onClick={() => {
-                                    setFormData({ name: "", user_ids: [] })
-                                    setEditingId(null)
-                                    setView("create")
-                                }}>
-                                    <Plus className="mr-2 h-4 w-4" /> Create Group
-                                </Button>
-                            ) : (
-                                <Button variant="outline" onClick={() => {
-                                    setView("list")
-                                    setEditingId(null)
-                                    setSelectedGroup(null)
-                                    setFormData({ name: "", user_ids: [] })
-                                }}>
-                                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                        <div className="flex gap-2">
+                            {view === "members" && (
+                                <Button variant="outline" size="md" onClick={() => handleEdit(selectedGroup)}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Edit Group
                                 </Button>
                             )}
+                            <Button variant="outline" onClick={() => {
+                                setView("list")
+                                setEditingId(null)
+                                setSelectedGroup(null)
+                                setFormData({ name: "", user_ids: [] })
+                            }}>
+                                <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                            </Button>
                         </div>
                     </div>
+                    )}
 
                     {view === "list" ? (
-                        <Card className="flex-1 flex flex-col">
-                            <CardHeader>
-                                <CardTitle>QC Groups</CardTitle>
-                                <CardDescription>
-                                    View and manage QC group definitions.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-1">
-                                <DataTable
-                                    columns={columns}
-                                    fetchData={fetchQcGroups}
-                                    refreshKey={refreshKey}
-                                />
-                            </CardContent>
-                        </Card>
+                        <ProDataTable
+                            columns={columns}
+                            fetchData={fetchQcGroups}
+                            onAdd={() => setView("create")}
+                            onAddTooltip="Create QC Group"
+                            refreshKey={refreshKey}
+                            columnFilters={columnFilters}
+                            onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+                        />
                     ) : view === "members" ? (
-                        <Card className="flex-1 flex flex-col">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <CardTitle>Members: {selectedGroup?.name}</CardTitle>
-                                        <CardDescription>
-                                            Personnel assigned to this QC group.
-                                        </CardDescription>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => handleEdit(selectedGroup)}>
-                                            <Pencil className="mr-2 h-4 w-4" /> Edit Group
-                                        </Button>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="flex-1">
-                                <DataTable
-                                    columns={memberColumns}
-                                    fetchData={fetchMembersData}
-                                    refreshKey={refreshKey}
-                                />
-                            </CardContent>
-                        </Card>
+                        <ProDataTable
+                            columns={memberColumns}
+                            fetchData={fetchMembersData}
+                            refreshKey={refreshKey}
+                        />
                     ) : (
                         <div className="w-full">
                             <form onSubmit={handleSubmit}>
