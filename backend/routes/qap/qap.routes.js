@@ -9,6 +9,7 @@ router.use(authenticateUser(['DCC', 'ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER
 router.post('/create', qapController.create);
 router.put('/update/:id', qapController.update);
 router.get('/list', qapController.list);
+router.get('/get-filters', qapController.getFilters);
 router.get('/next-report-no/:jobId', qapController.getNextReportNo);
 router.get('/download-pdf/:id', qapController.downloadPdf);
 router.get('/:id', qapController.getById);
