@@ -107,11 +107,20 @@ class RfqController {
 
     async getLookups(req, res) {
         try {
-            const data = await RfqService.getLookups(req.user.company_id, req.params.type);
-            res.status(200).json({ success: true, data });
+            const data = await RfqService.getLookups(req.user.company_id, req.params.type, req.query);
+            res.status(200).json({ success: true, ...data });
         } catch (error) {
             console.error('RFQ getLookups error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async getLookupFilters(req, res) {
+        try {
+            const data = await RfqService.getLookupFilters(req.user.company_id, req.params.type);
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 
@@ -154,11 +163,20 @@ class RfqController {
     
     async getEstimators(req, res) {
         try {
-            const data = await RfqService.getPersons(req.user.company_id, 'estimator');
-            res.status(200).json({ success: true, data });
+            const data = await RfqService.getPersons(req.user.company_id, 'estimator', req.query);
+            res.status(200).json({ success: true, ...data });
         } catch (error) {
             console.error('RFQ getEstimators error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async getEstimatorFilters(req, res) {
+        try {
+            const data = await RfqService.getPersonFilters(req.user.company_id, 'estimator');
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 
@@ -196,11 +214,20 @@ class RfqController {
 
     async getMediators(req, res) {
         try {
-            const data = await RfqService.getPersons(req.user.company_id, 'mediator');
-            res.status(200).json({ success: true, data });
+            const data = await RfqService.getPersons(req.user.company_id, 'mediator', req.query);
+            res.status(200).json({ success: true, ...data });
         } catch (error) {
             console.error('RFQ getMediators error:', error);
             res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async getMediatorFilters(req, res) {
+        try {
+            const data = await RfqService.getPersonFilters(req.user.company_id, 'mediator');
+            res.status(200).json({ success: true, data });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 

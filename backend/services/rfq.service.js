@@ -454,12 +454,57 @@ class RfqService {
     /**
      * Get lookup values by type (rfq_type, mode_of_enquiry, remark)
      */
-    async getLookups(company_id, type) {
-        return await prisma.rfq_lookup.findMany({
+    async getLookups(company_id, type, params = {}) {
+        const {
+            page = 1,
+            limit = 10,
+            search = '',
+            sortBy = 'name',
+            sortOrder = 'asc',
+            columnFilters: columnFiltersRaw
+        } = params;
+
+        const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const take = parseInt(limit);
+
+        const where = { company_id, type };
+        if (search) {
+            where.name = { contains: search, mode: 'insensitive' };
+        }
+
+        // Column Filters
+        if (columnFilters.name && columnFilters.name !== 'all') {
+            where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+        }
+
+        const [total, data] = await prisma.$transaction([
+            prisma.rfq_lookup.count({ where }),
+            prisma.rfq_lookup.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { [sortBy]: sortOrder },
+            }),
+        ]);
+
+        return {
+            data,
+            meta: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / take)
+            }
+        };
+    }
+
+    async getLookupFilters(company_id, type) {
+        const records = await prisma.rfq_lookup.findMany({
             where: { company_id, type },
-            select: { id: true, name: true, type: true },
-            orderBy: { name: 'asc' },
+            select: { name: true }
         });
+        return { records };
     }
 
     /**
@@ -503,12 +548,63 @@ class RfqService {
 
     // ─── Estimator & Mediator Management ─────────────────────────────────────
 
-    async getPersons(company_id, modelName) {
-        return await prisma[modelName].findMany({
+    async getPersons(company_id, modelName, params = {}) {
+        const {
+            page = 1,
+            limit = 10,
+            search = '',
+            sortBy = 'name',
+            sortOrder = 'asc',
+            columnFilters: columnFiltersRaw
+        } = params;
+
+        const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+        const take = parseInt(limit);
+
+        const where = { company_id };
+        if (search) {
+            where.OR = [
+                { name: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } }
+            ];
+        }
+
+        // Column Filters
+        if (columnFilters.name && columnFilters.name !== 'all') {
+            where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+        }
+        if (columnFilters.email && columnFilters.email !== 'all') {
+            where.email = { in: Array.isArray(columnFilters.email) ? columnFilters.email : [columnFilters.email] };
+        }
+
+        const [total, data] = await prisma.$transaction([
+            prisma[modelName].count({ where }),
+            prisma[modelName].findMany({
+                where,
+                skip,
+                take,
+                orderBy: { [sortBy]: sortOrder },
+            }),
+        ]);
+
+        return {
+            data,
+            meta: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                totalPages: Math.ceil(total / take)
+            }
+        };
+    }
+
+    async getPersonFilters(company_id, modelName) {
+        const records = await prisma[modelName].findMany({
             where: { company_id },
-            select: { id: true, name: true, email: true },
-            orderBy: { name: 'asc' },
+            select: { name: true, email: true }
         });
+        return { records };
     }
 
     async createPerson(company_id, modelName, body) {

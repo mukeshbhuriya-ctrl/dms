@@ -15,17 +15,20 @@ router.post('/bulk-create', RfqController.bulkCreate);
 router.put('/update/:id', RfqController.update);
 router.get('/users', RfqController.getUsers);
 router.get('/lookups/:type', RfqController.getLookups);
+router.get('/lookups/:type/filters', RfqController.getLookupFilters);
 router.post('/lookups', RfqController.createLookup);
 router.put('/lookups/:id', RfqController.updateLookup);
 router.delete('/lookups/:id', RfqController.deleteLookup);
 // ─── Estimators ─────────────────────────────────────────────────────────────
 router.get('/estimators', RfqController.getEstimators);
+router.get('/estimators/filters', RfqController.getEstimatorFilters);
 router.post('/estimators', RfqController.createEstimator);
 router.put('/estimators/:id', RfqController.updateEstimator);
 router.delete('/estimators/:id', RfqController.deleteEstimator);
 
 // ─── Mediators ──────────────────────────────────────────────────────────────
 router.get('/mediators', RfqController.getMediators);
+router.get('/mediators/filters', RfqController.getMediatorFilters);
 router.post('/mediators', RfqController.createMediator);
 router.put('/mediators/:id', RfqController.updateMediator);
 router.delete('/mediators/:id', RfqController.deleteMediator);
