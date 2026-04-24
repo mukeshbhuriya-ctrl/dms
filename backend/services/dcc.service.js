@@ -54,6 +54,8 @@ class DccService {
             sortOrder = 'desc'
         } = params;
 
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
@@ -68,6 +70,17 @@ class DccService {
                 { email: { contains: search, mode: 'insensitive' } },
                 { mobile: { contains: search, mode: 'insensitive' } }
             ];
+        }
+
+        // Column Filters
+        if (columnFilters.customer_name && columnFilters.customer_name !== 'all') {
+            where.customer_name = { in: Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name] };
+        }
+        if (columnFilters.customer_short_name && columnFilters.customer_short_name !== 'all') {
+            where.customer_short_name = { in: Array.isArray(columnFilters.customer_short_name) ? columnFilters.customer_short_name : [columnFilters.customer_short_name] };
+        }
+        if (columnFilters.email && columnFilters.email !== 'all') {
+            where.email = { in: Array.isArray(columnFilters.email) ? columnFilters.email : [columnFilters.email] };
         }
 
         const [total, customers] = await prisma.$transaction([
@@ -100,9 +113,28 @@ class DccService {
                 total,
                 page: parseInt(page),
                 limit: (limit === undefined || limit === null) ? total : take,
-                totalPages: (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take))
+                totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take)
             }
         };
+    }
+
+    async getCustomerFilters(company_id) {
+        const customers = await prisma.customer.findMany({
+            where: { company_id },
+            select: {
+                customer_name: true,
+                customer_short_name: true,
+                email: true
+            }
+        });
+
+        const records = customers.map(c => ({
+            customer_name: c.customer_name,
+            customer_short_name: c.customer_short_name,
+            email: c.email
+        }));
+
+        return { records };
     }
 
     /**

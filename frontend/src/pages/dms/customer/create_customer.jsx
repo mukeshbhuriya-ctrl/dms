@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import { Plus, ArrowLeft, Edit } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -33,6 +33,45 @@ function CreateCustomer() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
 
+  const [columnFilters, setColumnFilters] = useState({})
+  const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const fetchActiveFilters = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/api/dcc/get-customer-filters")
+      if (res.success) setActiveFilters(res.data)
+    } catch (err) {
+      console.error("Error fetching customer filters:", err)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (view === "list") {
+      fetchActiveFilters()
+    }
+  }, [fetchActiveFilters, view, refreshKey])
+
+  // Cascading Logic
+  const activeCustomerOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.customer_short_name) {
+      const selected = Array.isArray(columnFilters.customer_short_name) ? columnFilters.customer_short_name : [columnFilters.customer_short_name.toString()]
+      filtered = filtered.filter(f => selected.includes(f.customer_short_name))
+    }
+    const names = [...new Set(filtered.map(f => f.customer_name))].filter(Boolean).sort()
+    return names.map(n => ({ label: n, value: n }))
+  }, [activeFilters.records, columnFilters.customer_short_name])
+
+  const activeShortNameOptions = useMemo(() => {
+    let filtered = activeFilters.records || []
+    if (columnFilters.customer_name) {
+      const selected = Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name.toString()]
+      filtered = filtered.filter(f => selected.includes(f.customer_name))
+    }
+    const shorts = [...new Set(filtered.map(f => f.customer_short_name))].filter(Boolean).sort()
+    return shorts.map(s => ({ label: s, value: s }))
+  }, [activeFilters.records, columnFilters.customer_name])
+
   const handleEdit = useCallback((customer) => {
     setFormData({
       customerName: customer.customer_name || "",
@@ -49,15 +88,22 @@ function CreateCustomer() {
   const columns = useMemo(() => [
     {
       accessorKey: "customer_name",
-      header: "Customer Name",
+      header: "Client",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeCustomerOptions
     },
     {
       accessorKey: "customer_short_name",
       header: "Short Name",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeShortNameOptions
     },
     {
       accessorKey: "email",
       header: "Email",
+      filterType: "text"
     },
     {
       accessorKey: "mobile",
@@ -83,33 +129,19 @@ function CreateCustomer() {
         </Button>
       ),
     },
-  ], [handleEdit])
+  ], [handleEdit, activeCustomerOptions, activeShortNameOptions])
 
-  const fetchCustomers = useCallback(async ({ page, limit, search, sorting }) => {
+  const fetchCustomers = useCallback(async (params) => {
     try {
-      const params = new URLSearchParams()
-      params.append("page", page)
-      params.append("limit", limit)
-      if (search) params.append("search", search)
-      if (sorting && sorting.length > 0) {
-        params.append("sortBy", sorting[0].id)
-        params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
+      const queryParams = { ...params };
+      if (queryParams.columnFilters) {
+        queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
       }
-
-      const responseData = await apiClient.get(`/api/dcc/get-customers?${params.toString()}`)
-
-      if (responseData.success) {
-        return {
-          data: responseData.data || [],
-          meta: responseData.meta || {}
-        }
-      } else {
-        console.error("Failed to fetch customers", responseData)
-        return { data: [], meta: {} }
-      }
+      const responseData = await apiClient.get('/api/dcc/get-customers', queryParams)
+      return responseData;
     } catch (err) {
       console.error("Error fetching customers:", err)
-      return { data: [], meta: {} }
+      return { success: false, data: [], meta: {} }
     }
   }, [])
 
@@ -144,10 +176,10 @@ function CreateCustomer() {
       }
 
       if (!data.success) {
-        throw new Error(data.message || (editingId ? "Failed to update customer" : "Failed to create customer"))
+        throw new Error(data.message || (editingId ? "Failed to update client" : "Failed to create client"))
       }
 
-      setSuccess(editingId ? "Customer updated successfully!" : "Customer created successfully!")
+      setSuccess(editingId ? "Client updated successfully!" : "Client created successfully!")
       setFormData({
         customerName: "",
         email: "",
@@ -185,33 +217,23 @@ function CreateCustomer() {
         </header>
         <main className="flex-1 flex flex-col overflow-auto p-6">
           <div className="w-full flex-1 flex flex-col">
+            {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Customers List" : (editingId ? "Update Customer" : "Create Customer")}
+                  {editingId ? "Update Client" : "Create Client"}
                 </h1>
                 <p className="text-muted-foreground">
-                  {view === "list"
-                    ? "List of all customers in the system"
-                    : (editingId ? "Update the details of the selected customer." : "Fill in the details to create a new customer profile.")}
+                  {editingId ? "Update the details of the selected client." : "Fill in the details to create a new client profile."}
                 </p>
               </div>
               <div>
-                {view === "list" ? (
-                  <Button onClick={() => {
-                    setEditingId(null)
-                    setFormData({ customerName: "", email: "", shortName: "", mobileNumber: "" })
-                    setView("create")
-                  }}>
-                    <Plus className="mr-2 h-4 w-4" /> Create Customer
-                  </Button>
-                ) : (
                   <Button variant="outline" onClick={() => setView("list")}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
-                )}
               </div>
             </div>
+            )}
 
             {error && (
               <div className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -226,32 +248,29 @@ function CreateCustomer() {
             )}
 
             {view === "list" ? (
-              <Card className="flex-1 flex flex-col">
-                <CardHeader>
-                  <CardTitle>Customers List</CardTitle>
-                  <CardDescription>View and manage customers.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1">
-                  <DataTable
-                    columns={columns}
-                    fetchData={fetchCustomers}
-                    onExport={handleExport}
-                  />
-                </CardContent>
-              </Card>
+              <ProDataTable
+                columns={columns}
+                fetchData={fetchCustomers}
+                onExport={handleExport}
+                onAdd={() => setView("create")}
+                onAddTooltip="Create Client"
+                refreshKey={refreshKey}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+              />
             ) : (
               <form onSubmit={handleSubmit}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Customer Information</CardTitle>
+                    <CardTitle>Client Information</CardTitle>
                     <CardDescription>
-                      Enter the basic details about the customer
+                      Enter the basic details about the client
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="customerName">
-                        Customer Name <span className="text-destructive">*</span>
+                        Client <span className="text-destructive">*</span>
                       </Label>
                       <Input
                         id="customerName"
@@ -334,7 +353,7 @@ function CreateCustomer() {
                     Reset
                   </Button>
                   <Button type="submit" disabled={isLoading}>
-                    {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Customer" : "Create Customer")}
+                    {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}
                   </Button>
                 </div>
               </form>

@@ -30,6 +30,7 @@ router.use(authenticateUser(['DCC', 'ADMIN', 'TAXATION']));
 router.get('/get-active-filters', DccController.getActiveFilters);
 router.get('/get-transmission-filters', DccController.getTransmissionFilters);
 router.get('/get-customers', DccController.getCustomers);
+router.get('/get-customer-filters', DccController.getCustomerFilters);
 router.post('/create-customer', createCustomer);
 router.put('/update-customer/:id', updateCustomer);
 
