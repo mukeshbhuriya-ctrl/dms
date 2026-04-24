@@ -172,7 +172,9 @@ class DccService {
     }
 
     async getCustomerLocations(company_id, params = {}) {
-        const { page = 1, limit, search = '' } = params;
+        const { page = 1, limit, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = params;
+        const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
+
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
         const where = { company_id };
@@ -184,16 +186,38 @@ class DccService {
             ];
         }
 
+        // Column Filters
+        if (columnFilters.customer_name && columnFilters.customer_name !== 'all') {
+            where.customer = { customer_name: { in: Array.isArray(columnFilters.customer_name) ? columnFilters.customer_name : [columnFilters.customer_name] } };
+        }
+        if (columnFilters.location_name && columnFilters.location_name !== 'all') {
+            where.location_name = { in: Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name] };
+        }
+
         const [total, data] = await prisma.$transaction([
             prisma.customer_location.count({ where }),
             prisma.customer_location.findMany({
                 where, skip, take,
                 include: { customer: { select: { customer_name: true } } },
-                orderBy: { createdAt: 'desc' }
+                orderBy: { [sortBy]: sortOrder }
             })
         ]);
 
         return { data, meta: { total, page: parseInt(page), limit: (limit === undefined || limit === null) ? total : take, totalPages: (limit === undefined || limit === null) ? 1 : Math.ceil(total / take) } };
+    }
+
+    async getLocationFilters(company_id) {
+        const locations = await prisma.customer_location.findMany({
+            where: { company_id },
+            include: { customer: { select: { customer_name: true } } }
+        });
+
+        const records = locations.map(l => ({
+            customer_name: l.customer?.customer_name,
+            location_name: l.location_name
+        }));
+
+        return { records };
     }
 
     /**

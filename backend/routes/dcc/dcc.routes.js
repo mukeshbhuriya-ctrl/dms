@@ -35,6 +35,7 @@ router.post('/create-customer', createCustomer);
 router.put('/update-customer/:id', updateCustomer);
 
 router.get('/get-customer-locations', DccController.getCustomerLocations);
+router.get('/get-location-filters', DccController.getLocationFilters);
 router.post('/create-customer-location', createCustomerLocation);
 router.put('/update-customer-location/:id', updateCustomerLocation);
 

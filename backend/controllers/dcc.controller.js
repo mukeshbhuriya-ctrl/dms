@@ -69,6 +69,15 @@ class DccController {
         }
     }
 
+    async getLocationFilters(req, res) {
+        try {
+            const result = await DccService.getLocationFilters(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     async createPo(req, res) {
         try {
             const result = await DccService.createPo(req.user.company_id, req.body, req.file);
