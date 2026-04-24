@@ -44,23 +44,69 @@ class DepartmentController {
     async getDepartments(req, res) {
         try {
             const company_id = req.user.company_id;
-            const { search } = req.query;
+            const { 
+                page = 1, 
+                limit = 10, 
+                search = '', 
+                sortBy = 'name', 
+                sortOrder = 'asc',
+                columnFilters: columnFiltersRaw
+            } = req.query;
+
+            const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
+
+            const skip = (parseInt(page) - 1) * parseInt(limit);
+            const take = parseInt(limit);
 
             const where = { company_id };
             if (search) {
-                where.name = { contains: search, mode: 'insensitive' }; // Case insensitive search
+                where.name = { contains: search, mode: 'insensitive' };
             }
 
-            const departments = await prisma.department.findMany({
-                where,
-                orderBy: { name: 'asc' }
-            });
+            // Column Filters
+            if (columnFilters.name && columnFilters.name !== 'all') {
+                where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+            }
 
-            res.status(200).json({ success: true, data: departments });
+            const [total, departments] = await prisma.$transaction([
+                prisma.department.count({ where }),
+                prisma.department.findMany({
+                    where,
+                    skip,
+                    take,
+                    orderBy: { [sortBy]: sortOrder }
+                })
+            ]);
+
+            res.status(200).json({ 
+                success: true, 
+                data: departments,
+                meta: {
+                    total,
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    totalPages: Math.ceil(total / take)
+                }
+            });
 
         } catch (error) {
             console.error("Get departments error:", error);
             res.status(500).json({ success: false, message: "Internal server error" });
+        }
+    }
+
+    async getDepartmentFilters(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const departments = await prisma.department.findMany({
+                where: { company_id },
+                select: { name: true }
+            });
+
+            const records = departments.map(d => ({ name: d.name }));
+            res.status(200).json({ success: true, data: { records } });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 

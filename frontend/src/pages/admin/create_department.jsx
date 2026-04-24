@@ -13,7 +13,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
-import { DataTable } from "@/components/shared/DataTable"
+import ProDataTable from "@/components/shared/ProDataTable"
 import {
     Dialog,
     DialogContent,
@@ -31,6 +31,15 @@ function CreateDepartment() {
     const [formData, setFormData] = useState({
         name: "",
     })
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value,
+        }))
+        if (error) setError("")
+    }
     // 'list' or 'create' or 'edit' - actually using 'create' for both create/edit form view
     const [view, setView] = useState("list")
     const [editingId, setEditingId] = useState(null)
@@ -44,49 +53,63 @@ function CreateDepartment() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [departmentToDelete, setDepartmentToDelete] = useState(null)
 
-    // DataTable State
-    const [data, setData] = useState([])
-    const [loading, setLoading] = useState(true)
+    const [columnFilters, setColumnFilters] = useState({})
+    const [activeFilters, setActiveFilters] = useState({ records: [] })
 
-    const handleInputChange = (e) => {
-        const { name, value } = e.target
-        setFormData((prev) => ({
-            ...prev,
-            [name]: value,
-        }))
-        if (error) setError("")
-    }
-
-    // Fetch Departments
-    const fetchDepartments = useCallback(async () => {
+    const fetchActiveFilters = useCallback(async () => {
         try {
-            setLoading(true)
-            const responseData = await apiClient.get('/api/departments')
+            const res = await apiClient.get("/api/departments/filters")
+            if (res.success) setActiveFilters(res.data)
+        } catch (err) {
+            console.error("Error fetching department filters:", err)
+        }
+    }, [])
 
-            if (responseData.success) {
-                return {
-                    data: responseData.data || [],
-                    meta: {
-                        total: responseData.data?.length || 0,
-                        page: 1,
-                        totalPages: 1
-                    }
-                }
-            } else {
-                return { data: [], meta: {} }
+    useEffect(() => {
+        if (view === "list") {
+            fetchActiveFilters()
+        }
+    }, [fetchActiveFilters, view, refreshKey])
+
+    const activeDeptOptions = useMemo(() => {
+        const depts = [...new Set((activeFilters.records || []).map(f => f.name))].filter(Boolean).sort()
+        return depts.map(d => ({ label: d, value: d }))
+    }, [activeFilters.records])
+
+    const fetchDepartments = useCallback(async (params) => {
+        try {
+            const queryParams = { ...params };
+            if (queryParams.columnFilters) {
+                queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
             }
+            const responseData = await apiClient.get('/api/departments', queryParams)
+            return responseData;
         } catch (err) {
             console.error("Error fetching departments:", err)
-            return { data: [], meta: {} }
-        } finally {
-            setLoading(false)
+            return { success: false, data: [], meta: {} }
         }
+    }, [])
+
+    const handleEdit = useCallback((department) => {
+        setFormData({ name: department.name })
+        setEditingId(department.id)
+        setView("create")
+        setError("")
+        setSuccess("")
+    }, [])
+
+    const handleDeleteClick = useCallback((department) => {
+        setDepartmentToDelete(department)
+        setDeleteDialogOpen(true)
     }, [])
 
     const columns = useMemo(() => [
         {
             accessorKey: "name",
             header: "Department Name",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: activeDeptOptions
         },
         {
             accessorKey: "createdAt",
@@ -119,20 +142,7 @@ function CreateDepartment() {
             ),
             enableSorting: false,
         },
-    ], [])
-
-    const handleEdit = (department) => {
-        setFormData({ name: department.name })
-        setEditingId(department.id)
-        setView("create")
-        setError("")
-        setSuccess("")
-    }
-
-    const handleDeleteClick = (department) => {
-        setDepartmentToDelete(department)
-        setDeleteDialogOpen(true)
-    }
+    ], [handleEdit, handleDeleteClick, activeDeptOptions])
 
     const confirmDelete = async () => {
         if (!departmentToDelete) return
@@ -193,53 +203,37 @@ function CreateDepartment() {
                     <SidebarTrigger className="-ml-1" />
                 </header>
                 <main className="flex-1 flex flex-col overflow-auto p-6">
-                    <div className="w-full flex-1 flex flex-col">
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <h1 className="text-3xl font-bold mb-2">
-                                    {view === "list" ? "Manage Departments" : (editingId ? "Edit Department" : "Create Department")}
-                                </h1>
-                                <p className="text-muted-foreground">
-                                    {view === "list"
-                                        ? "Manage organization departments"
-                                        : "Enter department details below."}
-                                </p>
-                            </div>
-                            <div>
-                                {view === "list" ? (
-                                    <Button onClick={() => {
-                                        setFormData({ name: "" })
-                                        setEditingId(null)
-                                        setView("create")
-                                    }}>
-                                        <Plus className="mr-2 h-4 w-4" /> Create Department
-                                    </Button>
-                                ) : (
+                        <div className="w-full flex-1 flex flex-col">
+                            {view !== "list" && (
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h1 className="text-3xl font-bold mb-2">
+                                        {editingId ? "Edit Department" : "Create Department"}
+                                    </h1>
+                                    <p className="text-muted-foreground">
+                                        Enter department details below.
+                                    </p>
+                                </div>
+                                <div>
                                     <Button variant="outline" onClick={() => setView("list")}>
                                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                                     </Button>
-                                )}
+                                </div>
                             </div>
-                        </div>
+                            )}
 
-                        {view === "list" ? (
-                            <Card className="flex-1 flex flex-col">
-                                <CardHeader>
-                                    <CardTitle>Departments</CardTitle>
-                                    <CardDescription>
-                                        List of all departments.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex-1">
-                                    <DataTable
-                                        columns={columns}
-                                        fetchData={fetchDepartments}
-                                        initialData={data}
-                                        onExport={handleExport}
-                                    />
-                                </CardContent>
-                            </Card>
-                        ) : (
+                            {view === "list" ? (
+                                <ProDataTable
+                                    columns={columns}
+                                    fetchData={fetchDepartments}
+                                    onExport={handleExport}
+                                    onAdd={() => setView("create")}
+                                    onAddTooltip="Create Department"
+                                    refreshKey={refreshKey}
+                                    columnFilters={columnFilters}
+                                    onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+                                />
+                            ) : (
                             <div className="w-full">
                                 <form onSubmit={handleSubmit}>
                                     <Card>

@@ -8,6 +8,7 @@ const { authenticateUser } = require('#api/middleware/user.middleware.js');
 
 // Get departments (Open to all authenticated users for dropdowns)
 router.get('/', authenticateUser(['USER', 'ADMIN'], { requireAll: false }), departmentController.getDepartments);
+router.get('/filters', authenticateUser(['USER', 'ADMIN'], { requireAll: false }), departmentController.getDepartmentFilters);
 
 // Create, Update, Delete (Restrict to ADMIN)
 router.post('/', authenticateUser('ADMIN', { requireAll: false }), departmentController.createDepartment);
