@@ -1,4 +1,7 @@
+const path = require('path');
+const fs = require('fs');
 const prisma = require('#prisma');
+const StorageUtils = require('../utils/storage.utils');
 
 class RfqService {
     /**
@@ -448,7 +451,7 @@ class RfqService {
                 file_size: file.file_size,
                 file_mime_type: file.mime_type,
                 uploaded_at: file.uploaded_at,
-                file_url: file.file_url?.startsWith('http') ? file.file_url : `${backendUrl}/api/files/${file.file_url.split('/').pop()}`,
+                file_url: file.file_url?.startsWith('http') ? file.file_url : `${backendUrl}/api/rfq/${rfq_id}/files/${path.basename(file.file_url)}`,
                 file_path: file.file_path
             }))
         };
@@ -466,10 +469,12 @@ class RfqService {
         if (!existing) throw new Error('RFQ record not found');
 
         // Delete files from storage
-        const fs = require('fs');
         existing.attachments.forEach(att => {
-            if (att.file_path && fs.existsSync(att.file_path)) {
-                try { fs.unlinkSync(att.file_path); } catch (e) { console.error(e); }
+            if (att.file_path) {
+                const absolutePath = path.join(StorageUtils.ROOT_DIR, att.file_path);
+                if (fs.existsSync(absolutePath)) {
+                    try { fs.unlinkSync(absolutePath); } catch (e) { console.error(e); }
+                }
             }
         });
 
@@ -480,14 +485,26 @@ class RfqService {
     async addAttachments(rfq_id, files) {
         if (!files || files.length === 0) return [];
 
-        const attachmentData = files.map(file => ({
-            rfq_id,
-            file_name: file.originalname,
-            file_url: file.filename, 
-            file_path: file.path,
-            file_size: file.size,
-            mime_type: file.mimetype,
-        }));
+        const rfqDir = StorageUtils.getRfqDir(rfq_id);
+        const attachmentData = [];
+
+        for (const file of files) {
+            const destinationPath = path.join(rfqDir, file.filename);
+            
+            // Move file from temp upload dir to RFQ subdir
+            if (fs.existsSync(file.path)) {
+                fs.renameSync(file.path, destinationPath);
+            }
+
+            attachmentData.push({
+                rfq_id,
+                file_name: file.originalname,
+                file_url: `uploads/RFQ/${rfq_id}/${file.filename}`, 
+                file_path: StorageUtils.getRelativePath(destinationPath),
+                file_size: file.size,
+                mime_type: file.mimetype,
+            });
+        }
 
         await prisma.rfq_attachment.createMany({
             data: attachmentData
@@ -510,9 +527,11 @@ class RfqService {
         if (!attachment) throw new Error('Attachment not found');
 
         // Delete from filesystem
-        const fs = require('fs');
-        if (attachment.file_path && fs.existsSync(attachment.file_path)) {
-            try { fs.unlinkSync(attachment.file_path); } catch (e) { console.error(e); }
+        if (attachment.file_path) {
+            const absolutePath = path.join(StorageUtils.ROOT_DIR, attachment.file_path);
+            if (fs.existsSync(absolutePath)) {
+                try { fs.unlinkSync(absolutePath); } catch (e) { console.error(e); }
+            }
         }
 
         await prisma.rfq_attachment.delete({

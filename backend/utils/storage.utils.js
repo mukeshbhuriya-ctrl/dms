@@ -9,6 +9,10 @@ const UPLOAD_BASE = path.join(ROOT_DIR, 'uploads');
  * Utility to manage the DMS filesystem structure
  */
 class StorageUtils {
+    constructor() {
+        this.ROOT_DIR = ROOT_DIR;
+    }
+
     /**
      * Get the directory for a specific document revision
      * Pattern: {company_id}/{job_number}/documents/{document_number}/{version}/
@@ -73,6 +77,20 @@ class StorageUtils {
             this._sanitize(job_number),
             this._sanitize(document_number),
             version.toString()
+        );
+        this._ensureDir(dir);
+        return dir;
+    }
+
+    /**
+     * Get the directory for RFQ attachments
+     * Pattern: uploads/RFQ/{rfq_id}/
+     */
+    getRfqDir(rfq_id) {
+        const dir = path.join(
+            UPLOAD_BASE,
+            'RFQ',
+            this._sanitize(rfq_id)
         );
         this._ensureDir(dir);
         return dir;

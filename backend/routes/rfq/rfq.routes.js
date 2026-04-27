@@ -41,6 +41,7 @@ router.delete('/:id', RfqController.deleteById);
 // ─── Attachments ────────────────────────────────────────────────────────────
 router.get('/:id/attachments', RfqController.getAttachments);
 router.post('/:id/attachments', upload.array('files', 10), RfqController.uploadAttachments);
+router.get('/:id/files/:filename', RfqController.downloadAttachment);
 router.delete('/attachments/:attachmentId', RfqController.deleteAttachment);
 
 module.exports = router;
