@@ -278,31 +278,16 @@ export default function JobOverview() {
   return (
     <>
       <header className="flex h-16 shrink-0 items-center justify-between border-b px-6">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <SidebarTrigger className="-ml-2" />
-          <div>
+          <div className="min-w-0">
             <h1 className="text-lg font-bold tracking-tight text-slate-900">Job Overview</h1>
             <p className="text-xs text-slate-500">Job-centric snapshot across every linked module.</p>
           </div>
         </div>
-
-        <div className="flex w-[420px] items-center gap-4">
-          <div className="flex-1">
-            <SearchableSelect
-              options={jobs}
-              value={selectedJobId}
-              onValueChange={setSelectedJobId}
-              placeholder={isJobsLoading ? "Loading jobs..." : "Select Job Number..."}
-              disabled={isJobsLoading || isLoading}
-            />
-          </div>
-          <Button variant="outline" size="icon" disabled={!selectedJobId || isLoading} onClick={refreshSnapshot}>
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
       </header>
 
-      <main className="flex-1 overflow-auto bg-slate-50/50 p-6">
+      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">
         {!selectedJobId ? (
           <div className="flex h-[40vh] flex-col items-center justify-center text-center">
             <FolderGit2 className="mb-4 h-12 w-12 text-slate-300" />
@@ -328,6 +313,28 @@ export default function JobOverview() {
           </div>
         ) : data ? (
           <div className="space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center">
+              <div className="min-w-0 flex-1">
+                <SearchableSelect
+                  options={jobs}
+                  value={selectedJobId}
+                  onValueChange={setSelectedJobId}
+                  placeholder={isJobsLoading ? "Loading jobs..." : "Select Job Number..."}
+                  disabled={isJobsLoading || isLoading}
+                  className="min-w-0"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 self-start md:self-auto"
+                disabled={!selectedJobId || isLoading}
+                onClick={refreshSnapshot}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+
             <Card className="overflow-hidden border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70">
                 <CardTitle className="text-base font-bold text-slate-900">Job Details</CardTitle>
@@ -336,20 +343,20 @@ export default function JobOverview() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 bg-white p-6">
-                <div className="flex flex-wrap items-start gap-x-12 gap-y-4 border-b border-slate-100 pb-5">
-                  <div>
+                <div className="grid gap-4 border-b border-slate-100 pb-5 md:grid-cols-3">
+                  <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Job Number</p>
                     <p className="mt-1 text-2xl font-black tracking-tight text-slate-900">
                       {data.job.jobNumber || selectedJobOption?.rawJobNumber || "Selected Job"}
                     </p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Customer</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">{data.job.customerName}</p>
+                    <p className="mt-1 break-words text-sm font-semibold text-slate-800">{data.job.customerName}</p>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">PO Number</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-800">{data.job.poNumber}</p>
+                    <p className="mt-1 break-words text-sm font-semibold text-slate-800">{data.job.poNumber}</p>
                   </div>
                 </div>
 
