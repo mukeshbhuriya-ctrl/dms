@@ -413,25 +413,16 @@ function ListView({ onCreateClick, onEditClick }) {
     };
 
     return (
-        <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold mb-1">RFQ Register</h1>
-                    <p className="text-muted-foreground">View and manage all RFQ (Request for Quotation) records.</p>
-                </div>
-                <Button onClick={onCreateClick}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create
-                </Button>
-            </div>
-
+        <div className="flex-1 flex flex-col min-h-0">
             <ProDataTable 
                 columns={columns} 
                 fetchData={fetchData} 
+                onAdd={onCreateClick}
                 onExport={handleExport}
                 onImport={handleImportExcel}
                 onDownloadTemplate={handleDownloadTemplate}
                 columnFilters={columnFilters}
+                onAddTooltip="Create New"
                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
             />
 
