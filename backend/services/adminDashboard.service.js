@@ -10,6 +10,31 @@ function toStatusMap(rows = [], key = 'status') {
     }, {});
 }
 
+function sumMapValues(map = {}) {
+    return Object.values(map).reduce((sum, value) => sum + (Number(value) || 0), 0);
+}
+
+function pickCount(map = {}, keys = []) {
+    return keys.reduce((sum, key) => sum + (Number(map?.[key] || 0)), 0);
+}
+
+function deriveModuleHealth({ total = 0, approved = 0, pending = 0, rejected = 0, open = 0, draft = 0, sent = 0 }) {
+    if (!total) return 'Not Started';
+    if (rejected > 0) return 'Attention Required';
+    if (open > 0) return 'Open Issues';
+    if (pending > 0) return 'In Review';
+    if (draft > 0 && approved === 0 && sent === 0) return 'Draft Stage';
+    if (approved === total || sent === total) return 'Healthy';
+    return 'Active';
+}
+
+function healthTone(status) {
+    if (status === 'Attention Required' || status === 'Open Issues') return 'critical';
+    if (status === 'In Review' || status === 'Draft Stage' || status === 'Active') return 'warning';
+    if (status === 'Healthy') return 'healthy';
+    return 'idle';
+}
+
 function startOfDay(date) {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
@@ -70,8 +95,10 @@ class AdminDashboardService {
             totalDepartments,
             totalQcGroups,
             totalDocumentMasters,
-            totalAssignedDocuments,
-            totalDocumentVersions,
+            totalSingleDocuments,
+            totalGroupDocuments,
+            totalSingleDocumentVersions,
+            totalGroupDocumentVersions,
             totalTransmissions,
             totalTransmissionDocuments,
             totalDrawingTransmittals,
@@ -89,8 +116,10 @@ class AdminDashboardService {
             totalRfq,
             totalEstimators,
             totalMediators,
+            singleDocumentStatusRows,
             groupDocumentStatusRows,
-            documentVersionStatusRows,
+            singleDocumentVersionStatusRows,
+            groupDocumentVersionStatusRows,
             transmissionStatusRows,
             transmissionClientStatusRows,
             transmissionDocumentClientStatusRows,
@@ -105,6 +134,16 @@ class AdminDashboardService {
             ncrWorkflowRows,
             rfqClientStatusRows,
             rfqShrenoStatusRows,
+            recentJobs,
+            recentTransmissions,
+            recentDrawingTransmittals,
+            recentNcr,
+            recentDcr,
+            recentMhc,
+            recentQap,
+            recentHydro,
+            recentDishEnd,
+            recentFinalInspection,
         ] = await Promise.all([
             prisma.customer.count({ where: { company_id } }),
             prisma.customer_location.count({ where: { company_id } }),
@@ -115,7 +154,9 @@ class AdminDashboardService {
             prisma.qc_group.count({ where: { company_id } }),
 
             prisma.document_master.count({ where: { company_id } }),
+            prisma.single_document.count({ where: { company_id } }),
             prisma.group_document.count({ where: { company_id } }),
+            prisma.document_version.count({ where: { single_document: { company_id } } }),
             prisma.document_version.count({ where: { group_document: { company_id } } }),
             prisma.transmission.count({ where: { company_id } }),
             prisma.transmission_document.count({ where: { transmission: { company_id } } }),
@@ -139,7 +180,9 @@ class AdminDashboardService {
             prisma.estimator.count({ where: { company_id } }),
             prisma.mediator.count({ where: { company_id } }),
 
+            prisma.single_document.groupBy({ by: ['status'], where: { company_id }, _count: { _all: true } }),
             prisma.group_document.groupBy({ by: ['status'], where: { company_id }, _count: { _all: true } }),
+            prisma.document_version.groupBy({ by: ['status'], where: { single_document: { company_id } }, _count: { _all: true } }),
             prisma.document_version.groupBy({ by: ['status'], where: { group_document: { company_id } }, _count: { _all: true } }),
             prisma.transmission.groupBy({ by: ['status'], where: { company_id }, _count: { _all: true } }),
             prisma.transmission.groupBy({ by: ['client_status'], where: { company_id }, _count: { _all: true } }),
@@ -155,6 +198,111 @@ class AdminDashboardService {
             prisma.ncr.groupBy({ by: ['ncr_status'], where: { company_id }, _count: { _all: true } }),
             prisma.rfq_register.groupBy({ by: ['client_status'], where: { company_id }, _count: { _all: true } }),
             prisma.rfq_register.groupBy({ by: ['shreno_status'], where: { company_id }, _count: { _all: true } }),
+            prisma.job.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 6,
+                include: {
+                    customer: { select: { customer_name: true } },
+                    po: { select: { po_number: true } },
+                    _count: {
+                        select: {
+                            single_document: true,
+                            weld_joint_plans: true,
+                            material_heat_charts: true,
+                            quality_assurance_plans: true,
+                            hydrostatic_test_reports: true,
+                            dish_end_inspection_reports: true,
+                            final_inspection_reports: true,
+                            ncr: true,
+                            dcr: true,
+                            drawing_transmittal_jobs: true,
+                        },
+                    },
+                },
+            }),
+            prisma.transmission.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+                select: {
+                    id: true,
+                    transmission_number: true,
+                    status: true,
+                    client_status: true,
+                    createdAt: true,
+                },
+            }),
+            prisma.drawing_transmittal.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+                select: {
+                    id: true,
+                    ref_no: true,
+                    status: true,
+                    createdAt: true,
+                },
+            }),
+            prisma.ncr.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+                select: {
+                    id: true,
+                    ncr_no: true,
+                    msn: true,
+                    status: true,
+                    ncr_status: true,
+                    createdAt: true,
+                },
+            }),
+            prisma.dcr.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+                select: {
+                    id: true,
+                    dcr_no: true,
+                    job: { select: { job_number: true } },
+                    createdAt: true,
+                    dcr_status: {
+                        orderBy: { createdAt: 'desc' },
+                        take: 1,
+                        select: { status: true },
+                    },
+                },
+            }),
+            prisma.material_heat_chart.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 3,
+                select: { id: true, report_no: true, status: true, createdAt: true, job: { select: { job_number: true } } },
+            }),
+            prisma.quality_assurance_plan.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 3,
+                select: { id: true, report_no: true, status: true, createdAt: true, job: { select: { job_number: true } } },
+            }),
+            prisma.hydrostatic_test_report.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 3,
+                select: { id: true, report_no: true, status: true, createdAt: true, job: { select: { job_number: true } } },
+            }),
+            prisma.dish_end_inspection_report.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 3,
+                select: { id: true, report_no: true, status: true, createdAt: true, job: { select: { job_number: true } } },
+            }),
+            prisma.final_inspection_report.findMany({
+                where: { company_id },
+                orderBy: { createdAt: 'desc' },
+                take: 3,
+                select: { id: true, report_no: true, status: true, createdAt: true, job: { select: { job_number: true } } },
+            }),
         ]);
 
         const activeWeldStages = await prisma.weld_joint_stage.count({
@@ -193,6 +341,282 @@ class AdminDashboardService {
         }, { overall: {}, design: {}, quality: {} });
 
         const rfqFinancials = await RfqService.getDashboardStats(company_id);
+        const singleAssignmentStatus = toStatusMap(singleDocumentStatusRows);
+        const groupAssignmentStatus = toStatusMap(groupDocumentStatusRows);
+        const assignmentStatus = Object.entries({
+            ...singleAssignmentStatus,
+            ...groupAssignmentStatus,
+        }).reduce((acc, [key]) => {
+            acc[key] = (singleAssignmentStatus[key] || 0) + (groupAssignmentStatus[key] || 0);
+            return acc;
+        }, {});
+
+        const singleVersionStatus = toStatusMap(singleDocumentVersionStatusRows);
+        const groupVersionStatus = toStatusMap(groupDocumentVersionStatusRows);
+        const versionStatus = Object.entries({
+            ...singleVersionStatus,
+            ...groupVersionStatus,
+        }).reduce((acc, [key]) => {
+            acc[key] = (singleVersionStatus[key] || 0) + (groupVersionStatus[key] || 0);
+            return acc;
+        }, {});
+
+        const transmissionStatus = toStatusMap(transmissionStatusRows);
+        const transmissionClientStatus = toStatusMap(transmissionClientStatusRows, 'client_status');
+        const transmissionDocumentClientStatus = toStatusMap(transmissionDocumentClientStatusRows, 'client_status');
+        const drawingTransmittalStatus = toStatusMap(drawingTransmittalStatusRows);
+        const weldStageStatus = toStatusMap(weldStageStatusRows);
+        const mhcStatus = toStatusMap(mhcStatusRows);
+        const qapStatus = toStatusMap(qapStatusRows);
+        const hydroStatus = toStatusMap(hydroStatusRows);
+        const dishEndStatus = toStatusMap(dishEndStatusRows);
+        const finalInspectionStatus = toStatusMap(finalInspectionStatusRows);
+        const ncrStatus = toStatusMap(ncrStatusRows);
+        const ncrWorkflow = toStatusMap(ncrWorkflowRows, 'ncr_status');
+        const rfqClientStatus = toStatusMap(rfqClientStatusRows, 'client_status');
+        const rfqShrenoStatus = toStatusMap(rfqShrenoStatusRows, 'shreno_status');
+
+        const totalAssignedDocuments = totalSingleDocuments + totalGroupDocuments;
+        const totalDocumentVersions = totalSingleDocumentVersions + totalGroupDocumentVersions;
+        const totalQualityReports = totalMhc + totalQap + totalHydro + totalDishEnd + totalFinalInspection;
+        const openExceptions = pickCount(ncrStatus, ['OPEN']) + pickCount(dcrStatus.overall, ['PENDING', 'DRAFT', 'SUBMITTED']);
+        const pendingApprovals =
+            pickCount(versionStatus, ['UPLOADED', 'PENDING', 'PENDING FOR APPROVAL']) +
+            pickCount(transmissionDocumentClientStatus, ['PENDING', 'COMMENTED']) +
+            pickCount(dcrStatus.overall, ['PENDING']) +
+            pickCount(ncrWorkflow, ['PENDING', 'DRAFT']) +
+            pickCount(mhcStatus, ['PENDING', 'DRAFT']) +
+            pickCount(qapStatus, ['PENDING', 'DRAFT']) +
+            pickCount(hydroStatus, ['PENDING', 'DRAFT']) +
+            pickCount(dishEndStatus, ['PENDING', 'DRAFT']) +
+            pickCount(finalInspectionStatus, ['PENDING', 'DRAFT']);
+
+        const moduleHealth = [
+            {
+                key: 'dms',
+                title: 'DMS',
+                route: '/dcc/documents',
+                total: totalAssignedDocuments,
+                pending: pickCount(assignmentStatus, ['PENDING', 'UPLOADED', 'PENDING FOR APPROVAL']),
+                approved: pickCount(assignmentStatus, ['APPROVED']),
+                rejected: pickCount(assignmentStatus, ['REJECTED']),
+                status: deriveModuleHealth({
+                    total: totalAssignedDocuments,
+                    pending: pickCount(assignmentStatus, ['PENDING', 'UPLOADED', 'PENDING FOR APPROVAL']),
+                    approved: pickCount(assignmentStatus, ['APPROVED']),
+                    rejected: pickCount(assignmentStatus, ['REJECTED']),
+                }),
+            },
+            {
+                key: 'transmissions',
+                title: 'Transmissions',
+                route: '/dcc/client-approval-status',
+                total: totalTransmissions,
+                pending: pickCount(transmissionClientStatus, ['PENDING']),
+                approved: pickCount(transmissionClientStatus, ['APPROVED']),
+                rejected: pickCount(transmissionClientStatus, ['REJECTED']),
+                status: deriveModuleHealth({
+                    total: totalTransmissions,
+                    pending: pickCount(transmissionClientStatus, ['PENDING', 'COMMENTED']),
+                    approved: pickCount(transmissionClientStatus, ['APPROVED']),
+                    rejected: pickCount(transmissionClientStatus, ['REJECTED']),
+                    sent: pickCount(transmissionStatus, ['SENT']),
+                }),
+            },
+            {
+                key: 'dtn',
+                title: 'Drawing Transmittal',
+                route: '/dtn/drawing-transmittal',
+                total: totalDrawingTransmittals,
+                pending: pickCount(drawingTransmittalStatus, ['DRAFT']),
+                approved: pickCount(drawingTransmittalStatus, ['SENT', 'DISTRIBUTED']),
+                rejected: 0,
+                status: deriveModuleHealth({
+                    total: totalDrawingTransmittals,
+                    draft: pickCount(drawingTransmittalStatus, ['DRAFT']),
+                    sent: pickCount(drawingTransmittalStatus, ['SENT', 'DISTRIBUTED']),
+                }),
+            },
+            {
+                key: 'weld',
+                title: 'Welding Pipeline',
+                route: '/view-weldingjoints',
+                total: totalWeldStages,
+                pending: pickCount(weldStageStatus, ['PENDING', 'SUBMITTED']),
+                approved: pickCount(weldStageStatus, ['APPROVED']),
+                rejected: pickCount(weldStageStatus, ['REJECTED']),
+                status: deriveModuleHealth({
+                    total: totalWeldStages,
+                    pending: pickCount(weldStageStatus, ['PENDING', 'SUBMITTED']),
+                    approved: pickCount(weldStageStatus, ['APPROVED']),
+                    rejected: pickCount(weldStageStatus, ['REJECTED']),
+                }),
+            },
+            {
+                key: 'quality',
+                title: 'Quality',
+                route: '/material-heat-chart',
+                total: totalQualityReports,
+                pending:
+                    pickCount(mhcStatus, ['PENDING', 'DRAFT']) +
+                    pickCount(qapStatus, ['PENDING', 'DRAFT']) +
+                    pickCount(hydroStatus, ['PENDING', 'DRAFT']) +
+                    pickCount(dishEndStatus, ['PENDING', 'DRAFT']) +
+                    pickCount(finalInspectionStatus, ['PENDING', 'DRAFT']),
+                approved:
+                    pickCount(mhcStatus, ['APPROVED']) +
+                    pickCount(qapStatus, ['APPROVED']) +
+                    pickCount(hydroStatus, ['APPROVED']) +
+                    pickCount(dishEndStatus, ['APPROVED']) +
+                    pickCount(finalInspectionStatus, ['APPROVED']),
+                rejected:
+                    pickCount(mhcStatus, ['REJECTED']) +
+                    pickCount(qapStatus, ['REJECTED']) +
+                    pickCount(hydroStatus, ['REJECTED']) +
+                    pickCount(dishEndStatus, ['REJECTED']) +
+                    pickCount(finalInspectionStatus, ['REJECTED']),
+                status: deriveModuleHealth({
+                    total: totalQualityReports,
+                    pending:
+                        pickCount(mhcStatus, ['PENDING', 'DRAFT']) +
+                        pickCount(qapStatus, ['PENDING', 'DRAFT']) +
+                        pickCount(hydroStatus, ['PENDING', 'DRAFT']) +
+                        pickCount(dishEndStatus, ['PENDING', 'DRAFT']) +
+                        pickCount(finalInspectionStatus, ['PENDING', 'DRAFT']),
+                    approved:
+                        pickCount(mhcStatus, ['APPROVED']) +
+                        pickCount(qapStatus, ['APPROVED']) +
+                        pickCount(hydroStatus, ['APPROVED']) +
+                        pickCount(dishEndStatus, ['APPROVED']) +
+                        pickCount(finalInspectionStatus, ['APPROVED']),
+                    rejected:
+                        pickCount(mhcStatus, ['REJECTED']) +
+                        pickCount(qapStatus, ['REJECTED']) +
+                        pickCount(hydroStatus, ['REJECTED']) +
+                        pickCount(dishEndStatus, ['REJECTED']) +
+                        pickCount(finalInspectionStatus, ['REJECTED']),
+                }),
+            },
+            {
+                key: 'exceptions',
+                title: 'NCR / DCR',
+                route: '/ncr/create-ncr',
+                total: totalNcr + totalDcr,
+                pending: pickCount(dcrStatus.overall, ['PENDING', 'DRAFT']) + pickCount(ncrWorkflow, ['PENDING', 'DRAFT']),
+                approved: pickCount(dcrStatus.overall, ['APPROVED']) + pickCount(ncrStatus, ['CLOSED']),
+                rejected: 0,
+                status: deriveModuleHealth({
+                    total: totalNcr + totalDcr,
+                    pending: pickCount(dcrStatus.overall, ['PENDING', 'DRAFT']) + pickCount(ncrWorkflow, ['PENDING', 'DRAFT']),
+                    approved: pickCount(dcrStatus.overall, ['APPROVED']) + pickCount(ncrStatus, ['CLOSED']),
+                    open: pickCount(ncrStatus, ['OPEN']),
+                }),
+            },
+            {
+                key: 'rfq',
+                title: 'RFQ',
+                route: '/marketing/rfq-register',
+                total: totalRfq,
+                pending: pickCount(rfqClientStatus, ['UNDER REVIEW', 'PENDING']),
+                approved: pickCount(rfqShrenoStatus, ['WON', 'ORDER RECEIVED']),
+                rejected: 0,
+                status: deriveModuleHealth({
+                    total: totalRfq,
+                    pending: pickCount(rfqClientStatus, ['UNDER REVIEW', 'PENDING']),
+                    approved: pickCount(rfqShrenoStatus, ['WON', 'ORDER RECEIVED']),
+                }),
+            },
+        ].map((item) => ({
+            ...item,
+            tone: healthTone(item.status),
+        }));
+
+        const modulesWithActivity = moduleHealth.filter((item) => item.total > 0).length;
+        const recentActivity = [
+            ...recentTransmissions.map((item) => ({
+                id: `transmission-${item.id}`,
+                module: 'Transmissions',
+                title: item.transmission_number,
+                subtitle: `Internal ${item.status} / Client ${item.client_status}`,
+                status: item.client_status || item.status,
+                date: item.createdAt,
+                route: '/dcc/client-approval-status',
+            })),
+            ...recentDrawingTransmittals.map((item) => ({
+                id: `dtn-${item.id}`,
+                module: 'DTN',
+                title: item.ref_no,
+                subtitle: 'Drawing transmittal created',
+                status: item.status,
+                date: item.createdAt,
+                route: '/dtn/drawing-transmittal',
+            })),
+            ...recentNcr.map((item) => ({
+                id: `ncr-${item.id}`,
+                module: 'NCR',
+                title: item.ncr_no,
+                subtitle: `Job ${item.msn}`,
+                status: item.ncr_status || item.status,
+                date: item.createdAt,
+                route: '/ncr/create-ncr',
+            })),
+            ...recentDcr.map((item) => ({
+                id: `dcr-${item.id}`,
+                module: 'DCR',
+                title: item.dcr_no,
+                subtitle: `Job ${item.job?.job_number || 'N/A'}`,
+                status: item.dcr_status?.[0]?.status || 'PENDING',
+                date: item.createdAt,
+                route: '/dcr/dcr-request',
+            })),
+            ...recentMhc.map((item) => ({
+                id: `mhc-${item.id}`,
+                module: 'MHC',
+                title: item.report_no,
+                subtitle: `Job ${item.job?.job_number || 'N/A'}`,
+                status: item.status,
+                date: item.createdAt,
+                route: '/material-heat-chart',
+            })),
+            ...recentQap.map((item) => ({
+                id: `qap-${item.id}`,
+                module: 'QAP',
+                title: item.report_no,
+                subtitle: `Job ${item.job?.job_number || 'N/A'}`,
+                status: item.status,
+                date: item.createdAt,
+                route: '/create-qarp',
+            })),
+            ...recentHydro.map((item) => ({
+                id: `hydro-${item.id}`,
+                module: 'Hydro',
+                title: item.report_no,
+                subtitle: `Job ${item.job?.job_number || 'N/A'}`,
+                status: item.status,
+                date: item.createdAt,
+                route: '/hydrostatic-pressure-test',
+            })),
+            ...recentDishEnd.map((item) => ({
+                id: `dish-${item.id}`,
+                module: 'Dish End',
+                title: item.report_no,
+                subtitle: `Job ${item.job?.job_number || 'N/A'}`,
+                status: item.status,
+                date: item.createdAt,
+                route: '/inspections/dish-end',
+            })),
+            ...recentFinalInspection.map((item) => ({
+                id: `final-${item.id}`,
+                module: 'Final Inspection',
+                title: item.report_no,
+                subtitle: `Job ${item.job?.job_number || 'N/A'}`,
+                status: item.status,
+                date: item.createdAt,
+                route: '/inspections/final',
+            })),
+        ]
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 12);
 
         return {
             generatedAt: new Date().toISOString(),
@@ -205,29 +629,46 @@ class AdminDashboardService {
                 departments: totalDepartments,
                 qcGroups: totalQcGroups,
             },
+            executive: {
+                modulesTracked: moduleHealth.length,
+                modulesWithActivity,
+                pendingApprovals,
+                openExceptions,
+                totalWorkflowRecords:
+                    totalAssignedDocuments +
+                    totalDocumentVersions +
+                    totalTransmissions +
+                    totalDrawingTransmittals +
+                    totalWeldStages +
+                    totalQualityReports +
+                    totalNcr +
+                    totalDcr,
+            },
             dms: {
                 documentMasters: totalDocumentMasters,
                 assignedDocuments: totalAssignedDocuments,
                 documentVersions: totalDocumentVersions,
                 transmissions: totalTransmissions,
                 transmissionDocuments: totalTransmissionDocuments,
-                assignmentStatus: toStatusMap(groupDocumentStatusRows),
-                versionStatus: toStatusMap(documentVersionStatusRows),
-                transmissionStatus: toStatusMap(transmissionStatusRows),
-                transmissionClientStatus: toStatusMap(transmissionClientStatusRows, 'client_status'),
-                transmissionDocumentClientStatus: toStatusMap(transmissionDocumentClientStatusRows, 'client_status'),
+                singleDocuments: totalSingleDocuments,
+                groupDocuments: totalGroupDocuments,
+                assignmentStatus,
+                versionStatus,
+                transmissionStatus,
+                transmissionClientStatus,
+                transmissionDocumentClientStatus,
             },
             dtn: {
                 drawingTransmittals: totalDrawingTransmittals,
                 drawingVersions: totalDrawingVersions,
-                drawingTransmittalStatus: toStatusMap(drawingTransmittalStatusRows),
+                drawingTransmittalStatus,
             },
             weld: {
                 weldPlans: totalWeldPlans,
                 weldJoints: totalWeldJoints,
                 weldStages: totalWeldStages,
                 activeWeldStages,
-                stageStatus: toStatusMap(weldStageStatusRows),
+                stageStatus: weldStageStatus,
             },
             quality: {
                 mhcReports: totalMhc,
@@ -235,16 +676,16 @@ class AdminDashboardService {
                 hydroReports: totalHydro,
                 dishEndReports: totalDishEnd,
                 finalInspectionReports: totalFinalInspection,
-                mhcStatus: toStatusMap(mhcStatusRows),
-                qapStatus: toStatusMap(qapStatusRows),
-                hydroStatus: toStatusMap(hydroStatusRows),
-                dishEndStatus: toStatusMap(dishEndStatusRows),
-                finalInspectionStatus: toStatusMap(finalInspectionStatusRows),
+                mhcStatus,
+                qapStatus,
+                hydroStatus,
+                dishEndStatus,
+                finalInspectionStatus,
             },
             ncr: {
                 total: totalNcr,
-                status: toStatusMap(ncrStatusRows),
-                workflow: toStatusMap(ncrWorkflowRows, 'ncr_status'),
+                status: ncrStatus,
+                workflow: ncrWorkflow,
             },
             dcr: {
                 total: totalDcr,
@@ -254,14 +695,37 @@ class AdminDashboardService {
                 total: totalRfq,
                 estimators: totalEstimators,
                 mediators: totalMediators,
-                clientStatus: toStatusMap(rfqClientStatusRows, 'client_status'),
-                shrenoStatus: toStatusMap(rfqShrenoStatusRows, 'shreno_status'),
+                clientStatus: rfqClientStatus,
+                shrenoStatus: rfqShrenoStatus,
                 financials: rfqFinancials?.financials || {
                     totalQuoted: 0,
                     orderReceivedValue: 0,
                     winPercentage: '0.00'
                 }
-            }
+            },
+            moduleHealth,
+            portfolio: {
+                recentJobs: recentJobs.map((job) => ({
+                    id: job.id,
+                    jobNumber: job.job_number,
+                    customerName: job.customer?.customer_name || 'N/A',
+                    poNumber: job.po?.po_number || 'N/A',
+                    equipmentName: job.equipement_name || 'N/A',
+                    createdAt: job.createdAt,
+                    activityCount:
+                        (job._count?.single_document || 0) +
+                        (job._count?.weld_joint_plans || 0) +
+                        (job._count?.material_heat_charts || 0) +
+                        (job._count?.quality_assurance_plans || 0) +
+                        (job._count?.hydrostatic_test_reports || 0) +
+                        (job._count?.dish_end_inspection_reports || 0) +
+                        (job._count?.final_inspection_reports || 0) +
+                        (job._count?.ncr || 0) +
+                        (job._count?.dcr || 0) +
+                        (job._count?.drawing_transmittal_jobs || 0),
+                })),
+            },
+            recentActivity,
         };
     }
 
