@@ -501,7 +501,7 @@ function ListView({ onCreateClick, onEditClick }) {
       header: "Actions",
       cell: (row) => {
         const canReview = isQE && (row.status?.toLowerCase() === "pending")
-        const canEdit = (isAdmin || !isQE) && (row.status?.toLowerCase() !== "approved")
+        const canEdit = (isAdmin || isQE) && (row.status?.toLowerCase() !== "approved")
 
         return (
           <div className="flex gap-2">

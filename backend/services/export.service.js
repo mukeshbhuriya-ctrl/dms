@@ -334,60 +334,81 @@ class ExportService {
             orderBy: { createdAt: 'desc' },
         });
 
-        const flatData = reports.map(r => {
+        const flatData = [];
+        for (const r of reports) {
             const items = r.items || [];
             let currentHeading = "-";
 
-            const itemRows = items.map(item => {
-                if (item.is_heading) {
-                    currentHeading = item.heading_text || item.item_no || "HEADING";
+            if (items.length === 0) {
+                // If no items, at least show the header record
+                flatData.push({
+                    msn: r.msn,
+                    client: r.client,
+                    po_no: r.po_no,
+                    project_id: r.project_id || 'N/A',
+                    equipment_name: r.equipment_name || 'N/A',
+                    tag_no: r.tag_no || 'N/A',
+                    code: r.code || 'N/A',
+                    shreno_drg_no: r.shreno_drg_no || 'N/A',
+                    customer_drg_no: r.customer_drg_no || 'N/A',
+                    report_no: r.report_no,
+                    inspection_by: r.inspection_by || 'N/A',
+                    heading: '-',
+                    is_heading: 'No',
+                    item_no: '-',
+                    description: 'No items recorded',
+                    size: '-',
+                    material_spec: '-',
+                    qty_unit: '-',
+                    heat_no: '-',
+                    grn_no: '-',
+                    mtr_no: '-',
+                    manufacturer: '-',
+                    remarks: '-',
+                    status: (r.status || 'draft').toUpperCase(),
+                    created_at: r.createdAt.toLocaleString(),
+                });
+            } else {
+                for (const item of items) {
+                    if (item.is_heading) {
+                        currentHeading = item.heading_text || item.item_no || "HEADING";
+                    }
+                    flatData.push({
+                        msn: r.msn,
+                        client: r.client,
+                        po_no: r.po_no,
+                        project_id: r.project_id || 'N/A',
+                        equipment_name: r.equipment_name || 'N/A',
+                        tag_no: r.tag_no || 'N/A',
+                        code: r.code || 'N/A',
+                        shreno_drg_no: r.shreno_drg_no || 'N/A',
+                        customer_drg_no: r.customer_drg_no || 'N/A',
+                        report_no: r.report_no,
+                        inspection_by: r.inspection_by || 'N/A',
+                        heading: currentHeading,
+                        is_heading: item.is_heading ? "Yes" : "No",
+                        item_no: item.item_no || '-',
+                        description: item.description || '-',
+                        size: item.size || '-',
+                        material_spec: item.material_spec || '-',
+                        qty_unit: item.quantity_unit || '-',
+                        heat_no: item.heat_no || '-',
+                        grn_no: item.grn_app_ap_no || '-',
+                        mtr_no: item.mtr_no || '-',
+                        manufacturer: item.manufacturer || '-',
+                        remarks: item.remarks || '-',
+                        status: (r.status || 'draft').toUpperCase(),
+                        created_at: r.createdAt.toLocaleString(),
+                    });
                 }
-                return {
-                    heading: currentHeading,
-                    item_no: item.item_no || '-',
-                    description: item.description || '-',
-                    size: item.size || '-',
-                    material_spec: item.material_spec || '-',
-                    qty_unit: item.quantity_unit || '-',
-                    heat_no: item.heat_no || '-',
-                    mtr_no: item.mtr_no || '-',
-                    manufacturer: item.manufacturer || '-',
-                    remarks: item.remarks || '-',
-                };
-            });
-
-            return {
-                msn: r.msn,
-                client: r.client,
-                po_no: r.po_no,
-                project_id: r.project_id || 'N/A',
-                equipment_name: r.equipment_name || 'N/A',
-                tag_no: r.tag_no || 'N/A',
-                code: r.code || 'N/A',
-                shreno_drg_no: r.shreno_drg_no || 'N/A',
-                customer_drg_no: r.customer_drg_no || 'N/A',
-                report_no: r.report_no,
-                inspection_by: r.inspection_by || 'N/A',
-                // Table Data (Aggregated)
-                heading: itemRows.map(ir => ir.heading).join('\n') || 'N/A',
-                item_no: itemRows.map(ir => ir.item_no).join('\n') || 'N/A',
-                description: itemRows.map(ir => ir.description).join('\n') || 'N/A',
-                size: itemRows.map(ir => ir.size).join('\n') || 'N/A',
-                material_spec: itemRows.map(ir => ir.material_spec).join('\n') || 'N/A',
-                qty_unit: itemRows.map(ir => ir.qty_unit).join('\n') || 'N/A',
-                heat_no: itemRows.map(ir => ir.heat_no).join('\n') || 'N/A',
-                mtr_no: itemRows.map(ir => ir.mtr_no).join('\n') || 'N/A',
-                manufacturer: itemRows.map(ir => ir.manufacturer).join('\n') || 'N/A',
-                remarks: itemRows.map(ir => ir.remarks).join('\n') || 'N/A',
-                status: (r.status || 'draft').toUpperCase(),
-                created_at: r.createdAt.toLocaleString(),
-            };
-        });
+            }
+        }
 
         const sheets = [
             {
-                name: 'MHC Full Report',
+                name: 'MHC Flat Report',
                 columns: [
+                    { header: 'REPORT NO', key: 'report_no', width: 25 },
                     { header: 'MSN / JOB NO', key: 'msn', width: 15 },
                     { header: 'CLIENT', key: 'client', width: 20 },
                     { header: 'PO NO', key: 'po_no', width: 15 },
@@ -397,18 +418,19 @@ class ExportService {
                     { header: 'CODE', key: 'code', width: 15 },
                     { header: 'SHRENO DRG NO', key: 'shreno_drg_no', width: 20 },
                     { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
-                    { header: 'REPORT NO', key: 'report_no', width: 25 },
                     { header: 'INSPECTION BY', key: 'inspection_by', width: 15 },
-                    { header: 'HEADING', key: 'heading', width: 20 },
+                    { header: 'IS HEADING', key: 'is_heading', width: 12 },
+                    { header: 'HEADING / SECTION', key: 'heading', width: 20 },
                     { header: 'ITEM NO./PART NO.', key: 'item_no', width: 20 },
                     { header: 'DESCRIPTION', key: 'description', width: 30 },
                     { header: 'SIZE', key: 'size', width: 20 },
                     { header: 'MATERIAL SPECIFICATION', key: 'material_spec', width: 25 },
                     { header: 'QUANTITY / UNIT', key: 'qty_unit', width: 15 },
-                    { header: 'HEAT NO. / CAST NO. / PLATE NO.', key: 'heat_no', width: 30 },
+                    { header: 'HEAT NO / CAST NO', key: 'heat_no', width: 25 },
+                    { header: 'GRN NO', key: 'grn_no', width: 20 },
                     { header: 'MTR NO.', key: 'mtr_no', width: 15 },
                     { header: 'MANUFACTURER NAME', key: 'manufacturer', width: 20 },
-                    { header: 'REMARKS NCR/DCR', key: 'remarks', width: 25 },
+                    { header: 'REMARKS NCR/DCR', key: 'remarks', width: 30 },
                     { header: 'STATUS', key: 'status', width: 12 },
                     { header: 'CREATED DATE', key: 'created_at', width: 20 },
                 ],
