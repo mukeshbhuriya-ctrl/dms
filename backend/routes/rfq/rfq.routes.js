@@ -3,6 +3,7 @@ const router = express.Router();
 
 const { authenticateUser } = require('#api/middleware/user.middleware.js');
 const RfqController = require('../../controllers/rfq.controller');
+const { upload } = require('../../utils/upload');
 
 router.use(authenticateUser(['ADMIN', 'MARKETING']));
 
@@ -36,5 +37,10 @@ router.delete('/mediators/:id', RfqController.deleteMediator);
 // ─── Generic ID Routes (Must be last) ──────────────────────────────────────
 router.get('/:id', RfqController.getById);
 router.delete('/:id', RfqController.deleteById);
+
+// ─── Attachments ────────────────────────────────────────────────────────────
+router.get('/:id/attachments', RfqController.getAttachments);
+router.post('/:id/attachments', upload.array('files', 10), RfqController.uploadAttachments);
+router.delete('/attachments/:attachmentId', RfqController.deleteAttachment);
 
 module.exports = router;

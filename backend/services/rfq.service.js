@@ -416,6 +416,7 @@ class RfqService {
             where: { id, company_id },
             include: {
                 items: { orderBy: { sr_no: 'asc' } },
+                attachments: { orderBy: { uploaded_at: 'desc' } },
                 creator: { select: { name: true, email: true } },
             },
         });
@@ -424,17 +425,100 @@ class RfqService {
         return rfq;
     }
 
+    async getAttachmentsByRfqId(company_id, rfq_id) {
+        const rfq = await prisma.rfq_register.findFirst({
+            where: { id: rfq_id, company_id },
+            select: { quotation_no: true }
+        });
+
+        if (!rfq) throw new Error('RFQ not found');
+
+        const attachments = await prisma.rfq_attachment.findMany({
+            where: { rfq_id },
+            orderBy: { uploaded_at: 'desc' }
+        });
+
+        const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+        return {
+            quotation_no: rfq.quotation_no,
+            attachments: attachments.map(file => ({
+                id: file.id,
+                file_name: file.file_name,
+                file_size: file.file_size,
+                file_mime_type: file.mime_type,
+                uploaded_at: file.uploaded_at,
+                file_url: file.file_url?.startsWith('http') ? file.file_url : `${backendUrl}/api/files/${file.file_url.split('/').pop()}`,
+                file_path: file.file_path
+            }))
+        };
+    }
+
     /**
-     * Delete an RFQ record (items cascade-delete)
+     * Delete an RFQ record (items and attachments cascade-delete)
      */
     async deleteById(company_id, id) {
         const existing = await prisma.rfq_register.findFirst({
             where: { id, company_id },
+            include: { attachments: true }
         });
 
         if (!existing) throw new Error('RFQ record not found');
 
+        // Delete files from storage
+        const fs = require('fs');
+        existing.attachments.forEach(att => {
+            if (att.file_path && fs.existsSync(att.file_path)) {
+                try { fs.unlinkSync(att.file_path); } catch (e) { console.error(e); }
+            }
+        });
+
         await prisma.rfq_register.delete({ where: { id } });
+        return { deleted: true };
+    }
+
+    async addAttachments(rfq_id, files) {
+        if (!files || files.length === 0) return [];
+
+        const attachmentData = files.map(file => ({
+            rfq_id,
+            file_name: file.originalname,
+            file_url: file.filename, 
+            file_path: file.path,
+            file_size: file.size,
+            mime_type: file.mimetype,
+        }));
+
+        await prisma.rfq_attachment.createMany({
+            data: attachmentData
+        });
+
+        return await prisma.rfq_attachment.findMany({
+            where: { rfq_id },
+            orderBy: { uploaded_at: 'desc' }
+        });
+    }
+
+    /**
+     * Delete a single attachment
+     */
+    async deleteAttachment(id) {
+        const attachment = await prisma.rfq_attachment.findUnique({
+            where: { id }
+        });
+
+        if (!attachment) throw new Error('Attachment not found');
+
+        // Delete from filesystem
+        const fs = require('fs');
+        if (attachment.file_path && fs.existsSync(attachment.file_path)) {
+            try { fs.unlinkSync(attachment.file_path); } catch (e) { console.error(e); }
+        }
+
+        await prisma.rfq_attachment.delete({
+            where: { id }
+        });
+
         return { deleted: true };
     }
 

@@ -33,13 +33,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, Upload, X, FileText, Paperclip } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ImportReviewDialog from "@/components/shared/ImportReviewDialog"
 import { generateExcelTemplate, parseExcelFile } from "@/utils/excelImportEngine"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 // ─── Status Options ────────────────────────────────────────────────────────────
 const SHRENO_STATUS_OPTIONS = [
@@ -86,7 +88,7 @@ function StatusBadge({ status }) {
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick }) {
+function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
     const [isViewOpen, setIsViewOpen] = useState(false)
     const [selectedRecord, setSelectedRecord] = useState(null)
     const [viewLoading, setViewLoading] = useState(false)
@@ -115,17 +117,24 @@ function ListView({ onCreateClick, onEditClick }) {
         }
     }
 
-    const handleDeleteClick = async (id) => {
-        if (!window.confirm("Are you sure you want to delete this RFQ entry?")) return
+    const [confirmState, setConfirmState] = useState({ isOpen: false, id: null })
+
+    const handleDeleteClick = (id) => {
+        setConfirmState({ isOpen: true, id })
+    }
+
+    const onConfirmDelete = async () => {
         try {
-            const res = await apiClient.delete(`/api/rfq/${id}`)
+            setConfirmState(prev => ({ ...prev, isLoading: true }))
+            const res = await apiClient.delete(`/api/rfq/${confirmState.id}`)
             if (res.success) {
                 toast.success("RFQ entry deleted successfully")
-                // Force DataTable to refetch by triggering a re-render
                 setRefreshKey(prev => prev + 1)
             }
         } catch (error) {
             toast.error(error.message || "Failed to delete record")
+        } finally {
+            setConfirmState({ isOpen: false, id: null, isLoading: false })
         }
     }
 
@@ -162,6 +171,13 @@ function ListView({ onCreateClick, onEditClick }) {
                         onClick={() => handleViewClick(row.id)}
                         title="View">
                         <Eye className="h-4 w-4 mr-2" /> View
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onAttachmentsClick(row.id)}
+                        title="Attachments">
+                        <Paperclip className="h-4 w-4 mr-2" /> Docs
                     </Button>
                     <Button
                         variant="outline"
@@ -589,6 +605,16 @@ function ListView({ onCreateClick, onEditClick }) {
                     )}
                 </DialogContent>
             </Dialog>
+            <ConfirmDialog 
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState({ isOpen: false, id: null })}
+                onConfirm={onConfirmDelete}
+                title="Delete RFQ Entry"
+                description="Are you sure you want to permanently delete this RFQ entry? This action cannot be undone."
+                confirmText="Delete"
+                variant="danger"
+                isLoading={confirmState.isLoading}
+            />
         </div>
     )
 }
@@ -671,6 +697,47 @@ function CreateView({ onBack, editId = null }) {
         { id: 1, srNo: 1, enqDescription: "", equipQty: "", rev: "", totalValue: "", poNo: "", poDate: "", poValue: "", remarks: "" },
     ])
 
+    // State for wireframe attachments
+    const [attachments, setAttachments] = useState([])
+
+    const handleFileChange = (e) => {
+        const files = Array.from(e.target.files)
+        const newAttachments = files.map(file => ({
+            id: Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            size: (file.size / 1024).toFixed(2) + " KB",
+            type: file.type,
+            uploadedAt: new Date().toLocaleString(),
+            file: file, // Store the actual file for upload
+            isNew: true
+        }))
+        setAttachments(prev => [...prev, ...newAttachments])
+    }
+
+    const [confirmState, setConfirmState] = useState({ isOpen: false, id: null, isNew: false })
+
+    const removeAttachment = (id, isNew) => {
+        if (isNew) {
+            setAttachments(prev => prev.filter(a => a.id !== id))
+            return
+        }
+        setConfirmState({ isOpen: true, id, isNew })
+    }
+
+    const onConfirmDeleteAttachment = async () => {
+        try {
+            setConfirmState(prev => ({ ...prev, isLoading: true }))
+            const res = await apiClient.delete(`/api/rfq/attachments/${confirmState.id}`);
+            if (!res.success) throw new Error(res.message);
+            setAttachments(prev => prev.filter(a => a.id !== confirmState.id))
+            toast.success("Attachment deleted successfully");
+        } catch (error) {
+            toast.error(error.message || "Failed to delete attachment");
+        } finally {
+            setConfirmState({ isOpen: false, id: null, isNew: false, isLoading: false })
+        }
+    }
+
     // Fetch next quotation number when creating (not editing)
     useEffect(() => {
         if (editId) return
@@ -698,39 +765,53 @@ function CreateView({ onBack, editId = null }) {
                 const res = await apiClient.get(`/api/rfq/${editId}`)
                 if (res.success && res.data) {
                     const r = res.data
-                    setFormData({
-                        quotationNo: r.quotation_no || "",
-                        quotationCategory: r.quotation_category || "Core",
-                        clientRef: r.client_ref || "",
-                        rfqType: r.rfq_type || "",
-                        clientName: r.client_name || "",
-                        consultancy: r.consultancy || "",
-                        contactPerson: r.contact_person || "",
-                        modeOfEnquiry: r.mode_of_enquiry || "",
+                    const updatedFormData = {
+                        quotationNo: r.quotation_no ?? "",
+                        quotationCategory: r.quotation_category ?? "Core",
+                        clientRef: r.client_ref ?? "",
+                        rfqType: r.rfq_type ?? "",
+                        clientName: r.client_name ?? "",
+                        consultancy: r.consultancy ?? "",
+                        contactPerson: r.contact_person ?? "",
+                        modeOfEnquiry: r.mode_of_enquiry ?? "",
                         enqDate: r.enq_date ? r.enq_date.split("T")[0] : "",
                         targetDate: r.target_date ? r.target_date.split("T")[0] : "",
                         actualSubmissionDate: r.actual_submission_date ? r.actual_submission_date.split("T")[0] : "",
-                        timeTaken: r.time_taken || "",
-                        mediator: r.mediator || "",
-                        estimator: r.estimator || "",
-                        shrenoStatus: r.shreno_status || "Quoted",
-                        clientStatus: r.client_status || "Under Review",
-                        remark: r.remark || "",
-                        madeBy: r.made_by || "",
-                        poNo: r.po_no || "",
+                        timeTaken: r.time_taken ?? "",
+                        mediator: r.mediator ?? "",
+                        estimator: r.estimator ?? "",
+                        shrenoStatus: r.shreno_status ?? "Quoted",
+                        clientStatus: r.client_status ?? "Under Review",
+                        remark: r.remark ?? "",
+                        madeBy: r.made_by ?? "",
+                        poNo: r.po_no ?? "",
                         poDate: r.po_date ? r.po_date.split("T")[0] : "",
-                        poValue: r.po_value || "",
-                        poRemark: r.po_remark || "",
-                    })
+                        poValue: r.po_value ?? "",
+                        poRemark: r.po_remark ?? "",
+                    }
+                    setFormData(updatedFormData)
+                    if (r.attachments?.length) {
+                        setAttachments(r.attachments.map(att => ({
+                            id: att.id,
+                            name: att.file_name,
+                            size: (att.file_size / 1024).toFixed(2) + " KB",
+                            type: att.mime_type,
+                            uploadedAt: new Date(att.uploaded_at).toLocaleString(),
+                            url: att.file_url,
+                            isNew: false
+                        })))
+                    } else {
+                        setAttachments([])
+                    }
                     if (r.items?.length) {
                         setTableRows(r.items.map((item, i) => ({
                             id: i + 1,
-                            srNo: item.sr_no,
-                            enqDescription: item.enq_description || "",
-                            equipQty: item.equip_qty || "",
-                            rev: item.rev || "",
-                            totalValue: item.total_value || "",
-                            remarks: item.remarks || "",
+                            srNo: item.sr_no ?? (i + 1),
+                            enqDescription: item.enq_description ?? "",
+                            equipQty: item.equip_qty ?? "",
+                            rev: item.rev ?? "",
+                            totalValue: item.total_value ?? "",
+                            remarks: item.remarks ?? "",
                         })))
                     }
                 }
@@ -831,6 +912,16 @@ function CreateView({ onBack, editId = null }) {
             }
 
             if (res.success) {
+                const rfqId = editId || res.data.id;
+                
+                // Handle new attachments upload
+                const newFiles = attachments.filter(a => a.isNew).map(a => a.file);
+                if (newFiles.length > 0) {
+                    const formDataObj = new FormData();
+                    newFiles.forEach(file => formDataObj.append("files", file));
+                    await apiClient.post(`/api/rfq/${rfqId}/attachments`, formDataObj);
+                }
+
                 toast.success(editId ? "RFQ entry updated successfully!" : "RFQ entry created successfully!")
                 onBack()
             }
@@ -913,7 +1004,11 @@ function CreateView({ onBack, editId = null }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="rfqType">RFQ Type</Label>
-                            <Select value={formData.rfqType} onValueChange={(v) => handleSelectChange("rfqType", v)}>
+                            <Select 
+                                key={`rfqType-${dropdownOptions.rfqTypes.length}-${formData.rfqType}`}
+                                value={formData.rfqType} 
+                                onValueChange={(v) => handleSelectChange("rfqType", v)}
+                            >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select RFQ Type" />
                                 </SelectTrigger>
@@ -963,7 +1058,11 @@ function CreateView({ onBack, editId = null }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="modeOfEnquiry">Mode of Enquiry</Label>
-                            <Select value={formData.modeOfEnquiry} onValueChange={(v) => handleSelectChange("modeOfEnquiry", v)}>
+                            <Select 
+                                key={`moe-${dropdownOptions.modesOfEnquiry.length}-${formData.modeOfEnquiry}`}
+                                value={formData.modeOfEnquiry} 
+                                onValueChange={(v) => handleSelectChange("modeOfEnquiry", v)}
+                            >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Mode" />
                                 </SelectTrigger>
@@ -1054,11 +1153,18 @@ function CreateView({ onBack, editId = null }) {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="mediator">Mediator</Label>
-                            <Select value={formData.mediator} onValueChange={(v) => handleSelectChange("mediator", v)}>
+                            <Select 
+                                key={`mediator-${dropdownOptions.mediators.length}-${formData.mediator}`}
+                                value={formData.mediator} 
+                                onValueChange={(v) => handleSelectChange("mediator", v)}
+                            >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Mediator" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {formData.mediator && !dropdownOptions.mediators.includes(formData.mediator) && (
+                                        <SelectItem value={formData.mediator}>{formData.mediator}</SelectItem>
+                                    )}
                                     {dropdownOptions.mediators.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
@@ -1068,11 +1174,18 @@ function CreateView({ onBack, editId = null }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="estimator">Estimator</Label>
-                            <Select value={formData.estimator} onValueChange={(v) => handleSelectChange("estimator", v)}>
+                            <Select 
+                                key={`estimator-${dropdownOptions.estimators.length}-${formData.estimator}`}
+                                value={formData.estimator} 
+                                onValueChange={(v) => handleSelectChange("estimator", v)}
+                            >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Estimator" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {formData.estimator && !dropdownOptions.estimators.includes(formData.estimator) && (
+                                        <SelectItem value={formData.estimator}>{formData.estimator}</SelectItem>
+                                    )}
                                     {dropdownOptions.estimators.map((opt) => (
                                         <SelectItem key={opt} value={opt}>{opt}</SelectItem>
                                     ))}
@@ -1082,7 +1195,11 @@ function CreateView({ onBack, editId = null }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="shrenoStatus">Shreno Status</Label>
-                            <Select value={formData.shrenoStatus} onValueChange={(v) => handleSelectChange("shrenoStatus", v)}>
+                            <Select 
+                                key={`shrenoStatus-${formData.shrenoStatus}`}
+                                value={formData.shrenoStatus} 
+                                onValueChange={(v) => handleSelectChange("shrenoStatus", v)}
+                            >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Status" />
                                 </SelectTrigger>
@@ -1096,7 +1213,11 @@ function CreateView({ onBack, editId = null }) {
 
                         <div className="space-y-2">
                             <Label htmlFor="clientStatus">Status at Client End</Label>
-                            <Select value={formData.clientStatus} onValueChange={(v) => handleSelectChange("clientStatus", v)}>
+                            <Select 
+                                key={`clientStatus-${formData.clientStatus}`}
+                                value={formData.clientStatus} 
+                                onValueChange={(v) => handleSelectChange("clientStatus", v)}
+                            >
                                 <SelectTrigger className="w-full">
                                     <SelectValue placeholder="Select Client Status" />
                                 </SelectTrigger>
@@ -1235,6 +1356,71 @@ function CreateView({ onBack, editId = null }) {
                 </CardContent>
             </Card>
 
+            <Card className="mb-6">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                        <Paperclip className="h-4 w-4" />
+                        Attachments (Quotation / Specification)
+                    </CardTitle>
+                    <div className="relative">
+                        <input
+                            type="file"
+                            id="rfq-attachments"
+                            className="hidden"
+                            multiple
+                            onChange={handleFileChange}
+                        />
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
+                            onClick={() => document.getElementById('rfq-attachments').click()}
+                        >
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Add Files
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {attachments.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {attachments.map((file) => (
+                                <div key={file.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-slate-50 group hover:border-blue-200 hover:bg-white transition-all">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="h-9 w-9 rounded-md bg-white border flex items-center justify-center shrink-0">
+                                            <FileText className="h-5 w-5 text-blue-500" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-xs font-semibold truncate text-slate-700">{file.name}</span>
+                                            <span className="text-[10px] text-slate-400 font-medium">{file.size} • {file.uploadedAt}</span>
+                                        </div>
+                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                        onClick={() => removeAttachment(file.id, file.isNew)}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div 
+                            className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors"
+                            onClick={() => document.getElementById('rfq-attachments').click()}
+                        >
+                            <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+                                <Upload className="h-6 w-6 text-slate-400" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">Click to upload or drag files here</p>
+                            <p className="text-[10px] text-slate-400 mt-1">Quotation, Drawings, or Specification PDFs</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
             {/* Submit / Cancel */}
             <div className="flex justify-end gap-4 mt-6">
                 <Button onClick={onBack} variant="outline">Cancel</Button>
@@ -1242,18 +1428,153 @@ function CreateView({ onBack, editId = null }) {
                     {submitting ? "Saving..." : editId ? "Update Entry" : "Submit Entry"}
                 </Button>
             </div>
+            <ConfirmDialog 
+                isOpen={confirmState.isOpen}
+                onClose={() => setConfirmState({ isOpen: false, id: null })}
+                onConfirm={onConfirmDeleteAttachment}
+                title="Delete Attachment"
+                description="Are you sure you want to permanently delete this attachment? This document will be removed from the record."
+                confirmText="Delete"
+                variant="danger"
+                isLoading={confirmState.isLoading}
+            />
+        </div>
+    )
+}
+
+function AttachmentsView({ rfqId, onBack }) {
+    const [quotationNo, setQuotationNo] = useState("")
+    
+    // Preview state
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+    const [previewUrl, setPreviewUrl] = useState("")
+    const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+
+    const fetchAttachments = useCallback(async () => {
+        try {
+            const res = await apiClient.get(`/api/rfq/${rfqId}/attachments`)
+            if (res.success && res.data) {
+                setQuotationNo(res.data.quotation_no)
+                const items = (res.data.attachments || []).map((item, idx) => ({
+                    ...item,
+                    serialNo: idx + 1
+                }))
+                return {
+                    data: items,
+                    meta: {
+                        total: items.length,
+                        page: 1,
+                        totalPages: 1
+                    }
+                }
+            }
+        } catch (error) {
+            toast.error("Failed to load attachments")
+        }
+        return { data: [], meta: {} }
+    }, [rfqId])
+
+    const handlePreview = (file) => {
+        setPreviewUrl(file.file_url)
+        setActivePreviewDoc({
+            mimeType: file.file_mime_type,
+            filePath: file.file_path,
+            documentName: file.file_name
+        })
+        setIsPreviewOpen(true)
+    }
+
+    const columns = [
+        { 
+            header: "SR NO.", 
+            accessorKey: "serialNo",
+            width: "80px",
+            className: "pl-6"
+        },
+        { 
+            header: "FILE NAME", 
+            accessorKey: "file_name",
+            cell: (row) => (
+                <div className="flex items-center gap-2 py-1">
+                    <FileText className="h-3.5 w-3.5 text-slate-400" />
+                    <span className="text-slate-600 font-medium">{row.file_name}</span>
+                </div>
+            )
+        },
+        { 
+            header: "SIZE", 
+            accessorKey: "file_size",
+            cell: (row) => `${(row.file_size / 1024).toFixed(1)} KB`
+        },
+        { 
+            header: "UPLOAD DATE", 
+            accessorKey: "uploaded_at",
+            cell: (row) => new Date(row.uploaded_at).toLocaleDateString()
+        },
+        {
+            header: "ACTIONS",
+            id: "actions",
+            cell: (row) => (
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handlePreview(row)}
+                        className="h-8 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-2 font-semibold text-[10px] uppercase"
+                    >
+                        <Eye className="h-3.5 w-3.5 mr-1.5" /> Preview
+                    </Button>
+                </div>
+            )
+        }
+    ]
+
+    return (
+        <div className="flex flex-col h-full space-y-4 px-1">
+            <div className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-4">
+                    <Button variant="outline" size="icon" onClick={onBack} className="h-9 w-9 rounded-full shadow-sm hover:bg-slate-50 border-slate-200 transition-all">
+                        <ArrowLeft className="h-4 w-4 text-slate-600" />
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Attachments</h1>
+                        <p className="text-sm text-muted-foreground font-medium">Documents for RFQ: <span className="text-slate-900 uppercase font-bold">{quotationNo || "Loading..."}</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 flex flex-col overflow-hidden">
+                <ProDataTable 
+                    fetchData={fetchAttachments}
+                    columns={columns}
+                    globalSearchPlaceholder="Search in documents..."
+                />
+            </div>
+
+            {/* Premium Preview Dialog */}
+            <DocumentPreviewDialog 
+                isOpen={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                previewUrl={previewUrl}
+                activePreviewDoc={activePreviewDoc}
+            />
         </div>
     )
 }
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function RfqRegister() {
-    const [view, setView] = useState("list") // "list" | "create" | "edit"
+    const [view, setView] = useState("list") // "list" | "create" | "edit" | "attachments"
     const [editId, setEditId] = useState(null)
 
     const handleEdit = (id) => {
         setEditId(id)
         setView("edit")
+    }
+
+    const handleAttachments = (id) => {
+        setEditId(id)
+        setView("attachments")
     }
 
     return (
@@ -1270,6 +1591,15 @@ function RfqRegister() {
                                     setView("create")
                                 }}
                                 onEditClick={handleEdit}
+                                onAttachmentsClick={handleAttachments}
+                            />
+                        ) : view === "attachments" ? (
+                            <AttachmentsView
+                                rfqId={editId}
+                                onBack={() => {
+                                    setView("list")
+                                    setEditId(null)
+                                }}
                             />
                         ) : (
                             <CreateView
