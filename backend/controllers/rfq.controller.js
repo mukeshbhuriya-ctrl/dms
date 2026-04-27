@@ -1,4 +1,7 @@
+const path = require('path');
+const fs = require('fs');
 const RfqService = require('../services/rfq.service');
+const StorageUtils = require('../utils/storage.utils');
 
 class RfqController {
     async list(req, res) {
@@ -308,6 +311,23 @@ class RfqController {
         } catch (error) {
             console.error('RFQ deleteAttachment error:', error);
             res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async downloadAttachment(req, res) {
+        try {
+            const { id, filename } = req.params;
+            const rfqDir = StorageUtils.getRfqDir(id);
+            const filePath = path.join(rfqDir, path.basename(filename));
+
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ success: false, message: 'Attachment not found' });
+            }
+
+            res.sendFile(path.resolve(filePath));
+        } catch (error) {
+            console.error('RFQ downloadAttachment error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }
 }
