@@ -1113,6 +1113,7 @@ model rfq_register {
   company  company @relation(fields: [company_id], references: [id])
   creator  user?   @relation(fields: [created_by], references: [id])
   items    rfq_register_item[]
+  attachments rfq_attachment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1131,6 +1132,19 @@ model rfq_register_item {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model rfq_attachment {
+  id           String   @id @default(uuid())
+  rfq_id       String
+  file_name    String
+  file_url     String
+  file_path    String?
+  file_size    Int?
+  mime_type    String?
+  uploaded_at  DateTime @default(now())
+
+  rfq rfq_register @relation(fields: [rfq_id], references: [id], onDelete: Cascade)
 }
 
 // -------------------------------------------------------------

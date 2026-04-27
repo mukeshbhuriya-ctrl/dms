@@ -272,6 +272,44 @@ class RfqController {
             res.status(500).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
+
+    async uploadAttachments(req, res) {
+        try {
+            const result = await RfqService.addAttachments(req.params.id, req.files);
+            res.status(200).json({
+                success: true,
+                message: 'Attachments uploaded successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('RFQ uploadAttachments error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async getAttachments(req, res) {
+        try {
+            const result = await RfqService.getAttachmentsByRfqId(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('RFQ getAttachments error:', error);
+            const status = error.message.includes('not found') ? 404 : 500;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async deleteAttachment(req, res) {
+        try {
+            await RfqService.deleteAttachment(req.params.attachmentId);
+            res.status(200).json({
+                success: true,
+                message: 'Attachment deleted successfully',
+            });
+        } catch (error) {
+            console.error('RFQ deleteAttachment error:', error);
+            res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new RfqController();
