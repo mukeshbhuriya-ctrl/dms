@@ -92,7 +92,7 @@ function App() {
                 <Input
                   id="employeeId"
                   type="text"
-                  placeholder="Employee Code"
+                  placeholder="Employee ID"
                   value={employeeId}
                   onChange={(e) => setEmployeeId(e.target.value)}
                   required
