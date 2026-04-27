@@ -285,22 +285,6 @@ export default function JobOverview() {
             <p className="text-xs text-slate-500">Job-centric snapshot across every linked module.</p>
           </div>
         </div>
-
-        <div className="ml-4 flex min-w-0 max-w-[min(100%,52rem)] flex-[0_1_52rem] items-center gap-4">
-          <div className="min-w-0 flex-1">
-            <SearchableSelect
-              options={jobs}
-              value={selectedJobId}
-              onValueChange={setSelectedJobId}
-              placeholder={isJobsLoading ? "Loading jobs..." : "Select Job Number..."}
-              disabled={isJobsLoading || isLoading}
-              className="min-w-0"
-            />
-          </div>
-          <Button variant="outline" size="icon" className="shrink-0" disabled={!selectedJobId || isLoading} onClick={refreshSnapshot}>
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-          </Button>
-        </div>
       </header>
 
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">
@@ -329,6 +313,28 @@ export default function JobOverview() {
           </div>
         ) : data ? (
           <div className="space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center">
+              <div className="min-w-0 flex-1">
+                <SearchableSelect
+                  options={jobs}
+                  value={selectedJobId}
+                  onValueChange={setSelectedJobId}
+                  placeholder={isJobsLoading ? "Loading jobs..." : "Select Job Number..."}
+                  disabled={isJobsLoading || isLoading}
+                  className="min-w-0"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 self-start md:self-auto"
+                disabled={!selectedJobId || isLoading}
+                onClick={refreshSnapshot}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
+
             <Card className="overflow-hidden border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70">
                 <CardTitle className="text-base font-bold text-slate-900">Job Details</CardTitle>
