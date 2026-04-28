@@ -380,7 +380,7 @@ const ProDataTable = ({
   };
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden space-y-2.5">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden space-y-2.5">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-xs transition-all focus-within:max-w-sm">
@@ -469,13 +469,13 @@ const ProDataTable = ({
       </div>
 
       {/* Grid */}
-      <div className="rounded border bg-white relative flex flex-col flex-1 overflow-hidden">
-        <div className="flex-1 overflow-auto custom-scrollbar bg-white">
+      <div className="rounded border bg-white relative flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar bg-white">
           <Table className="relative border-separate border-spacing-0 w-max min-w-full">
-            <TableHeader className="sticky top-0 z-20 bg-slate-100 border-b border-slate-200">
+            <TableHeader className="z-20 bg-slate-100 border-b border-slate-200">
               <TableRow className="hover:bg-transparent h-9 border-none">
                 {showSelectionColumn && (
-                  <TableHead className="w-[40px] sticky left-0 z-40 !bg-slate-100 border-r border-slate-200 px-0 flex items-center justify-center h-9">
+                  <TableHead className="w-[40px] sticky top-0 left-0 z-50 !bg-slate-100 border-r border-slate-200 px-0 text-center h-9">
                       <Checkbox
                         checked={selectedRows.size === data.length && data.length > 0}
                         onCheckedChange={() => toggleAll()}
@@ -495,12 +495,12 @@ const ProDataTable = ({
                     <TableHead 
                       key={columnId || idx} 
                       ref={el => headerRefs.current[columnId] = el}
-                      className={`${col.className || ""} ${stickyClass} h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase text-slate-700 tracking-wider transition-all`}
+                      className={`${col.className || ""} ${stickyClass} sticky top-0 h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase text-slate-700 tracking-wider transition-all`}
                       style={{ 
                         width: col.width || 'auto',
                         left: isSticky ? `${col.stickyOffset}px` : 'auto',
-                        backgroundColor: isSticky ? '#f1f5f9' : 'inherit', // solid slate-100
-                        zIndex: isSticky ? 50 : 10
+                        backgroundColor: '#f1f5f9',
+                        zIndex: isSticky ? 50 : 20
                       }}
                     >
                       <div className="flex items-center justify-between gap-1 h-full py-1">

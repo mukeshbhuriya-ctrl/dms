@@ -116,7 +116,6 @@ export const MENU_CONFIG = [
             { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER], hideFor: [ROLES.ADMIN] },
             { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Create Transmission", path: "/dcc/create-transmission", roles: [ROLES.ADMIN, ROLES.DCC] },
-            // { title: "Send Document to Client", path: "/dcc/send-document-to-client", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Client Approval Status", path: "/dcc/client-approval-status", roles: [ROLES.ADMIN, ROLES.DCC] },
         ],
     },

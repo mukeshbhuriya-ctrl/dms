@@ -552,34 +552,26 @@ const ClientApprovalStatus = () => {
     ], [rowUpdates, backendUrl]);
 
     return (
-        <>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
+        <div className="flex h-screen flex-col overflow-hidden">
+            <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+                <div className="flex items-center gap-3">
+                    <SidebarTrigger className="-ml-1" />
+                    <h1 className="text-lg font-bold tracking-tight text-slate-900">
+                        {view === 'list' ? 'Transmission Approval' : 'Review Transmission'}
+                    </h1>
+                </div>
+                {view === 'review' && (
+                    <Button variant="outline" className="h-9 border-slate-200 font-semibold" onClick={() => setView('list')}>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                    </Button>
+                )}
             </header>
 
-            <main className="flex-1 overflow-auto p-8 flex flex-col">
-                <div className="flex-1 flex flex-col w-full max-w-[1700px] mx-auto">
-
-                    <div className="mb-6 flex justify-between items-start">
-                        <div>
-                            <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                                {view === 'list' ? 'Transmission Approval' : 'Review Transmission'}
-                            </h1>
-                            <p className="text-muted-foreground mt-1 text-sm font-medium">
-                                {view === 'list' 
-                                    ? 'Manage and process client approvals for sent document packages.' 
-                                    : 'Examine and provide professional feedback on transmitted documents.'}
-                            </p>
-                        </div>
-                        {view === 'review' && (
-                            <Button variant="outline" className="h-9 border-slate-200 font-semibold" onClick={() => setView('list')}>
-                                <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                            </Button>
-                        )}
-                    </div>
+            <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
+                <div className={`flex-1 min-h-0 flex flex-col w-full max-w-[1700px] mx-auto ${view === "list" ? "overflow-hidden" : ""}`}>
 
                     {view === 'review' && (
-                        <Card className="mb-6">
+                        <Card className="mb-6 shrink-0">
                             <CardHeader className="pb-4 border-b">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -615,7 +607,7 @@ const ClientApprovalStatus = () => {
                         </Card>
                     )}
 
-                    <div className="flex-1 flex flex-col">
+                    <div className={view === "list" ? "flex-1 min-h-0 flex flex-col overflow-hidden" : "w-full"}>
                         <ProDataTable
                             key={view}
                             columns={view === 'list' ? listColumns : reviewColumns}
@@ -648,7 +640,7 @@ const ClientApprovalStatus = () => {
                     previewUrl={previewUrl}
                     activePreviewDoc={activePreviewDoc}
                 />
-        </>
+        </div>
     );
 };
 
