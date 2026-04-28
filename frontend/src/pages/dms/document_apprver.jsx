@@ -591,17 +591,16 @@ function DocumentApprover() {
   };
 
   return (
-    <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-3">
+          <SidebarTrigger className="-ml-1" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900">Document Approver</h1>
+        </div>
       </header>
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold">Document Approver</h1>
-          </div>
-
-          <div className="flex flex-col gap-4">
+      <main className="flex-1 min-h-0 overflow-hidden p-6 flex flex-col">
+        <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             <ProDataTable
               columns={columns}
               fetchData={fetchDocumentsWrapper}
@@ -676,7 +675,7 @@ function DocumentApprover() {
         </SheetContent>
       </Sheet>
 
-    </>
+    </div>
   )
 }
 

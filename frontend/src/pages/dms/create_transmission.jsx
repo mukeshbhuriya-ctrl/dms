@@ -1017,45 +1017,34 @@ function CreateTransmission() {
 
 
   return (
-    <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-3">
+          <SidebarTrigger className="-ml-1" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900">
+            {view === 'list' ? 'Transmissions' : view === 'send' ? 'Send Documents' : 'Create Transmission'}
+          </h1>
+        </div>
+        <div className="flex gap-2">
+          {view !== 'list' && (
+            <Button variant="outline" onClick={() => {
+              setView('list');
+              setActiveTransmission(null);
+              setSendDocuments([]);
+              setSelectedDocuments([]);
+              setSelectionFilters({
+                customer_name: "",
+                po_number: "",
+                job_number: ""
+              });
+            }}>
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+            </Button>
+          )}
+        </div>
       </header>
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-
-          {/* Header Section */}
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">
-                {view === 'list' ? 'Transmissions' : view === 'send' ? 'Send Documents' : 'Create Transmission'}
-              </h1>
-              <p className="text-muted-foreground">
-                {view === 'send'
-                  ? 'Review documents and send to client.'
-                  : view === 'create'
-                    ? 'Select approved documents to create a new transmission.'
-                    : ''}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              {view !== 'list' && (
-                <Button variant="outline" onClick={() => {
-                  setView('list');
-                  setActiveTransmission(null);
-                  setSendDocuments([]);
-                  setSelectedDocuments([]);
-                  setSelectionFilters({
-                    customer_name: "",
-                    po_number: "",
-                    job_number: ""
-                  });
-                }}>
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                </Button>
-              )}
-            </div>
-          </div>
+      <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
+        <div className={`flex-1 min-h-0 flex flex-col w-full ${view === "list" ? "overflow-hidden" : ""}`}>
 
           {/* Content Section */}
           {view === 'list' ? (
@@ -1430,7 +1419,7 @@ function CreateTransmission() {
         previewUrl={previewUrl}
         activePreviewDoc={activePreviewDoc}
       />
-    </>
+    </div>
   )
 }
 

@@ -937,23 +937,22 @@ function AssignDocument() {
   const isSubmitDisabled = isLoading || assignments.some(a => !a.jobId || !a.documentName || !a.assignUserId)
 
   return (
-    <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-3">
+          <SidebarTrigger className="-ml-1" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900">
+            {view === "list" ? "Documents (VDR)" : editingId ? "Update Document Details" : "Assign Documents"}
+          </h1>
+        </div>
+        {view !== "list" && (
+          <Button variant="outline" size="sm" onClick={handleBack}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+        )}
       </header>
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl ">
-              {view === "list" ? "Documents" : editingId ? "Update Document Details" : "Assign Documents"}
-            </h1>
-            {view !== "list" && (
-              <Button variant="outline" size="sm" onClick={handleBack}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back
-              </Button>
-            )}
-          </div>
+      <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
+        <div className={`flex-1 min-h-0 flex flex-col w-full ${view === "list" ? "overflow-hidden" : ""}`}>
 
           {/* List View */}
           {view === 'list' && (
@@ -1363,7 +1362,7 @@ function AssignDocument() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }
 

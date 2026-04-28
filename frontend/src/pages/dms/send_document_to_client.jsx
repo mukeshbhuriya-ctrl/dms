@@ -345,18 +345,15 @@ function SendDocumentToClient() {
   const isSent = transmittalStatus === 'Sent';
 
   return (
-    <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex items-center gap-3">
+          <SidebarTrigger className="-ml-1" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-900">Send Document to Client</h1>
+        </div>
       </header>
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
+      <main className="flex-1 min-h-0 overflow-auto p-6 flex flex-col">
         <div className="flex-1 flex flex-col w-full">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold mb-2">Send Document to Client</h1>
-            <p className="text-muted-foreground">
-              Select customer, location, PO, and Transmission to send approved documents.
-            </p>
-          </div>
 
           {/* Selection Section */}
           <Card className="mb-6">
@@ -669,7 +666,7 @@ function SendDocumentToClient() {
           </Dialog>
         </div>
       </main>
-    </>
+    </div>
   )
 }
 
