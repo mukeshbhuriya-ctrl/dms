@@ -39,15 +39,18 @@ class CommonService {
     /**
      * Get a standardized list of Purchase Orders (POs)
      */
-    async getPos(company_id, search = '') {
+    async getPos(company_id, search = '', customer_id = null) {
         const where = { company_id };
         if (search) {
             where.po_number = { contains: search, mode: 'insensitive' };
         }
+        if (customer_id) {
+            where.customer_id = customer_id;
+        }
 
-        return await prisma.p_o.findMany({
+        return await prisma.po.findMany({
             where,
-            select: { id: true, po_number: true, project_id: true },
+            select: { id: true, po_number: true, customer_id: true },
             orderBy: { po_number: 'asc' }
         });
     }
@@ -55,13 +58,19 @@ class CommonService {
     /**
      * Get a standardized list of Jobs/MSNs
      */
-    async getJobs(company_id, search = '') {
+    async getJobs(company_id, search = '', customer_id = null, po_id = null) {
         const where = { company_id };
         if (search) {
             where.OR = [
                 { job_number: { contains: search, mode: 'insensitive' } },
                 { equipement_name: { contains: search, mode: 'insensitive' } }
             ];
+        }
+        if (customer_id) {
+            where.customer_id = customer_id;
+        }
+        if (po_id) {
+            where.po_id = po_id;
         }
 
         return await prisma.job.findMany({

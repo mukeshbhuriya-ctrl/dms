@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
@@ -202,24 +202,77 @@ function QualityModuleCard({ title, module, actionLabel, onAction }) {
 
 export default function JobOverview() {
   const navigate = useNavigate();
+
+  // --- Raw API data for each dropdown ---
+  const [clients, setClients] = useState([]);
+  const [pos, setPos] = useState([]);
   const [jobs, setJobs] = useState([]);
-  const [selectedJobId, setSelectedJobId] = useState("");
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  // --- Loading states ---
+  const [isClientsLoading, setIsClientsLoading] = useState(true);
+  const [isPosLoading, setIsPosLoading] = useState(true);
   const [isJobsLoading, setIsJobsLoading] = useState(true);
 
+  // --- Three-tier selection state ---
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [selectedPoId, setSelectedPoId] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState("");
+
+  // --- Snapshot state ---
+  const [data, setData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // ─── Fetch CLIENTS on mount (never re-fetched) ───
   useEffect(() => {
-    async function fetchJobs() {
+    async function load() {
       try {
-        const response = await commonApi.getJobs();
-        const options = (response.data || []).map((job) => ({
-          value: job.id,
-          label: `${job.job_number} ${job.equipement_name ? `(${job.equipement_name})` : ""}`,
-          rawJobNumber: job.job_number,
-        }));
-        setJobs(options);
-        if (options.length > 0) {
-          setSelectedJobId((currentValue) => currentValue || options[0].value);
+        const response = await commonApi.getCustomers();
+        setClients(response.data || []);
+      } catch {
+        toast.error("Failed to load clients");
+      } finally {
+        setIsClientsLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  // ─── Fetch POs from API (filtered by client when selected) ───
+  useEffect(() => {
+    async function load() {
+      setIsPosLoading(true);
+      try {
+        const params = {};
+        if (selectedClientId) params.customer_id = selectedClientId;
+        const response = await commonApi.getPos(params);
+        setPos(response.data || []);
+      } catch {
+        toast.error("Failed to load POs");
+      } finally {
+        setIsPosLoading(false);
+      }
+    }
+    load();
+  }, [selectedClientId]);
+
+  // ─── Fetch JOBS from API (filtered by client + PO when selected) ───
+  useEffect(() => {
+    async function load() {
+      setIsJobsLoading(true);
+      try {
+        const params = {};
+        if (selectedClientId) params.customer_id = selectedClientId;
+        if (selectedPoId) params.po_id = selectedPoId;
+        const response = await commonApi.getJobs(params);
+        const jobList = response.data || [];
+        setJobs(jobList);
+
+        // Auto-select first job on initial load (no filters, no existing selection)
+        if (!selectedClientId && !selectedPoId && !selectedJobId && jobList.length > 0) {
+          const first = jobList[0];
+          setSelectedClientId(first.customer_id);
+          setSelectedPoId(first.po_id);
+          setSelectedJobId(first.id);
         }
       } catch {
         toast.error("Failed to load jobs");
@@ -227,17 +280,84 @@ export default function JobOverview() {
         setIsJobsLoading(false);
       }
     }
+    load();
+  }, [selectedClientId, selectedPoId]);
 
-    fetchJobs();
+  // ─── Convert raw API data to dropdown options ───
+  const clientOptions = useMemo(
+    () => clients.map((c) => ({ value: c.id, label: c.customer_name || c.customer_short_name })),
+    [clients],
+  );
+
+  const poOptions = useMemo(
+    () => pos.map((p) => ({ value: p.id, label: p.po_number })),
+    [pos],
+  );
+
+  const jobOptions = useMemo(
+    () =>
+      jobs.map((j) => ({
+        value: j.id,
+        label: `${j.job_number}${j.equipement_name ? ` (${j.equipement_name})` : ""}`,
+        rawJobNumber: j.job_number,
+      })),
+    [jobs],
+  );
+
+  // ─── Bidirectional handlers ───
+
+  const handleClientChange = useCallback((clientId) => {
+    setSelectedClientId(clientId);
+    // Forward: clear children
+    setSelectedPoId("");
+    setSelectedJobId("");
+    setData(null);
   }, []);
 
+  const handlePoChange = useCallback(
+    (poId) => {
+      // Reverse: auto-populate client if not yet selected
+      if (poId && !selectedClientId) {
+        const poRecord = pos.find((p) => p.id === poId);
+        if (poRecord?.customer_id) {
+          setSelectedClientId(poRecord.customer_id);
+        }
+      }
+      setSelectedPoId(poId);
+      // Forward: clear job
+      setSelectedJobId("");
+      setData(null);
+    },
+    [pos, selectedClientId],
+  );
+
+  const handleJobChange = useCallback(
+    (jobId) => {
+      if (jobId) {
+        // Reverse: auto-populate client and PO from job data
+        const jobRecord = jobs.find((j) => j.id === jobId);
+        if (jobRecord) {
+          if (!selectedClientId || selectedClientId !== jobRecord.customer_id) {
+            setSelectedClientId(jobRecord.customer_id);
+          }
+          if (!selectedPoId || selectedPoId !== jobRecord.po_id) {
+            setSelectedPoId(jobRecord.po_id);
+          }
+        }
+      }
+      setSelectedJobId(jobId);
+      if (!jobId) setData(null);
+    },
+    [jobs, selectedClientId, selectedPoId],
+  );
+
+  // ─── Fetch snapshot when job changes ───
   useEffect(() => {
     async function fetchSnapshot() {
       if (!selectedJobId) {
         setData(null);
         return;
       }
-
       setIsLoading(true);
       try {
         const response = await job360Api.getJobOverviewSnapshot(selectedJobId);
@@ -249,7 +369,6 @@ export default function JobOverview() {
         setIsLoading(false);
       }
     }
-
     fetchSnapshot();
   }, [selectedJobId]);
 
@@ -272,8 +391,57 @@ export default function JobOverview() {
     navigate(search ? `${path}?${search}` : path);
   };
 
-  const selectedJobOption = jobs.find((job) => job.value === selectedJobId);
+  const selectedJobOption = jobOptions.find((job) => job.value === selectedJobId);
   const modules = data?.modules;
+
+  // ─── Selection bar (always visible at the top of main) ───
+  const selectionBar = (
+    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Client</p>
+          <SearchableSelect
+            options={clientOptions}
+            value={selectedClientId}
+            onValueChange={handleClientChange}
+            placeholder={isClientsLoading ? "Loading..." : "All Clients"}
+            disabled={isClientsLoading || isLoading}
+          />
+        </div>
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Purchase Order</p>
+          <SearchableSelect
+            options={poOptions}
+            value={selectedPoId}
+            onValueChange={handlePoChange}
+            placeholder={isPosLoading ? "Loading..." : "All POs"}
+            disabled={isPosLoading || isLoading}
+          />
+        </div>
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Job Number</p>
+          <SearchableSelect
+            options={jobOptions}
+            value={selectedJobId}
+            onValueChange={handleJobChange}
+            placeholder={isJobsLoading ? "Loading..." : "Select Job..."}
+            disabled={isJobsLoading || isLoading}
+          />
+        </div>
+        <div className="flex items-end">
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            disabled={!selectedJobId || isLoading}
+            onClick={refreshSnapshot}
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -288,16 +456,18 @@ export default function JobOverview() {
       </header>
 
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">
+        {selectionBar}
+
         {!selectedJobId ? (
-          <div className="flex h-[40vh] flex-col items-center justify-center text-center">
+          <div className="mt-6 flex h-[30vh] flex-col items-center justify-center text-center">
             <FolderGit2 className="mb-4 h-12 w-12 text-slate-300" />
             <h2 className="text-xl font-semibold text-slate-700">Select a Job</h2>
             <p className="mt-2 max-w-sm text-sm text-slate-500">
-              Choose a job number to open the complete module overview for that job.
+              Use the filters above to narrow down and select a job number.
             </p>
           </div>
         ) : isLoading && !data ? (
-          <div className="space-y-6">
+          <div className="mt-6 space-y-6">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {Array.from({ length: 4 }).map((_, index) => (
                 <Card key={index} className="border-slate-200">
@@ -312,28 +482,7 @@ export default function JobOverview() {
             ))}
           </div>
         ) : data ? (
-          <div className="space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center">
-              <div className="min-w-0 flex-1">
-                <SearchableSelect
-                  options={jobs}
-                  value={selectedJobId}
-                  onValueChange={setSelectedJobId}
-                  placeholder={isJobsLoading ? "Loading jobs..." : "Select Job Number..."}
-                  disabled={isJobsLoading || isLoading}
-                  className="min-w-0"
-                />
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0 self-start md:self-auto"
-                disabled={!selectedJobId || isLoading}
-                onClick={refreshSnapshot}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              </Button>
-            </div>
+          <div className="mt-6 space-y-6">
 
             <Card className="overflow-hidden border-slate-200 shadow-sm">
               <CardHeader className="border-b border-slate-100 bg-slate-50/70">
