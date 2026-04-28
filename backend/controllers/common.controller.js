@@ -29,8 +29,8 @@ class CommonController {
     async getPos(req, res) {
         try {
             const { company_id } = req.user;
-            const { search } = req.query;
-            const data = await CommonService.getPos(company_id, search);
+            const { search, customer_id } = req.query;
+            const data = await CommonService.getPos(company_id, search, customer_id);
             res.status(200).json({ success: true, message: "POs fetched successfully", data });
         } catch (error) {
             console.error("CommonController.getPos Error:", error);
@@ -41,8 +41,8 @@ class CommonController {
     async getJobs(req, res) {
         try {
             const { company_id } = req.user;
-            const { search } = req.query;
-            const data = await CommonService.getJobs(company_id, search);
+            const { search, customer_id, po_id } = req.query;
+            const data = await CommonService.getJobs(company_id, search, customer_id, po_id);
             res.status(200).json({ success: true, message: "Jobs fetched successfully", data });
         } catch (error) {
             console.error("CommonController.getJobs Error:", error);
