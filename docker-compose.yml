@@ -13,6 +13,13 @@ services:
       - "5432:5432"
     volumes:
       - dms-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dms-network
 
   backend:
     build:
@@ -21,7 +28,16 @@ services:
     container_name: dms-backend
     restart: always
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for database to be fully ready...' &&
+        sleep 2 &&
+        npx prisma generate &&
+        npx prisma migrate deploy &&
+        node server.js
+      "
     environment:
       - PORT=3001
       - NODE_ENV=production
@@ -42,6 +58,8 @@ services:
       - "3001:3001"
     volumes:
       - dms-backend-data:/app/data
+    networks:
+      - dms-network
 
   frontend:
     build:
@@ -55,6 +73,12 @@ services:
       - backend
     ports:
       - "5173:80"
+    networks:
+      - dms-network
+
+networks:
+  dms-network:
+    driver: bridge
 
 volumes:
   dms-db-data:

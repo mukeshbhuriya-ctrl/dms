@@ -41,7 +41,7 @@ import WeldJointTrail from "@/components/wpj/WeldJointTrail"
 
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
-import Stage2 from "@/components/form/ab/Stage2"
+import Stage2 from "@/components/form/ab/stage2"
 import Stage3 from "@/components/form/ab/Stage3"
 import Stage4 from "@/components/form/ab/stage4"
 import Stage5 from "@/components/form/ab/stage5"
