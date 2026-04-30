@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -23,7 +24,12 @@ import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import ProDataTable from "@/components/shared/ProDataTable"
 
+const toSlug = (value = "") => String(value).trim().toLowerCase().replace(/\s+/g, "-")
+
 function CreateJob() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({
@@ -73,6 +79,14 @@ function CreateJob() {
 
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
+  const isReadOnly = mode === "view"
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -185,6 +199,49 @@ function CreateJob() {
     return pos.map(p => ({ label: p, value: p }))
   }, [activeFilters.records, columnFilters.job_number, columnFilters.customer])
 
+  useEffect(() => {
+    const loadJobByNumber = async (jobNumber) => {
+      try {
+        const response = await apiClient.get("/api/dcc/get-jobs", {
+          page: 1,
+          limit: 200,
+          search: jobNumber,
+        })
+        const rows = response?.data || []
+        const matched = rows.find((j) => toSlug(j.job_number) === toSlug(jobNumber))
+        if (!matched) {
+          setError(`Job not found: ${jobNumber}`)
+          return
+        }
+        handleEdit(matched)
+      } catch {
+        setError(`Unable to load job: ${jobNumber}`)
+      }
+    }
+
+    if (mode === "list") {
+      setView("list")
+      setEditingId(null)
+      return
+    }
+
+    setView("create")
+    if (mode === "edit" || mode === "view") {
+      const row = location.state?.record
+      if (row) handleEdit(row)
+      else if (routeId) loadJobByNumber(decodeURIComponent(routeId))
+      else setError("Please open edit/view from the jobs list once so data can load.")
+    } else {
+      setEditingId(null)
+      setFormData({ customerId: "", locationId: "", poId: "" })
+      setJobs([{ id: 1, job_number: "", project_id: "", equipement_name: "", tag_number: "", code: "" }])
+    }
+  }, [mode, routeId, location.state, handleEdit])
+
+  const handleView = useCallback((job) => {
+    navigate(`/jobs/view/${toSlug(job.job_number)}`, { state: { record: job } })
+  }, [navigate])
+
   const columns = useMemo(() => [
     {
       accessorKey: "job_number",
@@ -239,17 +296,22 @@ function CreateJob() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleView(row)}>
+            View
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/jobs/edit/${toSlug(row.job_number)}`, { state: { record: row } })}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </div>
       ),
     },
-  ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions])
+  ], [activeCustomerOptions, activeLocationOptions, activePoOptions, handleView, navigate])
 
   const fetchJobsList = useCallback(async (params) => {
     const queryParams = { ...params };
@@ -451,7 +513,7 @@ function CreateJob() {
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
-        setView("list")
+        navigate("/jobs/list")
       }, 1500)
 
     } catch (err) {
@@ -481,14 +543,17 @@ function CreateJob() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {editingId ? "Update Job" : "Create Job"}
+                  {mode === "view" ? "View Job" : (editingId ? "Update Job" : "Create Job")}
                 </h1>
                 <p className="text-muted-foreground">
-                  {editingId ? "Update the details for the selected job." : "Select customer, location, and PO to create jobs."}
+                  {mode === "view"
+                    ? "Review the selected job details."
+                    : (editingId ? "Update the details for the selected job." : "Select customer, location, and PO to create jobs.")}
                 </p>
               </div>
               <div>
                 <Button variant="outline" onClick={() => {
+                  navigate("/jobs/list")
                   setView("list")
                   setFormData({ customerId: "", locationId: "", poId: "" })
                   setJobs([{
@@ -512,7 +577,7 @@ function CreateJob() {
               columns={columns}
               fetchData={fetchJobsList}
               onExport={handleExport}
-              onAdd={() => setView("create")}
+              onAdd={() => navigate("/jobs/create")}
               onAddTooltip="Create Job"
               refreshKey={refreshKey}
               columnFilters={columnFilters}
@@ -526,7 +591,7 @@ function CreateJob() {
                   <CardHeader>
                     <CardTitle>Job Details Selection</CardTitle>
                     <CardDescription>
-                      Select Purchase Order to proceed
+                      {mode === "view" ? "Selected purchase order context." : "Select Purchase Order to proceed"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6">
@@ -538,7 +603,7 @@ function CreateJob() {
                       <Select
                         value={formData.customerId}
                         onValueChange={handleCustomerChange}
-                        disabled={isLoading || isLoadingCustomers || !!formData.poId || !!editingId}
+                        disabled={isLoading || isLoadingCustomers || !!formData.poId || !!editingId || isReadOnly}
                         required
                       >
                         <SelectTrigger className="w-full">
@@ -563,7 +628,7 @@ function CreateJob() {
                         <Select
                           value={formData.locationId}
                           onValueChange={handleLocationChange}
-                          disabled={isLoading || !formData.customerId || !!formData.poId || !!editingId}
+                          disabled={isLoading || !formData.customerId || !!formData.poId || !!editingId || isReadOnly}
                           required
                         >
                           <SelectTrigger className="w-full">
@@ -600,7 +665,7 @@ function CreateJob() {
                       <Select
                         value={formData.poId}
                         onValueChange={handlePOChange}
-                        disabled={isLoading || isLoadingCustomers || !!editingId}
+                        disabled={isLoading || isLoadingCustomers || !!editingId || isReadOnly}
                         required
                       >
                         <SelectTrigger className="w-full">
@@ -624,7 +689,7 @@ function CreateJob() {
                     <CardHeader>
                       <CardTitle>Job Details</CardTitle>
                       <CardDescription>
-                        Enter the job details for this purchase order
+                        {mode === "view" ? "Read-only job details for this purchase order." : "Enter the job details for this purchase order"}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -637,6 +702,7 @@ function CreateJob() {
                                 <Input
                                   value={job.job_number}
                                   onChange={(e) => handleJobChange(job.id, "job_number", e.target.value)}
+                                  disabled={isReadOnly || !!editingId}
                                   required
                                 />
                               </div>
@@ -645,6 +711,7 @@ function CreateJob() {
                                 <Input
                                   value={job.project_id}
                                   onChange={(e) => handleJobChange(job.id, "project_id", e.target.value)}
+                                  disabled={isReadOnly}
                                 />
                               </div>
                               <div className="space-y-2">
@@ -652,6 +719,7 @@ function CreateJob() {
                                 <Input
                                   value={job.equipement_name}
                                   onChange={(e) => handleJobChange(job.id, "equipement_name", e.target.value)}
+                                  disabled={isReadOnly}
                                   required
                                 />
                               </div>
@@ -660,6 +728,7 @@ function CreateJob() {
                                 <Input
                                   value={job.tag_number}
                                   onChange={(e) => handleJobChange(job.id, "tag_number", e.target.value)}
+                                  disabled={isReadOnly}
                                   required
                                 />
                               </div>
@@ -668,6 +737,7 @@ function CreateJob() {
                                 <Input
                                   value={job.code}
                                   onChange={(e) => handleJobChange(job.id, "code", e.target.value)}
+                                  disabled={isReadOnly}
                                 />
                               </div>
                             </div>
@@ -679,7 +749,7 @@ function CreateJob() {
                             <hr className="my-6" />
                           </div>
                         ))}
-                        <Button type="button" variant="outline" onClick={addJob} className={`w-full ${editingId ? 'hidden' : ''}`}>
+                        <Button type="button" variant="outline" onClick={addJob} disabled={isReadOnly} className={`w-full ${editingId ? 'hidden' : ''}`}>
                           <Plus className="h-4 w-4 mr-2" /> Add Another Job
                         </Button>
                       </div>
@@ -687,7 +757,7 @@ function CreateJob() {
                   </Card>
                 )}
 
-                {(formData.poId || editingId) && (
+                {(formData.poId || editingId) && !isReadOnly && (
                   <div className="flex justify-end gap-4">
                     <Button type="button" variant="outline" onClick={() => {
                       if (!editingId) {
@@ -696,7 +766,7 @@ function CreateJob() {
                       setJobs([{ id: 1, job_number: "", project_id: "", equipement_name: "", tag_number: "", code: "" }])
                       if (editingId) {
                         setEditingId(null)
-                        setView("list")
+                        navigate("/jobs/list")
                       }
                     }}>
                       {editingId ? "Cancel" : "Reset"}

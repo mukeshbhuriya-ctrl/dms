@@ -17,6 +17,7 @@ router.get('/get-dcr', DcrController.getDcr);
 router.get('/active-filters', DcrController.getActiveFilters);
 router.get('/get-dcr-by-id/:id', DcrController.getDcrById);
 router.post('/create-dcr', DcrController.createDcr);
+router.put('/update-dcr/:id', DcrController.updateDcr);
 router.get('/get-jobs', DcrController.getDcrNumber);
 router.get('/download-pdf/:id', DcrController.downloadPdf);
 

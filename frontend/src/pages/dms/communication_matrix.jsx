@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -16,7 +17,23 @@ import ProDataTable from "@/components/shared/ProDataTable"
 import { Plus, Mail, ArrowLeft, Edit, X } from "lucide-react"
 import { poApi } from "@/api/po.api"
 
+const toUrlKey = (value = "") =>
+  String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+
+const normalizeKey = (value = "") =>
+  String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+
 function CommunicationMatrix() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [isLoading, setIsLoading] = useState(false)
@@ -30,6 +47,13 @@ function CommunicationMatrix() {
     locations: [],
     pos: []
   })
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
+  const isReadOnly = mode === "view"
 
   useEffect(() => {
     const fetchFilters = async () => {
@@ -84,7 +108,7 @@ function CommunicationMatrix() {
     }
   }, [])
 
-  const handleEdit = useCallback((po) => {
+  const applyPoToForm = useCallback((po) => {
     setSelectedPoId(po.id)
 
     // Parse matrix
@@ -103,6 +127,16 @@ function CommunicationMatrix() {
     setError("")
     setSuccess("")
   }, [])
+
+  const handleEdit = useCallback((po) => {
+    navigate(`/communication-matrix/edit/${toUrlKey(po.po_number || "")}`, { state: { record: po } })
+    applyPoToForm(po)
+  }, [navigate, applyPoToForm])
+
+  const handleView = useCallback((po) => {
+    navigate(`/communication-matrix/view/${toUrlKey(po.po_number || "")}`, { state: { record: po } })
+    applyPoToForm(po)
+  }, [navigate, applyPoToForm])
 
   const handlePoChange = (poId) => {
     if (!poId) {
@@ -160,18 +194,28 @@ function CommunicationMatrix() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-3.5 w-3.5 mr-2" />
-          <span className="text-[11px] font-medium text-nowrap">Edit Matrix</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none"
+            onClick={() => handleView(row)}
+          >
+            <span className="text-[11px] font-medium text-nowrap">View</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none"
+            onClick={() => handleEdit(row)}
+          >
+            <Edit className="h-3.5 w-3.5 mr-2" />
+            <span className="text-[11px] font-medium text-nowrap">Edit Matrix</span>
+          </Button>
+        </div>
       ),
     },
-  ], [handleEdit, filterOptions])
+  ], [handleEdit, handleView, filterOptions])
 
 
   // Communication Matrix Handlers
@@ -265,6 +309,53 @@ function CommunicationMatrix() {
     }
   }
 
+  useEffect(() => {
+    const loadByPoNumber = async (poNumberParam) => {
+      const decodedPoNumber = decodeURIComponent(poNumberParam || "")
+      try {
+        const response = await poApi.getPos({ page: 1, limit: 500, search: decodedPoNumber })
+        let rows = response?.data || []
+        let matched = rows.find((p) => String(p.po_number || "").trim() === String(decodedPoNumber).trim())
+        if (!matched) {
+          const normalized = normalizeKey(decodedPoNumber)
+          matched = rows.find((p) => normalizeKey(p.po_number) === normalized)
+        }
+        if (!matched) {
+          setError(`PO not found: ${decodedPoNumber}`)
+          setView("list")
+          return
+        }
+        applyPoToForm(matched)
+      } catch {
+        setError(`Unable to load PO: ${decodedPoNumber}`)
+        setView("list")
+      }
+    }
+
+    if (mode === "list") {
+      setView("list")
+      return
+    }
+
+    if (mode === "create") {
+      setView("create")
+      setSelectedPoId("")
+      setShrenoCommunication([{ name: "", email: "" }])
+      setClientCommunication([{ name: "", email: "" }])
+      return
+    }
+
+    const row = location.state?.record
+    if (row) {
+      applyPoToForm(row)
+    } else if (routeId) {
+      loadByPoNumber(routeId)
+    } else {
+      setError("Please open edit/view from list once so data can load.")
+      setView("list")
+    }
+  }, [mode, routeId, location.state, applyPoToForm])
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
@@ -273,7 +364,7 @@ function CommunicationMatrix() {
           <h1 className="text-lg font-bold tracking-tight text-slate-900">Communication Matrix</h1>
         </div>
         {view !== "list" && (
-          <Button variant="outline" onClick={() => setView("list")}>
+          <Button variant="outline" onClick={() => navigate("/communication-matrix/list")}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
           </Button>
         )}
@@ -289,6 +380,7 @@ function CommunicationMatrix() {
                 columnFilters={columnFilters}
                 onFilterChange={setColumnFilters}
                 onAdd={() => {
+                  navigate("/communication-matrix/create")
                   setSelectedPoId("")
                   setShrenoCommunication([{ name: "", email: "" }])
                   setClientCommunication([{ name: "", email: "" }])
@@ -328,7 +420,7 @@ function CommunicationMatrix() {
                         options={poOptions}
                         value={selectedPoId}
                         onValueChange={handlePoChange}
-                        disabled={isLoading}
+                        disabled={isLoading || isReadOnly}
                         placeholder="Select a Purchase Order..."
                         searchPlaceholder="Search PO number or customer..."
                       />
@@ -348,7 +440,7 @@ function CommunicationMatrix() {
                           <h3 className="font-semibold flex items-center gap-2">
                             <Mail className="h-4 w-4" /> Shreno Communication
                           </h3>
-                          <Button type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
+                          <Button type="button" variant="outline" size="sm" onClick={addShrenoCommunication} disabled={isReadOnly}>
                             <Plus className="h-4 w-4 mr-2" /> Add
                           </Button>
                         </div>
@@ -359,6 +451,7 @@ function CommunicationMatrix() {
                               value={contact.name}
                               onChange={(e) => handleShrenoCommunicationChange(index, "name", e.target.value)}
                               required
+                              disabled={isReadOnly}
                             />
                             <Input
                               placeholder="Email"
@@ -366,13 +459,14 @@ function CommunicationMatrix() {
                               value={contact.email}
                               onChange={(e) => handleShrenoCommunicationChange(index, "email", e.target.value)}
                               required
+                              disabled={isReadOnly}
                             />
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => removeShrenoCommunication(index)}
-                              disabled={shrenoCommunication.length === 1}
+                              disabled={shrenoCommunication.length === 1 || isReadOnly}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -386,7 +480,7 @@ function CommunicationMatrix() {
                           <h3 className="font-semibold flex items-center gap-2">
                             <Mail className="h-4 w-4" /> Client Communication
                           </h3>
-                          <Button type="button" variant="outline" size="sm" onClick={addClientCommunication}>
+                          <Button type="button" variant="outline" size="sm" onClick={addClientCommunication} disabled={isReadOnly}>
                             <Plus className="h-4 w-4 mr-2" /> Add
                           </Button>
                         </div>
@@ -397,6 +491,7 @@ function CommunicationMatrix() {
                               value={contact.name}
                               onChange={(e) => handleClientCommunicationChange(index, "name", e.target.value)}
                               required
+                              disabled={isReadOnly}
                             />
                             <Input
                               placeholder="Email"
@@ -404,13 +499,14 @@ function CommunicationMatrix() {
                               value={contact.email}
                               onChange={(e) => handleClientCommunicationChange(index, "email", e.target.value)}
                               required
+                              disabled={isReadOnly}
                             />
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
                               onClick={() => removeClientCommunication(index)}
-                              disabled={clientCommunication.length === 1}
+                              disabled={clientCommunication.length === 1 || isReadOnly}
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -421,7 +517,7 @@ function CommunicationMatrix() {
                   </Card>
                 )}
 
-                {selectedPoId && (
+                {selectedPoId && !isReadOnly && (
                   <div className="flex justify-end gap-4">
                     <Button
                       type="button"

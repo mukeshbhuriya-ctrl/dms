@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,12 @@ import { Plus, ArrowLeft, Edit } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
+const toSlug = (value = "") => String(value).trim().toLowerCase().replace(/\s+/g, "-")
+
 function CreateCustomer() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({
@@ -35,6 +39,14 @@ function CreateCustomer() {
 
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
+  const isReadOnly = mode === "view"
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -72,7 +84,7 @@ function CreateCustomer() {
     return shorts.map(s => ({ label: s, value: s }))
   }, [activeFilters.records, columnFilters.customer_name])
 
-  const handleEdit = useCallback((customer) => {
+  const populateFormFromCustomer = useCallback((customer) => {
     setFormData({
       customerName: customer.customer_name || "",
       email: customer.email || "",
@@ -84,6 +96,57 @@ function CreateCustomer() {
     setError("")
     setSuccess("")
   }, [])
+
+  useEffect(() => {
+    const loadCustomerByName = async (customerName) => {
+      try {
+        const response = await apiClient.get("/api/dcc/get-customers", {
+          page: 1,
+          limit: 200,
+          search: customerName,
+        })
+        const rows = response?.data || []
+        const matched = rows.find((c) => toSlug(c.customer_name) === toSlug(customerName))
+        if (!matched) {
+          setError(`Customer not found: ${customerName}`)
+          return
+        }
+        populateFormFromCustomer(matched)
+      } catch {
+        setError(`Unable to load customer: ${customerName}`)
+      }
+    }
+
+    if (mode === "list") {
+      setView("list")
+      setEditingId(null)
+      return
+    }
+
+    setView("create")
+    if (mode === "edit" || mode === "view") {
+      const row = location.state?.record
+      if (row) populateFormFromCustomer(row)
+      else if (routeId) loadCustomerByName(decodeURIComponent(routeId))
+      else setError("Please open edit/view from the customer list once so data can load.")
+    } else {
+      setEditingId(null)
+      setFormData({
+        customerName: "",
+        email: "",
+        shortName: "",
+        mobileNumber: "",
+      })
+    }
+  }, [mode, routeId, location.state, populateFormFromCustomer])
+
+  const handleEdit = useCallback((customer) => {
+    navigate(`/customers/edit/${toSlug(customer.customer_name)}`, { state: { record: customer } })
+  }, [navigate])
+
+  const handleView = useCallback((customer) => {
+    navigate(`/customers/view/${toSlug(customer.customer_name)}`, { state: { record: customer } })
+  }, [navigate])
 
   const columns = useMemo(() => [
     {
@@ -119,17 +182,18 @@ function CreateCustomer() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleView(row)}>
+            View
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleEdit(row)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </div>
       ),
     },
-  ], [handleEdit, activeCustomerOptions, activeShortNameOptions])
+  ], [handleEdit, activeCustomerOptions, activeShortNameOptions, handleView])
 
   const fetchCustomers = useCallback(async (params) => {
     try {
@@ -192,7 +256,7 @@ function CreateCustomer() {
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
-        setView("list")
+        navigate("/customers/list")
       }, 1500)
 
     } catch (err) {
@@ -221,14 +285,16 @@ function CreateCustomer() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {editingId ? "Update Client" : "Create Client"}
+                  {mode === "view" ? "View Client" : (editingId ? "Update Client" : "Create Client")}
                 </h1>
                 <p className="text-muted-foreground">
-                  {editingId ? "Update the details of the selected client." : "Fill in the details to create a new client profile."}
+                  {mode === "view"
+                    ? "Review the selected client profile."
+                    : (editingId ? "Update the details of the selected client." : "Fill in the details to create a new client profile.")}
                 </p>
               </div>
               <div>
-                  <Button variant="outline" onClick={() => setView("list")}>
+                  <Button variant="outline" onClick={() => navigate("/customers/list")}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
               </div>
@@ -252,7 +318,7 @@ function CreateCustomer() {
                 columns={columns}
                 fetchData={fetchCustomers}
                 onExport={handleExport}
-                onAdd={() => setView("create")}
+                onAdd={() => navigate("/customers/create")}
                 onAddTooltip="Create Client"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
@@ -264,7 +330,7 @@ function CreateCustomer() {
                   <CardHeader>
                     <CardTitle>Client Information</CardTitle>
                     <CardDescription>
-                      Enter the basic details about the client
+                      {mode === "view" ? "Read-only details of this client." : "Enter the basic details about the client"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -280,7 +346,7 @@ function CreateCustomer() {
                         value={formData.customerName}
                         onChange={handleInputChange}
                         required
-                        disabled={isLoading}
+                        disabled={isLoading || isReadOnly}
                       />
                     </div>
 
@@ -297,7 +363,7 @@ function CreateCustomer() {
                           value={formData.email}
                           onChange={handleInputChange}
                           required
-                          disabled={isLoading}
+                          disabled={isLoading || isReadOnly}
                         />
                       </div>
                       <div className="space-y-2">
@@ -312,7 +378,7 @@ function CreateCustomer() {
                           value={formData.shortName}
                           onChange={handleInputChange}
                           required
-                          disabled={isLoading}
+                          disabled={isLoading || isReadOnly}
                         />
                       </div>
                     </div>
@@ -328,34 +394,28 @@ function CreateCustomer() {
                         placeholder="+1 (555) 000-0000"
                         value={formData.mobileNumber}
                         onChange={handleInputChange}
-                        disabled={isLoading}
+                        disabled={isLoading || isReadOnly}
                       />
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Submit Buttons */}
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setFormData({
-                        customerName: "",
-                        email: "",
-                        shortName: "",
-                        mobileNumber: "",
-                      })
-                      setEditingId(null)
-                    }}
-                    disabled={isLoading}
-                  >
-                    Reset
-                  </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}
-                  </Button>
-                </div>
+                {!isReadOnly && (
+                  <div className="flex justify-end gap-4 mt-6">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate("/customers/list")}
+                      disabled={isLoading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={isLoading}>
+                      {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}
+                    </Button>
+                  </div>
+                )}
               </form>
             )}
           </div>

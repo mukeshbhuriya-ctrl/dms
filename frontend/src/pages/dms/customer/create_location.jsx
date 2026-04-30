@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,12 @@ import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
+const toSlug = (value = "") => String(value).trim().toLowerCase().replace(/\s+/g, "-")
+
 function CreateLocation() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [selectedCustomer, setSelectedCustomer] = useState("")
@@ -46,6 +52,14 @@ function CreateLocation() {
 
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
+  const isReadOnly = mode === "view"
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -83,7 +97,7 @@ function CreateLocation() {
     return locs.map(l => ({ label: l, value: l }))
   }, [activeFilters.records, columnFilters.customer_name])
 
-  const handleEdit = useCallback((locationItem) => {
+  const populateFromLocation = useCallback((locationItem) => {
     setSelectedCustomer(String(locationItem.customer_id))
     setLocations([
       {
@@ -98,6 +112,53 @@ function CreateLocation() {
     setError("")
     setSuccess("")
   }, [])
+
+  useEffect(() => {
+    const loadLocationByName = async (locationName) => {
+      try {
+        const response = await apiClient.get("/api/dcc/get-customer-locations", {
+          page: 1,
+          limit: 200,
+          search: locationName,
+        })
+        const rows = response?.data || []
+        const matched = rows.find((l) => toSlug(l.location_name) === toSlug(locationName))
+        if (!matched) {
+          setError(`Location not found: ${locationName}`)
+          return
+        }
+        populateFromLocation(matched)
+      } catch {
+        setError(`Unable to load location: ${locationName}`)
+      }
+    }
+
+    if (mode === "list") {
+      setView("list")
+      setEditingId(null)
+      return
+    }
+
+    setView("create")
+    if (mode === "edit" || mode === "view") {
+      const row = location.state?.record
+      if (row) populateFromLocation(row)
+      else if (routeId) loadLocationByName(decodeURIComponent(routeId))
+      else setError("Please open edit/view from the location list once so data can load.")
+    } else {
+      setEditingId(null)
+      setSelectedCustomer("")
+      setLocations([{ id: 1, location: "", customerNumber: "", gstNumber: "" }])
+    }
+  }, [mode, routeId, location.state, populateFromLocation])
+
+  const handleEdit = useCallback((locationItem) => {
+    navigate(`/locations/edit/${toSlug(locationItem.location_name)}`, { state: { record: locationItem } })
+  }, [navigate])
+
+  const handleView = useCallback((locationItem) => {
+    navigate(`/locations/view/${toSlug(locationItem.location_name)}`, { state: { record: locationItem } })
+  }, [navigate])
 
   const columns = useMemo(() => [
     {
@@ -135,17 +196,18 @@ function CreateLocation() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleView(row)}>
+            View
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleEdit(row)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </div>
       ),
     },
-  ], [handleEdit, activeClientOptions, activeLocationOptions])
+  ], [handleEdit, activeClientOptions, activeLocationOptions, handleView])
 
   const fetchCustomerLocations = useCallback(async (params) => {
     try {
@@ -258,7 +320,7 @@ function CreateLocation() {
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
-        setView("list")
+        navigate("/locations/list")
       }, 1500)
 
     } catch (err) {
@@ -287,14 +349,16 @@ function CreateLocation() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {editingId ? "Update Location" : "Create Location"}
+                  {mode === "view" ? "View Location" : (editingId ? "Update Location" : "Create Location")}
                 </h1>
                 <p className="text-muted-foreground">
-                  {editingId ? "Update the details for the selected location." : "Add one or more locations for a client."}
+                  {mode === "view"
+                    ? "Review the selected location details."
+                    : (editingId ? "Update the details for the selected location." : "Add one or more locations for a client.")}
                 </p>
               </div>
               <div>
-                  <Button variant="outline" onClick={() => setView("list")}>
+                  <Button variant="outline" onClick={() => navigate("/locations/list")}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
               </div>
@@ -306,7 +370,7 @@ function CreateLocation() {
                 columns={columns}
                 fetchData={fetchCustomerLocations}
                 onExport={handleExport}
-                onAdd={() => setView("create")}
+                onAdd={() => navigate("/locations/create")}
                 onAddTooltip="Create Location"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
@@ -320,7 +384,9 @@ function CreateLocation() {
                     <CardHeader>
                       <CardTitle>Select Client</CardTitle>
                       <CardDescription>
-                        Choose the client for which you want to add locations
+                        {mode === "view"
+                          ? "Client associated with this location."
+                          : "Choose the client for which you want to add locations"}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -341,7 +407,7 @@ function CreateLocation() {
                         <Select
                           value={selectedCustomer}
                           onValueChange={setSelectedCustomer}
-                          disabled={isLoading || isLoadingCustomers || !!editingId}
+                          disabled={isLoading || isLoadingCustomers || !!editingId || isReadOnly}
                           required
                         >
                           <SelectTrigger className="w-full">
@@ -379,7 +445,9 @@ function CreateLocation() {
                           <div>
                             <CardTitle>Locations</CardTitle>
                             <CardDescription>
-                              Add one or more locations for the selected client
+                              {mode === "view"
+                                ? "Read-only details of this location."
+                                : "Add one or more locations for the selected client"}
                             </CardDescription>
                           </div>
                           <Button
@@ -387,7 +455,7 @@ function CreateLocation() {
                             variant="outline"
                             size="sm"
                             onClick={addLocation}
-                            disabled={isLoading}
+                            disabled={isLoading || isReadOnly}
                             className={editingId ? "hidden" : ""}
                           >
                             <Plus className="h-4 w-4 mr-2" />
@@ -416,7 +484,7 @@ function CreateLocation() {
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => removeLocation(location.id)}
-                                  disabled={isLoading}
+                                  disabled={isLoading || isReadOnly}
                                   className="text-destructive hover:text-destructive"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -440,7 +508,7 @@ function CreateLocation() {
                                   )
                                 }
                                 required
-                                disabled={isLoading}
+                                disabled={isLoading || isReadOnly}
                               />
                             </div>
 
@@ -460,7 +528,7 @@ function CreateLocation() {
                                       e.target.value
                                     )
                                   }
-                                  disabled={isLoading}
+                                  disabled={isLoading || isReadOnly}
                                 />
                               </div>
                               <div className="space-y-2">
@@ -479,7 +547,7 @@ function CreateLocation() {
                                     )
                                   }
                                   required
-                                  disabled={isLoading}
+                                  disabled={isLoading || isReadOnly}
                                 />
                               </div>
                             </div>
@@ -490,7 +558,7 @@ function CreateLocation() {
                   )}
 
                   {/* Submit Buttons */}
-                  {selectedCustomer && (
+                  {selectedCustomer && !isReadOnly && (
                     <div className="flex justify-end gap-4">
                       <Button
                         type="button"
@@ -500,7 +568,7 @@ function CreateLocation() {
                           setLocations([{ id: 1, location: "", customerNumber: "", gstNumber: "" }])
                           if (editingId) {
                             setEditingId(null)
-                            setView("list")
+                            navigate("/locations/list")
                           }
                         }}
                         disabled={isLoading}

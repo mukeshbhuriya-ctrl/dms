@@ -58,9 +58,9 @@ export const MENU_CONFIG = [
         title: "Administration",
         icon: ShieldCheck,
         items: [
-            { title: "Users", path: "/users", roles: [ROLES.ADMIN] },
-            { title: "Departments", path: "/departments", roles: [ROLES.ADMIN] },
-            { title: "QC Group", path: "/qc-group", roles: [ROLES.ADMIN] },
+            { title: "Users", path: "/user/list", roles: [ROLES.ADMIN] },
+            { title: "Departments", path: "/department/list", roles: [ROLES.ADMIN] },
+            { title: "QC Group", path: "/qc-group/list", roles: [ROLES.ADMIN] },
         ],
     },
 
@@ -77,8 +77,8 @@ export const MENU_CONFIG = [
         title: "Customer Management",
         icon: Users,
         items: [
-            { title: "Customer", path: "/dcc/create-customer", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
-            { title: "Location", path: "/dcc/create-location", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
+            { title: "Customer", path: "/customers/list", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
+            { title: "Location", path: "/locations/list", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
         ],
     },
 
@@ -86,13 +86,13 @@ export const MENU_CONFIG = [
     {
         title: "Purchase Orders",
         icon: Briefcase,
-        path: "/dcc/create-po",
+        path: "/purchase-orders/list",
         roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
     },
     {
         title: "Jobs",
         icon: FileText,
-        path: "/dcc/create-job",
+        path: "/jobs/list",
         roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
     },
 
@@ -101,8 +101,8 @@ export const MENU_CONFIG = [
         title: "DTN",
         icon: Folder,
         items: [
-            { title: "Drawing Transmittal (DTN)", path: "/dtn/drawing-transmittal", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Drawing Master", path: "/dtn/drawing-master", roles: [ROLES.ADMIN, ROLES.DCC, ] },
+            { title: "Drawing Transmittal (DTN)", path: "/drawing-transmittal/list", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Drawing Master", path: "/drawing-master/list", roles: [ROLES.ADMIN, ROLES.DCC, ] },
         ],
     },
 
@@ -111,12 +111,12 @@ export const MENU_CONFIG = [
         title: "DMS",
         icon: Folder,
         items: [
-            { title: "Communication Matrix", path: "/dcc/communication-matrix", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Documents (VDR)", path: "/dcc/documents", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Communication Matrix", path: "/communication-matrix/list", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Documents (VDR)", path: "/documents/list", roles: [ROLES.ADMIN, ROLES.DCC] },
             { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER], hideFor: [ROLES.ADMIN] },
-            { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Create Transmission", path: "/dcc/create-transmission", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Client Approval Status", path: "/dcc/client-approval-status", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Document Approver", path: "/document-approver/list", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Create Transmission", path: "/transmissions/list", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Client Approval Status", path: "/client-approval-status/list", roles: [ROLES.ADMIN, ROLES.DCC] },
         ],
     },
 
@@ -125,7 +125,7 @@ export const MENU_CONFIG = [
         title: "DCR",
         icon: Folder,
         items: [
-            { title: "DCR Request", path: "/dcr/dcr-request", roles: [ROLES.ADMIN, ROLES.QC_ENGINEER, ROLES.DCR, ROLES.DESIGN_ENGINEER] },
+            { title: "DCR Request", path: "/dcr/list", roles: [ROLES.ADMIN, ROLES.QC_ENGINEER, ROLES.DCR, ROLES.DESIGN_ENGINEER] },
         ],
     },
 
@@ -134,7 +134,7 @@ export const MENU_CONFIG = [
         title: "NCR",
         icon: Folder,
         items: [
-            { title: "NCR", path: "/ncr/create-ncr", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER, ROLES.WELD_PLAN_ADMIN] }
+            { title: "NCR", path: "/ncr/list", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER, ROLES.WELD_PLAN_ADMIN] }
         ],
     },
 
@@ -143,7 +143,7 @@ export const MENU_CONFIG = [
         title: "MHC",
         icon: Folder,
         items: [
-            { title: "Material Heat Chart", path: "/material-heat-chart", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
+            { title: "Material Heat Chart", path: "/material-heat-chart/list", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
         ],
     },
 

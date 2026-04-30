@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -77,6 +78,8 @@ import {
 } from "lucide-react"
 
 function AssignDocument() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
@@ -117,6 +120,12 @@ function AssignDocument() {
   // Refs for debouncing
   const searchTimeoutRef = useRef({}); // { [tempId_field]: setTimeoutId }
   const [error, setError] = useState("")
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
 
   // Master Data fetching (unified)
   useEffect(() => {
@@ -755,7 +764,7 @@ function AssignDocument() {
     }))
   }
 
-  const handleEditAssign = (row) => {
+  const openEditAssign = (row) => {
     setEditingId(row.id)
     setView("assign")
 
@@ -785,10 +794,51 @@ function AssignDocument() {
     ])
   }
 
+  const handleEditAssign = (row) => {
+    navigate(`/documents/edit/${row.id}`, { state: { record: row } })
+  }
+
+  useEffect(() => {
+    if (mode === "list") {
+      setView("list")
+      setEditingId(null)
+      return
+    }
+
+    setView("assign")
+    if (mode === "edit" || mode === "view") {
+      const row = location.state?.record
+      if (row) {
+        openEditAssign(row)
+      } else {
+        toast.error("Please open edit/view from documents list so record data can load.")
+        navigate("/documents/list")
+      }
+      return
+    }
+
+    setEditingId(null)
+    setAssignments([
+      {
+        tempId: Date.now(),
+        jobId: [],
+        documentName: "",
+        shrenoDocumentNo: "",
+        shrenoReferenceNo: "",
+        clientDocumentNo: "",
+        clientReferenceNo: "",
+        assignUserId: "",
+        upload_due_days: "",
+        response_due_days: "",
+      }
+    ])
+  }, [mode, location.state, navigate])
+
   // handleNext removed during streamlining
 
   // Handle back to selection and reset form
   const handleBack = () => {
+    navigate("/documents/list")
     setView("list")
     setEditingId(null)
     // Reset form data removed
@@ -962,7 +1012,7 @@ function AssignDocument() {
               onExport={handleExport}
               onAdd={() => {
                 handleBack();
-                setView("assign");
+                navigate("/documents/create");
               }}
               onImport={handleImportExcel}
               onDownloadTemplate={handleDownloadTemplate}

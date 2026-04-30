@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "react-toastify"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -40,7 +41,7 @@ import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick, refreshKey }) {
+function ListView({ onCreateClick, onEditClick, onViewClick, refreshKey }) {
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] })
 
@@ -222,7 +223,18 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
             variant="outline"
             size="sm"
             className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg"
-            onClick={() => onEditClick(row.id)}
+            onClick={() => onViewClick(row)}
+            title="View Transmittal"
+          >
+            <Eye className="h-3.5 w-3.5 mr-1" />
+            <span className="text-[10px] font-bold uppercase">View</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg"
+            onClick={() => onEditClick(row)}
             title="Edit Transmittal"
           >
             <Edit className="h-3.5 w-3.5 mr-1" />
@@ -252,7 +264,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
         </div>
       )
     }
-  ], [onEditClick, handleExport, activeCustomerOptions, activePoOptions, activeJobOptions])
+  ], [onEditClick, onViewClick, handleExport, activeCustomerOptions, activePoOptions, activeJobOptions])
 
   return (
     <div>
@@ -271,7 +283,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
 }
 
 // ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack, editId, defaultRefNo }) {
+function CreateView({ onBack, editId, defaultRefNo, isReadOnly = false }) {
   const [jobIds, setJobIds] = useState([])
   const [jobs, setJobs] = useState([])
   const [jobsLoading, setJobsLoading] = useState(false)
@@ -523,6 +535,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
 
   // Submission Logic (Draft or Uploaded)
   const handleSubmit = async (status) => {
+    if (isReadOnly) return
     if (jobIds.length === 0) {
       return toast.warning("Please select at least one Job Number.")
     }
@@ -614,8 +627,12 @@ function CreateView({ onBack, editId, defaultRefNo }) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Create Drawing Transmittal</h1>
-          <p className="text-muted-foreground text-sm">Fill in the details and add drawing items.</p>
+          <h1 className="text-3xl font-bold mb-1">
+            {isReadOnly ? "View Drawing Transmittal" : (editId ? "Edit Drawing Transmittal" : "Create Drawing Transmittal")}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {isReadOnly ? "Read-only details of this transmittal." : "Fill in the details and add drawing items."}
+          </p>
         </div>
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -623,6 +640,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         </Button>
       </div>
 
+      <div className={isReadOnly ? "pointer-events-none select-none" : ""}>
       <Card className="mb-6 shadow-sm border border-muted-foreground/20">
         <CardHeader className="pb-4 border-b bg-muted/5 font-semibold text-lg">
           <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
@@ -785,6 +803,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
           <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
           <Button
             onClick={addMatrixRow}
+            disabled={isReadOnly}
             className="h-9 px-4 bg-slate-900 hover:bg-black text-white rounded-md shadow-sm transition-all text-xs font-bold tracking-wide gap-2 border-none"
           >
             <Plus className="h-4 w-4" />
@@ -965,6 +984,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
           </div>
         </CardContent>
       </Card>
+      </div>
       <div className="flex gap-4 justify-end items-center mt-6">
         <Button
           variant="outline"
@@ -975,21 +995,25 @@ function CreateView({ onBack, editId, defaultRefNo }) {
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => handleSubmit("Draft")}
-          disabled={savingStatus !== null}
-          className="h-10 px-6 border-slate-200 text-slate-600 hover:bg-slate-50 transition-all rounded-lg font-medium shadow-none"
-        >
-          {savingStatus === "Draft" ? "Saving..." : "Save Draft"}
-        </Button>
-        <Button
-          onClick={() => handleSubmit("Uploaded")}
-          disabled={savingStatus !== null}
-          className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] tracking-wide border-none"
-        >
-          {savingStatus === "Uploaded" ? "Processing..." : "Generate Transmittal"}
-        </Button>
+        {!isReadOnly && (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => handleSubmit("Draft")}
+              disabled={savingStatus !== null}
+              className="h-10 px-6 border-slate-200 text-slate-600 hover:bg-slate-50 transition-all rounded-lg font-medium shadow-none"
+            >
+              {savingStatus === "Draft" ? "Saving..." : "Save Draft"}
+            </Button>
+            <Button
+              onClick={() => handleSubmit("Uploaded")}
+              disabled={savingStatus !== null}
+              className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] tracking-wide border-none"
+            >
+              {savingStatus === "Uploaded" ? "Processing..." : "Generate Transmittal"}
+            </Button>
+          </>
+        )}
       </div>
 
       <DocumentPreviewDialog
@@ -1004,24 +1028,107 @@ function CreateView({ onBack, editId, defaultRefNo }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function DrawingTransmittal() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams()
   const [view, setView] = useState("list")
   const [editId, setEditId] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [loadError, setLoadError] = useState("")
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
 
   const handleCreate = useCallback(() => {
+    navigate("/drawing-transmittal/create")
     setEditId(null)
     setView("create")
-  }, [])
+  }, [navigate])
 
-  const handleEdit = useCallback((id) => {
-    setEditId(id)
+  const handleEdit = useCallback((row) => {
+    navigate(`/drawing-transmittal/edit/${encodeURIComponent(row.ref_no || "")}`, { state: { record: row } })
+    setEditId(row.id)
     setView("create")
-  }, [])
+  }, [navigate])
+
+  const handleView = useCallback((row) => {
+    navigate(`/drawing-transmittal/view/${encodeURIComponent(row.ref_no || "")}`, { state: { record: row } })
+    setEditId(row.id)
+    setView("create")
+  }, [navigate])
 
   const handleBack = useCallback((refresh = false) => {
     if (refresh) setRefreshKey(prev => prev + 1)
+    navigate("/drawing-transmittal/list")
     setView("list")
-  }, [])
+  }, [navigate])
+
+  useEffect(() => {
+    const loadByRefNo = async (refNoParam) => {
+      const decodedRefNo = decodeURIComponent(refNoParam || "")
+      try {
+        const response = await apiClient.get("/api/dtn", {
+          page: 1,
+          limit: 200,
+          search: decodedRefNo,
+        })
+        let rows = response?.data || []
+        let matched = rows.find((r) => String(r.ref_no || "").trim() === String(decodedRefNo).trim())
+
+        // Fallback: case-insensitive exact ref compare over larger list window.
+        if (!matched) {
+          const fallbackRes = await apiClient.get("/api/dtn", { page: 1, limit: 500 })
+          rows = fallbackRes?.data || []
+          const normalized = String(decodedRefNo).trim().toLowerCase()
+          matched = rows.find((r) => String(r.ref_no || "").trim().toLowerCase() === normalized)
+        }
+
+        if (!matched) {
+          setLoadError(`Drawing Transmittal not found: ${decodedRefNo}`)
+          setView("list")
+          return
+        }
+        setLoadError("")
+        setEditId(matched.id)
+        setView("create")
+      } catch {
+        setLoadError(`Unable to load Drawing Transmittal: ${decodedRefNo}`)
+        setView("list")
+      }
+    }
+
+    if (mode === "list") {
+      setView("list")
+      setEditId(null)
+      return
+    }
+
+    if (mode === "create") {
+      setLoadError("")
+      setEditId(null)
+      setView("create")
+      return
+    }
+
+    const row = location.state?.record
+    if (row?.id) {
+      setLoadError("")
+      setEditId(row.id)
+      setView("create")
+      return
+    }
+
+    if (routeId) {
+      loadByRefNo(routeId)
+      return
+    }
+
+    setLoadError("Please open edit/view from the list once so data can load.")
+    setView("list")
+  }, [mode, routeId, location.state])
 
   return (
     <div className="flex-1 flex flex-col w-full h-full bg-slate-50/20 overflow-hidden">
@@ -1035,17 +1142,24 @@ export default function DrawingTransmittal() {
       </header>
 
       <main className="flex-1 overflow-auto p-6 flex flex-col">
+        {loadError && view === "list" && (
+          <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {loadError}
+          </div>
+        )}
         <div className="flex-1 flex flex-col w-full">
           {view === "list" ? (
             <ListView
               onCreateClick={handleCreate}
               onEditClick={handleEdit}
+              onViewClick={handleView}
               refreshKey={refreshKey}
             />
           ) : (
             <CreateView
               onBack={handleBack}
               editId={editId}
+              isReadOnly={mode === "view"}
             />
           )}
         </div>

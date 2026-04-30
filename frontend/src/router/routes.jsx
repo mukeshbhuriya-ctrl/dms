@@ -49,6 +49,22 @@ const protect = (element, allowedRoles = null) => (
   </ProtectedRoute>
 )
 
+const buildModuleRoutes = ({ modulePath, element, allowedRoles, legacyPaths = [] }) => {
+  const protectedElement = protect(element, allowedRoles)
+  const routes = [
+    { path: `${modulePath}/list`, element: protectedElement },
+    { path: `${modulePath}/create`, element: protectedElement },
+    { path: `${modulePath}/edit/:id`, element: protectedElement },
+    { path: `${modulePath}/view/:id`, element: protectedElement },
+  ]
+
+  legacyPaths.forEach((legacyPath) => {
+    routes.push({ path: legacyPath, element: protectedElement })
+  })
+
+  return routes
+}
+
 // ─── Site Admin (separate auth system) ─────────────────────────
 const siteAdminRoutes = [
   { path: "/siteadmin/login", element: <SiteAdminLogin /> },
@@ -98,54 +114,78 @@ const userRoutes = [
 
 // ─── DCC Routes ────────────────────────────────────────────────
 const dccRoutes = [
-  {
-    path: "/dcc/create-customer",
-    element: protect(<CreateCustomer />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
-  },
-  {
-    path: "/dcc/create-location",
-    element: protect(<CreateLocation />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
-  },
-  {
-    path: "/dcc/create-po",
-    element: protect(<CreatePO />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
-  },
-  {
-    path: "/dcc/create-job",
-    element: protect(<CreateJob />, [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION]),
-  },
-  {
-    path: "/dcc/communication-matrix",
-    element: protect(<CommunicationMatrix />, [ROLES.ADMIN, ROLES.DCC]),
-  },
-  {
-    path: "/dcc/documents",
-    element: protect(<AssignDocument />, [ROLES.ADMIN, ROLES.DCC]),
-  },
-  {
-    path: "/dcc/document-approver",
-    element: protect(<DocumentApprover />, [ROLES.ADMIN, ROLES.DCC, ROLES.QC_ENGINEER]),
-  },
-  {
-    path: "/dcc/create-transmission",
-    element: protect(<CreateTransmission />, [ROLES.ADMIN, ROLES.DCC]),
-  },
-  {
-    path: "/dcc/send-document-to-client",
-    element: protect(<SendDocumentToClient />, [ROLES.ADMIN, ROLES.DCC]),
-  },
-  {
-    path: "/dcc/client-approval-status",
-    element: protect(<ClientApprovalStatus />, [ROLES.ADMIN, ROLES.DCC]),
-  },
-  {
-    path: "/dtn/drawing-transmittal",
-    element: protect(<DrawingTransmittal />, [ROLES.ADMIN, ROLES.DCC]),
-  },
-  {
-    path: "/dtn/drawing-master",
-    element: protect(<DrawingMaster />, [ROLES.ADMIN, ROLES.DCC]),
-  },
+  ...buildModuleRoutes({
+    modulePath: "/customers",
+    element: <CreateCustomer />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
+    legacyPaths: ["/dcc/create-customer"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/locations",
+    element: <CreateLocation />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
+    legacyPaths: ["/dcc/create-location"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/purchase-orders",
+    element: <CreatePO />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
+    legacyPaths: ["/dcc/create-po"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/jobs",
+    element: <CreateJob />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
+    legacyPaths: ["/dcc/create-job"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/communication-matrix",
+    element: <CommunicationMatrix />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC],
+    legacyPaths: ["/dcc/communication-matrix"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/documents",
+    element: <AssignDocument />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC],
+    legacyPaths: ["/dcc/documents"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/document-approver",
+    element: <DocumentApprover />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC, ROLES.QC_ENGINEER],
+    legacyPaths: ["/dcc/document-approver"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/transmissions",
+    element: <CreateTransmission />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC],
+    legacyPaths: ["/dcc/create-transmission", "/transmissions/:id"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/client-submissions",
+    element: <SendDocumentToClient />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC],
+    legacyPaths: ["/dcc/send-document-to-client"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/client-approval-status",
+    element: <ClientApprovalStatus />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC],
+    legacyPaths: ["/dcc/client-approval-status", "/client-approval-status/:id"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/drawing-transmittal",
+    element: <DrawingTransmittal />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC],
+    legacyPaths: ["/dtn/drawing-transmittal"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/drawing-master",
+    element: <DrawingMaster />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCC],
+    legacyPaths: ["/dtn/drawing-master"],
+  }),
 ]
 
 // ─── Admin Routes ──────────────────────────────────────────────
@@ -162,22 +202,30 @@ const adminRoutes = [
     path: "/admin/reports",
     element: protect(<Reports />, [ROLES.ADMIN]),
   },
-  {
-    path: "/users",
-    element: protect(<CreateUser />, [ROLES.ADMIN]),
-  },
-  {
-    path: "/departments",
-    element: protect(<DepartmentManagement />, [ROLES.ADMIN]),
-  },
-  {
-    path: "/qc-group",
-    element: protect(<QcGroupManagement />, [ROLES.ADMIN]),
-  },
-  {
-    path: "/material-heat-chart",
-    element: protect(<MaterialHeatChart />, [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]),
-  },
+  ...buildModuleRoutes({
+    modulePath: "/user",
+    element: <CreateUser />,
+    allowedRoles: [ROLES.ADMIN],
+    legacyPaths: ["/users"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/department",
+    element: <DepartmentManagement />,
+    allowedRoles: [ROLES.ADMIN],
+    legacyPaths: ["/departments"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/qc-group",
+    element: <QcGroupManagement />,
+    allowedRoles: [ROLES.ADMIN],
+    legacyPaths: ["/qc-group"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/material-heat-chart",
+    element: <MaterialHeatChart />,
+    allowedRoles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER],
+    legacyPaths: ["/material-heat-chart"],
+  }),
   {
     path: "/hydrostatic-pressure-test",
     element: protect(<HydroPresText />, [ROLES.ADMIN]),
@@ -219,18 +267,12 @@ const weldRoutes = [
 
 // ─── DCR Routes ────────────────────────────────────────────
 const dcrRoutes = [
-  {
-    path: "/dcr/dcr-request",
-    element: protect(<CreateDCR />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
-  },
-  {
-    path: "/dcr/design-engineer-approval",
-    element: protect(<CreateDCR />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
-  },
-  {
-    path: "/dcr/quality-engineer-approval",
-    element: protect(<CreateDCR />, [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER]),
-  },
+  ...buildModuleRoutes({
+    modulePath: "/dcr",
+    element: <CreateDCR />,
+    allowedRoles: [ROLES.ADMIN, ROLES.DCR, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER],
+    legacyPaths: ["/dcr/dcr-request", "/dcr/design-engineer-approval", "/dcr/quality-engineer-approval"],
+  }),
 ]
 
 // ─── Marketing Routes ──────────────────────────────────────────
@@ -251,10 +293,12 @@ const marketingRoutes = [
 
 // ─── NCR Routes ────────────────────────────────────────────
 const ncrRoutes = [
-  {
-    path: "/ncr/create-ncr",
-    element: protect(<CreateNCR />, [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER, ROLES.WELD_PLAN_ADMIN]),
-  },
+  ...buildModuleRoutes({
+    modulePath: "/ncr",
+    element: <CreateNCR />,
+    allowedRoles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER, ROLES.WELD_PLAN_ADMIN],
+    legacyPaths: ["/ncr/create-ncr"],
+  }),
 ]
 
 // ─── All Routes ────────────────────────────────────────────────

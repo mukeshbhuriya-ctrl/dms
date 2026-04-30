@@ -36,6 +36,7 @@ import {
     History, 
     ArrowLeft, 
     Eye,
+    ArrowRight,
     Save,
     FileText,
     Calendar,
@@ -52,8 +53,12 @@ import { exportApi } from "@/api/export.api";
 import DocumentTrail from "../../components/dms/DocumentTrail";
 import { DocumentPreviewDialog } from "../../components/shared/DocumentPreviewDialog";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 const ClientApprovalStatus = () => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const { id: routeTransmissionId } = useParams();
     const [view, setView] = useState("list"); // 'list' | 'review'
     const [selectedTransmission, setSelectedTransmission] = useState(null);
     const [rowUpdates, setRowUpdates] = useState({}); // { td_id: { status: 'Approved', remarks: '', file: null, loading: false, submitted: false } }
@@ -175,7 +180,7 @@ const ClientApprovalStatus = () => {
         }));
     };
 
-    const handleReviewClick = async (transmission) => {
+    const openReview = async (transmission) => {
         try {
             // 1. Set basic transmission first for immediate UI feedback
             setSelectedTransmission(transmission);
@@ -215,6 +220,57 @@ const ClientApprovalStatus = () => {
             toast.error("Failed to load document details");
         }
     };
+
+    const handleReviewClick = async (transmission) => {
+        navigate(`/client-approval-status/${encodeURIComponent(transmission.transmission_number)}`, { state: { record: transmission } });
+    };
+
+    React.useEffect(() => {
+        const openFromRoute = async () => {
+            const path = location.pathname || "";
+            if (path.endsWith("/list")) {
+                setView("list");
+                return;
+            }
+
+            const isDetailsRoute =
+                path.startsWith("/client-approval-status/") &&
+                !path.endsWith("/create") &&
+                !path.includes("/edit/");
+
+            if (!isDetailsRoute || !routeTransmissionId) return;
+
+            const transmissionNumber = decodeURIComponent(routeTransmissionId);
+            const fromState = location.state?.record;
+
+            if (fromState?.id) {
+                await openReview(fromState);
+                return;
+            }
+
+            try {
+                const res = await dccService.getTransmissions({
+                    page: 1,
+                    limit: 200,
+                    search: transmissionNumber,
+                });
+                const rows = res?.data || [];
+                const matched = rows.find((r) => r.transmission_number === transmissionNumber);
+                if (!matched) {
+                    toast.error(`Transmission not found: ${transmissionNumber}`);
+                    navigate("/client-approval-status/list");
+                    return;
+                }
+                await openReview(matched);
+            } catch (err) {
+                console.error("Failed to open client approval by route:", err);
+                toast.error("Unable to load transmission details");
+                navigate("/client-approval-status/list");
+            }
+        };
+
+        openFromRoute();
+    }, [location.pathname, location.state, routeTransmissionId, navigate]);
 
     const handleSubmitRow = async (rowId) => {
         const update = rowUpdates[rowId];
@@ -320,8 +376,8 @@ const ClientApprovalStatus = () => {
             id: "actions",
             header: "ACTION",
             cell: (row) => (
-                <Button size="sm" variant="ghost" className="h-8 hover:bg-slate-100 text-slate-600 font-medium" onClick={() => handleReviewClick(row)}>
-                    <Eye className="w-3.5 h-3.5 mr-2" /> Review
+                <Button size="sm" variant="outline" className="h-8 hover:bg-slate-100 text-slate-600 font-medium" onClick={() => handleReviewClick(row)}>
+                    Review <ArrowRight className="w-3.5 h-3.5 mr-2" />
                 </Button>
             )
         }
@@ -561,7 +617,7 @@ const ClientApprovalStatus = () => {
                     </h1>
                 </div>
                 {view === 'review' && (
-                    <Button variant="outline" className="h-9 border-slate-200 font-semibold" onClick={() => setView('list')}>
+                    <Button variant="outline" className="h-9 border-slate-200 font-semibold" onClick={() => navigate('/client-approval-status/list')}>
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                     </Button>
                 )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -31,6 +31,8 @@ import {
 import { FormAlert } from "@/components/ui/form-alert"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+
+const toSlug = (value = "") => String(value).trim().toLowerCase().replace(/\s+/g, "-")
 
 const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
     const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
@@ -139,6 +141,8 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
 
 function CreateQcGroup() {
     const navigate = useNavigate()
+    const location = useLocation()
+    const { id: routeId } = useParams()
     const [formData, setFormData] = useState({
         name: "",
         user_ids: []
@@ -163,19 +167,76 @@ function CreateQcGroup() {
     const [columnFilters, setColumnFilters] = useState({})
     const [activeFilters, setActiveFilters] = useState({ records: [] })
 
-    const handleViewClick = useCallback((group) => {
-        setSelectedGroup(group)
-        setView('members')
-    }, [])
+    const mode = useMemo(() => {
+        if (location.pathname.includes("/edit/")) return "edit"
+        if (location.pathname.includes("/view/")) return "view"
+        if (location.pathname.endsWith("/create")) return "create"
+        return "list"
+    }, [location.pathname])
 
-    const handleEdit = useCallback((group) => {
+    const populateFromGroup = useCallback((group) => {
         const userIds = group.users?.map(u => u.user_id.toString()) || []
         setFormData({ name: group.name, user_ids: userIds })
         setEditingId(group.id)
-        setView("create")
+        setSelectedGroup(group)
         setError("")
         setSuccess("")
     }, [])
+
+    useEffect(() => {
+        const loadQcGroupByName = async (groupName) => {
+            try {
+                const response = await apiClient.get("/api/qc-groups", {
+                    page: 1,
+                    limit: 200,
+                    search: groupName,
+                })
+                const rows = response?.data || []
+                const matched = rows.find((g) => toSlug(g.name) === toSlug(groupName))
+                if (!matched) {
+                    setError(`QC Group not found: ${groupName}`)
+                    return
+                }
+                populateFromGroup(matched)
+            } catch {
+                setError(`Unable to load QC Group: ${groupName}`)
+            }
+        }
+
+        if (mode === "list") {
+            setView("list")
+            setEditingId(null)
+            return
+        }
+
+        const row = location.state?.record
+        if (mode === "view") {
+            setView("members")
+            if (row) populateFromGroup(row)
+            else if (routeId) loadQcGroupByName(decodeURIComponent(routeId))
+            else setError("Please open view from the QC Group list once so data can load.")
+            return
+        }
+
+        setView("create")
+        if (mode === "edit") {
+            if (row) populateFromGroup(row)
+            else if (routeId) loadQcGroupByName(decodeURIComponent(routeId))
+            else setError("Please open edit from the QC Group list once so data can load.")
+        } else {
+            setEditingId(null)
+            setSelectedGroup(null)
+            setFormData({ name: "", user_ids: [] })
+        }
+    }, [mode, routeId, location.state, populateFromGroup])
+
+    const handleViewClick = useCallback((group) => {
+        navigate(`/qc-group/view/${toSlug(group.name)}`, { state: { record: group } })
+    }, [navigate])
+
+    const handleEdit = useCallback((group) => {
+        navigate(`/qc-group/edit/${toSlug(group.name)}`, { state: { record: group } })
+    }, [navigate])
 
     const handleDeleteClick = useCallback((group) => {
         setGroupToDelete(group)
@@ -394,7 +455,7 @@ function CreateQcGroup() {
 
             setTimeout(() => {
                 setSuccess("")
-                setView("list")
+                navigate("/qc-group/list")
                 setFormData({ name: "", user_ids: [] })
                 setEditingId(null)
                 setRefreshKey(prev => prev + 1)
@@ -428,12 +489,12 @@ function CreateQcGroup() {
                         </div>
                         <div className="flex gap-2">
                             {view === "members" && (
-                                <Button variant="outline" size="md" onClick={() => handleEdit(selectedGroup)}>
+                                <Button variant="outline" size="md" onClick={() => selectedGroup && handleEdit(selectedGroup)}>
                                     <Pencil className="mr-2 h-4 w-4" /> Edit Group
                                 </Button>
                             )}
                             <Button variant="outline" onClick={() => {
-                                setView("list")
+                                navigate("/qc-group/list")
                                 setEditingId(null)
                                 setSelectedGroup(null)
                                 setFormData({ name: "", user_ids: [] })
@@ -448,7 +509,7 @@ function CreateQcGroup() {
                         <ProDataTable
                             columns={columns}
                             fetchData={fetchQcGroups}
-                            onAdd={() => setView("create")}
+                            onAdd={() => navigate("/qc-group/create")}
                             onAddTooltip="Create QC Group"
                             refreshKey={refreshKey}
                             columnFilters={columnFilters}
@@ -509,7 +570,7 @@ function CreateQcGroup() {
                                                 variant="outline" 
                                                 disabled={isLoading}
                                                 onClick={() => {
-                                                    setView("list")
+                                                    navigate("/qc-group/list")
                                                     setEditingId(null)
                                                     setFormData({ name: "", user_ids: [] })
                                                 }}

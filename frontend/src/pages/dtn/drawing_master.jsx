@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,6 +56,9 @@ const MasterRow = ({ item, index }) => {
 
 // ─── Main View ──────────────────────────────────────────────────────────────
 export default function DrawingMaster() {
+   const navigate = useNavigate()
+   const location = useLocation()
+   const { id: routeId } = useParams()
    const [view, setView] = useState("summary") // "summary" or "details"
    const [selectedJob, setSelectedJob] = useState(null)
    const [summaries, setSummaries] = useState([])
@@ -65,6 +69,12 @@ export default function DrawingMaster() {
    // Cascading Filters State
    const [activeFilters, setActiveFilters] = useState({ records: [] })
    const [columnFilters, setColumnFilters] = useState({})
+   const [loadError, setLoadError] = useState("")
+   const mode = useMemo(() => {
+      if (location.pathname.includes("/view/")) return "view"
+      if (location.pathname.endsWith("/list")) return "list"
+      return "list"
+   }, [location.pathname])
 
    useEffect(() => {
       const fetchActiveFilters = async () => {
@@ -190,17 +200,72 @@ export default function DrawingMaster() {
    }, [searchTerm, view])
 
    const handleViewDetails = (row) => {
+      navigate(`/drawing-master/view/${encodeURIComponent(row.job_number || "")}`, { state: { record: row } })
       setSelectedJob(row)
       setSearchTerm("") // Reset search when opening new job
       fetchJobDetails(row.job_id, "")
    }
 
    const handleBack = () => {
+      navigate("/drawing-master/list")
       setView("summary")
       setSelectedJob(null)
       setMasterData([])
       setSearchTerm("")
    }
+
+   useEffect(() => {
+      const loadByJobNumber = async (jobNumberParam) => {
+         const decodedJobNumber = decodeURIComponent(jobNumberParam || "")
+         try {
+            const res = await apiClient.get("/api/dtn/master/summaries", {
+               page: 1,
+               limit: 200,
+               search: decodedJobNumber,
+            })
+            const rows = res?.data || []
+            let matched = rows.find((r) => String(r.job_number || "").trim() === String(decodedJobNumber).trim())
+            if (!matched) {
+               const normalized = String(decodedJobNumber).trim().toLowerCase()
+               matched = rows.find((r) => String(r.job_number || "").trim().toLowerCase() === normalized)
+            }
+            if (!matched) {
+               setLoadError(`Drawing Master job not found: ${decodedJobNumber}`)
+               setView("summary")
+               return
+            }
+            setLoadError("")
+            setSelectedJob(matched)
+            setSearchTerm("")
+            fetchJobDetails(matched.job_id, "")
+         } catch {
+            setLoadError(`Unable to load Drawing Master: ${decodedJobNumber}`)
+            setView("summary")
+         }
+      }
+
+      if (mode === "list") {
+         if (location.pathname.endsWith("/list")) {
+            setView("summary")
+            setSelectedJob(null)
+            setMasterData([])
+         }
+         return
+      }
+
+      const row = location.state?.record
+      if (row?.job_id) {
+         setLoadError("")
+         setSelectedJob(row)
+         setSearchTerm("")
+         fetchJobDetails(row.job_id, "")
+         return
+      }
+
+      if (routeId) {
+         loadByJobNumber(routeId)
+      }
+   }, [mode, routeId, location.pathname, location.state])
 
    const handleExport = async (jobId, mode = 'download') => {
       const query = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : "";
@@ -286,6 +351,11 @@ export default function DrawingMaster() {
          </header>
 
          <main className="flex-1 overflow-auto p-4 md:p-8">
+            {loadError && view === "summary" && (
+               <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {loadError}
+               </div>
+            )}
             {view === "summary" ? (
                <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
                   <div className="mb-8 flex items-end justify-between">
@@ -331,14 +401,14 @@ export default function DrawingMaster() {
                      <div className="flex items-center gap-2">
                         <Button 
                            variant="outline" 
-                           className="h-10 px-4 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg font-medium flex items-center gap-2 transition-all shadow-sm"
+                           className="h-10 px-4 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg font-medium flex items-center gap-2 transition-colors"
                            onClick={() => handleExport(selectedJob?.job_id, 'print')}
                         >
                            <Printer className="h-4 w-4 text-slate-600" />
                            <span>Print</span>
                         </Button>
                         <Button 
-                           className="h-10 px-4 bg-slate-950 hover:bg-slate-900 text-white rounded-lg font-medium flex items-center gap-2 transition-all shadow-md"
+                           className="h-10 px-4 bg-slate-950 hover:bg-slate-900 text-white rounded-lg font-medium flex items-center gap-2 transition-colors"
                            onClick={() => handleExport(selectedJob?.job_id, 'download')}
                         >
                            <Download className="h-4 w-4" />
@@ -352,14 +422,14 @@ export default function DrawingMaster() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
                         <Input
                            placeholder="Filter drawing database..."
-                           className="pl-11 h-12 border-slate-200 bg-white italic font-medium focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all shadow-sm rounded-xl"
+                           className="pl-11 h-12 border-slate-200 bg-white italic font-medium focus:ring-2 focus:ring-blue-100 focus:border-blue-300 transition-colors rounded-xl"
                            value={searchTerm}
                            onChange={(e) => setSearchTerm(e.target.value)}
                         />
                      </div>
                   </div>
 
-                  <Card className="rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden flex-1 bg-white">
+                  <Card className="rounded-2xl border border-slate-200 overflow-hidden flex-1 bg-white">
                      <CardContent className="p-0">
                         <div className="overflow-x-auto">
                            <table className="w-full border-collapse min-w-[1000px]">

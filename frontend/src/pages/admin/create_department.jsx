@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -26,8 +26,12 @@ import { FormAlert } from "@/components/ui/form-alert"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
+const toSlug = (value = "") => String(value).trim().toLowerCase().replace(/\s+/g, "-")
+
 function CreateDepartment() {
     const navigate = useNavigate()
+    const location = useLocation()
+    const { id: routeId } = useParams()
     const [formData, setFormData] = useState({
         name: "",
     })
@@ -55,6 +59,14 @@ function CreateDepartment() {
 
     const [columnFilters, setColumnFilters] = useState({})
     const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+    const mode = useMemo(() => {
+        if (location.pathname.includes("/edit/")) return "edit"
+        if (location.pathname.includes("/view/")) return "view"
+        if (location.pathname.endsWith("/create")) return "create"
+        return "list"
+    }, [location.pathname])
+    const isReadOnly = mode === "view"
 
     const fetchActiveFilters = useCallback(async () => {
         try {
@@ -90,13 +102,58 @@ function CreateDepartment() {
         }
     }, [])
 
-    const handleEdit = useCallback((department) => {
+    const populateFormFromDepartment = useCallback((department) => {
         setFormData({ name: department.name })
         setEditingId(department.id)
-        setView("create")
         setError("")
         setSuccess("")
     }, [])
+
+    useEffect(() => {
+        const loadDepartmentByName = async (departmentName) => {
+            try {
+                const response = await apiClient.get("/api/departments", {
+                    page: 1,
+                    limit: 200,
+                    search: departmentName,
+                })
+                const rows = response?.data || []
+                const matched = rows.find((d) => toSlug(d.name) === toSlug(departmentName))
+                if (!matched) {
+                    setError(`Department not found: ${departmentName}`)
+                    return
+                }
+                populateFormFromDepartment(matched)
+            } catch {
+                setError(`Unable to load department: ${departmentName}`)
+            }
+        }
+
+        if (mode === "list") {
+            setView("list")
+            setEditingId(null)
+            return
+        }
+
+        setView("create")
+        if (mode === "edit" || mode === "view") {
+            const row = location.state?.record
+            if (row) populateFormFromDepartment(row)
+            else if (routeId) loadDepartmentByName(decodeURIComponent(routeId))
+            else setError("Please open edit/view from the department list once so data can load.")
+        } else {
+            setEditingId(null)
+            setFormData({ name: "" })
+        }
+    }, [mode, routeId, location.state, populateFormFromDepartment])
+
+    const handleEdit = useCallback((department) => {
+        navigate(`/department/edit/${toSlug(department.name)}`, { state: { record: department } })
+    }, [navigate])
+
+    const handleView = useCallback((department) => {
+        navigate(`/department/view/${toSlug(department.name)}`, { state: { record: department } })
+    }, [navigate])
 
     const handleDeleteClick = useCallback((department) => {
         setDepartmentToDelete(department)
@@ -124,6 +181,14 @@ function CreateDepartment() {
                     <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => handleView(row)}
+                        title="View"
+                    >
+                        View
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEdit(row)}
                         title="Edit"
                     >
@@ -142,7 +207,7 @@ function CreateDepartment() {
             ),
             enableSorting: false,
         },
-    ], [handleEdit, handleDeleteClick, activeDeptOptions])
+    ], [handleEdit, handleDeleteClick, activeDeptOptions, handleView])
 
     const confirmDelete = async () => {
         if (!departmentToDelete) return
@@ -176,7 +241,7 @@ function CreateDepartment() {
 
             setTimeout(() => {
                 setSuccess("")
-                setView("list")
+                navigate("/department/list")
                 setFormData({ name: "" })
                 setEditingId(null)
                 setRefreshKey(prev => prev + 1)
@@ -208,14 +273,14 @@ function CreateDepartment() {
                             <div className="flex justify-between items-center mb-6">
                                 <div>
                                     <h1 className="text-3xl font-bold mb-2">
-                                        {editingId ? "Edit Department" : "Create Department"}
+                                        {mode === "view" ? "View Department" : (editingId ? "Edit Department" : "Create Department")}
                                     </h1>
                                     <p className="text-muted-foreground">
                                         Enter department details below.
                                     </p>
                                 </div>
                                 <div>
-                                    <Button variant="outline" onClick={() => setView("list")}>
+                                    <Button variant="outline" onClick={() => navigate("/department/list")}>
                                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                                     </Button>
                                 </div>
@@ -227,7 +292,7 @@ function CreateDepartment() {
                                     columns={columns}
                                     fetchData={fetchDepartments}
                                     onExport={handleExport}
-                                    onAdd={() => setView("create")}
+                                    onAdd={() => navigate("/department/create")}
                                     onAddTooltip="Create Department"
                                     refreshKey={refreshKey}
                                     columnFilters={columnFilters}
@@ -238,9 +303,9 @@ function CreateDepartment() {
                                 <form onSubmit={handleSubmit}>
                                     <Card>
                                         <CardHeader>
-                                            <CardTitle>{editingId ? "Edit Department" : "New Department"}</CardTitle>
+                                            <CardTitle>{mode === "view" ? "Department Details" : (editingId ? "Edit Department" : "New Department")}</CardTitle>
                                             <CardDescription>
-                                                Department name must be unique.
+                                                {mode === "view" ? "Review department information." : "Department name must be unique."}
                                             </CardDescription>
                                         </CardHeader>
                                         <CardContent className="space-y-4">
@@ -259,24 +324,26 @@ function CreateDepartment() {
                                                     value={formData.name}
                                                     onChange={handleInputChange}
                                                     required
-                                                    disabled={isLoading}
+                                                    disabled={isLoading || isReadOnly}
                                                 />
                                             </div>
                                         </CardContent>
                                         {/* Buttons */}
-                                        <div className="flex justify-end gap-4 p-6 pt-0">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => setView("list")}
-                                                disabled={isLoading}
-                                            >
-                                                Cancel
-                                            </Button>
-                                            <Button type="submit" disabled={isLoading}>
-                                                {isLoading ? "Saving..." : (editingId ? "Update" : "Create")}
-                                            </Button>
-                                        </div>
+                                        {!isReadOnly && (
+                                            <div className="flex justify-end gap-4 p-6 pt-0">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => navigate("/department/list")}
+                                                    disabled={isLoading}
+                                                >
+                                                    Cancel
+                                                </Button>
+                                                <Button type="submit" disabled={isLoading}>
+                                                    {isLoading ? "Saving..." : (editingId ? "Update" : "Create")}
+                                                </Button>
+                                            </div>
+                                        )}
                                     </Card>
                                 </form>
                             </div>

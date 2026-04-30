@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
@@ -137,7 +138,7 @@ const normalizeDetail = (item) => {
 
   return {
     formData: {
-      msmNumber: String(item?.job_number || ""),
+      msmNumber: String(item?.job_id || item?.job?.id || ""),
       dcrNo: String(item?.dcr_no || ""),
       drawingNo: String(item?.drg_no || ""),
       equipmentNo: String(item?.equ_no || ""),
@@ -232,7 +233,14 @@ const getAuthHeaders = () => {
 
 function CreateDCR() {
   const { user, roles } = useAuth()
-  const [view, setView] = useState("list")
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { id: routeId } = useParams()
+
+  const view = location.pathname.includes("/create") ? "create"
+    : location.pathname.includes("/edit/") ? "edit"
+      : location.pathname.includes("/view/") ? "view"
+        : "list"
 
   // Review Dialog State
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
@@ -482,12 +490,24 @@ function CreateDCR() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => handleViewDcr(row.id)}
+            onClick={() => handleViewDcr(row)}
             title="View"
             className="h-8 px-2"
           >
             <Eye className="h-3.5 w-3.5 mr-1" /> View
           </Button>
+          {(row.status === "pending" || row.status === "rejected") && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleEditDcr(row)}
+              title="Edit"
+              className="h-8 px-2"
+            >
+              <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+            </Button>
+          )}
           {(roles?.includes("QC_ENGINEER") && row.quality_engineer_id === user?.id &&
             row.design_engineer_status === "approved" && row.quality_engineer_status === "pending") && (
               <div className="flex gap-1">
@@ -629,14 +649,20 @@ function CreateDCR() {
     }
   }, [])
 
-  const handleViewDcr = async (id) => {
-    setIsLoadingDetail(true)
-    setListError("")
-    setFormError("")
+  const handleViewDcr = (row) => {
+    const safePath = row.dcr_no ? encodeURIComponent(String(row.dcr_no).replace(/\//g, "-")) : row.id
+    navigate(`/dcr/view/${safePath}`, { state: { record: row } })
+  }
 
+  const handleEditDcr = (row) => {
+    const safePath = row.dcr_no ? encodeURIComponent(String(row.dcr_no).replace(/\//g, "-")) : row.id
+    navigate(`/dcr/edit/${safePath}`, { state: { record: row } })
+  }
+
+  const handleViewDcrInternal = useCallback(async (id) => {
+    setIsLoadingDetail(true)
     try {
       const payload = await apiClient.get(`/api/dcr/get-dcr-by-id/${id}`)
-
       const dataItem = Array.isArray(payload?.data) ? payload.data[0] : payload?.data
       const detail = normalizeDetail(dataItem || {})
       setFormData(detail.formData)
@@ -650,28 +676,75 @@ function CreateDCR() {
         qualityStatus: detail.qualityStatus,
       })
       setSelectedDcrId(id)
-      setView("view")
     } catch (err) {
-      setListError(err?.message || "Unable to load DCR details")
+      toast.error(err?.message || "Unable to load DCR details")
     } finally {
       setIsLoadingDetail(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    if (view === "list") {
-      fetchDcrList()
+    const initializeForm = async () => {
+      if ((view !== "view" && view !== "edit") || !routeId) return
+
+      if (location.state?.record?.id) {
+        handleViewDcrInternal(location.state.record.id)
+        return
+      }
+
+      // Search-based fallback
+      try {
+        const dcrNoFromUrl = decodeURIComponent(routeId).replace(/-/g, "/")
+        const response = await apiClient.get("/api/dcr/get-dcr", {
+          page: 1,
+          limit: 50,
+          search: dcrNoFromUrl
+        })
+
+        const records = extractRecords(response)
+        const matched = records.find(r => r.dcr_no === dcrNoFromUrl || r.id === routeId)
+
+        if (matched && matched.id) {
+          handleViewDcrInternal(matched.id)
+        } else {
+          toast.error(`DCR not found: ${dcrNoFromUrl}`)
+        }
+      } catch (err) {
+        toast.error("Unable to locate DCR from URL")
+      }
     }
-  }, [view, refreshKey, fetchDcrList])
+
+    initializeForm()
+  }, [view, routeId, location.state, handleViewDcrInternal])
 
   useEffect(() => {
-    if (view === "create") {
+    if (view === "create" || view === "edit") {
       setFormError("")
       setFormSuccess("")
       fetchJobs()
       fetchUsers()
     }
   }, [view, fetchJobs, fetchUsers])
+
+  // Fetch drawings when job changes (including on edit hydration)
+  useEffect(() => {
+    if (formData.msmNumber && (view === "create" || view === "edit")) {
+      const fetchDrawings = async () => {
+        setIsLoadingDocs(true)
+        try {
+          const payload = await apiClient.get(`/api/dcr/get-assigned-drawings/${formData.msmNumber}`)
+          if (payload.success) {
+            setAssignedDocs(payload.data || [])
+          }
+        } catch (err) {
+          console.error("Error fetching drawings:", err)
+        } finally {
+          setIsLoadingDocs(false)
+        }
+      }
+      fetchDrawings()
+    }
+  }, [formData.msmNumber, view])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -711,20 +784,7 @@ function CreateDCR() {
       setFormError("")
     }
 
-    if (jobId) {
-      setIsLoadingDocs(true)
-      try {
-        const payload = await apiClient.get(`/api/dcr/get-assigned-drawings/${jobId}`)
-        if (payload.success) {
-          setAssignedDocs(payload.data || [])
-        }
-      } catch (err) {
-        console.error("Error fetching drawings:", err)
-        toast.error("Failed to fetch assigned drawings")
-      } finally {
-        setIsLoadingDocs(false)
-      }
-    } else {
+    if (!jobId) {
       setAssignedDocs([])
     }
   }
@@ -750,24 +810,12 @@ function CreateDCR() {
     }
   }
 
-  const handleListPageChange = (page) => {
-    const safePage = Math.min(Math.max(page, 1), Math.max(listPagination.totalPages, 1))
-    setListPagination((prev) => ({
-      ...prev,
-      page: safePage,
-    }))
+  const handleBack = () => {
+    navigate("/dcr/list")
   }
 
-  const handleListLimitChange = (value) => {
-    const nextLimit = Number(value)
-    if (!Number.isFinite(nextLimit) || nextLimit <= 0) {
-      return
-    }
-    setListPagination((prev) => ({
-      ...prev,
-      page: 1,
-      limit: nextLimit,
-    }))
+  const handleCreate = () => {
+    navigate("/dcr/create")
   }
 
   const handleReset = () => {
@@ -794,6 +842,18 @@ function CreateDCR() {
     try {
       if (!formData.msmNumber) {
         throw new Error("Please select MSM Number (Job No)")
+      }
+
+      if (!formData.drawingNo) {
+        throw new Error("Please select Drawing No")
+      }
+
+      if (!formData.equipmentNo) {
+        throw new Error("Please enter Equipment No")
+      }
+
+      if (!formData.inspBy) {
+        throw new Error("Please enter Inspection By")
       }
 
       if (!formData.designEngineerId || !formData.qualityEngineerId) {
@@ -844,11 +904,16 @@ function CreateDCR() {
         })),
       }
 
-      const payload = await apiClient.post('/api/dcr/create-dcr', requestBody)
+      if (view === "edit" && selectedDcrId) {
+        const payload = await apiClient.put(`/api/dcr/update-dcr/${selectedDcrId}`, requestBody)
+        setFormSuccess(payload?.message || "DCR updated successfully")
+      } else {
+        const payload = await apiClient.post('/api/dcr/create-dcr', requestBody)
+        setFormSuccess(payload?.message || "DCR created successfully")
+      }
 
-      setFormSuccess(payload?.message || "DCR created successfully")
       handleReset()
-      setView("list")
+      navigate("/dcr/list")
       setRefreshKey((prev) => prev + 1)
     } catch (err) {
       setFormError(err?.message || "Unable to create DCR")
@@ -857,9 +922,9 @@ function CreateDCR() {
     }
   }
 
-  const selectedJob = jobs.find((job) => job.id === formData.msmNumber)
   const isViewMode = view === "view"
   const isCreateMode = view === "create"
+  const isEditMode = view === "edit"
   const isFormDisabled = isSubmitting || isViewMode
 
   return (
@@ -873,18 +938,20 @@ function CreateDCR() {
           {view !== "list" && (
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-3xl font-bold mb-2">
-                  {view === "create" ? "Create DCR" : "View DCR"}
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {isCreateMode ? "Create DCR" : isEditMode ? "Edit DCR" : "DCR Details"}
                 </h1>
                 <p className="text-muted-foreground">
-                  {view === "create"
-                    ? "Fill in the DCR (Design Change Request) information below."
-                    : "DCR details fetched from /api/dcr/get-dcr-by-id/:id"}
+                  {isCreateMode ? "Generate a new Design Change Request" : isEditMode ? "Modify existing Design Change Request" : "Viewing Design Change Request details"}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => { handleReset(); setView("list"); }}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  className="h-9"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to List
                 </Button>
               </div>
@@ -895,15 +962,15 @@ function CreateDCR() {
             <ProDataTable
               columns={columns}
               fetchData={fetchDcrList}
+              title="DCR Register"
+              onAdd={handleCreate}
               onExport={handleExport}
-              onAdd={() => setView("create")}
-              onAddTooltip="Create DCR"
               refreshKey={refreshKey}
               columnFilters={columnFilters}
               onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
             />
           ) : (
-            <form onSubmit={isCreateMode ? handleSubmit : (e) => e.preventDefault()}>
+            <form onSubmit={(isCreateMode || isEditMode) ? handleSubmit : (e) => e.preventDefault()}>
               <div className="grid gap-6">
                 {formError && (
                   <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1258,7 +1325,7 @@ function CreateDCR() {
                   </CardContent>
                 </Card>
 
-                {isCreateMode && (
+                {(isCreateMode || isEditMode) && (
                   <div className="flex justify-end gap-4">
                     <Button
                       type="button"
@@ -1269,7 +1336,7 @@ function CreateDCR() {
                       Reset
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? "Creating..." : "Create DCR"}
+                      {isSubmitting ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update DCR" : "Create DCR")}
                     </Button>
                   </div>
                 )}

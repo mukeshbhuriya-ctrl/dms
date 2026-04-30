@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 import { toast } from "react-toastify"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -63,11 +64,7 @@ function emptyRow(id) {
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick }) {
-  const [isViewOpen, setIsViewOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState(null)
-  const [isViewLoading, setIsViewLoading] = useState(false)
-
+function ListView({ onCreateClick, onEditClick, onViewClick }) {
   const { user, roles } = useAuth()
   const isAdmin = roles?.includes("ADMIN");
   const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC");
@@ -81,7 +78,7 @@ function ListView({ onCreateClick, onEditClick }) {
   const [jobMetadata, setJobMetadata] = useState({}); // MSN -> Job Details
   const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
-  
+
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
   const [columnFilters, setColumnFilters] = useState({});
@@ -177,8 +174,8 @@ function ListView({ onCreateClick, onEditClick }) {
         }
 
         if (headerIdx === -1) {
-           toast.warn("Warning: Could not find 'Job Number' header. Defaulting to first row.");
-           headerIdx = 0;
+          toast.warn("Warning: Could not find 'Job Number' header. Defaulting to first row.");
+          headerIdx = 0;
         }
 
         const rows = json.slice(headerIdx + 1);
@@ -190,27 +187,27 @@ function ListView({ onCreateClick, onEditClick }) {
           const customer_drg_no = String(row[2] || "").trim();
           const inspection_by = String(row[3] || "").trim();
           const qcEmpId = String(row[4] || "").trim();
-          
+
           const isHeading = String(row[5] || "").trim().toLowerCase() === "yes";
           const heading = String(row[6] || "").trim();
-          
+
           const errors = [];
           if (!msn) errors.push("Job Number is required");
           if (!shreno_drg_no) errors.push("Shreno Drg No is required");
-          
+
           const targetQC = allUsers.find(u => String(u.empid || "").trim().toUpperCase() === qcEmpId.toUpperCase());
-          
+
           if (!qcEmpId) {
             errors.push("QC Engineer Emp ID is required");
           } else if (!targetQC) {
             errors.push(`QC Employee ID "${qcEmpId}" not found`);
           }
-          
+
           const batchKey = `${msn}-${shreno_drg_no}-${row[7] || ''}-${row[12] || ''}`.toUpperCase();
           let isDuplicate = false;
           if (!isHeading && msn && shreno_drg_no) {
-             if (seenKeys.has(batchKey)) isDuplicate = true;
-             else seenKeys.add(batchKey);
+            if (seenKeys.has(batchKey)) isDuplicate = true;
+            else seenKeys.add(batchKey);
           }
 
           return {
@@ -259,55 +256,55 @@ function ListView({ onCreateClick, onEditClick }) {
   }, [fetchJobMetadata, allUsers]);
 
   const confirmBulkImport = async () => {
-      setIsImporting(true);
-      
-      // Group flat rows into Reports
-      const reportGroups = {};
-      excelData.forEach(row => {
-          const key = `${row.msn}-${row.shreno_drg_no}`;
-          if (!reportGroups[key]) {
-              reportGroups[key] = {
-                  msn: row.msn,
-                  shreno_drg_no: row.shreno_drg_no,
-                  customer_drg_no: row.customer_drg_no,
-                  inspection_by: row.inspection_by,
-                  qc_engineer_id: row.qc_engineer_id,
-                  items: []
-              };
-          }
-          reportGroups[key].items.push({
-              is_heading: row.isHeading,
-              heading_text: row.heading || (row.isHeading ? (row.itemNo || row.description) : null),
-              item_no: row.itemNo,
-              description: row.description,
-              materialSpecification: row.materialSpecification,
-              size: row.size,
-              quantityUnit: row.quantityUnit,
-              heatNo: row.heatNo,
-              grn_app_ap_no: row.grnAppApNo,
-              mtrNo: row.mtrNo,
-              manufacturerName: row.manufacturerName,
-              remarks: row.remarks
-          });
-      });
+    setIsImporting(true);
 
-      const payload = Object.values(reportGroups);
-      
-      try {
-          const res = await apiClient.post("/api/mhc/bulk-create", payload);
-          if (res.success) {
-              toast.success(res.message || "Bulk import completed successfully");
-              setBulkImportDialogOpen(false);
-              setRefreshTrigger(prev => prev + 1);
-          } else {
-              toast.error(res.message || "Failed to complete bulk import");
-          }
-      } catch (err) {
-          console.error(err);
-          toast.error("Failed to save MHC records");
-      } finally {
-          setIsImporting(false);
+    // Group flat rows into Reports
+    const reportGroups = {};
+    excelData.forEach(row => {
+      const key = `${row.msn}-${row.shreno_drg_no}`;
+      if (!reportGroups[key]) {
+        reportGroups[key] = {
+          msn: row.msn,
+          shreno_drg_no: row.shreno_drg_no,
+          customer_drg_no: row.customer_drg_no,
+          inspection_by: row.inspection_by,
+          qc_engineer_id: row.qc_engineer_id,
+          items: []
+        };
       }
+      reportGroups[key].items.push({
+        is_heading: row.isHeading,
+        heading_text: row.heading || (row.isHeading ? (row.itemNo || row.description) : null),
+        item_no: row.itemNo,
+        description: row.description,
+        materialSpecification: row.materialSpecification,
+        size: row.size,
+        quantityUnit: row.quantityUnit,
+        heatNo: row.heatNo,
+        grn_app_ap_no: row.grnAppApNo,
+        mtrNo: row.mtrNo,
+        manufacturerName: row.manufacturerName,
+        remarks: row.remarks
+      });
+    });
+
+    const payload = Object.values(reportGroups);
+
+    try {
+      const res = await apiClient.post("/api/mhc/bulk-create", payload);
+      if (res.success) {
+        toast.success(res.message || "Bulk import completed successfully");
+        setBulkImportDialogOpen(false);
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        toast.error(res.message || "Failed to complete bulk import");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save MHC records");
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   // Review Dialog State
@@ -368,23 +365,7 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
-  const handleViewClick = async (id) => {
-    setIsViewLoading(true)
-    try {
-      const res = await apiClient.get(`/api/mhc/${id}`)
-      if (res.success) {
-        setSelectedRecord(res.data)
-        setIsViewOpen(true)
-      } else {
-        toast.warn("Failed to fetch details")
-      }
-    } catch (err) {
-      toast.error("Error fetching details")
-      console.error(err)
-    } finally {
-      setIsViewLoading(false)
-    }
-  }
+
   // Cascading Filter Logic
   const activeClientOptions = useMemo(() => {
     let filtered = activeFilters.records || [];
@@ -445,7 +426,7 @@ function ListView({ onCreateClick, onEditClick }) {
         if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client];
         if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po_no];
       }
-    } 
+    }
     else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
       const selectedPo = columnFilters.po_no[0];
       const match = activeFilters.records.find(r => r.po_no?.toString() === selectedPo?.toString());
@@ -461,22 +442,22 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
-    { 
-      header: "Client", 
+    {
+      header: "Client",
       accessorKey: "client",
       filterType: "select",
       isMulti: true,
       filterOptions: activeClientOptions
     },
-    { 
-      header: "PO No", 
+    {
+      header: "PO No",
       accessorKey: "po_no",
       filterType: "select",
       isMulti: true,
       filterOptions: activePoOptions
     },
-    { 
-      header: "MSN", 
+    {
+      header: "MSN",
       accessorKey: "msn",
       filterType: "select",
       isMulti: true,
@@ -508,18 +489,18 @@ function ListView({ onCreateClick, onEditClick }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleViewClick(row.id)}
+              onClick={() => onViewClick(row)}
               title="View">
               <Eye className="h-4 w-4 mr-2" /> View
             </Button>
             {canEdit && (
-               <Button
-               variant="outline"
-               size="sm"
-               onClick={() => onEditClick(row.id)}
-               title="Edit">
-               <Edit className="h-4 w-4 mr-2" /> Edit
-             </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditClick(row)}
+                title="Edit">
+                <Edit className="h-4 w-4 mr-2" /> Edit
+              </Button>
             )}
             {canReview && (
               <>
@@ -597,19 +578,19 @@ function ListView({ onCreateClick, onEditClick }) {
         <DialogContent className="sm:max-w-[1100px] w-full max-h-[95vh] flex flex-col p-0 overflow-hidden shadow-2xl border-none">
           <DialogHeader className="p-6 pb-2 border-b">
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-               <FileText className="h-6 w-6 text-primary" />
-               Review MHC Import
+              <FileText className="h-6 w-6 text-primary" />
+              Review MHC Import
             </DialogTitle>
             <DialogDescription>
               Verify the material heat chart details and Job (MSN) metadata before confirming.
             </DialogDescription>
             <div className="flex gap-4 mt-4 py-2 border-y bg-slate-50 px-4 rounded-lg">
-               <div className="text-sm font-medium">Total: {excelData.length}</div>
-               <div className="text-sm font-medium text-green-600">Valid: {excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length}</div>
-               <div className="text-sm font-medium text-red-600">Errors: {excelData.filter(r => r.status === 'error' || jobMetadata[r.msn]?.error).length}</div>
-               {excelData.some(r => r.status === 'duplicate') && (
-                 <div className="text-sm font-medium text-amber-600">Duplicates: {excelData.filter(r => r.status === 'duplicate').length}</div>
-               )}
+              <div className="text-sm font-medium">Total: {excelData.length}</div>
+              <div className="text-sm font-medium text-green-600">Valid: {excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length}</div>
+              <div className="text-sm font-medium text-red-600">Errors: {excelData.filter(r => r.status === 'error' || jobMetadata[r.msn]?.error).length}</div>
+              {excelData.some(r => r.status === 'duplicate') && (
+                <div className="text-sm font-medium text-amber-600">Duplicates: {excelData.filter(r => r.status === 'duplicate').length}</div>
+              )}
             </div>
           </DialogHeader>
 
@@ -634,144 +615,144 @@ function ListView({ onCreateClick, onEditClick }) {
                     <th className="p-2 text-center font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[250px]">Status</th>
                   </tr>
                 </thead>
-              <tbody>
-                {excelData.map((row, idx) => {
-                  const job = jobMetadata[row.msn];
-                  const hasMsnError = job?.error || !row.msn;
-                  const isDup = row.status === 'duplicate';
-                  const isErr = row.status === 'error' || hasMsnError;
-                  
-                  return (
-                    <tr key={idx} className={`border-b divide-x divide-slate-100 transition-colors ${row.isHeading ? 'bg-slate-50/80 font-bold' : isErr ? 'bg-red-50/20' : 'hover:bg-slate-50'}`}>
-                      {/* Job No */}
-                      <td className="p-2 align-top text-[11px]">
-                        <div className="font-semibold">{row.msn}</div>
-                        {job && !job.error && (
-                           <div className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tight">{job.customer?.customer_name}</div>
-                        )}
-                      </td>
+                <tbody>
+                  {excelData.map((row, idx) => {
+                    const job = jobMetadata[row.msn];
+                    const hasMsnError = job?.error || !row.msn;
+                    const isDup = row.status === 'duplicate';
+                    const isErr = row.status === 'error' || hasMsnError;
 
-                      {/* Shreno Ref */}
-                      <td className="p-2 align-top text-[11px] font-medium">
-                         {row.shreno_drg_no || "-"}
-                      </td>
+                    return (
+                      <tr key={idx} className={`border-b divide-x divide-slate-100 transition-colors ${row.isHeading ? 'bg-slate-50/80 font-bold' : isErr ? 'bg-red-50/20' : 'hover:bg-slate-50'}`}>
+                        {/* Job No */}
+                        <td className="p-2 align-top text-[11px]">
+                          <div className="font-semibold">{row.msn}</div>
+                          {job && !job.error && (
+                            <div className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tight">{job.customer?.customer_name}</div>
+                          )}
+                        </td>
 
-                      {/* Client Ref */}
-                      <td className="p-2 align-top text-[11px] text-slate-500 italic">
-                         {row.customer_drg_no || "-"}
-                      </td>
+                        {/* Shreno Ref */}
+                        <td className="p-2 align-top text-[11px] font-medium">
+                          {row.shreno_drg_no || "-"}
+                        </td>
 
-                      {/* Inspection By */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.inspection_by || "-"}
-                      </td>
+                        {/* Client Ref */}
+                        <td className="p-2 align-top text-[11px] text-slate-500 italic">
+                          {row.customer_drg_no || "-"}
+                        </td>
 
-                      {/* Assigned QC */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.qc_engineer_name ? (
+                        {/* Inspection By */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.inspection_by || "-"}
+                        </td>
+
+                        {/* Assigned QC */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.qc_engineer_name ? (
                             <div className="font-bold text-green-600">{row.qc_engineer_name}</div>
-                         ) : (
+                          ) : (
                             <div className="font-bold text-red-600">{row.qc_empid_raw || "-"}</div>
-                         )}
-                      </td>
+                          )}
+                        </td>
 
-                      {/* Item No */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.isHeading ? (row.itemNo || row.heading) : (row.itemNo || "-")}
-                      </td>
+                        {/* Item No */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.isHeading ? (row.itemNo || row.heading) : (row.itemNo || "-")}
+                        </td>
 
-                      {/* Description */}
-                      <td className="p-2 align-top text-[11px]">
-                         <div className={`line-clamp-2 ${row.isHeading ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
-                           {row.description || (row.isHeading ? "" : "-")}
-                         </div>
-                      </td>
+                        {/* Description */}
+                        <td className="p-2 align-top text-[11px]">
+                          <div className={`line-clamp-2 ${row.isHeading ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+                            {row.description || (row.isHeading ? "" : "-")}
+                          </div>
+                        </td>
 
-                      {/* Spec */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.materialSpecification || "-"}
-                      </td>
+                        {/* Spec */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.materialSpecification || "-"}
+                        </td>
 
-                      {/* Size */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.size || "-"}
-                      </td>
+                        {/* Size */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.size || "-"}
+                        </td>
 
-                      {/* Qty */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.quantityUnit || "-"}
-                      </td>
+                        {/* Qty */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.quantityUnit || "-"}
+                        </td>
 
-                      {/* Heat No */}
-                      <td className="p-2 align-top text-[11px]">
-                        {row.heatNo || "-"}
-                      </td>
+                        {/* Heat No */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.heatNo || "-"}
+                        </td>
 
-                      {/* GRN / MTR */}
-                      <td className="p-2 align-top text-xs">
-                        <div>{row.grnAppApNo || "-"}</div>
-                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.mtrNo || "-"}</div>
-                      </td>
+                        {/* GRN / MTR */}
+                        <td className="p-2 align-top text-xs">
+                          <div>{row.grnAppApNo || "-"}</div>
+                          <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.mtrNo || "-"}</div>
+                        </td>
 
-                      {/* Mfg / Remarks */}
-                      <td className="p-2 align-top text-xs">
-                         <div className="font-medium text-slate-700 line-clamp-1">{row.manufacturerName || "-"}</div>
-                         <div className="text-[10px] text-slate-400 italic line-clamp-1">{row.remarks || "-"}</div>
-                      </td>
+                        {/* Mfg / Remarks */}
+                        <td className="p-2 align-top text-xs">
+                          <div className="font-medium text-slate-700 line-clamp-1">{row.manufacturerName || "-"}</div>
+                          <div className="text-[10px] text-slate-400 italic line-clamp-1">{row.remarks || "-"}</div>
+                        </td>
 
-                      {/* Status (Far Right) */}
-                      <td className="p-2 align-top text-left min-w-[250px]">
-                         {isFetchingMetadata ? (
+                        {/* Status (Far Right) */}
+                        <td className="p-2 align-top text-left min-w-[250px]">
+                          {isFetchingMetadata ? (
                             <div className="flex items-center gap-2">
-                               <div className="h-3 w-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-                               <span className="text-[10px] text-slate-400">Validating...</span>
+                              <div className="h-3 w-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                              <span className="text-[10px] text-slate-400">Validating...</span>
                             </div>
-                         ) : isErr ? (
+                          ) : isErr ? (
                             <div className="text-red-600 font-medium text-[10px] flex items-start gap-1 p-1 rounded bg-red-50/50 leading-normal">
-                               <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                               <span className="break-words">
-                                  {hasMsnError ? `Job Number "${row.msn || 'Empty'}" not found` : ""}
-                                  {hasMsnError && row.message ? " | " : ""}
-                                  {row.message || ""}
-                               </span>
+                              <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span className="break-words">
+                                {hasMsnError ? `Job Number "${row.msn || 'Empty'}" not found` : ""}
+                                {hasMsnError && row.message ? " | " : ""}
+                                {row.message || ""}
+                              </span>
                             </div>
-                         ) : isDup ? (
+                          ) : isDup ? (
                             <div className="text-amber-600 font-medium text-[10px] flex items-center gap-1.5 p-1 rounded bg-amber-50/50">
-                               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                               <span>{row.message}</span>
+                              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                              <span>{row.message}</span>
                             </div>
-                         ) : (
+                          ) : (
                             <div className="text-green-600 font-medium text-[10px] flex items-center gap-1.5 p-1 rounded bg-green-50/50">
-                               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                               <span>Ready</span>
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                              <span>Ready</span>
                             </div>
-                         )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
           <DialogFooter className="p-6 border-t bg-slate-50 flex items-center sm:justify-between w-full">
             <Button variant="outline" onClick={() => setBulkImportDialogOpen(false)} disabled={isImporting} className="bg-white border-slate-200">
-               Cancel
+              Cancel
             </Button>
-            <Button 
-                onClick={confirmBulkImport} 
-                className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all px-8 h-10 font-medium"
-                disabled={isImporting || excelData.length === 0 || excelData.some(r => r.status === 'error' || jobMetadata[r.msn]?.error)}
+            <Button
+              onClick={confirmBulkImport}
+              className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all px-8 h-10 font-medium"
+              disabled={isImporting || excelData.length === 0 || excelData.some(r => r.status === 'error' || jobMetadata[r.msn]?.error)}
             >
-                {isImporting ? (
-                    <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        Processing...
-                    </div>
-                ) : (
-                    `Merge ${excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length} Reports`
-                )}
+              {isImporting ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Processing...
+                </div>
+              ) : (
+                `Merge ${excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length} Reports`
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -809,146 +790,16 @@ function ListView({ onCreateClick, onEditClick }) {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* View Details Modal */}
-      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-bold text-center">Material Heat Chart Details</DialogTitle>
-            <DialogDescription className="text-center">
-              Complete details of the selected Material Heat Chart.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedRecord && (
-            <div className="space-y-6">
-              {/* Basic Info */}
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-y-6 gap-x-4 text-sm border border-border p-6 bg-white rounded-xl shadow-sm">
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">MSN / JOB NO:</span>
-                  <span className="font-medium">{selectedRecord.msn || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CLIENT:</span>
-                  <span className="font-medium">{selectedRecord.client || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PO NO:</span>
-                  <span className="font-medium">{selectedRecord.po_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PROJECT ID:</span>
-                  <span className="font-medium">{selectedRecord.project_id || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">EQUIPMENT:</span>
-                  <span className="font-medium">{selectedRecord.equipment_name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">TAG NO:</span>
-                  <span className="font-medium">{selectedRecord.tag_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CODE:</span>
-                  <span className="font-medium">{selectedRecord.code || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">SHRENO DRG NO:</span>
-                  <span className="font-medium">{selectedRecord.shreno_drg_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CUSTOMER DRG NO:</span>
-                  <span className="font-medium">{selectedRecord.customer_drg_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">REPORT NO:</span>
-                  <span className="font-medium">{selectedRecord.report_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">INSPECTION BY:</span>
-                  <span className="font-medium">{selectedRecord.inspection_by || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PRODUCTION ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.production_engineer?.name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">QUALITY ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.qc_engineer?.name || "-"}</span>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="overflow-x-auto rounded-md border border-border">
-                <table className="w-full border-collapse text-xs text-left">
-                  <thead>
-                    <tr className="bg-[#f4f4f5] border-b border-border">
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">HEADING</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">ITEM NO./PART NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">DESCRIPTION</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">MATERIAL SPECIFICATION</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">SIZE</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">QUANTITY / UNIT</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">HEAT NO. / CAST NO. / PLATE NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">GRN/APP/AP NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">MTR NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">MANUFACTURER NAME</th>
-                      <th className="p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">REMARKS NCR/DCR</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      if (!selectedRecord.items || selectedRecord.items.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={10} className="border border-border p-4 text-center">
-                              No items added.
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      let currentHeading = "";
-                      const rows = [];
-
-                      selectedRecord.items.forEach((row) => {
-                        if (row.is_heading) {
-                          currentHeading = row.heading_text || row.item_no || "HEADING";
-                        }
-
-                        rows.push(
-                          <tr key={row.id} className={row.is_heading ? "bg-[#f4f4f5] border-b border-border font-bold shadow-[inset_0_1px_0_0_#e4e4e7]" : "hover:bg-muted/30 border-b border-border last:border-0"}>
-                            <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{row.heading_text || currentHeading || "-"}</td>
-                            <td className="border-r border-border p-3 align-top font-medium">{row.item_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.description || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.material_spec || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.size || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.quantity_unit || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.heat_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.grn_app_ap_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.mtr_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.manufacturer || "-"}</td>
-                            <td className="p-3 align-top">{row.remarks || "-"}</td>
-                          </tr>
-                        );
-                      });
-
-                      return rows;
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
 
-// ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null }) {
+// ─── Form View (Create / Edit / View) ─────────────────────────────────────────
+function FormView({ onBack, onSuccess, editId = null, locationState = null, view = "create" }) {
+  const isViewMode = view === "view"
+  const isEditMode = view === "edit"
+  const isCreateMode = view === "create"
+
   const { user } = useAuth()
   // Jobs list for MSN dropdown
   const [jobs, setJobs] = useState([])
@@ -985,10 +836,11 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   })
 
   // Table rows
-  const [tableRows, setTableRows] = useState([emptyRow(1)])
+  const [tableRows, setTableRows] = useState([])
 
   // Submit state
   const [submitting, setSubmitting] = useState(null) // null | "Draft" | "Pending"
+  const [resolvedId, setResolvedId] = useState(null)
 
   useEffect(() => {
     apiClient.get("/api/common/jobs?limit=200")
@@ -1007,52 +859,121 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       .catch((err) => console.error("Failed to fetch PE users:", err))
   }, [])
 
-  // Handle editId logic
-  useEffect(() => {
-    if (editId) {
-      apiClient.get(`/api/mhc/${editId}`)
-        .then((res) => {
-          if (res.success && res.data) {
-            const data = res.data
-            setSelectedJobId(data.job_id)
-            setAutoFill({
-              reportNo: data.report_no,
-              client: data.client,
-              poNo: data.po_no,
-              projectId: data.project_id || "",
-              equipmentName: data.equipment_name || "",
-              tagNo: data.tag_no || "",
-              code: data.code || "",
-            })
-            setFormData({
-              shrenoDrgNo: data.shreno_drg_no || "",
-              customerDrgNo: data.customer_drg_no || "",
-              inspectionBy: data.inspection_by || "",
-            })
-            setQcEngineerId(data.qc_engineer_id || "")
-            setProductionEngineerId(data.production_engineer_id || "")
-            if (data.items && data.items.length > 0) {
-              setTableRows(data.items.map(item => ({
-                id: item.id,
-                itemNo: item.item_no || "",
-                description: item.description || "",
-                size: item.size || "",
-                materialSpecification: item.material_spec || "",
-                quantityUnit: item.quantity_unit || "",
-                heatNo: item.heat_no || "",
-                grnAppApNo: item.grn_app_ap_no || "",
-                mtrNo: item.mtr_no || "",
-                manufacturerName: item.manufacturer || "",
-                remarks: item.remarks || "",
-                isHeading: item.is_heading,
-                headingText: item.heading_text || "",
-                parentHeadingId: item.parent_heading_id,
-              })))
-            }
-          }
+  const loadMhcById = useCallback(async (id) => {
+    try {
+      setResolvedId(id);
+      const res = await apiClient.get(`/api/mhc/${id}`)
+      if (res.success && res.data) {
+        const data = res.data
+        setSelectedJobId(data.job_id)
+        setAutoFill({
+          reportNo: data.report_no,
+          client: data.client,
+          poNo: data.po_no,
+          projectId: data.project_id || "",
+          equipmentName: data.equipment_name || "",
+          tagNo: data.tag_no || "",
+          code: data.code || "",
         })
+        setFormData({
+          shrenoDrgNo: data.shreno_drg_no || "",
+          customerDrgNo: data.customer_drg_no || "",
+          inspectionBy: data.inspection_by || "",
+        })
+        setQcEngineerId(data.qc_engineer_id || "")
+        setProductionEngineerId(data.production_engineer_id || "")
+        if (data.items && data.items.length > 0) {
+          const processedRows = [];
+          let lastSeenHeadingText = null;
+
+          data.items.forEach((item) => {
+            // Reconstruct missing heading rows for legacy data
+            if (!item.is_heading && item.heading_text && item.heading_text !== lastSeenHeadingText) {
+              processedRows.push({
+                id: `synthetic-h-${item.id}`,
+                isHeading: true,
+                headingText: item.heading_text,
+                itemNo: "",
+                description: "",
+                size: "",
+                materialSpecification: "",
+                quantityUnit: "",
+                heatNo: "",
+                grnAppApNo: "",
+                mtrNo: "",
+                manufacturerName: "",
+                remarks: "",
+              });
+              lastSeenHeadingText = item.heading_text;
+            }
+
+            if (item.is_heading) {
+              lastSeenHeadingText = item.heading_text;
+            }
+
+            processedRows.push({
+              id: item.id,
+              itemNo: item.item_no || "",
+              description: item.description || "",
+              size: item.size || "",
+              materialSpecification: item.material_spec || "",
+              quantityUnit: item.quantity_unit || "",
+              heatNo: item.heat_no || "",
+              grnAppApNo: item.grn_app_ap_no || "",
+              mtrNo: item.mtr_no || "",
+              manufacturerName: item.manufacturer || "",
+              remarks: item.remarks || "",
+              isHeading: item.is_heading,
+              headingText: item.heading_text || "",
+              parentHeadingId: item.parent_heading_id,
+            });
+          });
+          setTableRows(processedRows);
+        }
+      }
+    } catch (err) {
+      toast.error("Failed to fetch Material Heat Chart details")
     }
-  }, [editId])
+  }, [])
+
+  useEffect(() => {
+    const initializeForm = async () => {
+      if ((view !== "view" && view !== "edit") || !editId) return
+
+      if (locationState?.record?.id) {
+        loadMhcById(locationState.record.id)
+        return
+      }
+
+      try {
+        const slug = decodeURIComponent(editId);
+        const reportNoForSearch = slug.replace(/-/g, "/");
+        
+        const response = await apiClient.get("/api/mhc/list", {
+          page: 1,
+          limit: 50,
+          search: reportNoForSearch
+        })
+
+        const records = response?.data || []
+        const matched = records.find(r => 
+           r.id === editId ||
+           r.report_no === reportNoForSearch ||
+           r.report_no?.replace(/\//g, "-") === slug
+        )
+
+        if (matched && matched.id) {
+          loadMhcById(matched.id)
+        } else {
+          toast.error("Could not resolve MHC details from URL")
+        }
+      } catch (err) {
+        console.error("MHC Resolution error:", err)
+      }
+    }
+
+    initializeForm()
+  }, [editId, locationState, loadMhcById, view])
 
   // Handle MSN selection → auto-fill from job details API
   const handleJobSelect = async (jobId) => {
@@ -1108,29 +1029,57 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   const handleRowChange = (id, field, value) =>
     setTableRows((rows) => rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
 
-  const nextId = () => Math.max(...tableRows.map((r) => r.id), 0) + 1
+  const nextId = () => {
+    const numericIds = tableRows.map(r => Number(r.id)).filter(id => !isNaN(id));
+    return (numericIds.length > 0 ? Math.max(...numericIds) : tableRows.length) + 1;
+  }
 
   const addRow = () => setTableRows((rows) => [...rows, emptyRow(nextId())])
 
+  const addRowAt = (index) => {
+    const newRow = emptyRow(nextId());
+    const updated = [...tableRows];
+    updated.splice(index + 1, 0, newRow);
+    setTableRows(updated);
+  }
+
   const addRowAfterHeading = (headingId) => {
-    const newRow = { ...emptyRow(nextId()), parentHeadingId: headingId }
     const idx = tableRows.findIndex((r) => r.id === headingId)
+    if (idx === -1) return;
+
     let insertAt = idx + 1
     for (let i = idx + 1; i < tableRows.length; i++) {
       if (tableRows[i].isHeading) break
       insertAt = i + 1
     }
+
+    const newRow = { ...emptyRow(nextId()), parentHeadingId: headingId }
     const updated = [...tableRows]
     updated.splice(insertAt, 0, newRow)
     setTableRows(updated)
   }
 
   const toggleHeading = (id) =>
-    setTableRows((rows) =>
-      rows.map((r) =>
-        r.id === id ? { ...r, isHeading: !r.isHeading, headingText: r.isHeading ? "" : (r.headingText || r.itemNo) } : r
-      )
-    )
+    setTableRows((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx === -1) return rows;
+      const targetRow = rows[idx];
+
+      if (targetRow.isHeading) {
+        // If it's a heading, remove it
+        return rows.filter((r) => r.id !== id);
+      } else {
+        // If it's an item, insert a heading row above it
+        const newHeading = {
+          ...emptyRow(nextId()),
+          isHeading: true,
+          headingText: targetRow.itemNo || "",
+        };
+        const updated = [...rows];
+        updated.splice(idx, 0, newHeading);
+        return updated;
+      }
+    })
 
   const removeRow = (id) => {
     if (tableRows.length <= 1) return
@@ -1139,9 +1088,9 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
   // Submit
   const handleSubmit = async (targetStatus = "Pending") => {
-    if (!selectedJobId) { 
+    if (!selectedJobId) {
       toast.warn("Please select a Job / MSN.")
-      return 
+      return
     }
 
     // Compute parent_heading_id dynamically: track the current heading sort_order
@@ -1184,7 +1133,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     try {
       setSubmitting(targetStatus)
       if (editId) {
-        await apiClient.put(`/api/mhc/update/${editId}`, payload)
+        await apiClient.put(`/api/mhc/update/${resolvedId || editId}`, payload)
       } else {
         await apiClient.post("/api/mhc/create", payload)
       }
@@ -1201,8 +1150,12 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Create Material Heat Chart</h1>
-          <p className="text-muted-foreground">Fill in the details and add material rows.</p>
+          <h1 className="text-3xl font-bold mb-1">
+            {isViewMode ? "View" : isEditMode ? "Edit" : "Create"} Material Heat Chart
+          </h1>
+          <p className="text-muted-foreground">
+            {isViewMode ? "Viewing existing chart details." : "Fill in the details and add material rows."}
+          </p>
         </div>
         <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1226,8 +1179,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 value={selectedJobId}
                 onValueChange={handleJobSelect}
                 placeholder={jobsLoading ? "Loading jobs…" : "Select MSN"}
-                searchPlaceholder="Search job number..."
-                disabled={jobsLoading}
+                searchPlaceholder="search job number..."
+                disabled={jobsLoading || isViewMode}
               />
             </div>
 
@@ -1265,7 +1218,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 value={formData.shrenoDrgNo}
                 onChange={handleFormChange}
                 placeholder="Enter SHRENO DRG. No."
-                className="h-9"
+                readOnly={isViewMode}
+                className={`h-9 ${isViewMode ? "bg-muted/50" : ""}`}
               />
             </div>
             <div className="space-y-2">
@@ -1275,8 +1229,9 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 name="customerDrgNo"
                 value={formData.customerDrgNo}
                 onChange={handleFormChange}
-                placeholder="Enter Customer DRG No."
-                className="h-9"
+                placeholder="Enter CUSTOMER DRG. No."
+                readOnly={isViewMode}
+                className={`h-9 ${isViewMode ? "bg-muted/50" : ""}`}
               />
             </div>
             <div className="space-y-2">
@@ -1287,7 +1242,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 value={formData.inspectionBy}
                 onChange={handleFormChange}
                 placeholder="Enter Inspection By"
-                className="h-9"
+                readOnly={isViewMode}
+                className={`h-9 ${isViewMode ? "bg-muted/50" : ""}`}
               />
             </div>
           </div>
@@ -1316,8 +1272,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                       "MTR NO.",
                       "MANUFACTURER NAME",
                       "REMARKS NCR/DCR",
-                      "Action",
-                    ].map((h, i) => (
+                      !isViewMode && "Action",
+                    ].filter(Boolean).map((h, i) => (
                       <th
                         key={h}
                         className={`text-left p-3 font-semibold text-[11px] uppercase tracking-wider whitespace-normal min-w-[120px] ${i === 0 ? "sticky left-0 bg-[#f4f4f5] z-30 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
@@ -1330,109 +1286,133 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 </thead>
                 <tbody>
                   <tr className="h-4"></tr>
-                  {tableRows.map((row) => (
-                    <React.Fragment key={row.id}>
-                      {row.isHeading && (
-                        <tr className="bg-amber-50 border-t-2 border-amber-400/60">
-                          <td colSpan={9} className="px-2 pt-2 pb-0 align-top sticky left-0 z-10 bg-amber-50">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 shrink-0">Heading:</span>
-                              <Input
-                                type="text"
-                                value={row.headingText}
-                                onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
-                                placeholder="Enter heading text…"
-                                className="font-bold h-8 text-sm border-amber-300 shadow-none focus-visible:ring-1 focus-visible:ring-amber-400 bg-white/80"
-                              />
-                            </div>
-                          </td>
-                          <td className="px-2 pt-2 pb-0 align-top bg-amber-50">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 border-amber-300 shadow-none text-amber-700 hover:text-destructive hover:border-destructive/30 bg-white/80"
-                              title="Remove heading"
-                              onClick={() => toggleHeading(row.id)}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      )}
-                      <tr className={row.isHeading ? "bg-amber-50/30 border-b-2 border-amber-400/30" : ""}>
-                        {[
-                          { field: "itemNo", placeholder: "Item No" },
-                          { field: "description", placeholder: "Description" },
-                          { field: "materialSpecification", placeholder: "Material Spec" },
-                          { field: "size", placeholder: "Size" },
-                          { field: "quantityUnit", placeholder: "Quantity" },
-                          { field: "heatNo", placeholder: "Heat No" },
-                          { field: "grnAppApNo", placeholder: "GRN/APP/AP No" },
-                          { field: "mtrNo", placeholder: "MTR No" },
-                          { field: "manufacturerName", placeholder: "Manufacturer" },
-                          { field: "remarks", placeholder: "Remarks" },
-                        ].map(({ field, placeholder }, i) => (
-                          <td
-                            key={field}
-                            className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${row.isHeading ? "bg-amber-50" : "bg-white"}` : ""}`}
-                          >
-                            <Input
-                              type="text"
-                              value={row[field]}
-                              onChange={(e) => handleRowChange(row.id, field, e.target.value)}
-                              placeholder={placeholder}
-                              className="text-[13px] min-w-[120px] h-10 border-muted-foreground/30 shadow-none focus-visible:ring-1"
-                            />
-                          </td>
-                        ))}
-                        <td className={`p-2 align-top ${row.isHeading ? "bg-amber-50/30" : "bg-white"}`}>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className={`h-10 w-10 border-muted-foreground/30 shadow-none ${row.isHeading ? "text-amber-700 bg-amber-100 border-amber-300 hover:text-amber-900" : "text-muted-foreground hover:text-foreground"}`}
-                              title={row.isHeading ? "Has heading" : "Add heading"}
-                              onClick={() => toggleHeading(row.id)}
-                            >
-                              <Type className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Add row below"
-                              onClick={() => addRowAfterHeading(row.id)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-destructive"
-                              onClick={() => removeRow(row.id)}
-                              disabled={tableRows.length === 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  ))}
+                  {tableRows.map((row, idx) => {
+                    const isLastInGroup = idx === tableRows.length - 1 || tableRows[idx + 1].isHeading;
+                    // Find if any preceding row is a heading to associate this row
+                    let hasPrecedingHeading = false;
+                    for (let i = idx; i >= 0; i--) {
+                      if (tableRows[i].isHeading) {
+                        hasPrecedingHeading = true;
+                        break;
+                      }
+                    }
+                    const belongsToHeading = !row.isHeading && hasPrecedingHeading;
+
+                    return (
+                      <React.Fragment key={row.id}>
+                        {row.isHeading && (
+                          <tr className="bg-amber-50/80 border-t-2 border-amber-400/60">
+                            <td colSpan={10} className="px-3 py-2 align-top sticky left-0 z-10 bg-amber-50/80">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 shrink-0">Heading:</span>
+                                <Input
+                                  type="text"
+                                  value={row.headingText}
+                                  onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
+                                  placeholder="Enter heading text…"
+                                  readOnly={isViewMode}
+                                  className="font-bold h-8 text-sm border-amber-300 shadow-none focus-visible:ring-1 focus-visible:ring-amber-400 bg-white/80"
+                                />
+                              </div>
+                            </td>
+                            {!isViewMode && (
+                              <td className="px-2 pt-2 pb-0 align-top bg-amber-50">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 border-amber-300 shadow-none text-amber-700 hover:text-destructive hover:border-destructive/30 bg-white/80"
+                                  title="Remove heading"
+                                  onClick={() => toggleHeading(row.id)}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </td>
+                            )}
+                          </tr>
+                        )}
+
+                        {!row.isHeading && (
+                          <tr className={`${belongsToHeading ? "bg-amber-50/10 border-l-4 border-amber-400/60" : ""} ${isLastInGroup && belongsToHeading ? "border-b border-amber-400/20" : ""}`}>
+                            {[
+                              { field: "itemNo", placeholder: "Item No" },
+                              { field: "description", placeholder: "Description" },
+                              { field: "materialSpecification", placeholder: "Material Spec" },
+                              { field: "size", placeholder: "Size" },
+                              { field: "quantityUnit", placeholder: "Quantity" },
+                              { field: "heatNo", placeholder: "Heat No" },
+                              { field: "grnAppApNo", placeholder: "GRN/APP/AP No" },
+                              { field: "mtrNo", placeholder: "MTR No" },
+                              { field: "manufacturerName", placeholder: "Manufacturer" },
+                              { field: "remarks", placeholder: "Remarks" },
+                            ].map(({ field, placeholder }, i) => (
+                              <td
+                                key={field}
+                                className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${belongsToHeading ? "bg-amber-50/20" : "bg-white"}` : ""} ${belongsToHeading ? "bg-amber-50/10" : ""}`}
+                              >
+                                <Input
+                                  type="text"
+                                  value={row[field]}
+                                  onChange={(e) => handleRowChange(row.id, field, e.target.value)}
+                                  placeholder={placeholder}
+                                  readOnly={isViewMode}
+                                  className={`text-[13px] min-w-[120px] h-10 shadow-none focus-visible:ring-1 ${isViewMode ? "bg-muted/30 border-muted" : "border-muted-foreground/30"} ${belongsToHeading ? "border-amber-200/50" : ""}`}
+                                />
+                              </td>
+                            ))}
+                            {!isViewMode && (
+                              <td className={`p-2 align-top ${belongsToHeading ? "bg-amber-50/10" : "bg-white"}`}>
+                                <div className="flex gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
+                                    title="Add heading"
+                                    onClick={() => toggleHeading(row.id)}
+                                  >
+                                    <Type className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
+                                    title="Add row below"
+                                    onClick={() => addRowAt(idx)}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-destructive"
+                                    title="Remove row"
+                                    onClick={() => removeRow(row.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
 
-            <div className="pt-4 border-t border-muted/50 mt-4">
-              <Button type="button" variant="outline" onClick={addRow} className="w-auto h-9 text-[13px] px-4 rounded-xl border-muted-foreground/30 shadow-sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Row
-              </Button>
-            </div>
+            {!isViewMode && (
+              <div className="pt-4 border-t border-muted/50 mt-4">
+                <Button type="button" variant="outline" onClick={addRow} className="w-auto h-9 text-[13px] px-4 rounded-xl border-muted-foreground/30 shadow-sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Row
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1451,9 +1431,9 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 options={productionEngineers.map((u) => ({ value: u.id, label: `${u.name}` }))}
                 value={production_engineer_id}
                 onValueChange={setProductionEngineerId}
-                placeholder="Select production engineer"
+                placeholder="Select Production Engineer"
+                disabled={isViewMode}
                 searchPlaceholder="Search production engineer..."
-                disabled
               />
             </div>
             <div className="space-y-2">
@@ -1462,7 +1442,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 options={qcEngineers.map((u) => ({ value: u.id, label: `${u.name}` }))}
                 value={qc_engineer_id}
                 onValueChange={setQcEngineerId}
-                placeholder="Select quality engineer"
+                placeholder="Select QC Engineer"
+                disabled={isViewMode}
                 searchPlaceholder="Search quality engineer..."
               />
             </div>
@@ -1473,19 +1454,23 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       {/* ── Footer Buttons ── */}
       <div className="flex gap-3 justify-end">
         <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
-          Cancel
+          {isViewMode ? "Back" : "Cancel"}
         </Button>
-        <Button 
-          variant="secondary" 
-          onClick={() => handleSubmit("Draft")} 
-          disabled={submitting !== null}
-          className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200"
-        >
-          {submitting === "Draft" ? "Saving…" : "Save Draft"}
-        </Button>
-        <Button onClick={() => handleSubmit("Pending")} disabled={submitting !== null}>
-          {submitting === "Pending" ? "Submitting…" : "Submit"}
-        </Button>
+        {!isViewMode && (
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => handleSubmit("Draft")}
+              disabled={submitting !== null}
+              className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200"
+            >
+              {submitting === "Draft" ? "Saving…" : "Save Draft"}
+            </Button>
+            <Button onClick={() => handleSubmit("Pending")} disabled={submitting !== null}>
+              {submitting === "Pending" ? "Submitting…" : "Submit"}
+            </Button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -1493,39 +1478,61 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function MaterialHeatChart() {
-  const [view, setView] = useState("list") // "list" | "create"
-  const [editId, setEditId] = useState(null)
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { id: routeId } = useParams()
+
+  // Derive mode from URL path
+  const view = location.pathname.includes("/create") ? "create"
+    : location.pathname.includes("/edit/") ? "edit"
+      : location.pathname.includes("/view/") ? "view"
+        : "list"
+  const editId = routeId || null
 
   const handleCreateClick = () => {
-    setEditId(null)
-    setView("create")
+    navigate("/material-heat-chart/create")
   }
 
-  const handleEditClick = (id) => {
-    setEditId(id)
-    setView("create")
+  const handleEditClick = (row) => {
+    const safePath = row.report_no ? encodeURIComponent(String(row.report_no).replace(/\//g, "-")) : row.id
+    navigate(`/material-heat-chart/edit/${safePath}`, { state: { record: row } })
+  }
+
+  const handleViewClick = (row) => {
+    const safePath = row.report_no ? encodeURIComponent(String(row.report_no).replace(/\//g, "-")) : row.id
+    navigate(`/material-heat-chart/view/${safePath}`, { state: { record: row } })
   }
 
   const handleSuccess = (action) => {
     toast.success(`Material Heat Chart ${action} successfully!`)
-    setView("list")
+    navigate("/material-heat-chart/list")
   }
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
 
-            {view === "list" ? (
-              <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} />
-            ) : (
-              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} />
-            )}
-          </div>
-        </main>
+          {view === "list" ? (
+            <ListView
+              onCreateClick={handleCreateClick}
+              onEditClick={handleEditClick}
+              onViewClick={handleViewClick}
+            />
+          ) : (
+            <FormView
+              onBack={() => navigate("/material-heat-chart/list")}
+              onSuccess={handleSuccess}
+              editId={editId}
+              locationState={location.state}
+              view={view}
+            />
+          )}
+        </div>
+      </main>
     </>
   )
 }

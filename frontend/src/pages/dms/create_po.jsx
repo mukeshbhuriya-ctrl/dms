@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -26,7 +27,12 @@ import { exportApi } from "@/api/export.api"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
 
+const toSlug = (value = "") => String(value).trim().toLowerCase().replace(/\s+/g, "-")
+
 function CreatePO() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams()
   const [view, setView] = useState("list") // 'list', 'create', or 'attachments'
   const [selectedHistoryPo, setSelectedHistoryPo] = useState(null)
 
@@ -59,6 +65,14 @@ function CreatePO() {
 
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
+  const isReadOnly = mode === "view"
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -137,7 +151,7 @@ function CreatePO() {
     return pos.map(p => ({ label: p, value: p }))
   }, [activeFilters.records, columnFilters.customer_name, columnFilters.location_name])
 
-  const handleEdit = useCallback(async (po) => {
+  const populateFromPo = useCallback((po) => {
     setFormData({
       customerId: String(po.customer_id),
       locationId: String(po.customer_location_id),
@@ -159,6 +173,53 @@ function CreatePO() {
     setError("")
     setSuccess("")
   }, [])
+
+  useEffect(() => {
+    const loadPoByNumber = async (poNumber) => {
+      try {
+        const response = await apiClient.get("/api/dcc/get-pos", {
+          page: 1,
+          limit: 200,
+          search: poNumber,
+        })
+        const rows = response?.data || []
+        const matched = rows.find((p) => toSlug(p.po_number) === toSlug(poNumber))
+        if (!matched) {
+          setError(`PO not found: ${poNumber}`)
+          return
+        }
+        populateFromPo(matched)
+      } catch {
+        setError(`Unable to load PO: ${poNumber}`)
+      }
+    }
+
+    if (mode === "list") {
+      setView("list")
+      setEditingId(null)
+      return
+    }
+
+    setView("create")
+    if (mode === "edit" || mode === "view") {
+      const row = location.state?.record
+      if (row) populateFromPo(row)
+      else if (routeId) loadPoByNumber(decodeURIComponent(routeId))
+      else setError("Please open edit/view from the PO list once so data can load.")
+    } else {
+      setEditingId(null)
+      setEditingPo(null)
+      setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
+    }
+  }, [mode, routeId, location.state, populateFromPo])
+
+  const handleEdit = useCallback(async (po) => {
+    navigate(`/purchase-orders/edit/${toSlug(po.po_number)}`, { state: { record: po } })
+  }, [navigate])
+
+  const handleView = useCallback((po) => {
+    navigate(`/purchase-orders/view/${toSlug(po.po_number)}`, { state: { record: po } })
+  }, [navigate])
 
   const columns = useMemo(() => [
     {
@@ -242,6 +303,10 @@ function CreatePO() {
       header: "Actions",
       cell: (row) => (
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleView(row)}>
+            <Eye className="h-4 w-4 mr-2" />
+            View
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -264,7 +329,7 @@ function CreatePO() {
         </div>
       ),
     },
-  ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions])
+  ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions, handleView])
 
   const fetchPos = useCallback(async (params) => {
     try {
@@ -424,7 +489,7 @@ function CreatePO() {
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
         setSuccess("")
-        setView("list")
+        navigate("/purchase-orders/list")
       }, 1500)
 
     } catch (err) {
@@ -456,7 +521,7 @@ function CreatePO() {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "create" ? (editingId ? "Edit Purchase Order" : "Create Purchase Order") : `PO Attachments: ${selectedHistoryPo?.po_number || ""}`}
+                  {view === "create" ? (mode === "view" ? "View Purchase Order" : (editingId ? "Edit Purchase Order" : "Create Purchase Order")) : `PO Attachments: ${selectedHistoryPo?.po_number || ""}`}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "create"
@@ -467,6 +532,7 @@ function CreatePO() {
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => {
                   setView("list");
+                  navigate("/purchase-orders/list");
                   setEditingId(null);
                   setSelectedHistoryPo(null);
                 }}>
@@ -481,7 +547,7 @@ function CreatePO() {
               columns={columns}
               fetchData={fetchPos}
               onExport={handleExport}
-              onAdd={() => setView("create")}
+              onAdd={() => navigate("/purchase-orders/create")}
               onAddTooltip="Create PO"
               refreshKey={refreshKey}
               columnFilters={columnFilters}
@@ -578,7 +644,7 @@ function CreatePO() {
                       <Select
                         value={formData.customerId}
                         onValueChange={handleCustomerChange}
-                        disabled={isLoading || isLoadingCustomers || !!editingId}
+                        disabled={isLoading || isLoadingCustomers || !!editingId || isReadOnly}
                         required
                       >
                         <SelectTrigger className="w-full">
@@ -602,7 +668,7 @@ function CreatePO() {
                         <Select
                           value={formData.locationId}
                           onValueChange={handleLocationChange}
-                          disabled={isLoading || isLoadingLocations || !formData.customerId || !!editingId}
+                          disabled={isLoading || isLoadingLocations || !formData.customerId || !!editingId || isReadOnly}
                           required
                         >
                           <SelectTrigger className="w-full">
@@ -644,6 +710,7 @@ function CreatePO() {
                             name="poNumber"
                             value={formData.poNumber}
                             onChange={handleInputChange}
+                            disabled={isReadOnly}
                             required
                           />
                         </div>
@@ -655,6 +722,7 @@ function CreatePO() {
                             type="date"
                             value={formData.poDate}
                             onChange={handleInputChange}
+                            disabled={isReadOnly}
                             required
                           />
                         </div>
@@ -669,6 +737,7 @@ function CreatePO() {
                                 type="button"
                                 variant="outline"
                                 onClick={() => document.getElementById("documentUpload").click()}
+                                disabled={isReadOnly}
                               >
                                 <Upload className="h-4 w-4 mr-2" /> Upload Document
                               </Button>
@@ -680,6 +749,7 @@ function CreatePO() {
                             accept=".pdf,.doc,.docx,.xls,.xlsx"
                             onChange={handleDocumentUpload}
                             className="hidden"
+                            disabled={isReadOnly}
                           />
                           {editingPo?.po_attachment_history?.length > 0 ? (
                             <div className="flex flex-col gap-2 mt-4">
@@ -778,7 +848,7 @@ function CreatePO() {
 
 
 
-                {formData.locationId && (
+                {formData.locationId && !isReadOnly && (
                   <div className="flex justify-end gap-4">
                     <Button
                       type="button"
@@ -796,7 +866,7 @@ function CreatePO() {
                         if (editingId) {
                           setEditingId(null)
                           setEditingPo(null)
-                          setView("list")
+                          navigate("/purchase-orders/list")
                         }
                       }}
                     >

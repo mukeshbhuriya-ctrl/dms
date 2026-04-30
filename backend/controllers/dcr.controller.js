@@ -430,6 +430,7 @@ class DcrController {
                 },
                 select: {
                     id: true,
+                    job_id: true,
                     dcr_no: true,
                     equ_no: true,
                     drg_no: true,
@@ -493,6 +494,7 @@ class DcrController {
                     equ_no: dcr.equ_no,
                     drg_no: dcr.drg_no,
                     inspect_by: dcr.inspect_by,
+                    job_id: dcr.job_id,
                     job_number: dcr.job?.job_number || null,
                     design_engineer: dcr.design_engineer,
                     quality_engineer: dcr.quality_engineer,
@@ -668,6 +670,137 @@ class DcrController {
             });
         } catch (error) {
             console.error('Get DCR active filters error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+            });
+        }
+    }
+
+    async updateDcr(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const id = req.params.id;
+            const body = req.body || {};
+
+            const job_id = toTrimmedString(body.job_id);
+            const dcr_no = toTrimmedString(body.dcr_no);
+            const drg_no = toTrimmedString(body.drg_no);
+            const equ_no = toTrimmedString(body.equ_no);
+            const inspect_by = toTrimmedString(body.inspect_by);
+            const design_engineer_id = toTrimmedString(body.design_engineer_id);
+            const quality_engineer_id = toTrimmedString(body.quality_engineer_id);
+
+            const missingFields = [];
+            if (!id) missingFields.push('id');
+            if (!job_id) missingFields.push('job_id');
+            if (!dcr_no) missingFields.push('dcr_no');
+            if (!drg_no) missingFields.push('drg_no');
+            if (!equ_no) missingFields.push('equ_no');
+            if (!inspect_by) missingFields.push('inspect_by');
+            if (!design_engineer_id) missingFields.push('design_engineer_id');
+            if (!quality_engineer_id) missingFields.push('quality_engineer_id');
+
+            if (missingFields.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Missing required fields for update: ${missingFields.join(', ')}`,
+                });
+            }
+
+            const existingDcr = await prisma.dcr.findFirst({
+                where: { id, company_id },
+                include: { dcr_status: { orderBy: { createdAt: 'desc' }, take: 1 } }
+            });
+
+            if (!existingDcr) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'DCR not found',
+                });
+            }
+
+            const currentStatus = existingDcr.dcr_status[0]?.status || 'pending';
+
+            const changeRequestsInput = body.change_requests ?? [];
+            if (!Array.isArray(changeRequestsInput)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'change_requests must be an array',
+                });
+            }
+
+            const preparedChangeRequests = [];
+            for (let i = 0; i < changeRequestsInput.length; i++) {
+                const item = changeRequestsInput[i] || {};
+                const item_part_no = toTrimmedString(item.item_part_no);
+                const chnage_from = toTrimmedString(item.chnage_from || item.change_from);
+                const chnage_to = toTrimmedString(item.chnage_to || item.change_to);
+                const reason = toTrimmedString(item.reason);
+
+                if (!item_part_no || !chnage_from || !chnage_to || !reason) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Invalid change_requests entry at index ${i}`,
+                    });
+                }
+
+                preparedChangeRequests.push({
+                    company_id,
+                    job_id,
+                    dcr_id: id,
+                    item_part_no,
+                    chnage_from,
+                    chnage_to,
+                    reason,
+                });
+            }
+
+            await prisma.$transaction(async (tx) => {
+                await tx.dcr.update({
+                    where: { id },
+                    data: {
+                        job_id,
+                        dcr_no,
+                        drg_no,
+                        equ_no,
+                        inspect_by,
+                        design_engineer_id,
+                        quality_engineer_id,
+                    }
+                });
+
+                await tx.dcr_change_request.deleteMany({
+                    where: { dcr_id: id }
+                });
+
+                if (preparedChangeRequests.length > 0) {
+                    await tx.dcr_change_request.createMany({
+                        data: preparedChangeRequests
+                    });
+                }
+
+                // If resubmitting after rejection
+                if (currentStatus === 'rejected' || currentStatus === 'design_rejected') {
+                    await tx.dcr_status.create({
+                        data: {
+                            dcr_id: id,
+                            design_engineer_status: 'pending',
+                            design_engineer_remarks: 'Resubmitted after edit',
+                            quality_engineer_status: 'pending',
+                            quality_engineer_remarks: '',
+                            status: 'pending',
+                        }
+                    });
+                }
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'DCR updated successfully',
+            });
+        } catch (error) {
+            console.error('Update DCR error:', error);
             return res.status(500).json({
                 success: false,
                 message: 'Internal server error',

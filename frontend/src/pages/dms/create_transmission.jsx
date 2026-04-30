@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/popover"
 import { toast } from 'react-toastify';
 import { dccService } from "../../services/dcc.service";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
@@ -75,6 +75,8 @@ import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog
 
 function CreateTransmission() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { id: routeTransmissionId } = useParams();
   const [view, setView] = useState("list") // 'list' | 'create'
 
   // --- Transmittal Preview Helper ---
@@ -580,6 +582,63 @@ function CreateTransmission() {
     }
   }, []);
 
+  useEffect(() => {
+    const openFromRoute = async () => {
+      const path = location.pathname || "";
+      if (path.endsWith("/create")) {
+        setView("create");
+        return;
+      }
+      if (path.endsWith("/list")) {
+        setView("list");
+        return;
+      }
+
+      const isDetailsRoute =
+        path.startsWith("/transmissions/") &&
+        !path.endsWith("/list") &&
+        !path.endsWith("/create") &&
+        !path.includes("/edit/") &&
+        !path.includes("/view/");
+
+      if (!isDetailsRoute || !routeTransmissionId) return;
+
+      const transmissionNumber = decodeURIComponent(routeTransmissionId);
+      const fromState = location.state?.record;
+
+      if (fromState?.id) {
+        setActiveTransmission(fromState);
+        setView("send");
+        await fetchTransmissionDetailsForSend(fromState);
+        return;
+      }
+
+      try {
+        const res = await dccService.getTransmissions({
+          page: 1,
+          limit: 200,
+          search: transmissionNumber,
+        });
+        const rows = res?.data || [];
+        const matched = rows.find((r) => r.transmission_number === transmissionNumber);
+        if (!matched) {
+          toast.error(`Transmission not found: ${transmissionNumber}`);
+          navigate("/transmissions/list");
+          return;
+        }
+        setActiveTransmission(matched);
+        setView("send");
+        await fetchTransmissionDetailsForSend(matched);
+      } catch (err) {
+        console.error("Failed to open transmission by route:", err);
+        toast.error("Unable to load transmission details");
+        navigate("/transmissions/list");
+      }
+    };
+
+    openFromRoute();
+  }, [location.pathname, location.state, routeTransmissionId, navigate]);
+
   // --- Send View Logic ---
   const fetchTransmissionDetailsForSend = async (transmission) => {
     setLoadingDocs(true);
@@ -795,7 +854,15 @@ function CreateTransmission() {
     {
       header: "Transmission No",
       accessorKey: "transmission_number",
-      cell: (row) => row?.transmission_number || '-'
+      cell: (row) => (
+        <Button
+          variant="link"
+          className="h-auto p-0 font-medium"
+          onClick={() => navigate(`/transmissions/${encodeURIComponent(row.transmission_number)}`, { state: { record: row } })}
+        >
+          {row?.transmission_number || '-'}
+        </Button>
+      )
     },
     { 
       header: "Customer", 
@@ -893,9 +960,7 @@ function CreateTransmission() {
               size="sm"
               className="flex items-center gap-2"
               onClick={() => {
-                setActiveTransmission(row);
-                fetchTransmissionDetailsForSend(row);
-                setView("send");
+                navigate(`/transmissions/${encodeURIComponent(row.transmission_number)}`, { state: { record: row } });
               }}
             >
               <Eye className="h-4 w-4" />
@@ -903,13 +968,15 @@ function CreateTransmission() {
             </Button>
           ) : (
             <Button
-              variant={row.status === 'Sent' ? "secondary" : "default"}
+              variant={row.status === 'Sent' ? "outline" : "default"}
               size="sm"
-              className="flex items-center gap-2"
+              className={
+                row.status === 'Sent'
+                  ? "h-9 min-w-[102px] px-3 border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 font-semibold shadow-sm transition-colors"
+                  : "h-9 min-w-[102px] px-3 bg-slate-900 hover:bg-slate-800 text-white font-semibold shadow-sm transition-colors"
+              }
               onClick={() => {
-                setActiveTransmission(row);
-                fetchTransmissionDetailsForSend(row);
-                setView("send");
+                navigate(`/transmissions/${encodeURIComponent(row.transmission_number)}`, { state: { record: row } });
               }}
             >
               <Mail className="h-4 w-4" />
@@ -919,7 +986,7 @@ function CreateTransmission() {
         </div>
       )
     }
-  ], [activeListFilters, listCustomerOptions, listPoOptions]);
+  ], [activeListFilters, listCustomerOptions, listPoOptions, navigate]);
 
   const documentColumns = useMemo(() => [
     { header: "S.No", accessorKey: "s_no", width: '60px' },
@@ -1028,6 +1095,7 @@ function CreateTransmission() {
         <div className="flex gap-2">
           {view !== 'list' && (
             <Button variant="outline" onClick={() => {
+              navigate('/transmissions/list');
               setView('list');
               setActiveTransmission(null);
               setSendDocuments([]);
@@ -1058,7 +1126,7 @@ function CreateTransmission() {
                   columnFilters={listFilters}
                   onFilterChange={onListFiltersChange}
                   showSelectionColumn={false}
-                  onAdd={() => { setView('create'); setSelectedDocuments([]); }}
+                  onAdd={() => { navigate('/transmissions/create'); setView('create'); setSelectedDocuments([]); }}
                   onAddTooltip="Create Transmission"
                 />
               </CardContent>

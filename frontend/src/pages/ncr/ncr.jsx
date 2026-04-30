@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import {
     SidebarProvider,
@@ -348,11 +349,11 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
             cell: (row) => (
                 <div className="flex items-center gap-1">
                     {canUserAct(row) && (
-                        <Button variant="outlined" size="sm" onClick={() => onOpenClick(row.id)} title="Open & take action" className="border">
+                        <Button variant="outlined" size="sm" onClick={() => onOpenClick(row)} title="Open & take action" className="border">
                             <Pencil className="h-3.5 w-3.5 mr-1" /> Open
                         </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => onViewClick(row.id)} title="View full NCR">
+                    <Button variant="outline" size="sm" onClick={() => onViewClick(row)} title="View full NCR">
                         <Eye className="h-3.5 w-3.5 mr-1" /> View
                     </Button>
                     {row.status === "CLOSED" && row.ncr_status === "closed" && (
@@ -425,7 +426,7 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
 }
 
 // ─── Create / View Form ──────────────────────────────────────────────────────
-function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = false }) {
+function FormView({ ncrId, routeId, locationState, onBack, onSuccess, isViewOnly = false, isOpenMode = false }) {
     const { user } = useAuth()
     const currentUserId = user?.id || ""
 
@@ -467,67 +468,104 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             .catch(() => setUsers([]))
     }, [])
 
-    // Load existing NCR if ncrId provided (view or continue editing)
+    const loadNcrById = useCallback(async (id) => {
+        try {
+            const res = await apiClient.get(`/api/ncr/${id}`)
+            if (res.success && res.data) {
+                const d = res.data
+                setFormData({
+                    msmNumber: d.job_id || "",
+                    ncrNo: d.ncr_no || "",
+                    date: d.date ? new Date(d.date).toISOString().split("T")[0] : "",
+                    client: d.client || "",
+                    poNo: d.po_no || "",
+                    tagNo: d.tag_no || "",
+                    drgNo: d.drg_no || "",
+                    revNo: d.rev_no || "",
+
+                    descriptionNonConformance: d.description_non_conformance || "",
+                    ncrRaisedAt: d.ncr_raised_at?.toString() || "",
+                    ncrRaisedBy: d.ncr_raised_by?.toString() || "",
+                    ncrDate: d.ncr_date ? new Date(d.ncr_date).toISOString().split("T")[0] : "",
+
+                    proposedResolution: d.proposed_resolution || "",
+                    resolutionBy: d.resolution_by?.toString() || "",
+                    resolutionDate: d.resolution_date ? new Date(d.resolution_date).toISOString().split("T")[0] : "",
+
+                    targetEngineer: d.target_engineer_id?.toString() || "",
+                    targetHeadDesign: d.target_head_design_id?.toString() || "",
+                    targetHeadWelding: d.target_head_welding_id?.toString() || "",
+                    targetHeadQuality: d.target_head_quality_id?.toString() || "",
+
+                    resolutionApproval: Array.isArray(d.resolution_approval) ? d.resolution_approval : (d.resolution_approval ? [d.resolution_approval] : ["USE AS IS"]),
+                    headDesign: d.target_head_design_id?.toString() || "",
+                    headDesignComments: d.head_design_comments || "",
+                    headWelding: d.target_head_welding_id?.toString() || "",
+                    headWeldingComments: d.head_welding_comments || "",
+                    headQuality: d.target_head_quality_id?.toString() || "",
+                    headQualityComments: d.head_quality_comments || "",
+                    acceptanceDate: d.acceptance_date ? new Date(d.acceptance_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+
+                    designReviewStatus: d.design_review_status || "",
+                    weldingReviewStatus: d.welding_review_status || "",
+                    qualityReviewStatus: d.quality_review_status || "",
+
+                    correctiveActionComments: d.corrective_action_comments || "",
+                    correctiveActionDate: d.corrective_action_date ? new Date(d.corrective_action_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+                    verifiedByQce: d.verified_by_qce_id?.toString() || "",
+
+                    disposition: d.disposition || "",
+                    verifiedByHeadQuality: d.verified_by_head_quality_id?.toString() || "",
+                    dispositionDate: d.disposition_date ? new Date(d.disposition_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+                    attachments: d.attachments || []
+                })
+                setCurrentStage(d.current_stage || 1)
+                setNcrStatus(d.ncr_status || "draft")
+                setNextPerformer(d.nextPerformer || null)
+                setNcrDbId(d.id)
+            }
+        } catch (err) {
+            setError("Failed to load NCR: " + err.message)
+        }
+    }, [])
+
     useEffect(() => {
-        if (!ncrId) return
-        apiClient.get(`/api/ncr/${ncrId}`)
-            .then((res) => {
-                if (res.success && res.data) {
-                    const d = res.data
-                    setFormData({
-                        msmNumber: d.job_id || "",
-                        ncrNo: d.ncr_no || "",
-                        date: d.date ? new Date(d.date).toISOString().split("T")[0] : "",
-                        client: d.client || "",
-                        poNo: d.po_no || "",
-                        tagNo: d.tag_no || "",
-                        drgNo: d.drg_no || "",
-                        revNo: d.rev_no || "",
+        const initializeForm = async () => {
+            if (ncrId) {
+                // Support legacy internal calls
+                loadNcrById(ncrId)
+                return
+            }
+            if (!routeId) return
 
-                        descriptionNonConformance: d.description_non_conformance || "",
-                        ncrRaisedAt: d.ncr_raised_at?.toString() || "",
-                        ncrRaisedBy: d.ncr_raised_by?.toString() || "",
-                        ncrDate: d.ncr_date ? new Date(d.ncr_date).toISOString().split("T")[0] : "",
+            if (locationState?.record?.id) {
+                loadNcrById(locationState.record.id)
+                return
+            }
 
-                        proposedResolution: d.proposed_resolution || "",
-                        resolutionBy: d.resolution_by?.toString() || "",
-                        resolutionDate: d.resolution_date ? new Date(d.resolution_date).toISOString().split("T")[0] : "",
-
-                        targetEngineer: d.target_engineer_id?.toString() || "",
-                        targetHeadDesign: d.target_head_design_id?.toString() || "",
-                        targetHeadWelding: d.target_head_welding_id?.toString() || "",
-                        targetHeadQuality: d.target_head_quality_id?.toString() || "",
-
-                        resolutionApproval: Array.isArray(d.resolution_approval) ? d.resolution_approval : (d.resolution_approval ? [d.resolution_approval] : ["USE AS IS"]),
-                        headDesign: d.target_head_design_id?.toString() || "",
-                        headDesignComments: d.head_design_comments || "",
-                        headWelding: d.target_head_welding_id?.toString() || "",
-                        headWeldingComments: d.head_welding_comments || "",
-                        headQuality: d.target_head_quality_id?.toString() || "",
-                        headQualityComments: d.head_quality_comments || "",
-                        acceptanceDate: d.acceptance_date ? new Date(d.acceptance_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-
-                        designReviewStatus: d.design_review_status || "",
-                        weldingReviewStatus: d.welding_review_status || "",
-                        qualityReviewStatus: d.quality_review_status || "",
-
-                        correctiveActionComments: d.corrective_action_comments || "",
-                        correctiveActionDate: d.corrective_action_date ? new Date(d.corrective_action_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-                        verifiedByQce: d.verified_by_qce_id?.toString() || "",
-
-                        disposition: d.disposition || "",
-                        verifiedByHeadQuality: d.verified_by_head_quality_id?.toString() || "",
-                        dispositionDate: d.disposition_date ? new Date(d.disposition_date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-                        attachments: d.attachments || []
-                    })
-                    setCurrentStage(d.current_stage || 1)
-                    setNcrStatus(d.ncr_status || "draft")
-                    setNextPerformer(d.nextPerformer || null)
-                    setNcrDbId(d.id)
+            try {
+                const ncrNoFromUrl = decodeURIComponent(routeId).replace(/-/g, "/")
+                const response = await apiClient.get("/api/ncr/list", {
+                    page: 1,
+                    limit: 50,
+                    search: ncrNoFromUrl
+                })
+                
+                const records = response?.data || []
+                const matched = records.find(r => r.ncr_no === ncrNoFromUrl || r.id === routeId)
+                
+                if (matched && matched.id) {
+                    loadNcrById(matched.id)
+                } else {
+                    setError(`NCR not found: ${ncrNoFromUrl}`)
                 }
-            })
-            .catch((err) => setError("Failed to load NCR: " + err.message))
-    }, [ncrId])
+            } catch (err) {
+                setError("Unable to locate NCR from URL")
+            }
+        }
+        
+        initializeForm()
+    }, [ncrId, routeId, locationState, loadNcrById])
 
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target
@@ -1455,8 +1493,17 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function CreateNCR() {
-    const [view, setView] = useState("list") // "list" | "create" | "view" | "open"
-    const [viewNcrId, setViewNcrId] = useState(null)
+    const location = useLocation()
+    const navigate = useNavigate()
+    const { id: routeId } = useParams()
+
+    // Derive mode from URL path
+    const view = location.pathname.includes("/create") ? "create"
+        : location.pathname.includes("/edit/") ? "open"
+        : location.pathname.includes("/view/") ? "view"
+        : "list"
+    const viewNcrId = routeId || null
+
     const handleSuccess = (data) => {
         let msg = "NCR operation completed successfully!"
         if (data && data.nextUser) {
@@ -1465,17 +1512,17 @@ function CreateNCR() {
             }
         }
         toast.success(msg)
-        setView("list")
+        navigate("/ncr/list")
     }
 
-    const handleViewClick = (id) => {
-        setViewNcrId(id)
-        setView("view")
+    const handleViewClick = (row) => {
+        const safePath = row.ncr_no ? encodeURIComponent(String(row.ncr_no).replace(/\//g, "-")) : row.id
+        navigate(`/ncr/view/${safePath}`, { state: { record: row } })
     }
 
-    const handleOpenClick = (id) => {
-        setViewNcrId(id)
-        setView("open")
+    const handleOpenClick = (row) => {
+        const safePath = row.ncr_no ? encodeURIComponent(String(row.ncr_no).replace(/\//g, "-")) : row.id
+        navigate(`/ncr/edit/${safePath}`, { state: { record: row } })
     }
 
     return (
@@ -1487,14 +1534,16 @@ function CreateNCR() {
                 <div className="flex-1 flex flex-col w-full">
                     {view === "list" ? (
                         <ListView
-                            onCreateClick={() => { setViewNcrId(null); setView("create") }}
+                            onCreateClick={() => navigate("/ncr/create")}
                             onViewClick={handleViewClick}
                             onOpenClick={handleOpenClick}
                         />
                     ) : (
                         <FormView
-                            ncrId={viewNcrId}
-                            onBack={() => { setView("list"); setViewNcrId(null) }}
+                            ncrId={null}
+                            routeId={viewNcrId}
+                            locationState={location.state}
+                            onBack={() => navigate("/ncr/list")}
                             onSuccess={handleSuccess}
                             isViewOnly={view === "view"}
                             isOpenMode={view === "open"}

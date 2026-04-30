@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -41,8 +41,12 @@ import {
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
+const toSlug = (value = "") => String(value).trim().toLowerCase().replace(/\s+/g, "-")
+
 function CreateUser() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { id: routeId } = useParams()
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -70,6 +74,15 @@ function CreateUser() {
 
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  const mode = useMemo(() => {
+    if (location.pathname.includes("/edit/")) return "edit"
+    if (location.pathname.includes("/view/")) return "view"
+    if (location.pathname.endsWith("/create")) return "create"
+    return "list"
+  }, [location.pathname])
+
+  const isReadOnly = mode === "view"
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -178,13 +191,8 @@ function CreateUser() {
     fetchData();
   }, []);
 
-  const handleEdit = (user) => {
+  const populateFormFromUser = useCallback((user) => {
     setEditingId(user.id)
-    // user.department might be ID or Name. The Select expects Name.
-    // Use departmentMap to ensure we get the Name if it's an ID.
-    // If it's already a name, the map (ID->Name AND Name->Name) handles it or we fallback to user.department
-    const deptName = departmentMap[user.department] || user.department || "";
-
     setFormData({
       fullName: user.name || "",
       email: user.email || "",
@@ -195,9 +203,68 @@ function CreateUser() {
       roles: user.user_roles?.map(ur => ur.role_id) || [], // Map to Role IDs
       password: "", // Leave blank usually
     })
-    setView("create")
     setError("")
     setSuccess("")
+  }, [])
+
+  useEffect(() => {
+    const loadUserByEmpId = async (empid) => {
+      try {
+        const response = await apiClient.get("/api/users/get-users", {
+          page: 1,
+          limit: 200,
+          search: empid,
+        })
+        const userRows = response?.data || []
+        const matched = userRows.find((u) => toSlug(u.empid) === toSlug(empid))
+        if (!matched) {
+          setError(`User not found for Employee ID: ${empid}`)
+          return
+        }
+        populateFormFromUser(matched)
+      } catch {
+        setError(`Unable to load user for Employee ID: ${empid}`)
+      }
+    }
+
+    if (mode === "list") {
+      setView("list")
+      setEditingId(null)
+      return
+    }
+
+    setView("create")
+
+    if (mode === "edit" || mode === "view") {
+      const row = location.state?.record
+      if (row) {
+        populateFormFromUser(row)
+      } else if (routeId) {
+        loadUserByEmpId(routeId)
+      } else {
+        setError("Please open edit/view from the list once so data can load.")
+      }
+    } else {
+      setEditingId(null)
+      setFormData({
+        fullName: "",
+        email: "",
+        employeeId: "",
+        department: "",
+        designation: "",
+        mobileNumber: "",
+        roles: [],
+        password: "",
+      })
+    }
+  }, [mode, routeId, location.state, populateFormFromUser])
+
+  const handleEdit = (user) => {
+    navigate(`/user/edit/${toSlug(user.empid)}`, { state: { record: user } })
+  }
+
+  const handleView = (user) => {
+    navigate(`/user/view/${toSlug(user.empid)}`, { state: { record: user } })
   }
 
   const handleDeleteClick = (user) => {
@@ -280,6 +347,14 @@ function CreateUser() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => handleView(row)}
+            title="View"
+          >
+            View
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => handleEdit(row)}
             title="Edit"
           >
@@ -298,7 +373,7 @@ function CreateUser() {
       ),
       enableSorting: false,
     }
-  ], [handleEdit, activeEmpIdOptions, activeNameOptions, activeEmailOptions, activeDeptOptions, departmentMap])
+  ], [handleEdit, activeEmpIdOptions, activeNameOptions, activeEmailOptions, activeDeptOptions, handleView])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -337,7 +412,7 @@ function CreateUser() {
       // Refresh list and switch view
       setTimeout(() => {
         setSuccess("")
-        setView("list")
+        navigate("/user/list")
         setFormData({
           fullName: "",
           email: "",
@@ -372,20 +447,20 @@ function CreateUser() {
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
         </header>
-        <main className="flex-1 flex flex-col overflow-auto p-6">
+      <main className="flex-1 flex flex-col overflow-auto p-6">
           <div className="w-full flex-1 flex flex-col">
             {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {editingId ? "Edit User" : "Create User"}
+                  {mode === "view" ? "View User" : (editingId ? "Edit User" : "Create User")}
                 </h1>
                 <p className="text-muted-foreground">
                   Fill in the user information below.
                 </p>
               </div>
               <div>
-                  <Button variant="outline" onClick={() => setView("list")}>
+                  <Button variant="outline" onClick={() => navigate("/user/list")}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
               </div>
@@ -397,7 +472,7 @@ function CreateUser() {
                 columns={columns}
                 fetchData={fetchUsers}
                 onExport={handleExport}
-                onAdd={() => setView("create")}
+                onAdd={() => navigate("/user/create")}
                 onAddTooltip="Create User"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
@@ -408,9 +483,9 @@ function CreateUser() {
                 <form onSubmit={handleSubmit}>
                   <Card>
                     <CardHeader>
-                      <CardTitle>{editingId ? "Edit User" : "User Information"}</CardTitle>
+                      <CardTitle>{mode === "view" ? "User Information" : (editingId ? "Edit User" : "User Information")}</CardTitle>
                       <CardDescription>
-                        {editingId ? "Update user details" : "Enter the details for the new user account"}
+                        {mode === "view" ? "Review user details." : (editingId ? "Update user details" : "Enter the details for the new user account")}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -439,7 +514,7 @@ function CreateUser() {
                           value={formData.fullName}
                           onChange={handleInputChange}
                           required
-                          disabled={isLoading}
+                          disabled={isLoading || isReadOnly}
                         />
                       </div>
 
@@ -456,8 +531,8 @@ function CreateUser() {
                             placeholder="superadmin@gmail.com"
                             value={formData.email}
                             onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
+                          required
+                          disabled={isLoading || isReadOnly}
                           />
                         </div>
                         <div className="space-y-2">
@@ -471,8 +546,8 @@ function CreateUser() {
                             placeholder="Enter employee ID"
                             value={formData.employeeId}
                             onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
+                          required
+                          disabled={isLoading || isReadOnly}
                           />
                         </div>
                       </div>
@@ -489,7 +564,7 @@ function CreateUser() {
                             onValueChange={(value) =>
                               setFormData((prev) => ({ ...prev, department: value }))
                             }
-                            disabled={isLoading}
+                            disabled={isLoading || isReadOnly}
                             required
                           >
                             <SelectTrigger id="department" className="w-full">
@@ -521,8 +596,8 @@ function CreateUser() {
                             placeholder="e.g., Manager, Developer, Analyst"
                             value={formData.designation}
                             onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
+                          required
+                          disabled={isLoading || isReadOnly}
                           />
                         </div>
                       </div>
@@ -540,8 +615,8 @@ function CreateUser() {
                             placeholder="+1 (555) 000-0000"
                             value={formData.mobileNumber}
                             onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
+                          required
+                          disabled={isLoading || isReadOnly}
                           />
                         </div>
                         <div className="space-y-2">
@@ -550,7 +625,7 @@ function CreateUser() {
                           </Label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] px-3 py-2 text-left" disabled={isLoading}>
+                              <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] px-3 py-2 text-left" disabled={isLoading || isReadOnly}>
                                 <div className="flex flex-wrap gap-1 max-w-[280px]">
                                   {formData.roles && formData.roles.length > 0 ? (
                                     Array.from(new Set(formData.roles)).map(roleId => {
@@ -626,7 +701,7 @@ function CreateUser() {
                             value={formData.password}
                             onChange={handleInputChange}
                             required={!editingId}
-                            disabled={isLoading}
+                            disabled={isLoading || isReadOnly}
                           />
                           <Button
                             type="button"
@@ -650,32 +725,21 @@ function CreateUser() {
                   </Card>
 
                   {/* Submit Buttons */}
-                  <div className="flex justify-end gap-4 mt-6">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setFormData({
-                          fullName: "",
-                          email: "",
-                          employeeId: "",
-                          department: "",
-                          designation: "",
-                          mobileNumber: "",
-                          roles: [],
-                          password: "",
-                        })
-                        setView("list")
-                        setEditingId(null)
-                      }}
-                      disabled={isLoading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
-                    </Button>
-                  </div>
+                  {!isReadOnly && (
+                    <div className="flex justify-end gap-4 mt-6">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => navigate("/user/list")}
+                        disabled={isLoading}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={isLoading}>
+                        {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
+                      </Button>
+                    </div>
+                  )}
                 </form>
               </div>
             )}
