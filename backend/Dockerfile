@@ -5,6 +5,9 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
+# Create directory for uploads
+RUN mkdir -p /app/data
+
 # Copy package files
 COPY package*.json ./
 
