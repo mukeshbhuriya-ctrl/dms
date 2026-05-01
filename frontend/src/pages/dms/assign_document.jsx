@@ -69,11 +69,9 @@ import {
   X,
   ChevronDown,
   Check,
-  FileText,
-  Upload,
-  AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  AlertCircle
 } from "lucide-react"
 
 function AssignDocument() {
@@ -197,9 +195,9 @@ function AssignDocument() {
         }
       }
 
-      const validatedRows = rawData.map((row, index) => {
-        const errors = [];
-        const jobNumber = String(row["Job Number"] || "").trim().toUpperCase();
+      const validatedRows = rawData.flatMap((row, index) => {
+        const jobNumberStr = String(row["Job Number"] || "").trim();
+        const jobNumbers = jobNumberStr.split(',').map(j => j.trim().toUpperCase()).filter(Boolean);
         const docName = String(row["Document Name"] || "").trim();
         const empid = String(row["Employee ID"] || "").trim();
         const shrenoNo = String(row["Shreno Document No"] || "").trim();
@@ -207,41 +205,44 @@ function AssignDocument() {
         const uploadDaysRaw = row["Upload Due Days"];
         const responseDaysRaw = row["Response Due Days"];
 
-        const targetJob = allJobs.find(j => String(j.job_number) === jobNumber);
         const targetUser = users.find(u => String(u.empid) === empid);
 
-        if (!jobNumber) errors.push("Job Number is required");
-        else if (!targetJob) errors.push(`Job Number "${jobNumber}" not found`);
+        // If no job numbers, still create one row to show "required" error
+        const jobsToProcess = jobNumbers.length === 0 ? [""] : jobNumbers;
 
-        if (!docName) errors.push("Document Name is required");
-        
-        // Employee ID is now optional. If provided but not found, we still mark as valid (Pending)
-        if (empid && !targetUser) {
-           console.log(`Employee ID "${empid}" not found, treating as Pending Assignee.`);
-        }
+        return jobsToProcess.map((jn, subIdx) => {
+          const errors = [];
+          const targetJob = allJobs.find(j => String(j.job_number) === jn);
 
-        const uploadDays = parseInt(uploadDaysRaw);
-        if (uploadDaysRaw === undefined || isNaN(uploadDays) || uploadDays < 0) {
-          errors.push("Invalid Upload Due Days");
-        }
-        const responseDays = parseInt(responseDaysRaw);
-        if (responseDaysRaw === undefined || isNaN(responseDays) || responseDays < 0) {
-          errors.push("Invalid Response Due Days");
-        }
+          if (!jn) errors.push("Job Number is required");
+          else if (!targetJob) errors.push(`Job Number "${jn}" not found`);
 
-        return {
-          rowNo: index + 1,
-          jobNumber, docName, empid, shrenoNo, clientNo,
-          uploadDays: uploadDays || 0,
-          responseDays: responseDays || 0,
-          status: errors.length === 0 ? "valid" : "error",
-          message: errors.length === 0 ? "Ready to assign" : errors.join(" | "),
-          jobId: targetJob?.id,
-          customerId: targetJob?.customer_id,
-          poId: targetJob?.po_id,
-          assignUserId: targetUser?.id,
-          userName: targetUser?.name
-        };
+          if (!docName) errors.push("Document Name is required");
+
+          const uploadDays = parseInt(uploadDaysRaw);
+          if (uploadDaysRaw === undefined || isNaN(uploadDays) || uploadDays < 0) {
+            errors.push("Invalid Upload Due Days");
+          }
+          const responseDays = parseInt(responseDaysRaw);
+          if (responseDaysRaw === undefined || isNaN(responseDays) || responseDays < 0) {
+            errors.push("Invalid Response Due Days");
+          }
+
+          return {
+            rowNo: jobNumbers.length > 1 ? `${index + 1}.${subIdx + 1}` : index + 1,
+            jobNumber: jn || "EMPTY",
+            docName, empid, shrenoNo, clientNo,
+            uploadDays: uploadDays || 0,
+            responseDays: responseDays || 0,
+            status: errors.length === 0 ? "valid" : "error",
+            message: errors.length === 0 ? "Ready to assign" : errors.join(" | "),
+            jobId: targetJob ? [targetJob.id] : [], // Keep as array for backend compatibility
+            customerId: targetJob?.customer_id,
+            poId: targetJob?.po_id,
+            assignUserId: targetUser?.id,
+            userName: targetUser?.name
+          };
+        });
       });
 
       setImportReview({
@@ -265,7 +266,7 @@ function AssignDocument() {
 
     const requestBody = {
       assignments: validRows.map(r => ({
-        job_id: r.jobId,
+        job_id: r.jobId, // Sending as array directly now
         document_name: r.docName,
         shreno_document_no: r.shrenoNo,
         client_document_no: r.clientNo,
@@ -657,7 +658,7 @@ function AssignDocument() {
       ...prev,
       {
         tempId: Date.now(),
-        jobId: "",
+        jobId: [],
         searchQuery: "",
         customerId: "",
         customerSearch: "",
@@ -1358,7 +1359,13 @@ function AssignDocument() {
           </div>
           <DialogFooter className="p-6 border-t bg-slate-50">
             <Button variant="outline" onClick={() => setImportReview(prev => ({ ...prev, isOpen: false }))}>Cancel</Button>
-            <Button className="bg-green-600" onClick={finalizeImport} disabled={importReview.summary.valid === 0}>Merge {importReview.summary.valid} Rows</Button>
+            <Button 
+              className="bg-green-600" 
+              onClick={finalizeImport} 
+              disabled={importReview.summary.valid === 0 || isLoading}
+            >
+              {isLoading ? "Merging..." : `Merge ${importReview.summary.valid} Rows`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
