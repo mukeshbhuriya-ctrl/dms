@@ -1,18 +1,9 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Eye, EyeOff } from "lucide-react"
-
+import { Eye, EyeOff, Mail, Lock, Info, ArrowRight, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import "../../login.css"
 
 function SiteAdminLogin() {
   const navigate = useNavigate()
@@ -51,7 +42,6 @@ function SiteAdminLogin() {
         throw new Error(message)
       }
 
-      // Store whatever backend returns (token/user/etc.) for later use
       localStorage.setItem(
         "siteadmin_auth",
         JSON.stringify({ payload, loggedInAt: Date.now() }),
@@ -66,85 +56,103 @@ function SiteAdminLogin() {
   }
 
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Site Admin</CardTitle>
-          <CardDescription>Sign in with your email and password</CardDescription>
-        </CardHeader>
+    <div className="login-portal-container">
+      {/* Dynamic Industrial Background */}
+      <div className="login-background" />
+      <div className="login-overlay" />
 
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={isLoading}
-                autoComplete="email"
+      <div className="login-card-container">
+        <div className="glass-card">
+          <div className="login-header-section">
+            <div className="logo-container">
+              <img 
+                src="/shreno_logo.jpg" 
+                alt="Shreno Engineering" 
+                className="shreno-logo" 
               />
             </div>
+            <h1 className="portal-title">Site Admin Portal</h1>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+          <div className="login-form-content">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Email Field */}
+              <div className="input-wrapper">
+                <Mail className="input-icon h-4 w-4" />
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="Admin Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isLoading}
-                  autoComplete="current-password"
-                  className="pr-10"
+                  className="modern-input"
+                  autoComplete="email"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  disabled={isLoading}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
               </div>
-            </div>
 
-            {error ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
+              {/* Password Field */}
+              <div className="input-wrapper">
+                <Lock className="input-icon h-4 w-4" />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Admin Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    className="modern-input"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="password-toggle"
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-            ) : null}
-          </CardContent>
 
-          <CardFooter className="flex flex-col gap-3 pt-6">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Signing in..." : "Sign in"}
-            </Button>
+              {error && (
+                <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-100 rounded text-[11px] text-red-600 font-bold">
+                  <Info className="h-3.5 w-3.5 shrink-0" />
+                  <p>{error}</p>
+                </div>
+              )}
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={isLoading}
-              onClick={() => navigate("/")}
-            >
-              Back
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+              {/* Primary Action */}
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="primary-submit-btn"
+              >
+                {isLoading ? "Authenticating..." : "Admin Access"}
+                {!isLoading && <ArrowRight className="h-4 w-4" />}
+              </Button>
+
+              <button 
+                type="button" 
+                onClick={() => navigate("/")} 
+                className="w-full text-[11px] text-slate-500 flex items-center justify-center cursor-pointer gap-2 mt-4 hover:text-slate-700 transition-colors"
+              >
+                <ArrowLeft className="h-3 w-3" /> Back to Company Portal
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Global Footer */}
+        <footer className="system-footer">
+          <p>© {new Date().getFullYear()} SHRENO ENGINEERING LIMITED</p>
+        </footer>
+      </div>
     </div>
-  )
+  );
 }
 
 export default SiteAdminLogin
