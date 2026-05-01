@@ -1639,9 +1639,7 @@ class ExportService {
                         customer_location: true
                     }
                 },
-                document: {
-                        document_type: true
-                },
+                document: true,
                 user: {
                     include: {
                         department: true
@@ -1694,9 +1692,7 @@ class ExportService {
                 location: true,
                 creator: true
             },
-            document_master: {
-                include: { document_type: true }
-            }
+            document_master: true
         };
 
         const include = RELATIONS_CONFIG[modelName] || {};
