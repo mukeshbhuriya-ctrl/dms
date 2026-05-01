@@ -147,6 +147,18 @@ class DtnService {
                         dist_ppd: !!item.deps?.PPD,
                     }))
                 });
+
+                // 4. Record to the Audit Trail for each item
+                const drawingsToLog = items.filter(i => i.document_master_id).map(i => i.document_master_id);
+                if (drawingsToLog.length > 0) {
+                    await tx.drawing_activity.createMany({
+                        data: drawingsToLog.map(docId => ({
+                            document_master_id: docId,
+                            action: `Transmitted via Ref: ${ref_no}`,
+                            performed_by: userId
+                        }))
+                    });
+                }
             }
 
             return dtn;
@@ -237,6 +249,20 @@ class DtnService {
                         dist_ppd: !!item.deps?.PPD,
                     }))
                 });
+
+                // 4. Record to the Audit Trail for each item (if status is not Draft)
+                if (status !== 'Draft') {
+                    const drawingsToLog = items.filter(i => i.document_master_id).map(i => i.document_master_id);
+                    if (drawingsToLog.length > 0) {
+                        await tx.drawing_activity.createMany({
+                            data: drawingsToLog.map(docId => ({
+                                document_master_id: docId,
+                                action: `Transmitted via Ref: ${ref_no}`,
+                                performed_by: null // We don't have userId in updateTransmittal currently
+                            }))
+                        });
+                    }
+                }
             }
 
             return dtn;
@@ -534,25 +560,28 @@ class DtnService {
         });
 
         // 2. Fetch Job-specific drawing aliases (Shreno Doc Nos)
-        // Note: For large datasets, we could pre-fetch these only once or filter them too.
-        // But for now, we'll keep the bridge active for the filtered items.
         const groupDocs = await prisma.group_document.findMany({
             where: {
                 company_id: companyId,
                 group: { job_group: { some: { job_id: jobId } } }
             },
             select: {
+                id: true,
                 document_id: true,
                 shreno_doc_no: true
             }
         });
 
-        // 3. Map document IDs to Shreno Doc Nos for fallback matching
+        // 3. Map document IDs to Shreno Doc Nos and Group Document IDs for fallback matching
         const shrenoMap = new Map();
+        const groupDocMap = new Map();
         groupDocs.forEach(gd => {
-            if (gd.document_id && gd.shreno_doc_no) {
-                if (!shrenoMap.has(gd.document_id)) shrenoMap.set(gd.document_id, new Set());
-                shrenoMap.get(gd.document_id).add(gd.shreno_doc_no);
+            if (gd.document_id) {
+                if (gd.shreno_doc_no) {
+                    if (!shrenoMap.has(gd.document_id)) shrenoMap.set(gd.document_id, new Set());
+                    shrenoMap.get(gd.document_id).add(gd.shreno_doc_no);
+                }
+                groupDocMap.set(gd.document_id, gd.id);
             }
         });
 
@@ -572,6 +601,7 @@ class DtnService {
             if (!docMap.has(docId)) {
                 const systemDocNo = item.document.document_number;
                 const shrenoNos = shrenoMap.get(docId) || new Set();
+                const groupDocId = groupDocMap.get(docId);
 
                 // Find all DCRs that match either the System Doc No or any Shreno Doc No for this drawing
                 const matchingDcrs = dcrs.filter(d => 
@@ -580,6 +610,7 @@ class DtnService {
 
                 docMap.set(docId, {
                     id: docId,
+                    group_document_id: groupDocId,
                     drgNo: systemDocNo,
                     shreno_doc_no: Array.from(shrenoNos)[0] || systemDocNo,
                     docName: item.document.document_name,
@@ -604,6 +635,81 @@ class DtnService {
                     }
                 }
             }
+        });
+    }
+
+    async getDrawingVersionById(companyId, versionId) {
+        return await prisma.drawing_version.findFirst({
+            where: { id: versionId }
+        });
+    }
+
+    /**
+     * Get Audit Trail for a specific drawing (DTN Native)
+     */
+    async getDrawingTrail(companyId, documentMasterId) {
+        // 1. Fetch activities and versions for the specific drawing in parallel
+        const [activities, versions] = await Promise.all([
+            prisma.drawing_activity.findMany({
+                where: { document_master_id: documentMasterId },
+                include: {
+                    user: { select: { name: true, email: true } }
+                },
+                orderBy: { createdAt: 'desc' }
+            }),
+            prisma.drawing_version.findMany({
+                where: { document_master_id: documentMasterId },
+                select: { id: true, version_no: true, file_url: true, mime_type: true, file_path: true }
+            })
+        ]);
+
+        // 2. Create a lookup map for versions by version_no
+        const versionMap = {};
+        versions.forEach(v => {
+            versionMap[v.version_no] = { 
+                file_url: v.file_url,
+                mime_type: v.mime_type,
+                file_path: v.file_path,
+                id: v.id
+            };
+        });
+
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+
+        // 3. Map activities to a format compatible with DocumentTrail.jsx
+        return activities.map(activity => {
+            const formatted = {
+                id: activity.id,
+                action: activity.action,
+                createdAt: activity.createdAt,
+                user: activity.user,
+                remarks: activity.action, // Default remarks to action since drawing_activity has no remarks field
+                metadata: {}
+            };
+
+            // Extract version number from action string (e.g., "Uploaded Revision 2" or "Overwrote Revision 0")
+            const versionMatch = activity.action.match(/Revision (\d+)/);
+            if (versionMatch && versionMatch[1]) {
+                const vNo = parseInt(versionMatch[1]);
+                const vInfo = versionMap[vNo];
+                
+                if (vInfo) {
+                    formatted.metadata = {
+                        version_no: vNo,
+                        file_url: vInfo.file_url.startsWith('http') ? vInfo.file_url : `${backendUrl}${vInfo.file_url}`,
+                        mime_type: vInfo.mime_type,
+                        file_path: vInfo.file_path
+                    };
+
+                    if (vInfo.id) {
+                        const vId = vInfo.id;
+                        const fileName = vInfo.file_path.split('/').pop() || vInfo.file_path.split('\\').pop();
+                        formatted.metadata.preview_url = `${backendUrl}/api/dtn/drawing-preview/${vId}/${encodeURIComponent(fileName)}`;
+                    }
+                }
+            }
+
+            return formatted;
         });
     }
 }

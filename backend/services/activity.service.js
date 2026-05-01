@@ -51,7 +51,7 @@ class ActivityService {
         if (!model) return [];
         
         // 1. Fetch activities and versions in parallel for enrichment
-        const [activities, versions] = await Promise.all([
+        let [activities, versions] = await Promise.all([
             model.findMany({
                 where: { company_id, group_document_id },
                 include: {
