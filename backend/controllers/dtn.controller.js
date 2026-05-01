@@ -1,4 +1,6 @@
 const path = require('path');
+const fs = require('fs');
+const { ROOT_DIR } = require('../utils/upload');
 const prisma = require('#prisma');
 const DtnService = require('../services/dtn.service');
 const MasterListPdfGenerator = require('../utils/masterListPdfGenerator');
@@ -300,6 +302,52 @@ class DtnController {
         } catch (error) {
             console.error('downloadDtnNotePdf error:', error);
             res.status(500).send('Error generating transmittal note');
+        }
+    }
+
+    /**
+     * Get Audit Trail for a drawing (Native DTN)
+     */
+    async getDrawingTrail(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params; // document_master_id
+            const result = await DtnService.getDrawingTrail(company_id, id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('getDrawingTrail error:', error);
+            res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+    /**
+     * Specialized preview for DTN drawings
+     */
+    async getDrawingPreview(req, res) {
+        try {
+            const { versionId } = req.params;
+            const companyId = req.user.company_id;
+
+            const version = await DtnService.getDrawingVersionById(companyId, versionId);
+            if (!version || !version.file_path) {
+                return res.status(404).json({ success: false, message: 'Drawing version or file path not found' });
+            }
+
+            const absolutePath = path.join(ROOT_DIR, version.file_path.replace(/^[\\/]+/, ''));
+
+            if (!fs.existsSync(absolutePath)) {
+                return res.status(404).json({ success: false, message: 'Drawing file not found on server' });
+            }
+
+            const mimeType = version.mime_type || (absolutePath.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+            
+            res.setHeader('Content-Type', mimeType);
+            res.setHeader('Content-Disposition', `inline; filename="${path.basename(absolutePath)}"`);
+
+            const fileStream = fs.createReadStream(absolutePath);
+            fileStream.pipe(res);
+        } catch (error) {
+            console.error('getDrawingPreview error:', error);
+            res.status(500).json({ success: false, message: error.message });
         }
     }
 }

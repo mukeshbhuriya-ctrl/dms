@@ -15,6 +15,8 @@ router.get('/master/summaries', DtnController.listMasterSummaries);
 router.get('/master/get-filters', DtnController.getMasterFilters);
 router.get('/master/job/:jobId', DtnController.getJobMasterDetails);
 router.get('/master/download/:jobId', DtnController.downloadMasterPdf);
+router.get('/master/drawing-trail/:id', DtnController.getDrawingTrail);
+router.get('/drawing-preview/:versionId/:fileName', DtnController.getDrawingPreview);
 router.get('/download-note/:id', DtnController.downloadDtnNotePdf);
 router.get('/get-filters', DtnController.getDtnFilters);
 

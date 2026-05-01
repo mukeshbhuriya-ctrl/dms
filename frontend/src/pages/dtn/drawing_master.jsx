@@ -18,9 +18,18 @@ import { cn } from "@/lib/utils"
 import apiClient from "@/api/api.client"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { exportApi } from "@/api/export.api"
+import { History, Clock } from "lucide-react"
+import DrawingTrail from "@/components/dtn/DrawingTrail"
+import {
+   Sheet,
+   SheetContent,
+   SheetHeader,
+   SheetTitle,
+} from "@/components/ui/sheet"
+import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 
 // ─── Master List Table Row ──────────────────────────────────────────────────
-const MasterRow = ({ item, index }) => {
+const MasterRow = ({ item, index, onShowTrail }) => {
    return (
       <tr key={item.drgNo} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors group">
          <td className="p-3 border-r text-center text-[11px] font-bold text-slate-500 bg-slate-50/30 w-16">
@@ -49,6 +58,19 @@ const MasterRow = ({ item, index }) => {
          <td className="p-3 border-r text-center text-[10px] uppercase font-semibold text-slate-500 italic">
             {item.remark || "-"}
          </td>
+
+         <td className="p-3 text-center w-24">
+            <Button
+               variant="outline"
+               size="sm"
+               className="h-7 px-2 text-[10px] flex items-center gap-1 border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-all font-bold uppercase shadow-none"
+               onClick={() => onShowTrail(item.id)}
+               disabled={!item.id}
+            >
+               <History className="h-3 w-3" />
+               Trail
+            </Button>
+         </td>
       </tr>
    )
 }
@@ -61,10 +83,25 @@ export default function DrawingMaster() {
    const [masterData, setMasterData] = useState([])
    const [loading, setLoading] = useState(false)
    const [searchTerm, setSearchTerm] = useState("")
+
+   // Trail state
+   const [isTrailOpen, setIsTrailOpen] = useState(false)
+   const [activeDocId, setActiveDocId] = useState(null)
    
    // Cascading Filters State
    const [activeFilters, setActiveFilters] = useState({ records: [] })
    const [columnFilters, setColumnFilters] = useState({})
+
+   // Preview Dialog State
+   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+   const [previewUrl, setPreviewUrl] = useState(null)
+   const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+
+   const handlePreview = (doc) => {
+      setActivePreviewDoc(doc)
+      setPreviewUrl(doc.previewUrl || doc.file_url)
+      setIsPreviewOpen(true)
+   }
 
    useEffect(() => {
       const fetchActiveFilters = async () => {
@@ -369,7 +406,8 @@ export default function DrawingMaster() {
                                     <th rowSpan={2} className="p-4 border-r border-slate-200/60 text-[10px] font-bold uppercase text-slate-500 text-center w-64">DRG NO. / DOCUMENT NO.</th>
                                     <th rowSpan={2} className="p-4 border-r border-slate-200/60 text-[10px] font-bold uppercase text-slate-500 w-32 text-center">LATEST REV. NO</th>
                                     <th colSpan={5} className="p-2 border-r border-slate-200/60 text-[10px] font-bold uppercase text-slate-500 text-center bg-slate-100/50">DCR AND DATE</th>
-                                    <th rowSpan={2} className="p-4 text-[10px] font-bold uppercase text-slate-500 text-center w-48 bg-slate-50/50 shadow-inner">REMARK</th>
+                                    <th rowSpan={2} className="p-4 border-r text-[10px] font-bold uppercase text-slate-500 text-center w-48 bg-slate-50/50 shadow-inner">REMARK</th>
+                                    <th rowSpan={2} className="p-4 text-[10px] font-bold uppercase text-slate-500 text-center w-24">ACTION</th>
                                  </tr>
                                  <tr className="bg-slate-50/30 border-b border-slate-200">
                                     {[1, 2, 3, 4, 5].map(i => (
@@ -379,7 +417,15 @@ export default function DrawingMaster() {
                               </thead>
                               <tbody className="bg-white">
                                  {masterData.map((item, index) => (
-                                    <MasterRow key={item.drgNo} item={item} index={index} />
+                                    <MasterRow 
+                                       key={item.drgNo} 
+                                       item={item} 
+                                       index={index} 
+                                       onShowTrail={(id) => {
+                                          setActiveDocId(id);
+                                          setIsTrailOpen(true);
+                                       }}
+                                    />
                                  ))}
 
                                  {masterData.length === 0 && !loading && (
@@ -422,6 +468,31 @@ export default function DrawingMaster() {
                </div>
             )}
          </main>
+
+         {/* Trail Sidebar Drawer */}
+         <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+            <SheetContent side="right" className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl flex flex-col">
+               <SheetHeader className="p-6 pb-2 border-b">
+                  <SheetTitle className="flex items-center gap-2">
+                     <History className="w-5 h-5 text-primary" />
+                     Document Audit Trail
+                  </SheetTitle>
+               </SheetHeader>
+               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                  <DrawingTrail 
+                     documentId={activeDocId} 
+                     onPreview={handlePreview}
+                  />
+               </div>
+            </SheetContent>
+         </Sheet>
+
+         <DocumentPreviewDialog 
+            isOpen={isPreviewOpen}
+            onOpenChange={setIsPreviewOpen}
+            previewUrl={previewUrl}
+            activePreviewDoc={activePreviewDoc}
+         />
       </div>
    )
 }
