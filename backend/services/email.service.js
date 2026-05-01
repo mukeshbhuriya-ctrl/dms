@@ -111,6 +111,14 @@ class EmailService {
 
         return this.sendEmail({ to, subject, html });
     }
+
+    async sendOtpEmail(to, userName, otp) {
+        const { getOtpEmailTemplate } = require('../utils/email-templates/otp.template');
+        const subject = `${otp} is your DMS Password Reset Code`;
+        const html = getOtpEmailTemplate(userName, otp);
+
+        return this.sendEmail({ to, subject, html });
+    }
 }
 
 module.exports = new EmailService();

@@ -2465,7 +2465,8 @@ class DccService {
             const results = [];
 
             // Fetch all job details for the assignments to get Customer, Location, PO, and Job Number
-            const jobIds = [...new Set(assignments.map(a => a.job_id).filter(Boolean))];
+            // Flatten jobIds because a.job_id can now be an array
+            const jobIds = [...new Set(assignments.flatMap(a => Array.isArray(a.job_id) ? a.job_id : [a.job_id]).filter(Boolean))];
             const foundJobs = await tx.job.findMany({
                 where: { id: { in: jobIds } },
                 select: { id: true, job_number: true, customer_id: true, customer_location_id: true, po_id: true }
@@ -2495,129 +2496,134 @@ class DccService {
 
                 if (!job_id || !document_name) continue;
 
-                // Backend Cleaning: Final trim and sanitize
-                const cleanDocName = document_name.trim();
+                // Handle both single job_id and array of job_ids
+                const jobIdsToProcess = Array.isArray(job_id) ? job_id : [job_id];
 
-                // Extract customer, location, and po from the verified job mapping
-                const targetJob = jobMap[job_id];
-                if (!targetJob) continue;
+                for (const currentJobId of jobIdsToProcess) {
+                    // Backend Cleaning: Final trim and sanitize
+                    const cleanDocName = document_name.trim();
 
-                const customer_id = targetJob.customer_id;
-                const customer_location_id = targetJob.customer_location_id;
-                const po_id = targetJob.po_id;
+                    // Extract customer, location, and po from the verified job mapping
+                    const targetJob = jobMap[currentJobId];
+                    if (!targetJob) continue;
 
-                // 1. Find or Create Document Master for this name and type
-                let documentMaster = await tx.document_master.findFirst({
-                    where: {
-                        company_id,
-                        document_name: document_name.trim()
-                    }
-                });
+                    const customer_id = targetJob.customer_id;
+                    const customer_location_id = targetJob.customer_location_id;
+                    const po_id = targetJob.po_id;
 
-                if (!documentMaster) {
-                    // Increment batch counter for the new document
-                    batchSerialCounter++;
-                    const docNumber = this._getFormattedDocNumber(batchSerialCounter);
-
-                    documentMaster = await tx.document_master.create({
-                        data: {
+                    // 1. Find or Create Document Master for this name and type
+                    let documentMaster = await tx.document_master.findFirst({
+                        where: {
                             company_id,
-                            serial_no: batchSerialCounter,
-                            document_name: cleanDocName,
-                            document_number: docNumber,
-                            document_type_id: document_type_id || null
+                            document_name: document_name.trim()
                         }
                     });
-                }
 
-                // 2. Create a unique Group for this specific assignment
-                // Check if this document name is already assigned to this job
-                const existingAssignment = await tx.group_document.findFirst({
-                    where: {
-                        company_id,
-                        document_id: documentMaster.id,
-                        group: {
-                            job_group: {
-                                some: { job_id: job_id }
+                    if (!documentMaster) {
+                        // Increment batch counter for the new document
+                        batchSerialCounter++;
+                        const docNumber = this._getFormattedDocNumber(batchSerialCounter);
+
+                        documentMaster = await tx.document_master.create({
+                            data: {
+                                company_id,
+                                serial_no: batchSerialCounter,
+                                document_name: cleanDocName,
+                                document_number: docNumber,
+                                document_type_id: document_type_id || null
+                            }
+                        });
+                    }
+
+                    // 2. Create a unique Group for this specific assignment
+                    // Check if this document name is already assigned to this job
+                    const existingAssignment = await tx.group_document.findFirst({
+                        where: {
+                            company_id,
+                            document_id: documentMaster.id,
+                            group: {
+                                job_group: {
+                                    some: { job_id: currentJobId }
+                                }
                             }
                         }
-                    }
-                });
-
-                if (existingAssignment) {
-                    results.push({
-                        status: 'skipped',
-                        message: `Document "${document_name}" is already assigned to Job ID ${job_id}`,
-                        document_name,
-                        job_id
                     });
-                    continue;
-                }
 
-                const group = await tx.group.create({
-                    data: { company_id }
-                });
-
-                await tx.job_group.create({
-                    data: {
-                        company_id,
-                        group_id: group.id,
-                        job_id: job_id
+                    if (existingAssignment) {
+                        results.push({
+                            status: 'skipped',
+                            message: `Document "${document_name}" is already assigned to Job ID ${currentJobId}`,
+                            document_name,
+                            job_id: currentJobId
+                        });
+                        continue;
                     }
-                });
 
-                const groupDoc = await tx.group_document.create({
-                    data: {
+                    const group = await tx.group.create({
+                        data: { company_id }
+                    });
+
+                    await tx.job_group.create({
+                        data: {
+                            company_id,
+                            group_id: group.id,
+                            job_id: currentJobId
+                        }
+                    });
+
+                    const groupDoc = await tx.group_document.create({
+                        data: {
+                            company_id,
+                            customer_id,
+                            customer_location_id,
+                            po_id,
+                            group_id: group.id,
+                            document_id: documentMaster.id,
+                            user_id: assign_user_id,
+
+                            status: 'Pending',
+                            upload_due_days: upload_due_days ? parseInt(upload_due_days) : null,
+                            response_due_days: response_due_days ? parseInt(response_due_days) : null,
+                            shreno_doc_no: shreno_document_no || null,
+                            shreno_reference_no: shreno_reference_no || null,
+                            client_doc_no: client_document_no || null,
+                            client_reference_no: client_reference_no || null
+                        }
+                    });
+
+                    // 3. Create initial v0 directory + placeholder version record
+                    const job_number = targetJob.job_number || 'NA';
+                    const document_number = documentMaster.document_number || 'NA';
+
+                    // Create the empty v0 directory on the filesystem
+                    StorageUtils.getDocRevisionDir(company_id, job_number, document_number, 0);
+
+                    // Create a placeholder document_version row (no file yet)
+                    // The upload flow's Case 1 logic will fill this in on first upload
+                    await tx.document_version.create({
+                        data: {
+                            group_document_id: groupDoc.id,
+                            version_no: 0,
+                            file_url: '',
+                            file_path: null,
+                            is_active: true,
+                            status: 'Pending',
+                            uploaded_by: assign_user_id,
+                            remarks: 'Initial assignment placeholder'
+                        }
+                    });
+
+                    results.push(groupDoc);
+
+                    // 4. Log Activity
+                    await ActivityService.logActivity({
                         company_id,
-                        customer_id,
-                        customer_location_id,
-                        po_id,
-                        group_id: group.id,
-                        document_id: documentMaster.id,
-                        user_id: assign_user_id,
-
-                        status: 'Pending',
-                        upload_due_days: upload_due_days ? parseInt(upload_due_days) : null,
-                        response_due_days: response_due_days ? parseInt(response_due_days) : null,
-                        shreno_doc_no: shreno_document_no || null,
-                        shreno_reference_no: shreno_reference_no || null,
-                        client_doc_no: client_document_no || null,
-                        client_reference_no: client_reference_no || null
-                    }
-                });
-
-                // 3. Create initial v0 directory + placeholder version record
-                const job_number = targetJob.job_number || 'NA';
-                const document_number = documentMaster.document_number || 'NA';
-
-                // Create the empty v0 directory on the filesystem
-                StorageUtils.getDocRevisionDir(company_id, job_number, document_number, 0);
-
-                // Create a placeholder document_version row (no file yet)
-                // The upload flow's Case 1 logic will fill this in on first upload
-                await tx.document_version.create({
-                    data: {
                         group_document_id: groupDoc.id,
-                        version_no: 0,
-                        file_url: '',
-                        file_path: null,
-                        is_active: true,
-                        status: 'Pending',
-                        uploaded_by: assign_user_id,
-                        remarks: 'Initial assignment placeholder'
-                    }
-                });
-
-                results.push(groupDoc);
-
-                // 4. Log Activity
-                await ActivityService.logActivity({
-                    company_id,
-                    group_document_id: groupDoc.id,
-                    user_id: performer_id,
-                    action: 'Assigned',
-                    remarks: `Document assigned for job ${targetJob.job_number || job_id}`
-                }, tx);
+                        user_id: performer_id,
+                        action: 'Assigned',
+                        remarks: `Document assigned for job ${targetJob.job_number || currentJobId}`
+                    }, tx);
+                }
             }
 
             return results;

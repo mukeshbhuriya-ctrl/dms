@@ -164,6 +164,9 @@ model user{
   weld_stage_prod_reports weld_joint_stage[] @relation("WeldStageProdEng")
   weld_stage_qc_reports   weld_joint_stage[] @relation("WeldStageQcEng")
   notifications notification[]
+
+  otp String?
+  otpExpiry DateTime?
 }
 
 model user_roles{
