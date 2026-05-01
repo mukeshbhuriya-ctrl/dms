@@ -19,7 +19,7 @@ export const downloadAssignmentTemplate = () => {
     // 2. Define Sample Data (Instructions included as first row)
     const sampleData = [
         ["101010232", "General Arrangement Drawing", "87", "605699", "695659", "7", "14"],
-        ["909940", "Quality Control Plan", "12", "5695693", "59659569", "5", "10"],
+        ["909940, 101010233", "Quality Control Plan", "12", "5695693", "59659569", "5", "10"],
         ["564565460", "Weld Map", "44", "469459054", "6765969", "10", "21"]
     ];
 
