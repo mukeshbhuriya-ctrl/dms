@@ -226,36 +226,40 @@ const adminRoutes = [
     allowedRoles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER],
     legacyPaths: ["/material-heat-chart"],
   }),
-  {
-    path: "/hydrostatic-pressure-test",
-    element: protect(<HydroPresText />, [ROLES.ADMIN]),
-  },
-  {
-    path: "/inspections/dish-end",
-    element: protect(
-      <InspectionReport />,
-      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
-    ),
-  },
-  {
-    path: "/inspections/final",
-    element: protect(
-      <FinalInspectionReports />,
-      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
-    ),
-  },
-  {
-    path: "/create-qarp",
-    element: protect(<CreateQARP />, [ROLES.ADMIN]),
-  },
+  ...buildModuleRoutes({
+    modulePath: "/hydro-test",
+    element: <HydroPresText />,
+    allowedRoles: [ROLES.ADMIN],
+    legacyPaths: ["/hydrostatic-pressure-test"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/inspection-report",
+    element: <InspectionReport />,
+    allowedRoles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER],
+    legacyPaths: ["/inspections/dish-end"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/final-inspection",
+    element: <FinalInspectionReports />,
+    allowedRoles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER],
+    legacyPaths: ["/inspections/final"],
+  }),
+  ...buildModuleRoutes({
+    modulePath: "/qap",
+    element: <CreateQARP />,
+    allowedRoles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER],
+    legacyPaths: ["/create-qarp"],
+  }),
 ]
 
 // ─── Welding Routes ────────────────────────────────────────────
 const weldRoutes = [
-  {
-    path: "/welding-joints",
-    element: protect(<WeldingJoints />, [ROLES.ADMIN, ROLES.WELD_PLAN_ADMIN]),
-  },
+  ...buildModuleRoutes({
+    modulePath: "/welding-joints",
+    element: <WeldingJoints />,
+    allowedRoles: [ROLES.ADMIN, ROLES.WELD_PLAN_ADMIN],
+    legacyPaths: ["/welding-joints"],
+  }),
   {
     path: "/view-weldingjoints",
     element: protect(
@@ -281,8 +285,14 @@ const marketingRoutes = [
     path: "/marketing/dashboard",
     element: protect(<RfqDashboard />, [ROLES.ADMIN, ROLES.MARKETING]),
   },
+  ...buildModuleRoutes({
+    modulePath: "/rfq",
+    element: <RfqRegister />,
+    allowedRoles: [ROLES.ADMIN, ROLES.MARKETING],
+    legacyPaths: ["/marketing/rfq-register"],
+  }),
   {
-    path: "/marketing/rfq-register",
+    path: "/rfq/attachments/:id",
     element: protect(<RfqRegister />, [ROLES.ADMIN, ROLES.MARKETING]),
   },
   {

@@ -166,7 +166,7 @@ export const MENU_CONFIG = [
         title: "Hydrostatic Pressure Test",
         icon: FileText,
         items: [
-            { title: "Hydro Pres Test", path: "/hydrostatic-pressure-test", roles: [ROLES.ADMIN] },
+            { title: "Hydro Pres Test", path: "/hydro-test/list", roles: [ROLES.ADMIN] },
         ],
     },
 

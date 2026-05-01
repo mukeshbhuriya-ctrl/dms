@@ -1,4 +1,8 @@
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
+import apiClient from "@/api/api.client"
+import { exportApi } from "@/api/export.api"
+import { toast } from "react-toastify"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -26,22 +30,19 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog"
 import { Plus, Trash2, ArrowLeft, Eye, Edit, Upload, X, FileText, Paperclip } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ImportReviewDialog from "@/components/shared/ImportReviewDialog"
 import { generateExcelTemplate, parseExcelFile } from "@/utils/excelImportEngine"
-import apiClient from "@/api/api.client"
-import { exportApi } from "@/api/export.api"
-import { toast } from "react-toastify"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
+
+const toUrlKey = (value = "") =>
+    String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
 
 // ─── Status Options ────────────────────────────────────────────────────────────
 const SHRENO_STATUS_OPTIONS = [
@@ -88,40 +89,14 @@ function StatusBadge({ status }) {
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
-    const [isViewOpen, setIsViewOpen] = useState(false)
-    const [selectedRecord, setSelectedRecord] = useState(null)
-    const [viewLoading, setViewLoading] = useState(false)
+function ListView({ onCreateClick, onEditClick, onViewClick, onAttachmentsClick }) {
     const [refreshKey, setRefreshKey] = useState(0)
-
-    // Advanced Cascading Filters State (Used for Quotation No. text filter)
     const [columnFilters, setColumnFilters] = useState({})
-
-    // Bulk Import State
     const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
     const [excelData, setExcelData] = useState([]);
     const [isImporting, setIsImporting] = useState(false);
 
-    const handleViewClick = async (id) => {
-        try {
-            setViewLoading(true)
-            const res = await apiClient.get(`/api/rfq/${id}`)
-            if (res.success) {
-                setSelectedRecord(res.data)
-                setIsViewOpen(true)
-            }
-        } catch (error) {
-            toast.error(error.message || "Failed to fetch record")
-        } finally {
-            setViewLoading(false)
-        }
-    }
-
     const [confirmState, setConfirmState] = useState({ isOpen: false, id: null })
-
-    const handleDeleteClick = (id) => {
-        setConfirmState({ isOpen: true, id })
-    }
 
     const onConfirmDelete = async () => {
         try {
@@ -138,8 +113,8 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
         }
     }
 
-    const columns = [
-        { header: "Quotation No.",  accessorKey: "quotation_no", filterType: "text",},
+    const columns = useMemo(() => [
+        { header: "Quotation No.", accessorKey: "quotation_no", filterType: "text" },
         { header: "Client Name", accessorKey: "client_name" },
         { header: "RFQ Type", accessorKey: "rfq_type" },
         { header: "Consultancy", accessorKey: "consultancy" },
@@ -165,1455 +140,354 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
             header: "Actions",
             cell: (row) => (
                 <div className="flex gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewClick(row.id)}
-                        title="View">
-                        <Eye className="h-4 w-4 mr-2" /> View
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onAttachmentsClick(row.id)}
-                        title="Attachments">
-                        <Paperclip className="h-4 w-4 mr-2" /> Docs
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEditClick(row.id)}
-                        title="Edit">
-                        <Edit className="h-4 w-4 mr-2" /> Edit
-                    </Button>
-                    {/* <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteClick(row.id)}
-                        title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                    </Button> */}
+                    <Button variant="outline" size="sm" onClick={() => onViewClick(row)} title="View"><Eye className="h-4 w-4 mr-2" /> View</Button>
+                    <Button variant="outline" size="sm" onClick={() => onAttachmentsClick(row)} title="Attachments"><Paperclip className="h-4 w-4 mr-2" /> Docs</Button>
+                    <Button variant="outline" size="sm" onClick={() => onEditClick(row)} title="Edit"><Edit className="h-4 w-4 mr-2" /> Edit</Button>
                 </div>
             ),
         },
-    ]
+    ], [onViewClick, onAttachmentsClick, onEditClick])
 
-    // Real API fetch for ProDataTable
     const fetchData = useCallback(async (params) => {
         const queryParams = { ...params };
         if (queryParams.columnFilters) {
-            // Process specialized filters (e.g. shreno_status -> shreno_status_filter)
             const cf = queryParams.columnFilters;
             const finalFilters = {};
-            Object.keys(cf).forEach(key => {
-                if (cf[key]) finalFilters[`${key}_filter`] = cf[key];
-            });
+            Object.keys(cf).forEach(key => { if (cf[key]) finalFilters[`${key}_filter`] = cf[key]; });
             Object.assign(queryParams, finalFilters);
             delete queryParams.columnFilters;
         }
-
         const res = await apiClient.get("/api/rfq/list", queryParams)
         return { data: res.data || [], meta: res.meta || {} }
     }, [refreshKey])
 
     const handleDownloadTemplate = () => {
         const headers = [
-            [
-                "Quotation Category (Core / Spare)*", 
-                "Client Name*", 
-                "Client Ref.", 
-                "RFQ Type (Material / Service / etc.)", 
-                "Consultancy", 
-                "Contact Person", 
-                "Mode of Enquiry (Email / Phone / etc.)", 
-                "Enquiry Date (DD/MM/YYYY)", 
-                "Client Target Date (DD/MM/YYYY)", 
-                "Actual Submission Date (DD/MM/YYYY)", 
-                "Mediator", 
-                "Estimator", 
-                "Shreno Status (Quoted / Tech. Submitted / Under Review / Hold / Cancel / Duplicate / Regret)", 
-                "Status at Client End (Regret / Lost / Ongoing / Order Received / Under Review / Cancel)", 
-                "PO No.", 
-                "PO Date (DD/MM/YYYY)", 
-                "PO Value", 
-                "PO Remark", 
-                "Made By", 
-                "Remark",
-                "Enquiry Description",
-                "Equipment Qty",
-                "Revision (Rev.)",
-                "Item Total Value"
-            ],
-            [
-                "Core", 
-                "Sample Client Ltd", 
-                "REF-101", 
-                "Material", 
-                "ABC Consultants", 
-                "Mr. Robert", 
-                "Email", 
-                "24/04/2026", 
-                "30/04/2026", 
-                "28/04/2026", 
-                "Mediator A", 
-                "Estimator B", 
-                "Quoted", 
-                "Under Review", 
-                "PO-999", 
-                "01/05/2026", 
-                "50000", 
-                "Standard PO", 
-                "Admin", 
-                "General Remark",
-                "Detailed Enquiry for pressure vessel",
-                "5",
-                "0",
-                "250000"
-            ]
+            ["Quotation Category (Core / Spare)*", "Client Name*", "Client Ref.", "RFQ Type", "Consultancy", "Contact Person", "Mode", "Enquiry Date", "Target Date", "Submission Date", "Mediator", "Estimator", "Shreno Status", "Client Status", "PO No.", "PO Date", "PO Value", "PO Remark", "Made By", "Remark", "Enq Description", "Qty", "Rev", "Total Value"],
+            ["Core", "Sample Client Ltd", "REF-101", "Material", "ABC Consultants", "Mr. Robert", "Email", "24/04/2026", "30/04/2026", "28/04/2026", "Mediator A", "Estimator B", "Quoted", "Under Review", "PO-999", "01/05/2026", "50000", "Standard PO", "Admin", "General Remark", "Detailed Enquiry", "5", "0", "250000"]
         ];
-        generateExcelTemplate(headers, "RFQ_Detailed_Import_Template.xlsx", "RFQ_Template");
+        generateExcelTemplate(headers, "RFQ_Import_Template.xlsx", "RFQ_Template");
     };
 
     const handleImportExcel = useCallback(async (file) => {
         if (!file) return;
         try {
-            // Using a broader header identification to match the hybrid headers
-            const { rows, warning } = await parseExcelFile(file, [
-                "quotation category (core / spare)*", 
-                "quotation category (core/spare)*",
-                "client name*",
-                "category"
-            ]);
-            if (warning) toast.warn(warning);
-
-            const parsedData = rows.map((row, idx) => {
-                const quotation_category = String(row[0] || "").trim();
-                const client_name = String(row[1] || "").trim();
-                const client_ref = String(row[2] || "").trim();
-                const rfq_type = String(row[3] || "").trim();
-                const consultancy = String(row[4] || "").trim();
-                const contact_person = String(row[5] || "").trim();
-                const mode_of_enquiry = String(row[6] || "").trim();
-                const enq_date_str = String(row[7] || "").trim();
-                const target_date_str = String(row[8] || "").trim();
-                const actual_submission_date_str = String(row[9] || "").trim();
-                const mediator = String(row[10] || "").trim();
-                const estimator = String(row[11] || "").trim();
-                const shreno_status = String(row[12] || "").trim();
-                const client_status = String(row[13] || "").trim();
-                const po_no = String(row[14] || "").trim();
-                const po_date_str = String(row[15] || "").trim();
-                const po_value = String(row[16] || "").trim();
-                const po_remark = String(row[17] || "").trim();
-                const made_by = String(row[18] || "").trim();
-                const remark = String(row[19] || "").trim();
-                const enq_description = String(row[20] || "").trim();
-                const equip_qty = String(row[21] || "").trim();
-                const rev = String(row[22] || "").trim();
-                const total_value = String(row[23] || "").trim();
-
-                // Validation
-                const errors = [];
-                if (!client_name) errors.push("Client Name is required");
-                if (!quotation_category) errors.push("Category is required");
-                if (quotation_category && !["Core", "Spare"].includes(quotation_category)) {
-                    errors.push("Category must be 'Core' or 'Spare'");
-                }
-
-                const warnings = [];
-                if (shreno_status !== "Order Received" && (po_no || po_value || po_date_str)) {
-                    warnings.push("PO data ignored (Status is not 'Order Received')");
-                }
-                // Also check client_status as backup
-                if (client_status !== "Order Received" && (po_no || po_value || po_date_str) && !warnings.length) {
-                    warnings.push("PO data ignored (Status is not 'Order Received')");
-                }
-
-                // Simple date parse helper - handles DD/MM/YYYY
+            const { rows } = await parseExcelFile(file, ["quotation category", "client name"]);
+            const parsedData = rows.map((row) => {
                 const parseDate = (dStr) => {
                     if (!dStr) return null;
                     const parts = dStr.split("/");
-                    if (parts.length === 3) {
-                        return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-                    }
-                    const d = new Date(dStr); 
-                    return isNaN(d.getTime()) ? null : d;
+                    if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                    const d = new Date(dStr); return isNaN(d.getTime()) ? null : d;
                 };
-
-                // Calculate timeTaken if dates are present
+                const enq_date = parseDate(row[7]);
+                const actual_submission_date = parseDate(row[9]);
                 let timeTaken = "";
-                const eDate = parseDate(enq_date_str);
-                const aDate = parseDate(actual_submission_date_str);
-                if (eDate && aDate) {
-                    const diffTime = Math.abs(aDate - eDate);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (enq_date && actual_submission_date) {
+                    const diffDays = Math.ceil(Math.abs(actual_submission_date - enq_date) / (1000 * 60 * 60 * 24));
                     timeTaken = `${diffDays} Days`;
                 }
-
                 return {
-                    quotation_category,
-                    client_name,
-                    client_ref,
-                    rfq_type,
-                    consultancy,
-                    contact_person,
-                    mode_of_enquiry,
-                    enq_date: eDate,
-                    target_date: parseDate(target_date_str),
-                    actual_submission_date: aDate,
-                    time_taken: timeTaken,
-                    mediator,
-                    estimator,
-                    shreno_status: shreno_status || "Quoted",
-                    client_status: client_status || "Under Review",
-                    po_no,
-                    po_date: parseDate(po_date_str),
-                    po_value,
-                    po_remark,
-                    made_by,
-                    remark,
-                    enq_description,
-                    equip_qty,
-                    rev,
-                    total_value,
-                    status: errors.length > 0 ? "error" : "valid",
-                    message: [...errors, ...warnings].join(" | ") || "Ready"
+                    quotation_category: String(row[0] || "").trim(), client_name: String(row[1] || "").trim(), client_ref: String(row[2] || "").trim(), rfq_type: String(row[3] || "").trim(), consultancy: String(row[4] || "").trim(), contact_person: String(row[5] || "").trim(), mode_of_enquiry: String(row[6] || "").trim(), enq_date, target_date: parseDate(row[8]), actual_submission_date, time_taken: timeTaken, mediator: String(row[10] || "").trim(), estimator: String(row[11] || "").trim(), shreno_status: String(row[12] || "").trim() || "Quoted", client_status: String(row[13] || "").trim() || "Under Review", po_no: String(row[14] || "").trim(), po_date: parseDate(row[15]), po_value: String(row[16] || "").trim(), po_remark: String(row[17] || "").trim(), made_by: String(row[18] || "").trim(), remark: String(row[19] || "").trim(), enq_description: String(row[20] || "").trim(), equip_qty: String(row[21] || "").trim(), rev: String(row[22] || "").trim(), total_value: String(row[23] || "").trim(),
+                    status: row[1] ? "valid" : "error", message: row[1] ? "Ready" : "Client Name required"
                 };
-            }).filter(r => r.client_name || r.quotation_category);
-
-            if (parsedData.length === 0) {
-                toast.warn("No valid records found in file.");
-                return;
-            }
-
-            setExcelData(parsedData);
-            setBulkImportDialogOpen(true);
-        } catch (err) {
-            toast.error(err.message);
-        }
+            }).filter(r => r.client_name);
+            setExcelData(parsedData); setBulkImportDialogOpen(true);
+        } catch (err) { toast.error(err.message); }
     }, []);
 
     const confirmBulkImport = async () => {
         setIsImporting(true);
-        const validData = excelData.filter(r => r.status === 'valid');
-        if (validData.length === 0) {
-            toast.info("No valid records to import.");
-            setIsImporting(false);
-            return;
-        }
-
         try {
+            const validData = excelData.filter(r => r.status === 'valid');
             const res = await apiClient.post("/api/rfq/bulk-create", validData);
-            if (res.success) {
-                toast.success(res.message || "Bulk import completed successfully");
-                setBulkImportDialogOpen(false);
-                setRefreshKey(prev => prev + 1);
-            } else {
-                toast.error(res.message || "Failed to complete bulk import");
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("Failed to save RFQ records");
-        } finally {
-            setIsImporting(false);
-        }
+            if (res.success) { toast.success("Import successful"); setBulkImportDialogOpen(false); setRefreshKey(prev => prev + 1); }
+        } catch (err) { toast.error("Failed to import"); }
+        finally { setIsImporting(false); }
     };
 
-    const handleExport = async () => {
-        try {
-            await exportApi.exportModule('rfq_register');
-            setRefreshKey(prev => prev + 1);
-        } catch (error) {
-            console.error("RFQ Export failed:", error);
-        }
-    };
+    const handleExport = async () => { try { await exportApi.exportModule('rfq_register'); setRefreshKey(prev => prev + 1); } catch (e) { console.error(e); } };
 
     return (
         <div className="flex-1 flex flex-col min-h-0">
-            <ProDataTable 
-                columns={columns} 
-                fetchData={fetchData} 
-                onAdd={onCreateClick}
-                onExport={handleExport}
-                onImport={handleImportExcel}
-                onDownloadTemplate={handleDownloadTemplate}
-                columnFilters={columnFilters}
-                onAddTooltip="Create New"
-                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
-            />
-
-            <ImportReviewDialog
-                open={bulkImportDialogOpen}
-                onOpenChange={setBulkImportDialogOpen}
-                data={excelData}
-                totalCount={excelData.length}
-                validCount={excelData.filter(r => r.status === 'valid').length}
-                errorCount={excelData.filter(r => r.status === 'error').length}
-                columns={[
-                    { header: "Category", key: "quotation_category", minWidth: "100px" },
-                    { header: "Client Name", key: "client_name", minWidth: "150px" },
-                    { header: "Client Ref.", key: "client_ref", minWidth: "120px" },
-                    { header: "RFQ Type", key: "rfq_type", minWidth: "100px" },
-                    { header: "Consultancy", key: "consultancy", minWidth: "150px" },
-                    { header: "Contact Person", key: "contact_person", minWidth: "120px" },
-                    { header: "Mode", key: "mode_of_enquiry", minWidth: "100px" },
-                    { header: "Enq Date", key: "enq_date", minWidth: "100px", render: (r) => r.enq_date ? new Date(r.enq_date).toLocaleDateString("en-GB") : "-" },
-                    { header: "Target Date", key: "target_date", minWidth: "100px", render: (r) => r.target_date ? new Date(r.target_date).toLocaleDateString("en-GB") : "-" },
-                    { header: "Submission", key: "actual_submission_date", minWidth: "100px", render: (r) => r.actual_submission_date ? new Date(r.actual_submission_date).toLocaleDateString("en-GB") : "-" },
-                    { header: "Time Taken", key: "time_taken", minWidth: "100px" },
-                    { header: "Mediator", key: "mediator", minWidth: "120px" },
-                    { header: "Estimator", key: "estimator", minWidth: "120px" },
-                    { header: "Shreno Status", key: "shreno_status", minWidth: "120px" },
-                    { header: "Client Status", key: "client_status", minWidth: "120px" },
-                    { header: "PO No.", key: "po_no", minWidth: "120px" },
-                    { header: "PO Date", key: "po_date", minWidth: "100px", render: (r) => r.po_date ? new Date(r.po_date).toLocaleDateString("en-GB") : "-" },
-                    { header: "PO Value", key: "po_value", minWidth: "100px" },
-                    { header: "PO Remark", key: "po_remark", minWidth: "150px" },
-                    { header: "Made By", key: "made_by", minWidth: "120px" },
-                    { header: "General Remark", key: "remark", minWidth: "150px" },
-                    { header: "Enq Description", key: "enq_description", minWidth: "200px" },
-                    { header: "Qty", key: "equip_qty", minWidth: "80px" },
-                    { header: "Rev", key: "rev", minWidth: "80px" },
-                    { header: "Total Value", key: "total_value", minWidth: "100px" },
-                ]}
-                onConfirm={confirmBulkImport}
-                isImporting={isImporting}
-                confirmLabel={`Import (${excelData.filter(r => r.status === 'valid').length} Rows)`}
-                title="Review RFQ Import"
-                description="Please review the RFQ records from Excel. Only valid rows will be imported."
-            />
-
-            {/* View Dialog */}
-            <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold text-center">RFQ Register Details</DialogTitle>
-                        <DialogDescription className="text-center">
-                            Complete details of the selected RFQ record.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {selectedRecord && (
-                        <div className="space-y-6 mt-4">
-                            {/* Section 1: Enquiry Information */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold text-sm">Enquiry Information</h3>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-5 gap-x-4 p-6 text-sm">
-                                    {[
-                                        ["QUOTATION NO.", selectedRecord.quotation_no],
-                                        ["CLIENT REF.", selectedRecord.client_ref],
-                                        ["RFQ TYPE", selectedRecord.rfq_type],
-                                        ["CLIENT NAME", selectedRecord.client_name],
-                                        ["CONSULTANCY", selectedRecord.consultancy],
-                                        ["CONTACT PERSON", selectedRecord.contact_person],
-                                        ["MODE OF ENQUIRY", selectedRecord.mode_of_enquiry],
-                                        ["ENQ. DATE", selectedRecord.enq_date ? new Date(selectedRecord.enq_date).toLocaleDateString("en-GB") : "-"],
-                                        ["DATE", new Date(selectedRecord.createdAt).toLocaleDateString("en-GB")],
-                                    ].map(([label, value], idx) => (
-                                        <div key={idx} className="flex flex-col space-y-1">
-                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
-                                            <span className="font-medium">{value || "-"}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Section 2: Submission Details */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold text-sm">Submission Details</h3>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-4 p-6 text-sm">
-                                    {[
-                                        ["CLIENT TARGET DATE", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
-                                        ["ACTUAL SUBMISSION DATE", selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"],
-                                        ["TIME TAKEN FOR SUBMISSION", selectedRecord.time_taken],
-                                    ].map(([label, value], idx) => (
-                                        <div key={idx} className="flex flex-col space-y-1">
-                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
-                                            <span className="font-medium">{value || "-"}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Section 3: Assignment & Status */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold">Assignment & Status</h3>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-6 gap-x-4 p-6">
-                                    {[
-                                        ["MEDIATOR", selectedRecord.mediator],
-                                        ["ESTIMATOR", selectedRecord.estimator],
-                                        ["SHRENO STATUS", selectedRecord.shreno_status],
-                                        ["CLIENT STATUS", selectedRecord.client_status],
-                                        ["PO NO.", selectedRecord.po_no],
-                                        ["PO DATE", selectedRecord.po_date ? new Date(selectedRecord.po_date).toLocaleDateString("en-GB") : "-"],
-                                        ["PO VALUE", selectedRecord.po_value ? `₹${selectedRecord.po_value.toLocaleString("en-IN")}` : "-"],
-                                        ["PO REMARKS", selectedRecord.po_remark],
-                                        ["MADE BY", selectedRecord.made_by],
-                                        ["REMARK", selectedRecord.remark],
-                                    ].map(([label, value], idx) => (
-                                        <div key={idx} className={`flex flex-col space-y-1 ${label === "REMARK" || label === "PO REMARKS" ? "md:col-span-2" : ""}`}>
-                                            <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">{label}</span>
-                                            <span className="font-medium">{(label === "SHRENO STATUS" || label === "CLIENT STATUS") ? <StatusBadge status={value} /> : (value || "-")}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Section 4: Enquiry Details */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold">Enquiry Details</h3>
-                                </div>
-                                <div className="p-6 space-y-6">
-                                    {selectedRecord.items?.length > 0 ? (
-                                        <div className="space-y-6">
-                                            <div className="flex flex-col space-y-2">
-                                                <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">ENQ. DESCRIPTION</span>
-                                                <p className="font-medium text-sm whitespace-pre-wrap bg-muted/20 p-4 rounded-lg border border-border/50">
-                                                    {selectedRecord.items[0].enq_description || "No description provided."}
-                                                </p>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                <div className="flex flex-col space-y-1">
-                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">EQUIP. QTY</span>
-                                                    <span className="font-medium text-base">{selectedRecord.items[0].equip_qty || "-"}</span>
-                                                </div>
-                                                <div className="flex flex-col space-y-1">
-                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">REV.</span>
-                                                    <span className="font-medium text-base">{selectedRecord.items[0].rev || "-"}</span>
-                                                </div>
-                                                <div className="flex flex-col space-y-1">
-                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">TOTAL VALUE</span>
-                                                    <span className="font-medium text-base">
-                                                        {selectedRecord.items[0].total_value ? `₹${selectedRecord.items[0].total_value.toLocaleString("en-IN")}` : "-"}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <p className="text-center text-muted-foreground py-4">No enquiry items found.</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-            <ConfirmDialog 
-                isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState({ isOpen: false, id: null })}
-                onConfirm={onConfirmDelete}
-                title="Delete RFQ Entry"
-                description="Are you sure you want to permanently delete this RFQ entry? This action cannot be undone."
-                confirmText="Delete"
-                variant="danger"
-                isLoading={confirmState.isLoading}
-            />
+            <ProDataTable columns={columns} fetchData={fetchData} onAdd={onCreateClick} onExport={handleExport} onImport={handleImportExcel} onDownloadTemplate={handleDownloadTemplate} columnFilters={columnFilters} onAddTooltip="Create New" onFilterChange={(f) => setColumnFilters(p => ({ ...p, ...f }))} />
+            <ImportReviewDialog open={bulkImportDialogOpen} onOpenChange={setBulkImportDialogOpen} data={excelData} totalCount={excelData.length} validCount={excelData.filter(r => r.status === 'valid').length} errorCount={excelData.filter(r => r.status === 'error').length} columns={[{ header: "Client", key: "client_name" }, { header: "Quotation No", key: "quotation_no" }]} onConfirm={confirmBulkImport} isImporting={isImporting} confirmLabel={`Import (${excelData.filter(r => r.status === 'valid').length} Rows)`} title="Review RFQ Import" />
+            <ConfirmDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ isOpen: false, id: null })} onConfirm={onConfirmDelete} title="Delete RFQ Entry" description="Are you sure you want to delete this RFQ?" variant="danger" isLoading={confirmState.isLoading} />
         </div>
     )
 }
 
-// ─── Create / Edit View ──────────────────────────────────────────────────────
-function CreateView({ onBack, editId = null }) {
-    const today = new Date().toLocaleDateString("en-GB", {
-        day: "2-digit", month: "2-digit", year: "numeric",
-    })
-
+// ─── Create / Edit / View View ──────────────────────────────────────────────
+function FormView({ onBack, onSuccess, editId = null, isView = false }) {
+    const location = useLocation()
+    const [recordId, setRecordId] = useState(null)
     const [loading, setLoading] = useState(false)
     const [submitting, setSubmitting] = useState(false)
+    const [dropdownOptions, setDropdownOptions] = useState({ rfqTypes: [], clientNames: [], modesOfEnquiry: [], mediators: [], estimators: [], })
 
-    // ─── Dynamic dropdown options fetched from backend ──────────────────
-    const [dropdownOptions, setDropdownOptions] = useState({
-        rfqTypes: [],
-        clientNames: [],
-        modesOfEnquiry: [],
-        mediators: [],
-        estimators: [],
+    const [formData, setFormData] = useState(() => {
+        const authData = localStorage.getItem("user_auth"); const parsedAuth = authData ? JSON.parse(authData) : null;
+        const loggedInUser = parsedAuth?.user?.name || parsedAuth?.payload?.user?.name || "";
+        return { quotationNo: "", quotationCategory: "Core", clientRef: "", rfqType: "", clientName: "", consultancy: "", contactPerson: "", modeOfEnquiry: "", enqDate: "", targetDate: new Date().toISOString().split("T")[0], actualSubmissionDate: "", timeTaken: "", mediator: "", estimator: "", shrenoStatus: "Quoted", clientStatus: "Under Review", remark: "", madeBy: loggedInUser, poNo: "", poDate: "", poValue: "", poRemark: "", }
     })
+    const [tableRows, setTableRows] = useState([{ id: 1, srNo: 1, enqDescription: "", equipQty: "", rev: "", totalValue: "", remarks: "" }])
+    const [attachments, setAttachments] = useState([])
 
     useEffect(() => {
         const fetchOptions = async () => {
             try {
                 const [rfqTypesRes, moeRes, estimatorsRes, mediatorsRes, customersRes] = await Promise.all([
-                    apiClient.get("/api/rfq/lookups/rfq_type"),
-                    apiClient.get("/api/rfq/lookups/mode_of_enquiry"),
-                    apiClient.get("/api/rfq/estimators"),
-                    apiClient.get("/api/rfq/mediators"),
-                    apiClient.get("/api/common/customers"),
+                    apiClient.get("/api/rfq/lookups/rfq_type"), apiClient.get("/api/rfq/lookups/mode_of_enquiry"), apiClient.get("/api/rfq/estimators"), apiClient.get("/api/rfq/mediators"), apiClient.get("/api/common/customers"),
                 ])
-                setDropdownOptions({
-                    rfqTypes: (rfqTypesRes.data || []).map((d) => d.name),
-                    clientNames: (customersRes.data || []).map((c) => c.customer_name),
-                    modesOfEnquiry: (moeRes.data || []).map((d) => d.name),
-                    estimators: (estimatorsRes.data || []).map((u) => u.name),
-                    mediators: (mediatorsRes.data || []).map((u) => u.name),
-                })
-            } catch (error) {
-                console.error("Failed to load dropdown options:", error)
-            }
+                setDropdownOptions({ rfqTypes: (rfqTypesRes.data || []).map(d => d.name), clientNames: (customersRes.data || []).map(c => c.customer_name), modesOfEnquiry: (moeRes.data || []).map(d => d.name), estimators: (estimatorsRes.data || []).map(u => u.name), mediators: (mediatorsRes.data || []).map(u => u.name), })
+            } catch (e) { console.error(e); }
         }
         fetchOptions()
     }, [])
 
-    const [formData, setFormData] = useState(() => {
-        const authData = localStorage.getItem("user_auth")
-        const parsedAuth = authData ? JSON.parse(authData) : null
-        const loggedInUser = parsedAuth?.user?.name || parsedAuth?.payload?.user?.name || ""
-        const today = new Date().toISOString().split("T")[0]
-        
-        return {
-            quotationNo: "",
-            quotationCategory: "Core",
-            clientRef: "",
-            rfqType: "",
-            clientName: "",
-            consultancy: "",
-            contactPerson: "",
-            modeOfEnquiry: "",
-            enqDate: "",
-            targetDate: today,
-            actualSubmissionDate: "",
-            timeTaken: "",
-            mediator: "",
-            estimator: "",
-            shrenoStatus: "Quoted",
-            clientStatus: "Under Review",
-            remark: "",
-            madeBy: loggedInUser,
-            poNo: "",
-            poDate: "",
-            poValue: "",
-            poRemark: "",
-        }
-    })
+    const applyDataToForm = useCallback((r) => {
+        setRecordId(r.id)
+        setFormData({ quotationNo: r.quotation_no ?? "", quotationCategory: r.quotation_category ?? "Core", clientRef: r.client_ref ?? "", rfqType: r.rfq_type ?? "", clientName: r.client_name ?? "", consultancy: r.consultancy ?? "", contactPerson: r.contact_person ?? "", modeOfEnquiry: r.mode_of_enquiry ?? "", enqDate: r.enq_date ? r.enq_date.split("T")[0] : "", targetDate: r.target_date ? r.target_date.split("T")[0] : "", actualSubmissionDate: r.actual_submission_date ? r.actual_submission_date.split("T")[0] : "", timeTaken: r.time_taken ?? "", mediator: r.mediator ?? "", estimator: r.estimator ?? "", shrenoStatus: r.shreno_status ?? "Quoted", clientStatus: r.client_status ?? "Under Review", remark: r.remark ?? "", madeBy: r.made_by ?? "", poNo: r.po_no ?? "", poDate: r.po_date ? r.po_date.split("T")[0] : "", poValue: r.po_value ?? "", poRemark: r.po_remark ?? "", })
+        if (r.attachments) setAttachments(r.attachments.map(att => ({ id: att.id, name: att.file_name, size: (att.file_size / 1024).toFixed(2) + " KB", type: att.mime_type, uploadedAt: new Date(att.uploaded_at).toLocaleString(), url: att.file_url, isNew: false })))
+        if (r.items?.length) setTableRows(r.items.map((item, i) => ({ id: i + 1, srNo: item.sr_no ?? (i + 1), enqDescription: item.enq_description ?? "", equipQty: item.equip_qty ?? "", rev: item.rev ?? "", totalValue: item.total_value ?? "", remarks: item.remarks ?? "" })))
+    }, [])
 
-    const [tableRows, setTableRows] = useState([
-        { id: 1, srNo: 1, enqDescription: "", equipQty: "", rev: "", totalValue: "", poNo: "", poDate: "", poValue: "", remarks: "" },
-    ])
-
-    // State for wireframe attachments
-    const [attachments, setAttachments] = useState([])
-
-    const handleFileChange = (e) => {
-        const files = Array.from(e.target.files)
-        const newAttachments = files.map(file => ({
-            id: Math.random().toString(36).substr(2, 9),
-            name: file.name,
-            size: (file.size / 1024).toFixed(2) + " KB",
-            type: file.type,
-            uploadedAt: new Date().toLocaleString(),
-            file: file, // Store the actual file for upload
-            isNew: true
-        }))
-        setAttachments(prev => [...prev, ...newAttachments])
-    }
-
-    const [confirmState, setConfirmState] = useState({ isOpen: false, id: null, isNew: false })
-
-    const removeAttachment = (id, isNew) => {
-        if (isNew) {
-            setAttachments(prev => prev.filter(a => a.id !== id))
-            return
-        }
-        setConfirmState({ isOpen: true, id, isNew })
-    }
-
-    const onConfirmDeleteAttachment = async () => {
-        try {
-            setConfirmState(prev => ({ ...prev, isLoading: true }))
-            const res = await apiClient.delete(`/api/rfq/attachments/${confirmState.id}`);
-            if (!res.success) throw new Error(res.message);
-            setAttachments(prev => prev.filter(a => a.id !== confirmState.id))
-            toast.success("Attachment deleted successfully");
-        } catch (error) {
-            toast.error(error.message || "Failed to delete attachment");
-        } finally {
-            setConfirmState({ isOpen: false, id: null, isNew: false, isLoading: false })
-        }
-    }
-
-    // Fetch next quotation number when creating (not editing)
     useEffect(() => {
-        if (editId) return
-
-        const fetchNextNo = async () => {
-            try {
-                const res = await apiClient.get(`/api/rfq/next-quotation-no?type=${formData.quotationCategory}`)
-                if (res.success && res.data) {
-                    setFormData((prev) => ({ ...prev, quotationNo: res.data.next_quotation_no }))
-                }
-            } catch (error) {
-                console.error("Failed to fetch next quotation no:", error)
-            }
-        }
-        fetchNextNo()
-    }, [editId, formData.quotationCategory])
-
-    // Fetch record data when editing
-    useEffect(() => {
-        if (!editId) return
-
-        const fetchRecord = async () => {
-            try {
+        if (editId && dropdownOptions.clientNames.length > 0) {
+            const fetchRecord = async () => {
                 setLoading(true)
-                const res = await apiClient.get(`/api/rfq/${editId}`)
-                if (res.success && res.data) {
-                    const r = res.data
-                    const updatedFormData = {
-                        quotationNo: r.quotation_no ?? "",
-                        quotationCategory: r.quotation_category ?? "Core",
-                        clientRef: r.client_ref ?? "",
-                        rfqType: r.rfq_type ?? "",
-                        clientName: r.client_name ?? "",
-                        consultancy: r.consultancy ?? "",
-                        contactPerson: r.contact_person ?? "",
-                        modeOfEnquiry: r.mode_of_enquiry ?? "",
-                        enqDate: r.enq_date ? r.enq_date.split("T")[0] : "",
-                        targetDate: r.target_date ? r.target_date.split("T")[0] : "",
-                        actualSubmissionDate: r.actual_submission_date ? r.actual_submission_date.split("T")[0] : "",
-                        timeTaken: r.time_taken ?? "",
-                        mediator: r.mediator ?? "",
-                        estimator: r.estimator ?? "",
-                        shrenoStatus: r.shreno_status ?? "Quoted",
-                        clientStatus: r.client_status ?? "Under Review",
-                        remark: r.remark ?? "",
-                        madeBy: r.made_by ?? "",
-                        poNo: r.po_no ?? "",
-                        poDate: r.po_date ? r.po_date.split("T")[0] : "",
-                        poValue: r.po_value ?? "",
-                        poRemark: r.po_remark ?? "",
+                try {
+                    const rState = location.state?.rfq
+                    let finalId = rState?.id || editId
+                    if (!rState?.id) {
+                        const decoded = decodeURIComponent(editId)
+                        // Reconstruct quotation_no format (SHR/MKT/001/2026-27) from slug (shr-mkt-001-2026-27)
+                        const parts = decoded.split('-')
+                        let searchVal = decoded
+                        if (parts.length >= 4) {
+                            // Join all but last 2 with /, then join last 2 with -
+                            searchVal = parts.slice(0, -2).join('/') + '/' + parts.slice(-2).join('-')
+                        }
+                        
+                        const res = await apiClient.get("/api/rfq/list", { search: searchVal, limit: 10 })
+                        const matched = res?.data?.find(p => toUrlKey(p.quotation_no) === editId || p.quotation_no.toLowerCase() === searchVal.toLowerCase())
+                        if (matched) finalId = matched.id
                     }
-                    setFormData(updatedFormData)
-                    if (r.attachments?.length) {
-                        setAttachments(r.attachments.map(att => ({
-                            id: att.id,
-                            name: att.file_name,
-                            size: (att.file_size / 1024).toFixed(2) + " KB",
-                            type: att.mime_type,
-                            uploadedAt: new Date(att.uploaded_at).toLocaleString(),
-                            url: att.file_url,
-                            isNew: false
-                        })))
-                    } else {
-                        setAttachments([])
-                    }
-                    if (r.items?.length) {
-                        setTableRows(r.items.map((item, i) => ({
-                            id: i + 1,
-                            srNo: item.sr_no ?? (i + 1),
-                            enqDescription: item.enq_description ?? "",
-                            equipQty: item.equip_qty ?? "",
-                            rev: item.rev ?? "",
-                            totalValue: item.total_value ?? "",
-                            remarks: item.remarks ?? "",
-                        })))
-                    }
-                }
-            } catch (error) {
-                toast.error(error.message || "Failed to load record")
-            } finally {
-                setLoading(false)
+                    const res = await apiClient.get(`/api/rfq/${finalId}`)
+                    if (res.success) applyDataToForm(res.data)
+                } catch (e) { toast.error("Failed to load record") }
+                finally { setLoading(false) }
             }
+            fetchRecord()
         }
+    }, [editId, dropdownOptions, applyDataToForm, location.state])
 
-        fetchRecord()
-    }, [editId])
+    useEffect(() => {
+        if (!editId) {
+            apiClient.get(`/api/rfq/next-quotation-no?type=${formData.quotationCategory}`)
+                .then(res => { if (res.success) setFormData(p => ({ ...p, quotationNo: res.data.next_quotation_no })) })
+                .catch(e => console.error(e))
+        }
+    }, [editId, formData.quotationCategory])
 
     const handleInputChange = (e) => {
         const { name, value } = e.target
-        setFormData((prev) => {
-            const updated = { ...prev, [name]: value }
-
-
-            // Auto-calculate Time Taken when Actual Submission Date changes
+        setFormData(p => {
+            const updated = { ...p, [name]: value }
             if ((name === "actualSubmissionDate" || name === "enqDate") && updated.enqDate && updated.actualSubmissionDate) {
-                const start = new Date(updated.enqDate)
-                const end = new Date(updated.actualSubmissionDate)
-                const diffTime = Math.abs(end - start)
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                const diffDays = Math.ceil(Math.abs(new Date(updated.actualSubmissionDate) - new Date(updated.enqDate)) / (1000 * 60 * 60 * 24))
                 updated.timeTaken = `${diffDays} Days`
             }
-
             return updated
         })
     }
 
-    const handleSelectChange = (name, value) => {
-        setFormData((prev) => ({ ...prev, [name]: value }))
+    const handleRowChange = (id, field, value) => setTableRows(p => p.map(row => row.id === id ? { ...row, [field]: value } : row))
+
+    const handleFileChange = (e) => {
+        const newAttachments = Array.from(e.target.files).map(file => ({ id: Math.random().toString(36).substr(2, 9), name: file.name, size: (file.size / 1024).toFixed(2) + " KB", type: file.type, uploadedAt: new Date().toLocaleString(), file, isNew: true }))
+        setAttachments(p => [...p, ...newAttachments])
     }
 
-    const handleRowChange = (id, field, value) => {
-        setTableRows(
-            tableRows.map((row) => (row.id === id ? { ...row, [field]: value } : row))
-        )
-    }
-
-    const addRow = () => {
-        const newId = Math.max(...tableRows.map((r) => r.id), 0) + 1
-        setTableRows([
-            ...tableRows,
-            { id: newId, srNo: newId, enqDescription: "", equipQty: "", rev: "", totalValue: "", remarks: "" },
-        ])
-    }
-
-    const removeRow = (id) => {
-        if (tableRows.length > 1) {
-            setTableRows(tableRows.filter((row) => row.id !== id))
-        }
+    const [confirmState, setConfirmState] = useState({ isOpen: false, id: null, isNew: false })
+    const removeAttachment = (id, isNew) => { if (isNew) { setAttachments(p => p.filter(a => a.id !== id)); return; } setConfirmState({ isOpen: true, id, isNew }) }
+    const onConfirmDeleteAttachment = async () => {
+        try {
+            setConfirmState(p => ({ ...p, isLoading: true }))
+            await apiClient.delete(`/api/rfq/attachments/${confirmState.id}`);
+            setAttachments(p => p.filter(a => a.id !== confirmState.id)); toast.success("Attachment deleted");
+        } catch (e) { toast.error("Failed to delete attachment") }
+        finally { setConfirmState({ isOpen: false, id: null, isNew: false, isLoading: false }) }
     }
 
     const handleSubmit = async () => {
+        setSubmitting(true)
         try {
-            setSubmitting(true)
-
-            const payload = {
-                client_ref: formData.clientRef,
-                rfq_type: formData.rfqType,
-                quotation_category: formData.quotationCategory,
-                client_name: formData.clientName,
-                consultancy: formData.consultancy,
-                contact_person: formData.contactPerson,
-                mode_of_enquiry: formData.modeOfEnquiry,
-                enq_date: formData.enqDate || null,
-                target_date: formData.targetDate || null,
-                actual_submission_date: formData.actualSubmissionDate || null,
-                time_taken: formData.timeTaken,
-                mediator: formData.mediator,
-                estimator: formData.estimator,
-                shreno_status: formData.shrenoStatus || "Quoted",
-                client_status: formData.clientStatus || "Under Review",
-                remark: formData.remark,
-                made_by: formData.madeBy,
-                po_no: formData.poNo,
-                po_date: formData.poDate || null,
-                po_value: formData.poValue,
-                po_remark: formData.poRemark,
-                items: tableRows.map((row) => ({
-                    sr_no: row.srNo,
-                    enq_description: row.enqDescription,
-                    equip_qty: row.equipQty,
-                    rev: row.rev,
-                    total_value: row.totalValue,
-                    remarks: row.remarks,
-                })),
-            }
-
-            let res
-            if (editId) {
-                res = await apiClient.put(`/api/rfq/update/${editId}`, payload)
-            } else {
-                res = await apiClient.post("/api/rfq/create", payload)
-            }
-
+            const payload = { ...formData, enq_date: formData.enqDate || null, target_date: formData.targetDate || null, actual_submission_date: formData.actualSubmissionDate || null, items: tableRows.map(r => ({ sr_no: r.srNo, enq_description: r.enqDescription, equip_qty: r.equipQty, rev: r.rev, total_value: r.totalValue, remarks: r.remarks })) }
+            let res = editId && recordId ? await apiClient.put(`/api/rfq/update/${recordId}`, payload) : await apiClient.post("/api/rfq/create", payload)
             if (res.success) {
-                const rfqId = editId || res.data.id;
-                
-                // Handle new attachments upload
-                const newFiles = attachments.filter(a => a.isNew).map(a => a.file);
+                const rId = recordId || res.data.id
+                const newFiles = attachments.filter(a => a.isNew).map(a => a.file)
                 if (newFiles.length > 0) {
-                    const formDataObj = new FormData();
-                    newFiles.forEach(file => formDataObj.append("files", file));
-                    await apiClient.post(`/api/rfq/${rfqId}/attachments`, formDataObj);
+                    const fd = new FormData(); newFiles.forEach(f => fd.append("files", f));
+                    await apiClient.post(`/api/rfq/${rId}/attachments`, fd);
                 }
-
-                toast.success(editId ? "RFQ entry updated successfully!" : "RFQ entry created successfully!")
-                onBack()
+                toast.success("RFQ saved successfully"); onSuccess();
             }
-        } catch (error) {
-            toast.error(error.message || "Failed to save RFQ entry")
-        } finally {
-            setSubmitting(false)
-        }
+        } catch (e) { toast.error("Failed to save RFQ") }
+        finally { setSubmitting(false) }
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <p className="text-muted-foreground text-lg">Loading...</p>
-            </div>
-        )
-    }
+    if (loading) return <div className="p-8 text-center">Loading...</div>
 
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold mb-1">{editId ? "Edit" : "Create"} RFQ Register Entry</h1>
-                    <p className="text-muted-foreground">{editId ? "Update the details for this RFQ entry." : "Fill in the details for a new RFQ entry."}</p>
+                    <h1 className="text-3xl font-bold mb-1">{isView ? "View" : editId ? "Edit" : "Create"} RFQ Entry</h1>
+                    <p className="text-muted-foreground">{isView ? "Review RFQ details." : editId ? "Update details." : "New entry."}</p>
                 </div>
-                <Button variant="outline" onClick={onBack} className="h-9">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to List
-                </Button>
+                <Button variant="outline" onClick={onBack} className="h-9"><ArrowLeft className="h-4 w-4 mr-2" /> Back to List</Button>
             </div>
-
-            {/* Card 1: Enquiry Information */}
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Enquiry Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="quotationCategory">Quotation Type</Label>
-                            <Select 
-                                value={formData.quotationCategory} 
-                                onValueChange={(v) => handleSelectChange("quotationCategory", v)}
-                                disabled={!!editId}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Core">Core - MKT</SelectItem>
-                                    <SelectItem value="Spare">Spare - SPR</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="quotationNo">Quotation No.</Label>
-                            <Input
-                                id="quotationNo"
-                                name="quotationNo"
-                                type="text"
-                                value={formData.quotationNo}
-                                disabled={true}
-                                placeholder="Auto-generated"
-                                className="bg-muted"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="clientRef">Client Ref.</Label>
-                            <Input
-                                id="clientRef"
-                                name="clientRef"
-                                type="text"
-                                value={formData.clientRef}
-                                onChange={handleInputChange}
-                                placeholder="Enter Client Reference"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="rfqType">RFQ Type</Label>
-                            <Select 
-                                key={`rfqType-${dropdownOptions.rfqTypes.length}-${formData.rfqType}`}
-                                value={formData.rfqType} 
-                                onValueChange={(v) => handleSelectChange("rfqType", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select RFQ Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dropdownOptions.rfqTypes.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="clientName">Client Name</Label>
-                            <Input
-                                id="clientName"
-                                name="clientName"
-                                type="text"
-                                value={formData.clientName}
-                                onChange={handleInputChange}
-                                placeholder="Enter Client Name"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="consultancy">Consultancy</Label>
-                            <Input
-                                id="consultancy"
-                                name="consultancy"
-                                type="text"
-                                value={formData.consultancy}
-                                onChange={handleInputChange}
-                                placeholder="Enter Consultancy"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="contactPerson">Contact Person</Label>
-                            <Input
-                                id="contactPerson"
-                                name="contactPerson"
-                                type="text"
-                                value={formData.contactPerson}
-                                onChange={handleInputChange}
-                                placeholder="Enter Contact Person"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="modeOfEnquiry">Mode of Enquiry</Label>
-                            <Select 
-                                key={`moe-${dropdownOptions.modesOfEnquiry.length}-${formData.modeOfEnquiry}`}
-                                value={formData.modeOfEnquiry} 
-                                onValueChange={(v) => handleSelectChange("modeOfEnquiry", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Mode" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dropdownOptions.modesOfEnquiry.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="enqDate">Enq. Date</Label>
-                            <Input
-                                id="enqDate"
-                                name="enqDate"
-                                type="date"
-                                value={formData.enqDate}
-                                onChange={handleInputChange}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="date">Date</Label>
-                            <Input
-                                id="date"
-                                type="text"
-                                value={today}
-                                disabled
-                                className="bg-muted"
-                            />
-                        </div>
+            <Card className="mb-6"><CardHeader><CardTitle>Enquiry Information</CardTitle></CardHeader><CardContent><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2"><Label>Quotation Type</Label><Select value={formData.quotationCategory} onValueChange={(v) => handleInputChange({ target: { name: "quotationCategory", value: v } })} disabled={!!editId || isView}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Core">Core - MKT</SelectItem><SelectItem value="Spare">Spare - SPR</SelectItem></SelectContent></Select></div>
+                <div className="space-y-2"><Label>Quotation No.</Label><Input value={formData.quotationNo} disabled className="bg-muted" /></div>
+                <div className="space-y-2"><Label>Client Ref.</Label><Input name="clientRef" value={formData.clientRef} onChange={handleInputChange} readOnly={isView} className={isView ? "bg-muted" : ""} /></div>
+                <div className="space-y-2"><Label>RFQ Type</Label><Select value={formData.rfqType} onValueChange={(v) => handleInputChange({ target: { name: "rfqType", value: v } })} disabled={isView}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{dropdownOptions.rfqTypes.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Client Name</Label><Input name="clientName" value={formData.clientName} onChange={handleInputChange} readOnly={isView} className={isView ? "bg-muted" : ""} /></div>
+                <div className="space-y-2"><Label>Consultancy</Label><Input name="consultancy" value={formData.consultancy} onChange={handleInputChange} readOnly={isView} className={isView ? "bg-muted" : ""} /></div>
+                <div className="space-y-2"><Label>Mode</Label><Select value={formData.modeOfEnquiry} onValueChange={(v) => handleInputChange({ target: { name: "modeOfEnquiry", value: v } })} disabled={isView}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{dropdownOptions.modesOfEnquiry.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Enq Date</Label><Input name="enqDate" type="date" value={formData.enqDate} onChange={handleInputChange} readOnly={isView} className={isView ? "bg-muted" : ""} /></div>
+            </div></CardContent></Card>
+            <Card className="mb-6"><CardHeader><CardTitle>Submission Details</CardTitle></CardHeader><CardContent><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2"><Label>Target Date</Label><Input name="targetDate" type="date" value={formData.targetDate} onChange={handleInputChange} readOnly={isView} className={isView ? "bg-muted" : ""} /></div>
+                <div className="space-y-2"><Label>Submission Date</Label><Input name="actualSubmissionDate" type="date" value={formData.actualSubmissionDate} onChange={handleInputChange} readOnly={isView} className={isView ? "bg-muted" : ""} /></div>
+                <div className="space-y-2"><Label>Time Taken</Label><Input value={formData.timeTaken} readOnly className="bg-muted" /></div>
+            </div></CardContent></Card>
+            <Card className="mb-6"><CardHeader><CardTitle>Assignment & Status</CardTitle></CardHeader><CardContent><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2"><Label>Mediator</Label><Select value={formData.mediator} onValueChange={(v) => handleInputChange({ target: { name: "mediator", value: v } })} disabled={isView}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{dropdownOptions.mediators.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Estimator</Label><Select value={formData.estimator} onValueChange={(v) => handleInputChange({ target: { name: "estimator", value: v } })} disabled={isView}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{dropdownOptions.estimators.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Shreno Status</Label><Select value={formData.shrenoStatus} onValueChange={(v) => handleInputChange({ target: { name: "shrenoStatus", value: v } })} disabled={isView}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SHRENO_STATUS_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-2"><Label>Client Status</Label><Select value={formData.clientStatus} onValueChange={(v) => handleInputChange({ target: { name: "clientStatus", value: v } })} disabled={isView}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CLIENT_STATUS_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select></div>
+            </div><div className="mt-4"><Label>Remark</Label><Textarea name="remark" value={formData.remark} onChange={handleInputChange} readOnly={isView} className={isView ? "bg-muted" : ""} /></div></CardContent></Card>
+            <Card className="mb-6"><CardHeader><CardTitle>Enquiry Details</CardTitle></CardHeader><CardContent><div className="space-y-4">
+                <Label>Description</Label><Textarea value={tableRows[0].enqDescription} onChange={(e) => handleRowChange(tableRows[0].id, "enqDescription", e.target.value)} readOnly={isView} className={isView ? "bg-muted min-h-[100px]" : "min-h-[100px]"} />
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2"><Label>Qty</Label><Input type="number" value={tableRows[0].equipQty} onChange={(e) => handleRowChange(tableRows[0].id, "equipQty", e.target.value)} readOnly={isView} /></div>
+                    <div className="space-y-2"><Label>Rev</Label><Input value={tableRows[0].rev} onChange={(e) => handleRowChange(tableRows[0].id, "rev", e.target.value)} readOnly={isView} /></div>
+                    <div className="space-y-2"><Label>Value</Label><Input type="number" value={tableRows[0].totalValue} onChange={(e) => handleRowChange(tableRows[0].id, "totalValue", e.target.value)} readOnly={isView} /></div>
+                </div>
+            </div></CardContent></Card>
+            <Card className="mb-6"><CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2"><Paperclip className="h-4 w-4" /> Attachments</CardTitle>
+                {!isView && <><input type="file" id="rfq-atts" className="hidden" multiple onChange={handleFileChange} /><Button variant="outline" size="sm" onClick={() => document.getElementById('rfq-atts').click()}><Plus className="h-3.5 w-3.5 mr-1" /> Add Files</Button></>}
+            </CardHeader><CardContent>
+                {attachments.length > 0 ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">{attachments.map(f => (
+                    <div key={f.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-slate-50">
+                        <div className="flex items-center gap-3 overflow-hidden"><FileText className="h-5 w-5 text-blue-500 shrink-0" /><div className="flex flex-col min-w-0"><span className="text-xs font-semibold truncate">{f.name}</span><span className="text-[10px] text-slate-400">{f.size}</span></div></div>
+                        {!isView && <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-300 hover:text-red-500" onClick={() => removeAttachment(f.id, f.isNew)}><X className="h-3.5 w-3.5" /></Button>}
                     </div>
-                </CardContent>
-            </Card>
-
-            {/* Card 2: Submission Details */}
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Submission Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="targetDate">Client Target Date</Label>
-                            <Input
-                                id="targetDate"
-                                name="targetDate"
-                                type="date"
-                                value={formData.targetDate}
-                                onChange={handleInputChange}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="actualSubmissionDate">Actual Submission Date</Label>
-                            <Input
-                                id="actualSubmissionDate"
-                                name="actualSubmissionDate"
-                                type="date"
-                                value={formData.actualSubmissionDate}
-                                onChange={handleInputChange}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="timeTaken">Time Taken for Submission</Label>
-                            <Input
-                                id="timeTaken"
-                                name="timeTaken"
-                                type="text"
-                                value={formData.timeTaken}
-                                readOnly
-                                className="bg-muted"
-                                placeholder="Auto-calculated"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Card 3: Assignment & Status */}
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Assignment & Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="mediator">Mediator</Label>
-                            <Select 
-                                key={`mediator-${dropdownOptions.mediators.length}-${formData.mediator}`}
-                                value={formData.mediator} 
-                                onValueChange={(v) => handleSelectChange("mediator", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Mediator" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formData.mediator && !dropdownOptions.mediators.includes(formData.mediator) && (
-                                        <SelectItem value={formData.mediator}>{formData.mediator}</SelectItem>
-                                    )}
-                                    {dropdownOptions.mediators.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="estimator">Estimator</Label>
-                            <Select 
-                                key={`estimator-${dropdownOptions.estimators.length}-${formData.estimator}`}
-                                value={formData.estimator} 
-                                onValueChange={(v) => handleSelectChange("estimator", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Estimator" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formData.estimator && !dropdownOptions.estimators.includes(formData.estimator) && (
-                                        <SelectItem value={formData.estimator}>{formData.estimator}</SelectItem>
-                                    )}
-                                    {dropdownOptions.estimators.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="shrenoStatus">Shreno Status</Label>
-                            <Select 
-                                key={`shrenoStatus-${formData.shrenoStatus}`}
-                                value={formData.shrenoStatus} 
-                                onValueChange={(v) => handleSelectChange("shrenoStatus", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SHRENO_STATUS_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="clientStatus">Status at Client End</Label>
-                            <Select 
-                                key={`clientStatus-${formData.clientStatus}`}
-                                value={formData.clientStatus} 
-                                onValueChange={(v) => handleSelectChange("clientStatus", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Client Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {CLIENT_STATUS_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="poNo">PO No.</Label>
-                            <Input
-                                id="poNo"
-                                name="poNo"
-                                type="text"
-                                value={formData.poNo}
-                                onChange={handleInputChange}
-                                placeholder="Enter PO No."
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="poDate">PO Date</Label>
-                            <Input
-                                id="poDate"
-                                name="poDate"
-                                type="date"
-                                value={formData.poDate}
-                                onChange={handleInputChange}
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="poValue">PO Value</Label>
-                            <Input
-                                id="poValue"
-                                name="poValue"
-                                type="number"
-                                value={formData.poValue}
-                                onChange={handleInputChange}
-                                placeholder="Enter PO Value"
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="poRemark">PO Remarks</Label>
-                            <Input
-                                id="poRemark"
-                                name="poRemark"
-                                type="text"
-                                value={formData.poRemark}
-                                onChange={handleInputChange}
-                                placeholder="Enter PO Remarks"
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="madeBy">Made By</Label>
-                            <Input
-                                id="madeBy"
-                                name="madeBy"
-                                type="text"
-                                value={formData.madeBy}
-                                onChange={handleInputChange}
-                                placeholder="Enter Made By"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="mt-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="remark">Remark</Label>
-                            <Textarea
-                                id="remark"
-                                name="remark"
-                                value={formData.remark}
-                                onChange={handleInputChange}
-                                placeholder="Enter Remark"
-                                className="min-h-[100px]"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Enquiry Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {tableRows.length > 0 && (
-                        <div className="space-y-4">
-                            <div className="space-y-2">
-                                <Label className="text-sm font-semibold">Enq. Description</Label>
-                                <Textarea 
-                                    value={tableRows[0].enqDescription} 
-                                    onChange={(e) => handleRowChange(tableRows[0].id, "enqDescription", e.target.value)}
-                                    placeholder="Enter Enquiry Description"
-                                    className="min-h-[100px]"
-                                />
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Equip. Qty</Label>
-                                    <Input 
-                                        type="number"
-                                        value={tableRows[0].equipQty} 
-                                        onChange={(e) => handleRowChange(tableRows[0].id, "equipQty", e.target.value)}
-                                        placeholder="Qty"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Rev.</Label>
-                                    <Input 
-                                        value={tableRows[0].rev} 
-                                        onChange={(e) => handleRowChange(tableRows[0].id, "rev", e.target.value)}
-                                        placeholder="Rev"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Total Value</Label>
-                                    <Input 
-                                        type="number"
-                                        value={tableRows[0].totalValue} 
-                                        onChange={(e) => handleRowChange(tableRows[0].id, "totalValue", e.target.value)}
-                                        placeholder="Value"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            <Card className="mb-6">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                        <Paperclip className="h-4 w-4" />
-                        Attachments (Quotation / Specification)
-                    </CardTitle>
-                    <div className="relative">
-                        <input
-                            type="file"
-                            id="rfq-attachments"
-                            className="hidden"
-                            multiple
-                            onChange={handleFileChange}
-                        />
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
-                            onClick={() => document.getElementById('rfq-attachments').click()}
-                        >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add Files
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {attachments.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {attachments.map((file) => (
-                                <div key={file.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-slate-50 group hover:border-blue-200 hover:bg-white transition-all">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                        <div className="h-9 w-9 rounded-md bg-white border flex items-center justify-center shrink-0">
-                                            <FileText className="h-5 w-5 text-blue-500" />
-                                        </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className="text-xs font-semibold truncate text-slate-700">{file.name}</span>
-                                            <span className="text-[10px] text-slate-400 font-medium">{file.size} • {file.uploadedAt}</span>
-                                        </div>
-                                    </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0"
-                                        onClick={() => removeAttachment(file.id, file.isNew)}
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </Button>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div 
-                            className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors"
-                            onClick={() => document.getElementById('rfq-attachments').click()}
-                        >
-                            <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
-                                <Upload className="h-6 w-6 text-slate-400" />
-                            </div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">Click to upload or drag files here</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Quotation, Drawings, or Specification PDFs</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Submit / Cancel */}
-            <div className="flex justify-end gap-4 mt-6">
-                <Button onClick={onBack} variant="outline">Cancel</Button>
-                <Button onClick={handleSubmit} disabled={submitting}>
-                    {submitting ? "Saving..." : editId ? "Update Entry" : "Submit Entry"}
-                </Button>
+                ))}</div> : <div className="p-8 border-2 border-dashed rounded-xl text-center text-slate-400">No attachments</div>}
+            </CardContent></Card>
+            <div className="flex justify-end gap-4 mb-8">
+                <Button variant="outline" onClick={onBack}>Cancel</Button>
+                {!isView && <Button onClick={handleSubmit} disabled={submitting}>{submitting ? "Saving..." : editId ? "Update" : "Submit"}</Button>}
             </div>
-            <ConfirmDialog 
-                isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState({ isOpen: false, id: null })}
-                onConfirm={onConfirmDeleteAttachment}
-                title="Delete Attachment"
-                description="Are you sure you want to permanently delete this attachment? This document will be removed from the record."
-                confirmText="Delete"
-                variant="danger"
-                isLoading={confirmState.isLoading}
-            />
+            <ConfirmDialog isOpen={confirmState.isOpen} onClose={() => setConfirmState({ isOpen: false, id: null })} onConfirm={onConfirmDeleteAttachment} title="Delete Attachment" description="Delete this document?" variant="danger" isLoading={confirmState.isLoading} />
         </div>
     )
 }
 
+// ─── Attachments View ────────────────────────────────────────────────────────
 function AttachmentsView({ rfqId, onBack }) {
-    const [quotationNo, setQuotationNo] = useState("")
-    
-    // Preview state
+    const [qNo, setQNo] = useState("")
     const [isPreviewOpen, setIsPreviewOpen] = useState(false)
     const [previewUrl, setPreviewUrl] = useState("")
-    const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+    const [activeDoc, setActiveDoc] = useState(null)
 
-    const fetchAttachments = useCallback(async () => {
+    const fetchAtts = useCallback(async () => {
         try {
-            const res = await apiClient.get(`/api/rfq/${rfqId}/attachments`)
-            if (res.success && res.data) {
-                setQuotationNo(res.data.quotation_no)
-                const items = (res.data.attachments || []).map((item, idx) => ({
-                    ...item,
-                    serialNo: idx + 1
-                }))
-                return {
-                    data: items,
-                    meta: {
-                        total: items.length,
-                        page: 1,
-                        totalPages: 1
-                    }
+            let finalId = location.state?.rfq?.id || rfqId
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalId)
+
+            if (!isUuid) {
+                const decoded = decodeURIComponent(rfqId)
+                // Reconstruct quotation_no format (SHR/MKT/001/2026-27) from slug (shr-mkt-001-2026-27)
+                const parts = decoded.split('-')
+                let searchVal = decoded
+                if (parts.length >= 4) {
+                    searchVal = parts.slice(0, -2).join('/') + '/' + parts.slice(-2).join('-')
                 }
+
+                const res = await apiClient.get("/api/rfq/list", { search: searchVal, limit: 10 })
+                const matched = res?.data?.find(p => toUrlKey(p.quotation_no) === rfqId || p.quotation_no.toLowerCase() === searchVal.toLowerCase())
+                if (matched) finalId = matched.id
+                else throw new Error("RFQ not found")
             }
-        } catch (error) {
-            toast.error("Failed to load attachments")
+
+            const res = await apiClient.get(`/api/rfq/${finalId}/attachments`)
+            if (res.success) { 
+                setQNo(res.data.quotation_no); 
+                return { 
+                    data: (res.data.attachments || []).map((a, i) => ({ ...a, sn: i + 1 })), 
+                    meta: { total: res.data.attachments.length } 
+                } 
+            }
+        } catch (e) { 
+            console.error(e)
+            toast.error("Failed to load attachments") 
         }
         return { data: [], meta: {} }
-    }, [rfqId])
+    }, [rfqId, location.state])
 
-    const handlePreview = (file) => {
-        setPreviewUrl(file.file_url)
-        setActivePreviewDoc({
-            mimeType: file.file_mime_type,
-            filePath: file.file_path,
-            documentName: file.file_name
-        })
-        setIsPreviewOpen(true)
-    }
-
-    const columns = [
-        { 
-            header: "SR NO.", 
-            accessorKey: "serialNo",
-            width: "80px",
-            className: "pl-6"
-        },
-        { 
-            header: "FILE NAME", 
-            accessorKey: "file_name",
-            cell: (row) => (
-                <div className="flex items-center gap-2 py-1">
-                    <FileText className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="text-slate-600 font-medium">{row.file_name}</span>
-                </div>
-            )
-        },
-        { 
-            header: "SIZE", 
-            accessorKey: "file_size",
-            cell: (row) => `${(row.file_size / 1024).toFixed(1)} KB`
-        },
-        { 
-            header: "UPLOAD DATE", 
-            accessorKey: "uploaded_at",
-            cell: (row) => new Date(row.uploaded_at).toLocaleDateString()
-        },
-        {
-            header: "ACTIONS",
-            id: "actions",
-            cell: (row) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handlePreview(row)}
-                        className="h-8 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-2 font-semibold text-[10px] uppercase"
-                    >
-                        <Eye className="h-3.5 w-3.5 mr-1.5" /> Preview
-                    </Button>
-                </div>
-            )
-        }
-    ]
+    const cols = [{ header: "SN", accessorKey: "sn", width: "50px" }, { header: "File Name", accessorKey: "file_name" }, { header: "Date", accessorKey: "uploaded_at", cell: (r) => new Date(r.uploaded_at).toLocaleDateString() }, { id: "actions", header: "Actions", cell: (r) => <Button variant="ghost" size="sm" onClick={() => { setPreviewUrl(r.file_url); setActiveDoc({ mimeType: r.file_mime_type, filePath: r.file_path, documentName: r.file_name }); setIsPreviewOpen(true) }}><Eye className="h-4 w-4 mr-2" /> Preview</Button> }]
 
     return (
         <div className="flex flex-col h-full space-y-4 px-1">
-            <div className="flex items-center justify-between py-1">
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={onBack} className="h-9 w-9 rounded-full shadow-sm hover:bg-slate-50 border-slate-200 transition-all">
-                        <ArrowLeft className="h-4 w-4 text-slate-600" />
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Attachments</h1>
-                        <p className="text-sm text-muted-foreground font-medium">Documents for RFQ: <span className="text-slate-900 uppercase font-bold">{quotationNo || "Loading..."}</span></p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <ProDataTable 
-                    fetchData={fetchAttachments}
-                    columns={columns}
-                    globalSearchPlaceholder="Search in documents..."
-                />
-            </div>
-
-            {/* Premium Preview Dialog */}
-            <DocumentPreviewDialog 
-                isOpen={isPreviewOpen}
-                onOpenChange={setIsPreviewOpen}
-                previewUrl={previewUrl}
-                activePreviewDoc={activePreviewDoc}
-            />
+            <div className="flex items-center gap-4"><Button variant="outline" size="icon" onClick={onBack} className="rounded-full"><ArrowLeft className="h-4 w-4" /></Button><div><h1 className="text-2xl font-bold">Attachments</h1><p className="text-sm text-muted-foreground">RFQ: <span className="font-bold">{qNo || "..."}</span></p></div></div>
+            <div className="flex-1 flex flex-col overflow-hidden"><ProDataTable fetchData={fetchAtts} columns={cols} /></div>
+            <DocumentPreviewDialog isOpen={isPreviewOpen} onOpenChange={setIsPreviewOpen} previewUrl={previewUrl} activePreviewDoc={activeDoc} />
         </div>
     )
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
-function RfqRegister() {
-    const [view, setView] = useState("list") // "list" | "create" | "edit" | "attachments"
-    const [editId, setEditId] = useState(null)
+// ─── Main Controller ─────────────────────────────────────────────────────────
+export default function RfqRegister() {
+    const navigate = useNavigate()
+    const location = useLocation()
+    const { id: routeId } = useParams()
 
-    const handleEdit = (id) => {
-        setEditId(id)
-        setView("edit")
-    }
+    const mode = useMemo(() => {
+        if (location.pathname.includes("/create")) return "create"
+        if (location.pathname.includes("/edit")) return "edit"
+        if (location.pathname.includes("/view")) return "view"
+        if (location.pathname.includes("/attachments")) return "attachments"
+        return "list"
+    }, [location.pathname])
 
-    const handleAttachments = (id) => {
-        setEditId(id)
-        setView("attachments")
-    }
+    const handleSuccess = () => navigate("/rfq/list")
 
     return (
         <>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                    <SidebarTrigger className="-ml-1" />
-                </header>
-                <main className="flex-1 overflow-auto p-6 flex flex-col">
-                    <div className="flex-1 flex flex-col w-full">
-                        {view === "list" ? (
-                            <ListView
-                                onCreateClick={() => {
-                                    setEditId(null)
-                                    setView("create")
-                                }}
-                                onEditClick={handleEdit}
-                                onAttachmentsClick={handleAttachments}
-                            />
-                        ) : view === "attachments" ? (
-                            <AttachmentsView
-                                rfqId={editId}
-                                onBack={() => {
-                                    setView("list")
-                                    setEditId(null)
-                                }}
-                            />
-                        ) : (
-                            <CreateView
-                                onBack={() => {
-                                    setView("list")
-                                    setEditId(null)
-                                }}
-                                editId={editId}
-                            />
-                        )}
-                    </div>
-                </main>
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+                <SidebarTrigger className="-ml-1" />
+            </header>
+            <main className="flex-1 overflow-auto p-6 flex flex-col">
+                <div className="flex-1 flex flex-col w-full">
+                    {mode === "list" ? (
+                        <ListView
+                            onCreateClick={() => navigate("/rfq/create")}
+                            onEditClick={(row) => navigate(`/rfq/edit/${toUrlKey(row.quotation_no)}`, { state: { rfq: { id: row.id, label: row.quotation_no } } })}
+                            onViewClick={(row) => navigate(`/rfq/view/${toUrlKey(row.quotation_no)}`, { state: { rfq: { id: row.id, label: row.quotation_no } } })}
+                            onAttachmentsClick={(row) => navigate(`/rfq/attachments/${toUrlKey(row.quotation_no)}`, { state: { rfq: { id: row.id, label: row.quotation_no } } })}
+                        />
+                    ) : mode === "attachments" ? (
+                        <AttachmentsView rfqId={routeId} onBack={() => navigate("/rfq/list")} />
+                    ) : (
+                        <FormView onBack={() => navigate("/rfq/list")} onSuccess={handleSuccess} editId={routeId} isView={mode === "view"} />
+                    )}
+                </div>
+            </main>
         </>
     )
 }
-
-export default RfqRegister

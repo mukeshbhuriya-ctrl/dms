@@ -838,6 +838,13 @@ function FormView({ onBack, onSuccess, editId = null, locationState = null, view
   // Table rows
   const [tableRows, setTableRows] = useState([])
 
+  // Initialize with one row in create mode
+  useEffect(() => {
+    if (isCreateMode && tableRows.length === 0) {
+      setTableRows([emptyRow(1)])
+    }
+  }, [isCreateMode, tableRows.length])
+
   // Submit state
   const [submitting, setSubmitting] = useState(null) // null | "Draft" | "Pending"
   const [resolvedId, setResolvedId] = useState(null)
