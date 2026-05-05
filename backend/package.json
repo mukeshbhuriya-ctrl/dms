@@ -9,7 +9,15 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start:prod": "pm2 start ../ecosystem.config.js --env production",
+    "stop": "pm2 stop dms-backend",
+    "restart": "pm2 restart dms-backend",
+    "reload": "pm2 reload ../ecosystem.config.js --env production",
+    "logs": "pm2 logs dms-backend",
+    "status": "pm2 status",
+    "monit": "pm2 monit",
+    "deploy:migrate": "npx prisma migrate deploy && npx prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.2.0",
