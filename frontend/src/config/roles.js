@@ -23,6 +23,7 @@ export const ROLES = {
     DESIGN_ENGINEER: "DESIGN_ENGINEER",
     MARKETING: "MARKETING",
     TAXATION: "TAXATION",
+    QAP: "QAP",
 }
 
 // ─── Menu Configuration ────────────────────────────────────────────
@@ -48,7 +49,7 @@ export const MENU_CONFIG = [
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",
-        roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER],
+        roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER, ROLES.QAP],
         hideFor: [ROLES.ADMIN],
     },
 
@@ -205,7 +206,7 @@ export const MENU_CONFIG = [
         title: "Quality Assurance Plan",
         icon: ClipboardCheck,
         path: "/create-qarp",
-        roles: [ROLES.ADMIN],
+        roles: [ROLES.ADMIN, ROLES.QAP, ROLES.DCC],
     },
 ]
 

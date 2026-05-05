@@ -84,7 +84,7 @@ const userRoutes = [
     path: "/user/dashboard",
     element: protect(
       <UserDashboard />,
-      [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER, ROLES.TAXATION],
+      [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER, ROLES.TAXATION, ROLES.QAP],
     ),
   },
   {
@@ -198,7 +198,7 @@ const adminRoutes = [
   },
   {
     path: "/create-qarp",
-    element: protect(<CreateQARP />, [ROLES.ADMIN]),
+    element: protect(<CreateQARP />, [ROLES.ADMIN, ROLES.QAP]),
   },
 ]
 

@@ -5,7 +5,7 @@ const prisma = require('#prisma');
 
 const COMPANY_ID = '272b81b4-11c4-4316-9b67-ddf6687286d3';
 const USER_ID = 'b760b4fe-d9cd-4a8e-bae0-6414f849e35e';
-const ROLE_NAME = 'TAXATION';
+const ROLE_NAME = 'QAP';
 
 async function createRoleAndAssign() {
   try {
