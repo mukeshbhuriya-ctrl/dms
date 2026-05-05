@@ -18,6 +18,7 @@ const { createUser } = require('#api/users/user.js');
 router.post('/create-user', authenticateUser(['ADMIN']), createUser);
 router.put('/update-user/:id', authenticateUser(['ADMIN']), (req, res) => userController.updateUser(req, res));
 router.delete('/delete-user/:id', authenticateUser(['ADMIN']), (req, res) => userController.deleteUser(req, res));
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), (req, res) => userController.toggleUserStatus(req, res));
 router.get('/get-roles', (req, res) => userController.getRoles(req, res));
 router.get('/by-role/:roleName', (req, res) => userController.getUsersByRole(req, res));
 

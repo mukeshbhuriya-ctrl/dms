@@ -122,9 +122,7 @@ class UserController {
     async deleteUser(req, res) {
         try {
             const { id } = req.params;
-
             await userService.deleteUser(id, req.user.company_id);
-
             res.status(200).json({
                 success: true,
                 message: 'User deleted successfully',
@@ -134,6 +132,24 @@ class UserController {
             res.status(400).json({
                 success: false,
                 message: error.message || 'Failed to delete user',
+            });
+        }
+    }
+
+    async toggleUserStatus(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await userService.toggleUserStatus(id, req.user.company_id);
+            res.status(200).json({
+                success: true,
+                message: `User ${result.is_active ? 'activated' : 'deactivated'} successfully`,
+                data: result,
+            });
+        } catch (error) {
+            console.error('Toggle user status error:', error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to toggle user status',
             });
         }
     }

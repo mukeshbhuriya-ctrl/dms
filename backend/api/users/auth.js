@@ -48,8 +48,11 @@ async function login(req, res) {
     }
 
     // Find user by employee ID
-    const user = await prisma.user.findUnique({
-      where: { empid: employeeId.trim() },
+    const user = await prisma.user.findFirst({
+      where: { 
+        empid: employeeId.trim(),
+        is_deleted: false 
+      },
       include: {
         user_roles: {
           include: {
@@ -69,6 +72,14 @@ async function login(req, res) {
       return res.status(401).json({
         success: false,
         message: 'Invalid employee ID or password',
+      });
+    }
+
+    // Check if user is active
+    if (!user.is_active) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is deactivated. Please contact administrator.',
       });
     }
 
@@ -256,8 +267,12 @@ async function forgotPassword(req, res) {
       return res.status(400).json({ success: false, message: 'Email address is required' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() }
+    const user = await prisma.user.findFirst({
+      where: { 
+        email: email.trim().toLowerCase(),
+        is_deleted: false,
+        is_active: true
+      }
     });
 
     if (!user) {

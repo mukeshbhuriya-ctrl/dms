@@ -5,7 +5,8 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, Plus, ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 import { ChevronDownIcon } from "lucide-react"
 import {
   Select,
@@ -14,11 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +37,7 @@ import {
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
+
 function CreateUser() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
@@ -56,19 +53,26 @@ function CreateUser() {
   const [showPassword, setShowPassword] = useState(false)
   const [roles, setRoles] = useState([])
   const [departments, setDepartments] = useState([])
-  const [departmentMap, setDepartmentMap] = useState({}) // ID -> Name map
-  const [view, setView] = useState("list") // 'list' or 'create'
+  const [departmentMap, setDepartmentMap] = useState({})
+  const [view, setView] = useState("list")
   const [editingId, setEditingId] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
+
   // Delete Dialog State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const [columnFilters, setColumnFilters] = useState({})
+  // Toggle Status Dialog State
+  const [toggleDialogOpen, setToggleDialogOpen] = useState(false)
+  const [userToToggle, setUserToToggle] = useState(null)
+  const [isToggling, setIsToggling] = useState(false)
+
+  const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
 
   const fetchActiveFilters = useCallback(async () => {
@@ -129,12 +133,12 @@ function CreateUser() {
 
   const fetchUsers = useCallback(async (params) => {
     try {
-      const queryParams = { ...params };
+      const queryParams = { ...params }
       if (queryParams.columnFilters) {
-        queryParams.columnFilters = JSON.stringify(queryParams.columnFilters);
+        queryParams.columnFilters = JSON.stringify(queryParams.columnFilters)
       }
       const responseData = await apiClient.get('/api/users/get-users', queryParams)
-      return responseData;
+      return responseData
     } catch (err) {
       console.error("Error fetching users:", err)
       return { success: false, data: [], meta: {} }
@@ -143,11 +147,7 @@ function CreateUser() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-    // Clear error when user starts typing
+    setFormData((prev) => ({ ...prev, [name]: value }))
     if (error) setError("")
   }
 
@@ -155,36 +155,29 @@ function CreateUser() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch Roles
-        const rolesPayload = await apiClient.get('/api/users/get-roles');
-        setRoles(rolesPayload?.data || []);
+        const rolesPayload = await apiClient.get('/api/users/get-roles')
+        setRoles(rolesPayload?.data || [])
 
-        // Fetch Departments
-        const deptsPayload = await apiClient.get('/api/departments');
-        const fetchedDepts = deptsPayload?.data || [];
-        setDepartments(fetchedDepts);
-        
-        // Create ID -> Name Map
-        const map = {};
+        const deptsPayload = await apiClient.get('/api/departments')
+        const fetchedDepts = deptsPayload?.data || []
+        setDepartments(fetchedDepts)
+
+        const map = {}
         fetchedDepts.forEach(d => {
-          map[d.id] = d.name;
-          map[d.name] = d.name;
-        });
-        setDepartmentMap(map);
+          map[d.id] = d.name
+          map[d.name] = d.name
+        })
+        setDepartmentMap(map)
       } catch (err) {
-        console.error("Error fetching data:", err);
+        console.error("Error fetching data:", err)
       }
     }
-    fetchData();
-  }, []);
+    fetchData()
+  }, [])
 
   const handleEdit = (user) => {
     setEditingId(user.id)
-    // user.department might be ID or Name. The Select expects Name.
-    // Use departmentMap to ensure we get the Name if it's an ID.
-    // If it's already a name, the map (ID->Name AND Name->Name) handles it or we fallback to user.department
-    const deptName = departmentMap[user.department] || user.department || "";
-
+    const deptName = departmentMap[user.department] || user.department || ""
     setFormData({
       fullName: user.name || "",
       email: user.email || "",
@@ -192,14 +185,15 @@ function CreateUser() {
       department: user.department_id || "",
       designation: user.designation || "",
       mobileNumber: user.mobile || "",
-      roles: user.user_roles?.map(ur => ur.role_id) || [], // Map to Role IDs
-      password: "", // Leave blank usually
+      roles: user.user_roles?.map(ur => ur.role_id) || [],
+      password: "",
     })
     setView("create")
     setError("")
     setSuccess("")
   }
 
+  // ── Delete (soft) ──────────────────────────────────────────
   const handleDeleteClick = (user) => {
     setUserToDelete(user)
     setDeleteDialogOpen(true)
@@ -207,16 +201,39 @@ function CreateUser() {
 
   const confirmDelete = async () => {
     if (!userToDelete) return
-
+    setIsDeleting(true)
     try {
       await apiClient.delete(`/api/users/delete-user/${userToDelete.id}`)
       setRefreshKey(prev => prev + 1)
     } catch (error) {
       console.error("Delete user error", error)
-      alert(error.message || "Failed to delete user")
+      setError(error.message || "Failed to delete user")
     } finally {
+      setIsDeleting(false)
       setDeleteDialogOpen(false)
       setUserToDelete(null)
+    }
+  }
+
+  // ── Toggle Active / Inactive ───────────────────────────────
+  const handleToggleClick = (user) => {
+    setUserToToggle(user)
+    setToggleDialogOpen(true)
+  }
+
+  const confirmToggle = async () => {
+    if (!userToToggle) return
+    setIsToggling(true)
+    try {
+      await apiClient.patch(`/api/users/toggle-status/${userToToggle.id}`)
+      setRefreshKey(prev => prev + 1)
+    } catch (error) {
+      console.error("Toggle status error", error)
+      setError(error.message || "Failed to toggle user status")
+    } finally {
+      setIsToggling(false)
+      setToggleDialogOpen(false)
+      setUserToToggle(null)
     }
   }
 
@@ -249,9 +266,7 @@ function CreateUser() {
       filterType: "select",
       isMulti: true,
       filterOptions: activeDeptOptions,
-      cell: (row) => {
-        return row.department?.name || "-";
-      },
+      cell: (row) => row.department?.name || "-",
     },
     {
       accessorKey: "roles",
@@ -260,10 +275,7 @@ function CreateUser() {
         const userRoles = row.user_roles?.map((ur) => ur.role?.name) || []
         return (
           <div className="flex flex-col overflow-hidden">
-            <span
-              className="truncate text-xs text-muted-foreground"
-              title={userRoles.join(", ")}
-            >
+            <span className="truncate text-xs text-muted-foreground" title={userRoles.join(", ")}>
               {userRoles.slice(0, 2).join(", ")}
               {userRoles.length > 2 ? "..." : ""}
             </span>
@@ -273,18 +285,32 @@ function CreateUser() {
       enableSorting: false,
     },
     {
+      accessorKey: "is_active",
+      header: "Status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Active",   value: "true" },
+        { label: "Inactive", value: "false" },
+      ],
+      cell: (row) => row.is_active
+        ? <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-medium">Active</Badge>
+        : <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 text-xs font-medium">Inactive</Badge>,
+      enableSorting: false,
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleEdit(row)}
-            title="Edit"
-          >
-            <Pencil className="mr-2 h-4 w-4" /> Edit
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => handleEdit(row)} title="Edit">
+            <Pencil className="h-3.5 w-3.5" />
           </Button>
+          <Switch 
+            checked={row.is_active} 
+            onCheckedChange={() => handleToggleClick(row)}
+            title={row.is_active ? "Deactivate" : "Activate"}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -292,13 +318,13 @@ function CreateUser() {
             onClick={() => handleDeleteClick(row)}
             title="Delete"
           >
-            <Trash2 className="mr-2 h-4 w-4" /> Delete
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       ),
       enableSorting: false,
     }
-  ], [handleEdit, activeEmpIdOptions, activeNameOptions, activeEmailOptions, activeDeptOptions, departmentMap])
+  ], [handleEdit, activeEmpIdOptions, activeNameOptions, activeEmailOptions, activeDeptOptions])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -306,7 +332,6 @@ function CreateUser() {
     setSuccess("")
     setIsLoading(true)
 
-    // Manual validation for department since Select might not trigger native validation
     if (!formData.department || formData.department === "") {
       setError("Please select a department")
       setIsLoading(false)
@@ -325,29 +350,18 @@ function CreateUser() {
         designation: formData.designation,
       }
 
-      let payload;
       if (editingId) {
-        payload = await apiClient.put(`/api/users/update-user/${editingId}`, requestBody)
+        await apiClient.put(`/api/users/update-user/${editingId}`, requestBody)
       } else {
-        payload = await apiClient.post("/api/users/create-user", requestBody)
+        await apiClient.post("/api/users/create-user", requestBody)
       }
 
       setSuccess(editingId ? "User updated successfully!" : "User created successfully!")
 
-      // Refresh list and switch view
       setTimeout(() => {
         setSuccess("")
         setView("list")
-        setFormData({
-          fullName: "",
-          email: "",
-          employeeId: "",
-          department: "",
-          designation: "",
-          mobileNumber: "",
-          roles: [],
-          password: "",
-        })
+        setFormData({ fullName: "", email: "", employeeId: "", department: "", designation: "", mobileNumber: "", roles: [], password: "" })
         setEditingId(null)
         setRefreshKey(prev => prev + 1)
       }, 1000)
@@ -361,343 +375,261 @@ function CreateUser() {
 
   const handleExport = async () => {
     try {
-      await exportApi.exportUsers();
+      await exportApi.exportUsers()
     } catch (err) {
-      console.error("Export failed", err);
+      console.error("Export failed", err)
     }
-  };
+  }
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
-        <main className="flex-1 flex flex-col overflow-auto p-6">
-          <div className="w-full flex-1 flex flex-col">
-            {view !== "list" && (
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <SidebarTrigger className="-ml-1" />
+      </header>
+      <main className="flex-1 flex flex-col overflow-auto p-6">
+        <div className="w-full flex-1 flex flex-col">
+
+          {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-3xl font-bold mb-2">
-                  {editingId ? "Edit User" : "Create User"}
-                </h1>
-                <p className="text-muted-foreground">
-                  Fill in the user information below.
-                </p>
+                <h1 className="text-3xl font-bold mb-2">{editingId ? "Edit User" : "Create User"}</h1>
+                <p className="text-muted-foreground">Fill in the user information below.</p>
               </div>
-              <div>
-                  <Button variant="outline" onClick={() => setView("list")}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                  </Button>
-              </div>
+              <Button variant="outline" onClick={() => setView("list")}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+              </Button>
             </div>
-            )}
+          )}
 
-            {view === "list" ? (
+          {view === "list" ? (
+            <>
+              {error && (
+                <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
               <ProDataTable
-                columns={columns}
-                fetchData={fetchUsers}
-                onExport={handleExport}
-                onAdd={() => setView("create")}
-                onAddTooltip="Create User"
-                refreshKey={refreshKey}
-                columnFilters={columnFilters}
-                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
-              />
-            ) : (
-              <div className="space-y-6">
-                <form onSubmit={handleSubmit}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>{editingId ? "Edit User" : "User Information"}</CardTitle>
-                      <CardDescription>
-                        {editingId ? "Update user details" : "Enter the details for the new user account"}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {error && (
-                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                          {error}
-                        </div>
-                      )}
+              columns={columns}
+              fetchData={fetchUsers}
+              onExport={handleExport}
+              onAdd={() => setView("create")}
+              onAddTooltip="Create User"
+              refreshKey={refreshKey}
+              columnFilters={columnFilters}
+              onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+            />
+            </>
+          ) : (
+            <div className="space-y-6">
+              <form onSubmit={handleSubmit}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{editingId ? "Edit User" : "User Information"}</CardTitle>
+                    <CardDescription>
+                      {editingId ? "Update user details" : "Enter the details for the new user account"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {error && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        {error}
+                      </div>
+                    )}
+                    {success && (
+                      <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+                        {success}
+                      </div>
+                    )}
 
-                      {success && (
-                        <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
-                          {success}
-                        </div>
-                      )}
+                    {/* Full Name */}
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                      <Input id="fullName" name="fullName" type="text" placeholder="Enter full name" value={formData.fullName} onChange={handleInputChange} required disabled={isLoading} />
+                    </div>
 
-                      {/* Full Name */}
+                    {/* Email & Employee ID */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="fullName">
-                          Full Name <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="fullName"
-                          name="fullName"
-                          type="text"
-                          placeholder="Enter full name"
-                          value={formData.fullName}
-                          onChange={handleInputChange}
-                          required
-                          disabled={isLoading}
-                        />
+                        <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
+                        <Input id="email" name="email" type="email" placeholder="user@example.com" value={formData.email} onChange={handleInputChange} required disabled={isLoading} />
                       </div>
-
-                      {/* Email & Employee ID */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="email">
-                            Email <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="email"
-                            name="email"
-                            type="email"
-                            placeholder="superadmin@gmail.com"
-                            value={formData.email}
-                            onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="employeeId">
-                            Employee ID <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="employeeId"
-                            name="employeeId"
-                            type="text"
-                            placeholder="Enter employee ID"
-                            value={formData.employeeId}
-                            onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
-                          />
-                        </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="employeeId">Employee ID <span className="text-destructive">*</span></Label>
+                        <Input id="employeeId" name="employeeId" type="text" placeholder="Enter employee ID" value={formData.employeeId} onChange={handleInputChange} required disabled={isLoading} />
                       </div>
+                    </div>
 
-                      {/* Department & Designation */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="department">
-                            Department <span className="text-destructive">*</span>
-                          </Label>
-                          {/* Use Select for single department selection */}
-                          <Select
-                            value={formData.department}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({ ...prev, department: value }))
-                            }
-                            disabled={isLoading}
-                            required
-                          >
-                            <SelectTrigger id="department" className="w-full">
-                              <SelectValue placeholder="Select a department" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {departments.length > 0 ? (
-                                departments.map((dept) => (
-                                  <SelectItem key={dept.id} value={dept.id}>
-                                    {dept.name}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="no-dept" disabled>
-                                  No departments found
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="designation">
-                            Designation <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="designation"
-                            name="designation"
-                            type="text"
-                            placeholder="e.g., Manager, Developer, Analyst"
-                            value={formData.designation}
-                            onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
-                          />
-                        </div>
+                    {/* Department & Designation */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
+                        <Select value={formData.department} onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))} disabled={isLoading} required>
+                          <SelectTrigger id="department" className="w-full">
+                            <SelectValue placeholder="Select a department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.length > 0 ? (
+                              departments.map(dept => (
+                                <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-dept" disabled>No departments found</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="designation">Designation <span className="text-destructive">*</span></Label>
+                        <Input id="designation" name="designation" type="text" placeholder="e.g., Manager, Developer" value={formData.designation} onChange={handleInputChange} required disabled={isLoading} />
+                      </div>
+                    </div>
 
-                      {/* Mobile & Role */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="mobileNumber">
-                            Mobile Number <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            id="mobileNumber"
-                            name="mobileNumber"
-                            type="tel"
-                            placeholder="+1 (555) 000-0000"
-                            value={formData.mobileNumber}
-                            onChange={handleInputChange}
-                            required
-                            disabled={isLoading}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="role">
-                            Roles <span className="text-destructive">*</span>
-                          </Label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] px-3 py-2 text-left" disabled={isLoading}>
-                                <div className="flex flex-wrap gap-1 max-w-[280px]">
-                                  {formData.roles && formData.roles.length > 0 ? (
-                                    Array.from(new Set(formData.roles)).map(roleId => {
-                                      const roleObj = roles.find(r => r.id === roleId);
-                                      return (
-                                        <Badge key={roleId} variant="secondary" className="font-normal">
-                                          {roleObj?.name || "Unknown"}
-                                        </Badge>
-                                      );
-                                    })
-                                  ) : (
-                                    <span className="text-muted-foreground font-normal">Select roles</span>
-                                  )}
-                                </div>
-                                <ChevronDownIcon className="h-4 w-4 opacity-50 shrink-0 ml-2" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0" align="start">
-                              <div className="p-2 border-b">
-                                <p className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wider">Available Roles</p>
-                              </div>
-                              <div className="max-h-[300px] overflow-y-auto p-2">
-                                {roles.length > 0 ? (
-                                  roles.map((role) => (
-                                    <div
-                                      key={role.id}
-                                      className="flex items-center space-x-3 space-y-0 rounded-md p-2 hover:bg-muted cursor-pointer"
-                                    >
-                                      <Checkbox
-                                        id={`role-${role.id}`}
-                                        checked={formData.roles?.includes(role.id)}
-                                        onCheckedChange={(checked) => {
-                                          setFormData(prev => {
-                                            const currentRoles = prev.roles || [];
-                                            const newRoles = checked
-                                              ? [...new Set([...currentRoles, role.id])]
-                                              : currentRoles.filter(id => id !== role.id);
-                                            return {
-                                              ...prev,
-                                              roles: newRoles
-                                            };
-                                          });
-                                        }}
-                                      />
-                                      <Label
-                                        htmlFor={`role-${role.id}`}
-                                        className="text-sm font-medium leading-none cursor-pointer flex-1 py-1"
-                                      >
-                                        {role.name}
-                                      </Label>
-                                    </div>
-                                  ))
+                    {/* Mobile & Roles */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="mobileNumber">Mobile Number <span className="text-destructive">*</span></Label>
+                        <Input id="mobileNumber" name="mobileNumber" type="tel" placeholder="+1 (555) 000-0000" value={formData.mobileNumber} onChange={handleInputChange} required disabled={isLoading} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="role">Roles <span className="text-destructive">*</span></Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] px-3 py-2 text-left" disabled={isLoading}>
+                              <div className="flex flex-wrap gap-1 max-w-[280px]">
+                                {formData.roles && formData.roles.length > 0 ? (
+                                  Array.from(new Set(formData.roles)).map(roleId => {
+                                    const roleObj = roles.find(r => r.id === roleId)
+                                    return (
+                                      <Badge key={roleId} variant="secondary" className="font-normal">
+                                        {roleObj?.name || "Unknown"}
+                                      </Badge>
+                                    )
+                                  })
                                 ) : (
-                                  <p className="text-sm text-center p-4 text-muted-foreground">No roles found</p>
+                                  <span className="text-muted-foreground font-normal">Select roles</span>
                                 )}
                               </div>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
+                              <ChevronDownIcon className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[300px] p-0" align="start">
+                            <div className="p-2 border-b">
+                              <p className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wider">Available Roles</p>
+                            </div>
+                            <div className="max-h-[300px] overflow-y-auto p-2">
+                              {roles.length > 0 ? (
+                                roles.map(role => (
+                                  <div key={role.id} className="flex items-center space-x-3 space-y-0 rounded-md p-2 hover:bg-muted cursor-pointer">
+                                    <Checkbox
+                                      id={`role-${role.id}`}
+                                      checked={formData.roles?.includes(role.id)}
+                                      onCheckedChange={(checked) => {
+                                        setFormData(prev => {
+                                          const currentRoles = prev.roles || []
+                                          const newRoles = checked
+                                            ? [...new Set([...currentRoles, role.id])]
+                                            : currentRoles.filter(id => id !== role.id)
+                                          return { ...prev, roles: newRoles }
+                                        })
+                                      }}
+                                    />
+                                    <Label htmlFor={`role-${role.id}`} className="text-sm font-medium leading-none cursor-pointer flex-1 py-1">
+                                      {role.name}
+                                    </Label>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-sm text-center p-4 text-muted-foreground">No roles found</p>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
+                    </div>
 
-                      {/* Password */}
-                      <div className="space-y-2">
-                        <Label htmlFor="password">
-                          Password {editingId ? "(Leave blank to keep current)" : <span className="text-destructive">*</span>}
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            name="password"
-                            type={showPassword ? "text" : "password"}
-                            placeholder="........"
-                            value={formData.password}
-                            onChange={handleInputChange}
-                            required={!editingId}
-                            disabled={isLoading}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                            onClick={() => setShowPassword(!showPassword)}
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4 text-muted-foreground" />
-                            ) : (
-                              <Eye className="h-4 w-4 text-muted-foreground" />
-                            )}
-                            <span className="sr-only">
-                              {showPassword ? "Hide password" : "Show password"}
-                            </span>
-                          </Button>
-                        </div>
+                    {/* Password */}
+                    <div className="space-y-2">
+                      <Label htmlFor="password">
+                        Password {editingId ? "(Leave blank to keep current)" : <span className="text-destructive">*</span>}
+                      </Label>
+                      <div className="relative">
+                        <Input
+                          id="password" name="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="........"
+                          value={formData.password}
+                          onChange={handleInputChange}
+                          required={!editingId}
+                          disabled={isLoading}
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                          <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                  {/* Submit Buttons */}
-                  <div className="flex justify-end gap-4 mt-6">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setFormData({
-                          fullName: "",
-                          email: "",
-                          employeeId: "",
-                          department: "",
-                          designation: "",
-                          mobileNumber: "",
-                          roles: [],
-                          password: "",
-                        })
-                        setView("list")
-                        setEditingId(null)
-                      }}
-                      disabled={isLoading}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            )}
+                {/* Submit Buttons */}
+                <div className="flex justify-end gap-4 mt-6">
+                  <Button type="button" variant="outline" onClick={() => { setFormData({ fullName: "", email: "", employeeId: "", department: "", designation: "", mobileNumber: "", roles: [], password: "" }); setView("list"); setEditingId(null) }} disabled={isLoading}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
 
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Delete User</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to delete <strong>{userToDelete?.name}</strong>?
-                    This action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-                  <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+          {/* ── Soft Delete Confirm Dialog ─────────────────── */}
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete User</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete <strong>{userToDelete?.name}</strong>?
+                  The user will be deactivated and hidden from all lists. This action can be reviewed by an administrator.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>Cancel</Button>
+                <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-          </div>
-        </main>
+          {/* ── Toggle Status Confirm Dialog ───────────────── */}
+          <Dialog open={toggleDialogOpen} onOpenChange={setToggleDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{userToToggle?.is_active ? "Deactivate User" : "Activate User"}</DialogTitle>
+                <DialogDescription>
+                  {userToToggle?.is_active
+                    ? <>Are you sure you want to <strong>deactivate</strong> <strong>{userToToggle?.name}</strong>? They will not be able to log in.</>
+                    : <>Are you sure you want to <strong>activate</strong> <strong>{userToToggle?.name}</strong>? They will regain access to the system.</>
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setToggleDialogOpen(false)} disabled={isToggling}>Cancel</Button>
+                <Button
+                  variant={userToToggle?.is_active ? "destructive" : "default"}
+                  onClick={confirmToggle}
+                  disabled={isToggling}
+                >
+                  {isToggling ? "Saving..." : (userToToggle?.is_active ? "Deactivate" : "Activate")}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+        </div>
+      </main>
     </>
   )
 }

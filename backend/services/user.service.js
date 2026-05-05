@@ -12,9 +12,10 @@ class UserService {
         const skip = (pageNum - 1) * limitNum;
         const take = limitNum;
 
-        // Build where clause
+        // Build where clause — never show soft-deleted users
         const where = {
             company_id: company_id,
+            is_deleted: false,
         };
 
         if (search) {
@@ -39,6 +40,15 @@ class UserService {
         if (columnFilters.department && columnFilters.department !== 'all') {
             where.department = { name: { in: Array.isArray(columnFilters.department) ? columnFilters.department : [columnFilters.department] } };
         }
+        // is_active column filter — values arrive as strings "true" / "false"
+        if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+            const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+            const wantsActive   = vals.includes('true');
+            const wantsInactive = vals.includes('false');
+            // Both selected = no filter; one selected = filter
+            if (wantsActive && !wantsInactive)   where.is_active = true;
+            if (wantsInactive && !wantsActive)   where.is_active = false;
+        }
 
         // Get total count
         const total = await prisma.user.count({ where });
@@ -54,21 +64,17 @@ class UserService {
                 mobile: true,
                 department_id: true,
                 department: {
-                    select: {
-                        name: true
-                    }
+                    select: { name: true }
                 },
                 designation: true,
+                is_active: true,
+                is_deleted: true,
                 user_roles: {
-                    include: {
-                        role: true,
-                    },
+                    include: { role: true },
                 },
                 createdAt: true,
             },
-            orderBy: {
-                [sortBy]: sortOrder,
-            },
+            orderBy: { [sortBy]: sortOrder },
             skip,
             take,
         });
@@ -176,11 +182,11 @@ class UserService {
         return await prisma.user.findMany({
             where: {
                 company_id,
+                is_deleted: false,
+                is_active: true,
                 user_roles: {
                     some: {
-                        role: {
-                            name: roleName,
-                        },
+                        role: { name: roleName },
                     },
                 },
             },
@@ -189,7 +195,6 @@ class UserService {
                 name: true,
                 email: true,
                 empid: true,
-                // Add other fields as needed
             },
         });
     }
@@ -264,30 +269,45 @@ class UserService {
     }
 
     /**
-     * Delete user
+     * Soft delete user — sets is_deleted = true
      */
     async deleteUser(id, company_id) {
         const existingUser = await prisma.user.findFirst({
-            where: { id, company_id },
+            where: { id, company_id, is_deleted: false },
         });
 
         if (!existingUser) {
             throw new Error('User not found');
         }
 
-        // Delete user (cascade removes roles usually, but explicit check implies we just delete user)
-        // Prisma schema should handle cascade delete for UserRole if defined, otherwise we might need to delete roles first.
-        // Assuming cascade or manual cleanup:
-        await prisma.user_roles.deleteMany({ where: { user_id: id } });
-
-        return await prisma.user.delete({
+        return await prisma.user.update({
             where: { id },
+            data: { is_deleted: true, is_active: false },
+        });
+    }
+
+    /**
+     * Toggle user active status
+     */
+    async toggleUserStatus(id, company_id) {
+        const existingUser = await prisma.user.findFirst({
+            where: { id, company_id, is_deleted: false },
+        });
+
+        if (!existingUser) {
+            throw new Error('User not found');
+        }
+
+        return await prisma.user.update({
+            where: { id },
+            data: { is_active: !existingUser.is_active },
+            select: { id: true, is_active: true },
         });
     }
 
     async getUserFilters(company_id) {
         const users = await prisma.user.findMany({
-            where: { company_id },
+            where: { company_id, is_deleted: false },
             select: {
                 name: true,
                 email: true,
