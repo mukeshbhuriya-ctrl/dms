@@ -64,6 +64,9 @@ model department {
   
   company   company  @relation(fields: [company_id], references: [id])
   
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -80,6 +83,9 @@ model qc_group {
   company     company  @relation(fields: [company_id], references: [id])
   users       user_qc_group[]
   weld_joint_stages weld_joint_stage[]
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -167,6 +173,9 @@ model user{
 
   otp String?
   otpExpiry DateTime?
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 }
 
 model user_roles{
@@ -197,6 +206,9 @@ model customer{
   customer_short_name String
   email String 
   mobile String? 
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -218,6 +230,9 @@ model customer_location{
   location_name String
   customer_number_as_per_sap String
   gst_number String
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -238,6 +253,9 @@ model po{
   po_number String
   po_date DateTime
   po_doc_url String?
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -292,6 +310,9 @@ model job{
   equipement_name String
   tag_number String
   code String?
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -333,6 +354,9 @@ model document_master{
   document_number String
   document_name String
   document_type_id String?
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -454,6 +478,9 @@ model weld_joint_plan {
   
   created_by          String?
   creator             user?   @relation(fields: [created_by], references: [id])
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -718,6 +745,9 @@ model drawing_transmittal {
   jobs                  drawing_transmittal_job[]
   items                 drawing_transmittal_item[]
 
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
@@ -821,6 +851,9 @@ model material_heat_chart {
   job      job      @relation(fields: [job_id], references: [id])
   items    material_heat_chart_item[]
 
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -878,6 +911,9 @@ model dish_end_inspection_report {
 
   items       dish_end_inspection_item[]
   instruments dish_end_inspection_instrument[]
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -943,6 +979,9 @@ model final_inspection_report {
   parts       final_inspection_part[]
   instruments final_inspection_instrument[]
   remarks     final_inspection_remark[]
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1037,6 +1076,9 @@ model dcr{
   inspect_by String
   design_engineer_id String
   quality_engineer_id String
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1118,6 +1160,9 @@ model rfq_register {
   items    rfq_register_item[]
   attachments rfq_attachment[]
 
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -1162,6 +1207,9 @@ model rfq_lookup {
 
   company    company  @relation(fields: [company_id], references: [id])
 
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1172,6 +1220,9 @@ model estimator {
   company_id String
   name       String
   email      String?
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1183,6 +1234,9 @@ model mediator {
   company_id String
   name       String
   email      String?
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -1221,6 +1275,9 @@ model hydrostatic_test_report {
   job      job      @relation(fields: [job_id], references: [id])
   items    hydrostatic_test_item[]
   remarks  hydrostatic_test_remark[]
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1299,6 +1356,9 @@ model quality_assurance_plan {
   
   // Store dynamic columns as JSON, e.g., [{id: "col_1", name: "AI"}]
   dynamic_columns  Json?
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1413,6 +1473,9 @@ model ncr {
   corrective_action_verifier user? @relation("NcrCorrectiveActionVerifiedBy", fields: [corrective_action_verified_by], references: [id])
   qce_verifier        user? @relation("NcrVerifiedByQce", fields: [verified_by_qce_id], references: [id])
   head_quality_verifier user? @relation("NcrVerifiedByHeadQuality", fields: [verified_by_head_quality_id], references: [id])
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
