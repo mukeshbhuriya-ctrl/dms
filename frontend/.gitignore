@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Keep real environment files out of version control
+.env
+.env.local
+.env.production
+# .env.example is intentionally tracked (safe placeholder values)
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
