@@ -260,7 +260,7 @@ function CreateDepartment() {
             onClose={() => setDeleteDialogOpen(false)}
             onConfirm={confirmDelete}
             title="Archive Department"
-            description={<span>Are you sure you want to archive <strong>{deptToDelete?.name}</strong>?</span>}
+            description={<span>Are you sure you want to archive <strong>{deptToDelete?.name}</strong>? This action will remove it from the active list.</span>}
             confirmText="Archive"
             variant="danger"
             isLoading={isDeleting}
