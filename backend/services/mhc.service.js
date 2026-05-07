@@ -16,7 +16,10 @@ class MhcService {
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
 
-        const where = { company_id };
+        const where = { 
+            company_id,
+            is_deleted: false 
+        };
 
         if (search) {
             where.OR = [
@@ -32,6 +35,13 @@ class MhcService {
         if (cFilters.client) where.client = this._processFilter(cFilters.client);
         if (cFilters.po_no) where.po_no = this._processFilter(cFilters.po_no);
         if (cFilters.status) where.status = this._processFilter(cFilters.status);
+
+        if (cFilters.is_active) {
+            const activeStatus = Array.isArray(cFilters.is_active) ? cFilters.is_active : cFilters.is_active.split(',').map(v => v.trim());
+            if (activeStatus.length === 1) {
+                where.is_active = activeStatus[0] === 'true';
+            }
+        }
 
         const [total, data] = await prisma.$transaction([
             prisma.material_heat_chart.count({ where }),
@@ -60,16 +70,42 @@ class MhcService {
 
     async getFilters(company_id) {
         const rawData = await prisma.material_heat_chart.findMany({
-            where: { company_id },
-            select: { msn: true, client: true, po_no: true, status: true }
+            where: { 
+                company_id,
+                is_deleted: false 
+            },
+            select: { msn: true, client: true, po_no: true, status: true, is_active: true }
         });
         const records = [];
         const seen = new Set();
         for (const item of rawData) {
-            const key = `${item.msn}|${item.client}|${item.po_no}|${item.status}`;
+            const key = `${item.msn}|${item.client}|${item.po_no}|${item.status}|${item.is_active}`;
             if (!seen.has(key)) { seen.add(key); records.push(item); }
         }
         return { records };
+    }
+
+    async toggleStatus(company_id, id) {
+        const mhc = await prisma.material_heat_chart.findFirst({
+            where: { id, company_id },
+            select: { is_active: true }
+        });
+        if (!mhc) throw new Error('Material Heat Chart not found');
+
+        return await prisma.material_heat_chart.update({
+            where: { id },
+            data: { is_active: !mhc.is_active }
+        });
+    }
+
+    async archive(company_id, id) {
+        const mhc = await prisma.material_heat_chart.findFirst({ where: { id, company_id } });
+        if (!mhc) throw new Error('Material Heat Chart not found');
+
+        return await prisma.material_heat_chart.update({
+            where: { id },
+            data: { is_deleted: true }
+        });
     }
 
     _processFilter(value) {

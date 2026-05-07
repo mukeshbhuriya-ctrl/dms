@@ -162,6 +162,34 @@ class InspectionReportController {
             res.status(500).json({ success: false, message: "Failed to fetch filters", error: error.message });
         }
     }
+
+    async toggleStatus(req, res) {
+        try {
+            const result = await InspectionReportService.toggleStatus(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Status toggled successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('DishEndController.toggleStatus error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async archive(req, res) {
+        try {
+            const result = await InspectionReportService.archive(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Report archived successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('DishEndController.archive error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new InspectionReportController();

@@ -14,5 +14,6 @@ router.get('/filters', authenticateUser(['USER', 'ADMIN'], { requireAll: false }
 router.post('/', authenticateUser('ADMIN', { requireAll: false }), departmentController.createDepartment);
 router.put('/:id', authenticateUser('ADMIN', { requireAll: false }), departmentController.updateDepartment);
 router.delete('/:id', authenticateUser('ADMIN', { requireAll: false }), departmentController.deleteDepartment);
+router.patch('/toggle-status/:id', authenticateUser('ADMIN', { requireAll: false }), departmentController.toggleDepartmentStatus);
 
 module.exports = router;

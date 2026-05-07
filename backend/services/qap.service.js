@@ -116,7 +116,10 @@ class QapService {
     async list(company_id, queryParams) {
         const { page = 1, limit = 10, search = "", columnFilters } = queryParams;
         const skip = (parseInt(page) - 1) * parseInt(limit);
-        const where = { company_id };
+        const where = { 
+            company_id,
+            is_deleted: false 
+        };
 
         if (search) {
             where.OR = [
@@ -139,6 +142,9 @@ class QapService {
             }
             if (filters.msn && filters.msn.length > 0) {
                 andConditions.push({ msn: { in: filters.msn } });
+            }
+            if (filters.is_active && filters.is_active.length === 1) {
+                andConditions.push({ is_active: filters.is_active[0] === 'true' });
             }
 
             if (andConditions.length > 0) {
@@ -166,7 +172,10 @@ class QapService {
 
     async getFilters(company_id) {
         const records = await prisma.quality_assurance_plan.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                is_deleted: false
+            },
             select: {
                 client: true,
                 po_no: true,
@@ -193,6 +202,31 @@ class QapService {
 
         const count = await prisma.quality_assurance_plan.count({ where: { company_id } });
         return { next_report_no: `SHR/${job.job_number}/QAP/${count + 1}` };
+    }
+
+    async toggleStatus(company_id, id) {
+        const record = await prisma.quality_assurance_plan.findFirst({
+            where: { id, company_id },
+            select: { is_active: true }
+        });
+        if (!record) throw new Error("Quality Assurance Plan not found");
+
+        return await prisma.quality_assurance_plan.update({
+            where: { id },
+            data: { is_active: !record.is_active }
+        });
+    }
+
+    async archive(company_id, id) {
+        const record = await prisma.quality_assurance_plan.findFirst({
+            where: { id, company_id }
+        });
+        if (!record) throw new Error("Quality Assurance Plan not found");
+
+        return await prisma.quality_assurance_plan.update({
+            where: { id },
+            data: { is_deleted: true }
+        });
     }
 }
 

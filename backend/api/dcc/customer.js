@@ -50,6 +50,33 @@ async function createCustomer(req, res) {
     });
 
     if (existingCustomer) {
+      if (existingCustomer.is_deleted) {
+        const restoredCustomer = await prisma.customer.update({
+          where: { id: existingCustomer.id },
+          data: {
+            customer_name: customer_name.trim(),
+            customer_short_name: customer_short_name.trim(),
+            mobile: mobile ? mobile.trim() : null,
+            is_deleted: false,
+            is_active: true
+          },
+          select: {
+            id: true,
+            company_id: true,
+            customer_name: true,
+            customer_short_name: true,
+            email: true,
+            mobile: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+        return res.status(200).json({
+          success: true,
+          message: 'Customer restored successfully',
+          data: restoredCustomer,
+        });
+      }
       return res.status(409).json({
         success: false,
         message: 'Customer with this email already exists in your company',
@@ -172,36 +199,80 @@ async function createCustomerLocation(req, res) {
 
     const trimmedCustomerId = typeof customer_id === 'string' ? customer_id.trim() : String(customer_id);
 
-    // Use transaction to create all locations atomically
-    const createdLocations = await prisma.$transaction(
-      locations.map((location) =>
-        prisma.customer_location.create({
-          data: {
-            company_id: company_id,
+    // Use transaction to create/restore all locations atomically
+    const results = await prisma.$transaction(async (tx) => {
+      const createdOrRestored = [];
+      for (const location of locations) {
+        const name = location.location_name.trim();
+        const sap = location.customer_number_as_per_sap.trim();
+        const gst = location.gst_number.trim();
+
+        // Check for existing record
+        const existing = await tx.customer_location.findFirst({
+          where: {
+            company_id,
             customer_id: trimmedCustomerId,
-            location_name: location.location_name.trim(),
-            customer_number_as_per_sap: location.customer_number_as_per_sap.trim(),
-            gst_number: location.gst_number.trim(),
-          },
-          select: {
-            id: true,
-            company_id: true,
-            customer_id: true,
-            location_name: true,
-            customer_number_as_per_sap: true,
-            gst_number: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        })
-      )
-    );
+            location_name: name
+          }
+        });
+
+        if (existing) {
+          if (existing.is_deleted) {
+            const restored = await tx.customer_location.update({
+              where: { id: existing.id },
+              data: {
+                customer_number_as_per_sap: sap,
+                gst_number: gst,
+                is_deleted: false,
+                is_active: true
+              },
+              select: {
+                id: true,
+                company_id: true,
+                customer_id: true,
+                location_name: true,
+                customer_number_as_per_sap: true,
+                gst_number: true,
+                createdAt: true,
+                updatedAt: true,
+              }
+            });
+            createdOrRestored.push(restored);
+          } else {
+            // Already exists and active - skip or we could throw error
+            // For now skip to allow bulk operations to continue
+          }
+        } else {
+          const created = await tx.customer_location.create({
+            data: {
+              company_id: company_id,
+              customer_id: trimmedCustomerId,
+              location_name: name,
+              customer_number_as_per_sap: sap,
+              gst_number: gst,
+            },
+            select: {
+              id: true,
+              company_id: true,
+              customer_id: true,
+              location_name: true,
+              customer_number_as_per_sap: true,
+              gst_number: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          });
+          createdOrRestored.push(created);
+        }
+      }
+      return createdOrRestored;
+    });
 
     // Return success response
     res.status(201).json({
       success: true,
-      message: `${createdLocations.length} customer location(s) created successfully`,
-      data: createdLocations,
+      message: `${results.length} customer location(s) processed successfully`,
+      data: results,
     });
   } catch (error) {
     console.error('Create customer location error:', error);
@@ -396,6 +467,67 @@ async function createPo(req, res) {
 
     // Parse PO date
     const poDate = new Date(po_date);
+
+    // Check for existing PO (for restoration)
+    const existingPo = await prisma.po.findFirst({
+      where: {
+        company_id,
+        po_number: po_number.trim(),
+        customer_id: customer_id.trim()
+      }
+    });
+
+    if (existingPo) {
+      if (existingPo.is_deleted) {
+        // Restore
+        const restored = await prisma.$transaction(async (tx) => {
+          const po = await tx.po.update({
+            where: { id: existingPo.id },
+            data: {
+              customer_location_id: customer_location_id.trim(),
+              po_date: poDate,
+              po_doc_url: finalPoDocUrl,
+              is_deleted: false,
+              is_active: true
+            }
+          });
+
+          // History
+          const lastHistory = await tx.po_attachment_history.findFirst({
+            where: { po_id: po.id },
+            orderBy: { revision: 'desc' }
+          });
+          await tx.po_attachment_history.create({
+            data: {
+              company_id,
+              po_id: po.id,
+              po_attachments: initialAttachments,
+              revision: (lastHistory?.revision ?? -1) + 1
+            }
+          });
+
+          // Matrix
+          if (parsedCommunicationMatrix) {
+            await tx.po_communication_matrix.deleteMany({ where: { po_id: po.id } });
+            if (parsedCommunicationMatrix.shreno) {
+              for (const p of parsedCommunicationMatrix.shreno) {
+                await tx.po_communication_matrix.create({ data: { company_id, po_id: po.id, name: p.name.trim(), email: p.email.toLowerCase().trim(), type: 'shreno' } });
+              }
+            }
+            if (parsedCommunicationMatrix.client) {
+              for (const p of parsedCommunicationMatrix.client) {
+                await tx.po_communication_matrix.create({ data: { company_id, po_id: po.id, name: p.name.trim(), email: p.email.toLowerCase().trim(), type: 'client' } });
+              }
+            }
+          }
+          return po;
+        });
+
+        return res.status(200).json({ success: true, message: 'PO restored successfully', data: restored });
+      } else {
+        return res.status(409).json({ success: false, message: 'PO number already exists' });
+      }
+    }
 
     // Use transaction to create PO and communication matrix entries atomically
     const result = await prisma.$transaction(async (tx) => {
@@ -622,46 +754,49 @@ async function createJob(req, res) {
     const trimmedCustomerLocationId = customer_location_id.trim();
     const trimmedPoId = po_id.trim();
 
-    // Use transaction to create all jobs atomically
-    const createdJobs = await prisma.$transaction(
-      jobs.map((job) =>
-        prisma.job.create({
-          data: {
-            company_id: company_id,
-            customer_id: trimmedCustomerId,
-            customer_location_id: trimmedCustomerLocationId,
-            po_id: trimmedPoId,
+    // Use transaction to create/restore all jobs atomically
+    const results = await prisma.$transaction(async (tx) => {
+      const createdOrRestored = [];
+      for (const job of jobs) {
+        const jobNumber = job.job_number.trim();
+        const existing = await tx.job.findFirst({
+          where: { company_id, po_id: trimmedPoId, job_number: jobNumber }
+        });
 
-            job_number: job.job_number.trim(),
-            project_id: job.project_id?.trim() || null,
-            equipement_name: job.equipement_name?.trim() || null,
-            tag_number: job.tag_number?.trim() || null,
-            code: job.code?.trim() || null,
-          },
-          select: {
-            id: true,
-            company_id: true,
-            customer_id: true,
-            customer_location_id: true,
-            po_id: true,
-            job_number: true,
-            project_id: true,
-            equipement_name: true,
-            tag_number: true,
-            code: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        })
-      )
-    );
-
-    // Return success response
-    res.status(201).json({
-      success: true,
-      message: `${createdJobs.length} job(s) created successfully`,
-      data: createdJobs,
+        if (existing) {
+          if (existing.is_deleted) {
+            createdOrRestored.push(await tx.job.update({
+              where: { id: existing.id },
+              data: {
+                project_id: job.project_id?.trim() || null,
+                equipement_name: job.equipement_name?.trim() || null,
+                tag_number: job.tag_number?.trim() || null,
+                code: job.code?.trim() || null,
+                is_deleted: false,
+                is_active: true
+              }
+            }));
+          }
+        } else {
+          createdOrRestored.push(await tx.job.create({
+            data: {
+              company_id: company_id,
+              customer_id: trimmedCustomerId,
+              customer_location_id: trimmedCustomerLocationId,
+              po_id: trimmedPoId,
+              job_number: jobNumber,
+              project_id: job.project_id?.trim() || null,
+              equipement_name: job.equipement_name?.trim() || null,
+              tag_number: job.tag_number?.trim() || null,
+              code: job.code?.trim() || null,
+            }
+          }));
+        }
+      }
+      return createdOrRestored;
     });
+
+    res.status(201).json({ success: true, message: `${results.length} job(s) processed successfully`, data: results });
   } catch (error) {
     console.error('Create job error:', error);
 
@@ -695,7 +830,8 @@ async function getCustomers(req, res) {
     // Fetch all customers with their related data
     const customers = await prisma.customer.findMany({
       where: {
-        company_id: company_id, // Only fetch customers for the authenticated user's company
+        company_id: company_id,
+        is_deleted: false
       },
       include: {
         customer_locations: {
@@ -745,7 +881,7 @@ async function getCustomerLocations(req, res) {
   try {
     const company_id = req.user.company_id;
     const locations = await prisma.customer_location.findMany({
-      where: { company_id },
+      where: { company_id, is_deleted: false },
       include: {
         customer: { select: { customer_name: true } }
       },
@@ -778,7 +914,7 @@ async function getPos(req, res) {
     const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
     const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
-    const where = { company_id };
+    const where = { company_id, is_deleted: false };
 
     if (search) {
       where.OR = [
@@ -950,7 +1086,7 @@ async function getJobs(req, res) {
     const company_id = req.user.company_id;
     const { po_id, customer_id, customer_location_id } = req.query;
 
-    const where = { company_id };
+    const where = { company_id, is_deleted: false };
 
     if (po_id) where.po_id = typeof po_id === 'string' ? po_id.trim() : String(po_id);
     if (customer_id) where.customer_id = typeof customer_id === 'string' ? customer_id.trim() : String(customer_id);
@@ -1010,6 +1146,28 @@ async function updateCustomer(req, res) {
 }
 
 /**
+ * Delete Customer API (Soft Delete)
+ */
+async function deleteCustomer(req, res) {
+  try {
+    const { id } = req.params;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'Customer ID is required' });
+
+    await prisma.customer.update({
+      where: { id: id.trim(), company_id },
+      data: { is_deleted: true, is_active: false }
+    });
+
+    res.status(200).json({ success: true, message: 'Customer deleted successfully' });
+  } catch (error) {
+    console.error('Delete customer error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
+/**
  * Update Customer Location API
  */
 async function updateCustomerLocation(req, res) {
@@ -1036,6 +1194,28 @@ async function updateCustomerLocation(req, res) {
   } catch (error) {
     console.error('Update location error:', error);
     res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+}
+
+/**
+ * Delete Customer Location API (Soft Delete)
+ */
+async function deleteCustomerLocation(req, res) {
+  try {
+    const { id } = req.params;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'Location ID is required' });
+
+    await prisma.customer_location.update({
+      where: { id: id.trim(), company_id },
+      data: { is_deleted: true, is_active: false }
+    });
+
+    res.status(200).json({ success: true, message: 'Location deleted successfully' });
+  } catch (error) {
+    console.error('Delete location error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }
 
@@ -1158,6 +1338,28 @@ async function updatePo(req, res) {
 }
 
 /**
+ * Delete PO (Soft Delete)
+ */
+async function deletePo(req, res) {
+  try {
+    const { id } = req.params;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'PO ID is required' });
+
+    await prisma.po.update({
+      where: { id: id.trim(), company_id },
+      data: { is_deleted: true, is_active: false }
+    });
+
+    res.status(200).json({ success: true, message: 'PO deleted successfully' });
+  } catch (error) {
+    console.error('Delete PO error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
+/**
  * Update Job
  */
 async function updateJob(req, res) {
@@ -1186,6 +1388,28 @@ async function updateJob(req, res) {
   } catch (error) {
     console.error('Update job error:', error);
     res.status(500).json({ success: false, message: 'Internal server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+  }
+}
+
+/**
+ * Delete Job API (Soft Delete)
+ */
+async function deleteJob(req, res) {
+  try {
+    const { id } = req.params;
+    const company_id = req.user.company_id;
+
+    if (!id) return res.status(400).json({ success: false, message: 'Job ID is required' });
+
+    await prisma.job.update({
+      where: { id: id.trim(), company_id },
+      data: { is_deleted: true, is_active: false }
+    });
+
+    res.status(200).json({ success: true, message: 'Job deleted successfully' });
+  } catch (error) {
+    console.error('Delete job error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 }
 
@@ -1262,5 +1486,9 @@ module.exports = {
   updatePo,
   updateJob,
   updatePoCommunicationMatrix,
-  getPoAttachments
+  getPoAttachments,
+  deleteCustomer,
+  deleteCustomerLocation,
+  deletePo,
+  deleteJob
 };

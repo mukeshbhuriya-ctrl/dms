@@ -34,6 +34,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "../../components/shared/ConfirmDialog"
 import {
   Popover,
   PopoverContent,
@@ -69,17 +71,18 @@ import {
   X,
   ChevronDown,
   Check,
-  CheckCircle2,
-  XCircle,
-  AlertCircle
+  AlertCircle,
+  Archive
 } from "lucide-react"
+import { useCheckAdmin } from "@/hooks/useCheckAdmin"
 
 function AssignDocument() {
+  const isAdmin = useCheckAdmin()
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
   const [statusFilter, setStatusFilter] = useState("all")
-  const [columnFilters, setColumnFilters] = useState({});
+  const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
 
   // Trail State
   const [isTrailOpen, setIsTrailOpen] = useState(false)
@@ -115,6 +118,10 @@ function AssignDocument() {
   // Refs for debouncing
   const searchTimeoutRef = useRef({}); // { [tempId_field]: setTimeoutId }
   const [error, setError] = useState("")
+  
+  // Confirmation state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [confirmData, setConfirmData] = useState({ title: "", description: "", action: null, variant: "danger" })
 
   // Master Data fetching (unified)
   useEffect(() => {
@@ -507,6 +514,29 @@ function AssignDocument() {
       header: "Last Updated",
       cell: (row) => new Date(row.updatedAt).toLocaleDateString("en-GB"),
     },
+     {
+      accessorKey: "is_active",
+      header: "Status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+      ],
+      cell: (row) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            onCheckedChange={() => handleToggleStatus(row)}
+            disabled={!isAdmin}
+            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'} scale-75`}
+          />
+          <span className={`text-[11px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      ),
+    },
     {
       id: "actions",
       header: "Actions",
@@ -519,6 +549,7 @@ function AssignDocument() {
               size="sm"
               onClick={() => handleEditAssign(row)}
               disabled={!isEditable}
+              className="h-8 rounded-sm cursor-pointer"
             >
               <Edit className="h-4 w-4 mr-2" />
               Edit
@@ -526,7 +557,7 @@ function AssignDocument() {
             <Button
               variant="outline"
               size="sm"
-              className="border-slate-200 text-slate-600"
+              className="h-8 border-slate-200 text-slate-600 rounded-sm cursor-pointer"
               onClick={() => {
                 setActiveDocId(row.id);
                 setIsTrailOpen(true);
@@ -535,11 +566,22 @@ function AssignDocument() {
               <History className="h-4 w-4 mr-2" />
               Trail
             </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-destructive hover:text-destructive border-slate-200 rounded-sm cursor-pointer"
+                onClick={() => handleDelete(row)}
+              >
+                <Archive className="h-4 w-4" />
+                Archive
+              </Button>
+            )}
           </div>
         );
       },
     },
-  ], [activeClientOptions, activePoOptions, activeJobOptions])
+  ], [activeClientOptions, activePoOptions, activeJobOptions, isAdmin])
 
   const proTableTopFilters = useMemo(() => [
     {
@@ -578,6 +620,7 @@ function AssignDocument() {
           else if (key === 'shreno_doc_no') params.shreno_doc_no_filter = val;
           else if (key === 'client_doc_no') params.client_doc_no_filter = val;
           else if (key === 'assignee') params.user_id_filter = val;
+          else if (key === 'is_active') params.columnFilters = JSON.stringify({ is_active: val });
         });
       }
 
@@ -935,6 +978,52 @@ function AssignDocument() {
     }
   }
 
+  const handleToggleStatus = (row) => {
+    setConfirmData({
+      title: "Change Status",
+      description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} this assignment?`,
+      action: async () => {
+        try {
+          const res = await apiClient.patch(`/api/dcc/assigned-documents/toggle-status/${row.id}`)
+          if (res.success) {
+            toast.success(`Assignment ${row.is_active ? 'deactivated' : 'activated'} successfully`)
+            setRefreshKey(prev => prev + 1)
+          }
+        } catch (err) {
+          toast.error(err.message || "Failed to toggle status")
+        }
+      },
+      variant: "warning"
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const handleDelete = (row) => {
+    setConfirmData({
+      title: "Archive Assignment",
+      description: "Are you sure you want to archive this assignment?",
+      action: async () => {
+        try {
+          const res = await apiClient.delete(`/api/dcc/delete-assigned-document/${row.id}`)
+          if (res.success) {
+            toast.success("Assignment archived successfully")
+            setRefreshKey(prev => prev + 1)
+          }
+        } catch (err) {
+          toast.error(err.message || "Failed to archive assignment")
+        }
+      },
+      variant: "danger"
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const confirmAction = async () => {
+    if (confirmData.action) {
+      await confirmData.action()
+    }
+  }
+
   const isSubmitDisabled = isLoading || assignments.some(a => !a.jobId || !a.documentName || !a.assignUserId)
 
   return (
@@ -942,18 +1031,26 @@ function AssignDocument() {
       <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
         <div className="flex items-center gap-3">
           <SidebarTrigger className="-ml-1" />
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            {view === "list" ? "Documents (VDR)" : editingId ? "Update Document Details" : "Assign Documents"}
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
+            {view === "list" ? "Documents Assignment (VDR)" : editingId ? "Update Document Details" : "Assign Documents"}
           </h1>
         </div>
-        {view !== "list" && (
-          <Button variant="outline" size="sm" onClick={handleBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {view === "list" ? (
+             isAdmin && (
+              <Button onClick={() => setView("assign")} size="sm" className="rounded-sm">
+                <Plus className="mr-2 h-4 w-4" /> Assign Documents
+              </Button>
+             )
+          ) : (
+            <Button variant="outline" size="sm" onClick={handleBack} className="rounded-sm">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+            </Button>
+          )}
+        </div>
       </header>
-      <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
-        <div className={`flex-1 min-h-0 flex flex-col w-full ${view === "list" ? "overflow-hidden" : ""}`}>
+      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
+        <div className="flex-1 flex flex-col w-full overflow-hidden p-6">
 
           {/* List View */}
           {view === 'list' && (
@@ -961,10 +1058,7 @@ function AssignDocument() {
               columns={columns}
               fetchData={fetchAssignedDocuments}
               onExport={handleExport}
-              onAdd={() => {
-                handleBack();
-                setView("assign");
-              }}
+              onAdd={null} // Handled in header for industrial look
               onImport={handleImportExcel}
               onDownloadTemplate={handleDownloadTemplate}
               columnFilters={columnFilters}
@@ -1036,8 +1130,18 @@ function AssignDocument() {
               topFilters={proTableTopFilters}
               globalSearchPlaceholder="Search documents..."
               initialStickyColumns={["document.document_number"]}
+              defaultColumnFilters={{ is_active: ['true'] }}
             />
           )}
+
+          <ConfirmDialog
+            isOpen={confirmDialogOpen}
+            onClose={() => setConfirmDialogOpen(false)}
+            title={confirmData.title}
+            description={confirmData.description}
+            onConfirm={confirmAction}
+            variant={confirmData.variant}
+          />
 
           {view === 'assign' && (
             <div className="flex-1 flex flex-col w-full space-y-6">

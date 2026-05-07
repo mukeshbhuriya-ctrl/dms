@@ -5,7 +5,8 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X, Eye } from "lucide-react"
+import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X, Eye, Edit, Archive } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
 import {
     Card,
     CardContent,
@@ -28,7 +29,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { FormAlert } from "@/components/ui/form-alert"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
@@ -159,8 +162,13 @@ function CreateQcGroup() {
 
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [groupToDelete, setGroupToDelete] = useState(null)
+    const [isDeleting, setIsDeleting] = useState(false)
 
-    const [columnFilters, setColumnFilters] = useState({})
+    const [toggleDialogOpen, setToggleDialogOpen] = useState(false)
+    const [groupToToggle, setGroupToToggle] = useState(null)
+    const [isToggling, setIsToggling] = useState(false)
+
+    const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
     const [activeFilters, setActiveFilters] = useState({ records: [] })
 
     const handleViewClick = useCallback((group) => {
@@ -180,6 +188,11 @@ function CreateQcGroup() {
     const handleDeleteClick = useCallback((group) => {
         setGroupToDelete(group)
         setDeleteDialogOpen(true)
+    }, [])
+
+    const handleToggleClick = useCallback((group) => {
+        setGroupToToggle(group)
+        setToggleDialogOpen(true)
     }, [])
 
     const fetchActiveFilters = useCallback(async () => {
@@ -277,6 +290,20 @@ function CreateQcGroup() {
             cell: (row) => new Date(row.createdAt).toLocaleDateString(),
         },
         {
+            accessorKey: "is_active",
+            header: "Status",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: [
+                { label: "Active", value: "true" },
+                { label: "Inactive", value: "false" },
+            ],
+            cell: (row) => row.is_active
+                ? <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-medium">Active</Badge>
+                : <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 text-xs font-medium">Inactive</Badge>,
+        },
+  
+        {
             id: "actions",
             header: "Actions",
             cell: (row) => (
@@ -286,31 +313,39 @@ function CreateQcGroup() {
                         size="sm"
                         onClick={() => handleViewClick(row)}
                         title="View assigned engineers"
+                        className="cursor-pointer"
                     >
-                        <Eye className="mr-2 h-4 w-4" /> View
+                        <Eye className="h-4 w-4" />
                     </Button>
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(row)}
                         title="Edit"
+                        className="cursor-pointer"
                     >
-                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                        <Edit className="h-4 w-4" />
                     </Button>
+                    <Switch 
+                        checked={row.is_active} 
+                        onCheckedChange={() => handleToggleClick(row)}
+                        title={row.is_active ? "Deactivate" : "Activate"}
+                    />
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+                        className="text-destructive cursor-pointer hover:text-destructive hover:bg-destructive/10 border-destructive/20"
                         onClick={() => handleDeleteClick(row)}
-                        title="Delete"
+                        title="Archive"
                     >
-                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        <Archive className="h-4 w-4" />
+              Archive
                     </Button>
                 </div>
             ),
             enableSorting: false,
         },
-    ], [handleViewClick, handleEdit, handleDeleteClick, activeGroupNameOptions])
+    ], [handleViewClick, handleEdit, handleDeleteClick, handleToggleClick, activeGroupNameOptions])
 
     const memberColumns = useMemo(() => [
         {
@@ -354,20 +389,35 @@ function CreateQcGroup() {
         }
     }, [selectedGroup])
 
-    // Redundant function removed as it is now defined at the top
-
     const confirmDelete = async () => {
         if (!groupToDelete) return
-
+        setIsDeleting(true)
         try {
             await apiClient.delete(`/api/qc-groups/${groupToDelete.id}`)
             setRefreshKey(prev => prev + 1)
         } catch (err) {
             console.error("Error deleting QC group:", err)
-            alert(err.message || "Error deleting QC group")
+            setError(err.message || "Error deleting QC group")
         } finally {
+            setIsDeleting(false)
             setDeleteDialogOpen(false)
             setGroupToDelete(null)
+        }
+    }
+
+    const confirmToggle = async () => {
+        if (!groupToToggle) return
+        setIsToggling(true)
+        try {
+            await apiClient.patch(`/api/qc-groups/toggle-status/${groupToToggle.id}`)
+            setRefreshKey(prev => prev + 1)
+        } catch (err) {
+            console.error("Error toggling QC group status:", err)
+            setError(err.message || "Error toggling status")
+        } finally {
+            setIsToggling(false)
+            setToggleDialogOpen(false)
+            setGroupToToggle(null)
         }
     }
 
@@ -407,6 +457,14 @@ function CreateQcGroup() {
         }
     }
 
+    const handleExport = async () => {
+        try {
+            await exportApi.exportQcGroups()
+        } catch (err) {
+            console.error("Export failed", err)
+        }
+    }
+
     return (
         <>
             <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -437,6 +495,7 @@ function CreateQcGroup() {
                                 setEditingId(null)
                                 setSelectedGroup(null)
                                 setFormData({ name: "", user_ids: [] })
+                                setError("")
                             }}>
                                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                             </Button>
@@ -445,15 +504,23 @@ function CreateQcGroup() {
                     )}
 
                     {view === "list" ? (
-                        <ProDataTable
-                            columns={columns}
-                            fetchData={fetchQcGroups}
-                            onAdd={() => setView("create")}
-                            onAddTooltip="Create QC Group"
-                            refreshKey={refreshKey}
-                            columnFilters={columnFilters}
-                            onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
-                        />
+                        <>
+                            {error && (
+                                <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                    {error}
+                                </div>
+                            )}
+                            <ProDataTable
+                                columns={columns}
+                                fetchData={fetchQcGroups}
+                                onAdd={() => setView("create")}
+                                onAddTooltip="Create QC Group"
+                                onExport={handleExport}
+                                refreshKey={refreshKey}
+                                columnFilters={columnFilters}
+                                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+                            />
+                        </>
                     ) : view === "members" ? (
                         <ProDataTable
                             columns={memberColumns}
@@ -464,7 +531,7 @@ function CreateQcGroup() {
                         <div className="w-full">
                             <form onSubmit={handleSubmit}>
                                 <div className="grid gap-6">
-                                    <Card>
+                                    <Card className="w-full">
                                         <CardHeader>
                                             <CardTitle>QC Group Details</CardTitle>
                                             <CardDescription>
@@ -512,6 +579,7 @@ function CreateQcGroup() {
                                                     setView("list")
                                                     setEditingId(null)
                                                     setFormData({ name: "", user_ids: [] })
+                                                    setError("")
                                                 }}
                                             >
                                                 Cancel
@@ -528,21 +596,28 @@ function CreateQcGroup() {
                 </div>
             </main>
 
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Delete QC Group</DialogTitle>
-                        <DialogDescription>
-                            Are you sure you want to delete the group <strong>{groupToDelete?.name}</strong>?
-                            This action cannot be undone and will remove all engineer mappings for this group.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-                        <Button variant="destructive" onClick={confirmDelete}>Delete</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+          {/* Dialogs */}
+          <ConfirmDialog
+            isOpen={deleteDialogOpen}
+            onClose={() => setDeleteDialogOpen(false)}
+            onConfirm={confirmDelete}
+            title="Archive QC Group"
+            description={<span>Are you sure you want to archive the group <strong>{groupToDelete?.name}</strong>? This action will remove the group from the active list.</span>}
+            confirmText="Archive"
+            variant="danger"
+            isLoading={isDeleting}
+          />
+
+          <ConfirmDialog 
+            isOpen={toggleDialogOpen}
+            onClose={() => setToggleDialogOpen(false)}
+            onConfirm={confirmToggle}
+            title={groupToToggle?.is_active ? "Deactivate QC Group" : "Activate QC Group"}
+            description={<span>Confirm {groupToToggle?.is_active ? "deactivation" : "activation"} for <strong>{groupToToggle?.name}</strong>.</span>}
+            confirmText={groupToToggle?.is_active ? "Deactivate" : "Activate"}
+            variant="warning"
+            isLoading={isToggling}
+          />
         </>
     )
 }

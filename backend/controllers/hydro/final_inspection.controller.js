@@ -163,6 +163,34 @@ class FinalInspectionController {
             res.status(500).json({ success: false, message: "Failed to fetch filters", error: error.message });
         }
     }
+
+    async toggleStatus(req, res) {
+        try {
+            const result = await FinalInspectionService.toggleStatus(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Status toggled successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('FinalInspectionController.toggleStatus error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async archive(req, res) {
+        try {
+            const result = await FinalInspectionService.archive(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Report archived successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('FinalInspectionController.archive error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new FinalInspectionController();

@@ -19,6 +19,8 @@ router.get('/get-dcr-by-id/:id', DcrController.getDcrById);
 router.post('/create-dcr', DcrController.createDcr);
 router.get('/get-jobs', DcrController.getDcrNumber);
 router.get('/download-pdf/:id', DcrController.downloadPdf);
+router.delete('/:id', authenticateUser(['ADMIN']), DcrController.deleteDcr);
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), DcrController.toggleDcrStatus);
 
 
 module.exports = router;

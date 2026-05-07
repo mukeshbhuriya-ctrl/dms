@@ -17,4 +17,8 @@ router.get('/approved-items-by-msn/:msn', MhcController.getApprovedItemsByMsn);
 router.get('/get-filters', MhcController.getFilters);
 router.get('/:id', MhcController.getById);
 
+// Admin only actions
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), MhcController.toggleStatus);
+router.delete('/:id', authenticateUser(['ADMIN']), MhcController.archive);
+
 module.exports = router;

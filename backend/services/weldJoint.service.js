@@ -283,7 +283,8 @@ class WeldJointService {
 
         const where = {
             weld_joint_plan: {
-                company_id: company_id
+                company_id: company_id,
+                is_deleted: false
             }
         };
 
@@ -432,6 +433,16 @@ class WeldJointService {
                     ...where.weld_joint_plan, 
                     job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(cFilters.msn || cFilters.msnNumber) } 
                 };
+            }
+            if (cFilters.is_active) {
+                const activeStatus = Array.isArray(cFilters.is_active) ? cFilters.is_active : cFilters.is_active.split(',').map(v => v.trim());
+                if (activeStatus.length === 1) {
+                    where.weld_joint_plan.is_active = activeStatus[0] === 'true';
+                } else if (activeStatus.length > 1) {
+                    // If both true and false are selected, effectively no filter on is_active is needed
+                    // But we can explicitly allow both if we really wanted to. 
+                    // Prisma doesn't support 'in' for Booleans.
+                }
             }
         }
 
@@ -778,22 +789,47 @@ class WeldJointService {
     }
 
     async getWeldJointPlans(company_id, params = {}) {
-        const { page = 1, limit = 50, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = params;
+        const { 
+            page = 1, limit = 50, search = '', sortBy = 'createdAt', sortOrder = 'desc',
+            columnFilters 
+        } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
-        const where = { company_id: company_id };
+        const where = { 
+            company_id: company_id,
+            is_deleted: false
+        };
+
+        if (columnFilters) {
+            const cFilters = typeof columnFilters === 'string' ? JSON.parse(columnFilters) : columnFilters;
+            if (cFilters.is_active) {
+                const activeStatus = Array.isArray(cFilters.is_active) ? cFilters.is_active : cFilters.is_active.split(',').map(v => v.trim());
+                if (activeStatus.length === 1) {
+                    where.is_active = activeStatus[0] === 'true';
+                }
+            }
+            if (cFilters.msn) {
+                where.job = { job_number: { contains: cFilters.msn, mode: 'insensitive' } };
+            }
+        }
+
         if (search) {
-            where.OR = [
+            where.AND = [
                 {
-                    job: {
-                        OR: [
-                            { job_number: { contains: search, mode: 'insensitive' } },
-                            { project_id: { contains: search, mode: 'insensitive' } },
-                            { equipement_name: { contains: search, mode: 'insensitive' } },
-                            { customer: { customer_name: { contains: search, mode: 'insensitive' } } }
-                        ]
-                    }
+                    OR: [
+                        { weld_plan_no: { contains: search, mode: 'insensitive' } },
+                        {
+                            job: {
+                                OR: [
+                                    { job_number: { contains: search, mode: 'insensitive' } },
+                                    { project_id: { contains: search, mode: 'insensitive' } },
+                                    { equipement_name: { contains: search, mode: 'insensitive' } },
+                                    { customer: { customer_name: { contains: search, mode: 'insensitive' } } }
+                                ]
+                            }
+                        }
+                    ]
                 }
             ];
         }
@@ -883,6 +919,29 @@ class WeldJointService {
         });
 
         return trail;
+    }
+
+    async togglePlanStatus(company_id, id) {
+        const plan = await prisma.weld_joint_plan.findFirst({
+            where: { id, company_id },
+            select: { is_active: true }
+        });
+        if (!plan) throw new Error('Weld Joint Plan not found');
+
+        return await prisma.weld_joint_plan.update({
+            where: { id },
+            data: { is_active: !plan.is_active }
+        });
+    }
+
+    async archivePlan(company_id, id) {
+        const plan = await prisma.weld_joint_plan.findFirst({ where: { id, company_id } });
+        if (!plan) throw new Error('Weld Joint Plan not found');
+
+        return await prisma.weld_joint_plan.update({
+            where: { id },
+            data: { is_deleted: true }
+        });
     }
 }
 

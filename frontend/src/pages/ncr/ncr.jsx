@@ -26,11 +26,13 @@ import {
 import { StatusBadge } from "@/components/shared/StatusBadge"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
-import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download, Upload, FileText, Trash2, Paperclip, ExternalLink, X, Search, ChevronDown, ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { ArrowLeft, Plus, CheckCircle, XCircle, Eye, Pencil, Download, Upload, FileText, Trash2, Paperclip, ExternalLink, X, Search, ChevronDown, ChevronLeft, ChevronRight, Check, Archive } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { useAuth } from "@/context/AuthContext"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { toast } from "react-toastify"
 
 const ncrStatusConfig = {
@@ -199,8 +201,58 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
     }
 
     const [refreshKey, setRefreshKey] = useState(0);
-    const [columnFilters, setColumnFilters] = useState({});
+    const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
     const [activeFilters, setActiveFilters] = useState({ records: [] });
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+    const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });
+
+    const handleToggleStatus = async (row) => {
+        setConfirmData({
+            title: `${row.is_active ? 'Deactivate' : 'Activate'} NCR`,
+            description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} NCR ${row.ncr_no}?`,
+            confirmText: row.is_active ? 'Deactivate' : 'Activate',
+            variant: 'warning',
+            onConfirm: async () => {
+                try {
+                    const res = await apiClient.patch(`/api/ncr/toggle-status/${row.id}`)
+                    if (res.success) {
+                        toast.success(res.message)
+                        setRefreshKey(prev => prev + 1)
+                    } else {
+                        toast.error(res.message || "Failed to toggle status")
+                    }
+                } catch (err) {
+                    console.error(err)
+                    toast.error("Failed to toggle status")
+                }
+            }
+        })
+        setConfirmDialogOpen(true)
+    }
+
+    const handleDelete = async (row) => {
+        setConfirmData({
+            title: 'Archive',
+            description: `Are you sure you want to archive ${row.ncr_no}?`,
+            confirmText: 'Archive',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const res = await apiClient.delete(`/api/ncr/${row.id}`)
+                    if (res.success) {
+                        toast.success(res.message)
+                        setRefreshKey(prev => prev + 1)
+                    } else {
+                        toast.error(res.message || "Failed to archive")
+                    }
+                } catch (err) {
+                    console.error(err)
+                    toast.error("Failed to archive")
+                }
+            }
+        })
+        setConfirmDialogOpen(true)
+    }
 
     const fetchActiveFilters = useCallback(async () => {
         try {
@@ -283,6 +335,13 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
         return msns.map(m => ({ label: m, value: m }));
     }, [activeFilters.records, columnFilters.client, columnFilters.po_no]);
 
+    const activeStatusOptions = useMemo(() => {
+        return [
+            { label: "Active", value: "true" },
+            { label: "Inactive", value: "false" }
+        ];
+    }, []);
+
     const columns = useMemo(() => [
         { header: "NCR No", accessorKey: "ncr_no" },
         {
@@ -343,6 +402,26 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
             cell: (row) => new Date(row.createdAt).toLocaleDateString(),
         },
         {
+            header: "Active",
+            accessorKey: "is_active",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: activeStatusOptions,
+            cell: (row) => (
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Switch
+                        checked={row.is_active}
+                        onCheckedChange={() => handleToggleStatus(row)}
+                        className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+                        disabled={!user?.roles?.includes("ADMIN")}
+                    />
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+                        {row.is_active ? "Active" : "Inactive"}
+                    </span>
+                </div>
+            )
+        },
+        {
             id: "actions",
             header: "Action",
             cell: (row) => (
@@ -362,9 +441,21 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                             onClick={() => handleDownload(row.id, row.ncr_no)}
                             title="Download NCR PDF"
                             disabled={isDownloading}
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                            className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
                         >
                             <Download className="h-3.5 w-3.5 mr-1" /> {isDownloading ? "..." : "Download"}
+                        </Button>
+                    )}
+                    {user?.roles?.includes("ADMIN") && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(row)}
+                            title="Archive NCR"
+                            className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
+                        >
+                            <Archive className="h-3.5 w-3.5" />
+                            Archive
                         </Button>
                     )}
                 </div>
@@ -419,6 +510,16 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                 refreshKey={refreshKey}
                 onAdd={onCreateClick}
                 onAddTooltip="Create NCR"
+            />
+
+            <ConfirmDialog
+                isOpen={confirmDialogOpen}
+                onClose={() => setConfirmDialogOpen(false)}
+                title={confirmData.title}
+                description={confirmData.description}
+                onConfirm={confirmData.onConfirm}
+                confirmText={confirmData.confirmText}
+                variant={confirmData.variant}
             />
         </div>
     )

@@ -13,12 +13,17 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
-import { Plus, ArrowLeft, Edit } from "lucide-react"
+import { Plus, ArrowLeft, Edit, Archive } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { Trash2 } from "lucide-react"
+import { useCheckAdmin } from "@/hooks/useCheckAdmin"
 
 function CreateCustomer() {
   const navigate = useNavigate()
+  const isAdmin = useCheckAdmin()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({
@@ -33,8 +38,17 @@ function CreateCustomer() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
 
-  const [columnFilters, setColumnFilters] = useState({})
+  const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  // Delete/Toggle States
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const [toggleDialogOpen, setToggleDialogOpen] = useState(false)
+  const [customerToToggle, setCustomerToToggle] = useState(null)
+  const [isToggling, setIsToggling] = useState(false)
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -82,8 +96,55 @@ function CreateCustomer() {
     setEditingId(customer.id)
     setView("create")
     setError("")
+    setError("")
     setSuccess("")
   }, [])
+
+  const handleDelete = useCallback((customer) => {
+    setCustomerToDelete(customer)
+    setDeleteDialogOpen(true)
+  }, [])
+
+  const confirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await apiClient.delete(`/api/dcc/delete-customer/${customerToDelete.id}`)
+      if (res.success) {
+        setSuccess("Customer deleted successfully")
+        setRefreshKey(prev => prev + 1)
+        setDeleteDialogOpen(false)
+      } else {
+        setError(res.message || "Failed to delete customer")
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleToggleStatus = (customer) => {
+    setCustomerToToggle(customer)
+    setToggleDialogOpen(true)
+  }
+
+  const confirmToggleStatus = async () => {
+    setIsToggling(true)
+    try {
+      const res = await apiClient.patch(`/api/dcc/customers/toggle-status/${customerToToggle.id}`)
+      if (res.success) {
+        setSuccess(`Customer ${res.data.is_active ? "activated" : "deactivated"} successfully`)
+        setRefreshKey(prev => prev + 1)
+        setToggleDialogOpen(false)
+      } else {
+        setError(res.message || "Failed to toggle status")
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong")
+    } finally {
+      setIsToggling(false)
+    }
+  }
 
   const columns = useMemo(() => [
     {
@@ -116,17 +177,55 @@ function CreateCustomer() {
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
     {
+      accessorKey: "is_active",
+      header: "Status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+      ],
+      cell: (row) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            disabled={!isAdmin}
+            onCheckedChange={() => handleToggleStatus(row)}
+            className={`cursor-pointer ${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+          />
+          <span className={`text-xs font-medium ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      ),
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="cursor-pointer"
+            size="sm"
+            title="Edit"
+            onClick={() => handleEdit(row)}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive cursor-pointer hover:text-destructive"
+              title="Archive"
+              onClick={() => handleDelete(row)}
+            >
+              <Archive className="h-4 w-4" />
+              Archive
+            </Button>
+          )}
+        </div>
       ),
     },
   ], [handleEdit, activeCustomerOptions, activeShortNameOptions])
@@ -259,8 +358,8 @@ function CreateCustomer() {
                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
               />
             ) : (
-              <form onSubmit={handleSubmit}>
-                <Card>
+              <form onSubmit={handleSubmit} className="w-full">
+                <Card className="w-full shadow-none border-slate-200">
                   <CardHeader>
                     <CardTitle>Client Information</CardTitle>
                     <CardDescription>
@@ -358,6 +457,28 @@ function CreateCustomer() {
                 </div>
               </form>
             )}
+
+            <ConfirmDialog
+              isOpen={deleteDialogOpen}
+              onClose={() => setDeleteDialogOpen(false)}
+              onConfirm={confirmDelete}
+              title="Archive Client"
+              description={<span>Are you sure you want to archive <strong>{customerToDelete?.customer_name}</strong>? This action will remove the client from the active list.</span>}
+              confirmText="Archive"
+              variant="danger"
+              isLoading={isDeleting}
+            />
+
+            <ConfirmDialog
+              isOpen={toggleDialogOpen}
+              onClose={() => setToggleDialogOpen(false)}
+              onConfirm={confirmToggleStatus}
+              title={customerToToggle?.is_active ? "Deactivate Client" : "Activate Client"}
+              description={<span>Are you sure you want to {customerToToggle?.is_active ? "deactivate" : "activate"} <strong>{customerToToggle?.customer_name}</strong>?</span>}
+              confirmText={customerToToggle?.is_active ? "Deactivate" : "Activate"}
+              variant={customerToToggle?.is_active ? "warning" : "success"}
+              isLoading={isToggling}
+            />
           </div>
         </main>
     </>

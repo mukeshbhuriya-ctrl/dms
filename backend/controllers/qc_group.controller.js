@@ -12,16 +12,32 @@ class QcGroupController {
             }
 
             // Check if group already exists for this company
-            const existing = await prisma.qc_group.findUnique({
+            const existing = await prisma.qc_group.findFirst({
                 where: {
-                    company_id_name: {
-                        company_id,
-                        name: name.trim()
-                    }
+                    company_id,
+                    name: name.trim()
                 }
             });
 
             if (existing) {
+                if (existing.is_deleted) {
+                    // Restore and update mappings
+                    await prisma.$transaction(async (tx) => {
+                        await tx.qc_group.update({
+                            where: { id: existing.id },
+                            data: { is_deleted: false, is_active: true }
+                        });
+                        await tx.user_qc_group.deleteMany({ where: { qc_group_id: existing.id } });
+                        if (user_ids && Array.isArray(user_ids) && user_ids.length > 0) {
+                            const userGroupData = user_ids.map(user_id => ({
+                                user_id,
+                                qc_group_id: existing.id
+                            }));
+                            await tx.user_qc_group.createMany({ data: userGroupData });
+                        }
+                    });
+                    return res.status(200).json({ success: true, message: "QC Group restored successfully" });
+                }
                 return res.status(409).json({ success: false, message: "QC Group already exists" });
             }
 
@@ -73,7 +89,10 @@ class QcGroupController {
             const skip = (parseInt(page) - 1) * parseInt(limit);
             const take = parseInt(limit);
 
-            const where = { company_id };
+            const where = { 
+                company_id,
+                is_deleted: false 
+            };
             if (search) {
                 where.name = { contains: search, mode: 'insensitive' };
             }
@@ -81,6 +100,15 @@ class QcGroupController {
             // Column Filters
             if (columnFilters.name && columnFilters.name !== 'all') {
                 where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+            }
+
+            // is_active column filter
+            if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+                const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+                const wantsActive   = vals.includes('true');
+                const wantsInactive = vals.includes('false');
+                if (wantsActive && !wantsInactive)   where.is_active = true;
+                if (wantsInactive && !wantsActive)   where.is_active = false;
             }
 
             const [total, qcGroups] = await prisma.$transaction([
@@ -133,7 +161,7 @@ class QcGroupController {
         try {
             const company_id = req.user.company_id;
             const groups = await prisma.qc_group.findMany({
-                where: { company_id },
+                where: { company_id, is_deleted: false },
                 select: { name: true }
             });
 
@@ -171,7 +199,7 @@ class QcGroupController {
             const qcGroup = await prisma.$transaction(async (tx) => {
                 const updatedGroup = await tx.qc_group.update({
                     where: { id },
-                    data: { name: name.trim() }
+                    data: { name: name.trim(), is_deleted: false }
                 });
 
                 // Replace user associations
@@ -203,13 +231,14 @@ class QcGroupController {
         }
     }
 
-    // Delete QC Group
+    // Soft Delete QC Group
     async deleteQcGroup(req, res) {
         try {
             const { id } = req.params;
 
-            await prisma.qc_group.delete({
-                where: { id }
+            await prisma.qc_group.update({
+                where: { id },
+                data: { is_deleted: true, is_active: false }
             });
 
             res.status(200).json({ success: true, message: "QC Group deleted successfully" });
@@ -219,6 +248,33 @@ class QcGroupController {
                 return res.status(404).json({ success: false, message: "QC Group not found" });
             }
             console.error("Delete QC Group error:", error);
+            res.status(500).json({ success: false, message: "Internal server error" });
+        }
+    }
+
+    // Toggle QC Group Status
+    async toggleQcGroupStatus(req, res) {
+        try {
+            const { id } = req.params;
+            const existing = await prisma.qc_group.findUnique({ where: { id } });
+
+            if (!existing) {
+                return res.status(404).json({ success: false, message: "QC Group not found" });
+            }
+
+            const updated = await prisma.qc_group.update({
+                where: { id },
+                data: { is_active: !existing.is_active }
+            });
+
+            res.status(200).json({ 
+                success: true, 
+                data: updated,
+                message: `QC Group ${updated.is_active ? 'activated' : 'deactivated'} successfully` 
+            });
+
+        } catch (error) {
+            console.error("Toggle QC Group status error:", error);
             res.status(500).json({ success: false, message: "Internal server error" });
         }
     }

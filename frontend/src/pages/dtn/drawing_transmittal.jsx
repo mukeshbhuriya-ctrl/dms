@@ -13,7 +13,9 @@ import {
 import {
   DocumentPreviewDialog
 } from "@/components/shared/DocumentPreviewDialog"
+import { useCheckAdmin } from "@/hooks/useCheckAdmin"
 import {
+  Trash2,
   Plus,
   ArrowLeft,
   Layers,
@@ -23,9 +25,12 @@ import {
   Eye,
   Loader2,
   Printer,
-  Download
+  Download,
+  Archive
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import {
   Table,
   TableBody,
@@ -41,8 +46,11 @@ import { exportApi } from "@/api/export.api"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick, refreshKey }) {
-  const [columnFilters, setColumnFilters] = useState({})
+  const isAdmin = useCheckAdmin()
+  const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, id: null, type: 'delete' })
+  const [localRefresh, setLocalRefresh] = useState(0)
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -170,6 +178,44 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
     }
   }, []);
 
+  const handleToggleStatus = async () => {
+    if (!confirmDialog.id) return
+    try {
+      const res = await apiClient.patch(`/api/dtn/toggle-status/${confirmDialog.id}`)
+      if (res.success) {
+        toast.success("Status updated successfully")
+        setLocalRefresh(prev => prev + 1)
+        setConfirmDialog({ isOpen: false, id: null })
+      }
+    } catch (err) {
+      console.error("Error toggling status:", err)
+      toast.error("Failed to update status")
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirmDialog.id) return
+    try {
+      const res = await apiClient.delete(`/api/dtn/${confirmDialog.id}`)
+      if (res.success) {
+        toast.success("Transmittal deleted successfully")
+        setLocalRefresh(prev => prev + 1)
+        setConfirmDialog({ isOpen: false, id: null })
+      }
+    } catch (err) {
+      console.error("Error deleting transmittal:", err)
+      toast.error("Failed to delete transmittal")
+    }
+  }
+
+  const handleConfirm = () => {
+    if (confirmDialog.type === 'delete') {
+      handleDelete();
+    } else {
+      handleToggleStatus();
+    }
+  };
+
   const columns = useMemo(() => [
     { 
       header: "Reference No", 
@@ -214,6 +260,28 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
       cell: (row) => getStatusBadge(row.status || "Draft")
     },
     {
+      header: "Active",
+      accessorKey: "is_active",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+      ],
+      cell: (row) => (
+        <Switch
+          checked={row.is_active}
+          disabled={!isAdmin}
+          onCheckedChange={() => setConfirmDialog({ 
+            isOpen: true, 
+            id: row.id, 
+            type: 'toggle',
+            currentStatus: row.is_active 
+          })}
+        />
+      )
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: (row) => (
@@ -221,7 +289,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg"
+            className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm"
             onClick={() => onEditClick(row.id)}
             title="Edit Transmittal"
           >
@@ -232,7 +300,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
           <Button
             variant="outline"
             size="sm"
-            className="h-8 px-2 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-lg"
+            className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm"
             onClick={() => handleExport(row.id, row.ref_no, 'print')}
             title="Print Report"
           >
@@ -242,13 +310,25 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
 
           <Button
             size="sm"
-            className="h-8 px-2 border-slate-200 bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-none rounded-lg"
+            className="h-8 px-2 cursor-pointer border-slate-200 bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-none rounded-sm"
             onClick={() => handleExport(row.id, row.ref_no, 'download')}
             title="Download PDF"
           >
             <Download className="h-3.5 w-3.5 mr-1" />
             <span className="text-[10px] font-bold uppercase">PDF</span>
           </Button>
+           {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 cursor-pointer border-slate-200 text-destructive cursor-pointer hover:text-destructive transition-colors shadow-none rounded-sm"
+              onClick={() => setConfirmDialog({ isOpen: true, id: row.id, type: 'delete' })}
+              title="Archive Transmittal"
+            >
+              <Archive className="h-4 w-4" />
+              Archive
+            </Button>
+          )}
         </div>
       )
     }
@@ -260,11 +340,25 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
       <ProDataTable
         fetchData={fetchDtns}
         columns={columns}
-        refreshKey={refreshKey}
+        refreshKey={`${refreshKey}-${localRefresh}`}
         onAdd={onCreateClick}
         globalSearchPlaceholder="Search reference no, msn, client..."
         columnFilters={columnFilters}
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, id: null })}
+        onConfirm={handleConfirm}
+        title={confirmDialog.type === 'delete' ? "Archive Transmittal" : "Change Status"}
+        description={
+          confirmDialog.type === 'delete' 
+            ? "Are you sure you want to archive this transmittal? This action cannot be undone."
+            : `Are you sure you want to ${confirmDialog.currentStatus ? 'deactivate' : 'activate'} this transmittal?`
+        }
+        confirmText={confirmDialog.type === 'delete' ? "Archive" : (confirmDialog.currentStatus ? "Deactivate" : "Activate")}
+        variant={confirmDialog.type === 'delete' ? "danger" : "warning"}
       />
     </div>
   )
@@ -611,24 +705,24 @@ function CreateView({ onBack, editId, defaultRefNo }) {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-6 w-full">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Create Drawing Transmittal</h1>
+          <h1 className="text-3xl font-bold mb-1 tracking-tight">Create Drawing Transmittal</h1>
           <p className="text-muted-foreground text-sm">Fill in the details and add drawing items.</p>
         </div>
-        <Button variant="outline" onClick={onBack}>
+        <Button variant="outline" onClick={onBack} className="rounded-sm border-slate-200 shadow-none">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>
       </div>
 
-      <Card className="mb-6 shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4 border-b bg-muted/5 font-semibold text-lg">
-          <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
+      <Card className="mb-6 shadow-none border border-slate-200 rounded-sm w-full">
+        <CardHeader className="pb-4 border-b bg-slate-50/50 font-semibold text-lg">
+          <CardTitle className="text-base font-bold uppercase tracking-tight text-slate-800">Basic Information</CardTitle>
         </CardHeader>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
             <div className="space-y-2">
               <Label className="uppercase text-xs font-semibold text-muted-foreground italic">MSN / JOB NO.:</Label>
               <SearchableSelect

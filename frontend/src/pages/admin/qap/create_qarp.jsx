@@ -36,9 +36,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/context/AuthContext"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick }) {
@@ -84,7 +87,11 @@ function ListView({ onCreateClick, onEditClick }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
-  const [columnFilters, setColumnFilters] = useState({});
+  const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+  const { roles } = useAuth();
+  const isAdmin = roles?.includes("ADMIN");
+
+  const [confirmData, setConfirmData] = useState({ isOpen: false, title: "", description: "", confirmText: "", variant: "danger", onConfirm: null, isLoading: false });
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -168,6 +175,59 @@ function ListView({ onCreateClick, onEditClick }) {
     return msns.map(m => ({ label: m, value: m }));
   }, [activeFilters.records, columnFilters.client, columnFilters.po_no]);
 
+  const handleToggleStatus = async (row) => {
+    setConfirmData({
+      isOpen: true,
+      title: `${row.is_active ? 'Deactivate' : 'Activate'} QAP Record`,
+      description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} QAP for report ${row.report_no}?`,
+      confirmText: row.is_active ? 'Deactivate' : 'Activate',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          setConfirmData(prev => ({ ...prev, isLoading: true }))
+          const res = await apiClient.patch(`/api/qap/toggle-status/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshTrigger(prev => prev + 1)
+          }
+        } catch (error) {
+          toast.error(error.message || "Failed to toggle status")
+        } finally {
+          setConfirmData(prev => ({ ...prev, isOpen: false, isLoading: false }))
+        }
+      }
+    })
+  }
+
+  const handleArchive = async (row) => {
+    setConfirmData({
+      isOpen: true,
+      title: 'Archive QAP Record',
+      description: `Are you sure you want to archive QAP for report ${row.report_no}? This action is irreversible.`,
+      confirmText: 'Archive',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          setConfirmData(prev => ({ ...prev, isLoading: true }))
+          const res = await apiClient.delete(`/api/qap/archive/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshTrigger(prev => prev + 1)
+          }
+        } catch (error) {
+          toast.error(error.message || "Failed to archive record")
+        } finally {
+          setConfirmData(prev => ({ ...prev, isOpen: false, isLoading: false }))
+        }
+      }
+    })
+  }
+
+  const activeIsActiveOptions = [
+    { label: "Active", value: "true" },
+    { label: "Inactive", value: "false" }
+  ];
+
   const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
     {
@@ -199,6 +259,26 @@ function ListView({ onCreateClick, onEditClick }) {
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
     {
+      header: "Active",
+      accessorKey: "is_active",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeIsActiveOptions,
+      cell: (row) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            onCheckedChange={() => handleToggleStatus(row)}
+            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+            disabled={!isAdmin}
+          />
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      )
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: (row) => (
@@ -207,6 +287,7 @@ function ListView({ onCreateClick, onEditClick }) {
             variant="outline"
             size="sm"
             onClick={() => handleViewClick(row.id)}
+            className="cursor-pointer"
             title="View">
             <Eye className="h-4 w-4 mr-2" /> View
           </Button>
@@ -214,21 +295,33 @@ function ListView({ onCreateClick, onEditClick }) {
             variant="outline"
             size="sm"
             onClick={() => onEditClick(row.id)}
+            className="cursor-pointer"
             title="Edit">
             <Edit className="h-4 w-4 mr-2" /> Edit
           </Button>
           <Button
             variant="outline"
             size="sm"
-            className="text-blue-600 border-blue-200 hover:bg-blue-50"
+            className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
             onClick={() => handleDownloadPdf(row.id)}
             title="Download PDF">
             <Download className="h-4 w-4 mr-2" /> Download
           </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
+              onClick={() => handleArchive(row)}
+              title="Archive Record"
+            >
+              <Archive className="h-4 w-4" /> Archive
+            </Button>
+          )}
         </div>
       ),
     },
-  ], [onEditClick, activeClientOptions, activePoOptions, activeMsnOptions])
+  ], [onEditClick, activeClientOptions, activePoOptions, activeMsnOptions, isAdmin])
 
   const fetchData = useCallback(async (params) => {
     const queryParams = { ...params };
@@ -421,6 +514,16 @@ function ListView({ onCreateClick, onEditClick }) {
           )}
         </DialogContent>
       </Dialog>
+      <ConfirmDialog 
+        isOpen={confirmData.isOpen}
+        onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmData.onConfirm}
+        title={confirmData.title}
+        description={confirmData.description}
+        confirmText={confirmData.confirmText}
+        variant={confirmData.variant}
+        isLoading={confirmData.isLoading}
+      />
     </div>
   )
 }

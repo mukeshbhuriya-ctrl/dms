@@ -25,10 +25,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit, FileText, Download, Search, X, ChevronDown, ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, FileText, Download, Search, X, ChevronDown, ChevronLeft, ChevronRight, Check, Archive } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+import { useAuth } from "@/context/AuthContext"
+import { toast } from "react-toastify"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 function emptyRow(id) {
   return {
@@ -57,8 +61,14 @@ function ListView({ onCreateClick, onEditClick }) {
   const [isViewLoading, setIsViewLoading] = useState(false)
   const [error, setError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
-  const [columnFilters, setColumnFilters] = useState({})
+  const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] })
   const [activeFilters, setActiveFilters] = useState({ records: [] });
+
+  const { roles } = useAuth();
+  const isAdmin = roles?.includes("ADMIN");
+
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -175,6 +185,59 @@ function ListView({ onCreateClick, onEditClick }) {
       }
     }
 
+    const handleToggleStatus = async (row) => {
+        setConfirmData({
+            title: `${row.is_active ? 'Deactivate' : 'Activate'} Hydro Report`,
+            description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} report ${row.report_no}?`,
+            confirmText: row.is_active ? 'Deactivate' : 'Activate',
+            variant: 'warning',
+            onConfirm: async () => {
+                try {
+                    const res = await apiClient.patch(`/api/hydro-test/toggle-status/${row.id}`)
+                    if (res.success) {
+                        toast.success(res.message)
+                        setRefreshKey(prev => prev + 1)
+                    } else {
+                        toast.error(res.message || "Failed to toggle status")
+                    }
+                } catch (err) {
+                    console.error(err)
+                    toast.error("Failed to toggle status")
+                }
+            }
+        })
+        setConfirmDialogOpen(true)
+    }
+
+    const handleDelete = async (row) => {
+        setConfirmData({
+            title: 'Archive Hydro Report',
+            description: `Are you sure you want to archive report ${row.report_no}? This action is irreversible.`,
+            confirmText: 'Archive',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const res = await apiClient.delete(`/api/hydro-test/archive/${row.id}`)
+                    if (res.success) {
+                        toast.success(res.message)
+                        setRefreshKey(prev => prev + 1)
+                    } else {
+                        toast.error(res.message || "Failed to archive report")
+                    }
+                } catch (err) {
+                    console.error(err)
+                    toast.error("Failed to archive report")
+                }
+            }
+        })
+        setConfirmDialogOpen(true)
+    }
+
+    const activeIsActiveOptions = useMemo(() => [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+    ], []);
+
     const columns = [
       { header: "Report No.", accessorKey: "report_no" },
       { 
@@ -201,9 +264,28 @@ function ListView({ onCreateClick, onEditClick }) {
       { header: "Project ID", accessorKey: "project_id" },
       { header: "Equipment", accessorKey: "equipment_name" },
       {
-        header: "Created",
         accessorKey: "createdAt",
         cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+      },
+      {
+        header: "Active",
+        accessorKey: "is_active",
+        filterType: "select",
+        isMulti: true,
+        filterOptions: activeIsActiveOptions,
+        cell: (row) => (
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                <Switch
+                    checked={row.is_active}
+                    onCheckedChange={() => handleToggleStatus(row)}
+                    className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+                    disabled={!isAdmin}
+                />
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+                    {row.is_active ? "Active" : "Inactive"}
+                </span>
+            </div>
+        )
       },
       {
         id: "actions",
@@ -214,6 +296,7 @@ function ListView({ onCreateClick, onEditClick }) {
               variant="outline"
               size="sm"
               onClick={() => handleViewClick(row.id)}
+              className="cursor-pointer"
               title="View">
               <Eye className="h-4 w-4" /> View
             </Button>
@@ -221,17 +304,29 @@ function ListView({ onCreateClick, onEditClick }) {
               variant="outline"
               size="sm"
               onClick={() => onEditClick(row.id)}
+              className="cursor-pointer"
               title="Edit">
               <Edit className="h-4 w-4" /> Edit
             </Button>
             <Button
               variant="outline"
               size="sm"
-              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
               onClick={() => handleDownload(row.id)}
               title="Download">
               <Download className="h-4 w-4" /> Download
             </Button>
+            {isAdmin && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
+                    onClick={() => handleDelete(row)}
+                    title="Archive"
+                >
+                    <Archive className="h-4 w-4" /> Archive
+                </Button>
+            )}
           </div>
         ),
       },
@@ -280,6 +375,17 @@ function ListView({ onCreateClick, onEditClick }) {
         refreshKey={refreshKey}
         onAdd={onCreateClick}
         onAddTooltip="Add New"
+        globalSearchPlaceholder="Search report no, client, po, job no..."
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        title={confirmData.title}
+        description={confirmData.description}
+        onConfirm={confirmData.onConfirm}
+        confirmText={confirmData.confirmText}
+        variant={confirmData.variant}
       />
 
       {/* View Details Modal */}

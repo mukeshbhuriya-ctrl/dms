@@ -20,13 +20,18 @@ import {
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
-import { Upload, Plus, ArrowLeft, FileText, Edit, X, Eye, History } from "lucide-react"
+import { Upload, Plus, ArrowLeft, FileText, Edit, X, Eye, History, Archive } from "lucide-react"
 import { poApi } from "@/api/po.api"
 import { exportApi } from "@/api/export.api"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { Trash2 } from "lucide-react"
+import { useCheckAdmin } from "@/hooks/useCheckAdmin"
 
 function CreatePO() {
+  const isAdmin = useCheckAdmin()
   const [view, setView] = useState("list") // 'list', 'create', or 'attachments'
   const [selectedHistoryPo, setSelectedHistoryPo] = useState(null)
 
@@ -57,8 +62,17 @@ function CreatePO() {
   const [editingId, setEditingId] = useState(null)
   const [editingPo, setEditingPo] = useState(null)
 
-  const [columnFilters, setColumnFilters] = useState({})
+  const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  // Delete/Toggle States
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [poToDelete, setPoToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const [toggleDialogOpen, setToggleDialogOpen] = useState(false)
+  const [poToToggle, setPoToToggle] = useState(null)
+  const [isToggling, setIsToggling] = useState(false)
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -157,8 +171,55 @@ function CreatePO() {
     setEditingPo(po)
     setView("create")
     setError("")
+    setError("")
     setSuccess("")
   }, [])
+
+  const handleDelete = useCallback((po) => {
+    setPoToDelete(po)
+    setDeleteDialogOpen(true)
+  }, [])
+
+  const confirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await apiClient.delete(`/api/dcc/delete-po/${poToDelete.id}`)
+      if (res.success) {
+        setSuccess("PO deleted successfully")
+        setRefreshKey(prev => prev + 1)
+        setDeleteDialogOpen(false)
+      } else {
+        setError(res.message || "Failed to delete PO")
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleToggleStatus = (po) => {
+    setPoToToggle(po)
+    setToggleDialogOpen(true)
+  }
+
+  const confirmToggleStatus = async () => {
+    setIsToggling(true)
+    try {
+      const res = await apiClient.patch(`/api/dcc/pos/toggle-status/${poToToggle.id}`)
+      if (res.success) {
+        setSuccess(`PO ${res.data.is_active ? "activated" : "deactivated"} successfully`)
+        setRefreshKey(prev => prev + 1)
+        setToggleDialogOpen(false)
+      } else {
+        setError(res.message || "Failed to toggle status")
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong")
+    } finally {
+      setIsToggling(false)
+    }
+  }
 
   const columns = useMemo(() => [
     {
@@ -238,6 +299,29 @@ function CreatePO() {
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
     {
+      accessorKey: "is_active",
+      header: "Status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+      ],
+      cell: (row) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            disabled={!isAdmin}
+            onCheckedChange={() => handleToggleStatus(row)}
+            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+          />
+          <span className={`text-xs font-medium ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      ),
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: (row) => (
@@ -245,22 +329,35 @@ function CreatePO() {
           <Button
             variant="outline"
             size="sm"
+            title="Edit"
             onClick={() => handleEdit(row)}
           >
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
+            <Edit className="h-4 w-4" />
           </Button>
           <Button
             variant="outline"
             size="sm"
+            className="cursor-pointer"
+            title="Attachments"
             onClick={() => {
               setSelectedHistoryPo(row);
               setView("attachments");
             }}
           >
-            <History className="h-4 w-4 mr-1" />
-            History
+            <History className="h-4 w-4" />
           </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive cursor-pointer hover:text-destructive"
+              title="Archive"
+              onClick={() => handleDelete(row)}
+            >
+              <Archive className="h-4 w-4 mr-2" />
+              Archive
+            </Button>
+          )}
         </div>
       ),
     },
@@ -527,7 +624,7 @@ function CreatePO() {
                           setIsPreviewOpen(true);
                         }}
                       >
-                        <FileText className="h-4 w-4 mr-2" />
+                        <FileText className="h-4 w-4" />
                         Preview
                       </Button>
                     );
@@ -555,8 +652,8 @@ function CreatePO() {
               searchPlaceholder="Search..."
             />
           ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-6">
+            <form onSubmit={handleSubmit} className="w-full">
+              <div className="grid gap-6 w-full">
                 {/* Form Content */}
                 <Card>
                   <CardHeader>
@@ -812,6 +909,28 @@ function CreatePO() {
           )}
         </div>
       </main>
+
+      <ConfirmDialog
+        isOpen={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={confirmDelete}
+        title="Archive"
+        description={<span>Are you sure you want to archive <strong>{poToDelete?.po_number}</strong>? This action will remove it from the active list.</span>}
+        confirmText="Archive"
+        variant="danger"
+        isLoading={isDeleting}
+      />
+
+      <ConfirmDialog
+        isOpen={toggleDialogOpen}
+        onClose={() => setToggleDialogOpen(false)}
+        onConfirm={confirmToggleStatus}
+        title={poToToggle?.is_active ? "Deactivate PO" : "Activate PO"}
+        description={<span>Are you sure you want to {poToToggle?.is_active ? "deactivate" : "activate"} PO <strong>{poToToggle?.po_number}</strong>?</span>}
+        confirmText={poToToggle?.is_active ? "Deactivate" : "Activate"}
+        variant={poToToggle?.is_active ? "warning" : "success"}
+        isLoading={isToggling}
+      />
 
       <DocumentPreviewDialog
         isOpen={isPreviewOpen}

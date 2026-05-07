@@ -11,6 +11,14 @@ router.get('/list', qapController.list);
 router.get('/get-filters', qapController.getFilters);
 router.get('/next-report-no/:jobId', qapController.getNextReportNo);
 router.get('/download-pdf/:id', qapController.downloadPdf);
+router.patch('/toggle-status/:id', (req, res, next) => {
+    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
+    next();
+}, qapController.toggleStatus);
+router.delete('/archive/:id', (req, res, next) => {
+    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
+    next();
+}, qapController.archive);
 router.get('/:id', qapController.getById);
 
 module.exports = router;

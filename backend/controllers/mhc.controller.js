@@ -135,6 +135,32 @@ class MhcController {
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
         }
     }
+
+    async toggleStatus(req, res) {
+        try {
+            const result = await MhcService.toggleStatus(req.user.company_id, req.params.id);
+            res.status(200).json({ 
+                success: true, 
+                message: `Material Heat Chart ${result.is_active ? 'activated' : 'deactivated'} successfully`,
+                data: result 
+            });
+        } catch (error) {
+            console.error('MHC toggleStatus error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async archive(req, res) {
+        try {
+            await MhcService.archive(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: 'Material Heat Chart archived successfully' });
+        } catch (error) {
+            console.error('MHC archive error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new MhcController();

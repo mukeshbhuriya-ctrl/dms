@@ -5,7 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, ArrowLeft, Pencil, Trash2 } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { ChevronDownIcon } from "lucide-react"
 import {
@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 
 function CreateUser() {
@@ -303,8 +304,8 @@ function CreateUser() {
       header: "Actions",
       cell: (row) => (
         <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" onClick={() => handleEdit(row)} title="Edit">
-            <Pencil className="h-3.5 w-3.5" />
+          <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => handleEdit(row)} title="Edit">
+            <Edit className="h-4 w-4" />
           </Button>
           <Switch 
             checked={row.is_active} 
@@ -314,11 +315,12 @@ function CreateUser() {
           <Button
             variant="outline"
             size="sm"
-            className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
+            className="text-destructive cursor-pointer hover:text-destructive hover:bg-destructive/10 border-destructive/20"
             onClick={() => handleDeleteClick(row)}
-            title="Delete"
+            title="Archive"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+           <Archive className="h-4 w-4" />
+              Archive
           </Button>
         </div>
       ),
@@ -584,49 +586,27 @@ function CreateUser() {
             </div>
           )}
 
-          {/* ── Soft Delete Confirm Dialog ─────────────────── */}
-          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete User</DialogTitle>
-                <DialogDescription>
-                  Are you sure you want to delete <strong>{userToDelete?.name}</strong>?
-                  The user will be deactivated and hidden from all lists. This action can be reviewed by an administrator.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={isDeleting}>Cancel</Button>
-                <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <ConfirmDialog 
+            isOpen={deleteDialogOpen}
+            onClose={() => setDeleteDialogOpen(false)}
+            onConfirm={confirmDelete}
+            title="Archive User"
+            description={<span>Are you sure you want to archive <strong>{userToDelete?.name}</strong>?</span>}
+            confirmText="Archive"
+            variant="danger"
+            isLoading={isDeleting}
+          />
 
-          {/* ── Toggle Status Confirm Dialog ───────────────── */}
-          <Dialog open={toggleDialogOpen} onOpenChange={setToggleDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{userToToggle?.is_active ? "Deactivate User" : "Activate User"}</DialogTitle>
-                <DialogDescription>
-                  {userToToggle?.is_active
-                    ? <>Are you sure you want to <strong>deactivate</strong> <strong>{userToToggle?.name}</strong>? They will not be able to log in.</>
-                    : <>Are you sure you want to <strong>activate</strong> <strong>{userToToggle?.name}</strong>? They will regain access to the system.</>
-                  }
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setToggleDialogOpen(false)} disabled={isToggling}>Cancel</Button>
-                <Button
-                  variant={userToToggle?.is_active ? "destructive" : "default"}
-                  onClick={confirmToggle}
-                  disabled={isToggling}
-                >
-                  {isToggling ? "Saving..." : (userToToggle?.is_active ? "Deactivate" : "Activate")}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <ConfirmDialog 
+            isOpen={toggleDialogOpen}
+            onClose={() => setToggleDialogOpen(false)}
+            onConfirm={confirmToggle}
+            title={userToToggle?.is_active ? "Deactivate User" : "Activate User"}
+            description={<span>Confirm {userToToggle?.is_active ? "deactivation" : "activation"} for <strong>{userToToggle?.name}</strong>.</span>}
+            confirmText={userToToggle?.is_active ? "Deactivate" : "Activate"}
+            variant="warning"
+            isLoading={isToggling}
+          />
 
         </div>
       </main>

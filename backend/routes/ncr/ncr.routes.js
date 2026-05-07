@@ -23,4 +23,8 @@ router.put('/:id/stage3/review', (req, res) => NcrController.submitReview(req, r
 router.put('/:id/stage4', (req, res) => NcrController.updateStage4(req, res));
 router.put('/:id/stage5', (req, res) => NcrController.updateStage5(req, res));
 
+// Admin only actions
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), (req, res) => NcrController.toggleStatus(req, res));
+router.delete('/:id', authenticateUser(['ADMIN']), (req, res) => NcrController.archive(req, res));
+
 module.exports = router;

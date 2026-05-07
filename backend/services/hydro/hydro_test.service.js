@@ -17,7 +17,10 @@ class HydroTestService {
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
 
-        const where = { company_id };
+        const where = { 
+            company_id: company_id,
+            is_deleted: false
+        };
 
         if (search) {
             where.OR = [
@@ -40,6 +43,13 @@ class HydroTestService {
                 handleMultiFilter('client', filters.client);
                 handleMultiFilter('po_no', filters.poNo || filters.po_no);
                 handleMultiFilter('msn', filters.msn || filters.msnNumber);
+
+                if (filters.is_active) {
+                    const activeStatus = Array.isArray(filters.is_active) ? filters.is_active : filters.is_active.split(',').map(v => v.trim());
+                    if (activeStatus.length === 1) {
+                        where.is_active = activeStatus[0] === 'true';
+                    }
+                }
             } catch (e) {
                 console.error("Error parsing columnFilters:", e);
             }
@@ -332,7 +342,10 @@ class HydroTestService {
      */
     async getActiveFilters(company_id) {
         const records = await prisma.hydrostatic_test_report.findMany({
-            where: { company_id },
+            where: { 
+                company_id: company_id,
+                is_deleted: false
+            },
             select: {
                 client: true,
                 po_no: true,
@@ -348,6 +361,29 @@ class HydroTestService {
         }));
 
         return { records: mapped };
+    }
+
+    async toggleStatus(company_id, id) {
+        const report = await prisma.hydrostatic_test_report.findFirst({
+            where: { id, company_id },
+            select: { is_active: true }
+        });
+        if (!report) throw new Error('Hydrostatic Test Report not found');
+
+        return await prisma.hydrostatic_test_report.update({
+            where: { id },
+            data: { is_active: !report.is_active }
+        });
+    }
+
+    async archive(company_id, id) {
+        const report = await prisma.hydrostatic_test_report.findFirst({ where: { id, company_id } });
+        if (!report) throw new Error('Hydrostatic Test Report not found');
+
+        return await prisma.hydrostatic_test_report.update({
+            where: { id },
+            data: { is_deleted: true }
+        });
     }
 }
 

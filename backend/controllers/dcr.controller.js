@@ -302,7 +302,10 @@ class DcrController {
             const limit = Math.min(toPositiveInt(req.query.limit, 50), 200);
             const search = req.query.search || '';
 
-            const where = { company_id };
+            const where = { 
+                company_id,
+                is_deleted: false
+            };
 
             if (search) {
                 where.OR = [
@@ -332,6 +335,12 @@ class DcrController {
                         const msns = Array.isArray(filters.msn) ? filters.msn : filters.msn.split(',').map(v => v.trim());
                         if (msns.length > 0) {
                             where.job = { ...where.job, job_number: { in: msns } };
+                        }
+                    }
+                    if (filters.is_active) {
+                        const activeStatus = Array.isArray(filters.is_active) ? filters.is_active : filters.is_active.split(',').map(v => v.trim());
+                        if (activeStatus.length === 1) {
+                            where.is_active = activeStatus[0] === 'true';
                         }
                     }
                 } catch (e) {
@@ -643,8 +652,12 @@ class DcrController {
             const company_id = req.user.company_id;
 
             const records = await prisma.dcr.findMany({
-                where: { company_id },
+                where: { 
+                    company_id,
+                    is_deleted: false
+                },
                 select: {
+                    is_active: true,
                     job: {
                         select: {
                             job_number: true,
@@ -653,7 +666,7 @@ class DcrController {
                         }
                     }
                 },
-                distinct: ['job_id']
+                distinct: ['job_id', 'is_active']
             });
 
             return res.status(200).json({
@@ -662,7 +675,8 @@ class DcrController {
                     records: records.map(r => ({
                         client: r.job?.customer?.customer_name,
                         po: r.job?.po?.po_number,
-                        msn: r.job?.job_number
+                        msn: r.job?.job_number,
+                        is_active: r.is_active
                     }))
                 }
             });
@@ -671,6 +685,64 @@ class DcrController {
             return res.status(500).json({
                 success: false,
                 message: 'Internal server error',
+            });
+        }
+    }
+
+    async deleteDcr(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const { id } = req.params;
+
+            await prisma.dcr.update({
+                where: { id, company_id },
+                data: { is_deleted: true }
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'DCR deleted successfully'
+            });
+        } catch (error) {
+            console.error('Delete DCR error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error'
+            });
+        }
+    }
+
+    async toggleDcrStatus(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const { id } = req.params;
+
+            const dcr = await prisma.dcr.findUnique({
+                where: { id, company_id },
+                select: { is_active: true }
+            });
+
+            if (!dcr) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'DCR not found'
+                });
+            }
+
+            await prisma.dcr.update({
+                where: { id, company_id },
+                data: { is_active: !dcr.is_active }
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: `DCR ${!dcr.is_active ? 'activated' : 'deactivated'} successfully`
+            });
+        } catch (error) {
+            console.error('Toggle DCR status error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error'
             });
         }
     }

@@ -353,10 +353,13 @@ class DtnService {
      * List Transmittals
      */
     async listTransmittals(companyId, params = {}) {
-        const { search = "", page = 1, limit = 50 } = params;
+        const { search = "", page = 1, limit = 50, sortBy = 'createdAt', sortOrder = 'desc' } = params;
         const columnFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : (params.columnFilters || {});
 
-        const where = { company_id: companyId };
+        const where = { 
+            company_id: companyId,
+            is_deleted: false
+        };
 
         if (search) {
             where.OR = [
@@ -384,6 +387,15 @@ class DtnService {
             where.status = { in: Array.isArray(columnFilters.status) ? columnFilters.status : [columnFilters.status] };
         }
 
+        // is_active column filter
+        if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+            const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+            const wantsActive = vals.includes('true');
+            const wantsInactive = vals.includes('false');
+            if (wantsActive && !wantsInactive) where.is_active = true;
+            if (wantsInactive && !wantsActive) where.is_active = false;
+        }
+
         const skip = (page - 1) * limit;
 
         const [total, dtns] = await prisma.$transaction([
@@ -392,7 +404,7 @@ class DtnService {
                 where,
                 skip,
                 take: limit,
-                orderBy: { createdAt: 'desc' },
+                orderBy: { [sortBy]: sortOrder },
                 include: {
                     jobs: { include: { job: { select: { job_number: true } } } }
                 }
@@ -404,7 +416,7 @@ class DtnService {
 
     async getDtnFilters(companyId) {
         const transmittals = await prisma.drawing_transmittal.findMany({
-            where: { company_id: companyId },
+            where: { company_id: companyId, is_deleted: false },
             include: {
                 jobs: { include: { job: { select: { job_number: true } } } }
             }
@@ -710,6 +722,24 @@ class DtnService {
             }
 
             return formatted;
+        });
+    }
+
+    async deleteTransmittal(companyId, id) {
+        return await prisma.drawing_transmittal.update({
+            where: { id, company_id: companyId },
+            data: { is_deleted: true, is_active: false }
+        });
+    }
+
+    async toggleTransmittalStatus(companyId, id) {
+        const existing = await prisma.drawing_transmittal.findFirst({
+            where: { id, company_id: companyId }
+        });
+        if (!existing) throw new Error('Transmittal not found');
+        return await prisma.drawing_transmittal.update({
+            where: { id },
+            data: { is_active: !existing.is_active }
         });
     }
 }

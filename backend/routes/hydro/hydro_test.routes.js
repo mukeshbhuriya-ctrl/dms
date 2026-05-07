@@ -13,5 +13,7 @@ router.put('/update/:id', HydroTestController.update);
 router.get('/next-report-no/:job_id', HydroTestController.getNextReportNo);
 router.get('/:id', HydroTestController.getById);
 router.get('/:id/download', HydroTestController.downloadPdf);
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), HydroTestController.toggleStatus);
+router.delete('/archive/:id', authenticateUser(['ADMIN']), HydroTestController.archive);
 
 module.exports = router;

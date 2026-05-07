@@ -42,6 +42,9 @@ import * as XLSX from "xlsx";
 
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { Archive } from "lucide-react"
 
 function emptyRow(id) {
   return {
@@ -84,7 +87,58 @@ function ListView({ onCreateClick, onEditClick }) {
   
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
-  const [columnFilters, setColumnFilters] = useState({});
+  const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });
+
+  const handleToggleStatus = async (row) => {
+    setConfirmData({
+        title: `${row.is_active ? 'Deactivate' : 'Activate'} Material Heat Chart`,
+        description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} MHC ${row.report_no}?`,
+        confirmText: row.is_active ? 'Deactivate' : 'Activate',
+        variant: 'warning',
+        onConfirm: async () => {
+            try {
+                const res = await apiClient.patch(`/api/mhc/toggle-status/${row.id}`)
+                if (res.success) {
+                    toast.success(res.message)
+                    setRefreshTrigger(prev => prev + 1)
+                } else {
+                    toast.error(res.message || "Failed to toggle status")
+                }
+            } catch (err) {
+                console.error(err)
+                toast.error("Failed to toggle status")
+            }
+        }
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const handleDelete = async (row) => {
+    setConfirmData({
+        title: 'Archive Material Heat Chart',
+        description: `Are you sure you want to archive MHC ${row.report_no}?`,
+        confirmText: 'Archive',
+        variant: 'danger',
+        onConfirm: async () => {
+            try {
+                const res = await apiClient.delete(`/api/mhc/${row.id}`)
+                if (res.success) {
+                    toast.success(res.message)
+                    setRefreshTrigger(prev => prev + 1)
+                } else {
+                    toast.error(res.message || "Failed to archive MHC")
+                }
+            } catch (err) {
+                console.error(err)
+                toast.error("Failed to archive MHC")
+            }
+        }
+    })
+    setConfirmDialogOpen(true)
+  }
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -433,6 +487,13 @@ function ListView({ onCreateClick, onEditClick }) {
     return statuses.map(s => ({ label: s, value: s }));
   }, [activeFilters.records]);
 
+  const activeIsActiveOptions = useMemo(() => {
+    return [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+    ];
+  }, []);
+
   // Auto-selection logic for reverse cascading
   useEffect(() => {
     if (!activeFilters.records || activeFilters.records.length === 0) return;
@@ -489,12 +550,27 @@ function ListView({ onCreateClick, onEditClick }) {
       cell: (row) => formatDateTimeSQL(row.createdAt),
     },
     {
-      header: "Status",
-      accessorKey: "status",
-      cell: (row) => getStatusBadge(row.status),
+      filterOptions: activeStatusOptions
+    },
+    {
+      header: "Active",
+      accessorKey: "is_active",
       filterType: "select",
       isMulti: true,
-      filterOptions: activeStatusOptions
+      filterOptions: activeIsActiveOptions,
+      cell: (row) => (
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Switch
+                  checked={row.is_active}
+                  onCheckedChange={() => handleToggleStatus(row)}
+                  className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+                  disabled={!isAdmin}
+              />
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+                  {row.is_active ? "Active" : "Inactive"}
+              </span>
+          </div>
+      )
     },
     {
       id: "actions",
@@ -507,6 +583,7 @@ function ListView({ onCreateClick, onEditClick }) {
           <div className="flex gap-2">
             <Button
               variant="outline"
+              className="cursor-pointer"
               size="sm"
               onClick={() => handleViewClick(row.id)}
               title="View">
@@ -516,6 +593,7 @@ function ListView({ onCreateClick, onEditClick }) {
                <Button
                variant="outline"
                size="sm"
+               className="cursor-pointer"
                onClick={() => onEditClick(row.id)}
                title="Edit">
                <Edit className="h-4 w-4 mr-2" /> Edit
@@ -526,7 +604,7 @@ function ListView({ onCreateClick, onEditClick }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200"
+                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200 cursor-pointer"
                   onClick={() => handleReviewClick(row, "Approved")}
                   title="Approve">
                   <CheckCircle className="h-4 w-4 mr-2" /> Approve
@@ -534,12 +612,23 @@ function ListView({ onCreateClick, onEditClick }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200"
+                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200 cursor-pointer"
                   onClick={() => handleReviewClick(row, "Rejected")}
                   title="Reject">
                   <XCircle className="h-4 w-4 mr-2" /> Reject
                 </Button>
               </>
+            )}
+            {isAdmin && (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(row)}
+                    title="Archive MHC"
+                    className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
+                >
+                    <Archive className="h-4 w-4" /> Archive
+                </Button>
             )}
           </div>
         )
@@ -590,6 +679,16 @@ function ListView({ onCreateClick, onEditClick }) {
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshTrigger}
         globalSearchPlaceholder="Search report no, msn, client..."
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        title={confirmData.title}
+        description={confirmData.description}
+        onConfirm={confirmData.onConfirm}
+        confirmText={confirmData.confirmText}
+        variant={confirmData.variant}
       />
 
       {/* Bulk Import Review Dialog */}

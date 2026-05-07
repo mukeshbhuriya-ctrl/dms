@@ -17,7 +17,10 @@ class NcrService {
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
 
-        const where = { company_id };
+        const where = { 
+            company_id,
+            is_deleted: false 
+        };
 
         if (search) {
             where.OR = [
@@ -40,6 +43,13 @@ class NcrService {
                 handleMultiFilter('client', filters.client);
                 handleMultiFilter('po_no', filters.po_no);
                 handleMultiFilter('msn', filters.msn);
+                
+                if (filters.is_active) {
+                    const activeStatus = Array.isArray(filters.is_active) ? filters.is_active : filters.is_active.split(',').map(v => v.trim());
+                    if (activeStatus.length === 1) {
+                        where.is_active = activeStatus[0] === 'true';
+                    }
+                }
             } catch (e) {
                 console.error("Error parsing columnFilters:", e);
             }
@@ -593,26 +603,54 @@ class NcrService {
     }
 
     /**
-     * Get active filters metadata (Client, PO, MSN)
+     * Get active filters metadata (Client, PO, MSN, Status)
      */
     async getActiveFilters(company_id) {
         const records = await prisma.ncr.findMany({
-            where: { company_id },
+            where: { 
+                company_id,
+                is_deleted: false
+            },
             select: {
                 client: true,
                 po_no: true,
-                msn: true
+                msn: true,
+                is_active: true
             },
-            distinct: ['client', 'po_no', 'msn']
+            distinct: ['client', 'po_no', 'msn', 'is_active']
         });
 
         return {
             records: records.map(r => ({
                 client: r.client,
                 po: r.po_no,
-                msn: r.msn
+                msn: r.msn,
+                is_active: r.is_active
             }))
         };
+    }
+
+    async toggleStatus(company_id, id) {
+        const ncr = await prisma.ncr.findFirst({
+            where: { id, company_id },
+            select: { is_active: true }
+        });
+        if (!ncr) throw new Error('NCR not found');
+
+        return await prisma.ncr.update({
+            where: { id },
+            data: { is_active: !ncr.is_active }
+        });
+    }
+
+    async archive(company_id, id) {
+        const ncr = await prisma.ncr.findFirst({ where: { id, company_id } });
+        if (!ncr) throw new Error('NCR not found');
+
+        return await prisma.ncr.update({
+            where: { id },
+            data: { is_deleted: true }
+        });
     }
 }
 

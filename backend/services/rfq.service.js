@@ -18,12 +18,36 @@ class RfqService {
 
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
+        const { 
+            quotation_no_filter, 
+            is_active_filter,
+            client_name_filter,
+            rfq_type_filter,
+            shreno_status_filter,
+            client_status_filter,
+            estimator_filter,
+            mediator_filter
+        } = params;
 
-        const where = { company_id };
-
-        const { quotation_no_filter } = params;
+        const where = { 
+            company_id,
+            is_deleted: false
+        };
 
         if (quotation_no_filter) where.quotation_no = this._processFilter(quotation_no_filter);
+        if (client_name_filter) where.client_name = this._processFilter(client_name_filter);
+        if (rfq_type_filter) where.rfq_type = this._processFilter(rfq_type_filter);
+        if (shreno_status_filter) where.shreno_status = this._processFilter(shreno_status_filter);
+        if (client_status_filter) where.client_status = this._processFilter(client_status_filter);
+        if (estimator_filter) where.estimator = this._processFilter(estimator_filter);
+        if (mediator_filter) where.mediator = this._processFilter(mediator_filter);
+
+        if (is_active_filter) {
+            const activeStatus = Array.isArray(is_active_filter) ? is_active_filter : is_active_filter.split(',').map(v => v.trim());
+            if (activeStatus.length === 1) {
+                where.is_active = activeStatus[0] === 'true';
+            }
+        }
 
         if (search) {
             where.OR = [
@@ -861,6 +885,32 @@ class RfqService {
             return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
         }
         return { contains: val, mode: 'insensitive' };
+    }
+
+    async toggleStatus(company_id, id) {
+        const rfq = await prisma.rfq_register.findFirst({
+            where: { id, company_id },
+            select: { is_active: true }
+        });
+        if (!rfq) throw new Error('RFQ record not found');
+
+        return await prisma.rfq_register.update({
+            where: { id },
+            data: { is_active: !rfq.is_active }
+        });
+    }
+
+    async archive(company_id, id) {
+        const rfq = await prisma.rfq_register.findFirst({
+            where: { id, company_id }
+        });
+        if (!rfq) throw new Error('RFQ record not found');
+
+        // Soft delete
+        return await prisma.rfq_register.update({
+            where: { id },
+            data: { is_deleted: true }
+        });
     }
 }
 

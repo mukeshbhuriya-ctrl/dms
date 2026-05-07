@@ -90,6 +90,34 @@ class QapController {
             res.status(500).json({ success: false, message: 'Failed to fetch filters.' });
         }
     }
+
+    async toggleStatus(req, res) {
+        try {
+            const result = await QapService.toggleStatus(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Status toggled successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('QapController.toggleStatus error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async archive(req, res) {
+        try {
+            const result = await QapService.archive(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Quality Assurance Plan archived successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('QapController.archive error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new QapController();

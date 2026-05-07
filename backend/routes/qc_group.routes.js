@@ -12,5 +12,6 @@ router.get('/my-groups', authenticateUserOnly, qcGroupController.getUserGroups);
 router.post('/', authenticateUser('ADMIN', { requireAll: false }), qcGroupController.createQcGroup);
 router.put('/:id', authenticateUser('ADMIN', { requireAll: false }), qcGroupController.updateQcGroup);
 router.delete('/:id', authenticateUser('ADMIN', { requireAll: false }), qcGroupController.deleteQcGroup);
+router.patch('/toggle-status/:id', authenticateUser('ADMIN', { requireAll: false }), qcGroupController.toggleQcGroupStatus);
 
 module.exports = router;

@@ -11,17 +11,23 @@ class DepartmentController {
                 return res.status(400).json({ success: false, message: "Department name is required" });
             }
 
-            // Check if department already exists for this company
-            const existing = await prisma.department.findUnique({
+            // Check if department already exists for this company (including soft deleted ones)
+            const existing = await prisma.department.findFirst({
                 where: {
-                    company_id_name: {
-                        company_id,
-                        name: name.trim()
-                    }
+                    company_id,
+                    name: name.trim()
                 }
             });
 
             if (existing) {
+                if (existing.is_deleted) {
+                    // Reactive and update
+                    const updated = await prisma.department.update({
+                        where: { id: existing.id },
+                        data: { is_deleted: false, is_active: true }
+                    });
+                    return res.status(200).json({ success: true, data: updated, message: "Department restored successfully" });
+                }
                 return res.status(409).json({ success: false, message: "Department already exists" });
             }
 
@@ -58,7 +64,10 @@ class DepartmentController {
             const skip = (parseInt(page) - 1) * parseInt(limit);
             const take = parseInt(limit);
 
-            const where = { company_id };
+            const where = { 
+                company_id,
+                is_deleted: false 
+            };
             if (search) {
                 where.name = { contains: search, mode: 'insensitive' };
             }
@@ -66,6 +75,15 @@ class DepartmentController {
             // Column Filters
             if (columnFilters.name && columnFilters.name !== 'all') {
                 where.name = { in: Array.isArray(columnFilters.name) ? columnFilters.name : [columnFilters.name] };
+            }
+
+            // is_active column filter
+            if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+                const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+                const wantsActive   = vals.includes('true');
+                const wantsInactive = vals.includes('false');
+                if (wantsActive && !wantsInactive)   where.is_active = true;
+                if (wantsInactive && !wantsActive)   where.is_active = false;
             }
 
             const [total, departments] = await prisma.$transaction([
@@ -99,7 +117,7 @@ class DepartmentController {
         try {
             const company_id = req.user.company_id;
             const departments = await prisma.department.findMany({
-                where: { company_id },
+                where: { company_id, is_deleted: false },
                 select: { name: true }
             });
 
@@ -136,7 +154,7 @@ class DepartmentController {
 
             const department = await prisma.department.update({
                 where: { id },
-                data: { name: name.trim() }
+                data: { name: name.trim(), is_deleted: false } // ensure not deleted if updating
             });
 
             res.status(200).json({ success: true, data: department, message: "Department updated successfully" });
@@ -151,13 +169,14 @@ class DepartmentController {
         }
     }
 
-    // Delete Department
+    // Soft Delete Department
     async deleteDepartment(req, res) {
         try {
             const { id } = req.params;
 
-            await prisma.department.delete({
-                where: { id }
+            await prisma.department.update({
+                where: { id },
+                data: { is_deleted: true, is_active: false }
             });
 
             res.status(200).json({ success: true, message: "Department deleted successfully" });
@@ -167,10 +186,33 @@ class DepartmentController {
                 return res.status(404).json({ success: false, message: "Department not found" });
             }
             console.error("Delete department error:", error);
+            res.status(500).json({ success: false, message: "Internal server error" });
+        }
+    }
 
-            // Handle foreign key constraints if users are assigned to department?
-            // Currently User -> Department is just a string, no FK. So safe to delete.
+    // Toggle Department Status
+    async toggleDepartmentStatus(req, res) {
+        try {
+            const { id } = req.params;
+            const existing = await prisma.department.findUnique({ where: { id } });
 
+            if (!existing) {
+                return res.status(404).json({ success: false, message: "Department not found" });
+            }
+
+            const updated = await prisma.department.update({
+                where: { id },
+                data: { is_active: !existing.is_active }
+            });
+
+            res.status(200).json({ 
+                success: true, 
+                data: updated,
+                message: `Department ${updated.is_active ? 'activated' : 'deactivated'} successfully` 
+            });
+
+        } catch (error) {
+            console.error("Toggle department status error:", error);
             res.status(500).json({ success: false, message: "Internal server error" });
         }
     }

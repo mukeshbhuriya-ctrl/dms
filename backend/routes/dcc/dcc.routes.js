@@ -1,5 +1,5 @@
 const express = require('express');
-const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs, updateCustomer, updateCustomerLocation, updatePo, updateJob, updatePoCommunicationMatrix, getPoAttachments, getPoFilters } = require('#api/dcc/customer.js');
+const { createCustomer, createCustomerLocation, createPo, createJob, getCustomers, getCustomerLocations, getPos, getJobs, updateCustomer, updateCustomerLocation, updatePo, updateJob, updatePoCommunicationMatrix, getPoAttachments, getPoFilters, deleteCustomer, deleteCustomerLocation, deletePo, deleteJob } = require('#api/dcc/customer.js');
 const { getDocumentType, createDocumentType, getDocumentMaster, createDocumentMaster } = require('#api/dcc/document.js');
 const { getUsers } = require('#api/users/user.js');
 
@@ -33,16 +33,22 @@ router.get('/get-customers', DccController.getCustomers);
 router.get('/get-customer-filters', DccController.getCustomerFilters);
 router.post('/create-customer', createCustomer);
 router.put('/update-customer/:id', updateCustomer);
+router.delete('/delete-customer/:id', authenticateUser(['ADMIN']), deleteCustomer);
+router.patch('/customers/toggle-status/:id', authenticateUser(['ADMIN']), DccController.toggleCustomerStatus);
 
 router.get('/get-customer-locations', DccController.getCustomerLocations);
 router.get('/get-location-filters', DccController.getLocationFilters);
 router.post('/create-customer-location', createCustomerLocation);
 router.put('/update-customer-location/:id', updateCustomerLocation);
+router.delete('/delete-customer-location/:id', authenticateUser(['ADMIN']), deleteCustomerLocation);
+router.patch('/locations/toggle-status/:id', authenticateUser(['ADMIN']), DccController.toggleLocationStatus);
 
 router.get('/get-pos', DccController.getPos);
 router.get('/get-po-filters', DccController.getPoFilters);
 router.post('/create-po', upload.single('po_document'), createPo);
 router.put('/update-po/:id', upload.single('po_document'), updatePo);
+router.delete('/delete-po/:id', authenticateUser(['ADMIN']), deletePo);
+router.patch('/pos/toggle-status/:id', authenticateUser(['ADMIN']), DccController.togglePoStatus);
 router.put('/update-po-communication-matrix/:id', updatePoCommunicationMatrix);
 router.get('/get-po-attachments/:po_id', getPoAttachments);
 
@@ -55,6 +61,8 @@ router.get('/get-jobs', DccController.getJobs);
 router.get('/get-manage-job-filters', DccController.getManageJobFilters);
 router.post('/create-job', createJob);
 router.put('/update-job/:id', updateJob);
+router.delete('/delete-job/:id', authenticateUser(['ADMIN']), deleteJob);
+router.patch('/jobs/toggle-status/:id', authenticateUser(['ADMIN']), DccController.toggleJobStatus);
 
 router.get('/document', DccController.getDocuments);
 router.post('/create-document-master', createDocumentMaster);
@@ -87,8 +95,9 @@ router.post('/transmission/client-status', upload.array('client_files', 20), Dcc
 router.post('/transmission/document/client-status', upload.single('client_file'), DccController.updateTransmissionDocumentClientStatus);
 router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);
 
-// Activity Trail (Moved to public section)
 router.post('/document/:documentId/rollback', documentController.rollbackVersion);
 router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), DccController.updateAssignedDocument);
+router.delete('/delete-assigned-document/:id', authenticateUser(['ADMIN']), DccController.deleteAssignedDocument);
+router.patch('/assigned-documents/toggle-status/:id', authenticateUser(['ADMIN']), DccController.toggleAssignedDocumentStatus);
 
 module.exports = router;

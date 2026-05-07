@@ -36,12 +36,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircle, Download } from "lucide-react"
-import { SearchableSelect } from "@/components/shared/SearchableSelect"
-import { toast } from "react-toastify"
 import apiClient from "@/api/api.client"
 import { generateExcelTemplate, parseExcelFile } from "@/utils/excelImportEngine"
 import ImportReviewDialog from "@/components/shared/ImportReviewDialog"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircle, Download, Archive } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
+import { toast } from "react-toastify"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
 
 function WeldingJoints() {
   const [formData, setFormData] = useState({
@@ -96,7 +99,61 @@ function WeldingJoints() {
   const [isImporting, setIsImporting] = useState(false);
   const [jobMetadata, setJobMetadata] = useState({});
   const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
-  const [columnFilters, setColumnFilters] = useState({});
+  const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+
+  const { roles } = useAuth();
+  const isAdmin = roles?.includes("ADMIN");
+
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });
+
+  const handleToggleStatus = async (row) => {
+    setConfirmData({
+        title: `${row.is_active ? 'Deactivate' : 'Activate'} Weld Joint Plan`,
+        description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} Plan ${row.weld_plan_no}?`,
+        confirmText: row.is_active ? 'Deactivate' : 'Activate',
+        variant: 'warning',
+        onConfirm: async () => {
+            try {
+                const res = await apiClient.patch(`/api/wpj/toggle-plan-status/${row.id}`)
+                if (res.success) {
+                    toast.success(res.message)
+                    setRefreshKey(prev => prev + 1)
+                } else {
+                    toast.error(res.message || "Failed to toggle status")
+                }
+            } catch (err) {
+                console.error(err)
+                toast.error("Failed to toggle status")
+            }
+        }
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const handleDelete = async (row) => {
+    setConfirmData({
+        title: 'Archive Weld Joint Plan',
+        description: `Are you sure you want to archive Plan ${row.weld_plan_no}?`,
+        confirmText: 'Archive',
+        variant: 'danger',
+        onConfirm: async () => {
+            try {
+                const res = await apiClient.delete(`/api/wpj/plan/${row.id}`)
+                if (res.success) {
+                    toast.success(res.message)
+                    setRefreshKey(prev => prev + 1)
+                } else {
+                    toast.error(res.message || "Failed to archive plan")
+                }
+            } catch (err) {
+                console.error(err)
+                toast.error("Failed to archive plan")
+            }
+        }
+    })
+    setConfirmDialogOpen(true)
+  }
 
   const fetchJobMetadata = useCallback(async (data) => {
     const uniqueMsns = [...new Set(data.map(d => d.msn))];
@@ -428,6 +485,13 @@ function WeldingJoints() {
     }
   }, [])
 
+  const activeIsActiveOptions = useMemo(() => {
+    return [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+    ];
+  }, []);
+
   const columns = useMemo(() => [
     {
       accessorKey: "weld_plan_no",
@@ -464,6 +528,26 @@ function WeldingJoints() {
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
     {
+      header: "Active",
+      accessorKey: "is_active",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeIsActiveOptions,
+      cell: (row) => (
+          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Switch
+                  checked={row.is_active}
+                  onCheckedChange={() => handleToggleStatus(row)}
+                  className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+                  disabled={!isAdmin}
+              />
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+                  {row.is_active ? "Active" : "Inactive"}
+              </span>
+          </div>
+      )
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: (row) => (
@@ -471,6 +555,7 @@ function WeldingJoints() {
           <Button
             variant="outline"
             size="sm"
+            className="cursor-pointer"
             onClick={() => handleViewClick(row.id)}
             title="View">
             <Eye className="h-4 w-4" /> View
@@ -478,11 +563,22 @@ function WeldingJoints() {
           <Button
             variant="outline"
             size="sm"
-            className="text-primary hover:text-primary"
+            className="cursor-pointer"
             onClick={() => handleEditClick(row.id)}
             title="Edit">
             <Pencil className="h-4 w-4" /> Edit
           </Button>
+          {isAdmin && (
+              <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(row)}
+                  title="Archive Plan"
+                  className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
+              >
+                  <Archive className="h-4 w-4" /> Archive
+              </Button>
+          )}
         </div>
       ),
     },
@@ -507,6 +603,9 @@ function WeldingJoints() {
       params.append("page", page)
       params.append("limit", limit)
       if (search) params.append("search", search)
+      if (columnFilters && Object.keys(columnFilters).length > 0) {
+        params.append("columnFilters", JSON.stringify(columnFilters))
+      }
       if (sorting && sorting.length > 0) {
         params.append("sortBy", sorting[0].id)
         params.append("sortOrder", sorting[0].desc ? "desc" : "asc")
@@ -531,7 +630,7 @@ function WeldingJoints() {
       console.error("Error fetching plans:", error)
       return { data: [], meta: {} }
     }
-  }, [refreshKey])
+  }, [refreshKey, columnFilters])
 
 
 
@@ -835,6 +934,16 @@ function WeldingJoints() {
                     setColumnFilters(prev => ({ ...prev, ...newFilter }));
                   }}
                   refreshKey={refreshKey}
+                  globalSearchPlaceholder="Search weld plan no, job no, customer..."
+                />
+                <ConfirmDialog
+                  isOpen={confirmDialogOpen}
+                  onClose={() => setConfirmDialogOpen(false)}
+                  title={confirmData.title}
+                  description={confirmData.description}
+                  onConfirm={confirmData.onConfirm}
+                  confirmText={confirmData.confirmText}
+                  variant={confirmData.variant}
                 />
               </div>
             ) : (

@@ -104,6 +104,34 @@ class HydroTestController {
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }
+
+    async toggleStatus(req, res) {
+        try {
+            const result = await HydroTestService.toggleStatus(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Status toggled successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('Hydro test toggleStatus error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async archive(req, res) {
+        try {
+            const result = await HydroTestService.archive(req.user.company_id, req.params.id);
+            res.status(200).json({
+                success: true,
+                message: 'Report archived successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('Hydro test archive error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new HydroTestController();

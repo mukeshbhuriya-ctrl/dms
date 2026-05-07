@@ -51,6 +51,60 @@ class DccController {
             res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    async updateCustomer(req, res) {
+        try {
+            const result = await DccService.updateCustomer(req.user.company_id, req.params.id, req.body);
+            res.status(200).json({ success: true, message: 'Customer updated successfully', data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async deleteCustomer(req, res) {
+        try {
+            await DccService.deleteCustomer(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: 'Customer deleted successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async toggleCustomerStatus(req, res) {
+        try {
+            const result = await DccService.toggleCustomerStatus(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: `Customer ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async toggleLocationStatus(req, res) {
+        try {
+            const result = await DccService.toggleLocationStatus(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: `Location ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async togglePoStatus(req, res) {
+        try {
+            const result = await DccService.togglePoStatus(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: `PO ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async toggleJobStatus(req, res) {
+        try {
+            const result = await DccService.toggleJobStatus(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: `Job ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
     async createCustomerLocation(req, res) {
         try {
             const result = await DccService.createCustomerLocation(req.user.company_id, req.body);
@@ -412,6 +466,24 @@ class DccController {
             });
         } catch (error) {
             console.error('Update assignment error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async deleteAssignedDocument(req, res) {
+        try {
+            await DccService.deleteAssignedDocument(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: 'Assignment deleted successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async toggleAssignedDocumentStatus(req, res) {
+        try {
+            const result = await DccService.toggleAssignedDocumentStatus(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: `Assignment ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
+        } catch (error) {
             res.status(400).json({ success: false, message: error.message });
         }
     }

@@ -35,11 +35,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit, CheckCircle, XCircle, Download } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, CheckCircle, XCircle, Download, Archive } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { toast } from 'react-toastify'
 import { useAuth } from "@/context/AuthContext"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick }) {
@@ -55,7 +57,10 @@ function ListView({ onCreateClick, onEditClick }) {
 
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
-  const [columnFilters, setColumnFilters] = useState({});
+  const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -82,7 +87,7 @@ function ListView({ onCreateClick, onEditClick }) {
         if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client];
         if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po_no];
       }
-    } 
+    }
     else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
       const selectedPo = columnFilters.po_no[0];
       const match = activeFilters.records.find(r => r.po_no?.toString() === selectedPo?.toString());
@@ -216,24 +221,77 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
+  const handleToggleStatus = async (row) => {
+    setConfirmData({
+      title: `${row.is_active ? 'Deactivate' : 'Activate'} Report`,
+      description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} report ${row.report_no}?`,
+      confirmText: row.is_active ? 'Deactivate' : 'Activate',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          const res = await apiClient.patch(`/api/inspection-report/final/toggle-status/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshTrigger(prev => prev + 1)
+          } else {
+            toast.error(res.message || "Failed to toggle status")
+          }
+        } catch (err) {
+          console.error(err)
+          toast.error("Failed to toggle status")
+        }
+      }
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const handleDelete = async (row) => {
+    setConfirmData({
+      title: 'Archive Report',
+      description: `Are you sure you want to archive report ${row.report_no}? This action is irreversible.`,
+      confirmText: 'Archive',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await apiClient.delete(`/api/inspection-report/final/archive/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshTrigger(prev => prev + 1)
+          } else {
+            toast.error(res.message || "Failed to archive report")
+          }
+        } catch (err) {
+          console.error(err)
+          toast.error("Failed to archive report")
+        }
+      }
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const activeIsActiveOptions = useMemo(() => [
+    { label: "Active", value: "true" },
+    { label: "Inactive", value: "false" }
+  ], []);
+
   const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
-    { 
-      header: "Client", 
+    {
+      header: "Client",
       accessorKey: "client",
       filterType: "select",
       isMulti: true,
       filterOptions: activeClientOptions
     },
-    { 
-      header: "PO No", 
+    {
+      header: "PO No",
       accessorKey: "po_no",
       filterType: "select",
       isMulti: true,
       filterOptions: activePoOptions
     },
-    { 
-      header: "Job Number", 
+    {
+      header: "Job Number",
       accessorKey: "msn",
       filterType: "select",
       isMulti: true,
@@ -250,6 +308,26 @@ function ListView({ onCreateClick, onEditClick }) {
       header: "Created",
       accessorKey: "createdAt",
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+    {
+      header: "Active",
+      accessorKey: "is_active",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeIsActiveOptions,
+      cell: (row) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            onCheckedChange={() => handleToggleStatus(row)}
+            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+            disabled={!isAdmin}
+          />
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      )
     },
     {
       id: "actions",
@@ -281,7 +359,8 @@ function ListView({ onCreateClick, onEditClick }) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleViewClick(row.id)}
+              onClick={() => handleViewClick(row.id)} y
+              className="cursor-pointer"
               title="View">
               <Eye className="h-4 w-4 mr-2" /> View
             </Button>
@@ -290,6 +369,7 @@ function ListView({ onCreateClick, onEditClick }) {
                 variant="outline"
                 size="sm"
                 onClick={() => onEditClick(row.id)}
+                className={row.status?.trim()?.toLowerCase() === "approved" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
                 disabled={row.status?.trim()?.toLowerCase() === "approved"}
                 title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
                 <Edit className="h-4 w-4 mr-2" /> Edit
@@ -299,6 +379,7 @@ function ListView({ onCreateClick, onEditClick }) {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="cursor-pointer"
                   onClick={() => onEditClick(row.id)}
                   title="Review">
                   <CheckCircle className="h-4 w-4 mr-2" /> Review
@@ -329,10 +410,21 @@ function ListView({ onCreateClick, onEditClick }) {
               <Button
                 variant="outline"
                 size="sm"
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
                 onClick={() => handleDownload(row.id)}
                 title="Download">
                 <Download className="h-4 w-4 mr-2" /> Download
+              </Button>
+            )}
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/20 hover:bg-destructive/5"
+                onClick={() => handleDelete(row)}
+                title="Archive Report"
+              >
+                <Archive className="h-4 w-4" /> Archive
               </Button>
             )}
           </div>
@@ -385,6 +477,16 @@ function ListView({ onCreateClick, onEditClick }) {
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshTrigger}
         globalSearchPlaceholder="Search report no, job, client..."
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        title={confirmData.title}
+        description={confirmData.description}
+        onConfirm={confirmData.onConfirm}
+        confirmText={confirmData.confirmText}
+        variant={confirmData.variant}
       />
 
       {/* Review Dialog */}

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const InspectionReportController = require('../../controllers/hydro/inspection_report.controller');
 const FinalInspectionController = require('../../controllers/hydro/final_inspection.controller');
-const { authenticateUserOnly } = require('#api/middleware/user.middleware.js');
+const { authenticateUserOnly, authenticateUser } = require('#api/middleware/user.middleware.js');
 
 // Dish End Inspection
 router.get('/list', authenticateUserOnly, InspectionReportController.getList);
@@ -13,6 +13,8 @@ router.post('/create', authenticateUserOnly, InspectionReportController.createRe
 router.put('/update/:id', authenticateUserOnly, InspectionReportController.updateReport);
 router.put('/update-status/:id', authenticateUserOnly, InspectionReportController.updateStatus);
 router.get('/:id/download', authenticateUserOnly, InspectionReportController.downloadPdf);
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), InspectionReportController.toggleStatus);
+router.delete('/archive/:id', authenticateUser(['ADMIN']), InspectionReportController.archive);
 
 // Final Inspection
 router.get('/final/list', authenticateUserOnly, FinalInspectionController.getList);
@@ -23,5 +25,7 @@ router.post('/final/create', authenticateUserOnly, FinalInspectionController.cre
 router.put('/final/update/:id', authenticateUserOnly, FinalInspectionController.updateReport);
 router.put('/final/update-status/:id', authenticateUserOnly, FinalInspectionController.updateStatus);
 router.get('/final/:id/download', authenticateUserOnly, FinalInspectionController.downloadPdf);
+router.patch('/final/toggle-status/:id', authenticateUser(['ADMIN']), FinalInspectionController.toggleStatus);
+router.delete('/final/archive/:id', authenticateUser(['ADMIN']), FinalInspectionController.archive);
 
 module.exports = router;

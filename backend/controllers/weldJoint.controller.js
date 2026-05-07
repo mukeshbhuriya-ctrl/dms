@@ -190,14 +190,18 @@ async function getStageConfig(req, res) {
 async function getWeldJointPlans(req, res) {
     try {
         const company_id = req.user.company_id;
-        const { page = 1, limit = 50, search = '', sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+        const { 
+            page = 1, limit = 50, search = '', sortBy = 'createdAt', sortOrder = 'desc',
+            columnFilters 
+        } = req.query;
 
         const result = await weldJointService.getWeldJointPlans(company_id, {
             page,
             limit,
             search,
             sortBy,
-            sortOrder
+            sortOrder,
+            columnFilters
         });
 
         res.status(200).json({
@@ -307,6 +311,32 @@ async function getJointTrail(req, res) {
     }
 }
 
+async function togglePlanStatus(req, res) {
+    try {
+        const result = await weldJointService.togglePlanStatus(req.user.company_id, req.params.id);
+        res.status(200).json({ 
+            success: true, 
+            message: `Weld Joint Plan ${result.is_active ? 'activated' : 'deactivated'} successfully`,
+            data: result 
+        });
+    } catch (error) {
+        console.error('Weld Joint Plan toggleStatus error:', error);
+        const status = error.message.includes('not found') ? 404 : 400;
+        res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+    }
+}
+
+async function archivePlan(req, res) {
+    try {
+        await weldJointService.archivePlan(req.user.company_id, req.params.id);
+        res.status(200).json({ success: true, message: 'Weld Joint Plan archived successfully' });
+    } catch (error) {
+        console.error('Weld Joint Plan archive error:', error);
+        const status = error.message.includes('not found') ? 404 : 400;
+        res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+    }
+}
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -317,5 +347,7 @@ module.exports = {
     getStageConfig,
     getCumulativeData,
     getReportNo,
-    getJointTrail
+    getJointTrail,
+    togglePlanStatus,
+    archivePlan
 };

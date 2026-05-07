@@ -26,4 +26,9 @@ router.get('/report-no/:jointId', getReportNo);
 router.get('/joint-trail/:jointId', getJointTrail);
 router.get('/generate-report/:jointId/:stage', generateStageReport);
 
+// Admin Actions for Plans
+const weldJointController = require('../../controllers/weldJoint.controller.js');
+router.patch('/toggle-plan-status/:id', authenticateUser(['ADMIN']), weldJointController.togglePlanStatus);
+router.delete('/plan/:id', authenticateUser(['ADMIN']), weldJointController.archivePlan);
+
 module.exports = router;

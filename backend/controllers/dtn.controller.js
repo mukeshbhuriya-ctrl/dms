@@ -88,7 +88,8 @@ class DtnController {
                 po: d.po_number,
                 job_no: d.jobs.map(j => j.job.job_number).join(', '),
                 date: d.date,
-                status: d.status
+                status: d.status,
+                is_active: d.is_active
             }));
 
             res.status(200).json({ 
@@ -348,6 +349,30 @@ class DtnController {
         } catch (error) {
             console.error('getDrawingPreview error:', error);
             res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async delete(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+            await DtnService.deleteTransmittal(company_id, id);
+            res.status(200).json({ success: true, message: 'Transmittal deleted successfully' });
+        } catch (error) {
+            console.error('deleteDtn error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
+    async toggleStatus(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+            const result = await DtnService.toggleTransmittalStatus(company_id, id);
+            res.status(200).json({ success: true, message: 'Status toggled successfully', data: result });
+        } catch (error) {
+            console.error('toggleStatus error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }
 }

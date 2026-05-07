@@ -165,6 +165,32 @@ class NcrController {
         }
     }
 
+    async toggleStatus(req, res) {
+        try {
+            const result = await NcrService.toggleStatus(req.user.company_id, req.params.id);
+            res.status(200).json({ 
+                success: true, 
+                message: `NCR ${result.is_active ? 'activated' : 'deactivated'} successfully`,
+                data: result 
+            });
+        } catch (error) {
+            console.error('NCR toggleStatus error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async archive(req, res) {
+        try {
+            await NcrService.archive(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: 'NCR archived successfully' });
+        } catch (error) {
+            console.error('NCR archive error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
     _mapNcrAttachments(ncr) {
         if (ncr && ncr.attachments && Array.isArray(ncr.attachments)) {
             const baseUrl = process.env.BACKEND_URL || '';

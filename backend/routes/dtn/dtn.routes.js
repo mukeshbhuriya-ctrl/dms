@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const DtnController = require('../../controllers/dtn.controller');
-const { authenticateUserOnly } = require('#api/middleware/user.middleware.js'); 
+const { authenticateUserOnly, authenticateUser } = require('#api/middleware/user.middleware.js'); 
 
 // Apply authentication to all DTN routes
 router.use(authenticateUserOnly);
@@ -43,6 +43,7 @@ router.get('/', DtnController.list);
 /**
  * @route GET /api/dtn/:id
  */
-router.get('/:id', DtnController.getById);
+router.delete('/:id', authenticateUser(['ADMIN']), DtnController.delete);
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), DtnController.toggleStatus);
 
 module.exports = router;

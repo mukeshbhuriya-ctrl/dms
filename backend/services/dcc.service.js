@@ -29,7 +29,21 @@ class DccService {
             },
         });
 
-        if (existingCustomer) throw new Error('Customer with this email already exists in your company');
+        if (existingCustomer) {
+            if (existingCustomer.is_deleted) {
+                return await prisma.customer.update({
+                    where: { id: existingCustomer.id },
+                    data: {
+                        customer_name: customer_name.trim(),
+                        customer_short_name: customer_short_name.trim(),
+                        mobile: mobile ? mobile.trim() : null,
+                        is_deleted: false,
+                        is_active: true
+                    },
+                });
+            }
+            throw new Error('Customer with this email already exists in your company');
+        }
 
         return await prisma.customer.create({
             data: {
@@ -60,7 +74,8 @@ class DccService {
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         const where = {
-            company_id: company_id
+            company_id: company_id,
+            is_deleted: false
         };
 
         if (search) {
@@ -81,6 +96,15 @@ class DccService {
         }
         if (columnFilters.email && columnFilters.email !== 'all') {
             where.email = { in: Array.isArray(columnFilters.email) ? columnFilters.email : [columnFilters.email] };
+        }
+
+        // is_active column filter
+        if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+            const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+            const wantsActive   = vals.includes('true');
+            const wantsInactive = vals.includes('false');
+            if (wantsActive && !wantsInactive)   where.is_active = true;
+            if (wantsInactive && !wantsActive)   where.is_active = false;
         }
 
         const [total, customers] = await prisma.$transaction([
@@ -120,7 +144,7 @@ class DccService {
 
     async getCustomerFilters(company_id) {
         const customers = await prisma.customer.findMany({
-            where: { company_id },
+            where: { company_id, is_deleted: false },
             select: {
                 customer_name: true,
                 customer_short_name: true,
@@ -135,6 +159,62 @@ class DccService {
         }));
 
         return { records };
+    }
+
+    async updateCustomer(company_id, id, data) {
+        const { customer_name, customer_short_name, email, mobile } = data;
+        return await prisma.customer.update({
+            where: { id, company_id },
+            data: {
+                customer_name: customer_name?.trim(),
+                customer_short_name: customer_short_name?.trim(),
+                email: email?.toLowerCase().trim(),
+                mobile: mobile ? mobile.trim() : null,
+            },
+        });
+    }
+
+    async deleteCustomer(company_id, id) {
+        return await prisma.customer.update({
+            where: { id, company_id },
+            data: { is_deleted: true, is_active: false }
+        });
+    }
+
+    async toggleCustomerStatus(company_id, id) {
+        const existing = await prisma.customer.findFirst({ where: { id, company_id } });
+        if (!existing) throw new Error('Customer not found');
+        return await prisma.customer.update({
+            where: { id },
+            data: { is_active: !existing.is_active }
+        });
+    }
+
+    async toggleLocationStatus(company_id, id) {
+        const existing = await prisma.customer_location.findFirst({ where: { id, company_id } });
+        if (!existing) throw new Error('Location not found');
+        return await prisma.customer_location.update({
+            where: { id },
+            data: { is_active: !existing.is_active }
+        });
+    }
+
+    async togglePoStatus(company_id, id) {
+        const existing = await prisma.po.findFirst({ where: { id, company_id } });
+        if (!existing) throw new Error('PO not found');
+        return await prisma.po.update({
+            where: { id },
+            data: { is_active: !existing.is_active }
+        });
+    }
+
+    async toggleJobStatus(company_id, id) {
+        const existing = await prisma.job.findFirst({ where: { id, company_id } });
+        if (!existing) throw new Error('Job not found');
+        return await prisma.job.update({
+            where: { id },
+            data: { is_active: !existing.is_active }
+        });
     }
 
     /**
@@ -177,7 +257,10 @@ class DccService {
 
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
-        const where = { company_id };
+        const where = { 
+            company_id,
+            is_deleted: false
+        };
 
         if (search) {
             where.OR = [
@@ -194,6 +277,15 @@ class DccService {
             where.location_name = { in: Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name] };
         }
 
+        // is_active column filter
+        if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+            const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+            const wantsActive = vals.includes('true');
+            const wantsInactive = vals.includes('false');
+            if (wantsActive && !wantsInactive) where.is_active = true;
+            if (wantsInactive && !wantsActive) where.is_active = false;
+        }
+
         const [total, data] = await prisma.$transaction([
             prisma.customer_location.count({ where }),
             prisma.customer_location.findMany({
@@ -208,7 +300,7 @@ class DccService {
 
     async getLocationFilters(company_id) {
         const locations = await prisma.customer_location.findMany({
-            where: { company_id },
+            where: { company_id, is_deleted: false },
             include: { customer: { select: { customer_name: true } } }
         });
 
@@ -326,7 +418,10 @@ class DccService {
 
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
-        const where = { company_id };
+        const where = { 
+            company_id,
+            is_deleted: false
+        };
 
         if (customer_id) where.customer_id = customer_id.trim();
         if (params.location_id) where.customer_location_id = params.location_id.trim();
@@ -348,6 +443,15 @@ class DccService {
         }
         if (columnFilters.location_name && columnFilters.location_name !== 'all') {
             where.customer_location = { location_name: { in: Array.isArray(columnFilters.location_name) ? columnFilters.location_name : [columnFilters.location_name] } };
+        }
+
+        // is_active column filter
+        if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+            const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+            const wantsActive = vals.includes('true');
+            const wantsInactive = vals.includes('false');
+            if (wantsActive && !wantsInactive) where.is_active = true;
+            if (wantsInactive && !wantsActive) where.is_active = false;
         }
 
         const [total, data] = await prisma.$transaction([
@@ -414,7 +518,7 @@ class DccService {
      */
     async getPoFilters(company_id) {
         const data = await prisma.po.findMany({
-            where: { company_id },
+            where: { company_id, is_deleted: false },
             select: {
                 po_number: true,
                 customer: { select: { customer_name: true } },
@@ -464,7 +568,10 @@ class DccService {
 
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
-        const where = { company_id };
+        const where = { 
+            company_id,
+            is_deleted: false
+        };
 
         if (customer_id) where.customer_id = customer_id.trim();
         if (po_id) where.po_id = po_id.trim();
@@ -494,6 +601,15 @@ class DccService {
         if (columnFilters.project_id) {
             where.project_id = { contains: columnFilters.project_id, mode: 'insensitive' };
         }
+
+        // is_active column filter
+        if (columnFilters.is_active && columnFilters.is_active !== 'all') {
+            const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
+            const wantsActive = vals.includes('true');
+            const wantsInactive = vals.includes('false');
+            if (wantsActive && !wantsInactive) where.is_active = true;
+            if (wantsInactive && !wantsActive) where.is_active = false;
+        }
         if (columnFilters.equipment) {
             where.equipement_name = { contains: columnFilters.equipment, mode: 'insensitive' };
         }
@@ -516,7 +632,7 @@ class DccService {
 
     async getManageJobFilters(company_id) {
         const jobs = await prisma.job.findMany({
-            where: { company_id },
+            where: { company_id, is_deleted: false },
             select: {
                 job_number: true,
                 customer: { select: { customer_name: true } },
@@ -540,7 +656,7 @@ class DccService {
      */
     async getActiveFilters(company_id, user_id = null, options = {}) {
         const getFilters = async (uid = null) => {
-            const whereClause = { company_id };
+            const whereClause = { company_id, is_deleted: false, is_active: true };
             if (uid) whereClause.user_id = uid;
 
             // Check for specific document status/approval filters
@@ -758,7 +874,7 @@ class DccService {
             document_number_filter
         } = params;
 
-        const where = { company_id, user_id };
+        const where = { company_id, user_id, is_deleted: false };
 
         // Standardize status filtering
         const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null);
@@ -886,7 +1002,7 @@ class DccService {
             user_id_filter
         } = params;
 
-        const where = { company_id };
+        const where = { company_id, is_deleted: false };
 
         // Standardize status filtering across global and column-based filters
         const activeStatusFilter = uploader_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
@@ -941,6 +1057,17 @@ class DccService {
                 }
             } else {
                 where.user_id = this._processFilter(user_id_filter);
+            }
+        }
+
+        if (params.columnFilters) {
+            const cFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : params.columnFilters;
+            if (cFilters.is_active && cFilters.is_active !== 'all') {
+                const vals = Array.isArray(cFilters.is_active) ? cFilters.is_active : [cFilters.is_active];
+                const wantsActive = vals.includes('true');
+                const wantsInactive = vals.includes('false');
+                if (wantsActive && !wantsInactive) where.is_active = true;
+                if (wantsInactive && !wantsActive) where.is_active = false;
             }
         }
 
@@ -2358,6 +2485,28 @@ class DccService {
             }
 
             return updatedGroupDoc;
+        });
+    }
+
+    /**
+     * Delete an assigned document (soft delete)
+     */
+    async deleteAssignedDocument(company_id, id) {
+        return await prisma.group_document.update({
+            where: { id, company_id },
+            data: { is_deleted: true, is_active: false }
+        });
+    }
+
+    /**
+     * Toggle status of an assigned document
+     */
+    async toggleAssignedDocumentStatus(company_id, id) {
+        const existing = await prisma.group_document.findFirst({ where: { id, company_id } });
+        if (!existing) throw new Error('Assignment not found');
+        return await prisma.group_document.update({
+            where: { id },
+            data: { is_active: !existing.is_active }
         });
     }
 

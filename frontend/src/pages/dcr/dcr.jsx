@@ -32,10 +32,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 
-import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download, Search, ChevronDown, ChevronLeft, ChevronRight, Check } from "lucide-react"
+import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download, Search, ChevronDown, ChevronLeft, ChevronRight, Check, Archive, History } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import ProDataTable from "@/components/shared/ProDataTable"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { useRef } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 
@@ -128,6 +131,7 @@ const normalizeRecord = (item, index) => {
     change_requests: requests.map((request, requestIndex) =>
       normalizeChangeRequest(request, requestIndex)
     ),
+    is_active: item?.is_active ?? true,
   }
 }
 
@@ -232,7 +236,10 @@ const getAuthHeaders = () => {
 
 function CreateDCR() {
   const { user, roles } = useAuth()
+  const isAdmin = roles?.includes('ADMIN')
   const [view, setView] = useState("list")
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
+  const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null })
 
   // Review Dialog State
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
@@ -295,7 +302,7 @@ function CreateDCR() {
     }
   }
   const [refreshKey, setRefreshKey] = useState(0)
-  const [columnFilters, setColumnFilters] = useState({})
+  const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
 
   const fetchActiveFilters = useCallback(async () => {
@@ -474,20 +481,56 @@ function CreateDCR() {
       }
     },
     {
+      accessorKey: "is_active",
+      header: "Status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+      ],
+      cell: (row) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            onCheckedChange={() => handleToggleStatus(row)}
+            disabled={!isAdmin}
+            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'} scale-75`}
+          />
+          <span className={`text-[11px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      ),
+    },
+    {
       id: "actions",
       header: "Action",
       cell: (row) => (
-        <div className="flex gap-1">
+        <div className="flex gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => handleViewDcr(row.id)}
             title="View"
-            className="h-8 px-2"
+            className="h-8 rounded-sm"
           >
-            <Eye className="h-3.5 w-3.5 mr-1" /> View
+            <Eye className="h-4 w-4 mr-2" /> View
           </Button>
+
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-destructive hover:text-destructive border-slate-200 rounded-sm cursor-pointer"
+              onClick={() => handleDelete(row)}
+            >
+              <Archive className="h-4 w-4" />
+              Archive
+            </Button>
+          )}
+
           {(roles?.includes("QC_ENGINEER") && row.quality_engineer_id === user?.id &&
             row.design_engineer_status === "approved" && row.quality_engineer_status === "pending") && (
               <div className="flex gap-1">
@@ -496,20 +539,18 @@ function CreateDCR() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleReviewClick(row, "approved")}
-                  title="Approve"
-                  className="h-8 px-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                  className="h-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-sm"
                 >
-                  <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => handleReviewClick(row, "rejected")}
-                  title="Reject"
-                  className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-sm"
                 >
-                  <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                  <XCircle className="h-4 w-4 mr-2" /> Reject
                 </Button>
               </div>
             )}
@@ -521,20 +562,18 @@ function CreateDCR() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleReviewClick(row, "approved")}
-                  title="Approve"
-                  className="h-8 px-2 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                  className="h-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-sm"
                 >
-                  <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
+                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => handleReviewClick(row, "rejected")}
-                  title="Reject"
-                  className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-sm"
                 >
-                  <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
+                  <XCircle className="h-4 w-4 mr-2" /> Reject
                 </Button>
               </div>
             )}
@@ -544,16 +583,15 @@ function CreateDCR() {
               variant="outline"
               size="sm"
               onClick={() => handleDownloadPdf(row.id, row.dcr_no)}
-              title="Download PDF"
-              className="h-8 px-2 border-blue-200 text-blue-600 hover:bg-blue-50"
+              className="h-8 border-blue-200 text-blue-600 hover:bg-blue-50 rounded-sm"
             >
-              <Download className="h-3.5 w-3.5 mr-1" /> PDF
+              <Download className="h-4 w-4 mr-2" /> PDF
             </Button>
           )}
         </div>
       )
     }
-  ], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles])
+], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles, isAdmin])
 
   const fetchDcrList = useCallback(async (params) => {
     try {
@@ -770,6 +808,8 @@ function CreateDCR() {
     }))
   }
 
+
+
   const handleReset = () => {
     setFormData(defaultFormData)
     setTableRows([createEmptyRow(1)])
@@ -783,6 +823,54 @@ function CreateDCR() {
       designStatus: "pending",
       qualityStatus: "pending",
     })
+  }
+
+  const handleToggleStatus = async (row) => {
+    setConfirmData({
+      title: `${row.is_active ? 'Deactivate' : 'Activate'} DCR`,
+      description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} DCR ${row.dcr_no}?`,
+      confirmText: row.is_active ? 'Deactivate' : 'Activate',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          const res = await apiClient.patch(`/api/dcr/toggle-status/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshKey(prev => prev + 1)
+          } else {
+            toast.error(res.message || "Failed to toggle status")
+          }
+        } catch (err) {
+          console.error(err)
+          toast.error("Failed to toggle status")
+        }
+      }
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const handleDelete = async (row) => {
+    setConfirmData({
+      title: 'Archive DCR',
+      description: `Are you sure you want to archive DCR ${row.dcr_no}?`,
+      confirmText: 'Archive',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await apiClient.delete(`/api/dcr/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshKey(prev => prev + 1)
+          } else {
+            toast.error(res.message || "Failed to archive DCR")
+          }
+        } catch (err) {
+          console.error(err)
+          toast.error("Failed to archive DCR")
+        }
+      }
+    })
+    setConfirmDialogOpen(true)
   }
 
   const handleSubmit = async (e) => {
@@ -1278,6 +1366,15 @@ function CreateDCR() {
           )}
         </div>
       </main>
+      <ConfirmDialog
+        isOpen={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        title={confirmData.title}
+        description={confirmData.description}
+        onConfirm={confirmData.onConfirm}
+        confirmText={confirmData.confirmText}
+        variant={confirmData.variant}
+      />
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>

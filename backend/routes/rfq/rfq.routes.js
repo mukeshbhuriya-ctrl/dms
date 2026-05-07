@@ -36,6 +36,14 @@ router.delete('/mediators/:id', RfqController.deleteMediator);
 
 // ─── Generic ID Routes (Must be last) ──────────────────────────────────────
 router.get('/:id', RfqController.getById);
+router.patch('/toggle-status/:id', (req, res, next) => {
+    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
+    next();
+}, RfqController.toggleStatus);
+router.delete('/archive/:id', (req, res, next) => {
+    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
+    next();
+}, RfqController.archive);
 router.delete('/:id', RfqController.deleteById);
 
 // ─── Attachments ────────────────────────────────────────────────────────────

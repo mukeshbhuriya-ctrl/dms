@@ -18,12 +18,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Edit, Plus, Trash2, ArrowLeft } from "lucide-react"
+import { Edit, Plus, Trash2, ArrowLeft, Archive } from "lucide-react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { Switch } from "@/components/ui/switch"
+import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { useCheckAdmin } from "@/hooks/useCheckAdmin"
 
 function CreateJob() {
+  const isAdmin = useCheckAdmin()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({
@@ -68,11 +72,67 @@ function CreateJob() {
     setEditingId(job.id)
     setView("create")
     setError("")
+    setError("")
     setSuccess("")
   }, [])
 
-  const [columnFilters, setColumnFilters] = useState({})
+  const handleDelete = useCallback((job) => {
+    setJobToDelete(job)
+    setDeleteDialogOpen(true)
+  }, [])
+
+  const confirmDelete = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await apiClient.delete(`/api/dcc/delete-job/${jobToDelete.id}`)
+      if (res.success) {
+        setSuccess("Job deleted successfully")
+        setRefreshKey(prev => prev + 1)
+        setDeleteDialogOpen(false)
+      } else {
+        setError(res.message || "Failed to delete job")
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleToggleStatus = (job) => {
+    setJobToToggle(job)
+    setToggleDialogOpen(true)
+  }
+
+  const confirmToggleStatus = async () => {
+    setIsToggling(true)
+    try {
+      const res = await apiClient.patch(`/api/dcc/jobs/toggle-status/${jobToToggle.id}`)
+      if (res.success) {
+        setSuccess(`Job ${res.data.is_active ? "activated" : "deactivated"} successfully`)
+        setRefreshKey(prev => prev + 1)
+        setToggleDialogOpen(false)
+      } else {
+        setError(res.message || "Failed to toggle status")
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong")
+    } finally {
+      setIsToggling(false)
+    }
+  }
+
+  const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
+
+  // Delete/Toggle States
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [jobToDelete, setJobToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const [toggleDialogOpen, setToggleDialogOpen] = useState(false)
+  const [jobToToggle, setJobToToggle] = useState(null)
+  const [isToggling, setIsToggling] = useState(false)
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -217,7 +277,6 @@ function CreateJob() {
       filterOptions: activeLocationOptions,
       cell: (row) => row.customer_location?.location_name || "-"
     },
-
     {
       accessorKey: "project_id",
       header: "Project ID",
@@ -236,17 +295,55 @@ function CreateJob() {
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
     {
+      accessorKey: "is_active",
+      header: "Status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+      ],
+      cell: (row) => (
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            disabled={!isAdmin}
+            onCheckedChange={() => handleToggleStatus(row)}
+            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+          />
+          <span className={`text-xs font-medium ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
+      ),
+    },
+    {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            title="Edit"
+            className="cursor-pointer"
+            onClick={() => handleEdit(row)}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          {isAdmin && (
+            <Button
+              variant="outline"
+              size="sm"
+              title="Archive"
+              className="text-destructive cursor-pointer hover:text-destructive"
+              onClick={() => handleDelete(row)}
+            >
+              <Archive className="h-4 w-4" />
+              Archive
+            </Button>
+          )}
+        </div>
       ),
     },
   ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions])
@@ -519,8 +616,8 @@ function CreateJob() {
               onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
             />
           ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="grid gap-6">
+            <form onSubmit={handleSubmit} className="w-full">
+              <div className="grid gap-6 w-full">
                 {/* Selection Card */}
                 <Card>
                   <CardHeader>
@@ -709,6 +806,28 @@ function CreateJob() {
               </div>
             </form>
           )}
+
+          <ConfirmDialog
+            isOpen={deleteDialogOpen}
+            onClose={() => setDeleteDialogOpen(false)}
+            onConfirm={confirmDelete}
+            title="Archive"
+            description={<span>Are you sure you want to archive <strong>{jobToDelete?.job_number}</strong>? This action will remove it from the active list.</span>}
+            confirmText="Archive"
+            variant="danger"
+            isLoading={isDeleting}
+          />
+
+          <ConfirmDialog
+            isOpen={toggleDialogOpen}
+            onClose={() => setToggleDialogOpen(false)}
+            onConfirm={confirmToggleStatus}
+            title={jobToToggle?.is_active ? "Deactivate Job" : "Activate Job"}
+            description={<span>Are you sure you want to {jobToToggle?.is_active ? "deactivate" : "activate"} Job <strong>{jobToToggle?.job_number}</strong>?</span>}
+            confirmText={jobToToggle?.is_active ? "Deactivate" : "Activate"}
+            variant={jobToToggle?.is_active ? "warning" : "success"}
+            isLoading={isToggling}
+          />
         </div>
       </main>
     </>

@@ -33,7 +33,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit, Upload, X, FileText, Paperclip } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, Upload, X, FileText, Paperclip, Archive } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ImportReviewDialog from "@/components/shared/ImportReviewDialog"
 import { generateExcelTemplate, parseExcelFile } from "@/utils/excelImportEngine"
@@ -42,6 +42,8 @@ import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { Switch } from "@/components/ui/switch"
+import { useAuth } from "@/context/AuthContext"
 
 // ─── Status Options ────────────────────────────────────────────────────────────
 const SHRENO_STATUS_OPTIONS = [
@@ -95,7 +97,11 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
     const [refreshKey, setRefreshKey] = useState(0)
 
     // Advanced Cascading Filters State (Used for Quotation No. text filter)
-    const [columnFilters, setColumnFilters] = useState({})
+    const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] })
+    const { roles } = useAuth();
+    const isAdmin = roles?.includes("ADMIN");
+
+    const [confirmData, setConfirmData] = useState({ isOpen: false, title: "", description: "", confirmText: "", variant: "danger", onConfirm: null, isLoading: false });
 
     // Bulk Import State
     const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
@@ -117,26 +123,58 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
         }
     }
 
-    const [confirmState, setConfirmState] = useState({ isOpen: false, id: null })
-
-    const handleDeleteClick = (id) => {
-        setConfirmState({ isOpen: true, id })
-    }
-
-    const onConfirmDelete = async () => {
-        try {
-            setConfirmState(prev => ({ ...prev, isLoading: true }))
-            const res = await apiClient.delete(`/api/rfq/${confirmState.id}`)
-            if (res.success) {
-                toast.success("RFQ entry deleted successfully")
-                setRefreshKey(prev => prev + 1)
+    const handleToggleStatus = async (row) => {
+        setConfirmData({
+            isOpen: true,
+            title: `${row.is_active ? 'Deactivate' : 'Activate'} RFQ Record`,
+            description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} quotation ${row.quotation_no}?`,
+            confirmText: row.is_active ? 'Deactivate' : 'Activate',
+            variant: 'warning',
+            onConfirm: async () => {
+                try {
+                    setConfirmData(prev => ({ ...prev, isLoading: true }))
+                    const res = await apiClient.patch(`/api/rfq/toggle-status/${row.id}`)
+                    if (res.success) {
+                        toast.success(res.message)
+                        setRefreshKey(prev => prev + 1)
+                    }
+                } catch (error) {
+                    toast.error(error.message || "Failed to toggle status")
+                } finally {
+                    setConfirmData(prev => ({ ...prev, isOpen: false, isLoading: false }))
+                }
             }
-        } catch (error) {
-            toast.error(error.message || "Failed to delete record")
-        } finally {
-            setConfirmState({ isOpen: false, id: null, isLoading: false })
-        }
+        })
     }
+
+    const handleArchive = async (row) => {
+        setConfirmData({
+            isOpen: true,
+            title: 'Archive RFQ Record',
+            description: `Are you sure you want to archive quotation ${row.quotation_no}? This action is irreversible.`,
+            confirmText: 'Archive',
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    setConfirmData(prev => ({ ...prev, isLoading: true }))
+                    const res = await apiClient.delete(`/api/rfq/archive/${row.id}`)
+                    if (res.success) {
+                        toast.success(res.message)
+                        setRefreshKey(prev => prev + 1)
+                    }
+                } catch (error) {
+                    toast.error(error.message || "Failed to archive record")
+                } finally {
+                    setConfirmData(prev => ({ ...prev, isOpen: false, isLoading: false }))
+                }
+            }
+        })
+    }
+
+    const activeIsActiveOptions = [
+        { label: "Active", value: "true" },
+        { label: "Inactive", value: "false" }
+    ];
 
     const columns = [
         { header: "Quotation No.",  accessorKey: "quotation_no", filterType: "text",},
@@ -161,6 +199,26 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
             cell: (row) => <StatusBadge status={row.client_status} />,
         },
         {
+            header: "Active",
+            accessorKey: "is_active",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: activeIsActiveOptions,
+            cell: (row) => (
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                    <Switch
+                        checked={row.is_active}
+                        onCheckedChange={() => handleToggleStatus(row)}
+                        className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+                        disabled={!isAdmin}
+                    />
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+                        {row.is_active ? "Active" : "Inactive"}
+                    </span>
+                </div>
+            )
+        },
+        {
             id: "actions",
             header: "Actions",
             cell: (row) => (
@@ -169,6 +227,7 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                         variant="outline"
                         size="sm"
                         onClick={() => handleViewClick(row.id)}
+                        className="cursor-pointer"
                         title="View">
                         <Eye className="h-4 w-4 mr-2" /> View
                     </Button>
@@ -176,6 +235,7 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                         variant="outline"
                         size="sm"
                         onClick={() => onAttachmentsClick(row.id)}
+                        className="cursor-pointer"
                         title="Attachments">
                         <Paperclip className="h-4 w-4 mr-2" /> Docs
                     </Button>
@@ -183,16 +243,21 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                         variant="outline"
                         size="sm"
                         onClick={() => onEditClick(row.id)}
+                        className="cursor-pointer"
                         title="Edit">
                         <Edit className="h-4 w-4 mr-2" /> Edit
                     </Button>
-                    {/* <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteClick(row.id)}
-                        title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                    </Button> */}
+                    {isAdmin && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
+                            onClick={() => handleArchive(row)}
+                            title="Archive Record"
+                        >
+                            <Archive className="h-4 w-4" /> Archive
+                        </Button>
+                    )}
                 </div>
             ),
         },
@@ -606,14 +671,14 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                 </DialogContent>
             </Dialog>
             <ConfirmDialog 
-                isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState({ isOpen: false, id: null })}
-                onConfirm={onConfirmDelete}
-                title="Delete RFQ Entry"
-                description="Are you sure you want to permanently delete this RFQ entry? This action cannot be undone."
-                confirmText="Delete"
-                variant="danger"
-                isLoading={confirmState.isLoading}
+                isOpen={confirmData.isOpen}
+                onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmData.onConfirm}
+                title={confirmData.title}
+                description={confirmData.description}
+                confirmText={confirmData.confirmText}
+                variant={confirmData.variant}
+                isLoading={confirmData.isLoading}
             />
         </div>
     )
@@ -1520,7 +1585,7 @@ function AttachmentsView({ rfqId, onBack }) {
                         variant="ghost"
                         size="sm"
                         onClick={() => handlePreview(row)}
-                        className="h-8 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-2 font-semibold text-[10px] uppercase"
+                        className="h-8 text-slate-600 hover:text-slate-900 hover:bg-slate-50 px-2 font-semibold text-[10px] uppercase cursor-pointer"
                     >
                         <Eye className="h-3.5 w-3.5 mr-1.5" /> Preview
                     </Button>

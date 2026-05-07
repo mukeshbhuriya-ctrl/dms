@@ -444,6 +444,8 @@ model group_document{
   status String @default("Pending") // Pending, Uploaded, Approved, Rejected
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
 
   company company @relation(fields: [company_id], references: [id])
   group group @relation(fields: [group_id], references: [id])

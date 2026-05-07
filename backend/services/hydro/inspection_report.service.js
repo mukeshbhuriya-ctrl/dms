@@ -7,7 +7,10 @@ class InspectionReportService {
     async getList(company_id, { page, limit, search, columnFilters }) {
         const skip = (page - 1) * limit;
 
-        let whereClause = { company_id };
+        let whereClause = { 
+            company_id: company_id,
+            is_deleted: false
+        };
         if (search) {
             whereClause = {
                 ...whereClause,
@@ -32,6 +35,12 @@ class InspectionReportService {
             if (filters.msn && filters.msn.length > 0) {
                 andConditions.push({ msn: { in: filters.msn } });
             }
+            if (filters.is_active) {
+                const activeStatus = Array.isArray(filters.is_active) ? filters.is_active : filters.is_active.split(',').map(v => v.trim());
+                if (activeStatus.length === 1) {
+                    andConditions.push({ is_active: activeStatus[0] === 'true' });
+                }
+            }
 
             if (andConditions.length > 0) {
                 whereClause.AND = andConditions;
@@ -54,6 +63,7 @@ class InspectionReportService {
                     equipment_name: true,
                     vendor_dish_end_number: true,
                     status: true,
+                    is_active: true,
                     production_engineer_id: true,
                     createdAt: true
                 }
@@ -277,7 +287,10 @@ class InspectionReportService {
 
     async getListFilters(company_id) {
         const records = await prisma.dish_end_inspection_report.findMany({
-            where: { company_id },
+            where: { 
+                company_id: company_id,
+                is_deleted: false
+            },
             select: {
                 client: true,
                 po_no: true,
@@ -287,6 +300,29 @@ class InspectionReportService {
         });
 
         return { records };
+    }
+
+    async toggleStatus(company_id, id) {
+        const report = await prisma.dish_end_inspection_report.findFirst({
+            where: { id, company_id },
+            select: { is_active: true }
+        });
+        if (!report) throw new Error('Report not found');
+
+        return await prisma.dish_end_inspection_report.update({
+            where: { id },
+            data: { is_active: !report.is_active }
+        });
+    }
+
+    async archive(company_id, id) {
+        const report = await prisma.dish_end_inspection_report.findFirst({ where: { id, company_id } });
+        if (!report) throw new Error('Report not found');
+
+        return await prisma.dish_end_inspection_report.update({
+            where: { id },
+            data: { is_deleted: true }
+        });
     }
 }
 
