@@ -188,25 +188,23 @@ class MhcService {
                 let currentHeadingText = null;
 
                 items.forEach((item, idx) => {
-                    // Logic: If it is a heading row, capture the text and SKIP insertion
                     if (item.is_heading) {
                         currentHeadingText = item.heading_text || item.itemNo || item.item_no || "HEADING";
-                        return; // Done with this row
                     }
 
-                    // Otherwise, it is a material item. Group it under the currentHeadingText
                     itemsToCreate.push({
                         mhc_id: header.id,
-                        sort_order: itemsToCreate.length, // use length of final array for order
-                        is_heading: false,
-                        heading_text: currentHeadingText,
+                        sort_order: idx,
+                        is_heading: item.is_heading || false,
+                        heading_text: item.is_heading ? currentHeadingText : (item.heading_text || currentHeadingText),
+                        parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
                         item_no: item.itemNo || item.item_no || null,
                         description: item.description || null,
                         size: item.size || null,
                         material_spec: item.materialSpecification || item.material_spec || null,
                         quantity_unit: item.quantityUnit || item.quantity_unit || null,
                         heat_no: item.heatNo || item.heat_no || null,
-                        grn_app_ap_no: item.grn_app_ap_no || item.grnAppApNo || null,
+                        grn_app_ap_no: item.grnAppApNo || item.grn_app_ap_no || null,
                         mtr_no: item.mtrNo || item.mtr_no || null,
                         manufacturer: item.manufacturerName || item.manufacturer || null,
                         remarks: item.remarks || null,
@@ -322,24 +320,30 @@ class MhcService {
             // Replace items
             await tx.material_heat_chart_item.deleteMany({ where: { mhc_id: id } });
             if (items.length > 0) {
+                let currentHeadingText = null;
                 await tx.material_heat_chart_item.createMany({
-                    data: items.map((item, idx) => ({
-                        mhc_id: id,
-                        sort_order: item.sort_order !== undefined ? item.sort_order : idx,
-                        is_heading: item.is_heading || false,
-                        heading_text: item.heading_text || null,
-                        parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
-                        item_no: item.itemNo || item.item_no || null,
-                        description: item.description || null,
-                        size: item.size || null,
-                        material_spec: item.materialSpecification || item.material_spec || null,
-                        quantity_unit: item.quantityUnit || item.quantity_unit || null,
-                        heat_no: item.heatNo || item.heat_no || null,
-                        grn_app_ap_no: item.grn_app_ap_no || null,
-                        mtr_no: item.mtrNo || item.mtr_no || null,
-                        manufacturer: item.manufacturerName || item.manufacturer || null,
-                        remarks: item.remarks || null,
-                    })),
+                    data: items.map((item, idx) => {
+                        if (item.is_heading) {
+                            currentHeadingText = item.heading_text || item.itemNo || item.item_no || "HEADING";
+                        }
+                        return {
+                            mhc_id: id,
+                            sort_order: idx,
+                            is_heading: item.is_heading || false,
+                            heading_text: item.is_heading ? currentHeadingText : (item.heading_text || currentHeadingText),
+                            parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
+                            item_no: item.itemNo || item.item_no || null,
+                            description: item.description || null,
+                            size: item.size || null,
+                            material_spec: item.materialSpecification || item.material_spec || null,
+                            quantity_unit: item.quantityUnit || item.quantity_unit || null,
+                            heat_no: item.heatNo || item.heat_no || null,
+                            grn_app_ap_no: item.grnAppApNo || item.grn_app_ap_no || null,
+                            mtr_no: item.mtrNo || item.mtr_no || null,
+                            manufacturer: item.manufacturerName || item.manufacturer || null,
+                            remarks: item.remarks || null,
+                        };
+                    }),
                 });
             }
 

@@ -1304,7 +1304,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                       </TableCell>
                       <TableCell className="p-2">
                         <div className="flex gap-2">
-                          <Button
+                          {/* <Button
                             type="button"
                             variant="outline"
                             size="icon"
@@ -1313,7 +1313,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             title="Add row after this heading"
                           >
                             <Plus className="h-4 w-4" />
-                          </Button>
+                          </Button> */}
                           <Button
                             type="button"
                             variant="outline"
@@ -1424,7 +1424,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button
+                          {/* <Button
                             type="button"
                             variant="outline"
                             size="icon"
@@ -1433,7 +1433,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             title="Convert to heading"
                           >
                             <Type className="h-4 w-4" />
-                          </Button>
+                          </Button> */}
                           <Button
                             type="button"
                             variant="outline"

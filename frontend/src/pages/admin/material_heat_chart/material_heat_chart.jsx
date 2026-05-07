@@ -422,22 +422,8 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
-  const handleViewClick = async (id) => {
-    setIsViewLoading(true)
-    try {
-      const res = await apiClient.get(`/api/mhc/${id}`)
-      if (res.success) {
-        setSelectedRecord(res.data)
-        setIsViewOpen(true)
-      } else {
-        toast.warn("Failed to fetch details")
-      }
-    } catch (err) {
-      toast.error("Error fetching details")
-      console.error(err)
-    } finally {
-      setIsViewLoading(false)
-    }
+  const handleViewClick = (id) => {
+    onEditClick(id, true) // Pass true for isView
   }
   // Cascading Filter Logic
   const activeClientOptions = useMemo(() => {
@@ -909,145 +895,12 @@ function ListView({ onCreateClick, onEditClick }) {
         </DialogContent>
       </Dialog>
 
-      {/* View Details Modal */}
-      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-bold text-center">Material Heat Chart Details</DialogTitle>
-            <DialogDescription className="text-center">
-              Complete details of the selected Material Heat Chart.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedRecord && (
-            <div className="space-y-6">
-              {/* Basic Info */}
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-y-6 gap-x-4 text-sm border border-border p-6 bg-white rounded-xl shadow-sm">
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">MSN / JOB NO:</span>
-                  <span className="font-medium">{selectedRecord.msn || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CLIENT:</span>
-                  <span className="font-medium">{selectedRecord.client || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PO NO:</span>
-                  <span className="font-medium">{selectedRecord.po_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PROJECT ID:</span>
-                  <span className="font-medium">{selectedRecord.project_id || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">EQUIPMENT:</span>
-                  <span className="font-medium">{selectedRecord.equipment_name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">TAG NO:</span>
-                  <span className="font-medium">{selectedRecord.tag_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CODE:</span>
-                  <span className="font-medium">{selectedRecord.code || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">SHRENO DRG NO:</span>
-                  <span className="font-medium">{selectedRecord.shreno_drg_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CUSTOMER DRG NO:</span>
-                  <span className="font-medium">{selectedRecord.customer_drg_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">REPORT NO:</span>
-                  <span className="font-medium">{selectedRecord.report_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">INSPECTION BY:</span>
-                  <span className="font-medium">{selectedRecord.inspection_by || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PRODUCTION ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.production_engineer?.name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">QUALITY ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.qc_engineer?.name || "-"}</span>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="overflow-x-auto rounded-md border border-border">
-                <table className="w-full border-collapse text-xs text-left">
-                  <thead>
-                    <tr className="bg-[#f4f4f5] border-b border-border">
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">HEADING</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">ITEM NO./PART NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">DESCRIPTION</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">MATERIAL SPECIFICATION</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">SIZE</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">QUANTITY / UNIT</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-normal">HEAT NO. / CAST NO. / PLATE NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">GRN/APP/AP NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">MTR NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">MANUFACTURER NAME</th>
-                      <th className="p-3 font-bold text-[11px] uppercase tracking-wider whitespace-nowrap">REMARKS NCR/DCR</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      if (!selectedRecord.items || selectedRecord.items.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={10} className="border border-border p-4 text-center">
-                              No items added.
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      let currentHeading = "";
-                      const rows = [];
-
-                      selectedRecord.items.forEach((row) => {
-                        if (row.is_heading) {
-                          currentHeading = row.heading_text || row.item_no || "HEADING";
-                        }
-
-                        rows.push(
-                          <tr key={row.id} className={row.is_heading ? "bg-[#f4f4f5] border-b border-border font-bold shadow-[inset_0_1px_0_0_#e4e4e7]" : "hover:bg-muted/30 border-b border-border last:border-0"}>
-                            <td className={`border-r border-border p-3 align-top font-medium ${!row.is_heading ? 'text-muted-foreground' : ''}`}>{row.heading_text || currentHeading || "-"}</td>
-                            <td className="border-r border-border p-3 align-top font-medium">{row.item_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.description || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.material_spec || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.size || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.quantity_unit || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.heat_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.grn_app_ap_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.mtr_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.manufacturer || "-"}</td>
-                            <td className="p-3 align-top">{row.remarks || "-"}</td>
-                          </tr>
-                        );
-                      });
-
-                      return rows;
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
 
 // ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null }) {
+function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const { user } = useAuth()
   // Jobs list for MSN dropdown
   const [jobs, setJobs] = useState([])
@@ -1084,7 +937,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   })
 
   // Table rows
-  const [tableRows, setTableRows] = useState([emptyRow(1)])
+  const [tableRows, setTableRows] = useState([emptyRow("row-1")])
 
   // Submit state
   const [submitting, setSubmitting] = useState(null) // null | "Draft" | "Pending"
@@ -1143,7 +996,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 mtrNo: item.mtr_no || "",
                 manufacturerName: item.manufacturer || "",
                 remarks: item.remarks || "",
-                isHeading: item.is_heading,
+                isHeading: Boolean(item.is_heading),
                 headingText: item.heading_text || "",
                 parentHeadingId: item.parent_heading_id,
               })))
@@ -1207,20 +1060,24 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   const handleRowChange = (id, field, value) =>
     setTableRows((rows) => rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
 
-  const nextId = () => Math.max(...tableRows.map((r) => r.id), 0) + 1
+  const nextId = () => {
+    const now = Date.now();
+    // Ensure it's unique even if called rapidly
+    return `new-${now}-${Math.floor(Math.random() * 1000)}`;
+  }
 
   const addRow = () => setTableRows((rows) => [...rows, emptyRow(nextId())])
 
-  const addRowAfterHeading = (headingId) => {
-    const newRow = { ...emptyRow(nextId()), parentHeadingId: headingId }
-    const idx = tableRows.findIndex((r) => r.id === headingId)
-    let insertAt = idx + 1
-    for (let i = idx + 1; i < tableRows.length; i++) {
-      if (tableRows[i].isHeading) break
-      insertAt = i + 1
-    }
+  const addRowAfter = (rowId) => {
+    const idx = tableRows.findIndex((r) => r.id === rowId)
+    const clickedRow = tableRows[idx]
+    
+    // Determine the parent heading for the new row based on the clicked row's heading context
+    let parentHeadingId = clickedRow.isHeading ? clickedRow.id : clickedRow.parentHeadingId
+    
+    const newRow = { ...emptyRow(nextId()), parentHeadingId }
     const updated = [...tableRows]
-    updated.splice(insertAt, 0, newRow)
+    updated.splice(idx + 1, 0, newRow)
     setTableRows(updated)
   }
 
@@ -1299,11 +1156,21 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">Create Material Heat Chart</h1>
-          <p className="text-muted-foreground">Fill in the details and add material rows.</p>
-        </div>
-        <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {isView ? "View Material Heat Chart" : (editId ? "Edit Material Heat Chart" : "Create Material Heat Chart")}
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {isView 
+                ? "View the complete details of this material heat chart record."
+                : (editId 
+                  ? "Modify the existing record. Ensure all material heat numbers and specifications are verified for industrial compliance." 
+                  : "Initialize a new record. Enter job details and material specifications to maintain a precise industrial traceability log."
+                )
+              }
+            </p>
+          </div>
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null} className="rounded-xl">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>
@@ -1326,7 +1193,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 onValueChange={handleJobSelect}
                 placeholder={jobsLoading ? "Loading jobs…" : "Select MSN"}
                 searchPlaceholder="Search job number..."
-                disabled={jobsLoading}
+                disabled={jobsLoading || isView}
               />
             </div>
 
@@ -1356,39 +1223,22 @@ function CreateView({ onBack, onSuccess, editId = null }) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="shrenoDrgNo" className="uppercase text-xs font-semibold text-muted-foreground">SHRENO DRG. NO.:</Label>
-              <Input
-                id="shrenoDrgNo"
-                name="shrenoDrgNo"
-                value={formData.shrenoDrgNo}
-                onChange={handleFormChange}
-                placeholder="Enter SHRENO DRG. No."
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customerDrgNo" className="uppercase text-xs font-semibold text-muted-foreground">CUSTOMER DRG. NO.:</Label>
-              <Input
-                id="customerDrgNo"
-                name="customerDrgNo"
-                value={formData.customerDrgNo}
-                onChange={handleFormChange}
-                placeholder="Enter Customer DRG No."
-                className="h-9"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="inspectionBy" className="uppercase text-xs font-semibold text-muted-foreground">INSPECTION BY:</Label>
-              <Input
-                id="inspectionBy"
-                name="inspectionBy"
-                value={formData.inspectionBy}
-                onChange={handleFormChange}
-                placeholder="Enter Inspection By"
-                className="h-9"
-              />
-            </div>
+            {[
+              { label: "SHRENO DRG NO.:", field: "shrenoDrgNo" },
+              { label: "CUSTOMER DRG NO.:", field: "customerDrgNo" },
+              { label: "INSPECTION BY:", field: "inspectionBy" },
+            ].map((f) => (
+              <div className="space-y-2" key={f.field}>
+                <Label className="uppercase text-xs font-semibold text-muted-foreground">{f.label}</Label>
+                <Input
+                  value={formData[f.field]}
+                  onChange={(e) => setFormData({ ...formData, [f.field]: e.target.value })}
+                  placeholder={`Enter ${f.label.toLowerCase().replace(':', '')}`}
+                  className="h-10 rounded-xl border-muted-foreground/30"
+                  disabled={isView}
+                />
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -1429,104 +1279,111 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 </thead>
                 <tbody>
                   <tr className="h-4"></tr>
-                  {tableRows.map((row) => (
-                    <React.Fragment key={row.id}>
-                      {row.isHeading && (
-                        <tr className="bg-amber-50 border-t-2 border-amber-400/60">
-                          <td colSpan={9} className="px-2 pt-2 pb-0 align-top sticky left-0 z-10 bg-amber-50">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-700 shrink-0">Heading:</span>
-                              <Input
-                                type="text"
-                                value={row.headingText}
-                                onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
-                                placeholder="Enter heading text…"
-                                className="font-bold h-8 text-sm border-amber-300 shadow-none focus-visible:ring-1 focus-visible:ring-amber-400 bg-white/80"
-                              />
-                            </div>
-                          </td>
-                          <td className="px-2 pt-2 pb-0 align-top bg-amber-50">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8 border-amber-300 shadow-none text-amber-700 hover:text-destructive hover:border-destructive/30 bg-white/80"
-                              title="Remove heading"
-                              onClick={() => toggleHeading(row.id)}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </td>
-                        </tr>
-                      )}
-                      <tr className={row.isHeading ? "bg-amber-50/30 border-b-2 border-amber-400/30" : ""}>
-                        {[
-                          { field: "itemNo", placeholder: "Item No" },
-                          { field: "description", placeholder: "Description" },
-                          { field: "materialSpecification", placeholder: "Material Spec" },
-                          { field: "size", placeholder: "Size" },
-                          { field: "quantityUnit", placeholder: "Quantity" },
-                          { field: "heatNo", placeholder: "Heat No" },
-                          { field: "grnAppApNo", placeholder: "GRN/APP/AP No" },
-                          { field: "mtrNo", placeholder: "MTR No" },
-                          { field: "manufacturerName", placeholder: "Manufacturer" },
-                          { field: "remarks", placeholder: "Remarks" },
-                        ].map(({ field, placeholder }, i) => (
-                          <td
-                            key={field}
-                            className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)] ${row.isHeading ? "bg-amber-50" : "bg-white"}` : ""}`}
-                          >
-                            <Input
-                              type="text"
-                              value={row[field]}
-                              onChange={(e) => handleRowChange(row.id, field, e.target.value)}
-                              placeholder={placeholder}
-                              className="text-[13px] min-w-[120px] h-10 border-muted-foreground/30 shadow-none focus-visible:ring-1"
-                            />
-                          </td>
-                        ))}
-                        <td className={`p-2 align-top ${row.isHeading ? "bg-amber-50/30" : "bg-white"}`}>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className={`h-10 w-10 border-muted-foreground/30 shadow-none ${row.isHeading ? "text-amber-700 bg-amber-100 border-amber-300 hover:text-amber-900" : "text-muted-foreground hover:text-foreground"}`}
-                              title={row.isHeading ? "Has heading" : "Add heading"}
-                              onClick={() => toggleHeading(row.id)}
-                            >
-                              <Type className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-foreground"
-                              title="Add row below"
-                              onClick={() => addRowAfterHeading(row.id)}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-10 w-10 border-muted-foreground/30 shadow-none text-muted-foreground hover:text-destructive"
-                              onClick={() => removeRow(row.id)}
-                              disabled={tableRows.length === 1}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  ))}
+                  {(() => {
+                    let activeHeadingId = null;
+                    return tableRows.map((row) => {
+                      if (row.isHeading) {
+                        activeHeadingId = row.id;
+                      }
+                      const isInGroup = activeHeadingId !== null;
+
+                      return (
+                        <React.Fragment key={row.id}>
+                          {row.isHeading && (
+                            <tr className="group/heading border-b-0 bg-amber-50/40">
+                              <td colSpan={11} className="p-0 border-t border-t-amber-400/50">
+                                <div className="flex items-center gap-0 my-1.5 mx-2">
+                                   <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 shrink-0">Heading:</span>
+                                      <Input
+                                        type="text"
+                                        value={row.headingText}
+                                        onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
+                                        placeholder="Enter heading text..."
+                                        className="border-none bg-transparent shadow-none text-sm font-bold text-amber-900 focus-visible:ring-0 placeholder:text-amber-700/30 h-8"
+                                        disabled={isView}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRowChange(row.id, "headingText", "")}
+                                        className={`flex items-center justify-center h-7 w-7 border border-amber-400 bg-white rounded text-orange-500 hover:bg-amber-50 transition-colors shadow-sm ml-2 ${isView ? 'hidden' : ''}`}
+                                      >
+                                        <X className="h-4 w-4 stroke-[3px]" />
+                                      </button>
+                                   </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                          <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
+                            {[
+                              { field: "itemNo", placeholder: "Item No" },
+                              { field: "description", placeholder: "Description" },
+                              { field: "materialSpecification", placeholder: "Material Spec" },
+                              { field: "size", placeholder: "Size" },
+                              { field: "quantityUnit", placeholder: "Quantity" },
+                              { field: "heatNo", placeholder: "Heat No" },
+                              { field: "grnAppApNo", placeholder: "GRN/APP/AP No" },
+                              { field: "mtrNo", placeholder: "MTR No" },
+                              { field: "manufacturerName", placeholder: "Manufacturer" },
+                              { field: "remarks", placeholder: "Remarks" },
+                            ].map(({ field, placeholder }, i) => (
+                              <td
+                                key={field}
+                                className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40 shadow-[2px_0_4px_-2px_rgba(251,191,36,0.3)]" : "bg-white"}` : ""}`}
+                              >
+                                <Input
+                                  type="text"
+                                  value={row[field]}
+                                  onChange={(e) => handleRowChange(row.id, field, e.target.value)}
+                                  placeholder={placeholder}
+                                  className={`text-[13px] min-w-[120px] h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-amber-400 focus-visible:ring-amber-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg`}
+                                  disabled={isView}
+                                />
+                              </td>
+                            ))}
+                            {/* Actions */}
+                            <td className={`p-2 align-top ${isView ? 'hidden' : ''}`}>
+                              <div className="flex items-center gap-1.5 h-10">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className={`h-8 w-8 rounded-lg border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : isInGroup ? "text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100" : "text-muted-foreground hover:text-foreground"}`}
+                                  onClick={() => toggleHeading(row.id)}
+                                >
+                                  <Type className={`h-4 w-4 ${row.isHeading ? "stroke-[3px]" : ""}`} />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
+                                  onClick={() => addRowAfter(row.id)}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
+                                  onClick={() => removeRow(row.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
 
-            <div className="pt-4 border-t border-muted/50 mt-4">
+            <div className={`pt-4 border-t border-muted/50 mt-4 ${isView ? 'hidden' : ''}`}>
               <Button type="button" variant="outline" onClick={addRow} className="w-auto h-9 text-[13px] px-4 rounded-xl border-muted-foreground/30 shadow-sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Row
@@ -1563,6 +1420,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 onValueChange={setQcEngineerId}
                 placeholder="Select quality engineer"
                 searchPlaceholder="Search quality engineer..."
+                disabled={isView}
               />
             </div>
           </div>
@@ -1570,21 +1428,34 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       </Card>
 
       {/* ── Footer Buttons ── */}
-      <div className="flex gap-3 justify-end">
-        <Button variant="outline" onClick={onBack} disabled={submitting !== null}>
-          Cancel
-        </Button>
+      <div className="flex justify-end gap-4 mt-8 pb-12">
         <Button 
-          variant="secondary" 
-          onClick={() => handleSubmit("Draft")} 
+          variant="outline" 
+          onClick={onBack} 
           disabled={submitting !== null}
-          className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200"
+          className="h-11 px-8 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 transition-all font-medium cursor-pointer"
         >
-          {submitting === "Draft" ? "Saving…" : "Save Draft"}
+          {isView ? "Back to List" : "Cancel"}
         </Button>
-        <Button onClick={() => handleSubmit("Pending")} disabled={submitting !== null}>
-          {submitting === "Pending" ? "Submitting…" : "Submit"}
-        </Button>
+        {!isView && (
+          <Button 
+            onClick={() => handleSubmit("Pending")} 
+            disabled={submitting !== null}
+            className="h-11 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-200 transition-all font-semibold flex items-center gap-2 cursor-pointer"
+          >
+            {submitting === "Pending" ? (
+              <>
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                {editId ? <Database className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                {editId ? "Update Report Details" : "Finalize & Submit Report"}
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -1594,14 +1465,17 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 function MaterialHeatChart() {
   const [view, setView] = useState("list") // "list" | "create"
   const [editId, setEditId] = useState(null)
+  const [isReadOnly, setIsReadOnly] = useState(false)
 
   const handleCreateClick = () => {
     setEditId(null)
+    setIsReadOnly(false)
     setView("create")
   }
 
-  const handleEditClick = (id) => {
+  const handleEditClick = (id, isView = false) => {
     setEditId(id)
+    setIsReadOnly(isView)
     setView("create")
   }
 
@@ -1621,7 +1495,7 @@ function MaterialHeatChart() {
             {view === "list" ? (
               <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} />
             ) : (
-              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} />
+              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} isView={isReadOnly} />
             )}
           </div>
         </main>
