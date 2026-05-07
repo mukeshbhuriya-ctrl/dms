@@ -119,6 +119,15 @@ class EmailService {
 
         return this.sendEmail({ to, subject, html });
     }
+
+    async sendAdminResetEmail(user, tempPassword) {
+        const { getAdminResetEmailTemplate } = require('../utils/email-templates/admin-reset.template');
+        const portalUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const subject = `[Action Required] Your DMS Password Has Been Reset`;
+        const html = getAdminResetEmailTemplate(user, tempPassword, portalUrl);
+
+        return this.sendEmail({ to: user.email, subject, html });
+    }
 }
 
 module.exports = new EmailService();

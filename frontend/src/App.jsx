@@ -18,7 +18,7 @@ function App() {
   const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   
-  // Workflow States: 'login' | 'forgot' | 'otp' | 'reset'
+  // Workflow States: 'login' | 'forgot' | 'otp' | 'reset' | 'force-reset'
   const [view, setView] = useState("login")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -61,6 +61,13 @@ function App() {
         "user_auth",
         JSON.stringify({ payload, loggedAt: Date.now() }),
       )
+
+      // Check if user must change password
+      if (payload?.user?.mustChangePassword) {
+        setView("force-reset")
+        setIsLoading(false)
+        return
+      }
 
       await refetch()
       const role = payload?.roles?.[0]?.name
@@ -125,6 +132,31 @@ function App() {
       setPassword("") 
     } catch (err) {
       setError(err?.message || "Failed to reset password.")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleForceChangePassword = async (e) => {
+    e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      return setError("Passwords do not match.")
+    }
+    setError("")
+    setIsLoading(true)
+    try {
+      await apiClient.post("/api/users/auth/force-change-password", { 
+        newPassword 
+      })
+      setSuccess("Password updated successfully. Accessing portal...")
+      
+      // After force change, re-fetch and navigate
+      await refetch()
+      setTimeout(() => {
+        navigate("/user/dashboard") // default, context will handle redirect based on role
+      }, 1500)
+    } catch (err) {
+      setError(err?.message || "Failed to update password.")
     } finally {
       setIsLoading(false)
     }
@@ -196,11 +228,16 @@ function App() {
         )
 
       case "reset":
+      case "force-reset":
+        const isForce = view === "force-reset"
         return (
-          <form onSubmit={handleResetPassword} className="space-y-4">
+          <form onSubmit={isForce ? handleForceChangePassword : handleResetPassword} className="space-y-4">
             <div className="text-center mb-6">
               <Lock className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-              <h2 className="text-[16px] font-bold text-slate-800">Set New Password</h2>
+              <h2 className="text-[16px] font-bold text-slate-800">
+                {isForce ? "Update Required" : "Set New Password"}
+              </h2>
+              {isForce && <p className="text-[12px] text-slate-500">For security, you must set a new password.</p>}
             </div>
             <div className="input-wrapper">
               <Lock className="input-icon h-4 w-4" />
@@ -225,7 +262,7 @@ function App() {
               />
             </div>
             <Button type="submit" disabled={isLoading} className="primary-submit-btn">
-              {isLoading ? "Updating..." : "Reset Password"}
+              {isLoading ? "Updating..." : (isForce ? "Save & Continue" : "Reset Password")}
             </Button>
           </form>
         )

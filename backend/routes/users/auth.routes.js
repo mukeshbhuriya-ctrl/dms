@@ -1,5 +1,5 @@
 const express = require('express');
-const { login, me, logout, forgotPassword, verifyOtp, resetPassword } = require('#api/users/auth.js');
+const { login, me, logout, forgotPassword, verifyOtp, resetPassword, forceChangePassword } = require('#api/users/auth.js');
 const { authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 
 const router = express.Router();
@@ -11,5 +11,6 @@ router.post('/verify-otp', verifyOtp);
 router.post('/reset-password', resetPassword);
 router.get('/me', authenticateUserOnly, me);
 router.post('/logout', logout);
+router.post('/force-change-password', authenticateUserOnly, forceChangePassword);
 
 module.exports = router;

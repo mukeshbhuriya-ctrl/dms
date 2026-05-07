@@ -153,6 +153,20 @@ class UserController {
             });
         }
     }
+
+    async adminResetPassword(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await userService.adminResetPassword(id, req.user.company_id);
+            res.status(200).json(result);
+        } catch (error) {
+            console.error('Admin reset password error:', error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to reset user password',
+            });
+        }
+    }
 }
 
 module.exports = new UserController();

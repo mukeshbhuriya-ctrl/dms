@@ -5,9 +5,9 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive, Key } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
-import { ChevronDownIcon } from "lucide-react"
+import { ChevronDownIcon, RefreshCcw } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -72,6 +72,11 @@ function CreateUser() {
   const [toggleDialogOpen, setToggleDialogOpen] = useState(false)
   const [userToToggle, setUserToToggle] = useState(null)
   const [isToggling, setIsToggling] = useState(false)
+
+  // Reset Password State
+  const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [userToReset, setUserToReset] = useState(null)
+  const [isResetting, setIsResetting] = useState(false)
 
   const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
@@ -238,6 +243,29 @@ function CreateUser() {
     }
   }
 
+  // ── Reset Password ──────────────────────────────────────────
+  const handleResetClick = (user) => {
+    setUserToReset(user)
+    setResetDialogOpen(true)
+  }
+
+  const confirmReset = async () => {
+    if (!userToReset) return
+    setIsResetting(true)
+    try {
+      await apiClient.post(`/api/users/reset-password/${userToReset.id}`)
+      setSuccess(`Temporary password sent to ${userToReset.email}`)
+      setTimeout(() => setSuccess(""), 3000)
+    } catch (error) {
+      console.error("Reset password error", error)
+      setError(error.message || "Failed to reset password")
+    } finally {
+      setIsResetting(false)
+      setResetDialogOpen(false)
+      setUserToReset(null)
+    }
+  }
+
   const columns = useMemo(() => [
     {
       accessorKey: "empid",
@@ -312,6 +340,15 @@ function CreateUser() {
             onCheckedChange={() => handleToggleClick(row)}
             title={row.is_active ? "Deactivate" : "Activate"}
           />
+          <Button
+            variant="outline"
+            size="sm"
+            className="cursor-pointer"
+            onClick={() => handleResetClick(row)}
+            title="Reset Password"
+          >
+            <Key className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -606,6 +643,17 @@ function CreateUser() {
             confirmText={userToToggle?.is_active ? "Deactivate" : "Activate"}
             variant="warning"
             isLoading={isToggling}
+          />
+
+          <ConfirmDialog 
+            isOpen={resetDialogOpen}
+            onClose={() => setResetDialogOpen(false)}
+            onConfirm={confirmReset}
+            title="Reset Password"
+            description={<span>Are you sure you want to reset password for <strong>{userToReset?.name}</strong>? A temporary password will be sent to <strong>{userToReset?.email}</strong>.</span>}
+            confirmText="Reset Now"
+            variant="warning"
+            isLoading={isResetting}
           />
 
         </div>

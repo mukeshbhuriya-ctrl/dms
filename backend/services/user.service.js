@@ -325,6 +325,46 @@ class UserService {
 
         return { records };
     }
+
+    /**
+     * Admin-initiated password reset
+     * Generates a temp password and forces change on next login
+     */
+    async adminResetPassword(id, company_id) {
+        const user = await prisma.user.findFirst({
+            where: { id, company_id, is_deleted: false }
+        });
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (!user.email) {
+            throw new Error('User does not have a registered email address');
+        }
+
+        // Generate secure 10-char temp password
+        const crypto = require('crypto');
+        const tempPassword = crypto.randomBytes(5).toString('hex'); // 10 chars
+        const hashedPassword = await hashPassword(tempPassword);
+
+        const updatedUser = await prisma.user.update({
+            where: { id },
+            data: {
+                password: hashedPassword,
+                must_change_password: true,
+                otp: null,
+                otpExpiry: null
+            }
+        });
+
+        // Send email notification
+        emailService.sendAdminResetEmail(updatedUser, tempPassword).catch(err => {
+            console.error(`[UserService] Failed to send admin reset email to ${updatedUser.email}:`, err);
+        });
+
+        return { success: true, message: 'Password reset and email sent' };
+    }
 }
 
 module.exports = new UserService();

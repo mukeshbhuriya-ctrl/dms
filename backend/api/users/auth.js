@@ -142,7 +142,8 @@ async function login(req, res) {
       user: {
         id: user.id,
         name: user.name,
-        empid: user.empid
+        empid: user.empid,
+        mustChangePassword: user.must_change_password
       }
     });
   } catch (error) {
@@ -353,6 +354,7 @@ async function resetPassword(req, res) {
       where: { id: user.id },
       data: {
         password: hashedPassword,
+        must_change_password: false,
         otp: null,
         otpExpiry: null
       }
@@ -365,11 +367,38 @@ async function resetPassword(req, res) {
   }
 }
 
+async function forceChangePassword(req, res) {
+  try {
+    const { newPassword } = req.body;
+    const userId = req.user.userid;
+
+    if (!newPassword) {
+      return res.status(400).json({ success: false, message: 'New password is required' });
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        must_change_password: false
+      }
+    });
+
+    res.status(200).json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    console.error('Force change password error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
 module.exports = {
   login,
   me,
   logout,
   forgotPassword,
   verifyOtp,
-  resetPassword
+  resetPassword,
+  forceChangePassword
 };
