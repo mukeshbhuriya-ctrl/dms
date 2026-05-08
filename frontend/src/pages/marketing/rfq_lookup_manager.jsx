@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from "react"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -37,6 +38,7 @@ function RfqLookupManager() {
     const [emailValue, setEmailValue] = useState("")
     const [submitting, setSubmitting] = useState(false)
     const [refreshKey, setRefreshKey] = useState(0)
+    const [confirmDelete, setConfirmDelete] = useState({ isOpen: false, id: null })
 
     const [columnFilters, setColumnFilters] = useState({})
     const [activeFilters, setActiveFilters] = useState({ records: [] })
@@ -55,8 +57,13 @@ function RfqLookupManager() {
         setView("create")
     }, [])
 
-    const handleDelete = useCallback(async (id) => {
-        if (!window.confirm(`Are you sure you want to delete this ${config?.singular}?`)) return
+    const handleDelete = useCallback((id) => {
+        setConfirmDelete({ isOpen: true, id })
+    }, [])
+
+    const executeDelete = async () => {
+        const id = confirmDelete.id
+        if (!id) return
         try {
             const endpoint = isPersonType ? `/api/rfq/${type}s/${id}` : `/api/rfq/lookups/${id}`
             const res = await apiClient.delete(endpoint)
@@ -66,8 +73,10 @@ function RfqLookupManager() {
             }
         } catch (error) {
             toast.error(error.message || "Failed to delete")
+        } finally {
+            setConfirmDelete({ isOpen: false, id: null })
         }
-    }, [config?.singular, isPersonType, type])
+    }
 
     const fetchActiveFilters = useCallback(async () => {
         try {
@@ -300,6 +309,16 @@ function RfqLookupManager() {
                         </form>
                     )}
                 </div>
+                
+                <ConfirmDialog
+                    isOpen={confirmDelete.isOpen}
+                    onClose={() => setConfirmDelete({ isOpen: false, id: null })}
+                    onConfirm={executeDelete}
+                    title={`Delete ${config?.singular}`}
+                    description={`Are you sure you want to delete this ${config?.singular}? This action cannot be undone.`}
+                    confirmText="Delete"
+                    variant="danger"
+                />
             </main>
         </>
     )

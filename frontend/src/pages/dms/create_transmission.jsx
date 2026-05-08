@@ -72,7 +72,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
-
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 function CreateTransmission() {
   const navigate = useNavigate();
   const [view, setView] = useState("list") // 'list' | 'create'
@@ -131,6 +131,7 @@ function CreateTransmission() {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
+  const [confirmDeleteTemplate, setConfirmDeleteTemplate] = useState({ isOpen: false, id: null });
 
   const [tempEmailInput, setTempEmailInput] = useState("");
   const [customShrenoEmails, setCustomShrenoEmails] = useState([]);
@@ -711,8 +712,13 @@ function CreateTransmission() {
     }
   };
 
-  const handleDeleteTemplate = async (templateId) => {
-    if (!window.confirm("Are you sure you want to delete this template?")) return;
+  const handleDeleteTemplate = (templateId) => {
+    setConfirmDeleteTemplate({ isOpen: true, id: templateId });
+  };
+
+  const executeDeleteTemplate = async () => {
+    const templateId = confirmDeleteTemplate.id;
+    if (!templateId) return;
     try {
       const res = await dccService.deleteEmailTemplate(templateId);
       if (res.success) {
@@ -726,6 +732,8 @@ function CreateTransmission() {
     } catch (err) {
       console.error("Delete template error:", err);
       toast.error("Failed to delete template");
+    } finally {
+      setConfirmDeleteTemplate({ isOpen: false, id: null });
     }
   };
 
@@ -1412,12 +1420,21 @@ function CreateTransmission() {
         isSavingTemplate={isSavingTemplate}
       />
 
-      {/* Shared Document Preview Dialog */}
       <DocumentPreviewDialog
         isOpen={isPreviewOpen}
         onOpenChange={setIsPreviewOpen}
         previewUrl={previewUrl}
         activePreviewDoc={activePreviewDoc}
+      />
+
+      <ConfirmDialog
+        isOpen={confirmDeleteTemplate.isOpen}
+        onClose={() => setConfirmDeleteTemplate({ isOpen: false, id: null })}
+        onConfirm={executeDeleteTemplate}
+        title="Delete Template"
+        description="Are you sure you want to delete this template? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
       />
     </div>
   )
