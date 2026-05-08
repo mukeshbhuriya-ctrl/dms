@@ -12,6 +12,7 @@ const cors = require('./utils/cors');
 const { setupAdmin } = require('./utils/startup/steup_admin');
 const { initScheduler } = require('./utils/scheduler');
 const NotificationSocketService = require('#services/notification.socket.js');
+const { activityLogMiddleware } = require('./utils/activityLogger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,9 @@ app.use(cookieParser());
 const MAX_PAYLOAD_SIZE = parseInt(process.env.MAX_FILE_SIZE || 1073741824);
 app.use(express.json({ limit: MAX_PAYLOAD_SIZE }));
 app.use(express.urlencoded({ extended: true, limit: MAX_PAYLOAD_SIZE }));
+
+// Activity Logger Middleware
+app.use(activityLogMiddleware);
 
 // Routes
 app.get('/', (req, res) => {
