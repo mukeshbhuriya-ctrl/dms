@@ -268,18 +268,8 @@ class DccController {
 
     async getAllAssignedDocuments(req, res) {
         try {
-            const userRoles = req.user.role || [];
-            // Check if user has DCC or ADMIN role
-            if (userRoles.includes('DCC') || userRoles.includes('ADMIN')) {
-                const result = await DccService.getAllAssignedDocuments(req.user.company_id, req.query);
-                return res.status(200).json({ success: true, data: result.data, meta: result.meta });
-            } else {
-                // For other users, only show documents assigned to them
-                // Using req.user.userid as per middleware definition
-                const userId = req.user.userid || req.user.id;
-                const result = await DccService.getMyAssignedDocuments(req.user.company_id, userId, req.query);
-                return res.status(200).json({ success: true, data: result.data, meta: result.meta });
-            }
+            const result = await DccService.getAllAssignedDocuments(req.user.company_id, req.query);
+            return res.status(200).json({ success: true, data: result.data, meta: result.meta });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
         }

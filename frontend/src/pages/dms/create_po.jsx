@@ -151,6 +151,29 @@ function CreatePO() {
     return pos.map(p => ({ label: p, value: p }))
   }, [activeFilters.records, columnFilters.customer_name, columnFilters.location_name])
 
+  const resetForm = useCallback(() => {
+    setFormData({
+      customerId: "",
+      locationId: "",
+      poNumber: "",
+      poDate: "",
+    })
+    setSelectedLocation(null)
+    setPoDocument(null)
+    setExistingDocUrl(null)
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
+    }
+    setEditingId(null)
+    setEditingPo(null)
+    setError("")
+    setSuccess("")
+
+    const fileInput = document.getElementById("documentUpload")
+    if (fileInput) fileInput.value = ""
+  }, [previewUrl])
+
   const handleEdit = useCallback(async (po) => {
     setFormData({
       customerId: String(po.customer_id),
@@ -170,7 +193,6 @@ function CreatePO() {
     setEditingId(po.id)
     setEditingPo(po)
     setView("create")
-    setError("")
     setError("")
     setSuccess("")
   }, [])
@@ -279,7 +301,7 @@ function CreatePO() {
           <Button
             variant="ghost"
             size="sm"
-            className="text-blue-600 hover:text-blue-800 hover:bg-transparent p-0 flex items-center gap-1"
+            className="text-blue-600 hover:text-blue-800 hover:bg-transparent p-0 flex items-center gap-1 cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -331,8 +353,9 @@ function CreatePO() {
             size="sm"
             title="Edit"
             onClick={() => handleEdit(row)}
+            className="cursor-pointer"
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-4 w-4" /> Edit
           </Button>
           <Button
             variant="outline"
@@ -501,26 +524,8 @@ function CreatePO() {
         setSuccess("PO created successfully!")
       }
 
-      // Reset form
-      setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
-      setSelectedLocation(null)
-      setPoDocument(null)
-      setExistingDocUrl(null)
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-        setPreviewUrl(null)
-      }
-
-      setEditingId(null)
-      setEditingPo(null)
-
-      const fileInput = document.getElementById("documentUpload")
-      if (fileInput) fileInput.value = ""
-
-      // Refresh list and switch view
-      setRefreshKey(prev => prev + 1)
       setTimeout(() => {
-        setSuccess("")
+        resetForm()
         setView("list")
       }, 1500)
 
@@ -562,11 +567,7 @@ function CreatePO() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => {
-                  setView("list");
-                  setEditingId(null);
-                  setSelectedHistoryPo(null);
-                }}>
+                <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                 </Button>
               </div>
@@ -578,7 +579,7 @@ function CreatePO() {
               columns={columns}
               fetchData={fetchPos}
               onExport={handleExport}
-              onAdd={() => setView("create")}
+              onAdd={() => { resetForm(); setView("create"); }}
               onAddTooltip="Create PO"
               refreshKey={refreshKey}
               columnFilters={columnFilters}

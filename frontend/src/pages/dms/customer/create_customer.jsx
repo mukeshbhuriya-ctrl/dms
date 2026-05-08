@@ -86,6 +86,18 @@ function CreateCustomer() {
     return shorts.map(s => ({ label: s, value: s }))
   }, [activeFilters.records, columnFilters.customer_name])
 
+  const resetForm = useCallback(() => {
+    setFormData({
+      customerName: "",
+      email: "",
+      shortName: "",
+      mobileNumber: "",
+    })
+    setEditingId(null)
+    setError("")
+    setSuccess("")
+  }, [])
+
   const handleEdit = useCallback((customer) => {
     setFormData({
       customerName: customer.customer_name || "",
@@ -95,7 +107,6 @@ function CreateCustomer() {
     })
     setEditingId(customer.id)
     setView("create")
-    setError("")
     setError("")
     setSuccess("")
   }, [])
@@ -279,18 +290,10 @@ function CreateCustomer() {
       }
 
       setSuccess(editingId ? "Client updated successfully!" : "Client created successfully!")
-      setFormData({
-        customerName: "",
-        email: "",
-        shortName: "",
-        mobileNumber: "",
-      })
-      setEditingId(null)
-
-      // Refresh list and switch to list view
+      
       setRefreshKey(prev => prev + 1)
       setTimeout(() => {
-        setSuccess("")
+        resetForm()
         setView("list")
       }, 1500)
 
@@ -327,7 +330,7 @@ function CreateCustomer() {
                 </p>
               </div>
               <div>
-                  <Button variant="outline" onClick={() => setView("list")}>
+                  <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
               </div>
@@ -351,7 +354,7 @@ function CreateCustomer() {
                 columns={columns}
                 fetchData={fetchCustomers}
                 onExport={handleExport}
-                onAdd={() => setView("create")}
+                onAdd={() => { resetForm(); setView("create"); }}
                 onAddTooltip="Create Client"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
@@ -438,18 +441,10 @@ function CreateCustomer() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      setFormData({
-                        customerName: "",
-                        email: "",
-                        shortName: "",
-                        mobileNumber: "",
-                      })
-                      setEditingId(null)
-                    }}
+                    onClick={() => { resetForm(); setView("list"); }}
                     disabled={isLoading}
                   >
-                    Reset
+                    Cancel
                   </Button>
                   <Button type="submit" disabled={isLoading}>
                     {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}

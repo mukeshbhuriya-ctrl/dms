@@ -96,6 +96,21 @@ function CreateLocation() {
     return locs.map(l => ({ label: l, value: l }))
   }, [activeFilters.records, columnFilters.customer_name])
 
+  const resetForm = useCallback(() => {
+    setSelectedCustomer("")
+    setLocations([
+      {
+        id: 1,
+        location: "",
+        customerNumber: "",
+        gstNumber: "",
+      },
+    ])
+    setEditingId(null)
+    setError("")
+    setSuccess("")
+  }, [])
+
   const handleEdit = useCallback((locationItem) => {
     setSelectedCustomer(String(locationItem.customer_id))
     setLocations([
@@ -108,7 +123,6 @@ function CreateLocation() {
     ])
     setEditingId(locationItem.id)
     setView("create")
-    setError("")
     setError("")
     setSuccess("")
   }, [])
@@ -340,22 +354,8 @@ function CreateLocation() {
         setSuccess(`Successfully created ${locations.length} location(s)!`)
       }
 
-      // Reset form
-      setSelectedCustomer("")
-      setLocations([
-        {
-          id: 1,
-          location: "",
-          customerNumber: "",
-          gstNumber: "",
-        },
-      ])
-      setEditingId(null)
-
-      // Refresh list and switch view
-      setRefreshKey(prev => prev + 1)
       setTimeout(() => {
-        setSuccess("")
+        resetForm()
         setView("list")
       }, 1500)
 
@@ -392,7 +392,7 @@ function CreateLocation() {
                 </p>
               </div>
               <div>
-                  <Button variant="outline" onClick={() => setView("list")}>
+                  <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                   </Button>
               </div>
@@ -404,7 +404,7 @@ function CreateLocation() {
                 columns={columns}
                 fetchData={fetchCustomerLocations}
                 onExport={handleExport}
-                onAdd={() => setView("create")}
+                onAdd={() => { resetForm(); setView("create"); }}
                 onAddTooltip="Create Location"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
@@ -593,14 +593,7 @@ function CreateLocation() {
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => {
-                          if (!editingId) setSelectedCustomer("")
-                          setLocations([{ id: 1, location: "", customerNumber: "", gstNumber: "" }])
-                          if (editingId) {
-                            setEditingId(null)
-                            setView("list")
-                          }
-                        }}
+                        onClick={() => { resetForm(); setView("list"); }}
                         disabled={isLoading}
                       >
                         {editingId ? "Cancel" : "Reset"}

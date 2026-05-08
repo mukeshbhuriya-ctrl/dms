@@ -1170,7 +1170,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               }
             </p>
           </div>
-        <Button variant="outline" onClick={onBack} disabled={submitting !== null} className="rounded-xl">
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null} >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>

@@ -135,10 +135,15 @@ async function login(req, res) {
     });
 
     // Return success response (token is in cookie, but also return it in response for flexibility)
+    // Resolve permissions based on roles
+    const permissionService = require('../../services/permission.service.js');
+    const userPermissions = permissionService.resolveUserPermissions(roles.map(r => r.name));
+
     res.status(200).json({
       success: true,
       message: 'Login successful',
       roles: roles,
+      permissions: userPermissions,
       user: {
         id: user.id,
         name: user.name,
@@ -191,6 +196,10 @@ async function me(req, res) {
       });
     }
 
+    // Resolve permissions
+    const permissionService = require('../../services/permission.service.js');
+    const userPermissions = permissionService.resolveUserPermissions(user.user_roles.map(ur => ur.role.name));
+
     // Return more user details
     res.status(200).json({
       success: true,
@@ -200,6 +209,7 @@ async function me(req, res) {
         email: user.email,
         empid: user.empid,
         role: user.user_roles.map(ur => ur.role.name), // Array of role names
+        permissions: userPermissions,
         company: user.company ? {
           id: user.company.id,
           name: user.company.name,

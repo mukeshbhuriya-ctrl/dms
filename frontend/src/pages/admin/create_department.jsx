@@ -77,6 +77,13 @@ function CreateDepartment() {
     }
   }, [])
 
+  const resetForm = useCallback(() => {
+    setFormData({ name: "" })
+    setEditingId(null)
+    setError("")
+    setSuccess("")
+  }, [])
+
   const handleEdit = (dept) => {
     setEditingId(dept.id)
     setFormData({ name: dept.name })
@@ -177,10 +184,9 @@ function CreateDepartment() {
         setSuccess("Department created successfully")
       }
       setTimeout(() => {
+        resetForm()
         setView("list")
         setRefreshKey(prev => prev + 1)
-        setFormData({ name: "" })
-        setEditingId(null)
       }, 1000)
     } catch (err) {
       setError(err.message || "Something went wrong")
@@ -202,7 +208,7 @@ function CreateDepartment() {
                 <h1 className="text-3xl font-bold">{editingId ? "Edit Department" : "Create Department"}</h1>
                 <p className="text-muted-foreground">Manage organizational units</p>
               </div>
-              <Button variant="outline" onClick={() => setView("list")}>
+              <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
               </Button>
             </div>
@@ -218,7 +224,7 @@ function CreateDepartment() {
               <ProDataTable
                 columns={columns}
                 fetchData={fetchData}
-                onAdd={() => setView("create")}
+                onAdd={() => { resetForm(); setView("create"); }}
                 onAddTooltip="Add Department"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
@@ -246,8 +252,8 @@ function CreateDepartment() {
                     />
                   </div>
                   <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => setView("list")} disabled={isLoading}>Cancel</Button>
-                    <Button type="submit" disabled={isLoading}>{isLoading ? "Saving..." : "Save Department"}</Button>
+                    <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>Cancel</Button>
+                    <Button type="submit" disabled={isLoading}>{isLoading ? "Saving..." : (editingId ? "Update Department" : "Save Department")}</Button>
                   </div>
                 </form>
               </CardContent>

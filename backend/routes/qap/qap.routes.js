@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const qapController = require('../../controllers/qap.controller');
-const { authenticateUser } = require('#api/middleware/user.middleware.js');
+const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 
-router.use(authenticateUser(['ADMIN', 'QAP', 'DCC', 'PRODUCTION_ENGINEER', 'QC_ENGINEER']));
+router.use(authenticateUserOnly);
 
 router.post('/create', qapController.create);
 router.put('/update/:id', qapController.update);

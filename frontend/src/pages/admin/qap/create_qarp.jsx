@@ -1465,10 +1465,10 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       </Card>
 
       <div className="flex gap-3 justify-end mt-4 mb-8">
-        <Button variant="outline" onClick={onBack} disabled={submitting}>
+        <Button variant="outline" onClick={onBack} disabled={submitting} className="cursor-pointer">
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
+        <Button onClick={handleSubmit} disabled={submitting} className="cursor-pointer">
           {submitting ? "Saving..." : (editId ? "Update" : "Submit")}
         </Button>
       </div>

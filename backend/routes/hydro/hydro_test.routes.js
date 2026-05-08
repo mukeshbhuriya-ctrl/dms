@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-const { authenticateUser } = require('#api/middleware/user.middleware.js');
+const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 const HydroTestController = require('../../controllers/hydro/hydro_test.controller');
 
-router.use(authenticateUser(['DCC', 'ADMIN', 'PRODUCTION_ENGINEER']));
+router.use(authenticateUserOnly);
 
 router.get('/list', HydroTestController.list);
 router.get('/active-filters', HydroTestController.getActiveFilters);

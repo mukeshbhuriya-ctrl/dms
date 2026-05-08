@@ -443,6 +443,7 @@ class DcrController {
                     equ_no: true,
                     drg_no: true,
                     inspect_by: true,
+                    job_id: true,
                     job: {
                         select: {
                             job_number: true,
@@ -502,6 +503,7 @@ class DcrController {
                     equ_no: dcr.equ_no,
                     drg_no: dcr.drg_no,
                     inspect_by: dcr.inspect_by,
+                    job_id: dcr.job_id,
                     job_number: dcr.job?.job_number || null,
                     design_engineer: dcr.design_engineer,
                     quality_engineer: dcr.quality_engineer,
@@ -708,6 +710,92 @@ class DcrController {
             return res.status(500).json({
                 success: false,
                 message: 'Internal server error'
+            });
+        }
+    }
+
+    async updateDcr(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const { id } = req.params;
+            const body = req.body || {};
+
+            const dcr = await prisma.dcr.findFirst({
+                where: { id, company_id },
+                include: { dcr_status: { orderBy: { createdAt: 'desc' }, take: 1 } }
+            });
+
+            if (!dcr) {
+                return res.status(404).json({ success: false, message: 'DCR not found' });
+            }
+
+            const currentStatus = dcr.dcr_status[0]?.status || 'pending';
+            if (currentStatus !== 'pending') {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: `Cannot edit DCR in ${currentStatus} status. Only pending DCRs can be edited.` 
+                });
+            }
+
+            const job_id = toTrimmedString(body.job_id);
+            const drg_no = toTrimmedString(body.drg_no);
+            const equ_no = toTrimmedString(body.equ_no);
+            const inspect_by = toTrimmedString(body.inspect_by);
+            const design_engineer_id = toTrimmedString(body.design_engineer_id);
+            const quality_engineer_id = toTrimmedString(body.quality_engineer_id);
+
+            const changeRequestsInput = body.change_requests ?? [];
+            const preparedChangeRequests = [];
+            for (let i = 0; i < changeRequestsInput.length; i++) {
+                const item = changeRequestsInput[i] || {};
+                const item_part_no = toTrimmedString(item.item_part_no);
+                const chnage_from = toTrimmedString(item.chnage_from || item.change_from);
+                const chnage_to = toTrimmedString(item.chnage_to || item.change_to);
+                const reason = toTrimmedString(item.reason);
+
+                if (item_part_no || chnage_from || chnage_to || reason) {
+                    preparedChangeRequests.push({
+                        company_id,
+                        job_id: job_id || dcr.job_id,
+                        dcr_id: id,
+                        item_part_no,
+                        chnage_from,
+                        chnage_to,
+                        reason,
+                    });
+                }
+            }
+
+            await prisma.$transaction(async (tx) => {
+                await tx.dcr.update({
+                    where: { id },
+                    data: {
+                        drg_no,
+                        equ_no,
+                        inspect_by,
+                        design_engineer_id,
+                        quality_engineer_id,
+                    }
+                });
+
+                // Replace change requests
+                await tx.dcr_change_request.deleteMany({ where: { dcr_id: id } });
+                if (preparedChangeRequests.length > 0) {
+                    await tx.dcr_change_request.createMany({ data: preparedChangeRequests });
+                }
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: 'DCR updated successfully'
+            });
+
+        } catch (error) {
+            console.error('Update DCR error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
             });
         }
     }

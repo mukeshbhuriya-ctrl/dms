@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-const { authenticateUser } = require('#api/middleware/user.middleware.js');
+const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 const MhcController = require('../../controllers/mhc.controller');
 
-router.use(authenticateUser(['DCC', 'ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER']));
+router.use(authenticateUserOnly);
 
 router.get('/list', MhcController.list);
 router.post('/create', MhcController.create);

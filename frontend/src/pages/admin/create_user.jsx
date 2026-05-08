@@ -181,9 +181,24 @@ function CreateUser() {
     fetchData()
   }, [])
 
+  const resetForm = useCallback(() => {
+    setFormData({
+      fullName: "",
+      email: "",
+      employeeId: "",
+      department: "",
+      designation: "",
+      mobileNumber: "",
+      roles: [],
+      password: "",
+    })
+    setEditingId(null)
+    setError("")
+    setSuccess("")
+  }, [])
+
   const handleEdit = (user) => {
     setEditingId(user.id)
-    const deptName = departmentMap[user.department] || user.department || ""
     setFormData({
       fullName: user.name || "",
       email: user.email || "",
@@ -398,10 +413,8 @@ function CreateUser() {
       setSuccess(editingId ? "User updated successfully!" : "User created successfully!")
 
       setTimeout(() => {
-        setSuccess("")
+        resetForm()
         setView("list")
-        setFormData({ fullName: "", email: "", employeeId: "", department: "", designation: "", mobileNumber: "", roles: [], password: "" })
-        setEditingId(null)
         setRefreshKey(prev => prev + 1)
       }, 1000)
 
@@ -434,7 +447,7 @@ function CreateUser() {
                 <h1 className="text-3xl font-bold mb-2">{editingId ? "Edit User" : "Create User"}</h1>
                 <p className="text-muted-foreground">Fill in the user information below.</p>
               </div>
-              <Button variant="outline" onClick={() => setView("list")}>
+              <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
               </Button>
             </div>
@@ -451,7 +464,7 @@ function CreateUser() {
               columns={columns}
               fetchData={fetchUsers}
               onExport={handleExport}
-              onAdd={() => setView("create")}
+              onAdd={() => { resetForm(); setView("create"); }}
               onAddTooltip="Create User"
               refreshKey={refreshKey}
               columnFilters={columnFilters}
@@ -612,7 +625,7 @@ function CreateUser() {
 
                 {/* Submit Buttons */}
                 <div className="flex justify-end gap-4 mt-6">
-                  <Button type="button" variant="outline" onClick={() => { setFormData({ fullName: "", email: "", employeeId: "", department: "", designation: "", mobileNumber: "", roles: [], password: "" }); setView("list"); setEditingId(null) }} disabled={isLoading}>
+                  <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isLoading}>

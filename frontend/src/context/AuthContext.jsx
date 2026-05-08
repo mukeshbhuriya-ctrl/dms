@@ -36,6 +36,7 @@ export function AuthProvider({ children }) {
                 id: data?.id || data?.user?.id || "",
                 name: data?.name || data?.user?.name || "User",
                 roles,
+                permissions: data?.permissions || data?.user?.permissions || [],
                 company: data?.company || data?.user?.company || null
             })
             setIsAuthenticated(true)
@@ -64,15 +65,23 @@ export function AuthProvider({ children }) {
         }
     }, [])
 
+    const hasPermission = (moduleKey) => {
+        if (!user?.permissions) return false
+        if (user.permissions.includes("ALL")) return true
+        return user.permissions.includes(moduleKey)
+    }
+
     const value = {
         user,
         roles: user?.roles || [],
+        permissions: user?.permissions || [],
         userName: user?.name || "User",
         companyName: user?.company?.name || "Tech Fab",
         companyLogo: user?.company?.logo_url || null,
         isLoading,
         isAuthenticated,
         logout,
+        hasPermission,
         refetch: fetchAuth,
     }
 

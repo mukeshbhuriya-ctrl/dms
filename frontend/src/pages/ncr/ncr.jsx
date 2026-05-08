@@ -427,11 +427,11 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
             cell: (row) => (
                 <div className="flex items-center gap-1">
                     {canUserAct(row) && (
-                        <Button variant="outlined" size="sm" onClick={() => onOpenClick(row.id)} title="Open & take action" className="border">
+                        <Button variant="outlined" size="sm" onClick={() => onOpenClick(row.id)} title="Open & take action" className="border cursor-pointer">
                             <Pencil className="h-3.5 w-3.5 mr-1" /> Open
                         </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => onViewClick(row.id)} title="View full NCR">
+                    <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => onViewClick(row.id)} title="View full NCR">
                         <Eye className="h-3.5 w-3.5 mr-1" /> View
                     </Button>
                     {row.status === "CLOSED" && row.ncr_status === "closed" && (

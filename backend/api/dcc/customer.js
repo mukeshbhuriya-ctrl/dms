@@ -348,7 +348,7 @@ async function createPo(req, res) {
         message: 'PO document is required. Either upload a file or provide a document URL',
       });
     }
-    
+
     // Prepare initial po_attachments json array
     let initialAttachments = [];
     if (uploadedFile) {
@@ -900,17 +900,17 @@ async function getCustomerLocations(req, res) {
 async function getPos(req, res) {
   try {
     const company_id = req.user.company_id;
-    const { 
-      page = 1, 
-      limit, 
-      search = '', 
-      sortBy = 'createdAt', 
+    const {
+      page = 1,
+      limit,
+      search = '',
+      sortBy = 'createdAt',
       sortOrder = 'desc',
-      columnFilters: columnFiltersRaw 
+      columnFilters: columnFiltersRaw
     } = req.query;
 
     const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
-    
+
     const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
     const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
@@ -958,10 +958,10 @@ async function getPos(req, res) {
       const formattedHistory = po.po_attachment_history ? po.po_attachment_history.map(history => {
         let parsed = history.po_attachments;
         if (typeof parsed === 'string') {
-          try { parsed = JSON.parse(parsed); } catch(e) { parsed = []; }
+          try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
         }
         if (!Array.isArray(parsed)) parsed = [];
-        
+
         const mappedAttachments = parsed.map(doc => {
           let safeUrl = doc.url;
           if (safeUrl && !safeUrl.startsWith('http')) {
@@ -986,8 +986,8 @@ async function getPos(req, res) {
       };
     });
 
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       data: formattedPos,
       meta: {
         total,
@@ -1044,31 +1044,31 @@ async function getPoAttachments(req, res) {
     }
 
     const history = await prisma.po_attachment_history.findMany({
-       where: {
-         company_id: company_id,
-         po_id: po_id
-       },
-       orderBy: { revision: 'desc' }
+      where: {
+        company_id: company_id,
+        po_id: po_id
+      },
+      orderBy: { revision: 'desc' }
     });
 
     const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const formattedHistory = history.map(item => {
-        let parsed = item.po_attachments;
-        if (typeof parsed === 'string') {
-          try { parsed = JSON.parse(parsed); } catch(e) { parsed = []; }
-        }
-        if (!Array.isArray(parsed)) parsed = [];
-        
-        const mappedAttachments = parsed.map(doc => {
-          let safeUrl = doc.url;
-          if (safeUrl && !safeUrl.startsWith('http')) {
-            if (safeUrl.startsWith('/')) safeUrl = `${backendUrl}${safeUrl}`;
-            else safeUrl = `${backendUrl}/api/files/${safeUrl}`;
-          }
-          return { ...doc, url: safeUrl };
-        });
+      let parsed = item.po_attachments;
+      if (typeof parsed === 'string') {
+        try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
+      }
+      if (!Array.isArray(parsed)) parsed = [];
 
-        return { ...item, po_attachments: mappedAttachments };
+      const mappedAttachments = parsed.map(doc => {
+        let safeUrl = doc.url;
+        if (safeUrl && !safeUrl.startsWith('http')) {
+          if (safeUrl.startsWith('/')) safeUrl = `${backendUrl}${safeUrl}`;
+          else safeUrl = `${backendUrl}/api/files/${safeUrl}`;
+        }
+        return { ...doc, url: safeUrl };
+      });
+
+      return { ...item, po_attachments: mappedAttachments };
     });
 
     res.status(200).json({ success: true, data: formattedHistory });
@@ -1279,11 +1279,11 @@ async function updatePo(req, res) {
         } else if (finalPoDocUrl) {
           const filename = finalPoDocUrl.split('/').pop() || 'document';
           newAttachments.push({
-             url: finalPoDocUrl.startsWith('/') ? finalPoDocUrl : `/api/files/${finalPoDocUrl}`,
-             name: filename,
-             size: 0,
-             type: 'application/octet-stream',
-             filename: filename
+            url: finalPoDocUrl.startsWith('/') ? finalPoDocUrl : `/api/files/${finalPoDocUrl}`,
+            name: filename,
+            size: 0,
+            type: 'application/octet-stream',
+            filename: filename
           });
         }
 
@@ -1456,9 +1456,9 @@ async function updatePoCommunicationMatrix(req, res) {
       if (parsedCommunicationMatrix.client && Array.isArray(parsedCommunicationMatrix.client)) {
         for (const person of parsedCommunicationMatrix.client) {
           if (person.name && person.email) {
-             newMatrix.push(await tx.po_communication_matrix.create({
-               data: { company_id, po_id: id.trim(), name: person.name.trim(), email: person.email.toLowerCase().trim(), type: 'client' }
-             }));
+            newMatrix.push(await tx.po_communication_matrix.create({
+              data: { company_id, po_id: id.trim(), name: person.name.trim(), email: person.email.toLowerCase().trim(), type: 'client' }
+            }));
           }
         }
       }

@@ -43,6 +43,7 @@ router.get('/', DtnController.list);
 /**
  * @route GET /api/dtn/:id
  */
+router.get('/:id', DtnController.getById);
 router.delete('/:id', authenticateUser(['ADMIN']), DtnController.delete);
 router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), DtnController.toggleStatus);
 

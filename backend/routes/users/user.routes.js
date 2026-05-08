@@ -1,11 +1,11 @@
 const express = require('express');
 const userController = require('#controllers/user.controller.js');
-const { authenticateUser } = require('#api/middleware/user.middleware.js');
+const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 
 const router = express.Router();
 
 // Apply authentication middleware to all routes in this router
-router.use(authenticateUser(['ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER', 'NDT_ENGINEER', 'DCC', 'STORE_INCHARGE', 'DESIGN_ENGINEER']));
+router.use(authenticateUserOnly);
 
 // Public routes (access controlled by router-level middleware)
 router.get('/get-users', (req, res) => userController.getUsers(req, res));

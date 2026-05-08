@@ -176,6 +176,14 @@ function CreateQcGroup() {
         setView('members')
     }, [])
 
+    const resetForm = useCallback(() => {
+        setFormData({ name: "", user_ids: [] })
+        setEditingId(null)
+        setSelectedGroup(null)
+        setError("")
+        setSuccess("")
+    }, [])
+
     const handleEdit = useCallback((group) => {
         const userIds = group.users?.map(u => u.user_id.toString()) || []
         setFormData({ name: group.name, user_ids: userIds })
@@ -443,10 +451,8 @@ function CreateQcGroup() {
             setSuccess(editingId ? "QC Group updated successfully!" : "QC Group created successfully!")
 
             setTimeout(() => {
-                setSuccess("")
+                resetForm()
                 setView("list")
-                setFormData({ name: "", user_ids: [] })
-                setEditingId(null)
                 setRefreshKey(prev => prev + 1)
             }, 1000)
 
@@ -490,13 +496,7 @@ function CreateQcGroup() {
                                     <Pencil className="mr-2 h-4 w-4" /> Edit Group
                                 </Button>
                             )}
-                            <Button variant="outline" onClick={() => {
-                                setView("list")
-                                setEditingId(null)
-                                setSelectedGroup(null)
-                                setFormData({ name: "", user_ids: [] })
-                                setError("")
-                            }}>
+                            <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                             </Button>
                         </div>
@@ -513,7 +513,7 @@ function CreateQcGroup() {
                             <ProDataTable
                                 columns={columns}
                                 fetchData={fetchQcGroups}
-                                onAdd={() => setView("create")}
+                                onAdd={() => { resetForm(); setView("create"); }}
                                 onAddTooltip="Create QC Group"
                                 onExport={handleExport}
                                 refreshKey={refreshKey}
@@ -575,12 +575,7 @@ function CreateQcGroup() {
                                                 type="button" 
                                                 variant="outline" 
                                                 disabled={isLoading}
-                                                onClick={() => {
-                                                    setView("list")
-                                                    setEditingId(null)
-                                                    setFormData({ name: "", user_ids: [] })
-                                                    setError("")
-                                                }}
+                                                onClick={() => { resetForm(); setView("list"); }}
                                             >
                                                 Cancel
                                             </Button>

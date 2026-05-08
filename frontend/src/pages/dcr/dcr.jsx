@@ -141,7 +141,7 @@ const normalizeDetail = (item) => {
 
   return {
     formData: {
-      msmNumber: String(item?.job_number || ""),
+      msmNumber: String(item?.job_id || item?.job_number || ""),
       dcrNo: String(item?.dcr_no || ""),
       drawingNo: String(item?.drg_no || ""),
       equipmentNo: String(item?.equ_no || ""),
@@ -398,6 +398,7 @@ function CreateDCR() {
   const [tableRows, setTableRows] = useState([createEmptyRow(1)])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoadingDetail, setIsLoadingDetail] = useState(false)
+  const [editId, setEditId] = useState(null)
   const [formError, setFormError] = useState("")
   const [formSuccess, setFormSuccess] = useState("")
   const [viewDetails, setViewDetails] = useState({
@@ -514,10 +515,22 @@ function CreateDCR() {
             size="sm"
             onClick={() => handleViewDcr(row.id)}
             title="View"
-            className="h-8 rounded-sm"
+            className="h-8 rounded-sm cursor-pointer"
           >
             <Eye className="h-4 w-4 mr-2" /> View
           </Button>
+          {row.status === 'pending' && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleEditDcr(row.id)}
+              title="Edit"
+              className="h-8 rounded-sm cursor-pointer"
+            >
+              <Edit className="h-4 w-4 mr-2" /> Edit
+            </Button>
+          )}
 
           {isAdmin && (
             <Button
@@ -669,7 +682,6 @@ function CreateDCR() {
 
   const handleViewDcr = async (id) => {
     setIsLoadingDetail(true)
-    setListError("")
     setFormError("")
 
     try {
@@ -690,7 +702,32 @@ function CreateDCR() {
       setSelectedDcrId(id)
       setView("view")
     } catch (err) {
-      setListError(err?.message || "Unable to load DCR details")
+      setFormError(err?.message || "Unable to load DCR details")
+    } finally {
+      setIsLoadingDetail(false)
+    }
+  }
+
+  const handleEditDcr = async (id) => {
+    setIsLoadingDetail(true)
+    setFormError("")
+
+    try {
+      const payload = await apiClient.get(`/api/dcr/get-dcr-by-id/${id}`)
+      const dataItem = Array.isArray(payload?.data) ? payload.data[0] : payload?.data
+      const detail = normalizeDetail(dataItem || {})
+
+      setFormData(detail.formData)
+      setTableRows(detail.tableRows)
+      setEditId(id)
+      setView("create")
+      
+      // Fetch drawings for the loaded job
+      if (detail.formData.msmNumber) {
+        fetchAssignedDocs(detail.formData.msmNumber)
+      }
+    } catch (err) {
+      setFormError(err?.message || "Unable to load DCR details")
     } finally {
       setIsLoadingDetail(false)
     }
@@ -734,6 +771,26 @@ function CreateDCR() {
     }
   }
 
+  const fetchAssignedDocs = async (jobId) => {
+    if (!jobId) {
+      setAssignedDocs([])
+      return
+    }
+    
+    setIsLoadingDocs(true)
+    try {
+      const payload = await apiClient.get(`/api/dcr/get-assigned-drawings/${jobId}`)
+      if (payload.success) {
+        setAssignedDocs(payload.data || [])
+      }
+    } catch (err) {
+      console.error("Error fetching drawings:", err)
+      toast.error("Failed to fetch assigned drawings")
+    } finally {
+      setIsLoadingDocs(false)
+    }
+  }
+
   const handleJobChange = async (jobId) => {
     const selectedJob = jobs.find((job) => job.id === jobId)
 
@@ -749,22 +806,7 @@ function CreateDCR() {
       setFormError("")
     }
 
-    if (jobId) {
-      setIsLoadingDocs(true)
-      try {
-        const payload = await apiClient.get(`/api/dcr/get-assigned-drawings/${jobId}`)
-        if (payload.success) {
-          setAssignedDocs(payload.data || [])
-        }
-      } catch (err) {
-        console.error("Error fetching drawings:", err)
-        toast.error("Failed to fetch assigned drawings")
-      } finally {
-        setIsLoadingDocs(false)
-      }
-    } else {
-      setAssignedDocs([])
-    }
+    fetchAssignedDocs(jobId)
   }
 
   const handleTableRowChange = (id, field, value) => {
@@ -810,11 +852,12 @@ function CreateDCR() {
 
 
 
-  const handleReset = () => {
+  const resetForm = useCallback(() => {
     setFormData(defaultFormData)
     setTableRows([createEmptyRow(1)])
     setFormError("")
     setFormSuccess("")
+    setEditId(null)
     setViewDetails({
       jobNumber: "-",
       designEngineerName: "-",
@@ -823,7 +866,9 @@ function CreateDCR() {
       designStatus: "pending",
       qualityStatus: "pending",
     })
-  }
+  }, [])
+
+  const handleReset = resetForm;
 
   const handleToggleStatus = async (row) => {
     setConfirmData({
@@ -932,14 +977,16 @@ function CreateDCR() {
         })),
       }
 
-      const payload = await apiClient.post('/api/dcr/create-dcr', requestBody)
+      const payload = editId 
+        ? await apiClient.put(`/api/dcr/update-dcr/${editId}`, requestBody)
+        : await apiClient.post('/api/dcr/create-dcr', requestBody)
 
-      setFormSuccess(payload?.message || "DCR created successfully")
-      handleReset()
+      setFormSuccess(payload?.message || (editId ? "DCR updated successfully" : "DCR created successfully"))
+      resetForm()
       setView("list")
       setRefreshKey((prev) => prev + 1)
     } catch (err) {
-      setFormError(err?.message || "Unable to create DCR")
+      setFormError(err?.message || `Unable to ${editId ? 'update' : 'create'} DCR`)
     } finally {
       setIsSubmitting(false)
     }
@@ -962,16 +1009,16 @@ function CreateDCR() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">
-                  {view === "create" ? "Create DCR" : "View DCR"}
+                  {view === "create" ? (editId ? "Edit DCR" : "Create DCR") : "View DCR"}
                 </h1>
                 <p className="text-muted-foreground">
                   {view === "create"
-                    ? "Fill in the DCR (Design Change Request) information below."
+                    ? (editId ? "Modify the DCR information below." : "Fill in the DCR (Design Change Request) information below.")
                     : "DCR details fetched from /api/dcr/get-dcr-by-id/:id"}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => { handleReset(); setView("list"); }}>
+                <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to List
                 </Button>
@@ -1357,7 +1404,7 @@ function CreateDCR() {
                       Reset
                     </Button>
                     <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? "Creating..." : "Create DCR"}
+                      {isSubmitting ? (editId ? "Updating..." : "Creating...") : (editId ? "Update DCR" : "Create DCR")}
                     </Button>
                   </div>
                 )}

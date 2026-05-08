@@ -2,15 +2,77 @@ import {
     LayoutDashboard,
     FileText,
     Users,
-    Building2,
-    ClipboardCheck,
-    Wrench,
     Briefcase,
     Folder,
     ShieldCheck,
+    Wrench,
+    ClipboardCheck,
 } from "lucide-react"
 
-// ─── Role Constants ────────────────────────────────────────────────
+// ─── Module Keys (Hierarchical structure for maximum clarity) ─────────────
+export const MODULES = {
+    // ── Global ──
+    ALL: "ALL",
+    DASHBOARD_ADMIN: "DASHBOARD_ADMIN",
+    DASHBOARD_USER: "DASHBOARD_USER",
+    DASHBOARD_MARKETING: "DASHBOARD_MARKETING",
+    
+    // ── Engineering / Production / Quality Block ──
+    JOB_OVERVIEW: "JOB_OVERVIEW",
+    REPORTS_MANAGEMENT: "REPORTS_MANAGEMENT",
+
+    DTN: {
+        VIEW: "DTN_VIEW",
+        MASTER: "DTN_MASTER",
+    },
+
+    DMS: {
+        MASTER: "DMS_COMMUNICATION_MATRIX",
+        VDR: "DMS_VDR",
+        UPLOAD: "DMS_UPLOAD",
+        APPROVER: "DMS_APPROVER",
+        TRANSMISSION_CREATE: "DMS_TRANSMISSION_CREATE",
+        TRANSMISSION_STATUS: "DMS_TRANSMISSION_STATUS",
+    },
+
+    DCR: "DCR_REQUEST",
+    NCR: "NCR_CREATE",
+    MHC: "MHC_VIEW",
+    WELD_PLAN: "WELD_PLAN",
+    WELD_JOINTS: "WELD_JOINTS",
+    HYDRO_TEST: "HYDRO_TEST_VIEW",
+    
+    INSPECTION: {
+        DISH_END: "INSPECTION_DISH_END",
+        FINAL: "INSPECTION_FINAL",
+    },
+
+    QAP: "QAP_CREATE",
+
+    // ── Marketing Block ──
+    MARKETING: {
+        RFQ: "MARKETING_RFQ",
+        MASTER: "MARKETING_MASTER",
+    },
+    
+    // ── Management / Finance Block ──
+    CUSTOMERS: {
+        CUSTOMER: "CUSTOMER_MANAGEMENT",
+        LOCATION: "LOCATION_MANAGEMENT",
+    },
+    
+    PO_MANAGEMENT: "PO_MANAGEMENT",
+    JOB_MANAGEMENT: "JOB_MANAGEMENT",
+
+    // ── Administration ──
+    ADMINISTRATION: {
+        USERS: "ADMIN_USERS",
+        DEPARTMENTS: "ADMIN_DEPARTMENTS",
+        QC_GROUPS: "ADMIN_QC_GROUPS",
+    }
+};
+
+// ─── Role Constants ──────────────────────────────────────────────
 export const ROLES = {
     ADMIN: "ADMIN",
     DCC: "DCC",
@@ -19,49 +81,46 @@ export const ROLES = {
     QC_ENGINEER: "QC_ENGINEER",
     NDT_ENGINEER: "NDT_ENGINEER",
     WELD_PLAN_ADMIN: "WELD_PLAN_ADMIN",
-    DCR: "DCR",
     DESIGN_ENGINEER: "DESIGN_ENGINEER",
     MARKETING: "MARKETING",
     TAXATION: "TAXATION",
     QAP: "QAP",
+    DMS: "DMS",
+    NCR: "NCR",
 }
 
 // ─── Menu Configuration ────────────────────────────────────────────
-// Each item defines `roles` — the set of roles that can SEE this item.
-// For groups with `items[]`, the group itself is shown if ANY sub-item is visible.
-// IMPORTANT: Each path appears EXACTLY ONCE. No duplication across roles.
-
 export const MENU_CONFIG = [
     // ── Dashboards ──
     {
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/admin/dashboard",
-        roles: [ROLES.ADMIN],
+        moduleKey: MODULES.DASHBOARD_ADMIN,
     },
     {
         title: "Job Overview",
         icon: LayoutDashboard,
         path: "/admin/job-overview",
-        roles: [ROLES.ADMIN],
+        moduleKey: MODULES.JOB_OVERVIEW,
     },
     {
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",
-        roles: [ROLES.DCC, ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN, ROLES.DESIGN_ENGINEER, ROLES.QAP],
+        moduleKey: MODULES.DASHBOARD_USER,
         hideFor: [ROLES.ADMIN],
     },
 
-    // ── User & Department Management ──
-    // ─── Administration ──
+    // ── Administration ──
     {
         title: "Administration",
         icon: ShieldCheck,
+        moduleKey: MODULES.ADMINISTRATION.USERS,
         items: [
-            { title: "Users", path: "/users", roles: [ROLES.ADMIN] },
-            { title: "Departments", path: "/departments", roles: [ROLES.ADMIN] },
-            { title: "QC Group", path: "/qc-group", roles: [ROLES.ADMIN] },
+            { title: "Users", path: "/users", moduleKey: MODULES.ADMINISTRATION.USERS },
+            { title: "Departments", path: "/departments", moduleKey: MODULES.ADMINISTRATION.DEPARTMENTS },
+            { title: "QC Group", path: "/qc-group", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
         ],
     },
 
@@ -70,16 +129,17 @@ export const MENU_CONFIG = [
         title: "Reports Management",
         icon: FileText,
         path: "/admin/reports",
-        roles: [ROLES.ADMIN],
+        moduleKey: MODULES.REPORTS_MANAGEMENT,
     },
 
     // ── Customer Management ──
     {
         title: "Customer Management",
         icon: Users,
+        moduleKey: MODULES.CUSTOMERS.CUSTOMER,
         items: [
-            { title: "Customer", path: "/dcc/create-customer", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
-            { title: "Location", path: "/dcc/create-location", roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION] },
+            { title: "Customer", path: "/dcc/create-customer", moduleKey: MODULES.CUSTOMERS.CUSTOMER },
+            { title: "Location", path: "/dcc/create-location", moduleKey: MODULES.CUSTOMERS.LOCATION },
         ],
     },
 
@@ -88,22 +148,23 @@ export const MENU_CONFIG = [
         title: "Purchase Orders",
         icon: Briefcase,
         path: "/dcc/create-po",
-        roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
+        moduleKey: MODULES.PO_MANAGEMENT,
     },
     {
         title: "Jobs",
         icon: FileText,
         path: "/dcc/create-job",
-        roles: [ROLES.ADMIN, ROLES.DCC, ROLES.TAXATION],
+        moduleKey: MODULES.JOB_MANAGEMENT,
     },
 
     // ── DTN ──
     {
         title: "DTN",
         icon: Folder,
+        moduleKey: MODULES.DTN.VIEW,
         items: [
-            { title: "Drawing Transmittal (DTN)", path: "/dtn/drawing-transmittal", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Drawing Master", path: "/dtn/drawing-master", roles: [ROLES.ADMIN, ROLES.DCC, ] },
+            { title: "Drawing Transmittal (DTN)", path: "/dtn/drawing-transmittal", moduleKey: MODULES.DTN.VIEW },
+            { title: "Drawing Master", path: "/dtn/drawing-master", moduleKey: MODULES.DTN.MASTER },
         ],
     },
 
@@ -111,13 +172,14 @@ export const MENU_CONFIG = [
     {
         title: "DMS",
         icon: Folder,
+        moduleKey: MODULES.DMS.VDR,
         items: [
-            { title: "Communication Matrix", path: "/dcc/communication-matrix", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Documents (VDR)", path: "/dcc/documents", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Upload Documents", path: "/user/upload-documents", roles: [ROLES.USER], hideFor: [ROLES.ADMIN] },
-            { title: "Document Approver", path: "/dcc/document-approver", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Create Transmission", path: "/dcc/create-transmission", roles: [ROLES.ADMIN, ROLES.DCC] },
-            { title: "Client Approval Status", path: "/dcc/client-approval-status", roles: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Communication Matrix", path: "/dcc/communication-matrix", moduleKey: MODULES.DMS.MASTER },
+            { title: "Documents (VDR)", path: "/dcc/documents", moduleKey: MODULES.DMS.VDR },
+            { title: "Upload Documents", path: "/user/upload-documents", moduleKey: MODULES.DMS.UPLOAD, hideFor: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Document Approver", path: "/dcc/document-approver", moduleKey: MODULES.DMS.APPROVER },
+            { title: "Create Transmission", path: "/dcc/create-transmission", moduleKey: MODULES.DMS.TRANSMISSION_CREATE },
+            { title: "Client Approval Status", path: "/dcc/client-approval-status", moduleKey: MODULES.DMS.TRANSMISSION_STATUS },
         ],
     },
 
@@ -126,7 +188,7 @@ export const MENU_CONFIG = [
         title: "DCR",
         icon: Folder,
         items: [
-            { title: "DCR Request", path: "/dcr/dcr-request", roles: [ROLES.ADMIN, ROLES.QC_ENGINEER, ROLES.DCR, ROLES.DESIGN_ENGINEER] },
+            { title: "DCR Request", path: "/dcr/dcr-request", moduleKey: MODULES.DCR },
         ],
     },
 
@@ -135,7 +197,7 @@ export const MENU_CONFIG = [
         title: "NCR",
         icon: Folder,
         items: [
-            { title: "NCR", path: "/ncr/create-ncr", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DESIGN_ENGINEER, ROLES.WELD_PLAN_ADMIN] }
+            { title: "NCR", path: "/ncr/create-ncr", moduleKey: MODULES.NCR }
         ],
     },
 
@@ -144,7 +206,7 @@ export const MENU_CONFIG = [
         title: "MHC",
         icon: Folder,
         items: [
-            { title: "Material Heat Chart", path: "/material-heat-chart", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
+            { title: "Material Heat Chart", path: "/material-heat-chart", moduleKey: MODULES.MHC },
         ],
     },
 
@@ -153,13 +215,13 @@ export const MENU_CONFIG = [
         title: "Weld Plan",
         icon: Wrench,
         path: "/welding-joints",
-        roles: [ROLES.ADMIN, ROLES.WELD_PLAN_ADMIN],
+        moduleKey: MODULES.WELD_PLAN,
     },
     {
         title: "Welding Joints",
         icon: Wrench,
         path: "/view-weldingjoints",
-        roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER],
+        moduleKey: MODULES.WELD_JOINTS,
     },
 
     // ── Hydrostatic Pressure Test ──
@@ -167,7 +229,7 @@ export const MENU_CONFIG = [
         title: "Hydrostatic Pressure Test",
         icon: FileText,
         items: [
-            { title: "Hydro Pres Test", path: "/hydrostatic-pressure-test", roles: [ROLES.ADMIN] },
+            { title: "Hydro Pres Test", path: "/hydrostatic-pressure-test", moduleKey: MODULES.HYDRO_TEST },
         ],
     },
 
@@ -175,9 +237,10 @@ export const MENU_CONFIG = [
     {
         title: "Inspection",
         icon: Folder,
+        moduleKey: MODULES.INSPECTION.DISH_END,
         items: [
-            { title: "Dish End", path: "/inspections/dish-end", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
-            { title: "Final Dimension", path: "/inspections/final", roles: [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER] },
+            { title: "Dish End", path: "/inspections/dish-end", moduleKey: MODULES.INSPECTION.DISH_END },
+            { title: "Final Dimension", path: "/inspections/final", moduleKey: MODULES.INSPECTION.FINAL },
         ],
     },
 
@@ -185,19 +248,20 @@ export const MENU_CONFIG = [
     {
         title: "Marketing",
         icon: Folder,
+        moduleKey: MODULES.MARKETING.RFQ,
         items: [
-            { title: "Dashboard", path: "/marketing/dashboard", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+            { title: "Dashboard", path: "/marketing/dashboard", moduleKey: MODULES.DASHBOARD_MARKETING },
             {
                 title: "Master",
-                roles: [ROLES.ADMIN, ROLES.MARKETING],
+                moduleKey: MODULES.MARKETING.MASTER,
                 items: [
-                    { title: "RFQ Types", path: "/marketing/lookups/rfq_type", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-                    { title: "Mode of Enquiry", path: "/marketing/lookups/mode_of_enquiry", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-                    { title: "Mediators", path: "/marketing/lookups/mediator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
-                    { title: "Estimators", path: "/marketing/lookups/estimator", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+                    { title: "RFQ Types", path: "/marketing/lookups/rfq_type", moduleKey: MODULES.MARKETING.MASTER },
+                    { title: "Mode of Enquiry", path: "/marketing/lookups/mode_of_enquiry", moduleKey: MODULES.MARKETING.MASTER },
+                    { title: "Mediators", path: "/marketing/lookups/mediator", moduleKey: MODULES.MARKETING.MASTER },
+                    { title: "Estimators", path: "/marketing/lookups/estimator", moduleKey: MODULES.MARKETING.MASTER },
                 ],
             },
-            { title: "RFQ Register", path: "/marketing/rfq-register", roles: [ROLES.ADMIN, ROLES.MARKETING] },
+            { title: "RFQ Register", path: "/marketing/rfq-register", moduleKey: MODULES.MARKETING.RFQ },
         ],
     },
 
@@ -206,23 +270,21 @@ export const MENU_CONFIG = [
         title: "Quality Assurance Plan",
         icon: ClipboardCheck,
         path: "/create-qarp",
-        roles: [ROLES.ADMIN, ROLES.QAP, ROLES.DCC],
+        moduleKey: MODULES.QAP,
     },
 ]
 
-// ─── Utility: Filter menu by user roles ────────────────────────────
-/**
- * Given the full MENU_CONFIG and the user's roles array,
- * returns only the items/sub-items the user is allowed to see.
- */
-export function getFilteredMenu(userRoles = []) {
-    if (!userRoles || userRoles.length === 0) return []
+// ─── Utility: Filter menu by user permissions ────────────────────────────
+export function getFilteredMenu(userPermissions = [], userRoles = []) {
     const roleSet = new Set(userRoles)
-    const hasAccess = (itemRoles) => itemRoles?.some((r) => roleSet.has(r))
+    const hasAccess = (moduleKey) => {
+        if (!moduleKey) return false
+        if (userPermissions.includes("ALL")) return true
+        return userPermissions.includes(moduleKey)
+    }
 
     const filterItems = (items) => {
         return items.reduce((acc, item) => {
-            // Blacklist check: hide item if user has a role in hideFor
             if (item.hideFor?.some((role) => roleSet.has(role))) return acc
 
             if (item.items) {
@@ -230,7 +292,7 @@ export function getFilteredMenu(userRoles = []) {
                 if (visibleSubItems.length > 0) {
                     acc.push({ ...item, items: visibleSubItems })
                 }
-            } else if (hasAccess(item.roles)) {
+            } else if (hasAccess(item.moduleKey)) {
                 acc.push(item)
             }
             return acc
@@ -240,33 +302,7 @@ export function getFilteredMenu(userRoles = []) {
     return filterItems(MENU_CONFIG)
 }
 
-// ─── Utility: Build a Set of all allowed paths for given roles ─────
-/**
- * Returns a Set of all route paths a user with the given roles can access.
- * Used by ProtectedRoute to check authorization.
- */
-export function getAllowedPaths(userRoles = []) {
-    const roleSet = new Set(userRoles)
-    const paths = new Set()
-
-    const collectPaths = (items) => {
-        for (const item of items) {
-            const isAllowed = item.roles?.some((r) => roleSet.has(r))
-            const isHidden = item.hideFor?.some((r) => roleSet.has(r))
-
-            if (item.path && isAllowed && !isHidden) {
-                paths.add(item.path)
-            }
-            if (item.items) collectPaths(item.items)
-        }
-    }
-
-    collectPaths(MENU_CONFIG)
-    return paths
-}
-
 // ─── Role name normalization map ───────────────────────────────────
-// Maps lowercase versions of role keys to their canonical form
 export const ROLE_KEY_MAP = Object.values(ROLES).reduce((acc, role) => {
     acc[role.toLowerCase()] = role
     return acc

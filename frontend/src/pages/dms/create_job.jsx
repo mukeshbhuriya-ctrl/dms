@@ -329,7 +329,7 @@ function CreateJob() {
             className="cursor-pointer"
             onClick={() => handleEdit(row)}
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-4 w-4" /> Edit
           </Button>
           {isAdmin && (
             <Button
@@ -735,6 +735,7 @@ function CreateJob() {
                                   value={job.job_number}
                                   onChange={(e) => handleJobChange(job.id, "job_number", e.target.value)}
                                   required
+                                  disabled={!!editingId}
                                 />
                               </div>
                               <div className="space-y-2">

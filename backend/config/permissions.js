@@ -1,0 +1,142 @@
+const MODULES = require('./modules');
+
+/**
+ * Enterprise Access Profiles
+ * Defined Role-wise with direct module keys matching the Frontend Menu.
+ */
+const ROLE_PERMISSIONS = {
+    // ── Super Administrator ────────────────────────────────────────
+    ADMIN: [MODULES.ALL],
+
+    // ── Engineering Group ───────────────────────────────────────────
+    DESIGN_ENGINEER: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        DTN: [MODULES.DTN.VIEW, MODULES.DTN.MASTER],
+        DMS: [
+            MODULES.DMS.COMMUNICATION_MATRIX, 
+            MODULES.DMS.VDR, 
+            MODULES.DMS.APPROVER, 
+            MODULES.DMS.TRANSMISSION_CREATE, 
+            MODULES.DMS.TRANSMISSION_STATUS
+        ],
+        DCR: [MODULES.DCR.REQUEST],
+        NCR: [MODULES.NCR.CREATE],
+        MHC: [MODULES.MHC.VIEW],
+        WELDING: [MODULES.WELDING.WELD_PLAN, MODULES.WELDING.WELD_JOINTS],
+        HYDRO_TEST: [MODULES.HYDRO_TEST.VIEW],
+        INSPECTION: [MODULES.INSPECTION.DISH_END, MODULES.INSPECTION.FINAL],
+        QAP: [MODULES.QAP.CREATE],
+        OPERATIONS: [MODULES.JOB_OVERVIEW, MODULES.REPORTS_MANAGEMENT]
+    },
+
+    PRODUCTION_ENGINEER: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        DTN: [MODULES.DTN.VIEW, MODULES.DTN.MASTER],
+        DMS: [MODULES.DMS.VDR],
+        DCR: [MODULES.DCR.REQUEST],
+        NCR: [MODULES.NCR.CREATE],
+        MHC: [MODULES.MHC.VIEW],
+        WELDING: [MODULES.WELDING.WELD_PLAN, MODULES.WELDING.WELD_JOINTS],
+        HYDRO_TEST: [MODULES.HYDRO_TEST.VIEW],
+        INSPECTION: [MODULES.INSPECTION.DISH_END, MODULES.INSPECTION.FINAL],
+        QAP: [MODULES.QAP.CREATE],
+        OPERATIONS: [MODULES.JOB_OVERVIEW, MODULES.REPORTS_MANAGEMENT]
+    },
+
+    QC_ENGINEER: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        DTN: [MODULES.DTN.VIEW, MODULES.DTN.MASTER],
+        DMS: [MODULES.DMS.VDR],
+        DCR: [MODULES.DCR.REQUEST],
+        NCR: [MODULES.NCR.CREATE],
+        MHC: [MODULES.MHC.VIEW],
+        WELDING: [MODULES.WELDING.WELD_PLAN, MODULES.WELDING.WELD_JOINTS],
+        HYDRO_TEST: [MODULES.HYDRO_TEST.VIEW],
+        INSPECTION: [MODULES.INSPECTION.DISH_END, MODULES.INSPECTION.FINAL],
+        QAP: [MODULES.QAP.CREATE],
+        OPERATIONS: [MODULES.JOB_OVERVIEW, MODULES.REPORTS_MANAGEMENT]
+    },
+
+    WELD_PLAN_ADMIN: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        DTN: [MODULES.DTN.VIEW, MODULES.DTN.MASTER],
+        DMS: [MODULES.DMS.VDR],
+        DCR: [MODULES.DCR.REQUEST],
+        NCR: [MODULES.NCR.CREATE],
+        MHC: [MODULES.MHC.VIEW],
+        WELDING: [MODULES.WELDING.WELD_PLAN, MODULES.WELDING.WELD_JOINTS],
+        HYDRO_TEST: [MODULES.HYDRO_TEST.VIEW],
+        INSPECTION: [MODULES.INSPECTION.DISH_END, MODULES.INSPECTION.FINAL],
+        QAP: [MODULES.QAP.CREATE],
+        OPERATIONS: [MODULES.JOB_OVERVIEW, MODULES.REPORTS_MANAGEMENT]
+    },
+
+    QAP: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        QAP: [MODULES.QAP.CREATE],
+    },
+
+    // ── Marketing Group ─────────────────────────────────────────────
+    MARKETING: {
+        Dashboard: [MODULES.DASHBOARD.MARKETING],
+        MARKETING: [MODULES.MARKETING.RFQ, MODULES.MARKETING.MASTER],
+        PO_MANAGEMENT: [MODULES.PO_MANAGEMENT],
+        JOB_MANAGEMENT: [MODULES.JOB_MANAGEMENT]
+    },
+
+    // ── Taxation Group ──────────────────────────────────────────────
+    TAXATION: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        CUSTOMERS: [MODULES.CUSTOMERS.CUSTOMER, MODULES.CUSTOMERS.LOCATION],
+        PO_MANAGEMENT: [MODULES.PO_MANAGEMENT],
+        JOB_MANAGEMENT: [MODULES.JOB_MANAGEMENT]
+    },
+
+    // ── DCC (Document Control Center) ────────────────────────────────
+    DCC: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        CUSTOMERS: [MODULES.CUSTOMERS.CUSTOMER, MODULES.CUSTOMERS.LOCATION],
+        PO_MANAGEMENT: [MODULES.PO_MANAGEMENT],
+        JOB_MANAGEMENT: [MODULES.JOB_MANAGEMENT],
+        DTN: [MODULES.DTN.VIEW, MODULES.DTN.MASTER],
+        DMS: [
+            MODULES.DMS.COMMUNICATION_MATRIX, 
+            MODULES.DMS.VDR, 
+            MODULES.DMS.APPROVER, 
+            MODULES.DMS.TRANSMISSION_CREATE, 
+            MODULES.DMS.TRANSMISSION_STATUS
+        ],
+        QAP: [MODULES.QAP.CREATE]
+    },
+
+    // ── Basic Operational Roles ─────────────────────────────────────
+    USER: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        DMS: [MODULES.DMS.UPLOAD]
+    },
+
+    DMS: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        DMS: [
+            MODULES.DMS.COMMUNICATION_MATRIX, 
+            MODULES.DMS.VDR, 
+            MODULES.DMS.APPROVER, 
+            MODULES.DMS.TRANSMISSION_CREATE, 
+            MODULES.DMS.TRANSMISSION_STATUS
+        ],
+    },
+
+    DCR: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        DCR: [MODULES.DCR.REQUEST]
+    },
+
+    NCR: {
+        Dashboard: [MODULES.DASHBOARD.USER],
+        NCR: [MODULES.NCR.CREATE]
+    },
+};
+
+module.exports = {
+    ROLE_PERMISSIONS
+};

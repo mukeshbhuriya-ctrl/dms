@@ -997,14 +997,6 @@ function CreateView({ onBack, editId = null }) {
         }
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <p className="text-muted-foreground text-lg">Loading...</p>
-            </div>
-        )
-    }
-
     return (
         <div>
             <div className="flex items-center justify-between mb-6">

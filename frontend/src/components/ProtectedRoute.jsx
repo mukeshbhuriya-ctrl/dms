@@ -17,6 +17,7 @@ function ProtectedRoute({
   children,
   loginPath = "/",
   allowedRoles = null,
+  moduleKey = null, // New prop for module access
   // Siteadmin-specific props (standalone auth)
   authKey = null,
   apiEndpoint = null,
@@ -39,6 +40,7 @@ function ProtectedRoute({
     <AuthContextProtectedRoute
       loginPath={loginPath}
       allowedRoles={allowedRoles}
+      moduleKey={moduleKey}
     >
       {children}
     </AuthContextProtectedRoute>
@@ -46,8 +48,8 @@ function ProtectedRoute({
 }
 
 // ─── AuthContext-based protection (for normal users) ───────────
-function AuthContextProtectedRoute({ children, loginPath, allowedRoles }) {
-  const { isLoading, isAuthenticated, roles } = useAuth()
+function AuthContextProtectedRoute({ children, loginPath, allowedRoles, moduleKey }) {
+  const { isLoading, isAuthenticated, roles, hasPermission } = useAuth()
 
   if (isLoading) {
     return null
@@ -57,7 +59,15 @@ function AuthContextProtectedRoute({ children, loginPath, allowedRoles }) {
     return <Navigate to={loginPath} replace />
   }
 
-  // Check specific allowed roles if provided
+  // Check specific module permission if provided (Priority)
+  if (moduleKey) {
+    if (!hasPermission(moduleKey)) {
+      return <Navigate to={loginPath} replace />
+    }
+    return children
+  }
+
+  // Check specific allowed roles if provided (Legacy/Fallback)
   if (allowedRoles && allowedRoles.length > 0) {
     const userRoleSet = new Set(roles)
     const hasRole = allowedRoles.some((r) => userRoleSet.has(r))

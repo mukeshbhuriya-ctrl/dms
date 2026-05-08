@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-const { authenticateUser } = require('#api/middleware/user.middleware.js');
+const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 const { upload } = require('#utils/upload');
 const NcrController = require('../../controllers/ncr.controller');
 
-router.use(authenticateUser(['ADMIN', 'PRODUCTION_ENGINEER', 'QC_ENGINEER', 'DESIGN_ENGINEER', 'WELD_PLAN_ADMIN']));
+router.use(authenticateUserOnly);
 
 // List & detail
 router.get('/list', (req, res) => NcrController.list(req, res));

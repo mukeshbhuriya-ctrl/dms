@@ -708,8 +708,8 @@ function CreateView({ onBack, editId, defaultRefNo }) {
     <div className="w-full">
       <div className="flex items-center justify-between mb-6 w-full">
         <div>
-          <h1 className="text-3xl font-bold mb-1 tracking-tight">Create Drawing Transmittal</h1>
-          <p className="text-muted-foreground text-sm">Fill in the details and add drawing items.</p>
+          <h1 className="text-3xl font-bold mb-1 tracking-tight">{editId ? "Edit Drawing Transmittal" : "Create Drawing Transmittal"}</h1>
+          <p className="text-muted-foreground text-sm">{editId ? "Update the details and drawing items." : "Fill in the details and add drawing items."}</p>
         </div>
         <Button variant="outline" onClick={onBack} className="rounded-sm border-slate-200 shadow-none">
           <ArrowLeft className="h-4 w-4 mr-2" />

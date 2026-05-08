@@ -262,6 +262,10 @@ class DccService {
             is_deleted: false
         };
 
+        if (params.customer_id) {
+            where.customer_id = params.customer_id;
+        }
+
         if (search) {
             where.OR = [
                 { location_name: { contains: search, mode: 'insensitive' } },
