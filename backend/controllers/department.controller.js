@@ -1,4 +1,5 @@
 const prisma = require('#prisma');
+const Audit = require('#utils/audit.js');
 
 class DepartmentController {
     // Create Department
@@ -26,6 +27,16 @@ class DepartmentController {
                         where: { id: existing.id },
                         data: { is_deleted: false, is_active: true }
                     });
+
+                    Audit.insert({
+                        req,
+                        company_id,
+                        user_id: req.user.userid || req.user.id,
+                        action: 'activated',
+                        module: 'Department Management',
+                        description: `Restored deleted department "${updated.name}"`,
+                        metadata: { target_department_id: updated.id },
+                    });
                     return res.status(200).json({ success: true, data: updated, message: "Department restored successfully" });
                 }
                 return res.status(409).json({ success: false, message: "Department already exists" });
@@ -36,6 +47,16 @@ class DepartmentController {
                     name: name.trim(),
                     company_id
                 }
+            });
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Department Management',
+                description: `Created new department "${department.name}"`,
+                metadata: { target_department_id: department.id },
             });
 
             res.status(201).json({ success: true, data: department, message: "Department created successfully" });
@@ -157,6 +178,16 @@ class DepartmentController {
                 data: { name: name.trim(), is_deleted: false } // ensure not deleted if updating
             });
 
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Department Management',
+                description: `Updated department name to "${department.name}"`,
+                metadata: { target_department_id: department.id },
+            });
+
             res.status(200).json({ success: true, data: department, message: "Department updated successfully" });
 
         } catch (error) {
@@ -174,9 +205,19 @@ class DepartmentController {
         try {
             const { id } = req.params;
 
-            await prisma.department.update({
+            const department = await prisma.department.update({
                 where: { id },
                 data: { is_deleted: true, is_active: false }
+            });
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'Department Management',
+                description: `Deleted department "${department.name}"`,
+                metadata: { target_department_id: department.id },
             });
 
             res.status(200).json({ success: true, message: "Department deleted successfully" });
@@ -203,6 +244,16 @@ class DepartmentController {
             const updated = await prisma.department.update({
                 where: { id },
                 data: { is_active: !existing.is_active }
+            });
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: updated.is_active ? 'activated' : 'deactivated',
+                module: 'Department Management',
+                description: `${updated.is_active ? 'Activated' : 'Deactivated'} department "${updated.name}"`,
+                metadata: { target_department_id: updated.id, is_active: updated.is_active },
             });
 
             res.status(200).json({ 

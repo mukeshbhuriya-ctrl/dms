@@ -101,6 +101,9 @@ app.use('/api/ncr', ncrRoutes);
 const adminDashboardRoutes = require('#routes/admin/dashboard.routes.js');
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 
+const auditLogRoutes = require('#routes/admin/auditLog.routes.js');
+app.use('/api/admin/audit-logs', auditLogRoutes);
+
 const jobOverviewRoutes = require('#routes/admin/job360.routes.js');
 app.use('/api/admin/job-360', jobOverviewRoutes);
 

@@ -6,6 +6,8 @@ const StorageUtils = require('../utils/storage.utils');
 const ActivityService = require('../services/activity.service');
 const { ROOT_DIR } = require('../utils/upload');
 
+const Audit = require('#utils/audit.js');
+
 class DccController {
     async createCustomer(req, res) {
         try {
@@ -73,6 +75,17 @@ class DccController {
     async toggleCustomerStatus(req, res) {
         try {
             const result = await DccService.toggleCustomerStatus(req.user.company_id, req.params.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Customer Management',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} customer "${result.customer_name}"`,
+                metadata: { customer_id: result.id, customer_name: result.customer_name, is_active: result.is_active },
+            });
+
             res.status(200).json({ success: true, message: `Customer ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -82,6 +95,17 @@ class DccController {
     async toggleLocationStatus(req, res) {
         try {
             const result = await DccService.toggleLocationStatus(req.user.company_id, req.params.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Customer Management',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} location "${result.location_name}"`,
+                metadata: { location_id: result.id, location_name: result.location_name, is_active: result.is_active },
+            });
+
             res.status(200).json({ success: true, message: `Location ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -91,6 +115,17 @@ class DccController {
     async togglePoStatus(req, res) {
         try {
             const result = await DccService.togglePoStatus(req.user.company_id, req.params.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Purchase Orders',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} PO #${result.po_number}`,
+                metadata: { po_id: result.id, po_number: result.po_number, is_active: result.is_active },
+            });
+
             res.status(200).json({ success: true, message: `PO ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -100,6 +135,17 @@ class DccController {
     async toggleJobStatus(req, res) {
         try {
             const result = await DccService.toggleJobStatus(req.user.company_id, req.params.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Job Management',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} Job #${result.job_number}`,
+                metadata: { job_id: result.id, job_number: result.job_number, is_active: result.is_active },
+            });
+
             res.status(200).json({ success: true, message: `Job ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });

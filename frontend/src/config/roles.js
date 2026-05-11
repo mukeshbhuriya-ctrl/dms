@@ -69,6 +69,7 @@ export const MODULES = {
         USERS: "ADMIN_USERS",
         DEPARTMENTS: "ADMIN_DEPARTMENTS",
         QC_GROUPS: "ADMIN_QC_GROUPS",
+        AUDIT_LOGS: "ADMIN_AUDIT_LOGS",
     }
 };
 
@@ -121,6 +122,7 @@ export const MENU_CONFIG = [
             { title: "Users", path: "/users", moduleKey: MODULES.ADMINISTRATION.USERS },
             { title: "Departments", path: "/departments", moduleKey: MODULES.ADMINISTRATION.DEPARTMENTS },
             { title: "QC Group", path: "/qc-group", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
+            { title: "Audit Logs", path: "/admin/audit-logs", moduleKey: MODULES.ADMINISTRATION.AUDIT_LOGS },
         ],
     },
 

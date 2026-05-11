@@ -1,4 +1,5 @@
 const userService = require('#services/user.service.js');
+const Audit = require('#utils/audit.js');
 
 class UserController {
     async getUsers(req, res) {
@@ -104,7 +105,17 @@ class UserController {
             const updateData = req.body;
             console.log("Updating user:", id, updateData);
 
-            await userService.updateUser(id, updateData, req.user.company_id);
+            const updatedUser = await userService.updateUser(id, updateData, req.user.company_id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'User Management',
+                description: `Updated user "${updatedUser.name}" (${updatedUser.empid})`,
+                metadata: { target_user_id: id, email: updatedUser.email },
+            });
 
             res.status(200).json({
                 success: true,
@@ -122,7 +133,18 @@ class UserController {
     async deleteUser(req, res) {
         try {
             const { id } = req.params;
-            await userService.deleteUser(id, req.user.company_id);
+            const deletedUser = await userService.deleteUser(id, req.user.company_id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'User Management',
+                description: `Deleted user "${deletedUser.name}" (${deletedUser.empid})`,
+                metadata: { target_user_id: id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'User deleted successfully',
@@ -140,6 +162,17 @@ class UserController {
         try {
             const { id } = req.params;
             const result = await userService.toggleUserStatus(id, req.user.company_id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'User Management',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} user "${result.name}" (${result.empid})`,
+                metadata: { target_user_id: id, is_active: result.is_active },
+            });
+
             res.status(200).json({
                 success: true,
                 message: `User ${result.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -158,6 +191,17 @@ class UserController {
         try {
             const { id } = req.params;
             const result = await userService.adminResetPassword(id, req.user.company_id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'User Management',
+                description: `Admin reset password for user "${result.name}" (${result.empid})`,
+                metadata: { target_user_id: id },
+            });
+
             res.status(200).json(result);
         } catch (error) {
             console.error('Admin reset password error:', error);

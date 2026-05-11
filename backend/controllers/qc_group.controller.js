@@ -1,4 +1,5 @@
 const prisma = require('#prisma');
+const Audit = require('#utils/audit.js');
 
 class QcGroupController {
     // Create QC Group
@@ -36,6 +37,17 @@ class QcGroupController {
                             await tx.user_qc_group.createMany({ data: userGroupData });
                         }
                     });
+
+                    Audit.insert({
+                        req,
+                        company_id,
+                        user_id: req.user.userid || req.user.id,
+                        action: 'activated',
+                        module: 'QC Group Management',
+                        description: `Restored deleted QC Group "${existing.name}"`,
+                        metadata: { target_qc_group_id: existing.id },
+                    });
+
                     return res.status(200).json({ success: true, message: "QC Group restored successfully" });
                 }
                 return res.status(409).json({ success: false, message: "QC Group already exists" });
@@ -61,6 +73,16 @@ class QcGroupController {
                 }
 
                 return group;
+            });
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'QC Group Management',
+                description: `Created new QC Group "${qcGroup.name}"`,
+                metadata: { target_qc_group_id: qcGroup.id },
             });
 
             res.status(201).json({ success: true, data: qcGroup, message: "QC Group created successfully" });
@@ -220,6 +242,16 @@ class QcGroupController {
                 return updatedGroup;
             });
 
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'QC Group Management',
+                description: `Updated QC Group name to "${qcGroup.name}"`,
+                metadata: { target_qc_group_id: qcGroup.id },
+            });
+
             res.status(200).json({ success: true, data: qcGroup, message: "QC Group updated successfully" });
 
         } catch (error) {
@@ -236,9 +268,19 @@ class QcGroupController {
         try {
             const { id } = req.params;
 
-            await prisma.qc_group.update({
+            const deletedGroup = await prisma.qc_group.update({
                 where: { id },
                 data: { is_deleted: true, is_active: false }
+            });
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'QC Group Management',
+                description: `Deleted QC Group "${deletedGroup.name}"`,
+                metadata: { target_qc_group_id: deletedGroup.id },
             });
 
             res.status(200).json({ success: true, message: "QC Group deleted successfully" });
@@ -265,6 +307,16 @@ class QcGroupController {
             const updated = await prisma.qc_group.update({
                 where: { id },
                 data: { is_active: !existing.is_active }
+            });
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: updated.is_active ? 'activated' : 'deactivated',
+                module: 'QC Group Management',
+                description: `${updated.is_active ? 'Activated' : 'Deactivated'} QC Group "${updated.name}"`,
+                metadata: { target_qc_group_id: updated.id, is_active: updated.is_active },
             });
 
             res.status(200).json({ 

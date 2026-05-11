@@ -79,6 +79,7 @@ const MODULES = {
         USERS: "ADMIN_USERS",
         DEPARTMENTS: "ADMIN_DEPARTMENTS",
         QC_GROUPS: "ADMIN_QC_GROUPS",
+        AUDIT_LOGS: "ADMIN_AUDIT_LOGS",
     }
 };
 

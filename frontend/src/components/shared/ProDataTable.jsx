@@ -35,6 +35,7 @@ import {
   Settings2, 
   Filter, 
   X, 
+  Calendar,
   ChevronLeft, 
   ChevronRight, 
   ChevronDown, 
@@ -514,7 +515,7 @@ const ProDataTable = ({
                                 onClick={() => toggleHeaderFilter(columnId)}
                                 className={`h-6 w-6 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 ${hasFilter ? 'text-blue-600' : ''}`}
                               >
-                                {col.filterType === 'select' ? <Filter className="h-3 w-3" /> : <Search className="h-3 w-3" />}
+                                {col.filterType === 'select' ? <Filter className="h-3 w-3" /> : col.filterType === 'date' ? <Calendar className="h-3 w-3" /> : <Search className="h-3 w-3" />}
                               </Button>
                             )}
                           </>
@@ -544,6 +545,16 @@ const ProDataTable = ({
                                   </SelectContent>
                                 </Select>
                                )
+                             ) : col.filterType === 'date' ? (
+                              <div className="relative flex-1">
+                                <Input
+                                  type="date"
+                                  autoFocus
+                                  value={columnFilters[columnId] || ""}
+                                  onChange={(e) => onFilterChange({ [columnId]: e.target.value })}
+                                  className="h-7 text-[10px] px-2 bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none font-normal"
+                                />
+                              </div>
                              ) : (
                               <div className="relative flex-1">
                                 <Input

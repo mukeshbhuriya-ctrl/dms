@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const Audit = require('#utils/audit.js');
 const { ROOT_DIR } = require('../utils/upload');
 const prisma = require('#prisma');
 const DtnService = require('../services/dtn.service');
@@ -40,6 +41,16 @@ class DtnController {
 
             const dtn = await DtnService.createTransmittal(company_id, userid, data);
 
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Drawing Transmittal',
+                description: `Created new Transmittal "${dtn.ref_no}"`,
+                metadata: { target_dtn_id: dtn.id },
+            });
+
             res.status(201).json({ success: true, message: 'Transmittal generated successfully', data: dtn });
         } catch (error) {
             console.error('createTransmittal error:', error);
@@ -57,6 +68,16 @@ class DtnController {
             const data = req.body;
 
             const dtn = await DtnService.updateTransmittal(company_id, id, data);
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Drawing Transmittal',
+                description: `Updated Transmittal "${dtn.ref_no}"`,
+                metadata: { target_dtn_id: dtn.id },
+            });
 
             res.status(200).json({ success: true, message: 'Transmittal updated successfully', data: dtn });
         } catch (error) {
@@ -356,7 +377,18 @@ class DtnController {
         try {
             const { company_id } = req.user;
             const { id } = req.params;
-            await DtnService.deleteTransmittal(company_id, id);
+            const dtn = await DtnService.deleteTransmittal(company_id, id);
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'Drawing Transmittal',
+                description: `Deleted Transmittal "${dtn.ref_no}"`,
+                metadata: { target_dtn_id: dtn.id },
+            });
+
             res.status(200).json({ success: true, message: 'Transmittal deleted successfully' });
         } catch (error) {
             console.error('deleteDtn error:', error);
@@ -369,6 +401,17 @@ class DtnController {
             const { company_id } = req.user;
             const { id } = req.params;
             const result = await DtnService.toggleTransmittalStatus(company_id, id);
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Drawing Transmittal',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} Transmittal "${result.ref_no}"`,
+                metadata: { target_dtn_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({ success: true, message: 'Status toggled successfully', data: result });
         } catch (error) {
             console.error('toggleStatus error:', error);

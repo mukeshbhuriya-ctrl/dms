@@ -1,4 +1,5 @@
 const prisma = require('#prisma');
+const Audit = require('#utils/audit.js');
 
 /**
  * Create Customer API - Create a new customer for the authenticated user's company
@@ -105,6 +106,17 @@ async function createCustomer(req, res) {
     });
 
     // Return success response
+
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'created',
+      module: 'Customer Management',
+      description: `Created new customer "${customer.customer_name}" (Short: ${customer.customer_short_name})`,
+      metadata: { customer_id: customer.id, customer_name: customer.customer_name, email: customer.email },
+    });
+
     res.status(201).json({
       success: true,
       message: 'Customer created successfully',
@@ -269,6 +281,17 @@ async function createCustomerLocation(req, res) {
     });
 
     // Return success response
+    const locationNames = results.map(r => r.location_name).join(', ');
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'created',
+      module: 'Customer Management',
+      description: `Created ${results.length} location(s): ${locationNames}`,
+      metadata: { customer_id: trimmedCustomerId, locations: results.map(r => ({ id: r.id, name: r.location_name })) },
+    });
+
     res.status(201).json({
       success: true,
       message: `${results.length} customer location(s) processed successfully`,
@@ -594,6 +617,16 @@ async function createPo(req, res) {
     });
 
     // Return success response
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'created',
+      module: 'Purchase Orders',
+      description: `Created PO #${result.po.po_number} for customer "${customer.customer_name}" dated ${new Date(result.po.po_date).toLocaleDateString('en-IN')}`,
+      metadata: { po_id: result.po.id, po_number: result.po.po_number, customer_name: customer.customer_name },
+    });
+
     res.status(201).json({
       success: true,
       message: 'PO created successfully',
@@ -794,6 +827,17 @@ async function createJob(req, res) {
         }
       }
       return createdOrRestored;
+    });
+
+    const jobNumbers = results.map(r => r.job_number).join(', ');
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'created',
+      module: 'Job Management',
+      description: `Created ${results.length} job(s): ${jobNumbers} under PO #${po.po_number}`,
+      metadata: { po_id: trimmedPoId, po_number: po.po_number, jobs: results.map(r => ({ id: r.id, number: r.job_number })) },
     });
 
     res.status(201).json({ success: true, message: `${results.length} job(s) processed successfully`, data: results });
@@ -1138,6 +1182,16 @@ async function updateCustomer(req, res) {
       }
     });
 
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'updated',
+      module: 'Customer Management',
+      description: `Updated customer "${updated.customer_name}" (${updated.email})`,
+      metadata: { customer_id: updated.id, customer_name: updated.customer_name },
+    });
+
     res.status(200).json({ success: true, message: 'Customer updated successfully', data: updated });
   } catch (error) {
     console.error('Update customer error:', error);
@@ -1158,6 +1212,16 @@ async function deleteCustomer(req, res) {
     await prisma.customer.update({
       where: { id: id.trim(), company_id },
       data: { is_deleted: true, is_active: false }
+    });
+
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'deleted',
+      module: 'Customer Management',
+      description: `Deleted customer (ID: ${id.trim()})`,
+      metadata: { customer_id: id.trim() },
     });
 
     res.status(200).json({ success: true, message: 'Customer deleted successfully' });
@@ -1190,6 +1254,16 @@ async function updateCustomerLocation(req, res) {
       }
     });
 
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'updated',
+      module: 'Customer Management',
+      description: `Updated location "${updated.location_name}" (SAP: ${updated.customer_number_as_per_sap || '-'})`,
+      metadata: { location_id: updated.id, location_name: updated.location_name },
+    });
+
     res.status(200).json({ success: true, message: 'Location updated successfully', data: updated });
   } catch (error) {
     console.error('Update location error:', error);
@@ -1210,6 +1284,16 @@ async function deleteCustomerLocation(req, res) {
     await prisma.customer_location.update({
       where: { id: id.trim(), company_id },
       data: { is_deleted: true, is_active: false }
+    });
+
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'deleted',
+      module: 'Customer Management',
+      description: `Deleted customer location (ID: ${id.trim()})`,
+      metadata: { location_id: id.trim() },
     });
 
     res.status(200).json({ success: true, message: 'Location deleted successfully' });
@@ -1330,6 +1414,16 @@ async function updatePo(req, res) {
       result.po.po_doc_url = `${backendUrl}${pathUrl}`;
     }
 
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'updated',
+      module: 'Purchase Orders',
+      description: `Updated PO #${result.po.po_number}`,
+      metadata: { po_id: result.po.id, po_number: result.po.po_number },
+    });
+
     res.status(200).json({ success: true, message: 'PO updated successfully', data: result });
   } catch (error) {
     console.error('Update PO error:', error);
@@ -1350,6 +1444,16 @@ async function deletePo(req, res) {
     await prisma.po.update({
       where: { id: id.trim(), company_id },
       data: { is_deleted: true, is_active: false }
+    });
+
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'deleted',
+      module: 'Purchase Orders',
+      description: `Deleted PO (ID: ${id.trim()})`,
+      metadata: { po_id: id.trim() },
     });
 
     res.status(200).json({ success: true, message: 'PO deleted successfully' });
@@ -1384,6 +1488,16 @@ async function updateJob(req, res) {
       }
     });
 
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'updated',
+      module: 'Job Management',
+      description: `Updated Job #${updated.job_number} — Equipment: ${updated.equipement_name || '-'}, Tag: ${updated.tag_number || '-'}`,
+      metadata: { job_id: updated.id, job_number: updated.job_number },
+    });
+
     res.status(200).json({ success: true, message: 'Job updated successfully', data: updated });
   } catch (error) {
     console.error('Update job error:', error);
@@ -1404,6 +1518,16 @@ async function deleteJob(req, res) {
     await prisma.job.update({
       where: { id: id.trim(), company_id },
       data: { is_deleted: true, is_active: false }
+    });
+
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'deleted',
+      module: 'Job Management',
+      description: `Deleted Job (ID: ${id.trim()})`,
+      metadata: { job_id: id.trim() },
     });
 
     res.status(200).json({ success: true, message: 'Job deleted successfully' });
@@ -1463,6 +1587,16 @@ async function updatePoCommunicationMatrix(req, res) {
         }
       }
       return newMatrix;
+    });
+
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'updated',
+      module: 'Purchase Orders',
+      description: `Updated communication matrix for PO (ID: ${id.trim()}) — ${result.length} contact(s)`,
+      metadata: { po_id: id.trim(), contacts_count: result.length },
     });
 
     res.status(200).json({ success: true, message: 'Communication matrix updated successfully', data: result });

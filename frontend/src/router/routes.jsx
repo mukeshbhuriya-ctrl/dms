@@ -30,6 +30,7 @@ import {
   QcGroupManagement,
   FinalInspectionReports,
   Reports,
+  AuditLogs,
 } from "@/pages/admin"
 import JobOverview from "@/pages/admin/job_360"
 import { WeldingJoints } from "@/pages/wpj/admin"
@@ -203,6 +204,10 @@ const adminRoutes = [
   {
     path: "/create-qarp",
     element: protect(<CreateQARP />, MODULES.QAP, [ROLES.ADMIN, ROLES.QAP]),
+  },
+  {
+    path: "/admin/audit-logs",
+    element: protect(<AuditLogs />, MODULES.ADMINISTRATION.AUDIT_LOGS, [ROLES.ADMIN]),
   },
 ]
 

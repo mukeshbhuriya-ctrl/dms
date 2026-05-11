@@ -55,6 +55,7 @@ model company{
   qc_groups qc_group[]
   email_templates email_template[]
   notifications notification[]
+  audit_logs audit_log[]
 }
 
 model department {
@@ -170,6 +171,7 @@ model user{
   weld_stage_prod_reports weld_joint_stage[] @relation("WeldStageProdEng")
   weld_stage_qc_reports   weld_joint_stage[] @relation("WeldStageQcEng")
   notifications notification[]
+  audit_logs audit_log[]
 
   otp String?
   otpExpiry DateTime?
@@ -1523,3 +1525,33 @@ model notification {
   @@index([user_id, signature])
 }
 
+// -------------------------------------------------------------
+// System-Wide Audit Log
+// -------------------------------------------------------------
+
+model audit_log {
+  id            String   @id @default(uuid())
+  company_id    String
+  user_id       String?
+  user_name     String               // Denormalized for fast reads
+  user_empid    String               // Denormalized for fast reads
+  method        String               // POST, PUT, PATCH, DELETE
+  action        String               // "created", "updated", "deleted"
+  module        String               // Extracted from URL: "DCC", "DTN", "RFQ", etc.
+  endpoint      String               // Full request path
+  status_code   Int                  // HTTP response status code
+  description   String   @db.Text    // Human-readable log sentence
+  request_body  Json?                // Sanitized snapshot of req.body
+  ip_address    String?              // Client IP for security auditing
+  user_agent    String?              // Browser/client info
+
+  company       company  @relation(fields: [company_id], references: [id])
+  user          user?    @relation(fields: [user_id], references: [id])
+
+  createdAt     DateTime @default(now())
+
+  @@index([company_id, createdAt(sort: Desc)])
+  @@index([company_id, module])
+  @@index([company_id, user_id])
+  @@index([company_id, action])
+}

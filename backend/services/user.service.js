@@ -301,7 +301,7 @@ class UserService {
         return await prisma.user.update({
             where: { id },
             data: { is_active: !existingUser.is_active },
-            select: { id: true, is_active: true },
+            select: { id: true, is_active: true, name: true, empid: true },
         });
     }
 
@@ -363,7 +363,7 @@ class UserService {
             console.error(`[UserService] Failed to send admin reset email to ${updatedUser.email}:`, err);
         });
 
-        return { success: true, message: 'Password reset and email sent' };
+        return { success: true, message: 'Password reset and email sent', name: updatedUser.name, empid: updatedUser.empid };
     }
 }
 
