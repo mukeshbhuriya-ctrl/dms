@@ -1,4 +1,5 @@
 const HydroTestService = require('../../services/hydro/hydro_test.service');
+const Audit = require('#utils/audit.js');
 const { getCompanyInfo } = require('../../utils/companyInfo');
 
 class HydroTestController {
@@ -20,6 +21,17 @@ class HydroTestController {
     async create(req, res) {
         try {
             const result = await HydroTestService.create(req.user.company_id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'created',
+                module: 'Hydrostatic Test Report',
+                description: `Created Hydrostatic Test Report "${result.report_no}"`,
+                metadata: { target_hydro_test_id: result.id },
+            });
+
             res.status(201).json({
                 success: true,
                 message: 'Hydrostatic test report created successfully',
@@ -35,6 +47,17 @@ class HydroTestController {
     async update(req, res) {
         try {
             const result = await HydroTestService.update(req.user.company_id, req.params.id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'updated',
+                module: 'Hydrostatic Test Report',
+                description: `Updated Hydrostatic Test Report "${result.report_no}"`,
+                metadata: { target_hydro_test_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Hydrostatic test report updated successfully',
@@ -108,6 +131,17 @@ class HydroTestController {
     async toggleStatus(req, res) {
         try {
             const result = await HydroTestService.toggleStatus(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Hydrostatic Test Report',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} Hydrostatic Test Report "${result.report_no}"`,
+                metadata: { target_hydro_test_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Status toggled successfully',
@@ -122,6 +156,17 @@ class HydroTestController {
     async archive(req, res) {
         try {
             const result = await HydroTestService.archive(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'deleted',
+                module: 'Hydrostatic Test Report',
+                description: `Archived Hydrostatic Test Report "${result.report_no}"`,
+                metadata: { target_hydro_test_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Report archived successfully',

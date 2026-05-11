@@ -1,11 +1,23 @@
 const QapService = require('../services/qap.service');
 const QapPdfGenerator = require('../utils/qapPdfGenerator');
 const { getCompanyInfo } = require('../utils/companyInfo');
+const Audit = require('#utils/audit.js');
 
 class QapController {
     async create(req, res) {
         try {
             const result = await QapService.create(req.user.company_id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'created',
+                module: 'QAP',
+                description: `Created QAP "${result.report_no}"`,
+                metadata: { target_qap_id: result.id },
+            });
+
             res.status(201).json({
                 success: true,
                 message: 'Quality Assurance Plan created successfully',
@@ -20,6 +32,17 @@ class QapController {
     async update(req, res) {
         try {
             const result = await QapService.update(req.user.company_id, req.params.id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'updated',
+                module: 'QAP',
+                description: `Updated QAP "${result.report_no}"`,
+                metadata: { target_qap_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Quality Assurance Plan updated successfully',
@@ -94,6 +117,17 @@ class QapController {
     async toggleStatus(req, res) {
         try {
             const result = await QapService.toggleStatus(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'QAP',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} QAP "${result.report_no}"`,
+                metadata: { target_qap_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Status toggled successfully',
@@ -108,6 +142,17 @@ class QapController {
     async archive(req, res) {
         try {
             const result = await QapService.archive(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'deleted',
+                module: 'QAP',
+                description: `Archived QAP "${result.report_no}"`,
+                metadata: { target_qap_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Quality Assurance Plan archived successfully',

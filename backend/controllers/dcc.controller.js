@@ -286,6 +286,17 @@ class DccController {
     async updateDocumentMaster(req, res) {
         try {
             const result = await DccService.updateDocumentMaster(req.user.company_id, req.params.id, req.body);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Document Master',
+                description: `Updated Document Master "${result.document_number}"`,
+                metadata: { target_document_master_id: result.id },
+            });
+
             res.status(200).json({ success: true, message: 'Document master updated successfully', data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -356,6 +367,17 @@ class DccController {
         try {
             const userId = req.user.userid || req.user.id;
             const result = await DccService.createTransmission(req.user.company_id, userId, req.body);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: userId,
+                action: 'created',
+                module: 'Transmissions',
+                description: `Created new Transmission "${result.transmission_number}"`,
+                metadata: { target_transmission_id: result.id },
+            });
+
             res.status(201).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -375,6 +397,17 @@ class DccController {
     async bulkAssignDocuments(req, res) {
         try {
             const result = await DccService.bulkAssignDocuments(req.user.company_id, req.body, req.user.userid || req.user.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Document Assignment',
+                description: `Bulk assigned ${result.length || 0} document(s)`,
+                metadata: { assignment_count: result.length || 0 },
+            });
+
             res.status(201).json({ success: true, data: result, message: 'Documents assigned successfully' });
         } catch (error) {
             console.error('Bulk assign document error:', error);
@@ -407,6 +440,22 @@ class DccController {
     async sendTransmissionEmail(req, res) {
         try {
             const result = await DccService.sendTransmissionEmail(req.user.company_id, req.user.userid || req.user.id, req.body);
+
+            const transmission = await prisma.transmission.findUnique({
+                where: { id: req.body.transmission_id },
+                select: { transmission_number: true }
+            });
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Transmissions',
+                description: `Sent Transmission Email for "${transmission?.transmission_number || req.body.transmission_id}"`,
+                metadata: { target_transmission_id: req.body.transmission_id },
+            });
+
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -495,6 +544,23 @@ class DccController {
     async updateAssignedDocument(req, res) {
         try {
             const result = await DccService.updateAssignedDocument(req.user.company_id, req.params.id, req.body);
+
+            let sysDocId = req.params.id;
+            if (result && result.document_id) {
+                const docMaster = await prisma.document_master.findUnique({ where: { id: result.document_id } });
+                if (docMaster) sysDocId = docMaster.document_number;
+            }
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Document Assignment',
+                description: `Updated Document Assignment for "${sysDocId}"`,
+                metadata: { target_assigned_document_id: req.params.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Assignment updated successfully',
@@ -508,7 +574,24 @@ class DccController {
 
     async deleteAssignedDocument(req, res) {
         try {
+            const groupDoc = await prisma.group_document.findUnique({
+                where: { id: req.params.id },
+                include: { document: true }
+            });
+            const sysDocId = groupDoc?.document?.document_number || req.params.id;
+
             await DccService.deleteAssignedDocument(req.user.company_id, req.params.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'Document Assignment',
+                description: `Deleted Document Assignment for "${sysDocId}"`,
+                metadata: { target_assigned_document_id: req.params.id },
+            });
+
             res.status(200).json({ success: true, message: 'Assignment deleted successfully' });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -518,6 +601,23 @@ class DccController {
     async toggleAssignedDocumentStatus(req, res) {
         try {
             const result = await DccService.toggleAssignedDocumentStatus(req.user.company_id, req.params.id);
+
+            let sysDocId = req.params.id;
+            if (result && result.document_id) {
+                const docMaster = await prisma.document_master.findUnique({ where: { id: result.document_id } });
+                if (docMaster) sysDocId = docMaster.document_number;
+            }
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Document Assignment',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} Document Assignment for "${sysDocId}"`,
+                metadata: { target_assigned_document_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({ success: true, message: `Assignment ${result.is_active ? 'activated' : 'deactivated'} successfully`, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -709,6 +809,17 @@ class DccController {
     async createEmailTemplate(req, res) {
         try {
             const result = await DccService.createEmailTemplate(req.user.company_id, req.body);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Email Templates',
+                description: `Created Email Template "${result.name}"`,
+                metadata: { target_email_template_id: result.id },
+            });
+
             res.status(201).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -718,6 +829,17 @@ class DccController {
     async updateEmailTemplate(req, res) {
         try {
             const result = await DccService.updateEmailTemplate(req.user.company_id, req.params.id, req.body);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Email Templates',
+                description: `Updated Email Template "${result.name}"`,
+                metadata: { target_email_template_id: result.id },
+            });
+
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -727,6 +849,17 @@ class DccController {
     async deleteEmailTemplate(req, res) {
         try {
             await DccService.deleteEmailTemplate(req.user.company_id, req.params.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'Email Templates',
+                description: `Deleted Email Template ID: ${req.params.id}`,
+                metadata: { target_email_template_id: req.params.id },
+            });
+
             res.status(200).json({ success: true, message: 'Template deleted successfully' });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });

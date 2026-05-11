@@ -1,4 +1,5 @@
 const InspectionReportService = require('../../services/hydro/inspection_report.service');
+const Audit = require('#utils/audit.js');
 const DishEndPdfGenerator = require('../../utils/dishEndPdfGenerator');
 const { getCompanyInfo } = require('../../utils/companyInfo');
 
@@ -72,6 +73,16 @@ class InspectionReportController {
             const data = req.body;
 
             const report = await InspectionReportService.createReport(company_id, data);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'created',
+                module: 'Dish End Inspection',
+                description: `Created Dish End Inspection Report "${report.report_no}"`,
+                metadata: { target_report_id: report.id },
+            });
 
             res.status(201).json({
                 success: true,
@@ -94,6 +105,16 @@ class InspectionReportController {
             const data = req.body;
 
             const report = await InspectionReportService.updateReport(company_id, id, data);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'updated',
+                module: 'Dish End Inspection',
+                description: `Updated Dish End Inspection Report "${report.report_no}"`,
+                metadata: { target_report_id: report.id },
+            });
 
             res.status(200).json({
                 success: true,
@@ -166,6 +187,17 @@ class InspectionReportController {
     async toggleStatus(req, res) {
         try {
             const result = await InspectionReportService.toggleStatus(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Dish End Inspection',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} Dish End Inspection Report "${result.report_no}"`,
+                metadata: { target_report_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Status toggled successfully',
@@ -180,6 +212,17 @@ class InspectionReportController {
     async archive(req, res) {
         try {
             const result = await InspectionReportService.archive(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'deleted',
+                module: 'Dish End Inspection',
+                description: `Archived Dish End Inspection Report "${result.report_no}"`,
+                metadata: { target_report_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Report archived successfully',

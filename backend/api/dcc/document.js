@@ -1,4 +1,5 @@
 const prisma = require('#prisma');
+const Audit = require('#utils/audit.js');
 
 /**
  * Get Document Type API
@@ -74,6 +75,16 @@ async function createDocumentMaster(req, res) {
       include: {
         document_type: { select: { id: true, name: true } }
       }
+    });
+
+    Audit.insert({
+        req,
+        company_id,
+        user_id: req.user.userid || req.user.id,
+        action: 'created',
+        module: 'Document Master',
+        description: `Created new Document Master "${document.document_number}"`,
+        metadata: { target_document_master_id: document.id },
     });
 
     res.status(201).json({ success: true, data: document });
@@ -336,6 +347,17 @@ async function assignDocument(req, res) {
       message: `${result.assignments.length} document(s) assigned successfully`,
       data: result.assignments,
     });
+
+    Audit.insert({
+        req,
+        company_id,
+        user_id: req.user.userid || req.user.id,
+        action: 'created',
+        module: 'Document Assignment',
+        description: `Assigned ${result.assignments.length} document(s) to ${job_ids.length} job(s)`,
+        metadata: { assignment_count: result.assignments.length, job_ids },
+    });
+
   } catch (error) {
     console.error('Assign document error:', error);
     

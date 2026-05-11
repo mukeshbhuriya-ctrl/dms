@@ -1,4 +1,5 @@
 const FinalInspectionService = require('../../services/hydro/final_inspection.service');
+const Audit = require('#utils/audit.js');
 const { getCompanyInfo } = require('../../utils/companyInfo');
 
 class FinalInspectionController {
@@ -71,6 +72,16 @@ class FinalInspectionController {
             const data = req.body;
 
             const report = await FinalInspectionService.createReport(company_id, data);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'created',
+                module: 'Final Inspection',
+                description: `Created Final Inspection Report "${report.report_no}"`,
+                metadata: { target_report_id: report.id },
+            });
 
             res.status(201).json({
                 success: true,
@@ -93,6 +104,16 @@ class FinalInspectionController {
             const data = req.body;
 
             const report = await FinalInspectionService.updateReport(company_id, id, data);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'updated',
+                module: 'Final Inspection',
+                description: `Updated Final Inspection Report "${report.report_no}"`,
+                metadata: { target_report_id: report.id },
+            });
 
             res.status(200).json({
                 success: true,
@@ -167,6 +188,17 @@ class FinalInspectionController {
     async toggleStatus(req, res) {
         try {
             const result = await FinalInspectionService.toggleStatus(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Final Inspection',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} Final Inspection Report "${result.report_no}"`,
+                metadata: { target_report_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Status toggled successfully',
@@ -181,6 +213,17 @@ class FinalInspectionController {
     async archive(req, res) {
         try {
             const result = await FinalInspectionService.archive(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'deleted',
+                module: 'Final Inspection',
+                description: `Archived Final Inspection Report "${result.report_no}"`,
+                metadata: { target_report_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Report archived successfully',

@@ -1,5 +1,6 @@
 const prisma = require('#prisma');
 const dcrPdfGenerator = require('../utils/dcrPdfGenerator');
+const Audit = require('#utils/audit.js');
 const { getCompanyInfo } = require('../utils/companyInfo');
 
 const ALLOWED_SORT_FIELDS = new Set([
@@ -270,6 +271,16 @@ class DcrController {
                         },
                     },
                 });
+            });
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Document Change Request',
+                description: `Created new DCR "${createdDcr.dcr_no}"`,
+                metadata: { target_dcr_id: createdDcr.id },
             });
 
             return res.status(201).json({
@@ -696,9 +707,24 @@ class DcrController {
             const company_id = req.user.company_id;
             const { id } = req.params;
 
+            const dcr = await prisma.dcr.findUnique({
+                where: { id, company_id },
+                select: { dcr_no: true }
+            });
+
             await prisma.dcr.update({
                 where: { id, company_id },
                 data: { is_deleted: true }
+            });
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'Document Change Request',
+                description: `Deleted DCR "${dcr?.dcr_no || id}"`,
+                metadata: { target_dcr_id: id },
             });
 
             return res.status(200).json({
@@ -785,6 +811,16 @@ class DcrController {
                 }
             });
 
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Document Change Request',
+                description: `Updated DCR "${dcr.dcr_no}"`,
+                metadata: { target_dcr_id: dcr.id },
+            });
+
             return res.status(200).json({
                 success: true,
                 message: 'DCR updated successfully'
@@ -807,7 +843,7 @@ class DcrController {
 
             const dcr = await prisma.dcr.findUnique({
                 where: { id, company_id },
-                select: { is_active: true }
+                select: { is_active: true, dcr_no: true, id: true }
             });
 
             if (!dcr) {
@@ -820,6 +856,16 @@ class DcrController {
             await prisma.dcr.update({
                 where: { id, company_id },
                 data: { is_active: !dcr.is_active }
+            });
+
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: !dcr.is_active ? 'activated' : 'deactivated',
+                module: 'Document Change Request',
+                description: `${!dcr.is_active ? 'Activated' : 'Deactivated'} DCR "${dcr.dcr_no}"`,
+                metadata: { target_dcr_id: dcr.id, is_active: !dcr.is_active },
             });
 
             return res.status(200).json({

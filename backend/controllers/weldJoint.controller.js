@@ -3,6 +3,7 @@ const pdfGenerator = require('#utils/pdfGenerator');
 const pdfGeneratorCD = require('#utils/pdfGeneratorCD');
 const pdfGeneratorF = require('#utils/pdfGeneratorF');
 const prisma = require('#prisma');
+const Audit = require('#utils/audit.js');
 const { extractStageData } = require('../utils/weldJointData');
 const { getCompanyInfo } = require('../utils/companyInfo');
 const WELD_STAGES_CONFIG = require('../config/weldStagesConfig');
@@ -314,6 +315,17 @@ async function getJointTrail(req, res) {
 async function togglePlanStatus(req, res) {
     try {
         const result = await weldJointService.togglePlanStatus(req.user.company_id, req.params.id);
+        
+        Audit.insert({
+            req,
+            company_id: req.user.company_id,
+            user_id: req.user.userid || req.user.id,
+            action: result.is_active ? 'activated' : 'deactivated',
+            module: 'Weld Joint Plan',
+            description: `${result.is_active ? 'Activated' : 'Deactivated'} Weld Joint Plan "${result.weld_plan_no || req.params.id}"`,
+            metadata: { target_weld_joint_plan_id: result.id, is_active: result.is_active },
+        });
+
         res.status(200).json({ 
             success: true, 
             message: `Weld Joint Plan ${result.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -328,7 +340,18 @@ async function togglePlanStatus(req, res) {
 
 async function archivePlan(req, res) {
     try {
-        await weldJointService.archivePlan(req.user.company_id, req.params.id);
+        const result = await weldJointService.archivePlan(req.user.company_id, req.params.id);
+        
+        Audit.insert({
+            req,
+            company_id: req.user.company_id,
+            user_id: req.user.userid || req.user.id,
+            action: 'deleted',
+            module: 'Weld Joint Plan',
+            description: `Archived Weld Joint Plan "${result.weld_plan_no || req.params.id}"`,
+            metadata: { target_weld_joint_plan_id: result.id },
+        });
+
         res.status(200).json({ success: true, message: 'Weld Joint Plan archived successfully' });
     } catch (error) {
         console.error('Weld Joint Plan archive error:', error);

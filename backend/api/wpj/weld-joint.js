@@ -1,4 +1,5 @@
 const prisma = require('#prisma');
+const Audit = require('#utils/audit.js');
 
 /**
  * Get Users API - Get all users for the authenticated user's company
@@ -158,6 +159,16 @@ async function createWeldJointPlan(req, res) {
             }
 
             return plan;
+        });
+
+        Audit.insert({
+            req,
+            company_id,
+            user_id,
+            action: 'created',
+            module: 'Weld Joint Plan',
+            description: `Created Weld Joint Plan "${generatedWeldPlanNo}"`,
+            metadata: { target_weld_joint_plan_id: result.id },
         });
 
         res.status(201).json({
@@ -458,6 +469,16 @@ async function updateWeldJointPlan(req, res) {
             return updatedPlan;
         });
 
+        Audit.insert({
+            req,
+            company_id,
+            user_id: req.user.userid || req.user.id,
+            action: 'updated',
+            module: 'Weld Joint Plan',
+            description: `Updated Weld Joint Plan "${result.weld_plan_no || id}"`,
+            metadata: { target_weld_joint_plan_id: id },
+        });
+
         res.status(200).json({
             success: true,
             message: 'Welding Joint Plan updated successfully',
@@ -555,6 +576,16 @@ async function bulkCreateWeldJointPlan(req, res) {
             }
         }
 
+        Audit.insert({
+            req,
+            company_id,
+            user_id,
+            action: 'created',
+            module: 'Weld Joint Plan',
+            description: `Bulk created ${stats.created} Weld Joint Plans`,
+            metadata: { weld_joint_plan_count: stats.created },
+        });
+
         res.status(201).json({
             success: true,
             message: `Bulk creation complete. Created: ${stats.created}, Failed: ${stats.failed}`,
@@ -576,4 +607,4 @@ module.exports = {
     getAssignedWeldJoints,
     reviewStageStatus,
     bulkCreateWeldJointPlan
-};
+};

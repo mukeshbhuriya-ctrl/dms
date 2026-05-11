@@ -1,5 +1,6 @@
 const NcrService = require('../services/ncr.service');
 const NCRPdfGenerator = require('../utils/ncrPdfGenerator');
+const Audit = require('#utils/audit.js');
 const { getCompanyInfo } = require('../utils/companyInfo');
 
 class NcrController {
@@ -41,6 +42,17 @@ class NcrController {
             };
 
             const result = await NcrService.create(req.user.company_id, req.user.id || req.user.userid, data);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'created',
+                module: 'Non-Conformance Report',
+                description: `Created new NCR "${result.ncr_no}"`,
+                metadata: { target_ncr_id: result.id },
+            });
+
             res.status(201).json({
                 success: true,
                 message: 'NCR created successfully',
@@ -168,6 +180,17 @@ class NcrController {
     async toggleStatus(req, res) {
         try {
             const result = await NcrService.toggleStatus(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Non-Conformance Report',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} NCR "${result.ncr_no}"`,
+                metadata: { target_ncr_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({ 
                 success: true, 
                 message: `NCR ${result.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -182,7 +205,18 @@ class NcrController {
 
     async archive(req, res) {
         try {
-            await NcrService.archive(req.user.company_id, req.params.id);
+            const result = await NcrService.archive(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'deleted',
+                module: 'Non-Conformance Report',
+                description: `Archived NCR "${result.ncr_no}"`,
+                metadata: { target_ncr_id: result.id },
+            });
+
             res.status(200).json({ success: true, message: 'NCR archived successfully' });
         } catch (error) {
             console.error('NCR archive error:', error);

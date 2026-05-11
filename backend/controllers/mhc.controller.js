@@ -1,4 +1,5 @@
 const MhcService = require('../services/mhc.service');
+const Audit = require('#utils/audit.js');
 
 class MhcController {
     async list(req, res) {
@@ -33,6 +34,17 @@ class MhcController {
     async create(req, res) {
         try {
             const result = await MhcService.create(req.user.company_id, req.body, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Material Heat Chart',
+                description: `Created Material Heat Chart "${result.report_no}"`,
+                metadata: { target_mhc_id: result.id },
+            });
+
             res.status(201).json({
                 success: true,
                 message: 'Material heat chart created successfully',
@@ -48,6 +60,17 @@ class MhcController {
     async bulkCreate(req, res) {
         try {
             const result = await MhcService.bulkCreate(req.user.company_id, req.body, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'created',
+                module: 'Material Heat Chart',
+                description: `Bulk created ${result.length} Material Heat Charts`,
+                metadata: { mhc_count: result.length },
+            });
+
             res.status(201).json({
                 success: true,
                 message: `${result.length} Material heat charts created successfully`,
@@ -62,6 +85,17 @@ class MhcController {
     async update(req, res) {
         try {
             const result = await MhcService.update(req.user.company_id, req.params.id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Updated Material Heat Chart "${result.report_no}"`,
+                metadata: { target_mhc_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: 'Material heat chart updated successfully',
@@ -80,6 +114,17 @@ class MhcController {
                 ...req.body,
                 user_id: req.user.userid || req.user.id
             });
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Status changed to ${req.body.status} for Material Heat Chart "${result.report_no}"`,
+                metadata: { target_mhc_id: result.id },
+            });
+
             res.status(200).json({
                 success: true,
                 message: `Material heat chart ${req.body.status} successfully`,
@@ -139,6 +184,17 @@ class MhcController {
     async toggleStatus(req, res) {
         try {
             const result = await MhcService.toggleStatus(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: result.is_active ? 'activated' : 'deactivated',
+                module: 'Material Heat Chart',
+                description: `${result.is_active ? 'Activated' : 'Deactivated'} Material Heat Chart "${result.report_no}"`,
+                metadata: { target_mhc_id: result.id, is_active: result.is_active },
+            });
+
             res.status(200).json({ 
                 success: true, 
                 message: `Material Heat Chart ${result.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -153,7 +209,18 @@ class MhcController {
 
     async archive(req, res) {
         try {
-            await MhcService.archive(req.user.company_id, req.params.id);
+            const result = await MhcService.archive(req.user.company_id, req.params.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'deleted',
+                module: 'Material Heat Chart',
+                description: `Archived Material Heat Chart "${result.report_no}"`,
+                metadata: { target_mhc_id: result.id },
+            });
+
             res.status(200).json({ success: true, message: 'Material Heat Chart archived successfully' });
         } catch (error) {
             console.error('MHC archive error:', error);
