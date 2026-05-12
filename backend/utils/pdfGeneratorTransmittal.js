@@ -28,8 +28,8 @@ function generateTransmittalPDF(transmission, customer, location, po, documents,
             });
 
             // --- Colors and Fonts ---
-            const primaryColor = '#FF0000'; // Red color as per screenshot
-            const textColor = '#FF0000'; // Using red to match the requested look exactly
+            const primaryColor = '#0056b3'; // Blue color as per client request
+            const textColor = '#0056b3'; // Using blue instead of red
 
             // --- Header Title ---
             doc.fillColor(primaryColor)

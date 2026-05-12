@@ -18,7 +18,7 @@ const getTransmissionEmailTemplate = (details) => {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #0056b3; margin: 0; padding: 0; background-color: #f4f4f4; }
         .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         .header { background-color: #0056b3; color: #ffffff; padding: 20px; text-align: center; }
         .header h1 { margin: 0; font-size: 24px; }
@@ -26,7 +26,7 @@ const getTransmissionEmailTemplate = (details) => {
         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .info-item { background: #f8f9fa; padding: 10px; border-radius: 4px; }
         .info-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 4px; }
-        .info-value { font-weight: 600; font-size: 14px; color: #333; }
+        .info-value { font-weight: 600; font-size: 14px; color: #0056b3; }
         .secure-section { background-color: #e9ecef; border-left: 4px solid #0056b3; padding: 15px; margin: 20px 0; border-radius: 4px; }
         .button-container { text-align: center; margin: 30px 0; }
         .btn { display: inline-block; padding: 12px 30px; background-color: #28a745; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; transition: background-color 0.3s; }
