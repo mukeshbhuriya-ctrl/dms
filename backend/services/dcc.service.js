@@ -1170,7 +1170,7 @@ class DccService {
 
         if (!groupDoc) throw new Error('Document assignment not found');
 
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             // ── Resolve target directory version using the same 3-case logic as createNewVersion ──
             // This ensures the file lands in the same folder number the DB record will use.
 
@@ -1272,6 +1272,13 @@ class DccService {
 
             return version;
         });
+
+        // 5. Trigger Notification to Admins in background
+        this._sendUploadNotificationToAdmins(company_id, document_id, user_id, result.version_no).catch(e =>
+            console.error("[DccService] Upload notification error:", e)
+        );
+
+        return result;
     }
 
     /**
@@ -1640,7 +1647,7 @@ class DccService {
         // Use relative link for storage
         const zipDownloadLink = `/api/secure/download/${transmissionId}`;
 
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             const transmission = await tx.transmission.create({
                 data: {
                     id: transmissionId, // Use pre-generated UUID
@@ -1691,6 +1698,13 @@ class DccService {
             // Return transmission details for UI
             return transmission;
         });
+
+        // 5. Trigger Internal Alert in background
+        this._sendInternalTransmittalAlert(company_id, transmissionId).catch(e =>
+            console.error("[DccService] Internal transmittal alert error:", e)
+        );
+
+        return result;
     }
 
     async getTransmissionFilters(company_id) {
@@ -2044,7 +2058,7 @@ class DccService {
             client_archive_url = `/api/dcc/transmission/${transmission_id}/download-feedback`;
         }
 
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             // 2. Update Transmission Record
             const updatedTransmission = await tx.transmission.update({
                 where: { id: transmission_id },
@@ -2084,20 +2098,42 @@ class DccService {
                 .filter(id => id);
 
             if (groupDocIds.length > 0) {
-                // Update and Log for each Group Document
-                // Logic Change: If client rejected, we reset to Pending to allow new revision uploads.
-                await tx.group_document.updateMany({
-                    where: { id: { in: groupDocIds } },
-                    data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
+                // Fetch current docs to get createdAt and current upload_due_days
+                const docs = await tx.group_document.findMany({
+                    where: { id: { in: groupDocIds } }
                 });
 
-                for (const gId of groupDocIds) {
+                for (const doc of docs) {
+                    let nextGroupStatus = doc.status;
+                    let nextUploadDueDays = doc.upload_due_days;
+
+                    if (['Approved', 'Final Approved'].includes(status)) {
+                        nextGroupStatus = 'Approved';
+                    } else if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
+                        nextGroupStatus = status === 'As Built' ? 'As Built' : 'Pending';
+                        
+                        // Auto-calculate new upload deadline: Current Date + 5 Days
+                        const now = new Date();
+                        const createdAt = new Date(doc.createdAt);
+                        const diffMs = Math.max(0, now.getTime() - createdAt.getTime());
+                        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                        nextUploadDueDays = diffDays + 5;
+                    }
+
+                    await tx.group_document.update({
+                        where: { id: doc.id },
+                        data: { 
+                            status: nextGroupStatus,
+                            upload_due_days: nextUploadDueDays
+                        }
+                    });
+
                     await ActivityService.logActivity({
                         company_id,
-                        group_document_id: gId,
+                        group_document_id: doc.id,
                         transmission_id,
                         user_id: updatedTransmission.created_by,
-                        action: status === 'Approved' ? 'Client Approved' : 'Client Rejected',
+                        action: status === 'Approved' ? 'Client Approved' : `Client ${status}`,
                         remarks: `Transmission ${updatedTransmission.transmission_number} reviewed by client`,
                         metadata: { status, feedback_url: client_archive_url }
                     }, tx);
@@ -2118,6 +2154,13 @@ class DccService {
             // (Already handled in Step 4 above: existing group_document status reset to Pending)
             return updatedTransmission;
         });
+
+        // 5. Trigger Email Notifications in background
+        this._sendBulkClientReviewNotifications(company_id, transmission_id, status, remarks).catch(e =>
+            console.error("[DccService] Bulk client review notification error:", e)
+        );
+
+        return result;
     }
 
     /**
@@ -2149,7 +2192,7 @@ class DccService {
         const groupDoc = transDoc.group_document;
         const reviewedVersionId = transDoc.version_id;
 
-        return await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
             let feedbackUrl = null;
 
             // 2. Process File if provided (Store as Feedback Attachment)
@@ -2190,22 +2233,40 @@ class DccService {
                 data: { status, remarks: remarks || `Reviewed by Client as ${status}` }
             });
 
-            // 5. Update Group Document Status
+            // 5. Update Group Document Status and Auto-calculate next upload deadline if needed
             let nextGroupStatus = groupDoc.status;
+            let nextUploadDueDays = groupDoc.upload_due_days;
+
             if (['Approved', 'Final Approved'].includes(status)) {
                 nextGroupStatus = 'Approved';
             } else if (['Rejected', 'Commented', 'Re-approval'].includes(status)) {
                 nextGroupStatus = 'Pending';
+                
+                // Auto-calculate new upload deadline: Current Date + 5 Days
+                const now = new Date();
+                const createdAt = new Date(groupDoc.createdAt);
+                const diffMs = Math.max(0, now.getTime() - createdAt.getTime());
+                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                nextUploadDueDays = diffDays + 5;
             } else if (status === 'As Built') {
                 nextGroupStatus = 'As Built';
+
+                // Auto-calculate new upload deadline: Current Date + 5 Days
+                const now = new Date();
+                const createdAt = new Date(groupDoc.createdAt);
+                const diffMs = Math.max(0, now.getTime() - createdAt.getTime());
+                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+                nextUploadDueDays = diffDays + 5;
             }
 
-            if (nextGroupStatus !== groupDoc.status) {
-                await tx.group_document.update({
-                    where: { id: groupDoc.id },
-                    data: { status: nextGroupStatus }
-                });
-            }
+            // Update database
+            await tx.group_document.update({
+                where: { id: groupDoc.id },
+                data: { 
+                    status: nextGroupStatus,
+                    upload_due_days: nextUploadDueDays
+                }
+            });
 
             // 6. Bulk update parent Transmission client_status
             const allTransDocs = await tx.transmission_document.findMany({
@@ -2292,6 +2353,13 @@ class DccService {
 
             return { group_document: groupDoc, transmission_status: transmissionStatus };
         });
+
+        // 9. Trigger Email Notification in background
+        this._sendClientReviewNotification(groupDoc, reviewedVersionId, status, remarks, transDoc.transmission.transmission_number).catch(e =>
+            console.error("[DccService] Client review notification error:", e)
+        );
+
+        return result;
     }
 
     async getDocumentVersionById(company_id, version_id) {
@@ -2306,6 +2374,69 @@ class DccService {
                 group_document: true
             }
         });
+    }
+
+    /**
+     * Helper to send client review notification in background
+     * @private
+     */
+    async _sendClientReviewNotification(groupDoc, versionId, status, remarks, transmissionNo) {
+        try {
+            const [uploader, version] = await Promise.all([
+                prisma.user.findUnique({ where: { id: groupDoc.user_id } }),
+                prisma.document_version.findUnique({ where: { id: versionId } })
+            ]);
+
+            if (uploader && uploader.email) {
+                await EmailService.sendClientReviewNotification(uploader.email, uploader.name, {
+                    documentName: groupDoc.document?.document_name || 'Document',
+                    documentNumber: groupDoc.document?.document_number || 'N/A',
+                    versionNo: version?.version_no ?? 0,
+                    status: status,
+                    remarks: remarks || '',
+                    transmissionNo: transmissionNo
+                });
+                console.log(`[DccService] Client review email sent to ${uploader.email} for ${groupDoc.document?.document_number}`);
+            }
+        } catch (error) {
+            console.error("[DccService] Failed to send client review notification:", error);
+        }
+    }
+
+    /**
+     * Helper to send bulk client review notifications
+     * @private
+     */
+    async _sendBulkClientReviewNotifications(company_id, transmission_id, status, remarks) {
+        try {
+            const transmission = await prisma.transmission.findUnique({
+                where: { id: transmission_id },
+                include: {
+                    documents: {
+                        include: {
+                            group_document: { include: { document: true } },
+                            version: true
+                        }
+                    }
+                }
+            });
+
+            if (!transmission) return;
+
+            for (const td of transmission.documents) {
+                if (td.group_document) {
+                    await this._sendClientReviewNotification(
+                        td.group_document,
+                        td.version_id,
+                        status,
+                        remarks,
+                        transmission.transmission_number
+                    );
+                }
+            }
+        } catch (error) {
+            console.error("[DccService] Failed to send bulk client review notifications:", error);
+        }
     }
 
     async verifyZipPassword(transmissionId, password) {
@@ -2991,7 +3122,124 @@ class DccService {
             const splitChar = val.includes('|') ? '|' : ',';
             return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
         }
-        return { contains: val, mode: 'insensitive' };
+    }
+
+    /**
+     * Helper to notify DCC Admins of a new upload
+     * @private
+     */
+    async _sendUploadNotificationToAdmins(company_id, group_document_id, uploader_id, versionNo) {
+        try {
+            console.log(`[DccService] Attempting upload notification for doc ${group_document_id} (uploader: ${uploader_id})`);
+            
+            const [groupDoc, uploader, dccAdmins] = await Promise.all([
+                prisma.group_document.findUnique({
+                    where: { id: group_document_id },
+                    include: {
+                        document: true,
+                        group: { include: { job_group: { include: { job: true } } } }
+                    }
+                }),
+                prisma.user.findUnique({ where: { id: uploader_id } }),
+                prisma.user.findMany({
+                    where: {
+                        company_id,
+                        user_roles: { 
+                            some: { 
+                                role: { 
+                                    name: { 
+                                        in: ['DMS', 'DCC', 'ADMIN'] 
+                                    } 
+                                } 
+                            } 
+                        }
+                    }
+                })
+            ]);
+
+            if (!groupDoc) {
+                console.warn(`[DccService] Notification failed: groupDoc ${group_document_id} not found`);
+                return;
+            }
+            if (!uploader) {
+                console.warn(`[DccService] Notification failed: uploader ${uploader_id} not found`);
+                return;
+            }
+
+            if (dccAdmins.length === 0) {
+                console.warn(`[DccService] No DCC/ADMIN users found for company ${company_id} to notify of upload`);
+                return;
+            }
+
+            const details = {
+                documentName: groupDoc.document?.document_name || 'Document',
+                documentNumber: groupDoc.document?.document_number || 'N/A',
+                uploaderName: uploader.name,
+                versionNo: versionNo,
+                jobNo: groupDoc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A'
+            };
+
+            let sentCount = 0;
+            for (const admin of dccAdmins) {
+                if (admin.email) {
+                    await EmailService.sendDocumentUploadedNotification(admin.email, admin.name, details);
+                    sentCount++;
+                }
+            }
+            console.log(`[DccService] Upload notification sent to ${sentCount}/${dccAdmins.length} admins for ${details.documentNumber}`);
+        } catch (error) {
+            console.error("[DccService] Failed to send upload notification to admins:", error);
+        }
+    }
+
+    /**
+     * Helper to send internal alert for new transmission
+     * @private
+     */
+    async _sendInternalTransmittalAlert(company_id, transmission_id) {
+        try {
+            const transmission = await prisma.transmission.findUnique({
+                where: { id: transmission_id },
+                include: {
+                    customer: true,
+                    po: true,
+                    creator: true, // Matching schema relation name
+                    _count: { select: { documents: true } }
+                }
+            });
+
+            if (!transmission) return;
+
+            // Fetch the creator user if created_by_user relation doesn't exist
+            const creator = transmission.creator || await prisma.user.findUnique({ where: { id: transmission.created_by } });
+
+            // Notify DCC Admins + the Creator
+            const dccAdmins = await prisma.user.findMany({
+                where: {
+                    company_id,
+                    user_roles: { some: { role: { name: { in: ['DMS', 'DCC', 'ADMIN'] } } } }
+                }
+            });
+
+            const recipients = new Map();
+            if (creator && creator.email) recipients.set(creator.id, creator);
+            dccAdmins.forEach(admin => { if (admin.email) recipients.set(admin.id, admin); });
+
+            const details = {
+                transmissionNo: transmission.transmission_number,
+                customerName: transmission.customer?.customer_name || 'N/A',
+                poNo: transmission.po?.po_number || 'N/A',
+                docCount: transmission._count?.documents || 0,
+                createdBy: creator?.name || 'System'
+            };
+
+            for (const user of recipients.values()) {
+                await EmailService.sendInternalTransmittalAlert(user.email, user.name, details);
+            }
+            console.log(`[DccService] Internal transmittal alert sent to ${recipients.size} users for ${details.transmissionNo}`);
+        } catch (error) {
+            console.error("[DccService] Failed to send internal transmittal alert:", error);
+        }
     }
 
     _getFormattedDocNumber(serial_no) {

@@ -228,7 +228,10 @@ const ProDataTable = ({
   const [meta, setMeta] = useState({});
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = localStorage.getItem("table_page_size");
+    return saved ? parseInt(saved) : 10;
+  });
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [internalSelectedRows, setInternalSelectedRows] = useState(new Set());
@@ -338,6 +341,11 @@ const ProDataTable = ({
   useEffect(() => {
     if (isFirstRender.current) isFirstRender.current = false;
   }, []);
+
+  // Persist Page Size changes
+  useEffect(() => {
+    localStorage.setItem("table_page_size", pageSize.toString());
+  }, [pageSize]);
 
   // Handlers
   const toggleRow = (id) => {

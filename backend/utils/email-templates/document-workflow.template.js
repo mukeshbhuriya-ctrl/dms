@@ -146,8 +146,133 @@ const getDocumentOverdueTemplate = (user_name, type, documents) => {
     `;
 };
 
+const getClientReviewTemplate = (user_name, details) => {
+    const { documentName, documentNumber, status, remarks, versionNo, transmissionNo } = details;
+    
+    // Status color mapping
+    const statusMap = {
+        'Approved': { color: '#10b981', bg: '#ecfdf5', label: 'APPROVED' },
+        'Final Approved': { color: '#10b981', bg: '#ecfdf5', label: 'FINAL APPROVED' },
+        'Rejected': { color: '#ef4444', bg: '#fef2f2', label: 'REJECTED' },
+        'Commented': { color: '#f59e0b', bg: '#fffbeb', label: 'COMMENTED' },
+        'Re-approval': { color: '#3b82f6', bg: '#eff6ff', label: 'RE-APPROVAL' },
+        'As Built': { color: '#6366f1', bg: '#eef2ff', label: 'AS BUILT' }
+    };
+
+    const config = statusMap[status] || { color: '#64748b', bg: '#f8fafc', label: status.toUpperCase() };
+
+    return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden; color: #333;">
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">Client Review Update</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">Feedback received for ${transmissionNo}</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; margin-top: 0;">Hello <strong>${user_name}</strong>,</p>
+            <p style="line-height: 1.6;">The client has provided feedback on a document you uploaded. Please review the status below:</p>
+            
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid ${config.color};">
+                <p style="margin: 0 0 10px 0;"><strong>Document:</strong> ${documentName} (${documentNumber})</p>
+                <p style="margin: 0 0 10px 0;"><strong>Revision:</strong> Rev ${versionNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Transmission:</strong> ${transmissionNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Client Status:</strong> <span style="color: ${config.color}; font-weight: bold; background: ${config.bg}; padding: 2px 8px; border-radius: 4px;">${config.label}</span></p>
+                ${remarks ? `<p style="margin: 10px 0 0 0; color: #475569; font-style: italic; background: #fff; padding: 10px; border-radius: 4px; border: 1px dashed #cbd5e1;"><strong>Client Remarks:</strong> "${remarks}"</p>` : ''}
+            </div>
+
+            <p style="font-size: 14px; color: #64748b;">
+                ${['Rejected', 'Commented', 'Re-approval'].includes(status) 
+                    ? '<strong>Action Required:</strong> Please address the client feedback and prepare the next revision for submission.' 
+                    : 'No further action is required for this revision.'}
+            </p>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/uploader" 
+                   style="background-color: #1e293b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    View in Uploader Portal
+                </a>
+            </div>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} DMS System. All rights reserved.</p>
+        </div>
+    </div>
+    `;
+};
+
+const getDocumentUploadedTemplate = (admin_name, details) => {
+    const { documentName, documentNumber, uploaderName, versionNo, jobNo } = details;
+
+    return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden; color: #333;">
+        <div style="background: linear-gradient(135deg, #475569 0%, #64748b 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">New Document Uploaded</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">Action Required: Review Pending</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; margin-top: 0;">Hello <strong>${admin_name}</strong>,</p>
+            <p style="line-height: 1.6;">A new document version has been uploaded and is waiting for your review.</p>
+            
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #475569;">
+                <p style="margin: 0 0 10px 0;"><strong>Document:</strong> ${documentName} (${documentNumber})</p>
+                <p style="margin: 0 0 10px 0;"><strong>Job No:</strong> ${jobNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Uploaded By:</strong> ${uploaderName}</p>
+                <p style="margin: 0 0 0 0;"><strong>Revision:</strong> Rev ${versionNo}</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/approver" 
+                   style="background-color: #475569; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    Review in DCC Portal
+                </a>
+            </div>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} DMS System. All rights reserved.</p>
+        </div>
+    </div>
+    `;
+};
+
+const getInternalTransmittalAlertTemplate = (user_name, details) => {
+    const { transmissionNo, customerName, poNo, docCount, createdBy } = details;
+
+    return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden; color: #333;">
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">Transmittal Package Ready</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">Internal Notification: ${transmissionNo}</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; margin-top: 0;">Hello <strong>${user_name}</strong>,</p>
+            <p style="line-height: 1.6;">A new document transmission package has been successfully generated and is ready for client delivery.</p>
+            
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #0f172a;">
+                <p style="margin: 0 0 10px 0;"><strong>Transmission No:</strong> ${transmissionNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Customer:</strong> ${customerName}</p>
+                <p style="margin: 0 0 10px 0;"><strong>PO Number:</strong> ${poNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Document Count:</strong> ${docCount}</p>
+                <p style="margin: 0 0 0 0;"><strong>Created By:</strong> ${createdBy}</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/transmissions" 
+                   style="background-color: #0f172a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    View Transmissions
+                </a>
+            </div>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} DMS System. All rights reserved.</p>
+        </div>
+    </div>
+    `;
+};
+
 module.exports = {
     getDocumentAssignedTemplate,
     getDocumentReviewTemplate,
-    getDocumentOverdueTemplate
+    getDocumentOverdueTemplate,
+    getClientReviewTemplate,
+    getDocumentUploadedTemplate,
+    getInternalTransmittalAlertTemplate
 };

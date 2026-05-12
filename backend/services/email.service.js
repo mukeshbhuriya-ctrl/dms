@@ -128,6 +128,27 @@ class EmailService {
 
         return this.sendEmail({ to: user.email, subject, html });
     }
+
+    async sendClientReviewNotification(to, user_name, details) {
+        const { getClientReviewTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[Client Feedback] ${details.documentNumber}: ${details.status}`;
+        const html = getClientReviewTemplate(user_name, details);
+        return this.sendEmail({ to, subject, html });
+    }
+
+    async sendDocumentUploadedNotification(to, user_name, details) {
+        const { getDocumentUploadedTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[New Upload] ${details.documentNumber} - Rev ${details.versionNo} for Review`;
+        const html = getDocumentUploadedTemplate(user_name, details);
+        return this.sendEmail({ to, subject, html });
+    }
+
+    async sendInternalTransmittalAlert(to, user_name, details) {
+        const { getInternalTransmittalAlertTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[Internal Alert] Transmittal Package Ready: ${details.transmissionNo}`;
+        const html = getInternalTransmittalAlertTemplate(user_name, details);
+        return this.sendEmail({ to, subject, html });
+    }
 }
 
 module.exports = new EmailService();
