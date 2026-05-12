@@ -74,6 +74,7 @@ function ListView({ onCreateClick, onEditClick }) {
   const { user, roles } = useAuth()
   const isAdmin = roles?.includes("ADMIN");
   const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC");
+  const isPE = roles?.includes("PRODUCTION_ENGINEER") || roles?.includes("PE");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // Bulk Import State
@@ -563,7 +564,7 @@ function ListView({ onCreateClick, onEditClick }) {
       header: "Actions",
       cell: (row) => {
         const canReview = isQE && (row.status?.toLowerCase() === "pending")
-        const canEdit = (isAdmin || isQE) && (row.status?.toLowerCase() !== "approved")
+        const canEdit = (isAdmin || isQE || isPE) && (row.status?.toLowerCase() !== "approved")
 
         return (
           <div className="flex gap-2">
@@ -620,7 +621,7 @@ function ListView({ onCreateClick, onEditClick }) {
         )
       },
     },
-  ], [isQE, isAdmin, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions]);
+  ], [isQE, isAdmin, isPE, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions]);
 
   const fetchData = useCallback(async (params) => {
     try {
@@ -1292,7 +1293,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                           {row.isHeading && (
                             <tr className="group/heading border-b-0 bg-amber-50/40">
                               <td colSpan={11} className="p-0 border-t border-t-amber-400/50">
-                                <div className="flex items-center gap-0 my-1.5 mx-2">
+                                <div className="flex items-center gap-0 my-1.5 mx-2 sticky left-2 w-fit z-20">
                                    <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
                                       <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 shrink-0">Heading:</span>
                                       <Input
