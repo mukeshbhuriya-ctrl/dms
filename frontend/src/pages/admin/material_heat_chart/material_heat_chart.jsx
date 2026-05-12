@@ -1251,10 +1251,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar border rounded-xl shadow-inner bg-slate-50/20 relative">
               <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b bg-muted/40 text-muted-foreground">
+                <thead className="sticky top-0 z-40 shadow-sm">
+                  <tr className="border-b bg-slate-100 text-slate-700">
                     {[
                       "ITEM NO./PART NO.",
                       "DESCRIPTION",
@@ -1270,7 +1270,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                     ].map((h, i) => (
                       <th
                         key={h}
-                        className={`text-left p-3 font-semibold text-[11px] uppercase tracking-wider whitespace-normal min-w-[120px] ${i === 0 ? "sticky left-0 bg-[#f4f4f5] z-30 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
+                        className={`text-left p-3 font-bold text-[10px] uppercase tracking-widest whitespace-normal min-w-[140px] border-b-2 border-slate-200 ${i === 0 ? "sticky left-0 bg-slate-100 z-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
                           }`}
                       >
                         {h}
@@ -1278,8 +1278,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                     ))}
                   </tr>
                 </thead>
-                <tbody>
-                  <tr className="h-4"></tr>
+                <tbody className="divide-y divide-slate-100">
                   {(() => {
                     let activeHeadingId = null;
                     return tableRows.map((row) => {
