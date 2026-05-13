@@ -640,7 +640,7 @@ const ProDataTable = ({
                               zIndex: isSticky ? 40 : 1
                             }}
                           >
-                            {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
+                            {col.cell ? col.cell(row, rIdx) : resolvePath(row, col.accessorKey)}
                           </TableCell>
                         );
                       })}

@@ -12,27 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, Check, Layout, Save, Trash2, Loader2 } from "lucide-react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { toast } from 'react-toastify';
 import { dccService } from "../../services/dcc.service";
 import { useNavigate } from "react-router-dom";
@@ -349,20 +329,6 @@ function CreateTransmission() {
     setSelectedDocuments([]);
   }, []);
 
-  const handleParamsChange = (params) => {
-    const { search, columnFilters } = params;
-
-    // Check if meaningful filters changed (ignoring page/pageSize for selection reset)
-    const filtersChanged =
-      search !== currentSearchParams.search ||
-      JSON.stringify(columnFilters) !== JSON.stringify(currentSearchParams.columnFilters);
-
-    if (filtersChanged) {
-      onSelectionReset();
-      setCurrentSearchParams({ search, columnFilters });
-    }
-  };
-
   const onListFiltersChange = (newFilters) => {
     setListFilters(prev => {
       const updated = { ...prev, ...newFilters };
@@ -423,52 +389,6 @@ function CreateTransmission() {
       return updated;
     });
   };
-
-  const handleToggleSelectAll = async (checked) => {
-    if (checked) {
-      setIsSelectingAll(true);
-      try {
-        const params = {
-          search: currentSearchParams.search,
-          status_filter: 'done',
-          approver_status_filter: 'approved',
-          exclude_transmitted: true
-        };
-
-        if (selectionFilters) {
-          if (selectionFilters.customer_name) params.customer_name_filter = selectionFilters.customer_name;
-          if (selectionFilters.po_number) params.po_number_filter = selectionFilters.po_number;
-          if (selectionFilters.job_number) params.job_number_filter = selectionFilters.job_number;
-        }
-
-        const response = await dccService.getDocumentsForApproval(params);
-        if (response.success) {
-          const allDocs = response.data || [];
-          // Validate all docs belong to same Customer & PO
-          if (allDocs.length > 0) {
-            const firstPo = allDocs[0].po_id;
-            const firstCustomer = allDocs[0].customer_id;
-            const mixedPo = allDocs.some(d => d.po_id !== firstPo);
-            const mixedCustomer = allDocs.some(d => d.customer_id !== firstCustomer);
-            if (mixedCustomer || mixedPo) {
-              toast.warn("Cannot select all — filtered documents belong to different POs or Customers. Please filter by a specific PO first.");
-              setIsSelectingAll(false);
-              return;
-            }
-          }
-          const allDocIds = allDocs.map(d => d.id);
-          setSelectedDocuments(allDocIds);
-        }
-      } catch (err) {
-        console.error("Error selecting all filtered documents:", err);
-      } finally {
-        setIsSelectingAll(false);
-      }
-    } else {
-      setSelectedDocuments([]);
-    }
-  };
-
 
   const handleSubmitTransmission = async () => {
     if (selectedDocuments.length === 0) {
@@ -1051,39 +971,31 @@ function CreateTransmission() {
           )}
         </div>
       </header>
-      <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
-        <div className={`flex-1 min-h-0 flex flex-col w-full ${view === "list" ? "overflow-hidden" : ""}`}>
+      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
+        <div className="flex-1 flex flex-col w-full overflow-hidden p-4 pt-4">
 
           {/* Content Section */}
           {view === 'list' ? (
-            <Card className="border-none shadow-none bg-transparent">
-              <CardContent className="p-0">
-                <ProDataTable
-                  columns={listColumns}
-                  fetchData={fetchTransmissions}
-                  onExport={handleExport}
-                  refreshKey={refreshKey}
-                  columnFilters={listFilters}
-                  onFilterChange={onListFiltersChange}
-                  showSelectionColumn={false}
-                  onAdd={() => { setView('create'); setSelectedDocuments([]); }}
-                  onAddTooltip="Create Transmission"
-                />
-              </CardContent>
-            </Card>
+            <ProDataTable
+              columns={listColumns}
+              fetchData={fetchTransmissions}
+              onExport={handleExport}
+              refreshKey={refreshKey}
+              columnFilters={listFilters}
+              onFilterChange={onListFiltersChange}
+              showSelectionColumn={false}
+              onAdd={() => { setView('create'); setSelectedDocuments([]); }}
+              onAddTooltip="Create Transmission"
+            />
           ) : view === 'send' ? (
-            <Card className="border-none shadow-none bg-transparent">
-              <CardHeader className="px-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl">Approved Documents</CardTitle>
-                    <CardDescription>
-                      Transmission documents for {activeTransmission?.transmission_number}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 pt-4">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold">Approved Documents</h3>
+                <p className="text-sm text-muted-foreground">
+                  Transmission documents for {activeTransmission?.transmission_number}
+                </p>
+              </div>
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
                 <ProDataTable
                   columns={sendDocumentColumns}
                   fetchData={async () => ({ data: sendDocuments, meta: { total: sendDocuments.length, page: 1, totalPages: 1 } })}
@@ -1091,7 +1003,7 @@ function CreateTransmission() {
                 />
 
                 {activeTransmission?.client_status !== 'Approved' && activeTransmission?.client_status !== 'Rejected' && activeTransmission?.client_status !== 'Partially Approved' && (
-                  <div className="mt-8 space-y-4 border-t pt-6">
+                  <div className="mt-6 space-y-4 border-t pt-6">
                     {/* Row 1: Transmittal Row */}
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border border-slate-200 rounded-2xl bg-white shadow-sm">
                       <div className="flex items-center gap-3">
@@ -1132,38 +1044,34 @@ function CreateTransmission() {
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ) : (
             /* CREATE VIEW */
-            <div className="space-y-6">
-              <Card className="border-none shadow-none bg-transparent">
-                <CardContent className="p-0">
-                  <ProDataTable
-                    columns={documentColumns}
-                    fetchData={fetchApprovedDocuments}
-                    refreshKey={refreshKey}
-                    selectedRows={new Set(selectedDocuments)}
-                    onSelectionChange={onSelectionChange}
-                    columnFilters={selectionFilters}
-                    onFilterChange={onSelectionFiltersChange}
-                  />
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <ProDataTable
+                columns={documentColumns}
+                fetchData={fetchApprovedDocuments}
+                refreshKey={refreshKey}
+                selectedRows={new Set(selectedDocuments)}
+                onSelectionChange={onSelectionChange}
+                columnFilters={selectionFilters}
+                onFilterChange={onSelectionFiltersChange}
+              />
 
-                  {/* BOTTOM ACTION BUTTONS */}
-                  <div className="flex justify-end gap-3 mt-8 border-t pt-6">
-                    <Button variant="ghost" className="font-semibold text-slate-600" onClick={handleReset}>
-                      Discard
-                    </Button>
-                    <Button 
-                      onClick={handleSubmitTransmission} 
-                      disabled={isSubmitting || selectedDocuments.length === 0}
-                      className="px-8 font-bold shadow-md"
-                    >
-                      {isSubmitting ? <><Loader2 className="animate-spin mr-2 h-4 w-4" />Creating...</> : "Create Transmission"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* BOTTOM ACTION BUTTONS */}
+              <div className="flex justify-end gap-3 mt-6 border-t pt-6">
+                <Button variant="ghost" className="font-semibold text-slate-600" onClick={handleReset}>
+                  Discard
+                </Button>
+                <Button 
+                  onClick={handleSubmitTransmission} 
+                  disabled={isSubmitting || selectedDocuments.length === 0}
+                  className="px-8 font-bold shadow-md"
+                >
+                  {isSubmitting ? <><Loader2 className="animate-spin mr-2 h-4 w-4" />Creating...</> : "Create Transmission"}
+                </Button>
+              </div>
             </div>
           )}
         </div>
@@ -1439,270 +1347,6 @@ function CreateTransmission() {
     </div>
   )
 }
-
-// --- Local Table Component implementation (Outside to avoid re-mounting) ---
-const DocumentSelectionTable = ({
-  columns,
-  fetchData,
-  onSelectionReset,
-  selectedDocuments,
-  setSelectedDocuments,
-  handleToggleSelectAll,
-  isSelectingAll,
-  customers = [],
-  allJobs = []
-}) => {
-  const [data, setData] = useState([]);
-  const [meta, setMeta] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [columnFilters, setColumnFilters] = useState({});
-  const [debouncedColumnFilters, setDebouncedColumnFilters] = useState({});
-  const isFirstRender = useRef(true);
-
-  // Sync search
-  useEffect(() => {
-    if (isFirstRender.current) return;
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-      onSelectionReset(); // RESET SELECTION
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [search, onSelectionReset]);
-
-  // Sync filters
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    const timer = setTimeout(() => {
-      setDebouncedColumnFilters(columnFilters);
-      setPage(1);
-      onSelectionReset(); // RESET SELECTION
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [columnFilters, onSelectionReset]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const result = await fetchData({
-          page,
-          limit: pageSize,
-          search: debouncedSearch,
-          columnFilters: debouncedColumnFilters
-        });
-        setData(result.data || []);
-        setMeta(result.meta || {});
-      } catch (error) {
-        console.error("Failed to load local data", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [page, pageSize, debouncedSearch, debouncedColumnFilters, fetchData]);
-
-  const resolvePath = (object, path) => {
-    if (!path) return undefined;
-    return path.split('.').reduce((o, p) => (o ? o[p] : undefined), object);
-  };
-
-  // --- Intelligent Cascading Logic ---
-  const handleFilterChange = (id, value) => {
-    const newFilters = { ...columnFilters };
-
-    if (id === 'customer_name') {
-      newFilters.customer_name = value || "";
-      newFilters.po_number = ""; // Reset child
-      newFilters.job_number = ""; // Reset grandchild
-    } else if (id === 'po_number') {
-      newFilters.po_number = value || "";
-      newFilters.job_number = ""; // Reset grandchild
-      // Reverse Cascading: if PO is selected, auto-set Customer
-      if (value && !Array.isArray(value)) {
-        const selectedObj = allJobs.find(j => j.po?.po_number === value);
-        if (selectedObj?.customer?.customer_name) {
-          newFilters.customer_name = selectedObj.customer.customer_name;
-        }
-      }
-    } else if (id === 'job_number') {
-      newFilters.job_number = value || "";
-      // Handle Multi-select Array vs Single value mapping (Intelligent for Reverse Cascading)
-      if (Array.isArray(value)) {
-          if (value.length === 0) {
-              delete newFilters.job_number;
-          } else if (value.length === 1) {
-              // Extract to single value for better cascading
-              const val = value[0];
-              const selectedJob = allJobs.find(j => j.job_number === val);
-              if (selectedJob) {
-                  newFilters.po_number = selectedJob.po?.po_number || "";
-                  newFilters.customer_name = selectedJob.customer?.customer_name || "";
-              }
-          }
-      } else if (value) {
-        // Reverse Cascading: if Job is selected, auto-set PO and Customer
-        const selectedJob = allJobs.find(j => j.job_number === value);
-        if (selectedJob) {
-          newFilters.po_number = selectedJob.po?.po_number || "";
-          newFilters.customer_name = selectedJob.customer?.customer_name || "";
-        }
-      }
-    } else {
-      newFilters[id] = value;
-    }
-    setColumnFilters(newFilters);
-  };
-
-  // --- Dynamic (Filtered) Dropdown Options ---
-  const dynamicClientOptions = useMemo(() => {
-    return customers.map(c => ({ label: c.customer_name, value: c.customer_name }));
-  }, [customers]);
-
-  const dynamicPoOptions = useMemo(() => {
-    let filteredJobs = [...allJobs];
-    if (columnFilters.customer_name) {
-      filteredJobs = filteredJobs.filter(j => j.customer?.customer_name === columnFilters.customer_name);
-    }
-    const uniquePos = [...new Set(filteredJobs.map(j => j.po?.po_number).filter(Boolean))];
-    return uniquePos.map(p => ({ label: p, value: p }));
-  }, [allJobs, columnFilters.customer_name]);
-
-  const dynamicJobOptions = useMemo(() => {
-    let filteredJobs = [...allJobs];
-    if (columnFilters.customer_name) {
-      filteredJobs = filteredJobs.filter(j => j.customer?.customer_name === columnFilters.customer_name);
-    }
-    if (columnFilters.po_number) {
-      filteredJobs = filteredJobs.filter(j => j.po?.po_number === columnFilters.po_number);
-    }
-    const uniqueJobs = [...new Set(filteredJobs.map(j => j.job_number))];
-    return uniqueJobs.map(j => ({ label: j, value: j }));
-  }, [allJobs, columnFilters.customer_name, columnFilters.po_number]);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Input
-            placeholder="Global Search..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="max-w-sm"
-          />
-        </div>
-      </div>
-
-      <div className="rounded-md border bg-card overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((col, idx) => {
-                const isSelectCol = col.id === 'select';
-                
-                // Inject Dynamic Options for specific columns
-                let finalOptions = col.filterOptions;
-                if (col.id === 'customer_name') finalOptions = dynamicClientOptions;
-                if (col.id === 'po_number') finalOptions = dynamicPoOptions;
-                if (col.id === 'job_number') finalOptions = dynamicJobOptions;
-
-                return (
-                  <TableHead key={idx} className={`${col.className} whitespace-nowrap bg-slate-50/50`}>
-                    <div className="flex flex-col gap-1.5 py-1.5">
-                      <div className="font-bold uppercase text-slate-700 text-[10px] tracking-wider mb-0.5">
-                        {isSelectCol ? (
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={data.length > 0 && data.every(d => selectedDocuments.includes(d.id))}
-                              onCheckedChange={(checked) => handleToggleSelectAll(checked, { search: debouncedSearch, columnFilters: debouncedColumnFilters })}
-                            />
-                            <span>Select</span>
-                          </div>
-                        ) : col.header}
-                      </div>
-                      {col.id !== 'select' && col.filterType === 'select' && (
-                        col.isMulti ? (
-                            <MultiSelectFilter
-                                options={finalOptions || []}
-                                value={columnFilters[col.id || col.accessorKey] || []}
-                                onChange={(val) => handleFilterChange(col.id || col.accessorKey, val)}
-                                placeholder={`All ${col.header}`}
-                            />
-                        ) : (
-                        <Select
-                          value={columnFilters[col.id || col.accessorKey] || "all"}
-                          onValueChange={(val) => handleFilterChange(col.id || col.accessorKey, val === 'all' ? "" : val)}
-                        >
-                          <SelectTrigger className="h-7 text-xs font-normal w-full min-w-[110px] max-w-[180px]">
-                            <SelectValue placeholder="All" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All</SelectItem>
-                            {finalOptions?.map(opt => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        )
-                      )}
-                    </div>
-                  </TableHead>
-                );
-              })}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Loading documents...</TableCell></TableRow>
-            ) : data.length ? (
-              data.map((row, rIdx) => (
-                <TableRow key={rIdx}>
-                  {columns.map((col, cIdx) => (
-                    <TableCell key={cIdx} className={col.className}>
-                      {col.cell ? col.cell(row) : resolvePath(row, col.accessorKey)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No approved documents found.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex items-center justify-between py-4">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium">Rows per page</p>
-          <Select value={pageSize.toString()} onValueChange={(val) => { setPageSize(parseInt(val)); setPage(1); }}>
-            <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={pageSize} /></SelectTrigger>
-            <SelectContent side="top">
-              {[5, 10, 20, 50, 100].map(v => <SelectItem key={v} value={v.toString()}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm text-muted-foreground">
-            Page {meta.page || 1} of {meta.totalPages || 1} ({meta.total || 0} items)
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPage(prev => prev - 1)} disabled={page <= 1 || loading}><ChevronLeft className="h-4 w-4" />Previous</Button>
-            <Button variant="outline" size="sm" onClick={() => setPage(prev => prev + 1)} disabled={page >= (meta.totalPages || 1) || loading}>Next<ChevronRight className="h-4 w-4" /></Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // --- Email Template Drawer Component ---
 const EmailTemplateDrawer = ({
