@@ -537,7 +537,12 @@ function ListView({ onCreateClick, onEditClick }) {
       cell: (row) => formatDateTimeSQL(row.createdAt),
     },
     {
-      filterOptions: activeStatusOptions
+      header: "Status",
+      accessorKey: "status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeStatusOptions,
+      cell: (row) => getStatusBadge(row.status)
     },
     {
       header: "Active",
@@ -1428,33 +1433,24 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       </Card>
 
       {/* ── Footer Buttons ── */}
-      <div className="flex justify-end gap-4 mt-8 pb-12">
-        <Button 
-          variant="outline" 
-          onClick={onBack} 
-          disabled={submitting !== null}
-          className="h-11 px-8 rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 transition-all font-medium cursor-pointer"
-        >
+      <div className="flex gap-3 justify-end mt-8 pb-12">
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null} className="cursor-pointer">
           {isView ? "Back to List" : "Cancel"}
         </Button>
         {!isView && (
-          <Button 
-            onClick={() => handleSubmit("Pending")} 
-            disabled={submitting !== null}
-            className="h-11 px-10 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-200 transition-all font-semibold flex items-center gap-2 cursor-pointer"
-          >
-            {submitting === "Pending" ? (
-              <>
-                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Processing...
-              </>
-            ) : (
-              <>
-                {editId ? <Database className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                {editId ? "Update Report Details" : "Finalize & Submit Report"}
-              </>
-            )}
-          </Button>
+          <>
+            <Button 
+              variant="secondary" 
+              onClick={() => handleSubmit("Draft")} 
+              disabled={submitting !== null}
+              className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200 cursor-pointer"
+            >
+              {submitting === "Draft" ? "Saving…" : "Save Draft"}
+            </Button>
+            <Button onClick={() => handleSubmit("Pending")} disabled={submitting !== null} className="cursor-pointer">
+              {submitting === "Pending" ? "Submitting…" : (editId ? "Update" : "Submit")}
+            </Button>
+          </>
         )}
       </div>
     </div>
