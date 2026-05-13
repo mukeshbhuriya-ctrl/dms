@@ -163,6 +163,43 @@ class QapController {
             res.status(500).json({ success: false, message: 'Internal server error' });
         }
     }
+
+    // Master Headings
+    async listMasterHeadings(req, res) {
+        try {
+            const result = await QapService.listMasterHeadings(req.user.company_id);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async createMasterHeading(req, res) {
+        try {
+            const result = await QapService.createMasterHeading(req.user.company_id, req.body);
+            res.status(201).json({ success: true, message: 'Heading created', data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async updateMasterHeading(req, res) {
+        try {
+            const result = await QapService.updateMasterHeading(req.user.company_id, req.params.id, req.body);
+            res.status(200).json({ success: true, message: 'Heading updated', data: result });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async deleteMasterHeading(req, res) {
+        try {
+            await QapService.deleteMasterHeading(req.user.company_id, req.params.id);
+            res.status(200).json({ success: true, message: 'Heading deleted' });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = new QapController();

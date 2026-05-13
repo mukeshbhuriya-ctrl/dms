@@ -21,4 +21,10 @@ router.delete('/archive/:id', (req, res, next) => {
 }, qapController.archive);
 router.get('/:id', qapController.getById);
 
+// Master Headings Management
+router.get('/master-headings/list', qapController.listMasterHeadings);
+router.post('/master-headings/create', qapController.createMasterHeading);
+router.put('/master-headings/update/:id', qapController.updateMasterHeading);
+router.delete('/master-headings/delete/:id', qapController.deleteMasterHeading);
+
 module.exports = router;

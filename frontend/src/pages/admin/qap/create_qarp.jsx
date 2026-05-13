@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Card,
   CardContent,
   CardHeader,
@@ -29,26 +22,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive } from "lucide-react"
-import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/context/AuthContext"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick }) {
-  const [isViewOpen, setIsViewOpen] = useState(false)
-  const [selectedRecord, setSelectedRecord] = useState(null)
-  const [isViewLoading, setIsViewLoading] = useState(false)
-  const [error, setError] = useState("")
+function ListView({ onCreateClick, onEditClick, onViewClick }) {
 
   const handleDownloadPdf = async (id) => {
     try {
@@ -65,23 +47,8 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
-  const handleViewClick = async (id) => {
-    setIsViewLoading(true)
-    setError("")
-    try {
-      const res = await apiClient.get(`/api/qap/${id}`)
-      if (res.success) {
-        setSelectedRecord(res.data)
-        setIsViewOpen(true)
-      } else {
-        setError("Failed to fetch details")
-      }
-    } catch (err) {
-      setError("Error fetching details")
-      console.error(err)
-    } finally {
-      setIsViewLoading(false)
-    }
+  const handleViewClick = (id) => {
+    onViewClick(id)
   }
 
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -259,6 +226,19 @@ function ListView({ onCreateClick, onEditClick }) {
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
     },
     {
+      header: "Status",
+      accessorKey: "status",
+      cell: (row) => (
+        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+          row.status === 'uploaded' 
+            ? "bg-emerald-100 text-emerald-700 border border-emerald-200" 
+            : "bg-amber-100 text-amber-700 border border-amber-200"
+        }`}>
+          {row.status || 'draft'}
+        </span>
+      )
+    },
+    {
       header: "Active",
       accessorKey: "is_active",
       filterType: "select",
@@ -350,11 +330,6 @@ function ListView({ onCreateClick, onEditClick }) {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </div>
-      )}
 
       <ProDataTable
         columns={columns}
@@ -367,153 +342,6 @@ function ListView({ onCreateClick, onEditClick }) {
         globalSearchPlaceholder="Search report no, job, client..."
       />
 
-      {/* View Details Modal */}
-      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-bold text-center">Quality Assurance Plan Details</DialogTitle>
-            <DialogDescription className="text-center">
-              Complete details of the selected Quality Assurance Plan.
-            </DialogDescription>
-            <div className="flex justify-center mt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                onClick={() => handleDownloadPdf(selectedRecord.id)}
-              >
-                <Download className="h-4 w-4 mr-2" /> Download QAP PDF
-              </Button>
-            </div>
-          </DialogHeader>
-
-          {selectedRecord && (
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-y-6 gap-x-4 text-sm border border-border p-6 bg-white rounded-xl shadow-sm">
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">MSN / JOB NO:</span>
-                  <span className="font-medium">{selectedRecord.msn || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CLIENT:</span>
-                  <span className="font-medium">{selectedRecord.client || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PO NO:</span>
-                  <span className="font-medium">{selectedRecord.po_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PO DATE:</span>
-                  <span className="font-medium">{selectedRecord.po_date || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">EQUIPMENT:</span>
-                  <span className="font-medium">{selectedRecord.equipment_name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">TAG NO:</span>
-                  <span className="font-medium">{selectedRecord.tag_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CODE:</span>
-                  <span className="font-medium">{selectedRecord.code || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PROJECT ID:</span>
-                  <span className="font-medium">{selectedRecord.project_id || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">SHRENO DRG NO:</span>
-                  <span className="font-medium">{selectedRecord.shreno_drg_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CUSTOMER DRG NO:</span>
-                  <span className="font-medium">{selectedRecord.customer_drg_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">REPORT NO:</span>
-                  <span className="font-medium">{selectedRecord.report_no || "-"}</span>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="overflow-x-auto rounded-md border border-border">
-                <table className="w-full border-collapse text-xs text-left">
-                  <thead>
-                    <tr className="bg-[#f4f4f5] border-b border-border">
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider min-w-[60px]">SR NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">ACTIVITY (Description)</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">TYPE / METHOD / EXTENT</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">ACCEPTANCE CRITERIA / REF DOCS</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">VERIFYING DOCUMENT</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">SHRENO</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">CLIENT / TPIA</th>
-                      {selectedRecord.dynamic_columns?.map((col, idx) => (
-                        <th key={idx} className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">
-                          {col.name}
-                        </th>
-                      ))}
-                      <th className="p-3 font-bold text-[11px] uppercase tracking-wider">REMARKS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(!selectedRecord.items || selectedRecord.items.length === 0) ? (
-                      <tr>
-                        <td colSpan={8 + (selectedRecord.dynamic_columns?.length || 0)} className="border border-border p-4 text-center">
-                          No items added.
-                        </td>
-                      </tr>
-                    ) : (
-                      selectedRecord.items.map((row, index) => {
-                        if (row.is_heading) {
-                          return (
-                            <tr key={row.id} className="bg-muted/30 border-b border-border last:border-0 font-semibold">
-                              <td className="border-r border-border p-3 align-top text-center">
-                                {row.sr_no || "-"}
-                              </td>
-                              <td colSpan={7 + (selectedRecord.dynamic_columns?.length || 0)} className="border-r border-border p-3 align-top">
-                                {row.heading_text || "-"}
-                              </td>
-                            </tr>
-                          )
-                        }
-
-                        // Standard Row
-                        return (
-                          <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                            <td className="border-r border-border p-3 align-top font-medium text-center">{row.sr_no || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">{row.activity || "-"}</td>
-                            <td className="border-r border-border p-3 align-top">
-                              {row.type_method_check || ""} <br /> {row.extent || ""}
-                            </td>
-                            <td className="border-r border-border p-3 align-top">
-                              {row.acceptance_criteria || ""} <br /> {row.reference_documents || ""}
-                            </td>
-                            <td className="border-r border-border p-3 align-top">{row.verifying_document || "-"}</td>
-                            <td className="border-r border-border p-3 align-top text-center">{row.shreno || "-"}</td>
-                            <td className="border-r border-border p-3 align-top text-center">{row.client_tpia || "-"}</td>
-                            {selectedRecord.dynamic_columns?.map((col, idx) => {
-                              const dynVal = row.dynamic_values && row.dynamic_values[col.id] ? row.dynamic_values[col.id] : "-";
-                              return (
-                                <td key={idx} className="border-r border-border p-3 align-top text-center">
-                                  {dynVal}
-                                </td>
-                              );
-                            })}
-                            <td className="p-3 align-top">{row.remark || "-"}</td>
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
       <ConfirmDialog 
         isOpen={confirmData.isOpen}
         onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
@@ -529,7 +357,7 @@ function ListView({ onCreateClick, onEditClick }) {
 }
 
 // ─── Create / Edit View ──────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null }) {
+function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
   // Get today's date
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -557,19 +385,93 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     projectId: "",
   })
 
-  // Submit states
-  const [submitting, setSubmitting] = useState(false)
+  // Dynamic Headings from Master Table
+  const [headingOptions, setHeadingOptions] = useState([])
+  const [inlineQuickAddId, setInlineQuickAddId] = useState(null)
+  const [quickAddValue, setQuickAddValue] = useState("")
+  const [isQuickAdding, setIsQuickAdding] = useState(false)
+  const [targetRowId, setTargetRowId] = useState(null)
 
-  // Fetch Jobs on Mount
+  const fetchMasterHeadings = useCallback(() => {
+    return apiClient.get("/api/qap/get-filters")
+      .then((res) => {
+        if (res.success && res.data?.masterHeadings) {
+          const options = res.data.masterHeadings.map(h => ({
+            label: h,
+            value: h
+          }))
+          setHeadingOptions(options)
+          return options
+        }
+        return []
+      })
+      .catch((err) => {
+        console.error("Failed to fetch headings:", err)
+        return []
+      })
+  }, [])
+
+  // Fetch Jobs and Headings on Mount
   useEffect(() => {
-    apiClient.get("/api/common/jobs?limit=200")
+    // Fetch MSNs
+    apiClient.get("/api/common/jobs")
       .then((res) => setMsnOptions(res.data || []))
       .catch((err) => {
         console.error("Failed to fetch jobs:", err)
         toast.error("Failed to load MSNs")
       })
       .finally(() => setJobsLoading(false))
-  }, [])
+
+    fetchMasterHeadings()
+  }, [fetchMasterHeadings])
+
+  const handleQuickAdd = (searchValue, rowId) => {
+    setQuickAddValue(searchValue || "")
+    setTargetRowId(rowId)
+    setInlineQuickAddId(rowId)
+  }
+
+  const cancelInlineAdd = () => {
+    setInlineQuickAddId(null)
+    setQuickAddValue("")
+  }
+
+  const submitQuickAdd = async (e) => {
+    if (e) e.preventDefault()
+    if (!quickAddValue.trim()) {
+      toast.error("Heading name is required")
+      return
+    }
+
+    try {
+      setIsQuickAdding(true)
+      const res = await apiClient.post("/api/qap/master-headings/create", {
+        name: quickAddValue.trim(),
+        is_active: true
+      })
+      
+      if (res.success) {
+        toast.success("New heading added to master")
+        // Refresh master list
+        await fetchMasterHeadings()
+        
+        // Auto-select the newly created heading for the target row
+        if (targetRowId) {
+          handleRowChange(targetRowId, "headingText", quickAddValue.trim())
+        }
+        
+        setInlineQuickAddId(null)
+        setQuickAddValue("")
+      }
+    } catch (error) {
+      toast.error(error.message || "Failed to add heading")
+    } finally {
+      setIsQuickAdding(false)
+    }
+  }
+
+  // Submit states
+  const [submitting, setSubmitting] = useState(false)
 
   // Dynamic Columns
   const [dynamicColumns, setDynamicColumns] = useState([])
@@ -829,20 +731,6 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     }
   }
 
-  const headingOptions = [
-    "Welding",
-    "NDE & QC Procedures",
-    "Material Identification",
-    "Dish End Fabrication",
-    "Main Shell and Skirt Fabrication",
-    "Nozzle Fabrication",
-    "Final Assembly",
-    "Final Dimension and Visual",
-    "PWHT AND NDE AFTER PWHT",
-    "Pressure Test",
-    "Surface Preparation and Painting",
-    "Final Stamping & Documentation"
-  ]
 
   const rowsWithSerialNumbers = useMemo(() => getSerialNumbers(), [tableRows])
 
@@ -897,68 +785,51 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     }))
   }
 
-  // Add new heading at the end
-  const addRow = () => {
-    const newId = Math.max(...tableRows.map((row) => typeof row.id === 'number' ? row.id : 0), 0) + 1
-    // Fallback if imported IDs were purely UUID string wrappers
-    const numericId = Date.now() + newId
-    setTableRows([
-      ...tableRows,
-      {
-        id: numericId,
-        activity: "",
-        typeMethodCheck: "",
-        extent: "",
-        acceptanceCriteria: "",
-        referenceDocuments: "",
-        verifyingDocument: "",
-        shreno: "H",
-        clientTpia: "",
-        remark: "",
-        isHeading: true,
-        isRoot: true,
-        headingText: "",
-        parentHeaderId: null,
-        dynamicValues: {},
-      },
-    ])
-  }
-
-  // Add row after a specific heading
-  const addRowAfterHeading = (headingId) => {
+  // Unified add row function
+  const addRow = (afterId = null) => {
+    // Prevent event object from being treated as an ID
+    const actualAfterId = (afterId && typeof afterId !== 'object') ? afterId : null
+    
     const newId = Date.now() + Math.random()
-    const headingIndex = tableRows.findIndex((row) => row.id === headingId)
+    const newRow = {
+      id: newId,
+      activity: "",
+      typeMethodCheck: "",
+      extent: "",
+      acceptanceCriteria: "",
+      referenceDocuments: "",
+      verifyingDocument: "",
+      shreno: "H",
+      clientTpia: "",
+      remark: "",
+      isHeading: !actualAfterId, // If no ID provided, it's a new heading section
+      isRoot: true,
+      headingText: "",
+      parentHeaderId: null,
+      dynamicValues: {},
+    }
 
-    if (headingIndex !== -1) {
-      const newRow = {
-        id: newId,
-        activity: "",
-        typeMethodCheck: "",
-        extent: "",
-        acceptanceCriteria: "",
-        referenceDocuments: "",
-        verifyingDocument: "",
-        shreno: "H",
-        clientTpia: "",
-        remark: "",
-        isHeading: false,
-        isRoot: false,
-        headingText: "",
-        parentHeaderId: headingId,
-        dynamicValues: {},
-      }
+    if (!actualAfterId) {
+      // Add as new heading at the end
+      setTableRows([...tableRows, newRow])
+      return
+    }
 
-      // Find the last row that belongs to this heading (before next heading or end)
-      let insertIndex = headingIndex + 1
-      for (let i = headingIndex + 1; i < tableRows.length; i++) {
-        if (tableRows[i].isHeading || tableRows[i].isRoot) {
-          break
-        }
-        insertIndex = i + 1
-      }
-
+    const index = tableRows.findIndex(r => r.id === actualAfterId)
+    if (index !== -1) {
+      const target = tableRows[index]
+      
+      // New row created via inline '+' is an activity, not a heading
+      newRow.isHeading = false
+      // Inherit context
+      newRow.shreno = target.shreno || "H"
+      // If adding after a root row (and not a heading), the new row is also a root row
+      newRow.isRoot = target.isRoot && !target.isHeading
+      // If adding after a heading, the new row is its child. If after a child, same parent.
+      newRow.parentHeaderId = target.isHeading ? target.id : target.parentHeaderId
+      
       const newRows = [...tableRows]
-      newRows.splice(insertIndex, 0, newRow)
+      newRows.splice(index + 1, 0, newRow)
       setTableRows(newRows)
     }
   }
@@ -987,7 +858,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     }
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (status = "uploaded") => {
     if (!msn) {
       toast.error("Please select an MSN / Job")
       return
@@ -1007,6 +878,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       shreno_drg_no: formData.drgNo,
       customer_drg_no: formData.customerDrgNo,
       report_no: formData.documentNo !== "Loading..." && formData.documentNo !== "Auto-generated on Submit" ? formData.documentNo : undefined,
+      status: status,
       dynamic_columns: dynamicColumns,
       items: rowsWithSerialNumbers.map(r => ({
         is_heading: typeof r.isHeading === 'boolean' ? r.isHeading : false,
@@ -1051,9 +923,14 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     <>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Quality Assurance Plan</h1>
+          <h1 className="text-3xl font-bold mb-2">
+            {isReadOnly ? "View Quality Assurance Plan" : (editId ? "Edit Quality Assurance Plan" : "Create New QAP")}
+          </h1>
           <p className="text-muted-foreground">
-            {editId ? "Update existing quality assurance plan information." : "Create and structure quality assurance plan information."}
+            {isReadOnly 
+              ? "Comprehensive report and activity tracking view." 
+              : (editId ? "Update existing quality assurance plan information." : "Create and structure quality assurance plan information.")
+            }
           </p>
         </div>
         <Button variant="outline" onClick={onBack} className="h-9">
@@ -1071,18 +948,14 @@ function CreateView({ onBack, onSuccess, editId = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="msn">MSN Number <span className="text-destructive">*</span></Label>
-              <Select value={msn} onValueChange={handleMsnChange} disabled={jobsLoading}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={jobsLoading ? "Loading..." : "Select MSN"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {msnOptions.map((msnOption) => (
-                    <SelectItem key={msnOption.id} value={msnOption.id}>
-                      {msnOption.job_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={msnOptions.map(m => ({ label: m.job_number, value: m.id }))}
+                value={msn}
+                onValueChange={handleMsnChange}
+                placeholder={jobsLoading ? "Loading..." : "Select MSN"}
+                searchPlaceholder="Search MSN..."
+                disabled={jobsLoading || isReadOnly}
+              />
             </div>
 
             <div className="space-y-2">
@@ -1155,6 +1028,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 onChange={(e) => setPoNo(e.target.value)}
                 placeholder="Enter P.O. No."
                 required
+                readOnly={isReadOnly}
               />
             </div>
 
@@ -1167,6 +1041,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 onChange={(e) => setPoDate(e.target.value)}
                 placeholder="Enter P.O. Date"
                 required
+                readOnly={isReadOnly}
               />
             </div>
           </div>
@@ -1190,6 +1065,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 onChange={handleInputChange}
                 placeholder="Enter SHRENO DRG No."
                 required
+                readOnly={isReadOnly}
               />
             </div>
 
@@ -1203,6 +1079,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 onChange={handleInputChange}
                 placeholder="Enter Customer DRG No"
                 required
+                readOnly={isReadOnly}
               />
             </div>
           </div>
@@ -1237,35 +1114,62 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     Shreno
                   </TableHead>
-                  <TableHead className="p-2 text-xs font-bold uppercase">
-                    <div className="flex items-center gap-2 justify-between">
-                      <span>Client /<br />TPIA</span>
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={handleAddColumn}>
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
+                  <TableHead className="p-2 text-xs font-bold uppercase min-w-[120px]">
+                    Client /<br />TPIA
                   </TableHead>
                   {dynamicColumns.map(col => (
-                    <TableHead key={col.id} className="p-2 text-xs font-bold uppercase min-w-[120px]">
-                      <div className="flex items-center justify-between">
+                    <TableHead key={col.id} className="p-2 text-xs font-bold uppercase min-w-[150px] bg-slate-50/50 border-x border-border/50">
+                      <div className="flex items-center gap-2">
                         {col.isEditing ? (
-                          <Input
-                            value={col.name}
-                            onChange={(e) => handleColumnNameChange(col.id, e.target.value)}
-                            onBlur={() => toggleColumnEdit(col.id)}
-                            onKeyDown={(e) => e.key === 'Enter' && toggleColumnEdit(col.id)}
-                            autoFocus
-                            className="h-6 text-xs p-1"
-                          />
+                          <div className="flex-1 flex items-center gap-1">
+                            <Input
+                              value={col.name}
+                              onChange={(e) => handleColumnNameChange(col.id, e.target.value)}
+                              onBlur={() => col.name.trim() ? toggleColumnEdit(col.id) : removeColumn(col.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') toggleColumnEdit(col.id);
+                                if (e.key === 'Escape') removeColumn(col.id);
+                              }}
+                              autoFocus
+                              placeholder="Col Name"
+                              className="h-7 text-[10px] font-bold p-1 border-slate-300 focus:ring-slate-400"
+                            />
+                          </div>
                         ) : (
-                          <span onDoubleClick={() => toggleColumnEdit(col.id)} className="cursor-pointer" title="Double click to edit">{col.name}</span>
+                          <div className="flex-1 flex items-center justify-between group">
+                            <span 
+                              onDoubleClick={() => toggleColumnEdit(col.id)} 
+                              className="cursor-pointer hover:text-blue-600 transition-colors" 
+                              title="Double click to rename"
+                            >
+                              {col.name}
+                            </span>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" 
+                              onClick={() => removeColumn(col.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         )}
-                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0" onClick={() => removeColumn(col.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
                       </div>
                     </TableHead>
                   ))}
+                  <TableHead className="p-2 text-xs font-bold uppercase min-w-[100px]">
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-full border border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-500 gap-1.5 px-2"
+                      onClick={handleAddColumn}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add Column
+                    </Button>
+                  </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase">
                     Remark
                   </TableHead>
@@ -1278,59 +1182,108 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 {rowsWithSerialNumbers.map((row) =>
                   row.isHeading ? (
                     <TableRow key={row.id} className="bg-muted/30">
-                      <TableCell className="p-2 font-medium">
+                      <TableCell className="p-2 text-center font-bold">
                         {row.serialNo}
                       </TableCell>
                       <TableCell colSpan={7 + dynamicColumns.length} className="p-2">
-                        <Select
-                          value={row.headingText}
-                          onValueChange={(value) =>
-                            handleRowChange(row.id, "headingText", value)
-                          }
-                        >
-                          <SelectTrigger className="w-[300px] md:w-[400px] lg:w-[500px] font-semibold border-0 focus-visible:ring-0">
-                            <div className="truncate text-left w-full">
-                              <SelectValue placeholder="Select heading" />
+                        {inlineQuickAddId === row.id ? (
+                          <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                            <div className="flex-1 max-w-[500px]">
+                              <Input
+                                value={quickAddValue}
+                                onChange={(e) => setQuickAddValue(e.target.value)}
+                                placeholder="Enter New Heading Name..."
+                                className="h-8 text-xs font-bold border-slate-200 focus:ring-slate-900 bg-slate-50/30"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') submitQuickAdd();
+                                  if (e.key === 'Escape') cancelInlineAdd();
+                                }}
+                              />
                             </div>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {headingOptions.map((option, idx) => (
-                              <SelectItem key={idx} value={option}>
-                                {option}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => submitQuickAdd()}
+                              disabled={isQuickAdding}
+                              className="h-8 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold px-3 cursor-pointer"
+                            >
+                              {isQuickAdding ? "Saving..." : "Save"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={cancelInlineAdd}
+                              disabled={isQuickAdding}
+                              className="h-8 text-slate-500 hover:text-slate-700 text-[10px] font-bold px-3 cursor-pointer"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 max-w-[500px]">
+                              <SearchableSelect
+                                options={headingOptions}
+                                value={row.headingText}
+                                onValueChange={(value) =>
+                                  handleRowChange(row.id, "headingText", value)
+                                }
+                                placeholder="Select heading"
+                                searchPlaceholder="Search heading..."
+                                className="font-semibold border-0 focus-visible:ring-0 shadow-none bg-transparent hover:bg-slate-100/50"
+                                disabled={isReadOnly}
+                              />
+                            </div>
+                             {(!isReadOnly) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleQuickAdd("", row.id)}
+                                className="h-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-bold text-xs gap-1.5 px-3 cursor-pointer"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Add
+                              </Button>
+                             )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="p-2">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => addRowAfterHeading(row.id)}
-                            className="h-8 w-8"
-                            title="Add row after this heading"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeRow(row.id)}
-                            disabled={tableRows.length === 1}
-                            className="h-8 w-8"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                         <div className="flex gap-2">
+                          {!isReadOnly && (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => addRow(row.id)}
+                                className="h-8 w-8"
+                                title="Add row below"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removeRow(row.id)}
+                                disabled={tableRows.length === 1}
+                                className="h-8 w-8"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : (
                     <TableRow key={row.id}>
-                      <TableCell className="p-2 font-medium">
-                        {row.subSerialNo || row.serialNo || "-"}
+                      <TableCell className="p-2 text-center">
+                        {row.subSerialNo || row.serialNo}
                       </TableCell>
                       <TableCell>
                         <Input
@@ -1341,6 +1294,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           }
                           placeholder="Activity"
                           className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={isReadOnly}
                         />
                       </TableCell>
                       <TableCell>
@@ -1352,6 +1306,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           }
                           placeholder="Type / Method of Check"
                           className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={isReadOnly}
                         />
                       </TableCell>
                       <TableCell>
@@ -1363,6 +1318,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           }
                           placeholder="Acceptance Criteria"
                           className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={isReadOnly}
                         />
                       </TableCell>
                       <TableCell>
@@ -1374,6 +1330,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           }
                           placeholder="Verifying Document"
                           className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={isReadOnly}
                         />
                       </TableCell>
                       <TableCell>
@@ -1385,6 +1342,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           }
                           placeholder="Shreno"
                           className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={isReadOnly}
                         />
                       </TableCell>
                       <TableCell>
@@ -1396,6 +1354,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           }
                           placeholder="Client / TPIA"
                           className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={isReadOnly}
                         />
                       </TableCell>
                       {dynamicColumns.map(col => (
@@ -1408,6 +1367,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                             }
                             placeholder={col.name}
                             className="w-full text-xs border-0 focus-visible:ring-0"
+                            readOnly={isReadOnly}
                           />
                         </TableCell>
                       ))}
@@ -1420,30 +1380,35 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                           }
                           placeholder="Remark"
                           className="w-full text-xs border-0 focus-visible:ring-0"
+                          readOnly={isReadOnly}
                         />
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          {/* <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => toggleHeading(row.id)}
-                            className="h-8 w-8"
-                            title="Convert to heading"
-                          >
-                            <Type className="h-4 w-4" />
-                          </Button> */}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeRow(row.id)}
-                            disabled={tableRows.length === 1}
-                            className="h-8 w-8"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!isReadOnly && (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => addRow(row.id)}
+                                className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
+                                title="Add row below"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => removeRow(row.id)}
+                                disabled={tableRows.length === 1}
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 cursor-pointer"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1452,47 +1417,76 @@ function CreateView({ onBack, onSuccess, editId = null }) {
               </TableBody>
             </Table>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addRow}
-            className="w-full sm:w-auto mt-2"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Heading
-          </Button>
+          {!isReadOnly && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addRow}
+              className="w-full sm:w-auto mt-2 cursor-pointer"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Heading
+            </Button>
+          )}
         </CardContent>
       </Card>
 
       <div className="flex gap-3 justify-end mt-4 mb-8">
         <Button variant="outline" onClick={onBack} disabled={submitting} className="cursor-pointer">
-          Cancel
+          {isReadOnly ? "Back" : "Cancel"}
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting} className="cursor-pointer">
-          {submitting ? "Saving..." : (editId ? "Update" : "Submit")}
-        </Button>
+        {!isReadOnly && (
+          <>
+            <Button 
+              variant="outline" 
+              onClick={() => handleSubmit("draft")} 
+              disabled={submitting} 
+              className="cursor-pointer"
+            >
+              {submitting ? "Saving..." : "Save Draft"}
+            </Button>
+            <Button 
+              onClick={() => handleSubmit("uploaded")} 
+              disabled={submitting} 
+              className="cursor-pointer"
+            >
+              {submitting ? "Saving..." : (editId ? "Update" : "Submit")}
+            </Button>
+          </>
+        )}
       </div>
+
+
     </>
   )
 }
-
 // ─── Main Controller ─────────────────────────────────────────────────────────
 function QualityAssurancePlan() {
-  const [view, setView] = useState("list") // "list" | "create" | "edit"
+  const [view, setView] = useState("list") // "list" | "create" | "edit" | "view"
   const [editId, setEditId] = useState(null)
+  const [viewId, setViewId] = useState(null)
 
   const handleCreateClick = () => {
     setEditId(null)
+    setViewId(null)
     setView("create")
   }
 
   const handleEditClick = (id) => {
     setEditId(id)
+    setViewId(null)
     setView("edit")
+  }
+
+  const handleViewClick = (id) => {
+    setViewId(id)
+    setEditId(null)
+    setView("view")
   }
 
   const handleBackToList = () => {
     setEditId(null)
+    setViewId(null)
     setView("list")
   }
 
@@ -1507,13 +1501,15 @@ function QualityAssurancePlan() {
             <ListView
               onCreateClick={handleCreateClick}
               onEditClick={handleEditClick}
+              onViewClick={handleViewClick}
             />
           )}
-          {(view === "create" || view === "edit") && (
+          {(view === "create" || view === "edit" || view === "view") && (
             <CreateView
               onBack={handleBackToList}
               onSuccess={handleBackToList}
-              editId={editId}
+              editId={view === "view" ? viewId : editId}
+              isReadOnly={view === "view"}
             />
           )}
         </div>

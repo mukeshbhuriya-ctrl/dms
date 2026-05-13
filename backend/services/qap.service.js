@@ -28,7 +28,7 @@ class QapService {
         const {
             job_id, msn, client, po_no, po_date, project_id, equipment_name,
             tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns,
-            items, report_no
+            items, report_no, status
         } = payload;
 
         if (!job_id || !msn) throw new Error("Job ID / MSN is required");
@@ -44,6 +44,7 @@ class QapService {
                 company_id, job_id, msn, report_no: finalReportNo,
                 client, po_no, po_date, project_id, equipment_name,
                 tag_no, code, shreno_drg_no, customer_drg_no,
+                status: status || "draft",
                 dynamic_columns: dynamic_columns || [],
                 items: {
                     create: computeSerialNumbers(items || []).map((item, index) => ({
@@ -73,7 +74,7 @@ class QapService {
     async update(company_id, id, payload) {
         const {
             job_id, msn, client, po_no, po_date, project_id, equipment_name,
-            tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns, items
+            tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns, items, status
         } = payload;
 
         if (!job_id || !msn) throw new Error("Job ID / MSN is required");
@@ -87,6 +88,7 @@ class QapService {
             data: {
                 job_id, msn, client, po_no, po_date, project_id, equipment_name,
                 tag_no, code, shreno_drg_no, customer_drg_no,
+                status: status,
                 dynamic_columns: dynamic_columns || [],
                 items: {
                     create: computeSerialNumbers(items || []).map((item, index) => ({
@@ -170,7 +172,48 @@ class QapService {
         };
     }
 
+    async _ensureMasterHeadings(company_id) {
+        const masterCount = await prisma.qap_activity_heading_master.count({
+            where: { company_id, is_deleted: false }
+        });
+
+        if (masterCount === 0) {
+            const defaults = [
+                "Welding",
+                "NDE & QC Procedures",
+                "Material Identification",
+                "Dish End Fabrication",
+                "Main Shell and Skirt Fabrication",
+                "Nozzle Fabrication",
+                "Final Assembly",
+                "Final Dimension and Visual",
+                "PWHT AND NDE AFTER PWHT",
+                "Pressure Test",
+                "Surface Preparation and Painting",
+                "Final Stamping & Documentation"
+            ];
+
+            await prisma.qap_activity_heading_master.createMany({
+                data: defaults.map(name => ({
+                    company_id,
+                    name
+                })),
+                skipDuplicates: true
+            });
+        }
+    }
+
     async getFilters(company_id) {
+        // 1. Ensure master headings exist (Auto-Seed)
+        await this._ensureMasterHeadings(company_id);
+
+        // 2. Fetch master headings for the dropdown
+        const masterHeadings = await prisma.qap_activity_heading_master.findMany({
+            where: { company_id, is_active: true, is_deleted: false },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        // 3. Fetch existing records for cascading filters
         const records = await prisma.quality_assurance_plan.findMany({
             where: { 
                 company_id,
@@ -184,7 +227,10 @@ class QapService {
             distinct: ['client', 'po_no', 'msn']
         });
 
-        return { records };
+        return { 
+            records,
+            masterHeadings: masterHeadings.map(h => h.name)
+        };
     }
 
     async getById(company_id, id) {
@@ -225,6 +271,41 @@ class QapService {
 
         return await prisma.quality_assurance_plan.update({
             where: { id },
+            data: { is_deleted: true }
+        });
+    }
+
+    // Master Headings
+    async listMasterHeadings(company_id) {
+        await this._ensureMasterHeadings(company_id);
+        return prisma.qap_activity_heading_master.findMany({
+            where: { company_id, is_deleted: false },
+            orderBy: { createdAt: 'asc' }
+        });
+    }
+
+    async createMasterHeading(company_id, data) {
+        return prisma.qap_activity_heading_master.create({
+            data: {
+                company_id,
+                name: data.name
+            }
+        });
+    }
+
+    async updateMasterHeading(company_id, id, data) {
+        return prisma.qap_activity_heading_master.update({
+            where: { id, company_id },
+            data: {
+                name: data.name,
+                is_active: data.is_active
+            }
+        });
+    }
+
+    async deleteMasterHeading(company_id, id) {
+        return prisma.qap_activity_heading_master.update({
+            where: { id, company_id },
             data: { is_deleted: true }
         });
     }

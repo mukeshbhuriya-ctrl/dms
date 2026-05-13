@@ -269,10 +269,13 @@ export const MENU_CONFIG = [
 
     // ── Quality Assurance Plan ──
     {
-        title: "Quality Assurance Plan",
-        icon: ClipboardCheck,
-        path: "/create-qarp",
+        title: "QAP",
+        icon: Folder,
         moduleKey: MODULES.QAP,
+        items: [
+            { title: "Heading Master", path: "/qap/heading-master", moduleKey: MODULES.QAP },
+            { title: "Quality Assurance Plan", path: "/create-qarp", moduleKey: MODULES.QAP },
+        ],
     },
 ]
 

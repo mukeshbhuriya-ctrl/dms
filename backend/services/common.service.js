@@ -59,7 +59,7 @@ class CommonService {
      * Get a standardized list of Jobs/MSNs
      */
     async getJobs(company_id, search = '', customer_id = null, po_id = null) {
-        const where = { company_id };
+        const where = { company_id, is_active: true };
         if (search) {
             where.OR = [
                 { job_number: { contains: search, mode: 'insensitive' } },

@@ -44,6 +44,7 @@ model company{
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
   quality_assurance_plans quality_assurance_plan[]
+  qap_activity_headings qap_activity_heading_master[]
   dcr dcr[]
   dcr_change_request dcr_change_request[]
   rfq_registers rfq_register[]
@@ -1397,6 +1398,26 @@ model quality_assurance_plan_item {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// -------------------------------------------------------------
+// Quality Assurance Plan (QARP) Master Headings
+// -------------------------------------------------------------
+
+model qap_activity_heading_master {
+  id         String   @id @default(uuid())
+  company_id String
+  name       String
+  
+  company    company  @relation(fields: [company_id], references: [id])
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([company_id, name])
 }
 
 // -------------------------------------------------------------

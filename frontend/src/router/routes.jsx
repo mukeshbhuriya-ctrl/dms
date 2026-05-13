@@ -37,7 +37,7 @@ import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
-import { CreateQARP } from "@/pages/admin/qap"
+import { CreateQARP, HeadingMaster } from "@/pages/admin/qap"
 import { CreateDCR } from "@/pages/dcr"
 import { RfqRegister, RfqLookupManager, RfqDashboard } from "@/pages/marketing"
 import { CreateNCR } from "@/pages/ncr"
@@ -204,6 +204,10 @@ const adminRoutes = [
   {
     path: "/create-qarp",
     element: protect(<CreateQARP />, MODULES.QAP, [ROLES.ADMIN, ROLES.QAP]),
+  },
+  {
+    path: "/qap/heading-master",
+    element: protect(<HeadingMaster />, MODULES.QAP, [ROLES.ADMIN, ROLES.QAP]),
   },
   {
     path: "/admin/audit-logs",
