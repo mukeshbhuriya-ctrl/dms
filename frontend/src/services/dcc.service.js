@@ -8,6 +8,10 @@ export const dccService = {
     getDocumentsForApproval: async (params = {}) => {
         return await apiClient.get("/api/dcc/documents-approval", params);
     },
+    
+    getApprovedDocumentsForTransmission: async (params = {}) => {
+        return await apiClient.get("/api/dcc/documents-transmission", params);
+    },
 
     createTransmission: async (data) => {
         return await apiClient.post("/api/dcc/create-transmission", data);

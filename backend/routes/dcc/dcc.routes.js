@@ -77,6 +77,7 @@ router.post('/bulk-assign-documents', DccController.bulkAssignDocuments);
 
 // Document Workflow
 router.get('/documents-approval', DccController.getDocumentsForApproval);
+router.get('/documents-transmission', DccController.getApprovedDocumentsForTransmission);
 router.post('/review-document', DccController.reviewDocument);
 router.get('/get-transmissions', DccController.getTransmissions);
 router.get('/get-transmission-documents', DccController.getTransmissionDocuments);

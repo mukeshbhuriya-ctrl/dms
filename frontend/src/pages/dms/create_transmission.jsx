@@ -243,7 +243,7 @@ function CreateTransmission() {
         if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
       }
 
-      const response = await dccService.getDocumentsForApproval(params);
+      const response = await dccService.getApprovedDocumentsForTransmission(params);
       if (response.success) {
         const mappedData = (response.data || []).map((doc, index) => ({
           ...doc,

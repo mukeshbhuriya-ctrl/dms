@@ -352,6 +352,15 @@ class DccController {
             res.status(500).json({ success: false, message: error.message });
         }
     }
+    
+    async getApprovedDocumentsForTransmission(req, res) {
+        try {
+            const result = await DccService.getApprovedDocumentsForTransmission(req.user.company_id, req.query);
+            res.status(200).json({ success: true, data: result.data, meta: result.meta });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
 
     async reviewDocument(req, res) {
         try {

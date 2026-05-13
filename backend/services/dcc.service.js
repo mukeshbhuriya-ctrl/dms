@@ -1049,7 +1049,7 @@ class DccService {
             where.client_doc_no = this._processFilter(client_doc_no_filter);
         }
 
-        if (user_id_filter) {
+       if (user_id_filter) {
             if (user_id_filter === 'pending_assignee' || (Array.isArray(user_id_filter) && user_id_filter.includes('pending_assignee'))) {
                 if (Array.isArray(user_id_filter)) {
                     where.OR = [
@@ -1282,7 +1282,10 @@ class DccService {
     }
 
     /**
-     * Get Documents for Approval
+     * getDocumentsForApproval
+     * Primary method for the Document Approval / Review screen.
+     * Handles complex status mapping for approvers (Pending, Awaiting Upload, Rejected, etc.)
+     * and filters based on uploader/approver specific status aliases.
      */
     async getDocumentsForApproval(company_id, params = {}) {
         const {
@@ -1298,9 +1301,6 @@ class DccService {
             customer_name_filter,
             po_number_filter,
             job_number_filter,
-            exclude_transmitted,
-            job_ids,
-            job_id,
             shreno_doc_no_filter,
             client_doc_no_filter
         } = params;
@@ -1309,7 +1309,6 @@ class DccService {
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         const where = { company_id };
-
         // Standardize status filtering
         const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
 
@@ -1364,57 +1363,15 @@ class DccService {
         if (customer_id) where.customer_id = customer_id.trim();
         if (po_id) where.po_id = po_id.trim();
 
-        // Optimized Exclude Transmitted & Job Filters
-        // Build common conditions for versions
-        const versionConditions = {};
-        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
-            // Exclude versions that are already part of a transmission
-            versionConditions.transmission_items = { none: {} };
-        }
-
-        // Apply version conditions if any, or default to checking for uploaded versions
-        // Exclude Pending placeholder versions (created at assignment, no file yet)
-        // The Approver should only see documents with an actual uploaded file
-        const nonPendingVersionFilter = { status: { not: 'Pending' } };
-        if (Object.keys(versionConditions).length > 0) {
-            where.versions = { some: { ...versionConditions, ...nonPendingVersionFilter } };
-        } else if (!where.status) {
-            where.versions = { some: nonPendingVersionFilter };
-        }
-
-        // Filter by specific job IDs (from Create Transmission)
-        if (job_ids) {
-            const jobIdsArray = Array.isArray(job_ids) ? job_ids : job_ids.split(',');
-            where.group = {
-                job_group: {
-                    some: { job_id: { in: jobIdsArray } }
-                }
-            };
-        } else if (job_id) {
-            where.group = {
-                job_group: {
-                    some: { job_id: job_id.trim() }
-                }
-            };
-        }
+        // Standard version filter for Approver: must have an uploaded file
+        where.versions = { some: { status: { not: 'Pending' } } };
 
         if (search) {
             where.OR = [
                 { document: { document_name: { contains: search, mode: 'insensitive' } } },
                 { document: { document_number: { contains: search, mode: 'insensitive' } } },
                 { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
-                { po: { po_number: { contains: search, mode: 'insensitive' } } },
-                {
-                    group: {
-                        job_group: {
-                            some: {
-                                job: {
-                                    job_number: { contains: search, mode: 'insensitive' }
-                                }
-                            }
-                        }
-                    }
-                }
+                { po: { po_number: { contains: search, mode: 'insensitive' } } }
             ];
         }
 
@@ -1459,6 +1416,119 @@ class DccService {
             })
         ]);
 
+        const EnhancedData = this._enhanceWithDueStatuses(data, params);
+        const enrichedData = await this._enrichWithVersionContext(EnhancedData);
+        const expandedData = this._expandFileUrls(enrichedData);
+
+        const metaLimit = (limit === undefined || limit === null) ? total : take;
+        const totalPages = (limit === undefined || limit === null) ? 1 : Math.max(1, Math.ceil(total / take));
+
+        return { data: expandedData, meta: { total, page: parseInt(page), limit: metaLimit, totalPages } };
+    }
+
+    /**
+     * getApprovedDocumentsForTransmission
+     * Specifically for the 'Create Transmission' screen.
+     * This method is strictly restricted to documents with 'Approved' status.
+     * It includes logic to exclude documents that are already part of a transmission.
+     */
+    async getApprovedDocumentsForTransmission(company_id, params = {}) {
+        const {
+            page = 1,
+            limit,
+            search = '',
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter,
+            exclude_transmitted = true,
+            job_ids
+        } = params;
+
+        const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
+        const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
+
+        // Transmission screen ONLY needs Approved documents
+        const where = { 
+            company_id, 
+            status: 'Approved',
+            is_deleted: false
+        };
+
+        if (customer_name_filter) {
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
+        }
+        if (po_number_filter) { 
+            where.po = { po_number: this._processFilter(po_number_filter) };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
+                }
+            };
+        }
+
+        if (job_ids) {
+            const jobIdsArray = Array.isArray(job_ids) ? job_ids : job_ids.split(',');
+            where.group = {
+                job_group: {
+                    some: { job_id: { in: jobIdsArray } }
+                }
+            };
+        }
+
+        const versionConditions = {};
+        if (exclude_transmitted === 'true' || exclude_transmitted === true) {
+            versionConditions.transmission_items = { none: {} };
+        }
+        
+        // Ensure we only show docs with at least one uploaded file (not Pending placeholder)
+        const nonPendingVersionFilter = { status: { not: 'Pending' } };
+        
+        if (Object.keys(versionConditions).length > 0) {
+            where.versions = { some: { ...versionConditions, ...nonPendingVersionFilter } };
+        } else {
+            where.versions = { some: nonPendingVersionFilter };
+        }
+
+        if (search) {
+            where.OR = [
+                { document: { document_name: { contains: search, mode: 'insensitive' } } },
+                { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } }
+            ];
+        }
+
+        const [total, data] = await prisma.$transaction([
+            prisma.group_document.count({ where }),
+            prisma.group_document.findMany({
+                where, skip, take,
+                include: {
+                    document: { include: { document_type: true } },
+                    group: {
+                        include: {
+                            job_group: {
+                                include: { job: true }
+                            }
+                        }
+                    },
+                    customer: true,
+                    po: true,
+                    versions: {
+                        orderBy: { version_no: 'desc' },
+                        take: 1,
+                        include: { 
+                            uploader: true,
+                            transmission_items: true
+                        }
+                    }
+                },
+                orderBy: { updatedAt: 'desc' }
+            })
+        ]);
+
+        // APPLY ENRICHMENT HELPERS (Restores display_version_no and file URLs)
         const EnhancedData = this._enhanceWithDueStatuses(data, params);
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
         const expandedData = this._expandFileUrls(enrichedData);
@@ -3122,6 +3192,8 @@ class DccService {
             const splitChar = val.includes('|') ? '|' : ',';
             return { in: val.split(splitChar).map(v => v.trim()).filter(Boolean) };
         }
+        // Single string value — exact match
+        return val;
     }
 
     /**
