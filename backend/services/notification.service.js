@@ -249,6 +249,90 @@ class NotificationService {
       });
     }
   }
+
+  /**
+   * Broadcast a notification to all members of an Employee Group
+   */
+  async broadcastToEmployeeGroup({
+    company_id,
+    group_id,
+    kind = 'action',
+    severity = 'info',
+    title,
+    message,
+    action_path = null,
+    action_params = null,
+    signature = null,
+  }) {
+    // Get all users in the group
+    const userGroups = await prisma.user_employee_group.findMany({
+      where: { employee_group_id: group_id },
+      select: { user_id: true },
+    });
+
+    const userIds = userGroups.map((ug) => ug.user_id);
+    if (userIds.length === 0) return [];
+
+    const notifications = await Promise.all(
+      userIds.map((user_id) =>
+        this.createNotification({
+          company_id,
+          user_id,
+          kind,
+          severity,
+          title,
+          message,
+          action_path,
+          action_params,
+          signature,
+        })
+      )
+    );
+
+    return notifications;
+  }
+
+  /**
+   * Broadcast a notification to all members of a QC Group (Legacy)
+   */
+  async broadcastToQcGroup({
+    company_id,
+    group_id,
+    kind = 'action',
+    severity = 'info',
+    title,
+    message,
+    action_path = null,
+    action_params = null,
+    signature = null,
+  }) {
+    // Get all users in the group
+    const userGroups = await prisma.user_qc_group.findMany({
+      where: { qc_group_id: group_id },
+      select: { user_id: true },
+    });
+
+    const userIds = userGroups.map((ug) => ug.user_id);
+    if (userIds.length === 0) return [];
+
+    const notifications = await Promise.all(
+      userIds.map((user_id) =>
+        this.createNotification({
+          company_id,
+          user_id,
+          kind,
+          severity,
+          title,
+          message,
+          action_path,
+          action_params,
+          signature,
+        })
+      )
+    );
+
+    return notifications;
+  }
 }
 
 module.exports = new NotificationService();

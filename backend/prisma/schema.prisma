@@ -54,6 +54,7 @@ model company{
   ncr ncr[]
   document_activities document_activity[]
   qc_groups qc_group[]
+  employee_groups employee_group[]
   email_templates email_template[]
   notifications notification[]
   audit_logs audit_log[]
@@ -107,6 +108,41 @@ model user_qc_group {
   updatedAt   DateTime @updatedAt
   
   @@unique([user_id, qc_group_id])
+}
+
+model employee_group {
+  id          String   @id @default(uuid())
+  company_id  String
+  name        String
+  group_type  String   // e.g. "QUALITY", "PRODUCTION"
+  
+  company     company  @relation(fields: [company_id], references: [id])
+  users       user_employee_group[]
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
+  mhc_production_reports material_heat_chart[] @relation("MhcProductionGroup")
+  mhc_qc_reports         material_heat_chart[] @relation("MhcQcGroup")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([company_id, name, group_type])
+}
+
+model user_employee_group {
+  id                String   @id @default(uuid())
+  user_id           String
+  employee_group_id String
+
+  user           user           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  employee_group employee_group @relation(fields: [employee_group_id], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([user_id, employee_group_id])
 }
 
 model role{
@@ -167,6 +203,7 @@ model user{
   ncr_verified_by_qce ncr[] @relation("NcrVerifiedByQce")
   ncr_verified_by_head_quality ncr[] @relation("NcrVerifiedByHeadQuality")
   qc_groups user_qc_group[]
+  employee_groups user_employee_group[]
 
   // Weld Inspection Trail relations
   weld_stage_prod_reports weld_joint_stage[] @relation("WeldStageProdEng")
@@ -843,14 +880,23 @@ model material_heat_chart {
   customer_drg_no  String?
   inspection_by    String?
 
-  status           String   @default("Pending")
+  status           String   @default("Pending") // INITIATED, OFFERED, APPROVED, REJECTED
+  
+  // Group Assignments
+  production_group_id String?
+  qc_group_id         String?
+  
+  // Individual User Assignments (tracks who actually performed the action)
   production_engineer_id String?
   qc_engineer_id         String?
+  
   submitted_at           DateTime?
   approved_at            DateTime?
   rejected_at            DateTime?
   approver_remarks       String?
 
+  production_group    employee_group? @relation("MhcProductionGroup", fields: [production_group_id], references: [id])
+  qc_group            employee_group? @relation("MhcQcGroup", fields: [qc_group_id], references: [id])
   production_engineer user? @relation("MhcProductionEngineer", fields: [production_engineer_id], references: [id])
   qc_engineer         user? @relation("MhcQcEngineer", fields: [qc_engineer_id], references: [id])
 
@@ -883,7 +929,15 @@ model material_heat_chart_item {
   mtr_no            String?
   manufacturer      String?
   remarks           String?
-
+  qc_status         String?   // Approved, Rejected, Pending
+  qc_remarks        String?
+  
+  // Versioning Fields
+  is_current        Boolean @default(true)
+  version           Int     @default(1)
+  parent_item_id    String? // Self-reference to the first version (v1)
+  action_by_id      String? // User who created this specific version
+  
   mhc material_heat_chart @relation(fields: [mhc_id], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())

@@ -121,7 +121,8 @@ export const MENU_CONFIG = [
         items: [
             { title: "Users", path: "/users", moduleKey: MODULES.ADMINISTRATION.USERS },
             { title: "Departments", path: "/departments", moduleKey: MODULES.ADMINISTRATION.DEPARTMENTS },
-            { title: "QC Group", path: "/qc-group", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
+            { title: "Group Management", path: "/group-management", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
+            { title: "QC Group (Legacy)", path: "/qc-group", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
             { title: "Audit Logs", path: "/admin/audit-logs", moduleKey: MODULES.ADMINISTRATION.AUDIT_LOGS },
         ],
     },

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 import adminDashboardApi from "@/api/admin-dashboard.api";
-import { useNotifications } from "@/context/NotificationContext";
+import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,13 +47,6 @@ import {
 
 const fmt = new Intl.NumberFormat("en-IN");
 const AUTO_REFRESH_MS = 300000;
-const HIDDEN_NOTIFICATION_TITLES = new Set([
-  "Task Started",
-  "Task Completed",
-  "Task Failed",
-  "Dashboard Load Failed",
-  "Auto Refresh Failed",
-]);
 
 function formatValue(value) {
   const num = Number(value || 0);
@@ -304,128 +297,9 @@ function RecentJobsCard({ jobs, onOpen }) {
   );
 }
 
-function NotificationDrawer({
-  open,
-  onOpenChange,
-  notifications,
-  markRead,
-  markAllRead,
-  onOpenAction,
-}) {
-  const [filter, setFilter] = useState("all");
-  const filterOptions = [
-    { key: "all", label: "All" },
-    { key: "unread", label: "Unread" },
-    { key: "action", label: "Action Required" },
-    { key: "system", label: "System" },
-  ];
-
-  const visibleNotifications = useMemo(
-    () => notifications.filter((n) => !HIDDEN_NOTIFICATION_TITLES.has(n?.title || "")),
-    [notifications],
-  );
-
-  const filtered = useMemo(() => {
-    if (filter === "unread") return visibleNotifications.filter((n) => !n.read);
-    if (filter === "action") return visibleNotifications.filter((n) => n.kind === "action");
-    if (filter === "system") return visibleNotifications.filter((n) => n.kind === "system");
-    return visibleNotifications;
-  }, [filter, visibleNotifications]);
-
-  const unread = visibleNotifications.filter((n) => !n.read).length;
-
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[460px] p-0 sm:max-w-[460px]">
-        <SheetHeader className="space-y-3 border-b px-5 py-4">
-          <SheetTitle className="flex items-center justify-between pr-8">
-            <span className="text-xl font-semibold text-slate-900">Notifications</span>
-            <Badge variant="outline" className="rounded-full text-xs font-semibold">
-              Unread: {unread}
-            </Badge>
-          </SheetTitle>
-          <SheetDescription className="text-sm text-slate-600">
-            Workflow events, pending actions, and system feed.
-          </SheetDescription>
-          <div className="flex flex-wrap items-center gap-2">
-            {filterOptions.map((f) => (
-              <Button
-                key={f.key}
-                size="sm"
-                variant={filter === f.key ? "default" : "outline"}
-                className="h-8 rounded-md px-3 text-xs font-semibold"
-                onClick={() => setFilter(f.key)}
-              >
-                {f.label}
-              </Button>
-            ))}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={markAllRead}
-              disabled={unread === 0}
-              className="ml-auto h-8 rounded-md px-3 text-xs font-semibold"
-            >
-              Mark all read
-            </Button>
-          </div>
-        </SheetHeader>
-
-        <div className="max-h-[78vh] overflow-auto px-5 py-2">
-          {filtered.length === 0 ? (
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-              No notifications in this view right now.
-            </div>
-          ) : (
-            filtered.map((n) => (
-              <div key={n.id} className={`border-b py-3 ${n.read ? "opacity-75" : ""}`}>
-                <div className="flex items-center gap-2">
-                  <Bell className="h-4 w-4 shrink-0 text-slate-500" />
-                  <p className="min-w-0 flex-1 truncate text-sm text-slate-800">
-                    {n?.title}: {n?.message}
-                  </p>
-                  {!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
-                </div>
-
-                <div className="mt-1 flex items-center justify-between pl-6">
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                    <Clock3 className="h-3 w-3" />
-                    <span>{formatRelativeTime(n.createdAt)}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {!n.read && (
-                      <Button size="sm" variant="ghost" className="h-7 rounded px-2 text-[11px]" onClick={() => markRead(n.id)}>
-                        Read
-                      </Button>
-                    )}
-                    {n.actionPath && (
-                      <Button size="sm" variant="ghost" className="h-7 gap-1 rounded px-2 text-[11px]" onClick={() => onOpenAction(n)}>
-                        Open
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const {
-    notifications,
-    unreadCount,
-    drawerOpen,
-    setDrawerOpen,
-    markRead,
-    markAllRead,
-  } = useNotifications();
 
   const [overview, setOverview] = useState(null);
   const [alerts, setAlerts] = useState(null);
@@ -441,12 +315,6 @@ function AdminDashboard() {
     navigate(search ? `${path}?${search}` : path);
   }, [navigate]);
 
-  const openFromNotification = useCallback((n) => {
-    if (!n.actionPath) return;
-    markRead(n.id);
-    setDrawerOpen(false);
-    openPath(n.actionPath, n.actionParams || {});
-  }, [markRead, openPath, setDrawerOpen]);
 
   const loadDashboardData = useCallback(async (days) => {
     const [overviewRes, alertsRes, trendsRes] = await Promise.all([
@@ -632,16 +500,10 @@ function AdminDashboard() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-6">
-        <div className="flex items-center gap-3">
-          <SidebarTrigger className="-ml-2" />
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">Admin Dashboard</h1>
-            <p className="text-xs text-slate-500">System health, operational pressure, and module execution in one place.</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <ModuleHeader 
+        title="Admin Dashboard" 
+        description="System health, operational pressure, and module execution in one place."
+        actions={
           <Button
             variant="outline"
             size="sm"
@@ -652,31 +514,7 @@ function AdminDashboard() {
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setDrawerOpen(true)}
-            className="relative"
-            aria-label="Open notifications"
-          >
-            <Bell className="h-4 w-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </span>
-            )}
-          </Button>
-        </div>
-      </header>
-
-      <NotificationDrawer
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        notifications={notifications}
-        markRead={markRead}
-        markAllRead={markAllRead}
-        onOpenAction={openFromNotification}
+        }
       />
 
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">

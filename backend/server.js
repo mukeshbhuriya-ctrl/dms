@@ -53,6 +53,9 @@ app.use('/api/departments', departmentRoutes);
 const qcGroupRoutes = require('#routes/qc_group.routes.js');
 app.use('/api/qc-groups', qcGroupRoutes);
 
+const employeeGroupRoutes = require('#routes/employee_group.routes.js');
+app.use('/api/employee-groups', employeeGroupRoutes);
+
 const commonRoutes = require('./routes/common/common.routes.js');
 app.use('/api/common', commonRoutes);
 

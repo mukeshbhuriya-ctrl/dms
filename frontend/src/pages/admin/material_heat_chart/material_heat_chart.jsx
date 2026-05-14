@@ -5,6 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import {
   Select,
   SelectContent,
@@ -26,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -37,6 +38,7 @@ import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable";
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { formatDateTimeSQL } from "@/utils/time"
+import { useSearchParams } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import * as XLSX from "xlsx";
 
@@ -62,6 +64,10 @@ function emptyRow(id) {
     isHeading: false,
     headingText: "",
     parentHeadingId: null,
+    qcStatus: "Pending",
+    qcRemarks: "",
+    version: 1,
+    is_current: true,
   }
 }
 
@@ -73,8 +79,8 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const { user, roles } = useAuth()
   const isAdmin = roles?.includes("ADMIN");
-  const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC");
-  const isPE = roles?.includes("PRODUCTION_ENGINEER") || roles?.includes("PE");
+  const isQE = roles?.includes("QC_ENGINEER");
+  const isPE = roles?.includes("PRODUCTION_ENGINEER");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // Bulk Import State
@@ -381,7 +387,8 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const submitReview = async () => {
     if (!docForReview) return
-    if (reviewStatus === "Rejected" && !reviewRemarks.trim()) {
+    const status = reviewStatus.toUpperCase();
+    if (status === "REJECTED" && !reviewRemarks.trim()) {
       toast.error("Remarks are required for rejection.")
       return
     }
@@ -389,11 +396,11 @@ function ListView({ onCreateClick, onEditClick }) {
     setIsReviewing(true)
     try {
       const res = await apiClient.put(`/api/mhc/update-status/${docForReview.id}`, {
-        status: reviewStatus,
+        status: status,
         remarks: reviewRemarks
       })
       if (res.success) {
-        toast.success(`Report ${reviewStatus} successfully`)
+        toast.success(`Report ${status} successfully`)
         setReviewDialogOpen(false)
         setRefreshTrigger(prev => prev + 1)
       } else {
@@ -408,18 +415,21 @@ function ListView({ onCreateClick, onEditClick }) {
   }
 
   const getStatusBadge = (status) => {
-    const s = status?.trim()?.toLowerCase() || "pending"
+    const s = status?.trim()?.toUpperCase() || "PENDING"
     switch (s) {
-      case "approved":
-        return <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800 shadow-sm border border-green-200">Approved</span>
-      case "rejected":
-        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 shadow-sm border border-red-200">Rejected</span>
-      case "pending":
-        return <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800 shadow-sm border border-yellow-200">Pending</span>
-      case "draft":
-        return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800 shadow-sm border border-blue-200">Draft</span>
+      case "APPROVED":
+        return <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 shadow-sm border border-emerald-200">Approved</span>
+      case "REJECTED":
+        return <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800 shadow-sm border border-red-200">Rejected</span>
+      case "OFFERED":
+        return <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 shadow-sm border border-amber-200">Offered</span>
+      case "INITIATED":
+      case "PENDING":
+        return <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-800 shadow-sm border border-blue-200">Initiated</span>
+      case "DRAFT":
+        return <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-800 shadow-sm border border-slate-200">Draft</span>
       default:
-        return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800 shadow-sm border border-gray-200">{status || "Pending"}</span>
+        return <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-800 shadow-sm border border-gray-200">{status || "Pending"}</span>
     }
   }
 
@@ -568,8 +578,11 @@ function ListView({ onCreateClick, onEditClick }) {
       id: "actions",
       header: "Actions",
       cell: (row) => {
-        const canReview = isQE && (row.status?.toLowerCase() === "pending")
-        const canEdit = (isAdmin || isQE || isPE) && (row.status?.toLowerCase() !== "approved")
+        const status = row.status // Keep case from DB
+        const s = status?.toUpperCase()
+        const canEdit = (isAdmin || isQE) && ["DRAFT", "INITIATED", "PENDING", "REJECTED"].includes(s)
+        const canOffer = (isAdmin || isPE) && (s === "INITIATED" || s === "REJECTED" || s === "PENDING")
+        const canFinalize = (isAdmin || isQE) && s === "OFFERED"
 
         return (
           <div className="flex gap-2">
@@ -587,29 +600,39 @@ function ListView({ onCreateClick, onEditClick }) {
                size="sm"
                className="cursor-pointer"
                onClick={() => onEditClick(row.id)}
-               title="Edit">
+               title="Edit Initiation">
                <Edit className="h-4 w-4 mr-2" /> Edit
              </Button>
             )}
-            {canReview && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200 cursor-pointer"
-                  onClick={() => handleReviewClick(row, "Approved")}
-                  title="Approve">
-                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200 cursor-pointer"
-                  onClick={() => handleReviewClick(row, "Rejected")}
-                  title="Reject">
-                  <XCircle className="h-4 w-4 mr-2" /> Reject
-                </Button>
-              </>
+            {canOffer && (
+               <Button
+               variant="outline"
+               size="sm"
+               className="cursor-pointer border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+               onClick={() => onEditClick(row.id)}
+               title="Continue MHC">
+               <ArrowRight className="h-4 w-4 mr-2" /> Continue
+             </Button>
+            )}
+            {canFinalize && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                onClick={() => onEditClick(row.id)}
+                title="Review MHC">
+                <CheckCircle className="h-4 w-4 mr-2" /> Review & Continue
+              </Button>
+            )}
+            {canFinalize && isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200 cursor-pointer"
+                onClick={() => handleReviewClick(row, "REJECTED")}
+                title="Reject MHC">
+                <XCircle className="h-4 w-4 mr-2" /> Reject
+              </Button>
             )}
             {isAdmin && (
                 <Button
@@ -654,10 +677,7 @@ function ListView({ onCreateClick, onEditClick }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">Material Heat Charts</h1>
-          <p className="text-muted-foreground">View and manage all material heat charts.</p>
-        </div>
+        <div />
       </div>
 
       <ProDataTable
@@ -900,7 +920,6 @@ function ListView({ onCreateClick, onEditClick }) {
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   )
 }
@@ -911,17 +930,16 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   // Jobs list for MSN dropdown
   const [jobs, setJobs] = useState([])
   const [jobsLoading, setJobsLoading] = useState(true)
-  const [qcEngineers, setQcEngineers] = useState([])
-  const [qc_engineer_id, setQcEngineerId] = useState("")
-  const [productionEngineers, setProductionEngineers] = useState([])
-  const [production_engineer_id, setProductionEngineerId] = useState("")
-
-  useEffect(() => {
-    // Default to logged-in user if available
-    if (user?.id && !editId) {
-      setProductionEngineerId(user.id)
-    }
-  }, [user, editId])
+  const [qcGroups, setQcGroups] = useState([])
+  const [qc_group_id, setQcGroupId] = useState("")
+  const [productionGroups, setProductionGroups] = useState([])
+  const [production_group_id, setProductionGroupId] = useState("")
+  
+  const [mhcStatus, setMhcStatus] = useState("Initiated")
+  const { roles } = useAuth()
+  const isQE = roles?.includes("QC_ENGINEER");
+  const isPE = roles?.includes("PRODUCTION_ENGINEER");
+  const isAdmin = roles?.includes("ADMIN");
 
   // Basic Info (auto-filled from selected job)
   const [selectedJobId, setSelectedJobId] = useState("")
@@ -954,16 +972,28 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       .catch(() => setJobs([]))
       .finally(() => setJobsLoading(false))
 
-    // Fetch Quality Engineers
-    apiClient.get("/api/users/by-role/QC_ENGINEER")
-      .then((res) => { if (res.success) setQcEngineers(res.data) })
-      .catch((err) => console.error("Failed to fetch QE users:", err))
+    // Fetch My Groups to auto-select
+    if (!editId && (isAdmin || isQE)) {
+      apiClient.get("/api/employee-groups/my-groups")
+        .then((res) => {
+          if (res.success && res.data) {
+            const myQualityGroup = res.data.find(g => g.group_type === "QUALITY" || g.type === "QUALITY")
+            if (myQualityGroup) setQcGroupId(myQualityGroup.id)
+          }
+        })
+        .catch((err) => console.error("Failed to fetch my groups:", err))
+    }
 
-    // Fetch Production Engineers
-    apiClient.get("/api/users/by-role/PRODUCTION_ENGINEER")
-      .then((res) => { if (res.success) setProductionEngineers(res.data) })
-      .catch((err) => console.error("Failed to fetch PE users:", err))
-  }, [])
+    // Fetch Quality Groups
+    apiClient.get("/api/employee-groups?type=QUALITY")
+      .then((res) => { if (res.success) setQcGroups(res.data) })
+      .catch((err) => console.error("Failed to fetch Quality groups:", err))
+
+    // Fetch Production Groups
+    apiClient.get("/api/employee-groups?type=PRODUCTION")
+      .then((res) => { if (res.success) setProductionGroups(res.data) })
+      .catch((err) => console.error("Failed to fetch Production groups:", err))
+  }, [isAdmin, isQE, editId])
 
   // Handle editId logic
   useEffect(() => {
@@ -987,8 +1017,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               customerDrgNo: data.customer_drg_no || "",
               inspectionBy: data.inspection_by || "",
             })
-            setQcEngineerId(data.qc_engineer_id || "")
-            setProductionEngineerId(data.production_engineer_id || "")
+            setQcGroupId(data.qc_group_id || "")
+            setProductionGroupId(data.production_group_id || "")
+            setMhcStatus(data.status || "Initiated")
             if (data.items && data.items.length > 0) {
               setTableRows(data.items.map(item => ({
                 id: item.id,
@@ -1002,6 +1033,8 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 mtrNo: item.mtr_no || "",
                 manufacturerName: item.manufacturer || "",
                 remarks: item.remarks || "",
+                qcStatus: item.qc_status || "Pending",
+                qcRemarks: item.qc_remarks || "",
                 isHeading: Boolean(item.is_heading),
                 headingText: item.heading_text || "",
                 parentHeadingId: item.parent_heading_id,
@@ -1064,7 +1097,17 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
   // Row helpers
   const handleRowChange = (id, field, value) =>
-    setTableRows((rows) => rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
+    setTableRows((rows) => rows.map((r) => {
+      if (r.id === id) {
+        const updated = { ...r, [field]: value };
+        // If status changed to Pending, clear out previous remarks for a fresh cycle
+        if (field === "qcStatus" && String(value).toUpperCase() === "PENDING") {
+          updated.qcRemarks = "";
+        }
+        return updated;
+      }
+      return r;
+    }))
 
   const nextId = () => {
     const now = Date.now();
@@ -1099,26 +1142,65 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     setTableRows((rows) => rows.filter((r) => r.id !== id))
   }
 
-  // Submit
-  const handleSubmit = async (targetStatus = "Pending") => {
+  const sStatus = mhcStatus?.toUpperCase() || "";
+  const isQcInitiationLocked = isView || !((isAdmin || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "DRAFT" || !editId));
+  const isProdOfferLocked = isView || !((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED") && editId);
+  const isQcFinalLocked = isView || !((isAdmin || isQE) && sStatus === "OFFERED");
+
+  const handleItemAction = async (item, action) => {
+    if (!item.id || String(item.id).startsWith("new-")) {
+       toast.warn("Item must be saved before performing this action.")
+       return
+    }
+    const remarks = prompt(`Enter remarks for item ${action.toLowerCase()}:`)
+    if (remarks === null) return;
+    
+    try {
+       const endpoint = action === "REJECT" ? `/api/mhc/reject-item/${item.id}` : `/api/mhc/request-revision/${item.id}`;
+       const res = await apiClient.post(endpoint, { remarks });
+       if (res.success) {
+          toast.success(`Item ${action.toLowerCase()}ed successfully.`)
+          // Refresh MHC data to get new item versions
+          apiClient.get(`/api/mhc/${editId}`).then(r => {
+             if (r.success && r.data) {
+                setTableRows(r.data.items.map(i => ({
+                  id: i.id,
+                  itemNo: i.item_no || "",
+                  description: i.description || "",
+                  size: i.size || "",
+                  materialSpecification: i.material_spec || "",
+                  quantityUnit: i.quantity_unit || "",
+                  heatNo: i.heat_no || "",
+                  grnAppApNo: i.grn_app_ap_no || "",
+                  mtrNo: i.mtr_no || "",
+                  manufacturerName: i.manufacturer || "",
+                  remarks: i.remarks || "",
+                  isHeading: Boolean(i.is_heading),
+                  headingText: i.heading_text || "",
+                  parentHeadingId: i.parent_heading_id,
+                  version: i.version,
+                })))
+             }
+          })
+       } else {
+          toast.error(res.message || "Action failed.")
+       }
+    } catch (err) {
+       toast.error("Failed to perform item action.")
+    }
+  }
+
+  const handleSubmit = async (action = "SUBMIT") => {
     if (!selectedJobId) { 
       toast.warn("Please select a Job / MSN.")
       return 
     }
 
-    // Compute parent_heading_id dynamically: track the current heading sort_order
-    let currentHeadingSortOrder = null;
-    const items = tableRows.map((row, idx) => {
-      // If this row has a heading, it starts a new heading group
-      if (row.isHeading) {
-        currentHeadingSortOrder = idx;
-      }
-
-      return {
+    const items = tableRows.map((row, idx) => ({
+        id: row.id && !String(row.id).startsWith("new-") ? row.id : undefined,
         sort_order: idx,
         is_heading: row.isHeading,
         heading_text: row.isHeading ? (row.headingText || row.itemNo || "HEADING") : null,
-        parent_heading_id: currentHeadingSortOrder !== null ? String(currentHeadingSortOrder) : null,
         item_no: row.itemNo || null,
         description: row.description || null,
         size: row.size || null,
@@ -1129,28 +1211,44 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
         mtr_no: row.mtrNo || null,
         manufacturer: row.manufacturerName || null,
         remarks: row.remarks || null,
-      };
-    })
+        qc_status: row.qcStatus || "Pending",
+        qc_remarks: row.qcRemarks || null,
+    }))
 
     const payload = {
       job_id: selectedJobId,
       shreno_drg_no: formData.shrenoDrgNo || null,
       customer_drg_no: formData.customerDrgNo || null,
       inspection_by: formData.inspectionBy || null,
-      production_engineer_id: production_engineer_id || null,
-      qc_engineer_id: qc_engineer_id || null,
-      status: targetStatus,
+      production_group_id: production_group_id || null,
+      qc_group_id: qc_group_id || null,
       items,
+      status: action === "DRAFT" ? "Draft" : (action === "INITIATE" ? "Initiated" : undefined)
     }
 
     try {
-      setSubmitting(targetStatus)
-      if (editId) {
-        await apiClient.put(`/api/mhc/update/${editId}`, payload)
+      setSubmitting(action)
+      let res;
+      const currentStatus = mhcStatus?.toUpperCase() || "";
+      if (!editId) {
+        res = await apiClient.post("/api/mhc/initiate", payload)
+      } else if ((currentStatus === "INITIATED" || currentStatus === "PENDING" || currentStatus === "REJECTED") && action === "OFFER") {
+        res = await apiClient.post(`/api/mhc/offer/${editId}`, payload)
+      } else if (currentStatus === "OFFERED" && action === "SAVE_REVIEW") {
+        res = await apiClient.post(`/api/mhc/save-review/${editId}`, payload)
+      } else if (currentStatus === "OFFERED" && action === "FINALIZE") {
+        res = await apiClient.post(`/api/mhc/finalize/${editId}`, payload)
       } else {
-        await apiClient.post("/api/mhc/create", payload)
+        // This covers update of DRAFT, INITIATED, or saving as DRAFT/INITIATED
+        res = await apiClient.put(`/api/mhc/update/${editId}`, payload)
       }
-      onSuccess(editId ? "updated" : "created")
+
+      if (res.success) {
+        const msg = action === "DRAFT" ? "saved as draft" : (editId ? "updated" : "initiated")
+        onSuccess(msg)
+      } else {
+        toast.error(res.message || "Failed to process MHC.")
+      }
     } catch (err) {
       toast.error(err.message || "Failed to save Material Heat Chart.")
     } finally {
@@ -1162,20 +1260,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              {isView ? "View Material Heat Chart" : (editId ? "Edit Material Heat Chart" : "Create Material Heat Chart")}
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {isView 
-                ? "View the complete details of this material heat chart record."
-                : (editId 
-                  ? "Modify the existing record. Ensure all material heat numbers and specifications are verified for industrial compliance." 
-                  : "Initialize a new record. Enter job details and material specifications to maintain a precise industrial traceability log."
-                )
-              }
-            </p>
-          </div>
+        <div />
         <Button variant="outline" onClick={onBack} disabled={submitting !== null} >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
@@ -1271,6 +1356,8 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                       "MTR NO.",
                       "MANUFACTURER NAME",
                       "REMARKS NCR/DCR",
+                      "QC REVIEW",
+                      "QC REMARKS",
                       "Action",
                     ].map((h, i) => (
                       <th
@@ -1306,7 +1393,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                                         onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
                                         placeholder="Enter heading text..."
                                         className="border-none bg-transparent shadow-none text-sm font-bold text-amber-900 focus-visible:ring-0 placeholder:text-amber-700/30 h-8"
-                                        disabled={isView}
+                                        disabled={isQcInitiationLocked}
                                       />
                                       <button
                                         type="button"
@@ -1320,19 +1407,19 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                               </td>
                             </tr>
                           )}
-                          <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
+                            <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
                             {[
-                              { field: "itemNo", placeholder: "Item No" },
-                              { field: "description", placeholder: "Description" },
-                              { field: "materialSpecification", placeholder: "Material Spec" },
-                              { field: "size", placeholder: "Size" },
-                              { field: "quantityUnit", placeholder: "Quantity" },
-                              { field: "heatNo", placeholder: "Heat No" },
-                              { field: "grnAppApNo", placeholder: "GRN/APP/AP No" },
-                              { field: "mtrNo", placeholder: "MTR No" },
-                              { field: "manufacturerName", placeholder: "Manufacturer" },
-                              { field: "remarks", placeholder: "Remarks" },
-                            ].map(({ field, placeholder }, i) => (
+                              { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked },
+                              { field: "description", placeholder: "Description", locked: isQcInitiationLocked },
+                              { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked },
+                              { field: "size", placeholder: "Size", locked: isQcInitiationLocked },
+                              { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked },
+                              { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked },
+                              { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked },
+                              { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked },
+                              { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked },
+                              { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked },
+                            ].map(({ field, placeholder, locked }, i) => (
                               <td
                                 key={field}
                                 className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40 shadow-[2px_0_4px_-2px_rgba(251,191,36,0.3)]" : "bg-white"}` : ""}`}
@@ -1342,11 +1429,94 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                                   value={row[field]}
                                   onChange={(e) => handleRowChange(row.id, field, e.target.value)}
                                   placeholder={placeholder}
-                                  className={`text-[13px] min-w-[120px] h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-amber-400 focus-visible:ring-amber-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg`}
-                                  disabled={isView}
+                                  className={`text-[13px] min-w-[120px] h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-amber-400 focus-visible:ring-amber-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
+                                  disabled={locked || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED'}
                                 />
                               </td>
                             ))}
+
+                            {/* QC REVIEW */}
+                            <td className="p-2 align-top min-w-[120px]">
+                                <div className="flex items-center gap-2 h-10">
+                                  {(() => {
+                                    const s = String(row.qcStatus || "Pending").toUpperCase();
+                                    if (isAdmin || isQE) {
+                                      return (
+                                        <>
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button
+                                                  type="button"
+                                                  size="icon"
+                                                  variant="outline"
+                                                  className={`h-8 w-8 rounded-lg transition-all ${s === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'hover:bg-emerald-50 text-emerald-600 border-emerald-200'}`}
+                                                  onClick={() => handleRowChange(row.id, "qcStatus", s === 'APPROVED' ? 'Pending' : 'Approved')}
+                                                  disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
+                                                >
+                                                  <Check className="h-4 w-4" />
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Approve Item</TooltipContent>
+                                            </Tooltip>
+
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button
+                                                  type="button"
+                                                  size="icon"
+                                                  variant="outline"
+                                                  className={`h-8 w-8 rounded-lg transition-all ${s === 'REJECTED' ? 'bg-rose-500 text-white border-rose-600' : 'hover:bg-rose-50 text-rose-600 border-rose-200'}`}
+                                                  onClick={() => handleRowChange(row.id, "qcStatus", s === 'REJECTED' ? 'Pending' : 'Rejected')}
+                                                  disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
+                                                >
+                                                  <X className="h-4 w-4" />
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Reject Item</TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+
+                                          {s !== 'PENDING' && (
+                                            <span className={`text-[10px] font-bold uppercase tracking-tight ${s === 'APPROVED' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                              {s === 'APPROVED' ? 'Approved' : 'Rejected'}
+                                            </span>
+                                          )}
+                                        </>
+                                      );
+                                    } else {
+                                      // Production View: ONLY show if NOT pending
+                                      if (s === 'PENDING') return null;
+
+                                      return (
+                                        <div className="flex items-center gap-2">
+                                          {s === 'APPROVED' && (
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+                                              <CheckCircle className="h-3.5 w-3.5" />
+                                              <span className="text-[10px] font-black uppercase tracking-tight">Approved</span>
+                                            </div>
+                                          )}
+                                          {s === 'REJECTED' && (
+                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+                                              <XCircle className="h-3.5 w-3.5" />
+                                              <span className="text-[10px] font-black uppercase tracking-tight">Rejected</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+                                  })()}
+                                </div>
+                            </td>
+                            <td className="p-2 align-top min-w-[200px]">
+                                 <Input 
+                                   value={row.qcRemarks || ""}
+                                   onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
+                                   placeholder="QC feedback..."
+                                   className={`text-[13px] h-10 rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
+                                   disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
+                                 />
+                            </td>
                             {/* Actions */}
                             <td className={`p-2 align-top ${isView ? 'hidden' : ''}`}>
                               <div className="flex items-center gap-1.5 h-10">
@@ -1354,8 +1524,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className={`h-8 w-8 rounded-lg border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : isInGroup ? "text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100" : "text-muted-foreground hover:text-foreground"}`}
+                                  className={`h-8 w-8 rounded-lg border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
                                   onClick={() => toggleHeading(row.id)}
+                                  disabled={isQcInitiationLocked}
                                 >
                                   <Type className={`h-4 w-4 ${row.isHeading ? "stroke-[3px]" : ""}`} />
                                 </Button>
@@ -1365,6 +1536,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                                   size="icon"
                                   className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
                                   onClick={() => addRowAfter(row.id)}
+                                  disabled={isQcInitiationLocked}
                                 >
                                   <Plus className="h-4 w-4" />
                                 </Button>
@@ -1374,6 +1546,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                                   size="icon"
                                   className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
                                   onClick={() => removeRow(row.id)}
+                                  disabled={isQcInitiationLocked}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -1383,13 +1556,13 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                         </React.Fragment>
                       );
                     });
-                  })()}
+                                  })()}
                 </tbody>
               </table>
             </div>
 
             <div className={`pt-4 border-t border-muted/50 mt-4 ${isView ? 'hidden' : ''}`}>
-              <Button type="button" variant="outline" onClick={addRow} className="w-auto h-9 text-[13px] px-4 rounded-xl border-muted-foreground/30 shadow-sm">
+              <Button type="button" variant="outline" onClick={addRow} className="w-auto h-9 text-[13px] px-4 rounded-xl border-muted-foreground/30 shadow-sm" disabled={isQcInitiationLocked}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Row
               </Button>
@@ -1402,31 +1575,33 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
         <CardHeader className="pb-4">
           <CardTitle className="text-base font-semibold">Approval</CardTitle>
-          <p className="text-xs text-muted-foreground">Assign quality</p>
+          <p className="text-xs text-muted-foreground">Assign groups</p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
-            <div className="space-y-2">
-              <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">PRODUCTION <span className="text-destructive">*</span></Label>
-              <SearchableSelect
-                options={productionEngineers.map((u) => ({ value: u.id, label: `${u.name}` }))}
-                value={production_engineer_id}
-                onValueChange={setProductionEngineerId}
-                placeholder="Select production engineer"
-                searchPlaceholder="Search production engineer..."
-                disabled
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">QUALITY GROUP <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  options={qcGroups.map((g) => ({ value: g.id, label: g.name }))}
+                  value={qc_group_id}
+                  onValueChange={setQcGroupId}
+                  placeholder="Select quality group"
+                  disabled={isQcInitiationLocked}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">QUALITY <span className="text-destructive">*</span></Label>
-              <SearchableSelect
-                options={qcEngineers.map((u) => ({ value: u.id, label: `${u.name}` }))}
-                value={qc_engineer_id}
-                onValueChange={setQcEngineerId}
-                placeholder="Select quality engineer"
-                searchPlaceholder="Search quality engineer..."
-                disabled={isView}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">PRODUCTION GROUP <span className="text-destructive">*</span></Label>
+                <SearchableSelect
+                  options={productionGroups.map((g) => ({ value: g.id, label: g.name }))}
+                  value={production_group_id}
+                  onValueChange={setProductionGroupId}
+                  placeholder="Select production group"
+                  disabled={isQcInitiationLocked}
+                />
+              </div>
             </div>
           </div>
         </CardContent>
@@ -1439,17 +1614,67 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
         </Button>
         {!isView && (
           <>
-            <Button 
-              variant="secondary" 
-              onClick={() => handleSubmit("Draft")} 
-              disabled={submitting !== null}
-              className="bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200 cursor-pointer"
-            >
-              {submitting === "Draft" ? "Saving…" : "Save Draft"}
-            </Button>
-            <Button onClick={() => handleSubmit("Pending")} disabled={submitting !== null} className="cursor-pointer">
-              {submitting === "Pending" ? "Submitting…" : (editId ? "Update" : "Submit")}
-            </Button>
+            {(isAdmin || isQE) && (!editId || mhcStatus?.toUpperCase() === "DRAFT") && (
+              <Button 
+                variant="outline"
+                onClick={() => handleSubmit("DRAFT")} 
+                disabled={submitting !== null}
+                className="border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                {submitting === "DRAFT" ? "Saving..." : "Save as Draft"}
+              </Button>
+            )}
+            {(!editId || ["INITIATED", "PENDING", "DRAFT"].includes(mhcStatus?.toUpperCase())) && (isAdmin || isQE) && (
+              <Button 
+                onClick={() => handleSubmit("INITIATE")} 
+                disabled={submitting !== null}
+                className="cursor-pointer"
+              >
+                {submitting === "INITIATE" ? "Initiating..." : (editId && mhcStatus?.toUpperCase() !== "DRAFT" ? "Update Initiation" : "Initiate MHC")}
+              </Button>
+            )}
+            {(mhcStatus?.toUpperCase() === "INITIATED" || mhcStatus?.toUpperCase() === "PENDING" || mhcStatus?.toUpperCase() === "REJECTED") && (isAdmin || isPE) && (
+              <Button 
+                variant="secondary"
+                onClick={() => handleSubmit("OFFER")} 
+                disabled={submitting !== null}
+                className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 cursor-pointer gap-2"
+              >
+                {submitting === "OFFER" ? "Continuing..." : "Continue (Production Submit)"}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+            {mhcStatus?.toUpperCase() === "OFFERED" && (isAdmin || isQE) && (
+              <>
+                <Button 
+                  variant="secondary"
+                  onClick={() => handleSubmit("SAVE_REVIEW")} 
+                  disabled={submitting !== null}
+                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
+                >
+                  {submitting === "SAVE_REVIEW" ? "Saving..." : "Review & Continue"}
+                  <Save className="h-4 w-4" />
+                </Button>
+                <Button 
+                  onClick={() => handleSubmit("FINALIZE")} 
+                  disabled={submitting !== null || tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2"
+                >
+                  {submitting === "FINALIZE" ? "Finalizing..." : "Finalize & Approve MHC"}
+                  <CheckCircle className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+            {mhcStatus?.toUpperCase() === "OFFERED" && isAdmin && (
+              <Button 
+                variant="destructive"
+                onClick={() => handleSubmit("REJECT")} 
+                disabled={submitting !== null}
+                className="cursor-pointer"
+              >
+                Reject Entire MHC
+              </Button>
+            )}
           </>
         )}
       </div>
@@ -1458,10 +1683,21 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 }
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
-function MaterialHeatChart() {
-  const [view, setView] = useState("list") // "list" | "create"
+export default function MaterialHeatChart() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [view, setView] = useState("list") // "list", "create", "members"
   const [editId, setEditId] = useState(null)
+  const [selectedGroup, setSelectedGroup] = useState(null)
   const [isReadOnly, setIsReadOnly] = useState(false)
+
+  useEffect(() => {
+    const id = searchParams.get("id")
+    if (id) {
+      setEditId(id)
+      setIsReadOnly(true) // Notifications usually open in view mode
+      setView("create")
+    }
+  }, [searchParams])
 
   const handleCreateClick = () => {
     setEditId(null)
@@ -1482,9 +1718,10 @@ function MaterialHeatChart() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
+        <ModuleHeader 
+          title="Material Heat Chart" 
+          description="Manage inspection records, production data, and quality approvals for heat-treated materials."
+        />
         <main className="flex-1 overflow-auto p-6 flex flex-col">
           <div className="flex-1 flex flex-col w-full">
 
@@ -1498,5 +1735,3 @@ function MaterialHeatChart() {
     </>
   )
 }
-
-export default MaterialHeatChart

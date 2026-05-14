@@ -1,4 +1,5 @@
 const MhcService = require('../services/mhc.service');
+const NotificationService = require('#services/notification.service.js');
 const Audit = require('#utils/audit.js');
 
 class MhcController {
@@ -31,29 +32,206 @@ class MhcController {
         }
     }
 
-    async create(req, res) {
+    async initiate(req, res) {
         try {
-            const result = await MhcService.create(req.user.company_id, req.body, req.user.userid || req.user.id);
+            const result = await MhcService.initiate(req.user.company_id, req.body, req.user.userid || req.user.id);
             
             Audit.insert({
                 req,
                 company_id: req.user.company_id,
                 user_id: req.user.userid || req.user.id,
-                action: 'created',
+                action: result.status === 'Draft' ? 'draft_created' : 'created',
                 module: 'Material Heat Chart',
-                description: `Created Material Heat Chart "${result.report_no}"`,
+                description: `${result.status === 'Draft' ? 'Saved Draft' : 'Initiated'} Material Heat Chart "${result.report_no}"`,
                 metadata: { target_mhc_id: result.id },
             });
 
+            // Notify Production Group (Only if not draft)
+            if (result.status !== 'Draft' && result.production_group_id) {
+                await NotificationService.broadcastToEmployeeGroup({
+                    company_id: req.user.company_id,
+                    group_id: result.production_group_id,
+                    title: 'New MHC Assigned',
+                    message: `MHC ${result.report_no} has been initiated and requires production data.`,
+                    action_path: `/material-heat-chart`,
+                    action_params: { id: result.id }
+                });
+            }
+
             res.status(201).json({
                 success: true,
-                message: 'Material heat chart created successfully',
+                message: 'Material heat chart initiated successfully',
                 data: result,
             });
         } catch (error) {
-            console.error('MHC create error:', error);
+            console.error('MHC initiate error:', error);
             const status = error.message.includes('not found') ? 404 : 400;
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async offer(req, res) {
+        try {
+            const result = await MhcService.offer(req.user.company_id, req.params.id, req.body, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Offered Material Heat Chart "${result.report_no}" with production data`,
+                metadata: { target_mhc_id: result.id },
+            });
+
+            // Notify QC Group
+            if (result.qc_group_id) {
+                await NotificationService.broadcastToEmployeeGroup({
+                    company_id: req.user.company_id,
+                    group_id: result.qc_group_id,
+                    title: 'MHC Offered',
+                    message: `Production data for MHC ${result.report_no} has been submitted for QC review.`,
+                    action_path: `/material-heat-chart`,
+                    action_params: { id: result.id }
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Material heat chart offered successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC offer error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async finalize(req, res) {
+        try {
+            const result = await MhcService.finalize(req.user.company_id, req.params.id, req.body, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Finalized and Approved Material Heat Chart "${result.report_no}"`,
+                metadata: { target_mhc_id: result.id },
+            });
+
+            // Notify Production Group about Approval
+            if (result.production_group_id) {
+                await NotificationService.broadcastToEmployeeGroup({
+                    company_id: req.user.company_id,
+                    group_id: result.production_group_id,
+                    title: 'MHC Approved',
+                    severity: 'success',
+                    message: `MHC ${result.report_no} has been finalized and approved by QC.`,
+                    action_path: `/material-heat-chart`,
+                    action_params: { id: result.id }
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: 'Material heat chart finalized successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC finalize error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async saveReview(req, res) {
+        try {
+            const result = await MhcService.saveReview(req.user.company_id, req.params.id, req.body, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Saved QC Review for Material Heat Chart "${result.report_no}"${result.status === 'Rejected' ? ' (Sent back for correction)' : ''}`,
+                metadata: { target_mhc_id: result.id, status: result.status },
+            });
+
+            // Notify Production Group if sent back for correction
+            if (result.status === 'Rejected' && result.production_group_id) {
+                await NotificationService.broadcastToEmployeeGroup({
+                    company_id: req.user.company_id,
+                    group_id: result.production_group_id,
+                    title: 'MHC Correction Required',
+                    severity: 'warning',
+                    message: `MHC ${result.report_no} requires corrections. Please review QC remarks.`,
+                    action_path: `/material-heat-chart`,
+                    action_params: { id: result.id }
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                message: result.status === 'Rejected' ? 'Review saved and sent back for corrections' : 'Review decisions saved successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC saveReview error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async rejectItem(req, res) {
+        try {
+            const { mhc_id, item_id, remarks } = req.body;
+            const result = await MhcService.rejectItem(req.user.company_id, mhc_id, item_id, remarks, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Rejected item in MHC. New version created for correction.`,
+                metadata: { target_mhc_id: mhc_id, item_id },
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'Item rejected and new version created for correction',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC rejectItem error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async requestRevision(req, res) {
+        try {
+            const { mhc_id, item_id, remarks } = req.body;
+            const result = await MhcService.requestRevision(req.user.company_id, mhc_id, item_id, remarks, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Revision requested for approved item in MHC.`,
+                metadata: { target_mhc_id: mhc_id, item_id },
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'Revision requested and new version created for editing',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC requestRevision error:', error);
+            res.status(400).json({ success: false, message: error.message });
         }
     }
 
@@ -92,9 +270,21 @@ class MhcController {
                 user_id: req.user.userid || req.user.id,
                 action: 'updated',
                 module: 'Material Heat Chart',
-                description: `Updated Material Heat Chart "${result.report_no}"`,
-                metadata: { target_mhc_id: result.id },
+                description: `Updated Material Heat Chart "${result.report_no}" ${result.status === 'Initiated' ? '(Now Initiated)' : (result.status === 'Draft' ? '(Saved as Draft)' : '')}`,
+                metadata: { target_mhc_id: result.id, status: result.status },
             });
+
+            // If it was a draft and now it's initiated, notify
+            if (result.status === 'Initiated' && result.production_group_id) {
+                 await NotificationService.broadcastToEmployeeGroup({
+                    company_id: req.user.company_id,
+                    group_id: result.production_group_id,
+                    title: 'New MHC Assigned',
+                    message: `MHC ${result.report_no} has been initiated and requires production data.`,
+                    action_path: `/material-heat-chart`,
+                    action_params: { id: result.id }
+                });
+            }
 
             res.status(200).json({
                 success: true,
@@ -108,38 +298,10 @@ class MhcController {
         }
     }
 
-    async updateStatus(req, res) {
-        try {
-            const result = await MhcService.updateStatus(req.user.company_id, req.params.id, {
-                ...req.body,
-                user_id: req.user.userid || req.user.id
-            });
-            
-            Audit.insert({
-                req,
-                company_id: req.user.company_id,
-                user_id: req.user.userid || req.user.id,
-                action: 'updated',
-                module: 'Material Heat Chart',
-                description: `Status changed to ${req.body.status} for Material Heat Chart "${result.report_no}"`,
-                metadata: { target_mhc_id: result.id },
-            });
-
-            res.status(200).json({
-                success: true,
-                message: `Material heat chart ${req.body.status} successfully`,
-                data: result,
-            });
-        } catch (error) {
-            console.error('MHC updateStatus error:', error);
-            const status = error.message.includes('not found') ? 404 : 400;
-            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
-        }
-    }
-
     async getById(req, res) {
         try {
-            const result = await MhcService.getById(req.user.company_id, req.params.id);
+            const { includeHistory } = req.query;
+            const result = await MhcService.getById(req.user.company_id, req.params.id, includeHistory === 'true');
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             console.error('MHC getById error:', error);

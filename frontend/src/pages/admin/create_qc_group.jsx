@@ -492,7 +492,7 @@ function CreateQcGroup() {
                         </div>
                         <div className="flex gap-2">
                             {view === "members" && (
-                                <Button variant="outline" size="md" onClick={() => handleEdit(selectedGroup)}>
+                                <Button variant="outline" onClick={() => handleEdit(selectedGroup)}>
                                     <Pencil className="mr-2 h-4 w-4" /> Edit Group
                                 </Button>
                             )}

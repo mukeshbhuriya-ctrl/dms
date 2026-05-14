@@ -51,8 +51,17 @@ class MhcService {
                 take,
                 orderBy: { [sortBy]: sortOrder },
                 include: {
+                    production_group: { select: { id: true, name: true } },
+                    qc_group: { select: { id: true, name: true } },
                     production_engineer: { select: { id: true, name: true, empid: true } },
                     qc_engineer: { select: { id: true, name: true, empid: true } },
+                    _count: {
+                        select: {
+                            items: {
+                                where: { is_current: true }
+                            }
+                        }
+                    }
                 }
             }),
         ]);
@@ -119,17 +128,16 @@ class MhcService {
     }
 
     /**
-     * Create a new MHC record with items
+     * QC Initiate MHC (Stage 1)
      */
-    async create(company_id, body, creator_id) {
+    async initiate(company_id, body, creator_id) {
         const {
             job_id,
             shreno_drg_no,
             customer_drg_no,
             inspection_by,
-            production_engineer_id,
-            qc_engineer_id,
-            status,
+            production_group_id,
+            qc_group_id,
             items = [],
         } = body;
 
@@ -175,9 +183,10 @@ class MhcService {
                     shreno_drg_no: shreno_drg_no || null,
                     customer_drg_no: customer_drg_no || null,
                     inspection_by: inspection_by || null,
-                    status: status || 'Pending',
-                    production_engineer_id: production_engineer_id || creator_id,
-                    qc_engineer_id: qc_engineer_id || null,
+                    status: body.status || 'Initiated',
+                    production_group_id: production_group_id || null,
+                    qc_group_id: qc_group_id || null,
+                    qc_engineer_id: creator_id,
                     submitted_at: new Date(),
                 },
             });
@@ -208,6 +217,9 @@ class MhcService {
                         mtr_no: item.mtrNo || item.mtr_no || null,
                         manufacturer: item.manufacturerName || item.manufacturer || null,
                         remarks: item.remarks || null,
+                        version: 1,
+                        is_current: true,
+                        action_by_id: creator_id
                     });
                 });
 
@@ -220,11 +232,337 @@ class MhcService {
             return tx.material_heat_chart.findUnique({
                 where: { id: header.id },
                 include: {
-                    items: { orderBy: { sort_order: 'asc' } },
+                    items: { 
+                        where: { is_current: true },
+                        orderBy: { sort_order: 'asc' } 
+                    },
+                    production_group: { select: { id: true, name: true } },
+                    qc_group: { select: { id: true, name: true } },
                     production_engineer: { select: { id: true, name: true, empid: true } },
                     qc_engineer: { select: { id: true, name: true, empid: true } },
                 },
             });
+        });
+    }
+
+    /**
+     * PROD Offer MHC (Stage 2)
+     * Updates Heat/GRN data for specific items
+     */
+    async offer(company_id, id, body, user_id) {
+        const { items = [] } = body;
+
+        const existing = await prisma.material_heat_chart.findFirst({
+            where: { id, company_id }
+        });
+
+        if (!existing) throw new Error('Material Heat Chart not found');
+
+        return await prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                // Try to find by ID first, then fallback to sort_order
+                let targetId = item.id;
+                
+                if (!targetId && item.sort_order !== undefined) {
+                    const found = await tx.material_heat_chart_item.findFirst({
+                        where: { mhc_id: id, sort_order: item.sort_order, is_current: true },
+                        select: { id: true }
+                    });
+                    if (found) targetId = found.id;
+                }
+
+                if (!targetId) continue;
+
+                // Fetch current item state for versioning and locking check
+                const currentItem = await tx.material_heat_chart_item.findUnique({
+                    where: { id: targetId }
+                });
+
+                if (!currentItem || currentItem.qc_status === 'Approved') continue;
+
+                // VERSIONING LOGIC: If item was previously Rejected, archive it and create new version
+                if (currentItem.qc_status === 'Rejected') {
+                    // 1. Archive rejected version (this preserves the old qc_remarks in history)
+                    await tx.material_heat_chart_item.update({
+                        where: { id: targetId },
+                        data: { is_current: false }
+                    });
+
+                    // 2. Create new version for correction (clearing qc_remarks for a fresh review)
+                    await tx.material_heat_chart_item.create({
+                        data: {
+                            mhc_id: id,
+                            sort_order: item.sort_order ?? currentItem.sort_order,
+                            is_heading: currentItem.is_heading,
+                            heading_text: currentItem.heading_text,
+                            parent_heading_id: currentItem.parent_heading_id,
+                            item_no: currentItem.item_no,
+                            description: currentItem.description,
+                            size: currentItem.size,
+                            material_spec: currentItem.material_spec,
+                            quantity_unit: currentItem.quantity_unit,
+                            heat_no: item.heat_no || item.heatNo || null,
+                            grn_app_ap_no: item.grn_app_ap_no || item.grnAppApNo || null,
+                            mtr_no: currentItem.mtr_no,
+                            manufacturer: currentItem.manufacturer,
+                            remarks: currentItem.remarks,
+                            qc_status: 'Pending', // Reset to pending for QC re-review
+                            qc_remarks: null,     // CLEAR REMARKS: Fresh start for QC
+                            version: currentItem.version + 1,
+                            is_current: true,
+                            parent_item_id: currentItem.parent_item_id || currentItem.id,
+                            action_by_id: user_id
+                        }
+                    });
+                } else {
+                    // Standard update for Pending/Initiated items
+                    await tx.material_heat_chart_item.update({
+                        where: { id: targetId },
+                        data: {
+                            heat_no: item.heat_no || item.heatNo || null,
+                            grn_app_ap_no: item.grn_app_ap_no || item.grnAppApNo || null,
+                            qc_status: 'Pending',
+                            qc_remarks: null, // CLEAR REMARKS: Ensure no stale data
+                            action_by_id: user_id
+                        }
+                    });
+                }
+            }
+
+            return await tx.material_heat_chart.update({
+                where: { id },
+                data: {
+                    status: 'Offered',
+                    production_engineer_id: user_id,
+                    submitted_at: new Date()
+                },
+                include: {
+                    items: { 
+                        where: { is_current: true },
+                        orderBy: { sort_order: 'asc' } 
+                    }
+                }
+            });
+        });
+    }
+
+    /**
+     * QC Finalize MHC (Stage 3)
+     * Updates MTR/Manufacturer and approves the report
+     */
+    async finalize(company_id, id, body, user_id) {
+        const { items = [], approver_remarks } = body;
+
+        const existing = await prisma.material_heat_chart.findFirst({
+            where: { id, company_id }
+        });
+
+        if (!existing) throw new Error('Material Heat Chart not found');
+
+        return await prisma.$transaction(async (tx) => {
+            for (const item of items) {
+                if (!item.id) continue;
+                
+                await tx.material_heat_chart_item.update({
+                    where: { id: item.id },
+                    data: {
+                        mtr_no: item.mtr_no || null,
+                        manufacturer: item.manufacturer || null,
+                        remarks: item.remarks || null,
+                        qc_status: item.qc_status || 'Approved', // Default to Approved if finalizing
+                        qc_remarks: item.qc_remarks || null,
+                        action_by_id: user_id
+                    }
+                });
+            }
+
+            // Verify ALL items are approved before finalizing
+            const allItems = await tx.material_heat_chart_item.findMany({
+                where: { mhc_id: id, is_current: true }
+            });
+
+            const unapprovedItems = allItems.filter(i => !i.is_heading && i.qc_status !== 'Approved');
+            if (unapprovedItems.length > 0) {
+                throw new Error(`Cannot finalize: ${unapprovedItems.length} items are not yet approved by QC.`);
+            }
+
+            return await tx.material_heat_chart.update({
+                where: { id },
+                data: {
+                    status: 'Approved',
+                    qc_engineer_id: user_id,
+                    approved_at: new Date(),
+                    approver_remarks: approver_remarks || null
+                },
+                include: {
+                    items: { 
+                        where: { is_current: true },
+                        orderBy: { sort_order: 'asc' } 
+                    }
+                }
+            });
+        });
+    }
+
+    /**
+     * QC Save Review Decisions (Granular)
+     */
+    async saveReview(company_id, id, body, user_id) {
+        const { items = [], approver_remarks } = body;
+
+        const existing = await prisma.material_heat_chart.findFirst({
+            where: { id, company_id }
+        });
+
+        if (!existing) throw new Error('Material Heat Chart not found');
+
+        return await prisma.$transaction(async (tx) => {
+            let hasRejections = false;
+
+            for (const item of items) {
+                if (!item.id) continue;
+                
+                const status = item.qc_status || 'Pending';
+                if (status === 'Rejected') hasRejections = true;
+
+                await tx.material_heat_chart_item.update({
+                    where: { id: item.id },
+                    data: {
+                        qc_status: status,
+                        qc_remarks: item.qc_remarks || null,
+                        // If approved by QC, they might also provide MTR/Manufacturer at this stage
+                        mtr_no: item.mtr_no || undefined,
+                        manufacturer: item.manufacturer || undefined,
+                        action_by_id: user_id
+                    }
+                });
+            }
+
+            // If there are rejections, set the overall status to Rejected to alert Production
+            // Otherwise keep it Offered so QC can continue reviewing or Finalize later
+            const newStatus = hasRejections ? 'Rejected' : 'Offered';
+
+            return await tx.material_heat_chart.update({
+                where: { id },
+                data: {
+                    status: newStatus,
+                    qc_engineer_id: user_id,
+                    rejected_at: hasRejections ? new Date() : undefined,
+                    approver_remarks: approver_remarks || null
+                },
+                include: {
+                    items: { 
+                        where: { is_current: true },
+                        orderBy: { sort_order: 'asc' } 
+                    }
+                }
+            });
+        });
+    }
+
+    /**
+     * QC Reject Item (Selective Versioning)
+     * Archives current item and creates a new version for PROD to re-offer
+     */
+    async rejectItem(company_id, mhc_id, item_id, remarks, user_id) {
+        return await prisma.$transaction(async (tx) => {
+            const currentItem = await tx.material_heat_chart_item.findUnique({
+                where: { id: item_id }
+            });
+
+            if (!currentItem) throw new Error('Item not found');
+
+            // Archive current
+            await tx.material_heat_chart_item.update({
+                where: { id: item_id },
+                data: { is_current: false }
+            });
+
+            // Create new version
+            const newVersion = await tx.material_heat_chart_item.create({
+                data: {
+                    mhc_id,
+                    sort_order: currentItem.sort_order,
+                    is_heading: currentItem.is_heading,
+                    heading_text: currentItem.heading_text,
+                    parent_heading_id: currentItem.parent_heading_id,
+                    item_no: currentItem.item_no,
+                    description: currentItem.description,
+                    size: currentItem.size,
+                    material_spec: currentItem.material_spec,
+                    quantity_unit: currentItem.quantity_unit,
+                    // Keep QC fields but reset PROD fields for correction
+                    heat_no: null,
+                    grn_app_ap_no: null,
+                    remarks: remarks || null,
+                    version: currentItem.version + 1,
+                    is_current: true,
+                    parent_item_id: currentItem.parent_item_id || currentItem.id,
+                    action_by_id: user_id
+                }
+            });
+
+            // Set report back to REJECTED (overall)
+            await tx.material_heat_chart.update({
+                where: { id: mhc_id },
+                data: { status: 'Rejected', rejected_at: new Date(), approver_remarks: remarks }
+            });
+
+            return newVersion;
+        });
+    }
+
+    /**
+     * Request Revision (Post-Approval)
+     * Archives approved item and creates a new version for editing
+     */
+    async requestRevision(company_id, mhc_id, item_id, remarks, user_id) {
+        return await prisma.$transaction(async (tx) => {
+            const currentItem = await tx.material_heat_chart_item.findUnique({
+                where: { id: item_id }
+            });
+
+            if (!currentItem) throw new Error('Item not found');
+            if (!currentItem.is_current) throw new Error('Can only revise the current version');
+
+            // Archive current
+            await tx.material_heat_chart_item.update({
+                where: { id: item_id },
+                data: { is_current: false }
+            });
+
+            // Create new version (resetting all fields for full re-evaluation if needed, or keep them)
+            const newVersion = await tx.material_heat_chart_item.create({
+                data: {
+                    mhc_id,
+                    sort_order: currentItem.sort_order,
+                    is_heading: currentItem.is_heading,
+                    heading_text: currentItem.heading_text,
+                    parent_heading_id: currentItem.parent_heading_id,
+                    item_no: currentItem.item_no,
+                    description: currentItem.description,
+                    size: currentItem.size,
+                    material_spec: currentItem.material_spec,
+                    quantity_unit: currentItem.quantity_unit,
+                    heat_no: currentItem.heat_no,
+                    grn_app_ap_no: currentItem.grn_app_ap_no,
+                    mtr_no: currentItem.mtr_no,
+                    manufacturer: currentItem.manufacturer,
+                    remarks: remarks || currentItem.remarks,
+                    version: currentItem.version + 1,
+                    is_current: true,
+                    parent_item_id: currentItem.parent_item_id || currentItem.id,
+                    action_by_id: user_id
+                }
+            });
+
+            // Set report back to REJECTED or INITIATED to allow editing
+            await tx.material_heat_chart.update({
+                where: { id: mhc_id },
+                data: { status: 'Rejected', approver_remarks: `Revision Requested: ${remarks}` }
+            });
+
+            return newVersion;
         });
     }
 
@@ -269,7 +607,7 @@ class MhcService {
                         }
                     }
 
-                    const created = await this.create(company_id, report, creator_id);
+                    const created = await this.initiate(company_id, report, creator_id);
                     results.push(created);
                 }
             } catch (err) {
@@ -314,37 +652,79 @@ class MhcService {
                     production_engineer_id,
                     qc_engineer_id,
                     status: status || existing.status,
+                    submitted_at: (status === 'Initiated' && existing.status === 'Draft') ? new Date() : existing.submitted_at,
                 }
             });
 
-            // Replace items
-            await tx.material_heat_chart_item.deleteMany({ where: { mhc_id: id } });
+            // Handle items: Smart Sync
             if (items.length > 0) {
-                let currentHeadingText = null;
-                await tx.material_heat_chart_item.createMany({
-                    data: items.map((item, idx) => {
-                        if (item.is_heading) {
-                            currentHeadingText = item.heading_text || item.itemNo || item.item_no || "HEADING";
-                        }
-                        return {
-                            mhc_id: id,
-                            sort_order: idx,
-                            is_heading: item.is_heading || false,
-                            heading_text: item.is_heading ? currentHeadingText : (item.heading_text || currentHeadingText),
-                            parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
-                            item_no: item.itemNo || item.item_no || null,
-                            description: item.description || null,
-                            size: item.size || null,
-                            material_spec: item.materialSpecification || item.material_spec || null,
-                            quantity_unit: item.quantityUnit || item.quantity_unit || null,
-                            heat_no: item.heatNo || item.heat_no || null,
-                            grn_app_ap_no: item.grnAppApNo || item.grn_app_ap_no || null,
-                            mtr_no: item.mtrNo || item.mtr_no || null,
-                            manufacturer: item.manufacturerName || item.manufacturer || null,
-                            remarks: item.remarks || null,
-                        };
-                    }),
+                const existingItems = await tx.material_heat_chart_item.findMany({
+                    where: { mhc_id: id, is_current: true }
                 });
+
+                const existingMap = new Map(existingItems.map(i => [i.id, i]));
+                const incomingIds = new Set(items.filter(i => i.id).map(i => i.id));
+
+                // 1. Delete items that are NOT in incoming list and NOT Approved
+                await tx.material_heat_chart_item.deleteMany({
+                    where: {
+                        mhc_id: id,
+                        is_current: true,
+                        id: { notIn: Array.from(incomingIds) },
+                        qc_status: { not: 'Approved' }
+                    }
+                });
+
+                // 2. Process incoming items
+                let currentHeadingText = null;
+                for (const [idx, item] of items.entries()) {
+                    const isHeading = item.isHeading || item.is_heading || false;
+                    if (isHeading) {
+                        currentHeadingText = item.heading_text || item.itemNo || item.item_no || "HEADING";
+                    }
+
+                    const isPending = (item.qcStatus || item.qc_status || 'Pending').toUpperCase() === 'PENDING';
+                    
+                    const data = {
+                        sort_order: idx,
+                        is_heading: isHeading,
+                        heading_text: isHeading ? currentHeadingText : (item.heading_text || currentHeadingText),
+                        parent_heading_id: item.parent_heading_id ? String(item.parent_heading_id) : null,
+                        item_no: item.itemNo || item.item_no || null,
+                        description: item.description || null,
+                        size: item.size || null,
+                        material_spec: item.materialSpecification || item.material_spec || null,
+                        quantity_unit: item.quantityUnit || item.quantity_unit || null,
+                        heat_no: item.heatNo || item.heat_no || null,
+                        grn_app_ap_no: item.grnAppApNo || item.grn_app_ap_no || null,
+                        mtr_no: item.mtrNo || item.mtr_no || null,
+                        manufacturer: item.manufacturerName || item.manufacturer || null,
+                        remarks: item.remarks || null,
+                        qc_status: item.qcStatus || item.qc_status || 'Pending',
+                        qc_remarks: isPending ? null : (item.qcRemarks || item.qc_remarks || null),
+                    };
+
+                    if (item.id && existingMap.has(item.id)) {
+                        // Update existing (unless Approved)
+                        const current = existingMap.get(item.id);
+                        if (current.qc_status !== 'Approved') {
+                            await tx.material_heat_chart_item.update({
+                                where: { id: item.id },
+                                data
+                            });
+                        }
+                    } else {
+                        // Create new
+                        await tx.material_heat_chart_item.create({
+                            data: {
+                                ...data,
+                                mhc_id: id,
+                                version: 1,
+                                is_current: true
+                            }
+                        });
+                    }
+                }
             }
 
             return tx.material_heat_chart.findUnique({
@@ -390,11 +770,16 @@ class MhcService {
     /**
      * Get a single MHC record with items
      */
-    async getById(company_id, id) {
+    async getById(company_id, id, includeHistory = false) {
         const mhc = await prisma.material_heat_chart.findFirst({
             where: { id, company_id },
             include: {
-                items: { orderBy: { sort_order: 'asc' } },
+                items: { 
+                    where: includeHistory ? {} : { is_current: true },
+                    orderBy: { sort_order: 'asc' } 
+                },
+                production_group: { select: { id: true, name: true } },
+                qc_group: { select: { id: true, name: true } },
                 production_engineer: { select: { id: true, name: true, empid: true } },
                 qc_engineer: { select: { id: true, name: true, empid: true } },
             },

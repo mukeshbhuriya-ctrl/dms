@@ -28,6 +28,7 @@ import {
   CreateUser,
   DepartmentManagement,
   QcGroupManagement,
+  GroupManagement,
   FinalInspectionReports,
   Reports,
   AuditLogs,
@@ -176,6 +177,10 @@ const adminRoutes = [
   {
     path: "/qc-group",
     element: protect(<QcGroupManagement />, MODULES.ADMINISTRATION.QC_GROUPS, [ROLES.ADMIN]),
+  },
+  {
+    path: "/group-management",
+    element: protect(<GroupManagement />, MODULES.ADMINISTRATION.QC_GROUPS, [ROLES.ADMIN]), // Reuse same permission module for now
   },
   {
     path: "/material-heat-chart",

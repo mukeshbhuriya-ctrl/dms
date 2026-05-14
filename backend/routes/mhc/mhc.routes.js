@@ -7,10 +7,14 @@ const MhcController = require('../../controllers/mhc.controller');
 router.use(authenticateUserOnly);
 
 router.get('/list', MhcController.list);
-router.post('/create', MhcController.create);
+router.post('/initiate', MhcController.initiate);
+router.post('/offer/:id', MhcController.offer);
+router.post('/finalize/:id', MhcController.finalize);
+router.post('/save-review/:id', MhcController.saveReview);
+router.post('/reject-item', MhcController.rejectItem);
+router.post('/request-revision', MhcController.requestRevision);
 router.post('/bulk-create', MhcController.bulkCreate);
 router.put('/update/:id', MhcController.update);
-router.put('/update-status/:id', MhcController.updateStatus);
 router.get('/next-report-no/:job_id', MhcController.getNextReportNo);
 router.get('/approved-items/:job_id', MhcController.getApprovedItemsByJob);
 router.get('/approved-items-by-msn/:msn', MhcController.getApprovedItemsByMsn);
