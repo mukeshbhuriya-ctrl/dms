@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive, PlusCircle } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Switch } from "@/components/ui/switch"
@@ -834,6 +834,48 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
     }
   }
 
+  // New function to specifically add a heading between sections
+  const addHeadingRow = (headingId) => {
+    const actualHeadingId = (headingId && typeof headingId !== 'object') ? headingId : null
+    if (!actualHeadingId) return;
+
+    const headingIndex = tableRows.findIndex(r => r.id === actualHeadingId)
+    if (headingIndex === -1) return;
+
+    // Find the insertion point: after all child activities of this heading
+    // We move forward until we hit another heading or the end of the list
+    let lastSectionIndex = headingIndex;
+    for (let i = headingIndex + 1; i < tableRows.length; i++) {
+      if (tableRows[i].isHeading) {
+        break;
+      }
+      lastSectionIndex = i;
+    }
+
+    const newId = Date.now() + Math.random()
+    const newRow = {
+      id: newId,
+      activity: "",
+      typeMethodCheck: "",
+      extent: "",
+      acceptanceCriteria: "",
+      referenceDocuments: "",
+      verifyingDocument: "",
+      shreno: "H",
+      clientTpia: "",
+      remark: "",
+      isHeading: true,
+      isRoot: true,
+      headingText: "",
+      parentHeaderId: null,
+      dynamicValues: {},
+    }
+
+    const newRows = [...tableRows]
+    newRows.splice(lastSectionIndex + 1, 0, newRow)
+    setTableRows(newRows)
+  }
+
   // Toggle row to heading
   const toggleHeading = (id) => {
     setTableRows(
@@ -1163,11 +1205,11 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                       type="button" 
                       variant="ghost" 
                       size="sm" 
-                      className="h-8 w-full border border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-500 gap-1.5 px-2"
+                      className="h-8 w-full border border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-500 gap-1.5 px-2 cursor-pointer"
                       onClick={handleAddColumn}
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      Add Column
+                      Column
                     </Button>
                   </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase">
@@ -1232,7 +1274,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                                 }
                                 placeholder="Select heading"
                                 searchPlaceholder="Search heading..."
-                                className="font-semibold border-0 focus-visible:ring-0 shadow-none bg-transparent hover:bg-slate-100/50"
+                                className="font-semibold border-1 focus-visible:ring-0 shadow-none bg-transparent hover:bg-slate-100/50"
                                 disabled={isReadOnly}
                               />
                             </div>
@@ -1255,23 +1297,33 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                          <div className="flex gap-2">
                           {!isReadOnly && (
                             <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                onClick={() => addRow(row.id)}
-                                className="h-8 w-8"
-                                title="Add row below"
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => addRow(row.id)}
+                                  className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
+                                  title="Add activity row below"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => addHeadingRow(row.id)}
+                                  className="h-8 w-8 text-blue-600 border-blue-100 hover:bg-blue-50 cursor-pointer"
+                                  title="Insert heading below"
+                                >
+                                  <PlusCircle className="h-4 w-4" />
+                                </Button>
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="icon"
                                 onClick={() => removeRow(row.id)}
                                 disabled={tableRows.length === 1}
-                                className="h-8 w-8"
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 cursor-pointer"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -1393,7 +1445,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                                 size="icon"
                                 onClick={() => addRow(row.id)}
                                 className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
-                                title="Add row below"
+                                title="Add activity row below"
                               >
                                 <Plus className="h-4 w-4" />
                               </Button>

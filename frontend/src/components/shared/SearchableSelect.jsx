@@ -80,7 +80,7 @@ export function SearchableSelect({
             className
           )}
         >
-          <span className="truncate mr-2 uppercase">{getDisplayLabel()?.toString().toUpperCase()}</span>
+          <span className="truncate mr-2 capitalize">{getDisplayLabel()?.toString()}</span>
           <div className="flex items-center gap-1 shrink-0 opacity-50">
             {selectedValues.length > 0 && !disabled && (
               <X
@@ -151,7 +151,7 @@ export function SearchableSelect({
                           className="mr-3 pointer-events-none"
                         />
                       )}
-                      <span className="flex-1 truncate uppercase">{option.label?.toString().toUpperCase()}</span>
+                      <span className="flex-1 truncate capitalize">{option.label?.toString()}</span>
                       {!multi && isSelected && <Check className="ml-2 h-4 w-4 text-primary shrink-0" />}
                     </div>
                 )
