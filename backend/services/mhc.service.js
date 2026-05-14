@@ -782,6 +782,12 @@ class MhcService {
                 qc_group: { select: { id: true, name: true } },
                 production_engineer: { select: { id: true, name: true, empid: true } },
                 qc_engineer: { select: { id: true, name: true, empid: true } },
+                job: {
+                    include: {
+                        po: true,
+                        customer: true
+                    }
+                }
             },
         });
 

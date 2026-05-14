@@ -1,6 +1,9 @@
 const MhcService = require('../services/mhc.service');
 const NotificationService = require('#services/notification.service.js');
 const Audit = require('#utils/audit.js');
+const MhcPdfGenerator = require('../utils/mhcPdfGenerator');
+const { getCompanyInfo } = require('../utils/companyInfo');
+const prisma = require('#prisma');
 
 class MhcController {
     async list(req, res) {
@@ -388,6 +391,57 @@ class MhcController {
             console.error('MHC archive error:', error);
             const status = error.message.includes('not found') ? 404 : 400;
             res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async downloadReport(req, res) {
+        try {
+            const { company_id } = req.user;
+            const { id } = req.params;
+
+            // 1. Fetch MHC with current items
+            const mhc = await MhcService.getById(company_id, id);
+
+            if (!mhc) {
+                return res.status(404).json({ success: false, message: 'Material Heat Chart not found' });
+            }
+
+            // 2. Format PO Date for the header
+            let poDate = '-';
+            if (mhc.job?.po?.po_date) {
+                const dateObj = new Date(mhc.job.po.po_date);
+                if (!isNaN(dateObj.getTime())) {
+                    poDate = dateObj.toLocaleDateString('en-GB').replace(/\//g, '.');
+                }
+            }
+
+            // 3. Format header data
+            const pdfData = {
+                client: mhc.client || mhc.job?.customer?.customer_name || '-',
+                msn: mhc.job?.job_number || '-',
+                equipment_name: mhc.equipment_name || mhc.job?.equipement_name || '-',
+                tag_no: mhc.tag_no || mhc.job?.tag_number || '-',
+                shreno_drg_no: mhc.shreno_drg_no || '-',
+                po_no: `${mhc.po_no || mhc.job?.po?.po_number || '-'} DT.- ${poDate}`,
+                code: mhc.code || '-',
+                inspection_by: mhc.inspection_by || '-',
+                items: mhc.items || []
+            };
+
+            // 4. Set Headers for Preview/Download
+            res.setHeader('Content-Type', 'application/pdf');
+            const filename = `MHC_${mhc.report_no.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+
+            // 5. Fetch company branding
+            const companyInfo = await getCompanyInfo(company_id);
+
+            // 6. Generate
+            MhcPdfGenerator.generatePDF(pdfData, res, companyInfo);
+
+        } catch (error) {
+            console.error('MHC downloadReport error:', error);
+            res.status(500).send('Error generating Material Heat Chart report');
         }
     }
 }

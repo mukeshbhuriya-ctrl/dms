@@ -436,6 +436,30 @@ function ListView({ onCreateClick, onEditClick }) {
   const handleViewClick = (id) => {
     onEditClick(id, true) // Pass true for isView
   }
+
+  const handleDownloadPdf = useCallback(async (id, reportNo, mode = 'download') => {
+    const endpoint = `/api/mhc/download-report/${id}`;
+    const filename = `MHC_${reportNo.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+
+    try {
+      if (mode === 'print') {
+        const response = await apiClient.get(endpoint, {}, { responseType: 'blob' });
+        const blob = new Blob([response], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
+      } else {
+        await exportApi.download(endpoint, filename, {}, { contentType: 'application/pdf' });
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Could not generate report. Please try again.");
+    }
+  }, []);
   // Cascading Filter Logic
   const activeClientOptions = useMemo(() => {
     let filtered = activeFilters.records || [];
@@ -592,7 +616,18 @@ function ListView({ onCreateClick, onEditClick }) {
               size="sm"
               onClick={() => handleViewClick(row.id)}
               title="View">
-              <Eye className="h-4 w-4 mr-2" /> View
+              <Eye className="h-4 w-4 mr-1" /> View
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm"
+              onClick={(e) => { e.stopPropagation(); handleDownloadPdf(row.id, row.report_no, 'download'); }}
+              title="Download PDF"
+            >
+              <Download className="h-3.5 w-3.5 mr-1" />
+              <span className="text-[10px] font-bold uppercase">PDF</span>
             </Button>
             {canEdit && (
                <Button
@@ -649,7 +684,7 @@ function ListView({ onCreateClick, onEditClick }) {
         )
       },
     },
-  ], [isQE, isAdmin, isPE, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions]);
+  ], [isQE, isAdmin, isPE, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions, activeIsActiveOptions, handleDownloadPdf, handleViewClick, onEditClick]);
 
   const fetchData = useCallback(async (params) => {
     try {
