@@ -191,6 +191,11 @@ model user{
   drawing_versions drawing_version[]
   drawing_activities_performed drawing_activity[]
 
+  // MHC Item relations
+  mhc_item_actions       material_heat_chart_item[] @relation("MhcItemActionBy")
+  mhc_item_prod_actions  material_heat_chart_item[] @relation("MhcItemProdEng")
+  mhc_item_qc_reviews    material_heat_chart_item[] @relation("MhcItemQcReviewer")
+
   // NCR relations
   ncr_raised_at_user ncr[] @relation("NcrRaisedAt")
   ncr_raised_by ncr[] @relation("NcrRaisedBy")
@@ -932,13 +937,18 @@ model material_heat_chart_item {
   qc_status         String?   // Approved, Rejected, Pending
   qc_remarks        String?
   
-  // Versioning Fields
-  is_current        Boolean @default(true)
-  version           Int     @default(1)
-  parent_item_id    String? // Self-reference to the first version (v1)
-  action_by_id      String? // User who created this specific version
+  // Versioning & Audit Fields
+  is_current            Boolean @default(true)
+  version               Int     @default(1)
+  parent_item_id        String? // Self-reference to the first version (v1)
+  action_by_id          String? // User who created this specific version
+  production_engineer_id String? // Tracks who submitted Heat/GRN data
+  qc_engineer_id        String? // Tracks who reviewed/approved the item
   
   mhc material_heat_chart @relation(fields: [mhc_id], references: [id], onDelete: Cascade)
+  action_by user? @relation("MhcItemActionBy", fields: [action_by_id], references: [id])
+  prod_engineer user? @relation("MhcItemProdEng", fields: [production_engineer_id], references: [id])
+  qc_reviewer   user? @relation("MhcItemQcReviewer", fields: [qc_engineer_id], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -311,6 +311,7 @@ class MhcService {
                             version: currentItem.version + 1,
                             is_current: true,
                             parent_item_id: currentItem.parent_item_id || currentItem.id,
+                            production_engineer_id: user_id,
                             action_by_id: user_id
                         }
                     });
@@ -323,6 +324,10 @@ class MhcService {
                             grn_app_ap_no: item.grn_app_ap_no || item.grnAppApNo || null,
                             qc_status: 'Pending',
                             qc_remarks: null, // CLEAR REMARKS: Ensure no stale data
+                            remarks: item.remarks || undefined,
+                            mtr_no: item.mtr_no || undefined,
+                            manufacturer: item.manufacturer || undefined,
+                            production_engineer_id: user_id,
                             action_by_id: user_id
                         }
                     });
@@ -363,6 +368,13 @@ class MhcService {
             for (const item of items) {
                 if (!item.id) continue;
                 
+                // Fetch current item state to prevent overwriting approved data
+                const currentItem = await tx.material_heat_chart_item.findUnique({
+                    where: { id: item.id }
+                });
+                
+                if (currentItem && currentItem.qc_status === 'Approved') continue;
+                
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
                     data: {
@@ -371,6 +383,7 @@ class MhcService {
                         remarks: item.remarks || null,
                         qc_status: item.qc_status || 'Approved', // Default to Approved if finalizing
                         qc_remarks: item.qc_remarks || null,
+                        qc_engineer_id: user_id,
                         action_by_id: user_id
                     }
                 });
@@ -422,6 +435,13 @@ class MhcService {
             for (const item of items) {
                 if (!item.id) continue;
                 
+                // Fetch current item state to prevent overwriting approved data
+                const currentItem = await tx.material_heat_chart_item.findUnique({
+                    where: { id: item.id }
+                });
+
+                if (currentItem && currentItem.qc_status === 'Approved') continue;
+                
                 const status = item.qc_status || 'Pending';
                 if (status === 'Rejected') hasRejections = true;
 
@@ -433,6 +453,8 @@ class MhcService {
                         // If approved by QC, they might also provide MTR/Manufacturer at this stage
                         mtr_no: item.mtr_no || undefined,
                         manufacturer: item.manufacturer || undefined,
+                        remarks: item.remarks || undefined,
+                        qc_engineer_id: user_id,
                         action_by_id: user_id
                     }
                 });
@@ -776,7 +798,11 @@ class MhcService {
             include: {
                 items: { 
                     where: includeHistory ? {} : { is_current: true },
-                    orderBy: { sort_order: 'asc' } 
+                    orderBy: { sort_order: 'asc' },
+                    include: {
+                        prod_engineer: { select: { name: true } },
+                        qc_reviewer: { select: { name: true } }
+                    }
                 },
                 production_group: { select: { id: true, name: true } },
                 qc_group: { select: { id: true, name: true } },

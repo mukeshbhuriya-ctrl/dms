@@ -720,9 +720,9 @@ function ListView({ onCreateClick, onEditClick }) {
         columns={columns}
         fetchData={fetchData}
         onExport={handleExport}
-        onAdd={onCreateClick}
-        onImport={handleImportExcel}
-        onDownloadTemplate={handleDownloadTemplate}
+        onAdd={!isPE ? onCreateClick : undefined}
+        onImport={!isPE ? handleImportExcel : undefined}
+        onDownloadTemplate={!isPE ? handleDownloadTemplate : undefined}
         columnFilters={columnFilters}
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshTrigger}
@@ -1078,6 +1078,8 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 remarks: item.remarks || "",
                 qcStatus: item.qc_status || "Pending",
                 qcRemarks: item.qc_remarks || "",
+                qcReviewerName: item.qc_reviewer?.name || "",
+                prodEngineerName: item.prod_engineer?.name || "",
                 isHeading: Boolean(item.is_heading),
                 headingText: item.heading_text || "",
                 parentHeadingId: item.parent_heading_id,
@@ -1291,6 +1293,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                   mtrNo: i.mtr_no || "",
                   manufacturerName: i.manufacturer || "",
                   remarks: i.remarks || "",
+                  qcStatus: i.qc_status || "Pending",
+                  qcRemarks: i.qc_remarks || "",
+                  qcReviewerName: i.qc_reviewer?.name || "",
+                  prodEngineerName: i.prod_engineer?.name || "",
                   isHeading: Boolean(i.is_heading),
                   headingText: i.heading_text || "",
                   parentHeadingId: i.parent_heading_id,
@@ -1514,8 +1520,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                       "REMARKS NCR/DCR",
                       "QC REVIEW",
                       "QC REMARKS",
+                      "PROD. PERSON",
+                      "QC REVIEWER",
                       "Action",
-                    ].filter(h => showQcCols || (h !== "QC REVIEW" && h !== "QC REMARKS"))
+                    ].filter(h => showQcCols || (h !== "QC REVIEW" && h !== "QC REMARKS" && h !== "PROD. PERSON" && h !== "QC REVIEWER"))
                     .map((h, i) => {
                       const isObj = typeof h === "object";
                       const label = isObj ? h.label : h;
@@ -1602,7 +1610,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                               </td>
                             </tr>
                           )}
-                            <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
+                          <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
                              {isView && (
                                <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40" : "bg-white"} border-r border-slate-100`}>
                                   {row.id && !String(row.id).startsWith("new-") && (
@@ -1727,6 +1735,20 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                                    />
                               </td>
                             )}
+                             {showQcCols && (
+                               <td className="p-2 align-top min-w-[150px]">
+                                 <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
+                                   {row.prodEngineerName || "-"}
+                                 </div>
+                               </td>
+                             )}
+                             {showQcCols && (
+                               <td className="p-2 align-top min-w-[150px]">
+                                 <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
+                                   {row.qcReviewerName || "-"}
+                                 </div>
+                               </td>
+                             )}
                             {/* Actions */}
                             <td className={`p-2 align-top ${isView ? 'hidden' : ''}`}>
                               <div className="flex items-center gap-1.5 h-10">
