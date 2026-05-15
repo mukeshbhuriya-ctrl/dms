@@ -420,8 +420,26 @@ class MhcController {
             let finalItems = mhc.items || [];
             if (itemIds) {
                 const selectedIds = itemIds.split(',');
-                // Keep selected items OR any heading rows
-                finalItems = finalItems.filter(it => it.is_heading || selectedIds.includes(it.id));
+                finalItems = finalItems.map(it => {
+                    const isSelected = selectedIds.includes(it.id);
+                    if (it.is_heading) {
+                        if (isSelected) return it;
+                        // Heading only: clear item fields to prevent generator from drawing item row
+                        return { 
+                            ...it, 
+                            item_no: null, 
+                            description: null, 
+                            size: null, 
+                            material_spec: null, 
+                            quantity_unit: null, 
+                            heat_no: null, 
+                            mtr_no: null, 
+                            manufacturer: null, 
+                            remarks: null 
+                        };
+                    }
+                    return isSelected ? it : null;
+                }).filter(Boolean);
             }
 
             // 4. Format header data

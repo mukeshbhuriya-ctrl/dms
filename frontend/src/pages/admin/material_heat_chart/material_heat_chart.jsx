@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, Search, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -999,6 +999,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   // Table rows
   const [tableRows, setTableRows] = useState([emptyRow("row-1")])
 
+  // Search Filter
+  const [itemSearchActive, setItemSearchActive] = useState(false)
+  const [itemSearchQuery, setItemSearchQuery] = useState("")
+
   // Selection for Selective Download
   const [selectedItemIds, setSelectedItemIds] = useState(new Set())
 
@@ -1185,6 +1189,32 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const isQcInitiationLocked = isView || !((isAdmin || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "DRAFT" || !editId));
   const isProdOfferLocked = isView || !((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED") && editId);
   const isQcFinalLocked = isView || !((isAdmin || isQE) && sStatus === "OFFERED");
+  const showQcCols = isView || (sStatus !== "DRAFT" && sStatus !== "INITIATED" && sStatus !== "");
+
+  const filteredTableRows = useMemo(() => {
+    if (!itemSearchQuery.trim()) return tableRows;
+    const query = itemSearchQuery.toLowerCase();
+    
+    const matchingIds = new Set();
+    const parentHeadingIds = new Set();
+    
+    // Pass 1: Identify matching items and their structural dependencies
+    tableRows.forEach(row => {
+      const matches = row.itemNo?.toLowerCase().includes(query) || 
+                      row.description?.toLowerCase().includes(query) ||
+                      (row.isHeading && row.headingText?.toLowerCase().includes(query));
+      
+      if (matches) {
+        matchingIds.add(row.id);
+        if (row.parentHeadingId) parentHeadingIds.add(row.parentHeadingId);
+      }
+    });
+
+    // Pass 2: Filter while preserving structure (Heading matches or Item matches)
+    return tableRows.filter(row => 
+      matchingIds.has(row.id) || parentHeadingIds.has(row.id)
+    );
+  }, [tableRows, itemSearchQuery]);
 
   const toggleItemSelection = (id) => {
     setSelectedItemIds(prev => {
@@ -1468,7 +1498,11 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                        </th>
                     )}
                     {[
-                      "ITEM NO./PART NO.",
+                      {
+                        label: "ITEM NO./PART NO.",
+                        id: "itemNo",
+                        searchable: true
+                      },
                       "DESCRIPTION",
                       "MATERIAL SPECIFICATION",
                       "SIZE",
@@ -1481,26 +1515,64 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                       "QC REVIEW",
                       "QC REMARKS",
                       "Action",
-                    ].map((h, i) => (
-                      <th
-                        key={h}
-                        className={`text-left p-3 font-bold text-[10px] uppercase tracking-widest whitespace-normal min-w-[140px] border-b-2 border-slate-200 ${i === 0 ? "sticky left-0 bg-slate-100 z-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
+                    ].filter(h => showQcCols || (h !== "QC REVIEW" && h !== "QC REMARKS"))
+                    .map((h, i) => {
+                      const isObj = typeof h === "object";
+                      const label = isObj ? h.label : h;
+                      
+                      return (
+                        <th
+                          key={label}
+                          className={`p-3 text-left font-bold uppercase text-slate-800 text-[10px] tracking-wider whitespace-nowrap border-b-2 border-slate-200 sticky top-0 z-40 bg-slate-100 ${
+                            i === 0 ? "sticky left-0 z-[52] min-w-[150px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
                           }`}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                        >
+                          <div className="flex items-center justify-between gap-2 group">
+                            {isObj && h.id === "itemNo" && itemSearchActive ? (
+                              <div className="flex items-center gap-1 w-full bg-white border border-primary/30 rounded px-1.5 py-0.5 shadow-sm animate-in fade-in slide-in-from-left-1 duration-200">
+                                <Search className="h-3 w-3 text-primary/60" />
+                                <input 
+                                  autoFocus
+                                  className="bg-transparent border-none outline-none text-[11px] w-full font-medium placeholder:font-normal placeholder:text-slate-400"
+                                  placeholder="Search..."
+                                  value={itemSearchQuery}
+                                  onChange={(e) => setItemSearchQuery(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                      setItemSearchActive(false);
+                                      setItemSearchQuery("");
+                                    }
+                                  }}
+                                />
+                                <button onClick={() => { setItemSearchActive(false); setItemSearchQuery(""); }}>
+                                  <X className="h-3 w-3 text-slate-400 hover:text-rose-500 transition-colors" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="truncate">{label}</span>
+                                {isObj && h.searchable && (
+                                  <button 
+                                    onClick={() => setItemSearchActive(true)}
+                                    className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-primary transition-all focus:opacity-100"
+                                  >
+                                    <Search className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </th>
+                      )
+                    })}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {(() => {
                     let activeHeadingId = null;
-                    return tableRows.map((row) => {
-                      if (row.isHeading) {
-                        activeHeadingId = row.id;
-                      }
+                    return filteredTableRows.map((row, idx) => {
+                      if (row.isHeading) activeHeadingId = row.id;
                       const isInGroup = activeHeadingId !== null;
-
                       return (
                         <React.Fragment key={row.id}>
                           {row.isHeading && (
@@ -1570,7 +1642,8 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                             ))}
 
                             {/* QC REVIEW */}
-                            <td className="p-2 align-top min-w-[120px]">
+                            {showQcCols && (
+                              <td className="p-2 align-top min-w-[120px]">
                                 <div className="flex items-center gap-2 h-10">
                                   {(() => {
                                     const s = String(row.qcStatus || "Pending").toUpperCase();
@@ -1641,16 +1714,19 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                                     }
                                   })()}
                                 </div>
-                            </td>
-                            <td className="p-2 align-top min-w-[200px]">
-                                 <Input 
-                                   value={row.qcRemarks || ""}
-                                   onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
-                                   placeholder="QC feedback..."
-                                   className={`text-[13px] h-10 rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
-                                   disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
-                                 />
-                            </td>
+                              </td>
+                            )}
+                            {showQcCols && (
+                              <td className="p-2 align-top min-w-[200px]">
+                                   <Input 
+                                     value={row.qcRemarks || ""}
+                                     onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
+                                     placeholder="QC feedback..."
+                                     className={`text-[13px] h-10 rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
+                                     disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
+                                   />
+                              </td>
+                            )}
                             {/* Actions */}
                             <td className={`p-2 align-top ${isView ? 'hidden' : ''}`}>
                               <div className="flex items-center gap-1.5 h-10">
@@ -1690,7 +1766,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                         </React.Fragment>
                       );
                     });
-                                  })()}
+                  })()}
                 </tbody>
               </table>
             </div>
@@ -1783,7 +1859,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 <Button 
                   variant="secondary"
                   onClick={() => handleSubmit("SAVE_REVIEW")} 
-                  disabled={submitting !== null}
+                  disabled={submitting !== null || !tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
                   className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
                 >
                   {submitting === "SAVE_REVIEW" ? "Saving..." : "Review & Continue"}
