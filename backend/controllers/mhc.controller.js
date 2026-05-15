@@ -398,6 +398,7 @@ class MhcController {
         try {
             const { company_id } = req.user;
             const { id } = req.params;
+            const { itemIds } = req.query; // Comma-separated list of item IDs
 
             // 1. Fetch MHC with current items
             const mhc = await MhcService.getById(company_id, id);
@@ -415,7 +416,15 @@ class MhcController {
                 }
             }
 
-            // 3. Format header data
+            // 3. Filter items if requested
+            let finalItems = mhc.items || [];
+            if (itemIds) {
+                const selectedIds = itemIds.split(',');
+                // Keep selected items OR any heading rows
+                finalItems = finalItems.filter(it => it.is_heading || selectedIds.includes(it.id));
+            }
+
+            // 4. Format header data
             const pdfData = {
                 client: mhc.client || mhc.job?.customer?.customer_name || '-',
                 msn: mhc.job?.job_number || '-',
@@ -425,7 +434,7 @@ class MhcController {
                 po_no: `${mhc.po_no || mhc.job?.po?.po_number || '-'} DT.- ${poDate}`,
                 code: mhc.code || '-',
                 inspection_by: mhc.inspection_by || '-',
-                items: mhc.items || []
+                items: finalItems
             };
 
             // 4. Set Headers for Preview/Download

@@ -59,7 +59,7 @@ export function ModuleHeader({ title, description, actions }) {
             variant="outline"
             size="icon"
             onClick={() => setDrawerOpen(true)}
-            className="relative h-9 w-9 rounded-md border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition-all duration-200"
+            className="relative h-9 w-9 rounded-md border-slate-200 hover:bg-slate-50 hover:text-slate-900 transition-all duration-200 cursor-pointer"
             aria-label="Open notifications"
           >
             <Bell className="h-4 w-4" />

@@ -147,26 +147,37 @@ class MhcPdfGenerator {
         const items = data.items || [];
         items.forEach((item, idx) => {
             const isHeading = item.is_heading;
-            const h = isHeading ? headingH : rowH;
-
-            if (curY + h > bodyMaxY && idx < items.length - 1) {
-                doc.addPage({ margin: 30, size: 'A4', layout: 'landscape' });
-                drawHeader(30);
+            
+            // 1. If it's a heading, draw the heading banner
+            if (isHeading) {
+                if (curY + headingH > bodyMaxY) {
+                    doc.addPage({ margin: 30, size: 'A4', layout: 'landscape' });
+                    drawHeader(30);
+                }
+                this.drawBox(doc, startX, curY, pageWidth, headingH, 0.5);
+                doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.black)
+                    .text(`${item.heading_text || 'HEADING'}`, startX + 5, curY + 5, { height: headingH - 5 });
+                curY += headingH;
             }
 
-            this.drawBox(doc, startX, curY, pageWidth, h, 0.5);
+            // 2. If it has item data (or it's NOT a heading), draw the item row
+            // We check for item_no or description to avoid drawing empty rows for headings that are ONLY headings
+            if (!isHeading || (item.item_no || item.description)) {
+                if (curY + rowH > bodyMaxY) {
+                    doc.addPage({ margin: 30, size: 'A4', layout: 'landscape' });
+                    drawHeader(30);
+                }
 
-            if (isHeading) {
-                doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.black)
-                    .text(`${item.heading_text || 'HEADING'}`, startX + 5, curY + 5, { height: h - 5 });
-            } else {
+                this.drawBox(doc, startX, curY, pageWidth, rowH, 0.5);
+                
                 let tx = startX;
-                doc.font(this.fonts.regular).fontSize(7);
+                doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
                 const drawCell = (val, w, align = 'center') => {
-                    doc.text(String(val || '-'), tx + 2, curY + 5, { width: w - 4, height: h - 5, align, ellipsis: true });
+                    doc.text(String(val || '-'), tx + 2, curY + 5, { width: w - 4, height: rowH - 5, align, ellipsis: true });
                     tx += w;
-                    this.drawLine(doc, tx, curY, tx, curY + h, 0.5);
+                    this.drawLine(doc, tx, curY, tx, curY + rowH, 0.5);
                 };
+
                 drawCell(item.item_no, cols[0].w);
                 drawCell(item.description, cols[1].w);
                 drawCell(item.size, cols[2].w, 'left');
@@ -175,9 +186,10 @@ class MhcPdfGenerator {
                 drawCell(item.heat_no, cols[5].w);
                 drawCell(item.mtr_no, cols[6].w);
                 drawCell(item.manufacturer, cols[7].w);
-                doc.text(String(item.remarks || '-'), tx + 2, curY + 5, { width: cols[8].w - 4, height: h - 5, align: 'center', ellipsis: true });
+                doc.text(String(item.remarks || '-'), tx + 2, curY + 5, { width: cols[8].w - 4, height: rowH - 5, align: 'center', ellipsis: true });
+                
+                curY += rowH;
             }
-            curY += h;
         });
 
         // Fill empty rows for the professional industrial look

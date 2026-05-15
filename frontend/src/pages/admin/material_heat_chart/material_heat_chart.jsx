@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -47,6 +47,7 @@ import { exportApi } from "@/api/export.api"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Archive } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 function emptyRow(id) {
   return {
@@ -998,6 +999,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   // Table rows
   const [tableRows, setTableRows] = useState([emptyRow("row-1")])
 
+  // Selection for Selective Download
+  const [selectedItemIds, setSelectedItemIds] = useState(new Set())
+
   // Submit state
   const [submitting, setSubmitting] = useState(null) // null | "Draft" | "Pending"
 
@@ -1181,6 +1185,53 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const isQcInitiationLocked = isView || !((isAdmin || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "DRAFT" || !editId));
   const isProdOfferLocked = isView || !((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED") && editId);
   const isQcFinalLocked = isView || !((isAdmin || isQE) && sStatus === "OFFERED");
+
+  const toggleItemSelection = (id) => {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const selectable = tableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-"))
+    if (selectedItemIds.size === selectable.length && selectable.length > 0) {
+      setSelectedItemIds(new Set())
+    } else {
+      setSelectedItemIds(new Set(selectable.map(r => r.id)))
+    }
+  }
+
+  const handleDownloadSelectedPdf = async (mode = 'download') => {
+    if (selectedItemIds.size === 0) {
+      toast.warn("Please select at least one item to include in the PDF.")
+      return
+    }
+    const itemIds = Array.from(selectedItemIds).join(',')
+    const endpoint = `/api/mhc/download-report/${editId}?itemIds=${itemIds}`;
+    const filename = `MHC_${autoFill.reportNo.replace(/[^a-z0-9]/gi, '_')}_Selective.pdf`;
+
+    try {
+      if (mode === 'print') {
+        const response = await apiClient.get(endpoint, {}, { responseType: 'blob' });
+        const blob = new Blob([response], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const printWindow = window.open(url, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
+      } else {
+        await exportApi.download(endpoint, filename, {}, { contentType: 'application/pdf' });
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error(`Could not ${mode === 'print' ? 'print' : 'generate'} selective report.`);
+    }
+  };
 
   const handleItemAction = async (item, action) => {
     if (!item.id || String(item.id).startsWith("new-")) {
@@ -1370,16 +1421,52 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       </Card>
 
       {/* ── Section 3: Material Heat Chart Details ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Material Heat Chart Details</CardTitle>
+      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20 overflow-hidden">
+        <CardHeader className="pb-4 bg-slate-50/50 border-b border-muted-foreground/10">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-slate-800">Material Heat Chart Details</CardTitle>
+            {isView && editId && (
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleDownloadSelectedPdf('print')}
+                  className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm bg-white"
+                  title="Print Selected Items"
+                >
+                  <Printer className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-[10px] font-bold uppercase">Print</span>
+                </Button>
+
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleDownloadSelectedPdf('download')}
+                  className="h-8 px-2 cursor-pointer bg-slate-900 border-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm rounded-sm"
+                  title="Download Selected PDF"
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-[10px] font-bold uppercase">PDF</span>
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <div className="space-y-4">
             <div className="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar border rounded-xl shadow-inner bg-slate-50/20 relative">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-40 shadow-sm">
                   <tr className="border-b bg-slate-100 text-slate-700">
+                    {isView && (
+                       <th className="p-3 w-12 sticky left-0 bg-slate-100 z-[51] border-b-2 border-slate-200">
+                          <Checkbox 
+                            checked={selectedItemIds.size > 0 && selectedItemIds.size === tableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-")).length}
+                            onCheckedChange={toggleSelectAll}
+                            className="border-slate-400 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                          />
+                       </th>
+                    )}
                     {[
                       "ITEM NO./PART NO.",
                       "DESCRIPTION",
@@ -1418,6 +1505,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                         <React.Fragment key={row.id}>
                           {row.isHeading && (
                             <tr className="group/heading border-b-0 bg-amber-50/40">
+                              {isView && <td className="bg-amber-100/40 border-t border-t-amber-400/50" />}
                               <td colSpan={11} className="p-0 border-t border-t-amber-400/50">
                                 <div className="flex items-center gap-0 my-1.5 mx-2 sticky left-2 w-fit z-20">
                                    <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
@@ -1443,6 +1531,17 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                             </tr>
                           )}
                             <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
+                             {isView && (
+                               <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40" : "bg-white"} border-r border-slate-100`}>
+                                  {row.id && !String(row.id).startsWith("new-") && (
+                                    <Checkbox 
+                                      checked={selectedItemIds.has(row.id)}
+                                      onCheckedChange={() => toggleItemSelection(row.id)}
+                                      className="border-slate-400 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                                    />
+                                  )}
+                               </td>
+                             )}
                             {[
                               { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked },
                               { field: "description", placeholder: "Description", locked: isQcInitiationLocked },
