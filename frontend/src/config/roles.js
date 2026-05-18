@@ -179,7 +179,7 @@ export const MENU_CONFIG = [
         items: [
             { title: "Communication Matrix", path: "/dcc/communication-matrix", moduleKey: MODULES.DMS.MASTER },
             { title: "Documents (VDR)", path: "/dcc/documents", moduleKey: MODULES.DMS.VDR },
-            { title: "Upload Documents", path: "/user/upload-documents", moduleKey: MODULES.DMS.UPLOAD, hideFor: [ROLES.ADMIN, ROLES.DCC] },
+            { title: "Upload Documents", path: "/user/upload-documents", moduleKey: MODULES.DMS.UPLOAD },
             { title: "Document Approver", path: "/dcc/document-approver", moduleKey: MODULES.DMS.APPROVER },
             { title: "Create Transmission", path: "/dcc/create-transmission", moduleKey: MODULES.DMS.TRANSMISSION_CREATE },
             { title: "Client Approval Status", path: "/dcc/client-approval-status", moduleKey: MODULES.DMS.TRANSMISSION_STATUS },

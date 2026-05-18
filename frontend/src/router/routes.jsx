@@ -95,7 +95,7 @@ const userRoutes = [
     element: protect(
       <UploadDocument />,
       MODULES.DMS.UPLOAD,
-      [ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
+      [ROLES.USER, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.DCC, ROLES.ADMIN]
     ),
   },
 ]

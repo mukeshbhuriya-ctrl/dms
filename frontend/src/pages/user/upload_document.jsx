@@ -269,6 +269,21 @@ function UploadDocument() {
             className: "w-[80px]"
         },
         {
+            id: "assignee",
+            header: "Assigned To",
+            accessorKey: "user.name",
+            cell: (row) => {
+                const name = row.user ? (row.user.name || row.user.full_name || row.user.email) : "Pending Assignee";
+                const empid = row.user?.empid || row.user?.employeeId || "";
+                
+                if (!row.user) {
+                    return <span className="text-slate-400 italic font-medium">Pending Assignee</span>;
+                }
+
+                return empid ? `${name} (${empid})` : name;
+            },
+        },
+        {
             id: "customer_name",
             header: "Client",
             accessorKey: "customer.customer_name",
@@ -538,7 +553,8 @@ function UploadDocument() {
                         remarks: latestVersion?.remarks || '-',
                         customer: doc.customer,
                         po: doc.po,
-                        group: doc.group
+                        group: doc.group,
+                        user: doc.user
                     }
                 })
 

@@ -314,9 +314,17 @@ class DccController {
 
     async getMyAssignedDocuments(req, res) {
         try {
-            // Middleware attaches userid, not id
             const userId = req.user.userid || req.user.id;
-            const result = await DccService.getMyAssignedDocuments(req.user.company_id, userId, req.query);
+            const roles = Array.isArray(req.user.role) ? req.user.role : [req.user.role];
+            const upperRoles = roles.map(r => String(r).toUpperCase());
+            const isPowerUser = upperRoles.includes('ADMIN') || upperRoles.includes('DCC');
+
+            let result;
+            if (isPowerUser) {
+                result = await DccService.getAllAssignedDocuments(req.user.company_id, req.query);
+            } else {
+                result = await DccService.getMyAssignedDocuments(req.user.company_id, userId, req.query);
+            }
             res.status(200).json({ success: true, data: result.data, meta: result.meta });
         } catch (error) {
             res.status(500).json({ success: false, message: error.message });
