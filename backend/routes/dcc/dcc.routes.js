@@ -14,6 +14,7 @@ const DccController = require('../../controllers/dcc.controller');
 // Routes accessible to all authenticated users
 router.get('/get-assigned-documents', authenticateUserOnly, DccController.getAllAssignedDocuments);
 router.get('/upload-documents', authenticateUserOnly, DccController.getMyAssignedDocuments);
+router.get('/user-dashboard-stats', authenticateUserOnly, DccController.getUserDashboardStats);
 router.post('/upload-document-version', authenticateUserOnly, upload.single('file'), DccController.uploadDocumentVersion);
 router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumentTrail);
 router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);

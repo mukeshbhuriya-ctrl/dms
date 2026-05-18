@@ -331,6 +331,115 @@ class DccController {
         }
     }
 
+    async getUserDashboardStats(req, res) {
+        try {
+            const userId = req.user.userid || req.user.id;
+            const roles = Array.isArray(req.user.role) ? req.user.role : [req.user.role];
+            const upperRoles = roles.map(r => String(r).toUpperCase());
+            const isPowerUser = upperRoles.includes('ADMIN') || upperRoles.includes('DCC');
+            const company_id = req.user.company_id;
+
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            // Scoped conditions
+            const docWhere = { company_id, is_deleted: false };
+            if (!isPowerUser) {
+                docWhere.user_id = userId;
+            }
+
+            const pendingWhere = { ...docWhere, status: 'Pending for Approval' };
+            const approvedWhere = { ...docWhere, status: 'Approved' };
+
+            const versionWhere = {};
+            if (isPowerUser) {
+                versionWhere.group_document = { company_id, is_deleted: false };
+            } else {
+                versionWhere.uploaded_by = userId;
+            }
+            versionWhere.createdAt = { gte: todayStart };
+
+            // Counts Transaction
+            const [totalDocsCount, pendingApprovalCount, approvedCount, uploadedTodayCount] = await prisma.$transaction([
+                prisma.group_document.count({ where: docWhere }),
+                prisma.group_document.count({ where: pendingWhere }),
+                prisma.group_document.count({ where: approvedWhere }),
+                prisma.document_version.count({ where: versionWhere })
+            ]);
+
+            // Query Recent Activities
+            const recentVersions = await prisma.document_version.findMany({
+                where: isPowerUser ? {
+                    group_document: { company_id, is_deleted: false }
+                } : {
+                    group_document: { company_id, user_id: userId, is_deleted: false }
+                },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+                include: {
+                    group_document: {
+                        include: {
+                            document: true
+                        }
+                    },
+                    uploader: {
+                        select: {
+                            name: true,
+                            empid: true
+                        }
+                    }
+                }
+            });
+
+            // Format recent activities helper
+            const formatTimeAgo = (date) => {
+                const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+                if (seconds < 0) return 'Just now';
+                if (seconds < 60) return 'Just now';
+                const minutes = Math.floor(seconds / 60);
+                if (minutes < 60) return `${minutes}m ago`;
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours}h ago`;
+                const days = Math.floor(hours / 24);
+                if (days === 1) return 'Yesterday';
+                return `${days} days ago`;
+            };
+
+            const recentActivities = recentVersions.map(v => {
+                let title = 'Document Uploaded';
+                let status = 'pending';
+                if (v.status === 'Approved') {
+                    title = 'Document Approved';
+                    status = 'approved';
+                } else if (v.status === 'Rejected') {
+                    title = 'Document Rejected';
+                    status = 'rejected';
+                }
+
+                return {
+                    id: v.id,
+                    title,
+                    description: `${v.group_document?.document?.document_name || 'Document'} (v${v.version_no})`,
+                    time: formatTimeAgo(v.createdAt),
+                    status
+                };
+            });
+
+            res.status(200).json({
+                success: true,
+                data: {
+                    totalDocuments: totalDocsCount,
+                    pendingApproval: pendingApprovalCount,
+                    approved: approvedCount,
+                    uploadedToday: uploadedTodayCount,
+                    recentActivities
+                }
+            });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
     async getAllAssignedDocuments(req, res) {
         try {
             const result = await DccService.getAllAssignedDocuments(req.user.company_id, req.query);
