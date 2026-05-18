@@ -1312,10 +1312,10 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                                   variant="outline"
                                   size="icon"
                                   onClick={() => addHeadingRow(row.id)}
-                                  className="h-8 w-8 text-blue-600 border-blue-100 hover:bg-blue-50 cursor-pointer"
+                                  className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
                                   title="Insert heading below"
                                 >
-                                  <PlusCircle className="h-4 w-4" />
+                                  <Type className="h-4 w-4" />
                                 </Button>
                               <Button
                                 type="button"
