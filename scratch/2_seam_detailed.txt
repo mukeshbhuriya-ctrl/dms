@@ -1,0 +1,287 @@
+=== DETAILED TABLES IN 2. Seam Welding Report.docx ===
+
+--- TABLE 1 ---
+  Row 1 (1 cells):
+    Col 1 [span=4]: 'LONG SEAM / CIRCUMFERENCE SEAM INSPECTION REPORT'
+  Row 2 (4 cells):
+    Col 1: 'Joint Number'
+    Col 2: 'CS1'
+    Col 3: '1A01'
+    Col 4: ''
+  Row 3 (4 cells):
+    Col 1: 'Material Identification'
+    Col 2: 'X'
+    Col 3: ''
+    Col 4: ''
+  Row 4 (4 cells):
+    Col 1: 'Weld joint configuration'
+    Col 2: 'Y'
+    Col 3: ''
+    Col 4: ''
+  Row 5 (4 cells):
+    Col 1: 'Root Gap'
+    Col 2: 'Q'
+    Col 3: ''
+    Col 4: ''
+  Row 6 (4 cells):
+    Col 1: 'Root Face'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 7 (4 cells):
+    Col 1: 'Degree for “V”'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 8 (4 cells):
+    Col 1: 'Offset'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 9 (4 cells):
+    Col 1: 'Alignment'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 10 (4 cells):
+    Col 1: 'Weld edge Visual'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 11 (4 cells):
+    Col 1: 'Length of the Shell'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 12 (4 cells):
+    Col 1: 'Outside circumference'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 13 (4 cells):
+    Col 1: 'Inside Gauge / TemplateVerification'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 14 (4 cells):
+    Col 1: 'Outside Gauge /Template verification (if Applicable)'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 15 (4 cells):
+    Col 1: 'Tack Welder Number'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 16 (1 cells):
+    Col 1 [span=4]: 'Set Up Inspection by'
+  Row 17 (4 cells):
+    Col 1: 'Production Engineer'
+    Col 2: 'Vikram'
+    Col 3: ''
+    Col 4: ''
+  Row 18 (4 cells):
+    Col 1: ''
+    Col 2: '1/1/26'
+    Col 3: ''
+    Col 4: ''
+  Row 19 (4 cells):
+    Col 1: 'QC Engineer'
+    Col 2: 'Dhruv Panchal'
+    Col 3: ''
+    Col 4: ''
+  Row 20 (4 cells):
+    Col 1: ''
+    Col 2: '2/1/26'
+    Col 3: ''
+    Col 4: ''
+  Row 21 (4 cells):
+    Col 1: ''
+    Col 2: 'Approve'
+    Col 3: ''
+    Col 4: ''
+  Row 22 (4 cells):
+    Col 1: 'AI / CLIENT / TPIA'
+    Col 2: 'Name'
+    Col 3: ''
+    Col 4: ''
+  Row 23 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 24 (4 cells):
+    Col 1: ''
+    Col 2: 'Sign'
+    Col 3: ''
+    Col 4: ''
+  Row 25 (1 cells):
+    Col 1 [span=4]: 'Back chip – Required / not required'
+  Row 26 (4 cells):
+    Col 1: 'Back Chip PT'
+    Col 2: 'YES / No'
+    Col 3: 'YES'
+    Col 4: ''
+  Row 27 (4 cells):
+    Col 1: 'Production Engineer'
+    Col 2: 'Name'
+    Col 3: 'Vikram'
+    Col 4: ''
+  Row 28 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: '3/1/26'
+    Col 4: ''
+  Row 29 (4 cells):
+    Col 1: 'QC Engineer'
+    Col 2: 'Name'
+    Col 3: 'Digvijay'
+    Col 4: ''
+  Row 30 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: '3/1/26'
+    Col 4: ''
+  Row 31 (4 cells):
+    Col 1: ''
+    Col 2: 'Sign'
+    Col 3: ''
+    Col 4: ''
+  Row 32 (4 cells):
+    Col 1: 'AI / CLIENT / TPIA'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 33 (1 cells):
+    Col 1 [span=4]: 'Weld Visual Inspection by'
+  Row 34 (4 cells):
+    Col 1: 'Welder No.'
+    Col 2: ''
+    Col 3: 'SCW-426'
+    Col 4: ''
+  Row 35 (4 cells):
+    Col 1: 'Welding process'
+    Col 2: ''
+    Col 3: 'SMAW+SAW'
+    Col 4: ''
+  Row 36 (4 cells):
+    Col 1: 'Production Engineer'
+    Col 2: 'Name'
+    Col 3: 'Chintan'
+    Col 4: ''
+  Row 37 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 38 (4 cells):
+    Col 1: 'QC Engineer'
+    Col 2: 'Name'
+    Col 3: ''
+    Col 4: ''
+  Row 39 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 40 (4 cells):
+    Col 1: ''
+    Col 2: 'Sign'
+    Col 3: ''
+    Col 4: ''
+  Row 41 (4 cells):
+    Col 1: 'AI / CLIENT / TPIA'
+    Col 2: ''
+    Col 3: ''
+    Col 4: ''
+  Row 42 (1 cells):
+    Col 1 [span=4]: 'Radiography Testing Requirement'
+  Row 43 (4 cells):
+    Col 1: 'Production Engineer'
+    Col 2: 'Name'
+    Col 3: 'Chintan'
+    Col 4: ''
+  Row 44 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 45 (4 cells):
+    Col 1: 'NDT Engineer'
+    Col 2: 'Name'
+    Col 3: 'Chintan'
+    Col 4: ''
+  Row 46 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 47 (1 cells):
+    Col 1 [span=4]: 'Liquid Penetrant Testing (Required / Not required)'
+  Row 48 (4 cells):
+    Col 1: 'Production Engineer'
+    Col 2: 'Name'
+    Col 3: 'Chintan'
+    Col 4: ''
+  Row 49 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 50 (4 cells):
+    Col 1: 'NDT Engineer'
+    Col 2: 'Name'
+    Col 3: 'DIGVIJAY'
+    Col 4: ''
+  Row 51 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 52 (1 cells):
+    Col 1 [span=4]: 'PWHT (Required / Not required)'
+  Row 53 (1 cells):
+    Col 1 [span=4]: 'Radiography Testing Requirement (After PWHT)'
+  Row 54 (4 cells):
+    Col 1: 'Production Engineer'
+    Col 2: 'Name'
+    Col 3: 'Chintan'
+    Col 4: ''
+  Row 55 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 56 (4 cells):
+    Col 1: 'NDT Engineer'
+    Col 2: 'Name'
+    Col 3: 'VISHAL'
+    Col 4: ''
+  Row 57 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 58 (1 cells):
+    Col 1 [span=4]: 'Liquid Penetrant Testing (Required / Not required) – After PWHT'
+  Row 59 (4 cells):
+    Col 1: 'Production Engineer'
+    Col 2: 'Name'
+    Col 3: 'Chintan'
+    Col 4: ''
+  Row 60 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+  Row 61 (4 cells):
+    Col 1: 'NDT Engineer'
+    Col 2: 'Name'
+    Col 3: 'DIGVIJAY'
+    Col 4: ''
+  Row 62 (4 cells):
+    Col 1: ''
+    Col 2: 'Date'
+    Col 3: ''
+    Col 4: ''
+
