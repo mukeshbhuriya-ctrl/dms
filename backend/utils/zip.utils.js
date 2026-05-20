@@ -11,6 +11,10 @@ if (!fs.existsSync(generatedDir)) {
     fs.mkdirSync(generatedDir, { recursive: true });
 }
 
+const sanitizeDirName = (name) => {
+    return name ? name.replace(/[\\/:*?"<>|]/g, '_').trim() : '';
+};
+
 /**
  * Create a ZIP file for a transmission from a list of documents.
  * @param {string} zipName - Name of the output ZIP file (e.g., TR-123.zip)
@@ -66,19 +70,26 @@ const createTransmissionZip = (zipName, docs) => {
                             docName = `${doc.document.document_number}-${doc.document.document_name}${ext}`;
                         }
 
+                        // Build sanitized document folder name: [document_name]
+                        const docFolder = sanitizeDirName(doc.document.document_name);
+                        
+                        // Build version/revision folder name: version number only
+                        const revFolder = (version.version_no ?? 0).toString();
+
                         // Check for associated jobs
                         const jobs = doc.group?.job_group?.map(jg => jg.job) || [];
 
                         if (jobs.length > 0) {
                             // Add to each job folder
                             jobs.forEach(job => {
-                                const jobFolder = job.job_number ? job.job_number : 'Unknown-Job';
-                                const docNameInZip = `${jobFolder}/${docName}`;
-                                archive.file(filePath, { name: docNameInZip });
+                                const jobFolder = job.job_number ? sanitizeDirName(job.job_number) : 'Unknown-Job';
+                                const docPathInZip = `${jobFolder}/${docFolder}/${revFolder}/${docName}`;
+                                archive.file(filePath, { name: docPathInZip });
                             });
                         } else {
-                            // No job associated, place in root
-                            archive.file(filePath, { name: docName });
+                            // No job associated, place in root of ZIP
+                            const docPathInZip = `${docFolder}/${revFolder}/${docName}`;
+                            archive.file(filePath, { name: docPathInZip });
                         }
                     }
                 });

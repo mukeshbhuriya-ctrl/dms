@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FileText, Plus, Upload, X, Eye } from "lucide-react";
 import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
+import { toast } from "react-toastify";
 
 export function MultiFileUploadModal({
     isOpen,
@@ -29,7 +30,34 @@ export function MultiFileUploadModal({
 
     const handleStageFiles = (e) => {
         const newFiles = Array.from(e.target.files);
-        setStagedFiles(prev => [...prev, ...newFiles]);
+        const scriptExtensions = ['.exe', '.bat', '.cmd', '.sh', '.js', '.vbs', '.msi'];
+        const mediaExtensions = ['.mp3', '.wav', '.wma', '.m4a', '.aac', '.ogg', '.flac', '.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.mpeg', '.mpg'];
+        
+        const validFiles = [];
+        let rejectedMedia = [];
+        let rejectedScript = [];
+
+        newFiles.forEach(file => {
+            const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+            if (scriptExtensions.includes(ext)) {
+                rejectedScript.push(file.name);
+            } else if (mediaExtensions.includes(ext)) {
+                rejectedMedia.push(file.name);
+            } else {
+                validFiles.push(file);
+            }
+        });
+
+        if (rejectedScript.length > 0) {
+            toast.error(`Security Warning: Executables/scripts (${rejectedScript.join(', ')}) are not allowed.`);
+        }
+        if (rejectedMedia.length > 0) {
+            toast.error(`Restriction: Audio/video files (${rejectedMedia.join(', ')}) are not allowed.`);
+        }
+
+        if (validFiles.length > 0) {
+            setStagedFiles(prev => [...prev, ...validFiles]);
+        }
         e.target.value = null; // Reset input
     };
 

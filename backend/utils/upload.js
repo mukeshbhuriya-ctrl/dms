@@ -44,25 +44,23 @@ const storage = multer.diskStorage({
 
 // File filter for validation
 const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-    'text/plain',
-    'image/jpeg',
-    'image/png',
-    'image/jpg',
-  ];
-
-  if (allowedMimeTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`File type ${file.mimetype} is not allowed.`), false);
+  const ext = path.extname(file.originalname).toLowerCase();
+  const scriptExtensions = ['.exe', '.bat', '.cmd', '.sh', '.js', '.vbs', '.msi'];
+  const mediaExtensions = ['.mp3', '.wav', '.wma', '.m4a', '.aac', '.ogg', '.flac', '.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.mpeg', '.mpg'];
+  
+  if (scriptExtensions.includes(ext)) {
+    const err = new Error(`File extension ${ext} is not allowed for security reasons.`);
+    err.status = 400;
+    return cb(err, false);
   }
+
+  if (mediaExtensions.includes(ext)) {
+    const err = new Error(`Audio and video files (${ext}) are not allowed in this system.`);
+    err.status = 400;
+    return cb(err, false);
+  }
+  
+  cb(null, true);
 };
 
 const upload = multer({
