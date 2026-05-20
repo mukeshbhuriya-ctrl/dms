@@ -190,12 +190,7 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                                         </a>
                                                     )}
                                                 </div>
-                                            ) : (
-                                                <div className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded">
-                                                    <FileText className="w-3 h-3" />
-                                                    <span>Rev {activity.metadata.version_no}</span>
-                                                </div>
-                                            )}
+                                            ) : null}
                                             {activity.metadata.transmission_no && (
                                                 <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
                                                     <Send className="w-3 h-3" />
@@ -209,10 +204,10 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                                     rel="noopener noreferrer"
                                                     download
                                                     className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 hover:shadow-sm border border-emerald-200 transition-all cursor-pointer group/fb"
-                                                    title="Download Feedback/Stamps"
+                                                    title="Download Client Feedback ZIP"
                                                 >
                                                     <Download className="w-3.5 h-3.5 mr-1" />
-                                                    <span>Feedback/Stamp</span>
+                                                    <span>Client ZIP</span>
                                                 </a>
                                             )}
                                         </div>
