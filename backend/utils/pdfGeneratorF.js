@@ -2,348 +2,189 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * PDF Generator for Joint Type F — Simplified Nozzle Report
+ * Same visual style as C/D: RED labels, outer border, header, bullet points
+ */
 class PDFGeneratorF {
     constructor() {
-        this.colors = {
-            red: '#FF0000',
-            black: '#000000',
-            darkBlue: '#000080',
-            white: '#FFFFFF'
-        };
-        this.fonts = {
-            regular: 'Helvetica',
-            bold: 'Helvetica-Bold'
-        };
+        this.colors = { red: '#FF0000', black: '#000000', darkBlue: '#000080', white: '#FFFFFF' };
+        this.fonts = { regular: 'Helvetica', bold: 'Helvetica-Bold' };
     }
 
-    // ==========================================
-    // SHARED LAYOUT METHODS (Match A/B/C/D)
-    // ==========================================
-
-    drawLogo(doc, x, y, width, height, companyInfo) {
+    drawLogo(doc, x, y, w, h, companyInfo) {
         if (companyInfo && companyInfo.logoPath && fs.existsSync(companyInfo.logoPath)) {
-            doc.image(companyInfo.logoPath, x, y, { fit: [width, height], align: 'center', valign: 'center' });
+            doc.image(companyInfo.logoPath, x + 5, y + 5, { fit: [w - 10, h - 10], align: 'center', valign: 'center' });
             return;
         }
-
-        // Fallback to dynamic Company Name only (no static fallback)
         if (companyInfo && companyInfo.name) {
-            doc.font(this.fonts.bold).fontSize(12).fillColor(this.colors.darkBlue)
-                .text(companyInfo.name, x, y + height / 2 - 6, { width: width, align: 'center' });
+            doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.darkBlue)
+                .text(companyInfo.name, x, y + h / 2 - 6, { width: w, align: 'center' });
         }
-    }
-
-    drawHeader(doc, x, y, width, data, titleText, companyInfo) {
-        const headerH = 70;
-        doc.lineWidth(0.5).strokeColor(this.colors.black);
-
-        // Logo Box (Left)
-        const logoW = 160;
-        doc.rect(x, y, logoW, headerH).stroke();
-        this.drawLogo(doc, x, y, logoW, headerH, companyInfo);
-
-        // Title Box (Right)
-        const titleBoxW = width - logoW;
-        const titleRowH = 45;
-        const reportRowH = 25;
-
-        doc.rect(x + logoW, y, titleBoxW, titleRowH).stroke();
-        doc.rect(x + logoW, y + titleRowH, titleBoxW, reportRowH).stroke();
-
-        // Title Text
-        doc.font(this.fonts.bold).fontSize(14).fillColor(this.colors.red)
-            .text(titleText, x + logoW, y + 18, { width: titleBoxW, align: 'center' });
-
-        // Report No
-        const reportY = y + titleRowH + 8;
-        doc.fontSize(10);
-
-        const labelText = "Report No : ";
-        const labelW = doc.widthOfString(labelText);
-        const valText = data.reportNo || '-';
-        const fullTextW = labelW + doc.widthOfString(valText);
-        const startTextX = x + logoW + (titleBoxW - fullTextW) / 2;
-
-        doc.fillColor(this.colors.red).font(this.fonts.bold).text(labelText, startTextX, reportY, { continued: true });
-        doc.fillColor(this.colors.black).font(this.fonts.regular).text(valText);
-
-        return y + headerH + 5;
-    }
-
-    drawInfoGrid(doc, x, y, width, data) {
-        const rowH = 25;
-        const col1W = width * 0.40; // Label column
-        const col2W = width * 0.60; // Value column
-
-        const rows = [
-            { label: 'Shreno Manufacturer sr. no.:', value: data.msn },
-            { label: 'Equipment Name & Tag Number:', value: `${data.equipment || ''} ${data.tagNo || ''}` },
-            { label: 'Drawing no. :', value: data.drgNo }
-        ];
-
-        let curY = y;
-        doc.fontSize(10);
-
-        rows.forEach(row => {
-            // Draw borders
-            doc.rect(x, curY, col1W, rowH).stroke();
-            doc.rect(x + col1W, curY, col2W, rowH).stroke();
-
-            const textY = curY + 8;
-            const pad = 5;
-
-            // Label (Red, Bold)
-            doc.font(this.fonts.bold).fillColor(this.colors.red);
-            doc.text(row.label, x + pad, textY, { width: col1W - pad * 2 });
-
-            // Value (Black, Regular)
-            doc.font(this.fonts.regular).fillColor(this.colors.black);
-            doc.text(row.value || '-', x + col1W + pad, textY, { width: col2W - pad * 2 });
-
-            curY += rowH;
-        });
-
-        return curY + 10; // Add some spacing after grid
-    }
-
-    drawFooter(doc, x, y, width, data, title) {
-        const headerH = 20;
-        doc.rect(x, y, width, headerH).stroke();
-        doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
-            .text(title, x, y + 5, { width: width, align: 'center' });
-
-        let curY = y + headerH;
-        const rowH = 20;
-        const colW = width / 3;
-
-        doc.rect(x, curY, width, rowH * 4).stroke();
-        doc.moveTo(x + colW, curY).lineTo(x + colW, curY + rowH * 4).stroke();
-        doc.moveTo(x + 2 * colW, curY).lineTo(x + 2 * colW, curY + rowH * 4).stroke();
-        for (let i = 1; i < 4; i++) {
-            doc.moveTo(x, curY + i * rowH).lineTo(x + width, curY + i * rowH).stroke();
-        }
-
-        const isNdtStage = ['stage3', 'stage4'].includes(data.stageKey || ''); // Adjusted for F stages
-        const secondTitle = isNdtStage ? 'NDT Engineer' : 'QC Engineer';
-
-        const titles = ['Production Engineer', secondTitle, 'AI / CLIENT / TPIA'];
-        const names = [data.productionEngineerName, data.qcEngineerName, data.aiName];
-        const dates = [data.submissionDate, data.qcDate, data.aiDate];
-        const qcSign = (data.qcStatus === 'approved' || data.qcStatus === 'submitted') ? 'Approve' : '';
-        const signs = ['', qcSign, data.aiSign];
-
-        const pad = 4;
-        const tY = 6;
-        doc.fontSize(9);
-
-        doc.font(this.fonts.bold).fillColor(this.colors.red);
-        doc.text(titles[0], x + pad, curY + tY, { width: colW - pad * 2, align: 'left' });
-        doc.text(titles[1], x + colW + pad, curY + tY, { width: colW - pad * 2, align: 'left' });
-        doc.text(titles[2], x + 2 * colW + pad, curY + tY, { width: colW - pad * 2, align: 'left' });
-
-        doc.font(this.fonts.bold).fillColor(this.colors.black);
-        doc.text(names[0] || '', x + pad, curY + rowH + tY);
-        doc.text(names[1] || '', x + colW + pad, curY + rowH + tY);
-        doc.text(names[2] || '', x + 2 * colW + pad, curY + rowH + tY);
-
-        doc.text(dates[0] || '', x + pad, curY + 2 * rowH + tY);
-        doc.text(dates[1] || '', x + colW + pad, curY + 2 * rowH + tY);
-        doc.text(dates[2] || '', x + 2 * colW + pad, curY + 2 * rowH + tY);
-
-        doc.text(signs[1] || '', x + colW + pad, curY + 3 * rowH + tY);
-        doc.text(signs[2] || '', x + 2 * colW + pad, curY + 3 * rowH + tY);
-    }
-
-    drawSubStage(doc, data, drawContentFn, companyInfo) {
-        const startX = 25;
-        const startY = 25;
-        const pageW = doc.page.width - 50;
-        const pageH = doc.page.height - 50;
-
-        doc.rect(startX, startY, pageW, pageH).strokeColor(this.colors.black).lineWidth(1.5).stroke();
-
-        const innerW = pageW - 10;
-        const innerX = startX + 5;
-        let currentY = startY + 5;
-
-        const title = data.title || 'WELDING JOINT REPORT';
-        currentY = this.drawHeader(doc, innerX, currentY, innerW, data, title, companyInfo);
-        currentY = this.drawInfoGrid(doc, innerX, currentY, innerW, data);
-
-        const footerH = 130;
-        const footerStartY = (startY + pageH) - footerH - 5;
-
-        if (drawContentFn) {
-            drawContentFn(doc, innerX, currentY, innerW, data, footerStartY);
-        }
-
-        const footerTitle = ['stage1'].includes(data.stageKey) ? 'Material Identification by' :
-            ['stage2'].includes(data.stageKey) ? 'Visual Inspection by' :
-                'Set Up Inspection by';
-        this.drawFooter(doc, innerX, footerStartY, innerW, data, footerTitle);
-    }
-
-    // ==========================================
-    // SPECIFIC STAGE IMPLEMENTATIONS for F
-    // ==========================================
-
-    drawStage1(doc, data, companyInfo) {
-        data.title = 'MATERIAL IDENTIFICATION REPORT';
-        this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
-            let curY = y + 20;
-            const rowH = 30;
-            const colW = width / 2;
-
-            doc.rect(x, curY, width, rowH).stroke();
-            doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red);
-            doc.text('Material Identification Marks:', x + 5, curY + 10);
-            doc.text('Tack Welder Name:', x + colW + 5, curY + 10);
-            doc.moveTo(x + colW, curY).lineTo(x + colW, curY + rowH * 2).stroke();
-            curY += rowH;
-
-            doc.rect(x, curY, width, rowH).stroke();
-            doc.font(this.fonts.regular).fillColor(this.colors.black);
-            doc.text(data.materialIdMarks || '-', x + 5, curY + 10);
-            doc.text(data.tackWelder || '-', x + colW + 5, curY + 10);
-        }, companyInfo);
-    }
-
-    drawStage2(doc, data, companyInfo) {
-        data.title = 'WELD VISUAL REPORT';
-        this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
-            let curY = y + 20;
-            const rowH = 30;
-            const colW = width / 2;
-
-            doc.rect(x, curY, width, rowH).stroke();
-            doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red);
-            doc.text('Welder Number:', x + 5, curY + 10);
-            doc.text('Welding Process:', x + colW + 5, curY + 10);
-            doc.moveTo(x + colW, curY).lineTo(x + colW, curY + rowH * 2).stroke();
-            curY += rowH;
-
-            doc.rect(x, curY, width, rowH).stroke();
-            doc.font(this.fonts.regular).fillColor(this.colors.black);
-            doc.text(data.welderNumber || '-', x + 5, curY + 10);
-            doc.text(data.weldingProcess || '-', x + colW + 5, curY + 10);
-        }, companyInfo);
-    }
-
-    drawStage3(doc, data, companyInfo) {
-        data.title = 'PWHT & RADIOGRAPHY REPORT';
-        this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
-            let curY = y + 20;
-            const headerH = 25;
-            const rowH = 30;
-            const colW = width / 3;
-
-            // PWHT
-            doc.rect(x, curY, width, headerH).stroke();
-            doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
-                .text('PWHT (Required / Not required)', x, curY + 8, { width: width, align: 'center' });
-            curY += headerH;
-
-            doc.rect(x, curY, colW, rowH).stroke();
-            doc.rect(x + colW, curY, colW, rowH).stroke();
-            doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
-            let tY = curY + 10;
-
-            doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10).text('PWHT', x + 5, tY);
-            doc.text('YES / No', x + colW + 5, tY);
-            doc.font(this.fonts.bold).fillColor(this.colors.black)
-                .text((data.pwht) ? 'YES' : 'NO', x + 2 * colW + 5, tY);
-
-            // RT - Only in Stage 3 for F
-            curY += rowH + 15;
-            doc.rect(x, curY, width, headerH).stroke();
-            doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
-                .text('Radiography Testing Requirement (After PWHT)', x, curY + 8, { width: width, align: 'center' });
-            curY += headerH;
-
-            doc.rect(x, curY, colW, rowH).stroke();
-            doc.rect(x + colW, curY, colW, rowH).stroke();
-            doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
-            tY = curY + 10;
-
-            doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10).text('Radiography Testing', x + 5, tY);
-            doc.text('YES / No', x + colW + 5, tY);
-            doc.font(this.fonts.bold).fillColor(this.colors.black)
-                .text((data.pwht) ? 'YES' : 'NO', x + 2 * colW + 5, tY); // Using PWHT status as proxy, similar to C/D
-        }, companyInfo);
-    }
-
-    drawStage4(doc, data, companyInfo) {
-        data.title = 'PWHT & LIQUID PENETRANT REPORT';
-        this.drawSubStage(doc, data, (doc, x, y, width, data, bottomY) => {
-            let curY = y + 20;
-            const headerH = 25;
-            const rowH = 30;
-            const colW = width / 3;
-
-            // PWHT
-            doc.rect(x, curY, width, headerH).stroke();
-            doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
-                .text('PWHT (Required / Not required)', x, curY + 8, { width: width, align: 'center' });
-            curY += headerH;
-
-            doc.rect(x, curY, colW, rowH).stroke();
-            doc.rect(x + colW, curY, colW, rowH).stroke();
-            doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
-            let tY = curY + 10;
-
-            doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10).text('PWHT', x + 5, tY);
-            doc.text('YES / No', x + colW + 5, tY);
-            doc.font(this.fonts.bold).fillColor(this.colors.black)
-                .text((data.pwht) ? 'YES' : 'NO', x + 2 * colW + 5, tY);
-
-            // PT - Only in Stage 4 for F
-            curY += rowH + 15;
-            doc.rect(x, curY, width, headerH).stroke();
-            doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.red)
-                .text('Liquid Penetrant Testing (Required / Not required) - After PWHT', x, curY + 8, { width: width, align: 'center' });
-            curY += headerH;
-
-            doc.rect(x, curY, colW, rowH).stroke();
-            doc.rect(x + colW, curY, colW, rowH).stroke();
-            doc.rect(x + 2 * colW, curY, colW, rowH).stroke();
-            tY = curY + 10;
-
-            doc.font(this.fonts.bold).fillColor(this.colors.red).fontSize(10).text('Liquid Penetrant Testing', x + 5, tY);
-            doc.text('YES / No', x + colW + 5, tY);
-            doc.font(this.fonts.bold).fillColor(this.colors.black)
-                .text((data.pwht) ? 'YES' : 'NO', x + 2 * colW + 5, tY);
-        }, companyInfo);
     }
 
     generateReport(allStagesData, res, companyInfo) {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
-
-        // Dynamic stage order from controller-filtered allStagesData
-        const stageOrder = Object.keys(allStagesData).sort((a, b) => {
-            return parseInt(a.replace('stage', '')) - parseInt(b.replace('stage', ''));
-        });
-        let isFirstPage = true;
-
-        stageOrder.forEach(key => {
-            const data = allStagesData[key];
-            if (!data) return;
-            const stageNum = parseInt(key.replace('stage', ''));
-
-            if (!isFirstPage) doc.addPage();
-            isFirstPage = false;
-
-            switch (stageNum) {
-                case 1: this.drawStage1(doc, data, companyInfo); break;
-                case 2: this.drawStage2(doc, data, companyInfo); break;
-                case 3: this.drawStage3(doc, data, companyInfo); break;
-                case 4: this.drawStage4(doc, data, companyInfo); break;
-                default:
-                    doc.text(`Stage ${stageNum} not implemented`, 50, 50);
-            }
-        });
-
+        this._drawReport(doc, allStagesData, companyInfo);
         doc.end();
+    }
+
+    _drawReport(doc, allStagesData, companyInfo) {
+        const startX = 25, startY = 25;
+        const pageW = doc.page.width - 50;
+        const pageH = doc.page.height - 50;
+        doc.rect(startX, startY, pageW, pageH).strokeColor(this.colors.black).lineWidth(1.5).stroke();
+        doc.lineWidth(0.5);
+
+        let y = startY + 5;
+        const innerW = pageW - 10;
+        const x = startX + 5;
+        const pad = 4;
+        const rowH = 16;
+
+        const firstData = allStagesData.stage1 || Object.values(allStagesData)[0] || {};
+
+        // Header
+        const headerH = 70, logoW = 160;
+        doc.rect(x, y, logoW, headerH).stroke();
+        this.drawLogo(doc, x, y, logoW, headerH, companyInfo);
+        const titleBoxW = innerW - logoW;
+        doc.rect(x + logoW, y, titleBoxW, headerH).stroke();
+        doc.font(this.fonts.bold).fontSize(13).fillColor(this.colors.red)
+            .text('GENERAL INSPECTION REPORT', x + logoW, y + 10, { width: titleBoxW, align: 'center' });
+        doc.fontSize(10)
+            .text('(CHECK SHEET FOR', x + logoW, y + 28, { width: titleBoxW, align: 'center' });
+        doc.text('NOZZLE SET-UP & WELDING INSPECTION)', x + logoW, y + 40, { width: titleBoxW, align: 'center' });
+        y += headerH + 5;
+
+        // Metadata
+        const metaRowH = 20;
+        [
+            ['Shreno Manufacturer sr. no.:', firstData.msn || '-'],
+            ['Equipment  Name & Tag Number:', `${firstData.equipment || ''} ${firstData.tagNo || ''}`.trim() || '-'],
+            ['Drawing no. :', firstData.drgNo || '-']
+        ].forEach(([l, v]) => {
+            doc.rect(x, y, innerW, metaRowH).stroke();
+            doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text(l, x + pad, y + 5, { width: innerW * 0.4 });
+            doc.font(this.fonts.regular).fillColor(this.colors.black).text(v, x + innerW * 0.4 + pad, y + 5, { width: innerW * 0.6 });
+            y += metaRowH;
+        });
+
+        // Table
+        const srW = innerW * 0.07, charW = innerW * 0.20, detW = innerW * 0.33, valW = innerW - srW - charW - detW;
+
+        // Header row
+        y = this._gridRow(doc, x, y, [srW, charW, detW + valW], rowH + 2, pad, [
+            { t: 'Sr. No.', f: this.fonts.bold, c: this.colors.black },
+            { t: 'Characteristics to be checked', f: this.fonts.bold, c: this.colors.black },
+            { t: '' }
+        ]);
+
+        // Joint Number
+        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+            { t: '' }, { t: 'Joint Number', f: this.fonts.bold, c: this.colors.red },
+            { t: firstData.jointNo || '-' }, { t: '' }
+        ]);
+
+        const s1 = allStagesData.stage1 || {};
+
+        // Char 1: Material ID
+        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+            { t: '1', f: this.fonts.bold, c: this.colors.black },
+            { t: 'Material identification Marks', f: this.fonts.bold, c: this.colors.red },
+            { t: s1.materialIdMarks || '-' }, { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+            { t: '' }, { t: '' }, { t: '• Tack Welder', f: this.fonts.bold, c: this.colors.red },
+            { t: s1.tackWelder || '' }
+        ]);
+        y = this._compactSig(doc, x, y, innerW, rowH, pad, s1);
+
+        // Char 2: Weld Visual
+        const s2 = allStagesData.stage2 || {};
+        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+            { t: '2', f: this.fonts.bold, c: this.colors.black },
+            { t: 'Weld Visual', f: this.fonts.bold, c: this.colors.red },
+            { t: '• Welder Number', f: this.fonts.bold, c: this.colors.red },
+            { t: s2.welderNumber || s2.welderNo || '' }
+        ]);
+        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+            { t: '' }, { t: '' }, { t: '• Welding Process', f: this.fonts.bold, c: this.colors.red },
+            { t: s2.weldingProcess || '' }
+        ]);
+        y = this._compactSig(doc, x, y, innerW, rowH, pad, s2);
+
+        // PWHT stages
+        if (allStagesData.stage3) {
+            y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+                { t: '3', f: this.fonts.bold, c: this.colors.black },
+                { t: 'PWHT - Radiography Testing (RT)', f: this.fonts.bold, c: this.colors.red },
+                { t: 'Required / Not required' }, { t: '' }
+            ]);
+            y = this._compactSig(doc, x, y, innerW, rowH, pad, allStagesData.stage3);
+        }
+        if (allStagesData.stage4) {
+            y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+                { t: '4', f: this.fonts.bold, c: this.colors.black },
+                { t: 'PWHT - Penetrant Testing (PT)', f: this.fonts.bold, c: this.colors.red },
+                { t: 'Required / Not required' }, { t: '' }
+            ]);
+            y = this._compactSig(doc, x, y, innerW, rowH, pad, allStagesData.stage4);
+        }
+
+        y += 6;
+        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
+            .text('EXHIBIT 10_3 GENERAL INSPECTION REPORT Rev.01', x, y);
+    }
+
+    _gridRow(doc, x, y, widths, h, pad, cells) {
+        let cx = x;
+        widths.forEach((w, i) => {
+            doc.rect(cx, y, w, h).stroke();
+            const c = cells[i] || {};
+            if (c.t) {
+                doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8).fillColor(c.c || this.colors.black)
+                    .text(c.t, cx + pad, y + 2, { width: w - pad * 2 });
+            }
+            cx += w;
+        });
+        return y + h;
+    }
+
+    _compactSig(doc, x, y, width, rowH, pad, data) {
+        const sigH = rowH - 2;
+        const lW = width * 0.50, vW = width * 0.35, eW = width - lW - vW;
+
+        doc.rect(x, y, lW, sigH).stroke();
+        doc.rect(x + lW, y, vW, sigH).stroke();
+        doc.rect(x + lW + vW, y, eW, sigH).stroke();
+        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
+            .text('Engineer Production  Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
+        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
+            .text('NAME/DATE', x + lW + pad, y + 2, { width: vW - pad * 2 });
+        y += sigH;
+
+        doc.rect(x, y, lW, sigH).stroke();
+        doc.rect(x + lW, y, vW, sigH).stroke();
+        doc.rect(x + lW + vW, y, eW, sigH).stroke();
+        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
+            .text('Engineer Shop QC Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
+        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
+            .text('NAME/DATE/sign', x + lW + pad, y + 2, { width: vW - pad * 2 });
+        y += sigH;
+
+        doc.rect(x, y, lW, sigH).stroke();
+        doc.rect(x + lW, y, vW, sigH).stroke();
+        doc.rect(x + lW + vW, y, eW, sigH).stroke();
+        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
+            .text('CLIENT / AI /TPIA   Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
+        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
+            .text('NAME/DATE', x + lW + pad, y + 2);
+        doc.text('Yes/No', x + lW + vW + pad, y + 2, { width: eW - pad * 2 });
+        y += sigH;
+
+        return y;
     }
 }
 
