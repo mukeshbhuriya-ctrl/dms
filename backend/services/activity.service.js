@@ -55,13 +55,13 @@ class ActivityService {
             model.findMany({
                 where: { company_id, group_document_id },
                 include: {
-                    user: { select: { name: true, email: true } }
+                    user: { select: { name: true, email: true, empid: true, designation: true } }
                 },
                 orderBy: { createdAt: 'desc' }
             }),
             prisma.document_version.findMany({
                 where: { group_document_id },
-                select: { id: true, version_no: true, file_url: true, mime_type: true, file_path: true }
+                select: { id: true, version_no: true, file_url: true, mime_type: true, file_path: true, files: true }
             })
         ]);
 
@@ -72,7 +72,13 @@ class ActivityService {
                 file_url: v.file_url,
                 mime_type: v.mime_type,
                 file_path: v.file_path,
-                id: v.id
+                id: v.id,
+                files: (v.files || []).map(f => ({
+                    original_filename: f.original_filename,
+                    mime_type: f.mime_type,
+                    file_path: f.file_path,
+                    file_url: f.file_url
+                }))
             };
         });
 
@@ -112,6 +118,20 @@ class ActivityService {
                         activity.metadata[key] = `${backendUrl}${url}`;
                     }
                 });
+
+                // 4. Expand file URLs inside metadata.files
+                if (activity.metadata.files && Array.isArray(activity.metadata.files)) {
+                    activity.metadata.files = activity.metadata.files.map(f => {
+                        let fileUrl = f.file_url;
+                        if (activity.action === 'Internal Rejected') {
+                            fileUrl = `/api/dcc/document-preview/archived/${encodeURIComponent(f.original_filename)}?activityId=${activity.id}`;
+                        }
+                        if (typeof fileUrl === 'string' && fileUrl.startsWith('/') && !fileUrl.startsWith('http')) {
+                            fileUrl = `${backendUrl}${fileUrl}`;
+                        }
+                        return { ...f, file_url: fileUrl };
+                    });
+                }
             }
             return activity;
         });
@@ -127,7 +147,7 @@ class ActivityService {
         const activities = await model.findMany({
             where: { company_id, transmission_id },
             include: {
-                user: { select: { name: true, email: true } }
+                user: { select: { name: true, email: true, empid: true, designation: true } }
             },
             orderBy: { createdAt: 'desc' }
         });

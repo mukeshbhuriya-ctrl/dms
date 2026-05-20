@@ -44,13 +44,16 @@ import {
     Search,
     ChevronLeft,
     ChevronRight,
-    Download
+    Download,
+    ArrowRight
 } from "lucide-react";
 import { dccService } from "../../services/dcc.service";
 import ProDataTable from "@/components/shared/ProDataTable";
 import { exportApi } from "@/api/export.api";
 import DocumentTrail from "../../components/dms/DocumentTrail";
 import { DocumentPreviewDialog } from "../../components/shared/DocumentPreviewDialog";
+import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog";
+import { MultiFileUploadModal } from "../../components/shared/MultiFileUploadModal";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 
 const ClientApprovalStatus = () => {
@@ -71,6 +74,13 @@ const ClientApprovalStatus = () => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [previewUrl, setPreviewUrl] = useState("");
     const [activePreviewDoc, setActivePreviewDoc] = useState(null);
+    const [isFileListOpen, setIsFileListOpen] = useState(false);
+    const [activeFileList, setActiveFileList] = useState([]);
+    const [activeFileListDocName, setActiveFileListDocName] = useState("");
+    
+    // Upload Modal State
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [activeUploadRowId, setActiveUploadRowId] = useState(null);
     
     // Fetch Restricted Metadata for filters
     React.useEffect(() => {
@@ -157,22 +167,39 @@ const ClientApprovalStatus = () => {
     const updateRowStatus = (id, status) => {
         setRowUpdates(prev => ({
             ...prev,
-            [id]: { ...(prev[id] || { remarks: '', file: null }), status }
+            [id]: { ...(prev[id] || { remarks: '', files: [], existingFiles: [] }), status }
         }));
     };
 
     const updateRowRemarks = (id, remarks) => {
         setRowUpdates(prev => ({
             ...prev,
-            [id]: { ...(prev[id] || { status: 'Approved', file: null }), remarks }
+            [id]: { ...(prev[id] || { status: 'Approved', files: [], existingFiles: [] }), remarks }
         }));
     };
 
-    const updateRowFile = (id, file) => {
-        setRowUpdates(prev => ({
-            ...prev,
-            [id]: { ...(prev[id] || { status: 'Approved', remarks: '' }), file }
-        }));
+    const updateRowFiles = (id, newFiles) => {
+        setRowUpdates(prev => {
+            const currentFiles = prev[id]?.files || [];
+            return {
+                ...prev,
+                [id]: { 
+                    ...(prev[id] || { status: 'Approved', remarks: '', existingFiles: [] }), 
+                    files: [...currentFiles, ...Array.from(newFiles)]
+                }
+            };
+        });
+    };
+
+    const removeRowFile = (id, fileIndex) => {
+        setRowUpdates(prev => {
+            const currentFiles = prev[id]?.files || [];
+            const updatedFiles = currentFiles.filter((_, idx) => idx !== fileIndex);
+            return {
+                ...prev,
+                [id]: { ...prev[id], files: updatedFiles }
+            };
+        });
     };
 
     const handleReviewClick = async (transmission) => {
@@ -202,8 +229,8 @@ const ClientApprovalStatus = () => {
                     initialUpdates[td.id] = { 
                         status: isSubmitted ? td.client_status : 'Approved', 
                         remarks: isSubmitted ? (td.client_remarks || '') : '', 
-                        file: null, 
-                        existingFile: null,
+                        files: [], 
+                        existingFiles: td.feedback_files || [],
                         loading: false, 
                         submitted: isSubmitted 
                     };
@@ -233,8 +260,10 @@ const ClientApprovalStatus = () => {
             formData.append('transmission_document_id', rowId);
             formData.append('status', update.status);
             formData.append('remarks', update.remarks || "");
-            if (update.file) {
-                formData.append('client_file', update.file);
+            if (update.files && update.files.length > 0) {
+                update.files.forEach(fileObj => {
+                    formData.append('client_files', fileObj);
+                });
             }
 
             const res = await dccService.updateTransmissionDocumentClientStatus(formData, {
@@ -244,9 +273,30 @@ const ClientApprovalStatus = () => {
             });
             if (res.success) {
                 toast.success("Document review submitted!");
+                
+                // Refetch transmission documents to get the newly created feedback files
+                let updatedFeedbackFiles = [];
+                try {
+                    const detailsRes = await dccService.getTransmissionDocuments({ transmission_id: selectedTransmission.id });
+                    if (detailsRes.success) {
+                        const matchedDoc = (detailsRes.data || []).find(d => d.id === rowId);
+                        if (matchedDoc) {
+                            updatedFeedbackFiles = matchedDoc.feedback_files || [];
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to refetch files after submit:", err);
+                }
+
                 setRowUpdates(prev => ({ 
                     ...prev, 
-                    [rowId]: { ...prev[rowId], loading: false, submitted: true } 
+                    [rowId]: { 
+                        ...prev[rowId], 
+                        loading: false, 
+                        submitted: true,
+                        files: [],
+                        existingFiles: updatedFeedbackFiles
+                    } 
                 }));
                 // Trigger list refresh so transmission status updates
                 setRefreshTrigger(prev => prev + 1);
@@ -320,8 +370,8 @@ const ClientApprovalStatus = () => {
             id: "actions",
             header: "ACTION",
             cell: (row) => (
-                <Button size="sm" variant="ghost" className="h-8 hover:bg-slate-100 text-slate-600 font-medium" onClick={() => handleReviewClick(row)}>
-                    <Eye className="w-3.5 h-3.5 mr-2" /> Review
+                <Button size="sm" variant="outline" className="h-8 hover:bg-slate-100 text-slate-600 font-medium cursor-pointer" onClick={() => handleReviewClick(row)}>
+                    <ArrowRight className="w-3.5 h-3.5 mr-2" /> Review
                 </Button>
             )
         }
@@ -449,28 +499,47 @@ const ClientApprovalStatus = () => {
         },
         {
             header: "ATTACHMENT",
-            className: "w-[150px]",
+            className: "w-[180px]",
             cell: (row) => {
-                const update = rowUpdates[row.id] || { file: null, submitted: false, existingFile: null };
+                const update = rowUpdates[row.id] || { files: [], submitted: false, existingFiles: [] };
                 return (
-                    <div className="flex items-center gap-2">
-                        <input type="file" className="hidden" id={`stamped-${row.id}`} onChange={(e) => updateRowFile(row.id, e.target.files[0])} />
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            disabled={update.submitted}
-                            className={`h-8 border-slate-200 text-slate-600 ${
-                                update.submitted 
-                                ? 'bg-slate-100 text-slate-500 opacity-70 cursor-not-allowed'
-                                : update.file || update.existingFile ? 'bg-blue-50 border-blue-200' : ''
-                            }`}
-                            onClick={() => document.getElementById(`stamped-${row.id}`).click()}
-                        >
-                            <Upload className="h-3.5 w-3.5 mr-2" />
-                            <span className="text-[11px] truncate max-w-[80px]">
-                                {update.file ? update.file.name : (update.existingFile ? 'Uploaded' : 'Upload')}
-                            </span>
-                        </Button>
+                    <div className="flex flex-col gap-1.5 min-w-[150px]">
+                        {update.submitted ? (
+                            update.existingFiles && update.existingFiles.length > 0 ? (
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-8 border-slate-200 text-slate-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                                    onClick={() => {
+                                        setActiveFileList(update.existingFiles);
+                                        setActiveFileListDocName(`Client Feedback - ${row.systemDocId}`);
+                                        setIsFileListOpen(true);
+                                    }}
+                                >
+                                    <Eye className="h-3.5 w-3.5 mr-2" />
+                                    <span className="text-[11px]">Feedback ({update.existingFiles.length})</span>
+                                </Button>
+                            ) : (
+                                <span className="text-slate-400 text-xs">No Feedback Files</span>
+                            )
+                        ) : (
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className={`h-8 border-slate-200 text-slate-600 ${
+                                    update.files && update.files.length > 0 ? 'bg-blue-50 border-blue-200 font-semibold' : ''
+                                }`}
+                                onClick={() => {
+                                    setActiveUploadRowId(row.id);
+                                    setIsUploadModalOpen(true);
+                                }}
+                            >
+                                <Upload className="h-3.5 w-3.5 mr-2" />
+                                <span className="text-[11px]">
+                                    {update.files && update.files.length > 0 ? `Files Attached (${update.files.length})` : 'Upload Files'}
+                                </span>
+                            </Button>
+                        )}
                     </div>
                 );
             }
@@ -479,14 +548,14 @@ const ClientApprovalStatus = () => {
             header: "ACTION",
             className: "w-[240px]",
             cell: (row) => {
-                const update = rowUpdates[row.id] || { loading: false, submitted: false, status: '', remarks: '', file: null };
+                const update = rowUpdates[row.id] || { loading: false, submitted: false, status: '', remarks: '', files: [], existingFiles: [] };
                 
                 // MANDATORY VALIDATION:
                 // Commented: only remarks required, file optional
                 // Others: remarks + file required
                 const canSubmit = update.status && 
                                   update.remarks?.trim().length > 0 && 
-                                  (update.status === 'Commented' || update.file || update.existingFile);
+                                  (update.status === 'Commented' || (update.files && update.files.length > 0) || (update.existingFiles && update.existingFiles.length > 0));
 
                 return (
                     <div className="flex flex-col gap-2">
@@ -525,14 +594,21 @@ const ClientApprovalStatus = () => {
                                 <Button 
                                     variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500"
                                     onClick={() => {
-                                        setActivePreviewDoc({
-                                            documentName: row.doc_name,
-                                            versionNo: row.revision,
-                                            mimeType: row.mimeType,
-                                            filePath: row.filePath
-                                        });
-                                        setPreviewUrl(row.previewUrl);
-                                        setIsPreviewOpen(true);
+                                        const files = row.version?.files || [];
+                                        if (files.length > 0) {
+                                            setActiveFileList(files);
+                                            setActiveFileListDocName(`${row.systemDocId} - ${row.doc_name}`);
+                                            setIsFileListOpen(true);
+                                        } else {
+                                            setActivePreviewDoc({
+                                                documentName: row.doc_name,
+                                                versionNo: row.revision,
+                                                mimeType: row.mimeType,
+                                                filePath: row.filePath
+                                            });
+                                            setPreviewUrl(row.previewUrl);
+                                            setIsPreviewOpen(true);
+                                        }
                                     }}
                                 >
                                     <Eye className="h-3.5 w-3.5" />
@@ -630,15 +706,51 @@ const ClientApprovalStatus = () => {
                                 Audit Activity History
                             </SheetTitle>
                         </SheetHeader>
-                        <DocumentTrail documentId={activeDocId} />
+                        <DocumentTrail 
+                            documentId={activeDocId} 
+                            onPreview={(previewInfo) => {
+                                setActivePreviewDoc(previewInfo);
+                                setPreviewUrl(previewInfo.previewUrl);
+                                setIsPreviewOpen(true);
+                            }}
+                        />
                     </SheetContent>
                 </Sheet>
+
+                <FileListPreviewDialog 
+                    isOpen={isFileListOpen}
+                    onClose={() => setIsFileListOpen(false)}
+                    files={activeFileList}
+                    documentName={activeFileListDocName}
+                    onPreviewFile={(previewInfo) => {
+                        setActivePreviewDoc(previewInfo);
+                        setPreviewUrl(previewInfo.previewUrl);
+                        setIsPreviewOpen(true);
+                    }}
+                />
 
                 <DocumentPreviewDialog 
                     isOpen={isPreviewOpen}
                     onOpenChange={setIsPreviewOpen}
                     previewUrl={previewUrl}
                     activePreviewDoc={activePreviewDoc}
+                />
+
+                <MultiFileUploadModal
+                    isOpen={isUploadModalOpen}
+                    onClose={() => setIsUploadModalOpen(false)}
+                    onSubmit={(files) => {
+                        setRowUpdates(prev => ({
+                            ...prev,
+                            [activeUploadRowId]: {
+                                ...(prev[activeUploadRowId] || { status: 'Approved', remarks: '', existingFiles: [] }),
+                                files
+                            }
+                        }));
+                        setIsUploadModalOpen(false);
+                    }}
+                    title="Upload Feedback Files"
+                    description="Select or drag comments, stamped files, or notes for this document."
                 />
         </div>
     );

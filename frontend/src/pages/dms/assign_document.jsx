@@ -35,6 +35,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import DocumentTrail from "../../components/dms/DocumentTrail"
+import { DocumentPreviewDialog } from "../../components/shared/DocumentPreviewDialog"
+import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog"
 import ProDataTable from "../../components/shared/ProDataTable"
 import { SearchableSelect } from "../../components/shared/SearchableSelect"
 import apiClient from "../../api/api.client"
@@ -82,6 +84,14 @@ function AssignDocument() {
   // Trail State
   const [isTrailOpen, setIsTrailOpen] = useState(false)
   const [activeDocId, setActiveDocId] = useState(null)
+
+  // Preview State
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState("")
+  const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+  const [isFileListOpen, setIsFileListOpen] = useState(false)
+  const [activeFileList, setActiveFileList] = useState([])
+  const [activeFileListDocName, setActiveFileListDocName] = useState("")
 
   const [assignments, setAssignments] = useState([
     {
@@ -1032,11 +1042,9 @@ function AssignDocument() {
         </div>
         <div className="flex items-center gap-2">
           {view === "list" ? (
-             isAdmin && (
               <Button onClick={() => setView("assign")} size="sm" className="rounded-sm">
                 <Plus className="mr-2 h-4 w-4" /> Assign Documents
-              </Button>
-             )
+              </Button> 
           ) : (
             <Button variant="outline" size="sm" onClick={handleBack} className="rounded-sm">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
@@ -1053,7 +1061,10 @@ function AssignDocument() {
               columns={columns}
               fetchData={fetchAssignedDocuments}
               onExport={handleExport}
-              onAdd={null} // Handled in header for industrial look
+              onAdd={() => {
+                handleBack();
+                setView("assign");
+              }}
               onImport={handleImportExcel}
               onDownloadTemplate={handleDownloadTemplate}
               columnFilters={columnFilters}
@@ -1420,10 +1431,36 @@ function AssignDocument() {
                 </SheetTitle>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                <DocumentTrail documentId={activeDocId} />
+                <DocumentTrail 
+                  documentId={activeDocId} 
+                  onPreview={(previewInfo) => {
+                    setActivePreviewDoc(previewInfo);
+                    setPreviewUrl(previewInfo.previewUrl);
+                    setIsPreviewOpen(true);
+                  }}
+                />
               </div>
             </SheetContent>
           </Sheet>
+
+          <FileListPreviewDialog 
+            isOpen={isFileListOpen}
+            onClose={() => setIsFileListOpen(false)}
+            files={activeFileList}
+            documentName={activeFileListDocName}
+            onPreviewFile={(previewInfo) => {
+                setActivePreviewDoc(previewInfo);
+                setPreviewUrl(previewInfo.previewUrl);
+                setIsPreviewOpen(true);
+            }}
+          />
+
+          <DocumentPreviewDialog 
+            isOpen={isPreviewOpen}
+            onOpenChange={setIsPreviewOpen}
+            previewUrl={previewUrl}
+            activePreviewDoc={activePreviewDoc}
+          />
         </div>
       </main>
 

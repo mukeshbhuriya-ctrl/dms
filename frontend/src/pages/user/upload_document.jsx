@@ -20,9 +20,9 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
 } from "@/components/ui/popover"
 import { Upload, Loader2, History, Eye, FileText, Plus, Download, ChevronLeft, ChevronRight, Search, X, ChevronDown, Check } from "lucide-react"
 import { dccService } from "../../services/dcc.service"
@@ -42,6 +42,8 @@ import {
     DialogContent,
 } from "@/components/ui/dialog"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import { FileListPreviewDialog } from "@/components/shared/FileListPreviewDialog"
+import { MultiFileUploadModal } from "@/components/shared/MultiFileUploadModal"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 
 function UploadDocument() {
@@ -63,6 +65,15 @@ function UploadDocument() {
     const [previewUrl, setPreviewUrl] = useState(null)
     const [isPreviewOpen, setIsPreviewOpen] = useState(false)
     const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+
+    // File List Modal States
+    const [isFileListOpen, setIsFileListOpen] = useState(false)
+    const [activeFileList, setActiveFileList] = useState([])
+    const [activeFileListDocName, setActiveFileListDocName] = useState("")
+
+    // Upload Staging Modal States
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+    const [uploadingDocId, setUploadingDocId] = useState(null)
 
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
@@ -87,7 +98,7 @@ function UploadDocument() {
     const onFilterChange = (newFilters) => {
         setColumnFilters(prev => {
             const updated = { ...prev, ...newFilters };
-            
+
             // Handle Multi-select Array vs Single value mapping
             Object.keys(newFilters).forEach(key => {
                 const val = newFilters[key];
@@ -145,42 +156,52 @@ function UploadDocument() {
                     }
                 }
             }
-            
+
             return updated;
         });
     };
 
-    const handleDirectUpload = async (documentId, file) => {
-        if (!file) return
+    const handleOpenUploadModal = (docId) => {
+        setUploadingDocId(docId)
+        setIsUploadModalOpen(true)
+    }
 
-        setUploadingIds(prev => ({ ...prev, [documentId]: true }))
-        setUploadProgress(prev => ({ ...prev, [documentId]: 0 }))
+    const handleSubmitUpload = async (stagedFiles) => {
+        if (!uploadingDocId || !stagedFiles || stagedFiles.length === 0) {
+            toast.error("Please select at least one file to upload")
+            return
+        }
+
+        setUploadingIds(prev => ({ ...prev, [uploadingDocId]: true }))
+        setUploadProgress(prev => ({ ...prev, [uploadingDocId]: 0 }))
+        setIsUploadModalOpen(false)
 
         try {
             const formData = new FormData()
-            formData.append('document_id', documentId)
-            formData.append('file', file)
+            formData.append('document_id', uploadingDocId)
+            stagedFiles.forEach(f => formData.append('files', f)) // Using Multer array field 'files'
 
             const result = await dccService.uploadDocumentVersion(formData, {
                 onUploadProgress: (progressEvent) => {
-                    setUploadProgress(prev => ({ ...prev, [documentId]: progressEvent.progress }))
+                    setUploadProgress(prev => ({ ...prev, [uploadingDocId]: progressEvent.progress }))
                 }
             })
 
             if (result.success || result.data) {
-                toast.success("Document uploaded successfully")
+                toast.success("Documents uploaded successfully")
                 setRefreshTrigger(prev => prev + 1)
+                setUploadingDocId(null)
             } else {
-                toast.error(result.message || "Failed to upload document")
+                toast.error(result.message || "Failed to upload documents")
             }
         } catch (error) {
             console.error("Upload error:", error)
             toast.error("An error occurred while uploading")
         } finally {
-            setUploadingIds(prev => ({ ...prev, [documentId]: false }))
+            setUploadingIds(prev => ({ ...prev, [uploadingDocId]: false }))
             setUploadProgress(prev => {
                 const newProgress = { ...prev }
-                delete newProgress[documentId]
+                delete newProgress[uploadingDocId]
                 return newProgress
             })
         }
@@ -188,9 +209,9 @@ function UploadDocument() {
 
     // cascading filter options
     const clientFilterOptions = useMemo(() => {
-        return customers.map(c => ({ 
-            label: (c.customer_name || c.name || "Unknown").toString(), 
-            value: (c.customer_name || c.name || "").toString() 
+        return customers.map(c => ({
+            label: (c.customer_name || c.name || "Unknown").toString(),
+            value: (c.customer_name || c.name || "").toString()
         })).filter(o => o.value !== "");
     }, [customers]);
 
@@ -200,8 +221,8 @@ function UploadDocument() {
         if (selectedClient) {
             filteredPos = allPos.filter(p => {
                 const val = (p.customer?.customer_name || p.customer_name);
-                return Array.isArray(selectedClient) 
-                    ? selectedClient.includes(val) 
+                return Array.isArray(selectedClient)
+                    ? selectedClient.includes(val)
                     : val === selectedClient;
             });
         }
@@ -216,16 +237,16 @@ function UploadDocument() {
         if (selectedClient) {
             filteredJobs = filteredJobs.filter(j => {
                 const val = (j.customer?.customer_name || j.customer_name);
-                return Array.isArray(selectedClient) 
-                    ? selectedClient.includes(val) 
+                return Array.isArray(selectedClient)
+                    ? selectedClient.includes(val)
                     : val === selectedClient;
             });
         }
         if (selectedPo) {
             filteredJobs = filteredJobs.filter(j => {
                 const val = (j.po?.po_number || j.po_number);
-                return Array.isArray(selectedPo) 
-                    ? selectedPo.includes(val) 
+                return Array.isArray(selectedPo)
+                    ? selectedPo.includes(val)
                     : val === selectedPo;
             });
         }
@@ -275,7 +296,7 @@ function UploadDocument() {
             cell: (row) => {
                 const name = row.user ? (row.user.name || row.user.full_name || row.user.email) : "Pending Assignee";
                 const empid = row.user?.empid || row.user?.employeeId || "";
-                
+
                 if (!row.user) {
                     return <span className="text-slate-400 italic font-medium">Pending Assignee</span>;
                 }
@@ -398,32 +419,22 @@ function UploadDocument() {
                 return (
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
-                            <Input
-                                id={`upload-${row.id}`}
-                                type="file"
-                                className="hidden"
-                                onChange={(e) => handleDirectUpload(row.id, e.target.files[0])}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-200 text-slate-600 hover:bg-primary/5 hover:text-primary hover:border-primary/20 cursor-pointer disabled:cursor-not-allowed disabled:bg-transparent disabled:text-slate-400 disabled:border-slate-200"
+                                onClick={() => handleOpenUploadModal(row.id)}
                                 disabled={isDisabled || isUploading}
-                            />
-                            <Label
-                                htmlFor={`upload-${row.id}`}
-                                className={`
-                                    inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50
-                                    border border-input bg-background hover:bg-accent hover:text-accent-foreground
-                                    h-9 px-3
-                                    cursor-pointer
-                                    ${isDisabled || isUploading ? 'opacity-50 pointer-events-none' : ''}
-                                `}
                             >
                                 {isUploading ? (
                                     <div className="relative inline-flex items-center justify-center mr-2">
                                         <svg className="w-4 h-4 transform -rotate-90">
                                             <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-slate-200" />
-                                            <circle 
-                                                cx="8" cy="8" r="6" 
-                                                stroke="currentColor" strokeWidth="2" fill="transparent" 
-                                                strokeDasharray={37.7} strokeDashoffset={typeof progress === 'number' ? 37.7 - (progress / 100) * 37.7 : 0} 
-                                                className="text-primary transition-all duration-300 ease-out" strokeLinecap="round" 
+                                            <circle
+                                                cx="8" cy="8" r="6"
+                                                stroke="currentColor" strokeWidth="2" fill="transparent"
+                                                strokeDasharray={37.7} strokeDashoffset={typeof progress === 'number' ? 37.7 - (progress / 100) * 37.7 : 0}
+                                                className="text-primary transition-all duration-300 ease-out" strokeLinecap="round"
                                             />
                                         </svg>
                                     </div>
@@ -431,40 +442,46 @@ function UploadDocument() {
                                     <Upload className="h-4 w-4 mr-2" />
                                 )}
                                 {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : 'Upload'}
-                            </Label>
+                            </Button>
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-slate-200 text-slate-600"
-                            onClick={() => {
-                                setActivePreviewDoc({
-                                    documentName: row.documentName,
-                                    versionNo: row.versionNo,
-                                    mimeType: row.mimeType,
-                                    filePath: row.filePath
-                                });
-                                setPreviewUrl(row.previewUrl);
-                                setIsPreviewOpen(true);
-                            }}
-                            disabled={!row.previewUrl || row.originalStatus === 'Pending' || row.originalStatus === 'Upload Due'}
-                        >
-                            <Eye className="h-4 w-4 mr-2" />
-                            Preview
-                        </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-200 text-slate-600 cursor-pointer"
+                                onClick={() => {
+                                    if (row.files && row.files.length > 0) {
+                                        setActiveFileList(row.files);
+                                        setActiveFileListDocName(row.documentName);
+                                        setIsFileListOpen(true);
+                                    } else {
+                                        setActivePreviewDoc({
+                                            documentName: row.documentName,
+                                            versionNo: row.versionNo,
+                                            mimeType: row.mimeType,
+                                            filePath: row.filePath
+                                        });
+                                        setPreviewUrl(row.previewUrl);
+                                        setIsPreviewOpen(true);
+                                    }
+                                }}
+                                disabled={!(row.files?.length > 0 || row.previewUrl) || row.originalStatus === 'Pending' || row.originalStatus === 'Upload Due'}
+                            >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                            </Button>
 
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-slate-200 text-slate-600"
-                            onClick={() => {
-                                setActiveDocId(row.id);
-                                setIsTrailOpen(true);
-                            }}
-                        >
-                            <History className="h-4 w-4 mr-2" />
-                            Trail
-                        </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-200 text-slate-600 cursor-pointer"
+                                onClick={() => {
+                                    setActiveDocId(row.id);
+                                    setIsTrailOpen(true);
+                                }}
+                            >
+                                <History className="h-4 w-4 mr-2" />
+                                Trail
+                            </Button>
                         </div>
                     </div>
                 )
@@ -544,6 +561,7 @@ function UploadDocument() {
                         upload_due_days: doc.upload_due_days,
                         response_due_days: doc.response_due_days,
                         versionNo: doc.display_version_no || 0,
+                        files: latestVersion?.files || [],
                         mimeType: latestVersion?.mime_type,
                         filePath: latestVersion?.file_path,
                         previewUrl: latestVersion?.id
@@ -607,6 +625,18 @@ function UploadDocument() {
                 </div>
 
                 {/* Shared Document Preview Dialog */}
+                <FileListPreviewDialog
+                    isOpen={isFileListOpen}
+                    onClose={() => setIsFileListOpen(false)}
+                    files={activeFileList}
+                    documentName={activeFileListDocName}
+                    onPreviewFile={(previewInfo) => {
+                        setActivePreviewDoc(previewInfo);
+                        setPreviewUrl(previewInfo.previewUrl);
+                        setIsPreviewOpen(true);
+                    }}
+                />
+
                 <DocumentPreviewDialog
                     isOpen={isPreviewOpen}
                     onOpenChange={setIsPreviewOpen}
@@ -632,6 +662,12 @@ function UploadDocument() {
                     </SheetContent>
                 </Sheet>
 
+
+                <MultiFileUploadModal
+                    isOpen={isUploadModalOpen}
+                    onClose={() => setIsUploadModalOpen(false)}
+                    onSubmit={handleSubmitUpload}
+                />
 
             </main>
         </div>

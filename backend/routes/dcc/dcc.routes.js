@@ -15,7 +15,7 @@ const DccController = require('../../controllers/dcc.controller');
 router.get('/get-assigned-documents', authenticateUserOnly, DccController.getAllAssignedDocuments);
 router.get('/upload-documents', authenticateUserOnly, DccController.getMyAssignedDocuments);
 router.get('/user-dashboard-stats', authenticateUserOnly, DccController.getUserDashboardStats);
-router.post('/upload-document-version', authenticateUserOnly, upload.single('file'), DccController.uploadDocumentVersion);
+router.post('/upload-document-version', authenticateUserOnly, upload.array('files', 10), DccController.uploadDocumentVersion);
 router.get('/document-trail/:id', authenticateUserOnly, DccController.getDocumentTrail);
 router.get('/transmission-trail/:id', authenticateUserOnly, DccController.getTransmissionTrail);
 router.get('/document-preview/:versionId', authenticateUserOnly, DccController.previewDocument);
@@ -57,6 +57,7 @@ router.get('/get-po-attachments/:po_id', getPoAttachments);
 router.get('/document/:documentId/download', authenticateUserOnly, documentController.downloadDocument);
 router.get('/document/:documentId/versions', authenticateUserOnly, documentController.getVersionList);
 router.get('/document/:documentId/versions/:versionNumber', authenticateUserOnly, documentController.getSpecificVersion);
+router.get('/file/:fileId/download', authenticateUserOnly, DccController.downloadDocumentFile);
 
 router.get('/get-jobs', DccController.getJobs);
 router.get('/get-manage-job-filters', DccController.getManageJobFilters);
@@ -94,7 +95,7 @@ router.put('/email-templates/:id', DccController.updateEmailTemplate);
 router.delete('/email-templates/:id', DccController.deleteEmailTemplate);
 // Client Approval Status
 router.post('/transmission/client-status', upload.array('client_files', 20), DccController.updateTransmissionClientStatus);
-router.post('/transmission/document/client-status', upload.single('client_file'), DccController.updateTransmissionDocumentClientStatus);
+router.post('/transmission/document/client-status', upload.array('client_files', 10), DccController.updateTransmissionDocumentClientStatus);
 router.get('/transmission/:id/download-feedback', DccController.downloadTransmissionFeedback);
 
 router.post('/document/:documentId/rollback', documentController.rollbackVersion);

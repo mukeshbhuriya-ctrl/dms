@@ -19,21 +19,23 @@ import { toast } from "react-toastify";
  * @param {string} props.activePreviewDoc.filePath - File path (optional)
  * @param {string} props.activePreviewDoc.documentName - Name of the document (optional)
  */
-export function DocumentPreviewDialog({ 
-  isOpen, 
-  onOpenChange, 
-  previewUrl, 
-  activePreviewDoc 
+export function DocumentPreviewDialog({
+  isOpen,
+  onOpenChange,
+  previewUrl,
+  activePreviewDoc
 }) {
   const isPdf = 
     activePreviewDoc?.mimeType === 'application/pdf' ||
     activePreviewDoc?.filePath?.toLowerCase().endsWith('.pdf') ||
-    previewUrl?.toLowerCase().includes('pdf');
+    previewUrl?.toLowerCase().includes('.pdf') ||
+    activePreviewDoc?.documentName?.toLowerCase().endsWith('.pdf');
 
   const isImage = 
     activePreviewDoc?.mimeType?.startsWith('image/') ||
     /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.filePath || '') ||
-    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl || '');
+    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(previewUrl || '') ||
+    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.documentName || '');
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -60,7 +62,7 @@ export function DocumentPreviewDialog({
             <Plus className="h-6 w-6 rotate-45 transform transition-transform group-hover:rotate-[135deg]" />
           </button>
         </div>
-        
+
         <div className="w-full h-full bg-slate-100 flex items-center justify-center relative">
           {previewUrl ? (
             isPdf ? (

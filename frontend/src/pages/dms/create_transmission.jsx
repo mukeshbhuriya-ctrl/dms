@@ -52,6 +52,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 function CreateTransmission() {
   const navigate = useNavigate();
@@ -85,12 +86,16 @@ function CreateTransmission() {
 
   // --- Core State ---
   const [currentDocs, setCurrentDocs] = useState([]) // Store current page docs for metadata lookup
+  const currentDocsRef = useRef([])
   const [customers, setCustomers] = useState([])
 
   // --- Preview State ---
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+  const [isFileListOpen, setIsFileListOpen] = useState(false)
+  const [activeFileList, setActiveFileList] = useState([])
+  const [activeFileListDocName, setActiveFileListDocName] = useState("")
 
   // --- Send View State ---
   const [activeTransmission, setActiveTransmission] = useState(null)
@@ -237,6 +242,16 @@ function CreateTransmission() {
         exclude_transmitted: true
       };
 
+      // Add selected document narrow down filters at database level
+      if (selectedDocuments.length > 0) {
+        const firstSelectedId = selectedDocuments[0];
+        const firstSelectedDoc = currentDocsRef.current.find(d => d.id === firstSelectedId);
+        if (firstSelectedDoc) {
+          params.customer_name_filter = firstSelectedDoc.customer?.customer_name;
+          params.po_number_filter = firstSelectedDoc.po?.po_number;
+        }
+      }
+
       if (columnFilters) {
         if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
         if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
@@ -245,11 +260,22 @@ function CreateTransmission() {
 
       const response = await dccService.getApprovedDocumentsForTransmission(params);
       if (response.success) {
-        const mappedData = (response.data || []).map((doc, index) => ({
+        const docs = response.data || [];
+        const mappedData = docs.map((doc, index) => ({
           ...doc,
           s_no: (page - 1) * limit + index + 1
         }));
+
+        // Cumulative cache of documents to prevent losing metadata on page navigation
+        const existingIds = new Set(currentDocsRef.current.map(d => d.id));
+        docs.forEach(d => {
+          if (!existingIds.has(d.id)) {
+            currentDocsRef.current.push(d);
+          }
+        });
+
         setCurrentDocs(mappedData);
+
         return {
           data: mappedData,
           meta: response.meta || {}
@@ -262,7 +288,7 @@ function CreateTransmission() {
     } finally {
       setLoadingDocs(false);
     }
-  }, []);
+  }, [selectedDocuments]);
 
   const onSelectionChange = (newSelectedRows) => {
     const newDocIds = Array.from(newSelectedRows);
@@ -399,39 +425,28 @@ function CreateTransmission() {
     setIsSubmitting(true);
     try {
       // Find metadata from the first selected document
-      const docResponse = await dccService.getDocumentsForApproval({
-        limit: 1,
-        document_id: selectedDocuments[0],
-        approver_status_filter: 'approved'
-      });
+      const firstDoc = currentDocsRef.current.find(d => d.id === selectedDocuments[0]);
 
-      if (!docResponse.success || !docResponse.data[0]) {
+      if (!firstDoc) {
         toast.error("Could not determine metadata for selected documents.");
         setIsSubmitting(false);
         return;
       }
 
-      const firstDoc = docResponse.data[0];
-
       // Final validation: ensure all selected documents belong to same PO
       if (selectedDocuments.length > 1) {
-        const allDocsResponse = await dccService.getDocumentsForApproval({
-          approver_status_filter: 'approved'
-        });
-        if (allDocsResponse.success) {
-          const selectedDocs = (allDocsResponse.data || []).filter(d => selectedDocuments.includes(d.id));
-          const mixedPo = selectedDocs.some(d => d.po_id !== firstDoc.po_id);
-          const mixedCustomer = selectedDocs.some(d => d.customer_id !== firstDoc.customer_id);
-          if (mixedCustomer) {
-            toast.error("Selected documents belong to different Customers. A transmission must contain documents from a single Customer.");
-            setIsSubmitting(false);
-            return;
-          }
-          if (mixedPo) {
-            toast.error("Selected documents belong to different POs. A transmission must contain documents from a single PO.");
-            setIsSubmitting(false);
-            return;
-          }
+        const selectedDocs = currentDocsRef.current.filter(d => selectedDocuments.includes(d.id));
+        const mixedPo = selectedDocs.some(d => d.po_id !== firstDoc.po_id);
+        const mixedCustomer = selectedDocs.some(d => d.customer_id !== firstDoc.customer_id);
+        if (mixedCustomer) {
+          toast.error("Selected documents belong to different Customers. A transmission must contain documents from a single Customer.");
+          setIsSubmitting(false);
+          return;
+        }
+        if (mixedPo) {
+          toast.error("Selected documents belong to different POs. A transmission must contain documents from a single PO.");
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -523,8 +538,9 @@ function CreateTransmission() {
             mimeType: item.version?.mime_type || '',
             filePath: item.version?.file_path || '',
             file_url: item.version?.id
-              ? `${BACKEND_URL}/api/dcc/document-preview/${item.version.id}/${encodeURIComponent(item.version.file_path.split('/').pop())}`
-              : null
+              ? `${BACKEND_URL}/api/dcc/document-preview/${item.version.id}/${encodeURIComponent((item.version.file_path || 'file').split('/').pop() || 'file')}`
+              : null,
+            files: item.version?.files || []
           };
         }).filter(Boolean);
         setSendDocuments(mappedDocs);
@@ -801,7 +817,7 @@ function CreateTransmission() {
           <Button
             variant="outline"
             size="sm"
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 cursor-pointer"
             onClick={async () => {
               try {
                 const blob = await dccService.downloadTransmittalPDF(row.id);
@@ -819,7 +835,7 @@ function CreateTransmission() {
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 cursor-pointer"
               onClick={() => {
                 setActiveTransmission(row);
                 fetchTransmissionDetailsForSend(row);
@@ -833,7 +849,7 @@ function CreateTransmission() {
             <Button
               variant={row.status === 'Sent' ? "secondary" : "default"}
               size="sm"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 cursor-pointer"
               onClick={() => {
                 setActiveTransmission(row);
                 fetchTransmissionDetailsForSend(row);
@@ -882,6 +898,42 @@ function CreateTransmission() {
       header: "Revision",
       accessorKey: "display_version_no",
       cell: (row) => (row.display_version_no !== null && row.display_version_no !== undefined) ? `${row.display_version_no}` : '-'
+    },
+    {
+      header: "Action",
+      id: "action",
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          className="cursor-pointer"
+          onClick={() => {
+            const latestVersion = row.versions?.[0];
+            const files = latestVersion?.files || [];
+            if (files.length > 0) {
+              setActiveFileList(files);
+              setActiveFileListDocName(`${row.document?.document_number} - ${row.document?.document_name}`);
+              setIsFileListOpen(true);
+            } else {
+              setActivePreviewDoc({
+                documentName: row.document?.document_name,
+                versionNo: row.display_version_no,
+                mimeType: latestVersion?.mime_type,
+                filePath: latestVersion?.file_path
+              });
+              setPreviewUrl(
+                latestVersion?.id
+                  ? `${BACKEND_URL}/api/dcc/document-preview/${latestVersion.id}/${encodeURIComponent((latestVersion.file_path || 'file').split('/').pop() || 'file')}`
+                  : null
+              );
+              setIsPreviewOpen(true);
+            }
+          }}
+        >
+          <Eye className="h-4 w-4 mr-2" />
+          Preview
+        </Button>
+      )
     }
   ], [selectionCustomerOptions, selectionPoOptions, selectionJobOptions]);
 
@@ -930,10 +982,18 @@ function CreateTransmission() {
         <Button
           variant="ghost"
           size="sm"
+          className="cursor-pointer"
           onClick={() => {
-            setActivePreviewDoc(row);
-            setPreviewUrl(row.file_url);
-            setIsPreviewOpen(true);
+            const files = row.files || [];
+            if (files.length > 0) {
+              setActiveFileList(files);
+              setActiveFileListDocName(`${row.documentCode} - ${row.documentName}`);
+              setIsFileListOpen(true);
+            } else {
+              setActivePreviewDoc(row);
+              setPreviewUrl(row.file_url);
+              setIsPreviewOpen(true);
+            }
           }}
         >
           <Eye className="h-4 w-4 mr-2" />
@@ -1035,7 +1095,7 @@ function CreateTransmission() {
                           type="button"
                           onClick={() => setIsSendMailDialogOpen(true)}
                           disabled={isLoadingSend}
-                          className="h-10 px-6 font-bold shadow-sm"
+                          className="h-10 px-6 font-bold shadow-sm cursor-pointer"
                         >
                           Send Mail
                           <Send className="h-4 w-4 ml-2" />
@@ -1061,13 +1121,13 @@ function CreateTransmission() {
 
               {/* BOTTOM ACTION BUTTONS */}
               <div className="flex justify-end gap-3 mt-6 border-t pt-6">
-                <Button variant="ghost" className="font-semibold text-slate-600" onClick={handleReset}>
+                <Button variant="outline" className="font-semibold text-slate-600 cursor-pointer" onClick={handleReset}>
                   Discard
                 </Button>
                 <Button 
                   onClick={handleSubmitTransmission} 
                   disabled={isSubmitting || selectedDocuments.length === 0}
-                  className="px-8 font-bold shadow-md"
+                  className="px-8 font-bold shadow-md cursor-pointer"
                 >
                   {isSubmitting ? <><Loader2 className="animate-spin mr-2 h-4 w-4" />Creating...</> : "Create Transmission"}
                 </Button>
@@ -1273,7 +1333,7 @@ function CreateTransmission() {
               <Button
                 variant="outline"
                 onClick={() => setIsTemplateSheetOpen(true)}
-                className="border-primary text-primary hover:bg-primary/5 shadow-sm"
+                className="border-primary text-primary hover:bg-primary/5 shadow-sm cursor-pointer"
               >
                 <Layout className="h-4 w-4 mr-2" />
                 Email Template
@@ -1282,6 +1342,7 @@ function CreateTransmission() {
             <div className="flex gap-4">
               <Button
                 variant="outline"
+                className="cursor-pointer"
                 onClick={() => setIsSendMailDialogOpen(false)}
                 disabled={isLoadingSend}
               >
@@ -1290,7 +1351,7 @@ function CreateTransmission() {
               <Button
                 onClick={handleSendMail}
                 disabled={isLoadingSend || Object.values(selectedEmails).filter(Boolean).length === 0}
-                className="px-8"
+                className="px-8 cursor-pointer"
               >
                 {isLoadingSend ? (
                   <>
@@ -1326,6 +1387,18 @@ function CreateTransmission() {
         handleSaveTemplate={handleSaveTemplate}
         handleDeleteTemplate={handleDeleteTemplate}
         isSavingTemplate={isSavingTemplate}
+      />
+
+      <FileListPreviewDialog 
+        isOpen={isFileListOpen}
+        onClose={() => setIsFileListOpen(false)}
+        files={activeFileList}
+        documentName={activeFileListDocName}
+        onPreviewFile={(previewInfo) => {
+            setActivePreviewDoc(previewInfo);
+            setPreviewUrl(previewInfo.previewUrl);
+            setIsPreviewOpen(true);
+        }}
       />
 
       <DocumentPreviewDialog

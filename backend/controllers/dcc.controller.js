@@ -454,7 +454,7 @@ class DccController {
         try {
             // Middleware attaches userid
             const userId = req.user.userid || req.user.id;
-            const result = await DccService.uploadDocumentVersion(req.user.company_id, userId, req.body.document_id, req.file, req.body.remarks);
+            const result = await DccService.uploadDocumentVersion(req.user.company_id, userId, req.body.document_id, req.files, req.body.remarks);
             res.status(201).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -623,7 +623,7 @@ class DccController {
     async updateTransmissionDocumentClientStatus(req, res) {
         try {
             const { transmission_document_id, status, remarks } = req.body;
-            const file = req.file; // single file for individual doc
+            const files = req.files || []; // multiple files for individual doc
             const userId = req.user.userid || req.user.id;
 
             const result = await DccService.updateTransmissionDocumentClientStatus(
@@ -632,7 +632,7 @@ class DccController {
                 transmission_document_id,
                 status,
                 remarks,
-                file
+                files
             );
 
             res.status(200).json({ success: true, data: result });
@@ -784,11 +784,30 @@ class DccController {
                     where: { id: activityId, company_id: companyId }
                 });
 
-                if (!activity || !activity.metadata || !activity.metadata.file_path) {
+                if (!activity || !activity.metadata) {
                     return res.status(404).json({ success: false, message: 'Archived file or activity record not found' });
                 }
-                filePathToServe = activity.metadata.file_path;
-                // mimeType will be determined by extension below for archives
+
+                // Check if we are looking for a specific file in metadata.files (multi-file)
+                const targetFilename = req.params.filename || req.query.filename;
+                if (targetFilename && activity.metadata.files && Array.isArray(activity.metadata.files)) {
+                    const fileObj = activity.metadata.files.find(f => 
+                        f.original_filename === targetFilename || 
+                        (f.file_path && f.file_path.split('/').pop() === targetFilename) ||
+                        (f.file_path && f.file_path.split('\\').pop() === targetFilename)
+                    );
+                    if (fileObj) {
+                        filePathToServe = fileObj.file_path;
+                        mimeType = fileObj.mime_type;
+                    }
+                }
+
+                if (!filePathToServe) {
+                    if (!activity.metadata.file_path) {
+                        return res.status(404).json({ success: false, message: 'Archived file path not found' });
+                    }
+                    filePathToServe = activity.metadata.file_path;
+                }
             } else {
                 // Case B: standard version request
                 const version = await DccService.getDocumentVersionById(companyId, versionId);
@@ -989,6 +1008,44 @@ class DccController {
             res.status(200).json({ success: true, message: 'Template deleted successfully' });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
+        }
+    }
+    async downloadDocumentFile(req, res) {
+        try {
+            const { fileId } = req.params;
+            const fileData = await DccService.getDocumentFileDetails(fileId);
+            
+            const errorHtml = (msg) => `
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#64748b;background:#f8fafc;text-align:center;padding:2rem;">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:1rem;color:#94a3b8;"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+                    <h2 style="margin:0 0 0.5rem 0;color:#334155;font-size:1.25rem;font-weight:600;">Document Unavailable</h2>
+                    <p style="margin:0;font-size:0.875rem;">${msg}</p>
+                </div>
+            `;
+
+            if (!fileData || !fileData.file_path) {
+                return res.status(404).send(errorHtml("The requested file record could not be found in the system."));
+            }
+
+            // Normalize path and reconstruct absolute path against ROOT_DIR
+            const absolutePath = path.join(ROOT_DIR, fileData.file_path.replace(/^[\\/]+/, ''));
+
+            if (!fs.existsSync(absolutePath)) {
+                return res.status(404).send(errorHtml("The physical file is missing from the secure server disk."));
+            }
+
+            const mime = require('mime-types');
+            const mimeType = fileData.mime_type || mime.lookup(absolutePath) || 'application/octet-stream';
+
+            // Set appropriate headers for inline viewing (Preview)
+            res.setHeader('Content-Type', mimeType);
+            res.setHeader('Content-Disposition', `inline; filename="${fileData.original_filename || 'document'}"`);
+
+            const fileStream = fs.createReadStream(absolutePath);
+            fileStream.pipe(res);
+        } catch (error) {
+            console.error('downloadDocumentFile error:', error);
+            res.status(500).send("An unexpected error occurred while loading the document.");
         }
     }
 }

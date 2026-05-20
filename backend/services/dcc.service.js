@@ -948,7 +948,7 @@ class DccService {
         let versionsInclude = {
             orderBy: { version_no: 'desc' },
             take: 1,
-            include: { uploader: true }
+            include: { uploader: true, files: { where: { is_active: true } } }
         };
 
         if (approver_status_filter && approver_status_filter.toLowerCase() === 'rejected') {
@@ -1131,7 +1131,7 @@ class DccService {
                     versions: {
                         orderBy: { version_no: 'desc' },
                         take: 1,
-                        include: { uploader: true }
+                        include: { uploader: true, files: { where: { is_active: true } } }
                     }
                 },
                 orderBy: { updatedAt: 'desc' }
@@ -1149,10 +1149,10 @@ class DccService {
 
 
     /**
-     * Upload Document Version
+     * Upload Document Version (Multi-file support)
      */
-    async uploadDocumentVersion(company_id, user_id, document_id, file, remarks) {
-        if (!file) throw new Error('File is required');
+    async uploadDocumentVersion(company_id, user_id, document_id, files, remarks) {
+        if (!files || files.length === 0) throw new Error('Files are required');
 
         const groupDoc = await prisma.group_document.findFirst({
             where: { id: document_id, company_id },
@@ -1210,10 +1210,10 @@ class DccService {
             const document_number = groupDoc.document?.document_number || 'NA';
 
             const targetDir = StorageUtils.getDocRevisionDir(company_id, job_number, document_number, targetVersionNo);
-            const storageData = await fileService.processStorage(file, targetDir);
+            const storageDataArray = await fileService.processMultipleStorage(files, targetDir);
 
             // 2. Create / update version record in DB
-            const version = await fileService.createNewVersion(tx, document_id, user_id, storageData, remarks);
+            const version = await fileService.createNewVersion(tx, document_id, user_id, storageDataArray, remarks);
 
             // 3. Automated Approval for "As Built" documents
             // If the document was in "As Built" state, this upload is the final acknowledgment.
@@ -1255,10 +1255,22 @@ class DccService {
                 action: groupDoc.status === 'As Built' ? 'As Built Finalized' : 'Uploaded',
                 remarks: groupDoc.status === 'As Built'
                     ? `Final As-Built version ${targetVersionNo} uploaded and automatically approved`
-                    : `Version ${targetVersionNo} uploaded`,
+                    : (rejectedVersion 
+                        ? `Version ${targetVersionNo} (Correction) uploaded` 
+                        : `Version ${targetVersionNo} uploaded`),
                 metadata: {
                     version_no: targetVersionNo,
-                    file_name: file.originalname,
+                    is_correction: !!rejectedVersion,
+                    file_name: files[0].originalname, // Log primary file name
+                    files: storageDataArray.map(f => {
+                        const versionFile = version.files?.find(v => v.original_filename === f.original_filename);
+                        return {
+                            original_filename: f.original_filename,
+                            file_url: versionFile?.file_url || version.file_url,
+                            mime_type: f.mimeType || versionFile?.mime_type || '',
+                            file_path: f.filePath || versionFile?.file_path || ''
+                        };
+                    }),
                     file_url: version.file_url,
                     was_as_built: groupDoc.status === 'As Built'
                 }
@@ -1382,7 +1394,8 @@ class DccService {
             take: 1,
             include: {
                 uploader: true,
-                transmission_items: true
+                transmission_items: true,
+                files: { where: { is_active: true } }
             }
         };
 
@@ -1520,7 +1533,8 @@ class DccService {
                         take: 1,
                         include: { 
                             uploader: true,
-                            transmission_items: true
+                            transmission_items: true,
+                            files: { where: { is_active: true } }
                         }
                     }
                 },
@@ -1548,7 +1562,11 @@ class DccService {
         const groupDoc = await prisma.group_document.findFirst({
             where: { id: document_id, company_id },
             include: {
-                versions: { orderBy: { version_no: 'desc' }, take: 1 },
+                versions: { 
+                    orderBy: { version_no: 'desc' }, 
+                    take: 1,
+                    include: { files: { where: { is_active: true } } }
+                },
                 document: true
             }
         });
@@ -1559,18 +1577,55 @@ class DccService {
         if (!latestVersion) throw new Error('No version to review');
 
         const result = await prisma.$transaction(async (tx) => {
-            // 1. If rejecting, archive the current file for audit trail
-            // File moves from version dir to _rejected/ subfolder
-            let rejectedArchivePath = null;
-            if (status === 'Rejected' && latestVersion.file_path) {
-                rejectedArchivePath = StorageUtils.archiveRejectedFile(latestVersion.file_path);
+            // 1. Process archiving if rejecting
+            let rejectedVersionPath = null;
+            const versionFiles = [];
+
+            if (status === 'Rejected') {
+                if (latestVersion.files && latestVersion.files.length > 0) {
+                    for (const file of latestVersion.files) {
+                        let archivedPath = file.file_path;
+                        if (file.file_path) {
+                            archivedPath = StorageUtils.archiveRejectedFile(file.file_path) || file.file_path;
+                            // Update document_file record in DB
+                            await tx.document_file.update({
+                                where: { id: file.id },
+                                data: { file_path: archivedPath }
+                            });
+                        }
+                        versionFiles.push({
+                            original_filename: file.original_filename,
+                            mime_type: file.mime_type,
+                            file_path: archivedPath,
+                            file_url: file.file_url
+                        });
+                        
+                        // Set primary version file path when it matches
+                        if (file.file_path === latestVersion.file_path) {
+                            rejectedVersionPath = archivedPath;
+                        }
+                    }
+                } else if (latestVersion.file_path) {
+                    rejectedVersionPath = StorageUtils.archiveRejectedFile(latestVersion.file_path);
+                }
+            } else {
+                // If Approved, populate versionFiles for logging metadata
+                if (latestVersion.files && latestVersion.files.length > 0) {
+                    for (const file of latestVersion.files) {
+                        versionFiles.push({
+                            original_filename: file.original_filename,
+                            mime_type: file.mime_type,
+                            file_path: file.file_path,
+                            file_url: file.file_url
+                        });
+                    }
+                }
             }
 
             // 2. Update Version Status + point file_path to _rejected/ location
             const versionUpdateData = { status, remarks };
-            if (status === 'Rejected' && rejectedArchivePath) {
-                // Update file_path to the _rejected/ location (file was moved, not deleted)
-                versionUpdateData.file_path = rejectedArchivePath;
+            if (status === 'Rejected' && rejectedVersionPath) {
+                versionUpdateData.file_path = rejectedVersionPath;
             }
             await tx.document_version.update({
                 where: { id: latestVersion.id },
@@ -1583,7 +1638,7 @@ class DccService {
                 data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
             });
 
-            // 4. Log Activity — store the _rejected/ file_path in metadata for trail access
+            // 4. Log Activity
             await ActivityService.logActivity({
                 company_id,
                 group_document_id: document_id,
@@ -1592,8 +1647,10 @@ class DccService {
                 remarks: remarks || null,
                 metadata: {
                     version_no: latestVersion.version_no,
+                    file_name: latestVersion.file_path ? latestVersion.file_path.split('/').pop() : '',
+                    file_path: rejectedVersionPath || latestVersion.file_path,
                     file_url: latestVersion.file_url,
-                    ...(rejectedArchivePath && { file_path: rejectedArchivePath })
+                    files: versionFiles.length > 0 ? versionFiles : undefined
                 }
             }, tx);
 
@@ -1643,27 +1700,7 @@ class DccService {
             throw new Error('No documents selected');
         }
 
-        // 1. Fetch group documents
-        const docs = await prisma.group_document.findMany({
-            where: { id: { in: document_ids }, company_id },
-            include: {
-                document: true,
-                group: {
-                    include: {
-                        job_group: {
-                            include: { job: true }
-                        }
-                    }
-                }
-            }
-        });
-
-        if (docs.length !== document_ids.length) throw new Error('Some documents not found');
-
-        // 2. Fetch the latest version for each of these group_documents
-        // We need the specific version associated with each group_document for the transmission.
-        // The `versions` relation on `group_document` is the correct way to get the versions belonging to that specific group_document.
-        // We need the *latest* version of each selected group_document.
+        // 1. Fetch group documents with their latest versions in a single query
         const docsWithVersions = await prisma.group_document.findMany({
             where: { id: { in: document_ids }, company_id },
             include: {
@@ -1678,17 +1715,18 @@ class DccService {
                 versions: {
                     orderBy: { version_no: 'desc' },
                     take: 1,
-                    include: { uploader: true } // Include uploader for potential use in ZIP creation or logging
+                    include: { uploader: true, files: { where: { is_active: true } } }
                 }
             }
         });
+
+        if (docsWithVersions.length !== document_ids.length) throw new Error('Some documents not found');
 
         // Map to ensure each doc has its latest version attached
         const finalDocs = docsWithVersions.map(doc => {
             if (!doc.versions || doc.versions.length === 0) {
                 throw new Error(`No versions found for document ID: ${doc.id}`);
             }
-            // Attach the latest version directly to the doc object for easier access
             doc.latestVersion = doc.versions[0];
             return doc;
         });
@@ -1699,7 +1737,6 @@ class DccService {
         }
 
         // Generate Transmission Number
-        // Format: SHRENO-TR-0000001
         const count = await prisma.transmission.count({ where: { company_id } });
         const transNum = `SHRENO-TR-${(count + 1).toString().padStart(7, '0')}`;
         const password = Math.random().toString(36).slice(-8).toUpperCase();
@@ -1707,20 +1744,16 @@ class DccService {
         // 2. Generate ZIP File
         const transmissionZipName = `${transNum}.zip`;
         const ZipUtils = require('../utils/zip.utils');
-        await ZipUtils.createTransmissionZip(transmissionZipName, finalDocs); // Now stored in uploads/generated
+        await ZipUtils.createTransmissionZip(transmissionZipName, finalDocs);
 
         const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-
-        // Generate UUID first.
         const transmissionId = require('crypto').randomUUID();
-        // Use PUBLIC route
-        // Use relative link for storage
         const zipDownloadLink = `/api/secure/download/${transmissionId}`;
 
         const result = await prisma.$transaction(async (tx) => {
             const transmission = await tx.transmission.create({
                 data: {
-                    id: transmissionId, // Use pre-generated UUID
+                    id: transmissionId,
                     company_id,
                     transmission_number: transNum,
                     customer_id,
@@ -1728,23 +1761,23 @@ class DccService {
                     po_id,
                     password: password,
                     created_by: user_id,
-                    zip_url: zipDownloadLink // Use secure public link
+                    zip_url: zipDownloadLink
                 },
                 include: { po: true }
             });
 
-            // Create items
-            for (const doc of finalDocs) {
-                await tx.transmission_document.create({
-                    data: {
-                        transmission_id: transmission.id,
-                        group_document_id: doc.id,
-                        version_id: doc.versions[0].id
-                    }
-                });
+            // Create transmission documents in bulk
+            await tx.transmission_document.createMany({
+                data: finalDocs.map(doc => ({
+                    transmission_id: transmission.id,
+                    group_document_id: doc.id,
+                    version_id: doc.versions[0].id
+                }))
+            });
 
-                // Log Activity for each document
-                await ActivityService.logActivity({
+            // Log activities concurrently
+            const activityPromises = finalDocs.map(doc =>
+                ActivityService.logActivity({
                     company_id,
                     group_document_id: doc.id,
                     transmission_id: transmission.id,
@@ -1752,20 +1785,22 @@ class DccService {
                     action: 'Transmittal Created',
                     remarks: `Document included in Transmittal ${transNum}`,
                     metadata: { transmission_no: transNum, version_no: doc.versions[0].version_no }
-                }, tx);
-            }
+                }, tx)
+            );
 
-            // Log Activity for the transmission itself
-            await ActivityService.logActivity({
-                company_id,
-                transmission_id: transmission.id,
-                user_id,
-                action: 'Transmittal Created',
-                remarks: `Transmission ${transNum} created and ready for client`,
-                metadata: { transmission_no: transNum, document_count: finalDocs.length }
-            }, tx);
+            activityPromises.push(
+                ActivityService.logActivity({
+                    company_id,
+                    transmission_id: transmission.id,
+                    user_id,
+                    action: 'Transmittal Created',
+                    remarks: `Transmission ${transNum} created and ready for client`,
+                    metadata: { transmission_no: transNum, document_count: finalDocs.length }
+                }, tx)
+            );
 
-            // Return transmission details for UI
+            await Promise.all(activityPromises);
+
             return transmission;
         });
 
@@ -1902,15 +1937,17 @@ class DccService {
                         versions: {
                             orderBy: { version_no: 'desc' },
                             take: 1,
-                            include: { uploader: true }
+                            include: { uploader: true, files: { where: { is_active: true } } }
                         }
                     }
                 },
                 version: {
                     include: {
-                        uploader: true
+                        uploader: true,
+                        files: { where: { is_active: true } }
                     }
-                }
+                },
+                feedback_files: true
             }
         });
 
@@ -2238,7 +2275,7 @@ class DccService {
      * Creates a new version for the document feedback.
      * Statuses: Approved, Rejected, Commented
      */
-    async updateTransmissionDocumentClientStatus(company_id, user_id, transmission_document_id, status, remarks, file) {
+    async updateTransmissionDocumentClientStatus(company_id, user_id, transmission_document_id, status, remarks, files) {
         const validStatuses = ['Approved', 'Rejected', 'Commented', 'Final Approved', 'Re-approval', 'As Built'];
         if (!validStatuses.includes(status)) throw new Error('Invalid status');
 
@@ -2263,10 +2300,10 @@ class DccService {
         const reviewedVersionId = transDoc.version_id;
 
         const result = await prisma.$transaction(async (tx) => {
-            let feedbackUrl = null;
+            const savedFiles = [];
 
-            // 2. Process File if provided (Store as Feedback Attachment)
-            if (file) {
+            // 2. Process Files if provided (Store as Feedback Attachments)
+            if (files && files.length > 0) {
                 const docNumber = groupDoc.document.document_number;
                 const transNumber = transDoc.transmission.transmission_number;
 
@@ -2276,16 +2313,39 @@ class DccService {
 
                 // Directory pattern: transmissions/[TR_NO]/client_feedback/[DOC_NO]/rev_[REV_NO]
                 const targetDir = StorageUtils.getTransmissionDocumentFeedbackDir(company_id, transNumber, docNumber, vNo);
-                const targetPath = path.join(targetDir, file.filename || file.originalname);
 
-                // Move file from temp to final destination
-                fs.renameSync(file.path, targetPath);
+                for (const file of files) {
+                    const targetPath = path.join(targetDir, file.filename || file.originalname);
 
-                const relativePath = StorageUtils.getRelativePath(targetPath);
+                    // Move file from temp to final destination
+                    fs.renameSync(file.path, targetPath);
 
-                // Feedback URL for the trail (Public/Secure route)
-                const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
-                feedbackUrl = `${backendUrl}/api/dcc/document/feedback?filename=${encodeURIComponent(file.originalname)}&filepath=${encodeURIComponent(relativePath)}`;
+                    const relativePath = StorageUtils.getRelativePath(targetPath);
+
+                    // Feedback URL for the trail (Public/Secure route)
+                    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+                    const feedbackUrl = `${backendUrl}/api/dcc/document/feedback?filename=${encodeURIComponent(file.originalname)}&filepath=${encodeURIComponent(relativePath)}`;
+
+                    // Save DB record
+                    const dbFile = await tx.client_reviewed_document_file.create({
+                        data: {
+                            transmission_document_id,
+                            original_filename: file.originalname,
+                            file_url: feedbackUrl,
+                            file_path: relativePath,
+                            file_size: file.size,
+                            mime_type: file.mimetype
+                        }
+                    });
+
+                    savedFiles.push({
+                        original_filename: dbFile.original_filename,
+                        file_url: dbFile.file_url,
+                        file_path: dbFile.file_path,
+                        file_size: dbFile.file_size,
+                        mime_type: dbFile.mime_type
+                    });
+                }
             }
 
             // 3. Update the transmission_document with per-document client status
@@ -2378,8 +2438,9 @@ class DccService {
                     document_number: groupDoc.document.document_number,
                     document_name: groupDoc.document.document_name,
                     version_no: reviewedVersion?.version_no,
-                    has_file: !!file,
-                    feedback_url: feedbackUrl, // Critical for UI to show download/eye icons
+                    has_file: savedFiles.length > 0,
+                    feedback_url: savedFiles.length > 0 ? savedFiles[0].file_url : null,
+                    feedback_files: savedFiles,
                     transmission_status: transmissionStatus
                 }
             }, tx);
@@ -3312,6 +3373,12 @@ class DccService {
         } catch (error) {
             console.error("[DccService] Failed to send internal transmittal alert:", error);
         }
+    }
+
+    async getDocumentFileDetails(fileId) {
+        return await prisma.document_file.findFirst({
+            where: { id: fileId }
+        });
     }
 
     _getFormattedDocNumber(serial_no) {

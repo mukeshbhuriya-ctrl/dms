@@ -3,6 +3,7 @@ const path = require('path');
 const prisma = require('#prisma');
 const { UPLOAD_DIR, ROOT_DIR } = require('../utils/upload');
 const { generateFileHash } = require('../utils/hash');
+const { v4: uuidv4 } = require('uuid');
 
 class FileService {
   /**
@@ -36,7 +37,21 @@ class FileService {
       fileHash: hash,
       mimeType: file.mimetype,
       filename: file.filename,
+      original_filename: file.originalname,
     };
+  }
+
+  /**
+   * Processes an array of uploaded files.
+   */
+  async processMultipleStorage(files, targetDir) {
+    const results = [];
+    if (files && Array.isArray(files)) {
+      for (const file of files) {
+        results.push(await this.processStorage(file, targetDir));
+      }
+    }
+    return results;
   }
 
   /**
@@ -46,7 +61,11 @@ class FileService {
    *   2. Rejected version (internal correction) → overwrite same version slot
    *   3. Normal re-upload → create new incremented revision
    */
-  async createNewVersion(tx, documentId, userId, fileData, remarks) {
+  async createNewVersion(tx, documentId, userId, filesData, remarks) {
+    // filesData is an array of processed files. Extract the primary (first) file for legacy fallback fields.
+    const primaryFile = filesData && filesData.length > 0 ? filesData[0] : null;
+    if (!primaryFile) throw new Error('No files provided for document version');
+
     // 1. Fetch master document ID
     const groupDoc = await tx.group_document.findUnique({
       where: { id: documentId },
@@ -75,6 +94,22 @@ class FileService {
     let version;
     let nextVersionNo;
 
+    // Helper to generate file items array for Prisma creation
+    const generateFileItems = (versionNo) => {
+      return filesData.map(f => {
+        const fileId = uuidv4();
+        return {
+          id: fileId,
+          original_filename: f.original_filename,
+          file_path: f.filePath,
+          file_hash: f.fileHash,
+          file_size: f.fileSize,
+          mime_type: f.mimeType,
+          file_url: `/api/dcc/file/${fileId}/download`,
+        };
+      });
+    };
+
     if (pendingPlaceholder) {
       // ── Case 1: Fill in the assignment placeholder ─────────────
       nextVersionNo = pendingPlaceholder.version_no;
@@ -90,15 +125,20 @@ class FileService {
         where: { id: pendingPlaceholder.id },
         data: {
           file_url: fileUrl,
-          file_path: fileData.filePath,
-          file_hash: fileData.fileHash,
-          file_size: fileData.fileSize,
-          mime_type: fileData.mimeType,
+          file_path: primaryFile.filePath,
+          file_hash: primaryFile.fileHash,
+          file_size: primaryFile.fileSize,
+          mime_type: primaryFile.mimeType,
+          original_filename: primaryFile.original_filename,
           is_active: true,
           status: 'Uploaded',
           uploaded_by: userId,
           remarks: remarks || null,
-        }
+          files: {
+            create: generateFileItems(nextVersionNo)
+          }
+        },
+        include: { files: true }
       });
 
     } else if (rejectedVersion) {
@@ -112,19 +152,30 @@ class FileService {
         data: { is_active: false }
       });
 
+      // Mark old files from this rejected version as inactive in DB (preserving history)
+      await tx.document_file.updateMany({
+        where: { version_id: rejectedVersion.id },
+        data: { is_active: false }
+      });
+
       version = await tx.document_version.update({
         where: { id: rejectedVersion.id },
         data: {
           file_url: fileUrl,
-          file_path: fileData.filePath,
-          file_hash: fileData.fileHash,
-          file_size: fileData.fileSize,
-          mime_type: fileData.mimeType,
+          file_path: primaryFile.filePath,
+          file_hash: primaryFile.fileHash,
+          file_size: primaryFile.fileSize,
+          mime_type: primaryFile.mimeType,
+          original_filename: primaryFile.original_filename,
           is_active: true,
           status: 'Uploaded',
           uploaded_by: userId,
           remarks: remarks || null,
-        }
+          files: {
+            create: generateFileItems(nextVersionNo)
+          }
+        },
+        include: { files: true }
       });
 
     } else {
@@ -152,15 +203,20 @@ class FileService {
           group_document_id: documentId,
           version_no: nextVersionNo,
           file_url: fileUrl,
-          file_path: fileData.filePath,
-          file_hash: fileData.fileHash,
-          file_size: fileData.fileSize,
-          mime_type: fileData.mimeType,
+          file_path: primaryFile.filePath,
+          file_hash: primaryFile.fileHash,
+          file_size: primaryFile.fileSize,
+          mime_type: primaryFile.mimeType,
+          original_filename: primaryFile.original_filename,
           is_active: true,
           remarks,
           status: 'Uploaded',
           uploaded_by: userId,
-        }
+          files: {
+            create: generateFileItems(nextVersionNo)
+          }
+        },
+        include: { files: true }
       });
     }
 

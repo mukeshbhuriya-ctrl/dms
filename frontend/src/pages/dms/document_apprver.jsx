@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog"
 import { toast } from 'react-toastify';
 import {
   Dialog,
@@ -137,6 +138,9 @@ function DocumentApprover() {
   const [previewUrl, setPreviewUrl] = useState(null)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [activePreviewDoc, setActivePreviewDoc] = useState(null)
+  const [isFileListOpen, setIsFileListOpen] = useState(false)
+  const [activeFileList, setActiveFileList] = useState([])
+  const [activeFileListDocName, setActiveFileListDocName] = useState("")
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
@@ -352,20 +356,26 @@ function DocumentApprover() {
           <Button
             variant="outline"
             size="sm"
+            className="border-slate-200 text-slate-600 cursor-pointer"
             onClick={() => {
-              setActivePreviewDoc({
-                documentName: row.documentName,
-                versionNo: row.versionNo,
-                mimeType: row.mimeType,
-                filePath: row.filePath
-              });
-              setPreviewUrl(row.previewUrl);
-              setIsPreviewOpen(true);
+              if (row.files && row.files.length > 0) {
+                setActiveFileList(row.files);
+                setActiveFileListDocName(`${row.documentNumber} - ${row.documentName}`);
+                setIsFileListOpen(true);
+              } else {
+                setActivePreviewDoc({
+                  documentName: row.documentName,
+                  versionNo: row.versionNo,
+                  mimeType: row.mimeType,
+                  filePath: row.filePath
+                });
+                setPreviewUrl(row.previewUrl);
+                setIsPreviewOpen(true);
+              }
             }}
-            disabled={!row.fileUrl || (row.originalDoc?.status === 'Pending' || row.originalDoc?.status === 'Upload Due')}
-            className="flex items-center gap-1.5"
+            disabled={!(row.files?.length > 0 || row.previewUrl) || row.originalDoc?.status === 'Pending' || row.originalDoc?.status === 'Upload Due'}
           >
-            <Eye className="w-4 h-4" /> Preview
+            <Eye className="w-4 h-4 mr-2" /> Preview
           </Button>
 
           <Button
@@ -476,6 +486,7 @@ function DocumentApprover() {
             versionNo: doc.display_version_no || 0,
             fileUrl: latestVersion?.file_url,
             // Preview support fields
+            files: latestVersion?.files || [],
             mimeType: latestVersion?.mime_type,
             filePath: latestVersion?.file_path,
             previewUrl: latestVersion?.id
@@ -610,6 +621,18 @@ function DocumentApprover() {
       </main>
 
       {/* Shared Document Preview Dialog */}
+      <FileListPreviewDialog 
+        isOpen={isFileListOpen}
+        onClose={() => setIsFileListOpen(false)}
+        files={activeFileList}
+        documentName={activeFileListDocName}
+        onPreviewFile={(previewInfo) => {
+            setActivePreviewDoc(previewInfo);
+            setPreviewUrl(previewInfo.previewUrl);
+            setIsPreviewOpen(true);
+        }}
+      />
+
       <DocumentPreviewDialog
         isOpen={isPreviewOpen}
         onOpenChange={setIsPreviewOpen}

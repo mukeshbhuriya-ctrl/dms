@@ -667,6 +667,7 @@ model document_version {
   single_document_id String?
   group_document_id  String?
   version_no         Int
+  original_filename  String?
   file_url           String
   file_path          String?   // User requirement: filePath
   file_hash          String?   // User requirement: fileHash
@@ -683,6 +684,22 @@ model document_version {
   group_document  group_document?  @relation(fields: [group_document_id], references: [id])
   uploader        user?            @relation(fields: [uploaded_by], references: [id])
   transmission_items transmission_document[]
+  files              document_file[]
+}
+
+model document_file {
+  id                 String           @id @default(uuid())
+  version_id         String
+  original_filename  String
+  file_url           String
+  file_path          String
+  file_hash          String?
+  file_size          Int?
+  mime_type          String?
+  is_active          Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+
+  version            document_version @relation(fields: [version_id], references: [id], onDelete: Cascade)
 }
 
 model document_access_log {
@@ -749,6 +766,7 @@ model transmission_document {
   single_document single_document? @relation(fields: [single_document_id], references: [id])
   group_document  group_document?  @relation(fields: [group_document_id], references: [id])
   version         document_version @relation(fields: [version_id], references: [id])
+  feedback_files  client_reviewed_document_file[]
 }
 
 model drawing_transmittal {
@@ -1639,4 +1657,17 @@ model audit_log {
   @@index([company_id, module])
   @@index([company_id, user_id])
   @@index([company_id, action])
+}
+
+model client_reviewed_document_file {
+  id                       String                @id @default(uuid())
+  transmission_document_id String
+  original_filename        String
+  file_url                 String
+  file_path                String
+  file_size                Int?
+  mime_type                String?
+  createdAt                DateTime              @default(now())
+
+  transmission_document   transmission_document @relation(fields: [transmission_document_id], references: [id], onDelete: Cascade)
 }

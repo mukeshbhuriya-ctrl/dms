@@ -28,11 +28,16 @@ const storage = multer.diskStorage({
     cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
-    // Secure filename generation: file_timestamp_random.ext
+    // Secure filename generation: file_originalName_timestamp_random.ext
     const timestamp = Date.now();
     const randomHex = crypto.randomBytes(8).toString('hex');
     const ext = path.extname(file.originalname).toLowerCase();
-    const secureFilename = `file_${timestamp}_${randomHex}${ext}`;
+    
+    // Clean original filename: remove extension, replace non-alphanumeric with underscores
+    const baseName = path.basename(file.originalname, ext);
+    const safeBaseName = baseName.replace(/[^a-zA-Z0-9]/g, '_');
+    
+    const secureFilename = `file_${safeBaseName}_${timestamp}_${randomHex}${ext}`;
     cb(null, secureFilename);
   },
 });

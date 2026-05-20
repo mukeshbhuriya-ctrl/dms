@@ -114,41 +114,80 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                 <div className="flex flex-wrap items-center gap-3 mt-2">
                                     <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-white px-2 py-1 rounded border border-slate-100">
                                         <User className="w-3 h-3" />
-                                        <span>{activity.user?.name || 'Unknown User'}</span>
+                                        <span>
+                                            {activity.user?.name || 'Unknown User'}
+                                            {activity.user?.empid ? ` (EMP-${activity.user.empid})` : ''}
+                                        </span>
                                     </div>
                                     
                                     {activity.metadata && (
                                         <div className="flex items-center gap-3">
-                                            {activity.metadata.file_url ? (
+                                            {activity.metadata.files && Array.isArray(activity.metadata.files) && activity.metadata.files.length > 0 ? (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    {activity.metadata.files.map((fileObj, idx) => {
+                                                        const rawUrl = fileObj.file_url || '';
+                                                        const fullUrl = rawUrl.startsWith('http') ? rawUrl : `${import.meta.env.VITE_BACKEND_URL || ''}${rawUrl}`;
+                                                        return (
+                                                            <div key={idx} className="flex items-center gap-2">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        if (onPreview) {
+                                                                            onPreview({
+                                                                                documentName: fileObj.original_filename || `Revision ${activity.metadata.version_no}`,
+                                                                                versionNo: activity.metadata.version_no,
+                                                                                mimeType: fileObj.mime_type || '',
+                                                                                filePath: fileObj.file_path || fileObj.file_url,
+                                                                                previewUrl: fullUrl
+                                                                            });
+                                                                        } else {
+                                                                            window.open(fullUrl, '_blank');
+                                                                        }
+                                                                    }}
+                                                                    className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 hover:shadow-sm border border-blue-200 transition-all cursor-pointer group/preview"
+                                                                    title={`Preview ${fileObj.original_filename || 'this version'}`}
+                                                                >
+                                                                    <FileText className="w-3 text-blue-600" />
+                                                                    <span className="truncate max-w-[150px] text-blue-700">{fileObj.original_filename || `Revision ${activity.metadata.version_no}`}</span>
+                                                                    <Eye className="w-3.5 h-3.5 ml-1 text-blue-600 group-hover/preview:scale-110 transition-transform" />
+                                                                </button>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            ) : activity.metadata.file_url ? (
                                                 <div className="flex items-center gap-2">
-                                                    <a 
-                                                        href={activity.metadata.file_url} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        download
-                                                        className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded hover:bg-primary/10 hover:shadow-sm border border-primary/20 transition-all cursor-pointer group/dl"
-                                                        title="Download this version"
-                                                    >
-                                                        <FileText className="w-3 h-3" />
-                                                        <span>Revision {activity.metadata.version_no}</span>
-                                                        <Download className="w-3.5 h-3.5 ml-1 text-primary group-hover/dl:scale-110 transition-transform" />
-                                                    </a>
-                                                    
-                                                    {onPreview && activity.metadata.preview_url && (
+                                                    {onPreview ? (
                                                         <button
-                                                            onClick={() => onPreview({
-                                                                documentName: `Version ${activity.metadata.version_no}`,
-                                                                versionNo: activity.metadata.version_no,
-                                                                mimeType: activity.metadata.mime_type,
-                                                                filePath: activity.metadata.file_path,
-                                                                previewUrl: activity.metadata.preview_url
-                                                            })}
-                                                            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 hover:shadow-sm border border-blue-200 transition-all cursor-pointer"
+                                                            onClick={() => {
+                                                                const rawUrl = activity.metadata.preview_url || activity.metadata.file_url || '';
+                                                                const fullUrl = rawUrl.startsWith('http') ? rawUrl : `${import.meta.env.VITE_BACKEND_URL || ''}${rawUrl}`;
+                                                                onPreview({
+                                                                    documentName: `Version ${activity.metadata.version_no}`,
+                                                                    versionNo: activity.metadata.version_no,
+                                                                    mimeType: activity.metadata.mime_type,
+                                                                    filePath: activity.metadata.file_path,
+                                                                    previewUrl: fullUrl
+                                                                });
+                                                            }}
+                                                            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 hover:shadow-sm border border-blue-200 transition-all cursor-pointer group/preview"
                                                             title="Preview this version"
                                                         >
-                                                            <Eye className="w-3.5 h-3.5" />
-                                                            <span>Preview</span>
+                                                            <FileText className="w-3 text-blue-600" />
+                                                            <span className="text-blue-700">Revision {activity.metadata.version_no}</span>
+                                                            <Eye className="w-3.5 h-3.5 ml-1 text-blue-600 group-hover/preview:scale-110 transition-transform" />
                                                         </button>
+                                                    ) : (
+                                                        <a
+                                                            href={activity.metadata.file_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/5 px-2 py-1 rounded hover:bg-primary/10 hover:shadow-sm border border-primary/20 transition-all cursor-pointer group/dl"
+                                                            title="Open this version"
+                                                        >
+                                                            <FileText className="w-3 h-3" />
+                                                            <span>Revision {activity.metadata.version_no}</span>
+                                                            <Eye className="w-3.5 h-3.5 ml-1 text-primary group-hover/dl:scale-110 transition-transform" />
+                                                        </a>
                                                     )}
                                                 </div>
                                             ) : (
@@ -164,9 +203,9 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                                 </div>
                                             )}
                                             {activity.metadata.feedback_url && (
-                                                <a 
-                                                    href={activity.metadata.feedback_url} 
-                                                    target="_blank" 
+                                                <a
+                                                    href={activity.metadata.feedback_url}
+                                                    target="_blank"
                                                     rel="noopener noreferrer"
                                                     download
                                                     className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 hover:shadow-sm border border-emerald-200 transition-all cursor-pointer group/fb"

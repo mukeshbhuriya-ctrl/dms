@@ -42,10 +42,29 @@ class DocumentController {
                     where: { id: activityId, company_id: companyId }
                 });
 
-                if (!activity || !activity.metadata || !activity.metadata.file_path) {
+                if (!activity || !activity.metadata) {
                     return res.status(404).json({ success: false, message: 'Archived file or activity record not found' });
                 }
-                filePathToServe = activity.metadata.file_path;
+
+                // Check if we are looking for a specific file in metadata.files (multi-file)
+                const targetFilename = req.query.filename;
+                if (targetFilename && activity.metadata.files && Array.isArray(activity.metadata.files)) {
+                    const fileObj = activity.metadata.files.find(f => 
+                        f.original_filename === targetFilename || 
+                        (f.file_path && f.file_path.split('/').pop() === targetFilename) ||
+                        (f.file_path && f.file_path.split('\\').pop() === targetFilename)
+                    );
+                    if (fileObj) {
+                        filePathToServe = fileObj.file_path;
+                    }
+                }
+
+                if (!filePathToServe) {
+                    if (!activity.metadata.file_path) {
+                        return res.status(404).json({ success: false, message: 'Archived file path not found' });
+                    }
+                    filePathToServe = activity.metadata.file_path;
+                }
                 // Note: Archive files might not have a stored hash in activity metadata yet, 
                 // but we trust the internal archive path.
             } else {

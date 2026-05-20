@@ -21,7 +21,7 @@ const createTransmissionZip = (zipName, docs) => {
     return new Promise((resolve, reject) => {
         const zipPath = path.join(generatedDir, zipName);
         const output = fs.createWriteStream(zipPath);
-        const archive = archiver('zip', { zlib: { level: 9 } });
+        const archive = archiver('zip', { zlib: { level: 1 } });
 
         output.on('close', () => resolve(zipPath));
         archive.on('error', (err) => reject(err));
@@ -31,48 +31,57 @@ const createTransmissionZip = (zipName, docs) => {
         docs.forEach(doc => {
             const version = doc.versions && doc.versions[0];
             if (version) {
-                // Use the physical path stored in the DB if available, 
-                // fallback to UPLOAD_DIR + filename if not (for legacy files)
-                let filePath = version.file_path;
-                
-                // Handle relative paths from DB (e.g. \uploads\...)
-                // On Windows, \uploads... is considered absolute but lacks the drive letter (C:).
-                // We must join it with ROOT_DIR unless it already contains the ROOT_DIR prefix.
-                if (filePath && (!path.isAbsolute(filePath) || filePath.startsWith('\\') || filePath.startsWith('/'))) {
-                    // Strip any leading slashes to prevent path.join from treating it as a drive-root path
-                    const cleanRelativePart = filePath.replace(/^[\\\/]+/, '');
+                // Handle both the new multi-file model and the legacy single-file fallback
+                const filesToZip = (version.files && version.files.length > 0)
+                    ? version.files
+                    : [{ 
+                        file_path: version.file_path, 
+                        file_url: version.file_url,
+                        original_filename: version.original_filename
+                      }];
+
+                filesToZip.forEach(fileObj => {
+                    let filePath = fileObj.file_path;
                     
-                    // Only join if it doesn't already start with ROOT_DIR (safety check)
-                    if (!filePath.toLowerCase().includes(ROOT_DIR.toLowerCase().replace(/^[\\\/]+/, ''))) {
-                        filePath = path.join(ROOT_DIR, cleanRelativePart);
+                    // Handle relative paths from DB (e.g. \uploads\...)
+                    if (filePath && (!path.isAbsolute(filePath) || filePath.startsWith('\\') || filePath.startsWith('/'))) {
+                        const cleanRelativePart = filePath.replace(/^[\\\/]+/, '');
+                        if (!filePath.toLowerCase().includes(ROOT_DIR.toLowerCase().replace(/^[\\\/]+/, ''))) {
+                            filePath = path.join(ROOT_DIR, cleanRelativePart);
+                        }
                     }
-                }
-                
-                if (!filePath && version.file_url) {
-                    const filename = version.file_url.split('/').pop();
-                    filePath = path.join(UPLOAD_DIR, filename);
-                }
-                
-                if (filePath && fs.existsSync(filePath)) {
-                    const ext = path.extname(filePath);
-                    const docName = `${doc.document.document_number}-${doc.document.document_name}${ext}`;
-
-                    // Check for associated jobs
-                    const jobs = doc.group?.job_group?.map(jg => jg.job) || [];
-
-                    if (jobs.length > 0) {
-                        // Add to each job folder
-                        jobs.forEach(job => {
-                            const jobFolder = job.job_number ? `JOB-${job.job_number}` : 'Unknown-Job';
-                            // Structure: JobNumber/DocumentNumber-DocumentName.ext
-                            const docNameInZip = `${jobFolder}/${docName}`;
-                            archive.file(filePath, { name: docNameInZip });
-                        });
-                    } else {
-                        // No job associated, place in root
-                        archive.file(filePath, { name: docName });
+                    
+                    if (!filePath && fileObj.file_url) {
+                        const filename = fileObj.file_url.split('/').pop();
+                        filePath = path.join(UPLOAD_DIR, filename);
                     }
-                }
+                    
+                    if (filePath && fs.existsSync(filePath)) {
+                        const ext = path.extname(filePath);
+                        // Original Filename Zip Feature: Try to use original_filename, else fallback to system doc ID
+                        let docName;
+                        if (fileObj.original_filename) {
+                            docName = fileObj.original_filename;
+                        } else {
+                            docName = `${doc.document.document_number}-${doc.document.document_name}${ext}`;
+                        }
+
+                        // Check for associated jobs
+                        const jobs = doc.group?.job_group?.map(jg => jg.job) || [];
+
+                        if (jobs.length > 0) {
+                            // Add to each job folder
+                            jobs.forEach(job => {
+                                const jobFolder = job.job_number ? job.job_number : 'Unknown-Job';
+                                const docNameInZip = `${jobFolder}/${docName}`;
+                                archive.file(filePath, { name: docNameInZip });
+                            });
+                        } else {
+                            // No job associated, place in root
+                            archive.file(filePath, { name: docName });
+                        }
+                    }
+                });
             }
         });
 
