@@ -2,6 +2,7 @@
 # OS / Editor
 # ======================
 .vscode/
+scratch/
 .idea/
 *.swp
 *.swo

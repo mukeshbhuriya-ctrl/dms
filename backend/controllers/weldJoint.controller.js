@@ -89,10 +89,12 @@ async function generateStageReport(req, res) {
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=${stage}_${joint.joint_no}_${dateTime}.pdf`);
 
-        if (stage === 'stage1') {
-            pdfGenerator.generateStage1Report(reportData, res, companyInfo);
+        // Route single-stage report to the correct generator based on joint type
+        if (jointTypeGroup === 'cd') {
+            pdfGeneratorCD.generateReport({ [stage]: reportData }, res, companyInfo);
+        } else if (jointTypeGroup === 'f') {
+            pdfGeneratorF.generateReport({ [stage]: reportData }, res, companyInfo);
         } else {
-            // Fallback or generic for single download if needed
             pdfGenerator.generateCompleteReport({ [stage]: reportData }, res, companyInfo);
         }
 
