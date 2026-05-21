@@ -32,6 +32,7 @@ import {
   FinalInspectionReports,
   Reports,
   AuditLogs,
+  ApprovalCenter,
 } from "@/pages/admin"
 import JobOverview from "@/pages/admin/job_360"
 import { WeldingJoints } from "@/pages/wpj/admin"
@@ -157,6 +158,10 @@ const adminRoutes = [
   {
     path: "/admin/dashboard",
     element: protect(<AdminDashboard />, MODULES.DASHBOARD_ADMIN, [ROLES.ADMIN]),
+  },
+  {
+    path: "/approval-center",
+    element: protect(<ApprovalCenter />, MODULES.DASHBOARD_ADMIN, [ROLES.ADMIN]),
   },
   {
     path: "/admin/job-overview",

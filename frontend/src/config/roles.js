@@ -124,6 +124,7 @@ export const MENU_CONFIG = [
             { title: "Group Management", path: "/group-management", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
             { title: "QC Group (Legacy)", path: "/qc-group", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
             { title: "Audit Logs", path: "/admin/audit-logs", moduleKey: MODULES.ADMINISTRATION.AUDIT_LOGS },
+            { title: "Approval Center", path: "/approval-center", moduleKey: MODULES.DASHBOARD_ADMIN },
         ],
     },
 
