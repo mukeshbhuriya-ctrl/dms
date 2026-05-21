@@ -38,6 +38,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { FormAlert } from "@/components/ui/form-alert"
 import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
 import WeldJointTrail from "@/components/wpj/WeldJointTrail"
+import { ModuleHeader } from "@/components/shared/ModuleHeader"
 
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
@@ -565,16 +566,13 @@ function ViewWeldingJoints() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
+      <ModuleHeader 
+        title="Welding Joints"
+        description="List of all welding joints with their details and status."
+      />
 
       <main className="flex-1 overflow-auto p-6 flex flex-col">
         <div className="flex-1 flex flex-col w-full">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold mb-2">Welding Joints</h1>
-            <p className="text-muted-foreground">List of all welding joints with their details and status.</p>
-          </div>
 
           <div className="flex flex-col gap-4">
             {/* Right-aligned Status Filter */}

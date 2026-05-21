@@ -45,6 +45,7 @@ import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircl
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { ModuleHeader } from "@/components/shared/ModuleHeader"
 
 function WeldingJoints() {
   const [formData, setFormData] = useState({
@@ -876,34 +877,20 @@ function WeldingJoints() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
+        <ModuleHeader 
+          title={view === "list" ? "Welding Plans List" : view === "edit" ? "Edit Welding Joint Plan" : "Create Welding Joints"}
+          description={view === "list" ? "List of all welding joint plans" : view === "edit" ? "Update the details for the existing Welding Joints plan." : "Fill in the details to create a new Welding Joints plan."}
+          actions={
+            view !== "list" && (
+              <Button variant="outline" onClick={() => setView("list")}>
+                Back to List
+              </Button>
+            )
+          }
+        />
         <main className="flex-1 overflow-auto p-6 flex flex-col">
           <div className="flex-1 flex flex-col w-full overflow-x-hidden">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">
-                  {view === "list" ? "Welding Plans List" : view === "edit" ? "Edit Welding Joint Plan" : "Create Welding Joints"}
-                </h1>
-                <p className="text-muted-foreground">
-                  {view === "list"
-                    ? "List of all welding joint plans"
-                    : view === "edit" 
-                    ? "Update the details for the existing Welding Joints plan."
-                    : "Fill in the details to create a new Welding Joints plan."}
-                </p>
-              </div>
-              <div>
-                {view === "list" ? (
-                  null
-                ) : (
-                  <Button variant="outline" onClick={() => setView("list")}>
-                    Back to List
-                  </Button>
-                )}
-              </div>
-            </div>
+
 
             {error && (
               <div className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">

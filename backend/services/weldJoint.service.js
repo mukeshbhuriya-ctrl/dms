@@ -2,6 +2,7 @@ const prisma = require('#prisma');
 const WELD_STAGES_CONFIG = require('../config/weldStagesConfig');
 const emailService = require('./email.service.js');
 const userService = require('./user.service.js');
+const NotificationService = require('./notification.service.js');
 
 class WeldJointService {
     getStageConfig() {
@@ -551,7 +552,10 @@ class WeldJointService {
         if (!jointId || !stage || !status) throw new Error('Missing required fields');
 
         // First find the joint to get category
-        const joint = await prisma.weld_joint.findUnique({ where: { id: jointId } });
+        const joint = await prisma.weld_joint.findUnique({ 
+            where: { id: jointId },
+            include: { weld_joint_plan: true }
+        });
         if (!joint) throw new Error('Joint not found');
         const catKey = joint.joint_type.toLowerCase();
 
@@ -707,6 +711,27 @@ class WeldJointService {
                     if (toArray.length > 0) {
                         await emailService.sendWeldStageNotification(toArray, emailDetails);
                     }
+
+                    // Send System Notifications
+                    if (qc_eng_id) {
+                        await NotificationService.createNotification({
+                            company_id: joint.weld_joint_plan.company_id,
+                            user_id: qc_eng_id,
+                            title: 'New Weld Stage Assigned',
+                            message: `Joint ${joint.joint_no} - ${stageLabel} requires inspection.`,
+                            action_path: '/view-weldingjoints',
+                            action_params: { joint_id: jointId }
+                        });
+                    } else if (stagePayload.assignedQcGroupId) {
+                        await NotificationService.broadcastToQcGroup({
+                            company_id: joint.weld_joint_plan.company_id,
+                            group_id: stagePayload.assignedQcGroupId,
+                            title: 'New Weld Stage Assigned',
+                            message: `Joint ${joint.joint_no} - ${stageLabel} requires inspection.`,
+                            action_path: '/view-weldingjoints',
+                            action_params: { joint_id: jointId }
+                        });
+                    }
                 })().catch(err => console.error("Email notification background error:", err));
             } catch (err) {
                 console.error("Weld Stage Submission Email Error:", err);
@@ -729,6 +754,17 @@ class WeldJointService {
                             actionType: 'review'
                         });
                     }
+
+                    // System Notification
+                    await NotificationService.createNotification({
+                        company_id: joint.weld_joint_plan.company_id,
+                        user_id: stageRecord.prod_eng_id,
+                        severity: status === 'approved' ? 'success' : 'warning',
+                        title: status === 'approved' ? 'Weld Stage Approved' : 'Weld Stage Rejected',
+                        message: `Joint ${joint.joint_no} - ${stageLabel} has been ${status}.`,
+                        action_path: '/view-weldingjoints',
+                        action_params: { joint_id: jointId }
+                    });
                 })().catch(err => console.error("Email notification background error:", err));
             } catch (err) {
                 console.error("Weld Stage Review Email Error in updateStatus:", err);
@@ -783,7 +819,7 @@ class WeldJointService {
                     ...(status === 'approved' && { approved_at: new Date() }),
                     ...(status === 'rejected' && { rejected_at: new Date(), is_active: false }),
                 },
-                include: { weld_joint: true }
+                include: { weld_joint: { include: { weld_joint_plan: true } } }
             });
         } else {
             const updateData = { 
@@ -800,7 +836,7 @@ class WeldJointService {
             stageRecord = await prisma.weld_joint_stage.update({
                 where: { id: stageRecord.id },
                 data: updateData,
-                include: { weld_joint: true }
+                include: { weld_joint: { include: { weld_joint_plan: true } } }
             });
         }
 
@@ -823,6 +859,17 @@ class WeldJointService {
                             actionType: 'review'
                         });
                     }
+
+                    // System Notification
+                    await NotificationService.createNotification({
+                        company_id: stageRecord.weld_joint.weld_joint_plan.company_id,
+                        user_id: stageRecord.prod_eng_id,
+                        severity: status === 'approved' ? 'success' : 'warning',
+                        title: status === 'approved' ? 'Weld Stage Approved' : 'Weld Stage Rejected',
+                        message: `Joint ${stageRecord.weld_joint.joint_no} - ${stageLabel} has been ${status}.`,
+                        action_path: '/view-weldingjoints',
+                        action_params: { joint_id: jointId }
+                    });
                 })().catch(err => console.error("Email notification background error:", err));
             } catch (err) {
                 console.error("Weld Stage Review Email Error:", err);
