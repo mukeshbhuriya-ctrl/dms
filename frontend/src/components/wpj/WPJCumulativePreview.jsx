@@ -349,9 +349,9 @@ function SeamWeldingPreview({ jointData, job, plan, insp, approvedStages, getSta
 
         {/* Joint Number */}
         <tr>
-          <td className="label-cell">Joint Number</td>
-          <td>{jointData.joint_description || jointData.joint_no || "-"}</td>
+          <td className="label-cell" style={{ color: "#FF0000" }}>Joint Number</td>
           <td style={{ fontWeight: 600 }}>{jointData.joint_no || "-"}</td>
+          <td></td>
           <td></td>
         </tr>
 
@@ -592,19 +592,41 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
 
   return (
     <div>
+      {/* ===== HEADER: Title + Report No ===== */}
+      <table className="wpj-grid-table" style={{ marginBottom: 0 }}>
+        <tbody>
+          <tr>
+            <td style={{ width: "30%", textAlign: "center", fontWeight: 700, fontSize: 12, padding: "12px 8px" }}>
+              <span style={{ color: "#000080" }}>Shreno Engineering Limited</span>
+            </td>
+            <td style={{ width: "70%" }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#FF0000", textAlign: "center", paddingBottom: 4 }}>
+                GENERAL INSPECTION REPORT
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#FF0000", textAlign: "center" }}>
+                (CHECK SHEET FOR
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#FF0000", textAlign: "center" }}>
+                NOZZLE SET-UP & WELDING INSPECTION)
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
       {/* Header Metadata Table */}
       <table className="wpj-grid-table" style={{ marginBottom: 12 }}>
         <tbody className="header-meta">
           <tr>
-            <td className="label-cell" style={{ width: "40%" }}>Shreno Manufacturer sr. no.:</td>
+            <td className="label-cell" style={{ width: "40%", color: "#FF0000" }}>Shreno Manufacturer sr. no.:</td>
             <td>{job.job_number || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell">Equipment Name & Tag Number:</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>Equipment Name & Tag Number:</td>
             <td>{`${job.equipement_name || ""} ${job.tag_number || ""}`.trim() || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell">Drawing no. :</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>Drawing no. :</td>
             <td>{plan.customer_drg_no || "-"}</td>
           </tr>
         </tbody>
@@ -621,7 +643,7 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
           </tr>
           <tr>
             <td></td>
-            <td className="label-cell">Nozzle Number</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>Nozzle Number</td>
             <td>{jointData.joint_no || "-"}</td>
             <td></td>
           </tr>
@@ -649,10 +671,10 @@ function CharacteristicGroup({ char }) {
           <td style={{ textAlign: "center", fontWeight: 600 }}>
             {rIdx === 0 ? (char.sr === "1b" ? "" : char.sr) : ""}
           </td>
-          <td className="label-cell" style={{ whiteSpace: "pre-wrap" }}>
+          <td className="label-cell" style={{ whiteSpace: "pre-wrap", color: "#FF0000" }}>
             {rIdx === 0 ? char.title : ""}
           </td>
-          <td style={{ whiteSpace: "pre-wrap" }}>{row.detail}</td>
+          <td style={{ whiteSpace: "pre-wrap", color: "#FF0000", fontWeight: 600 }}>{row.detail}</td>
           <td>{row.value}</td>
         </tr>
       ))}
@@ -660,14 +682,14 @@ function CharacteristicGroup({ char }) {
         <>
           <tr>
             <td></td>
-            <td className="sig-label">Engineer Production  Dated Signature</td>
+            <td className="sig-label" style={{ color: "#FF0000" }}>Engineer Production  Dated Signature</td>
             <td className="sig-value" colSpan={2}>
               {char.sig.prodName} {char.sig.prodDate ? `/ ${char.sig.prodDate}` : ""}
             </td>
           </tr>
           <tr>
             <td></td>
-            <td className="sig-label">Engineer Shop {char.qcType}  Dated Signature</td>
+            <td className="sig-label" style={{ color: "#FF0000" }}>Engineer Shop {char.qcType}  Dated Signature</td>
             <td className="sig-value" colSpan={2}>
               {char.sig.qcName} {char.sig.qcDate ? `/ ${char.sig.qcDate}` : ""}
               {char.sig.status === "approved" ? " / Approve" : ""}
@@ -675,7 +697,7 @@ function CharacteristicGroup({ char }) {
           </tr>
           <tr>
             <td></td>
-            <td className="sig-label">CLIENT / AI /TPIA  Dated Signature</td>
+            <td className="sig-label" style={{ color: "#FF0000" }}>CLIENT / AI /TPIA  Dated Signature</td>
             <td className="sig-value"></td>
             <td className="sig-value">Yes/No</td>
           </tr>
