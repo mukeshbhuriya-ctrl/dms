@@ -95,11 +95,11 @@ class PDFGeneratorCD {
             { t: '', f: this.fonts.regular, c: this.colors.black }
         ]);
 
-        // Nozzle Number row
+        // Nozzle Number row — dynamic from joint data
         y = this._gridRow(doc, x, y, [srW, charW, detW, valW + extW], rowH, pad, [
             { t: '' },
             { t: 'Nozzle Number', f: this.fonts.bold, c: this.colors.red },
-            { t: 'Text', f: this.fonts.regular, c: this.colors.black },
+            { t: firstData.nozzleNumber || firstData.jointNo || '-', f: this.fonts.regular, c: this.colors.black },
             { t: '' }
         ]);
 
@@ -246,14 +246,25 @@ class PDFGeneratorCD {
     // ==========================================
     // Helpers
     // ==========================================
-    _gridRow(doc, x, y, widths, h, pad, cells) {
+    _gridRow(doc, x, y, widths, minH, pad, cells) {
+        // Measure required height for each cell's text
+        let maxTextH = 0;
+        cells.forEach((c, i) => {
+            if (c && c.t) {
+                doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8);
+                const textH = doc.heightOfString(c.t, { width: widths[i] - pad * 2 });
+                if (textH > maxTextH) maxTextH = textH;
+            }
+        });
+        const h = Math.max(minH, maxTextH + 6);
+
         let cx = x;
         widths.forEach((w, i) => {
             doc.rect(cx, y, w, h).stroke();
             const c = cells[i] || {};
             if (c.t) {
                 doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8).fillColor(c.c || this.colors.black)
-                    .text(c.t, cx + pad, y + 2, { width: w - pad * 2 });
+                    .text(c.t, cx + pad, y + 3, { width: w - pad * 2 });
             }
             cx += w;
         });
@@ -266,24 +277,32 @@ class PDFGeneratorCD {
         const vW = width * 0.35;
         const eW = width - lW - vW;
 
-        // Production
+        // Dynamic data from extractStageData
+        const prodName = data.productionEngineerName || '';
+        const prodDate = data.submissionDate || '';
+        const qcName = data.qcEngineerName || '';
+        const qcDate = data.qcDate || '';
+        const qcApproved = data.qcStatus === 'approved';
+
+        // Production Engineer
         doc.rect(x, y, lW, sigH).stroke();
         doc.rect(x + lW, y, vW, sigH).stroke();
         doc.rect(x + lW + vW, y, eW, sigH).stroke();
         doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
             .text('Engineer Production  Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('NAME/DATE', x + lW + pad, y + 2, { width: vW - pad * 2 });
+            .text(prodName && prodDate ? `${prodName} / ${prodDate}` : (prodName || prodDate || ''), x + lW + pad, y + 2, { width: vW - pad * 2 });
         y += sigH;
 
-        // QC
+        // QC Engineer
         doc.rect(x, y, lW, sigH).stroke();
         doc.rect(x + lW, y, vW, sigH).stroke();
         doc.rect(x + lW + vW, y, eW, sigH).stroke();
         doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
             .text('Engineer Shop QC Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
+        const qcText = [qcName, qcDate, qcApproved ? 'Approve' : ''].filter(Boolean).join(' / ');
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('NAME/DATE/sign', x + lW + pad, y + 2, { width: vW - pad * 2 });
+            .text(qcText || '', x + lW + pad, y + 2, { width: vW - pad * 2 });
         y += sigH;
 
         // TPIA
@@ -293,7 +312,7 @@ class PDFGeneratorCD {
         doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
             .text('CLIENT / AI /TPIA   Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('NAME/DATE', x + lW + pad, y + 2, { width: vW - pad * 2 });
+            .text('', x + lW + pad, y + 2, { width: vW - pad * 2 });
         doc.text('Yes/No', x + lW + vW + pad, y + 2, { width: eW - pad * 2 });
         y += sigH;
 

@@ -138,14 +138,24 @@ class PDFGeneratorF {
             .text('EXHIBIT 10_3 GENERAL INSPECTION REPORT Rev.01', x, y);
     }
 
-    _gridRow(doc, x, y, widths, h, pad, cells) {
+    _gridRow(doc, x, y, widths, minH, pad, cells) {
+        let maxTextH = 0;
+        cells.forEach((c, i) => {
+            if (c && c.t) {
+                doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8);
+                const textH = doc.heightOfString(c.t, { width: widths[i] - pad * 2 });
+                if (textH > maxTextH) maxTextH = textH;
+            }
+        });
+        const h = Math.max(minH, maxTextH + 6);
+
         let cx = x;
         widths.forEach((w, i) => {
             doc.rect(cx, y, w, h).stroke();
             const c = cells[i] || {};
             if (c.t) {
                 doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8).fillColor(c.c || this.colors.black)
-                    .text(c.t, cx + pad, y + 2, { width: w - pad * 2 });
+                    .text(c.t, cx + pad, y + 3, { width: w - pad * 2 });
             }
             cx += w;
         });
@@ -156,13 +166,20 @@ class PDFGeneratorF {
         const sigH = rowH - 2;
         const lW = width * 0.50, vW = width * 0.35, eW = width - lW - vW;
 
+        // Dynamic data from extractStageData
+        const prodName = data.productionEngineerName || '';
+        const prodDate = data.submissionDate || '';
+        const qcName = data.qcEngineerName || '';
+        const qcDate = data.qcDate || '';
+        const qcApproved = data.qcStatus === 'approved';
+
         doc.rect(x, y, lW, sigH).stroke();
         doc.rect(x + lW, y, vW, sigH).stroke();
         doc.rect(x + lW + vW, y, eW, sigH).stroke();
         doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
             .text('Engineer Production  Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('NAME/DATE', x + lW + pad, y + 2, { width: vW - pad * 2 });
+            .text(prodName && prodDate ? `${prodName} / ${prodDate}` : (prodName || prodDate || ''), x + lW + pad, y + 2, { width: vW - pad * 2 });
         y += sigH;
 
         doc.rect(x, y, lW, sigH).stroke();
@@ -170,8 +187,9 @@ class PDFGeneratorF {
         doc.rect(x + lW + vW, y, eW, sigH).stroke();
         doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
             .text('Engineer Shop QC Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
+        const qcText = [qcName, qcDate, qcApproved ? 'Approve' : ''].filter(Boolean).join(' / ');
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('NAME/DATE/sign', x + lW + pad, y + 2, { width: vW - pad * 2 });
+            .text(qcText || '', x + lW + pad, y + 2, { width: vW - pad * 2 });
         y += sigH;
 
         doc.rect(x, y, lW, sigH).stroke();
@@ -180,7 +198,7 @@ class PDFGeneratorF {
         doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
             .text('CLIENT / AI /TPIA   Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('NAME/DATE', x + lW + pad, y + 2);
+            .text('', x + lW + pad, y + 2);
         doc.text('Yes/No', x + lW + vW + pad, y + 2, { width: eW - pad * 2 });
         y += sigH;
 
