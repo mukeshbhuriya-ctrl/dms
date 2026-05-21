@@ -666,28 +666,72 @@ class WeldJointService {
         }
 
         // 5. Send notification if status changed to pending (Production submitted to QC)
-        if (status === 'pending' && qc_eng_id) {
+        if (status === 'pending' && (qc_eng_id || stagePayload.assignedQcGroupId)) {
             try {
                 // Background trigger
                 (async () => {
-                    const qcUser = await prisma.user.findUnique({ where: { id: qc_eng_id } });
                     const prodUser = await prisma.user.findUnique({ where: { id: engineerId } });
                     const config = WELD_STAGES_CONFIG[joint.joint_type] || [];
                     const stageConfig = config.find(s => s.id === stage);
                     const stageLabel = stageConfig ? stageConfig.label : stage;
 
-                    if (qcUser && qcUser.email) {
-                        await emailService.sendWeldStageNotification(qcUser.email, {
-                            jointNo: joint.joint_no,
-                            stageLabel: stageLabel,
-                            status: 'Pending Review',
-                            engineerName: prodUser ? prodUser.name : 'Production Engineer',
-                            actionType: 'submission'
+                    const emailDetails = {
+                        jointNo: joint.joint_no,
+                        stageLabel: stageLabel,
+                        status: 'Pending Review',
+                        engineerName: prodUser ? prodUser.name : 'Production Engineer',
+                        actionType: 'submission'
+                    };
+
+                    const recipients = new Set();
+
+                    // 1. Add specific QC Engineer if assigned
+                    if (qc_eng_id) {
+                        const qcUser = await prisma.user.findUnique({ where: { id: qc_eng_id } });
+                        if (qcUser && qcUser.email) recipients.add(qcUser.email);
+                    }
+
+                    // 2. Add QC Group members if assigned
+                    if (stagePayload.assignedQcGroupId) {
+                        const groupMembers = await prisma.user_qc_group.findMany({
+                            where: { qc_group_id: stagePayload.assignedQcGroupId },
+                            include: { user: true }
                         });
+                        groupMembers.forEach(member => {
+                            if (member.user && member.user.email) recipients.add(member.user.email);
+                        });
+                    }
+
+                    // Send email to all resolved recipients
+                    const toArray = Array.from(recipients);
+                    if (toArray.length > 0) {
+                        await emailService.sendWeldStageNotification(toArray, emailDetails);
                     }
                 })().catch(err => console.error("Email notification background error:", err));
             } catch (err) {
                 console.error("Weld Stage Submission Email Error:", err);
+            }
+        } else if ((status === 'approved' || status === 'rejected') && stageRecord.prod_eng_id) {
+            try {
+                (async () => {
+                    const prodUser = await prisma.user.findUnique({ where: { id: stageRecord.prod_eng_id } });
+                    const actionUser = await prisma.user.findUnique({ where: { id: engineerId } });
+                    const config = WELD_STAGES_CONFIG[joint.joint_type] || [];
+                    const stageConfig = config.find(s => s.id === stage);
+                    const stageLabel = stageConfig ? stageConfig.label : stage;
+
+                    if (prodUser && prodUser.email) {
+                        await emailService.sendWeldStageNotification(prodUser.email, {
+                            jointNo: joint.joint_no,
+                            stageLabel: stageLabel,
+                            status: status,
+                            engineerName: actionUser ? actionUser.name : (role || 'QC Engineer'),
+                            actionType: 'review'
+                        });
+                    }
+                })().catch(err => console.error("Email notification background error:", err));
+            } catch (err) {
+                console.error("Weld Stage Review Email Error in updateStatus:", err);
             }
         }
 
