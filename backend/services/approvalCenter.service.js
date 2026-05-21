@@ -94,7 +94,7 @@ class ApprovalCenterService {
                     description: `Client review for PO ${trans.po?.po_number || 'Unknown'}`,
                     status: trans.client_status,
                     requested_at: trans.createdAt,
-                    action_url: '/dtn/list',
+                    action_url: '/dtn/drawing-transmittal',
                     action_params: {} 
                 });
             });
@@ -150,8 +150,8 @@ class ApprovalCenterService {
                     reference_no: ncr.ncr_no || 'Unknown',
                     description: `Cross-functional reviews`,
                     status: consolidatedStatus,
-                    requested_at: ncr.createdAt,
-                    action_url: '/ncr-approval',
+                    requested_at: ncr.updatedAt,
+                    action_url: '/ncr/create-ncr',
                     action_params: { id: ncr.id }
                 });
             });
@@ -178,7 +178,7 @@ class ApprovalCenterService {
                     description: `Engineering reviews`,
                     status: status.status || 'Pending',
                     requested_at: status.createdAt,
-                    action_url: '/dcr-approval',
+                    action_url: '/dcr/dcr-request',
                     action_params: { id: status.dcr.id }
                 });
             });
@@ -203,7 +203,7 @@ class ApprovalCenterService {
                     description: `Client quote review`,
                     status: rfq.client_status === 'Under Review' ? 'Pending' : rfq.client_status,
                     requested_at: rfq.updatedAt,
-                    action_url: '/rfq',
+                    action_url: '/marketing/rfq-register',
                     action_params: {} 
                 });
             });
