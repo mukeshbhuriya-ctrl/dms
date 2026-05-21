@@ -211,6 +211,84 @@ class ApprovalCenterService {
             console.error('Error fetching RFQ requests:', e);
         }
 
+        // 8. Dish End Inspection Report
+        try {
+            const dishEnds = await prisma.dish_end_inspection_report.findMany({
+                where: {
+                    status: { in: ['Pending', 'Approved', 'Rejected'] },
+                    company_id: company_id,
+                    is_deleted: false
+                }
+            });
+
+            dishEnds.forEach(de => {
+                allRequests.push({
+                    id: `de_${de.id}`,
+                    module: 'Dish End Inspection',
+                    reference_no: de.report_no || 'Unknown',
+                    description: `Inspection for ${de.equipment_name || 'Equipment'}`,
+                    status: de.status,
+                    requested_at: de.updatedAt,
+                    action_url: '/inspections/dish-end',
+                    action_params: { id: de.id }
+                });
+            });
+        } catch (e) {
+            console.error('Error fetching Dish End requests:', e);
+        }
+
+        // 9. Final Inspection Report
+        try {
+            const finals = await prisma.final_inspection_report.findMany({
+                where: {
+                    status: { in: ['Pending', 'Approved', 'Rejected'] },
+                    company_id: company_id,
+                    is_deleted: false
+                }
+            });
+
+            finals.forEach(fi => {
+                allRequests.push({
+                    id: `fi_${fi.id}`,
+                    module: 'Final Inspection',
+                    reference_no: fi.report_no || 'Unknown',
+                    description: `Inspection for ${fi.equipment_name || 'Equipment'}`,
+                    status: fi.status,
+                    requested_at: fi.updatedAt,
+                    action_url: '/inspections/final',
+                    action_params: { id: fi.id }
+                });
+            });
+        } catch (e) {
+            console.error('Error fetching Final Inspection requests:', e);
+        }
+
+        // 10. Hydrostatic Pressure Test Report
+        try {
+            const hydros = await prisma.hydrostatic_test_report.findMany({
+                where: {
+                    status: { in: ['Pending', 'Approved', 'Rejected'] },
+                    company_id: company_id,
+                    is_deleted: false
+                }
+            });
+
+            hydros.forEach(ht => {
+                allRequests.push({
+                    id: `ht_${ht.id}`,
+                    module: 'Hydrostatic Test',
+                    reference_no: ht.report_no || 'Unknown',
+                    description: `Test for ${ht.equipment_name || 'Equipment'}`,
+                    status: ht.status,
+                    requested_at: ht.updatedAt,
+                    action_url: '/hydrostatic-pressure-test',
+                    action_params: { id: ht.id }
+                });
+            });
+        } catch (e) {
+            console.error('Error fetching Hydrostatic Test requests:', e);
+        }
+
         // Sort by requested_at descending (newest first)
         allRequests.sort((a, b) => {
             return new Date(b.requested_at) - new Date(a.requested_at);
