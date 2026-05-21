@@ -53,7 +53,7 @@ model company{
   mediators mediator[]
   ncr ncr[]
   document_activities document_activity[]
-  qc_groups qc_group[]
+
   employee_groups employee_group[]
   email_templates email_template[]
   notifications notification[]
@@ -78,37 +78,9 @@ model department {
   @@unique([company_id, name]) // Ensure department names are unique per company
 }
 
-model qc_group {
-  id          String   @id @default(uuid())
-  company_id  String
-  name        String
-  
-  company     company  @relation(fields: [company_id], references: [id])
-  users       user_qc_group[]
-  weld_joint_stages weld_joint_stage[]
 
-  is_active  Boolean  @default(true)
-  is_deleted Boolean  @default(false)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  @@unique([company_id, name])
-}
-
-model user_qc_group {
-  id          String   @id @default(uuid())
-  user_id     String
-  qc_group_id String
-
-  user        user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  qc_group    qc_group @relation(fields: [qc_group_id], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@unique([user_id, qc_group_id])
-}
 
 model employee_group {
   id          String   @id @default(uuid())
@@ -125,6 +97,8 @@ model employee_group {
   mhc_production_reports material_heat_chart[] @relation("MhcProductionGroup")
   mhc_qc_reports         material_heat_chart[] @relation("MhcQcGroup")
 
+  weld_joint_stages_prod weld_joint_stage[] @relation("WeldStageProdGroup")
+  weld_joint_stages_qc   weld_joint_stage[] @relation("WeldStageQcGroup")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -207,7 +181,7 @@ model user{
   ncr_corrective_action_verified_by ncr[] @relation("NcrCorrectiveActionVerifiedBy")
   ncr_verified_by_qce ncr[] @relation("NcrVerifiedByQce")
   ncr_verified_by_head_quality ncr[] @relation("NcrVerifiedByHeadQuality")
-  qc_groups user_qc_group[]
+
   employee_groups user_employee_group[]
 
   // Weld Inspection Trail relations
@@ -591,10 +565,10 @@ model weld_joint_stage {
   stage_name      String   // e.g. "s1", "s2", "s3"
   status          String   @default("pending") // pending, submitted, approved, rejected
   
-  prod_eng_id     String?
-  prod_eng        user?    @relation("WeldStageProdEng", fields: [prod_eng_id], references: [id])
-  qc_eng_id       String?
-  qc_eng          user?    @relation("WeldStageQcEng", fields: [qc_eng_id], references: [id])
+  production_engineer_id String?
+  production_engineer    user?    @relation("WeldStageProdEng", fields: [production_engineer_id], references: [id])
+  qc_engineer_id         String?
+  qc_engineer            user?    @relation("WeldStageQcEng", fields: [qc_engineer_id], references: [id])
   
   submitted_at    DateTime?
   approved_at     DateTime?
@@ -602,8 +576,10 @@ model weld_joint_stage {
   remarks         String?
   is_active       Boolean  @default(true)
   
-  assigned_qc_group_id String?
-  assigned_qc_group    qc_group? @relation(fields: [assigned_qc_group_id], references: [id])
+  production_group_id    String?
+  production_group       employee_group? @relation("WeldStageProdGroup", fields: [production_group_id], references: [id])
+  qc_group_id            String?
+  qc_group               employee_group? @relation("WeldStageQcGroup", fields: [qc_group_id], references: [id])
 
   stage_data      weld_joint_stage_data?
   stage_rows      weld_joint_stage_row[]

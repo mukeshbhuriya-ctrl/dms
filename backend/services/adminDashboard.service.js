@@ -93,7 +93,7 @@ class AdminDashboardService {
             totalJobs,
             totalUsers,
             totalDepartments,
-            totalQcGroups,
+            totalEmployeeGroups,
             totalDocumentMasters,
             totalSingleDocuments,
             totalGroupDocuments,
@@ -151,7 +151,7 @@ class AdminDashboardService {
             prisma.job.count({ where: { company_id } }),
             prisma.user.count({ where: { company_id } }),
             prisma.department.count({ where: { company_id } }),
-            prisma.qc_group.count({ where: { company_id } }),
+            prisma.employee_group.count({ where: { company_id } }),
 
             prisma.document_master.count({ where: { company_id } }),
             prisma.single_document.count({ where: { company_id } }),
@@ -627,7 +627,7 @@ class AdminDashboardService {
                 jobs: totalJobs,
                 users: totalUsers,
                 departments: totalDepartments,
-                qcGroups: totalQcGroups,
+                employeeGroups: totalEmployeeGroups,
             },
             executive: {
                 modulesTracked: moduleHealth.length,
