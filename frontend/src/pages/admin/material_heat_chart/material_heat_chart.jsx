@@ -720,9 +720,9 @@ function ListView({ onCreateClick, onEditClick }) {
         columns={columns}
         fetchData={fetchData}
         onExport={handleExport}
-        onAdd={!isPE ? onCreateClick : undefined}
-        onImport={!isPE ? handleImportExcel : undefined}
-        onDownloadTemplate={!isPE ? handleDownloadTemplate : undefined}
+        onAdd={(isAdmin || !isPE) ? onCreateClick : undefined}
+        onImport={(isAdmin || !isPE) ? handleImportExcel : undefined}
+        onDownloadTemplate={(isAdmin || !isPE) ? handleDownloadTemplate : undefined}
         columnFilters={columnFilters}
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshTrigger}
