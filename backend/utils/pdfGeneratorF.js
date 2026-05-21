@@ -13,11 +13,11 @@ class PDFGeneratorF {
     }
 
     drawLogo(doc, x, y, w, h, companyInfo) {
-        if (companyInfo && companyInfo.logoPath && fs.existsSync(companyInfo.logoPath)) {
-            doc.image(companyInfo.logoPath, x + 5, y + 5, { fit: [w - 10, h - 10], align: 'center', valign: 'center' });
-            return;
-        }
-        if (companyInfo && companyInfo.name) {
+        const logoPath = path.join(__dirname, '..', 'assets', 'shreno-logo.png');
+        
+        if (fs.existsSync(logoPath)) {
+            doc.image(logoPath, x + 5, y + 5, { fit: [w - 10, h - 10], align: 'center', valign: 'center' });
+        } else if (companyInfo && companyInfo.name) {
             doc.font(this.fonts.bold).fontSize(11).fillColor(this.colors.darkBlue)
                 .text(companyInfo.name, x, y + h / 2 - 6, { width: w, align: 'center' });
         }
