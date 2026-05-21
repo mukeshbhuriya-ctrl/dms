@@ -80,12 +80,12 @@ class PDFGenerator {
             'LONG SEAM / CIRCUMFERENCE SEAM INSPECTION REPORT',
             { font: this.fonts.bold, fontSize: 11, color: this.colors.black, align: 'center' });
 
-        // Joint Number row
+        // Joint Number row — value in col2 aligned with other data rows
         const s1 = allStagesData.stage1 || {};
         currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
             { t: 'Joint Number', f: this.fonts.bold, c: this.colors.red },
-            { t: s1.jointDescription || '', f: this.fonts.regular, c: this.colors.black },
             { t: s1.jointNo || '-', f: this.fonts.regular, c: this.colors.black },
+            { t: '' },
             { t: '' }
         ]);
 
@@ -268,15 +268,26 @@ class PDFGenerator {
         return y + h;
     }
 
-    // 4-column row
-    _row4(doc, x, y, ws, h, pad, cells) {
+    // 4-column row — dynamic height based on tallest cell text
+    _row4(doc, x, y, ws, minH, pad, cells) {
+        // Measure required height for each cell
+        let maxTextH = 0;
+        cells.forEach((c, i) => {
+            if (c && c.t) {
+                doc.font(c.f || this.fonts.regular).fontSize(c.fs || 9);
+                const textH = doc.heightOfString(c.t, { width: ws[i] - pad * 2 });
+                if (textH > maxTextH) maxTextH = textH;
+            }
+        });
+        const h = Math.max(minH, maxTextH + 8);
+
         let cx = x;
         ws.forEach((w, i) => {
             doc.rect(cx, y, w, h).stroke();
             const c = cells[i] || {};
             if (c.t) {
                 doc.font(c.f || this.fonts.regular).fontSize(c.fs || 9).fillColor(c.c || this.colors.black)
-                    .text(c.t, cx + pad, y + (h / 2 - 4), { width: w - pad * 2 });
+                    .text(c.t, cx + pad, y + 4, { width: w - pad * 2 });
             }
             cx += w;
         });

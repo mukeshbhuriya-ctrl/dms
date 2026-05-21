@@ -280,7 +280,65 @@ function SeamWeldingPreview({ jointData, job, plan, insp, approvedStages, getSta
   const hasStage = (key) => approvedStages.some(s => s.id === key)
 
   return (
-    <table className="wpj-grid-table">
+    <div>
+      {/* ===== HEADER: Title + Report No ===== */}
+      <table className="wpj-grid-table" style={{ marginBottom: 0 }}>
+        <tbody>
+          <tr>
+            <td style={{ width: "30%", textAlign: "center", fontWeight: 700, fontSize: 12, padding: "12px 8px" }}>
+              {/* Logo / Company Name placeholder */}
+              <span style={{ color: "#000080" }}>Shreno Engineering Limited</span>
+            </td>
+            <td style={{ width: "70%" }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#FF0000", textAlign: "center", paddingBottom: 4 }}>
+                SET UP & WELD VISUAL INSPECTION REPORT
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 11, color: "#FF0000", textAlign: "center", borderTop: "1px solid #333", paddingTop: 4 }}>
+                Report No : <span style={{ color: "#000", fontWeight: 400 }}>{jointData.weld_joint_report_info?.report_no || `SHR/${job.job_number || "000"}/${plan.serial_no || "000"}`}</span>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ===== INFO GRID: MSN, Client, PO, etc. ===== */}
+      <table className="wpj-grid-table" style={{ marginBottom: 12 }}>
+        <tbody>
+          <tr>
+            <td className="label-cell" style={{ width: "15%", color: "#FF0000" }}>MSN:</td>
+            <td style={{ width: "35%" }}>{job.job_number || "-"}</td>
+            <td className="label-cell" style={{ width: "15%", color: "#FF0000" }}>TAG NO.:</td>
+            <td style={{ width: "35%" }}>{job.tag_number || "-"}</td>
+          </tr>
+          <tr>
+            <td className="label-cell" style={{ color: "#FF0000" }}>CLIENT:</td>
+            <td>{job.customer?.customer_name || "-"}</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>EQUIPMENT:</td>
+            <td>{job.equipement_name || "-"}</td>
+          </tr>
+          <tr>
+            <td className="label-cell" style={{ color: "#FF0000" }}>Projects ID</td>
+            <td>{job.project_id || "-"}</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>Linde DRG No:</td>
+            <td>{plan.shreno_drg_no || "-"}</td>
+          </tr>
+          <tr>
+            <td className="label-cell" style={{ color: "#FF0000" }}>P.O. NO.:</td>
+            <td>{job.po?.po_number || "-"}</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>DRG. NO.:</td>
+            <td>{plan.customer_drg_no || "-"}</td>
+          </tr>
+          <tr>
+            <td className="label-cell" style={{ color: "#FF0000" }}>CODE:</td>
+            <td>{job.code || "-"}</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>INSP. AGENCY:</td>
+            <td>TPIA</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ===== MAIN TABLE: Long Seam Inspection ===== */}
+      <table className="wpj-grid-table">
       <tbody>
         {/* Title */}
         <tr>
@@ -358,6 +416,7 @@ function SeamWeldingPreview({ jointData, job, plan, insp, approvedStages, getSta
         {hasStage("stage7") && <SignatureRows sig={s7Sig} qcTitle="NDT Engineer" />}
       </tbody>
     </table>
+    </div>
   )
 }
 
