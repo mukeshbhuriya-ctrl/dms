@@ -66,12 +66,11 @@ class PDFGenerator {
         currentY += 10; // Gap between info grid and main table
 
         // ===== MAIN TABLE: Long Seam Inspection =====
-        // Column widths for the 4-column inspection table
-        const col1W = innerW * 0.30;
-        const col2W = innerW * 0.23;
-        const col3W = innerW * 0.23;
-        const col4W = innerW - col1W - col2W - col3W;
-        const colWidths = [col1W, col2W, col3W, col4W];
+        // Column widths for the 3-column inspection table
+        const col1W = innerW * 0.35;
+        const col2W = innerW * 0.35;
+        const col3W = innerW - col1W - col2W;
+        const colWidths = [col1W, col2W, col3W];
         const rowH = 18;
         const pad = 4;
 
@@ -111,6 +110,7 @@ class PDFGenerator {
         });
 
         // Stage 1 signature
+        currentY = this._pageCheck(doc, currentY, 180, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
         currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
             'Set Up Inspection by',
             { font: this.fonts.bold, fontSize: 12, color: this.colors.red, align: 'center' });

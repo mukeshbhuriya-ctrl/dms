@@ -140,6 +140,22 @@ class PDFGeneratorCD {
         // Signature for Char 2
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s1);
 
+        // ===== CHAR 2.5: BACK CHIP (Stage 2) =====
+        y = this._checkPage(doc, y, 160, startX, pageW, pageH);
+        const s2_cd = allStagesData.stage2 || null;
+        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+            { t: 'Back chip - Required / not required', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+        ]);
+        y = this._gridRow(doc, x, y, [srW + charW, detW, valW + extW], rowH, pad, [
+            { t: 'Back Chip PT', f: this.fonts.bold, c: this.colors.red },
+            { t: 'YES / No', f: this.fonts.bold, c: this.colors.red },
+            { t: firstData.backChipReq ? 'YES' : 'NO', f: this.fonts.bold, c: this.colors.black }
+        ]);
+        if (s2_cd) {
+            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s2_cd, 'QC Engineer');
+        }
+
+
         // ===== CHAR 3: Weld Visual / Overlay PT =====
         y = this._checkPage(doc, y, 100, startX, pageW, pageH);
         const s3_cd = allStagesData.stage3 || {};
@@ -237,6 +253,33 @@ class PDFGeneratorCD {
         ]);
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s7_cd);
 
+        
+        // ===== PWHT =====
+        const jt = firstData.jointType || (companyInfo && companyInfo.jointType) || 'C';
+        const isD = jt === 'D';
+
+        y = this._checkPage(doc, y, 100, startX, pageW, pageH);
+        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+            { t: 'PWHT (Required / Not required)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+        ]);
+
+        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+            { t: 'Radiography Testing Requirement (After PWHT)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+        ]);
+        const s4_pwht = isD ? (allStagesData.stage8 || null) : (allStagesData.stage4 || null);
+        if (s4_pwht) {
+            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s4_pwht, 'NDT Engineer');
+        }
+
+        y = this._checkPage(doc, y, 100, startX, pageW, pageH);
+        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+            { t: 'Liquid Penetrant Testing (Required / Not required) - After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+        ]);
+        const s5_pwht = isD ? (allStagesData.stage9 || null) : (allStagesData.stage5 || null);
+        if (s5_pwht) {
+            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s5_pwht, 'NDT Engineer');
+        }
+
         // Footer note
         y += 6;
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
@@ -252,7 +295,7 @@ class PDFGeneratorCD {
         cells.forEach((c, i) => {
             if (c && c.t) {
                 doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8);
-                const textH = doc.heightOfString(c.t, { width: widths[i] - pad * 2 });
+                const textH = doc.heightOfString(c.t, { width: widths[i] - pad * 2, align: c.align || 'left' });
                 if (textH > maxTextH) maxTextH = textH;
             }
         });
@@ -264,14 +307,63 @@ class PDFGeneratorCD {
             const c = cells[i] || {};
             if (c.t) {
                 doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8).fillColor(c.c || this.colors.black)
-                    .text(c.t, cx + pad, y + 3, { width: w - pad * 2 });
+                    .text(c.t, cx + pad, y + 3, { width: w - pad * 2, align: c.align || 'left' });
             }
             cx += w;
         });
         return y + h;
     }
 
-    _compactSig(doc, x, y, width, rowH, pad, data) {
+    
+    _sigBlockRed(doc, x, y, width, rowH, pad, data, qcTitle) {
+        const col1W = width * 0.40;
+        const col2W = width * 0.20;
+        const col3W = width - col1W - col2W;
+        
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: 'Production Engineer', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
+            { t: data.productionEngineerName || data.prodName || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: data.submissionDate || data.prodDate || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: qcTitle, f: this.fonts.bold, c: this.colors.red },
+            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
+            { t: data.qcEngineerName || data.qcName || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: data.qcDate || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
+            { t: (data.qcStatus === 'approved' || data.status === 'approved') ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: 'AI / CLIENT / TPIA', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        return y;
+    }
+
+_compactSig(doc, x, y, width, rowH, pad, data) {
         const sigH = rowH - 2;
         const lW = width * 0.50;
         const vW = width * 0.35;

@@ -115,23 +115,28 @@ class PDFGeneratorF {
         ]);
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s2);
 
-        // PWHT stages
-        if (allStagesData.stage3) {
-            y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
-                { t: '3', f: this.fonts.bold, c: this.colors.black },
-                { t: 'PWHT - Radiography Testing (RT)', f: this.fonts.bold, c: this.colors.red },
-                { t: 'Required / Not required' }, { t: '' }
-            ]);
-            y = this._compactSig(doc, x, y, innerW, rowH, pad, allStagesData.stage3);
+        
+        // ===== PWHT =====
+        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+            { t: 'PWHT (Required / Not required)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+        ]);
+
+        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+            { t: 'Radiography Testing Requirement (After PWHT)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+        ]);
+        const s3_pwht = allStagesData.stage3 || null;
+        if (s3_pwht) {
+            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s3_pwht, 'NDT Engineer');
         }
-        if (allStagesData.stage4) {
-            y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
-                { t: '4', f: this.fonts.bold, c: this.colors.black },
-                { t: 'PWHT - Penetrant Testing (PT)', f: this.fonts.bold, c: this.colors.red },
-                { t: 'Required / Not required' }, { t: '' }
-            ]);
-            y = this._compactSig(doc, x, y, innerW, rowH, pad, allStagesData.stage4);
+
+        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+            { t: 'Liquid Penetrant Testing (Required / Not required) - After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+        ]);
+        const s4_pwht = allStagesData.stage4 || null;
+        if (s4_pwht) {
+            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s4_pwht, 'NDT Engineer');
         }
+
 
         y += 6;
         doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
@@ -143,7 +148,7 @@ class PDFGeneratorF {
         cells.forEach((c, i) => {
             if (c && c.t) {
                 doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8);
-                const textH = doc.heightOfString(c.t, { width: widths[i] - pad * 2 });
+                const textH = doc.heightOfString(c.t, { width: widths[i] - pad * 2, align: c.align || 'left' });
                 if (textH > maxTextH) maxTextH = textH;
             }
         });
@@ -155,14 +160,72 @@ class PDFGeneratorF {
             const c = cells[i] || {};
             if (c.t) {
                 doc.font(c.f || this.fonts.regular).fontSize(c.fs || 8).fillColor(c.c || this.colors.black)
-                    .text(c.t, cx + pad, y + 3, { width: w - pad * 2 });
+                    .text(c.t, cx + pad, y + 3, { width: w - pad * 2, align: c.align || 'left' });
             }
             cx += w;
         });
         return y + h;
     }
 
-    _compactSig(doc, x, y, width, rowH, pad, data) {
+    
+    _sigBlockRed(doc, x, y, width, rowH, pad, data, qcTitle) {
+        const col1W = width * 0.35;
+        const col2W = width * 0.15;
+        const col3W = width * 0.30;
+        const extW = width - col1W - col2W - col3W;
+        
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: 'Production Engineer', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
+            { t: data.productionEngineerName || data.prodName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: data.submissionDate || data.prodDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: qcTitle, f: this.fonts.bold, c: this.colors.red },
+            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
+            { t: data.qcEngineerName || data.qcName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: data.qcDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
+            { t: (data.qcStatus === 'approved' || data.status === 'approved') ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: 'AI / CLIENT / TPIA', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
+            { t: '', f: this.fonts.bold, c: this.colors.red },
+            { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
+        ]);
+        return y;
+    }
+
+_compactSig(doc, x, y, width, rowH, pad, data) {
         const sigH = rowH - 2;
         const lW = width * 0.50, vW = width * 0.35, eW = width - lW - vW;
 
