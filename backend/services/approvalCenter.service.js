@@ -54,7 +54,7 @@ class ApprovalCenterService {
                             weld_joint_plan: true
                         }
                     },
-                    prod_eng: { select: { name: true } }
+                    production_engineer: { select: { name: true } }
                 }
             });
 
@@ -63,11 +63,11 @@ class ApprovalCenterService {
                     id: `weld_${stage.id}`,
                     module: 'Weld Joint',
                     reference_no: stage.weld_joint.joint_no || 'Unknown',
-                    description: `Stage: ${stage.stage_name} submitted by ${stage.prod_eng?.name || 'Production'}`,
+                    description: `Stage: ${stage.stage_name || stage.stage} submitted by ${stage.production_engineer?.name || 'Production'}`,
                     status: stage.status.charAt(0).toUpperCase() + stage.status.slice(1),
                     requested_at: stage.createdAt,
                     action_url: '/view-weldingjoints',
-                    action_params: { joint_id: stage.weld_joint.id }
+                    action_params: { joint_id: stage.weld_joint_id }
                 });
             });
         } catch (e) {

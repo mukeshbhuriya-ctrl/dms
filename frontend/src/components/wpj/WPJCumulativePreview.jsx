@@ -154,9 +154,9 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
   const getSignature = (stageKey) => {
     const sPrefix = stageKey.replace("stage", "s")
     return {
-      prodName: insp[`${sPrefix}_production_engineer_name`] || "",
+      prodName: insp[`${sPrefix}_prod_eng_name`] || insp[`${sPrefix}_production_engineer_name`] || "",
       prodDate: insp[`${sPrefix}_submitted_at`] ? new Date(insp[`${sPrefix}_submitted_at`]).toLocaleDateString() : "",
-      qcName: insp[`${sPrefix}_qc_engineer_name`] || "",
+      qcName: insp[`${sPrefix}_qc_eng_name`] || insp[`${sPrefix}_qc_engineer_name`] || "",
       qcDate: insp[`${sPrefix}_approved_at`] ? new Date(insp[`${sPrefix}_approved_at`]).toLocaleDateString() : "",
       status: insp[`${sPrefix}_status`] || "pending"
     }
