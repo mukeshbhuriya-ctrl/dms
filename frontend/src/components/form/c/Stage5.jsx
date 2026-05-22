@@ -1,3 +1,4 @@
+import WpjService from '@/services/wpj.service';
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,15 +21,46 @@ import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
 function Stage5({ initialData, inspectionData, isReview = false, readOnly = false, stage = "stage5" , onSuccess }) {
+    
+    const [qcGroups, setQcGroups] = useState([]);
+    const [productionGroups, setProductionGroups] = useState([]);
+
+    useEffect(() => {
+        const fetchGroups = async () => {
+            try {
+                const [qcRes, prodRes, myGroupsRes] = await Promise.all([
+                    WpjService.getEmployeeGroups('QUALITY'),
+                    WpjService.getEmployeeGroups('PRODUCTION'),
+                    WpjService.getMyGroups()
+                ]);
+                if (qcRes?.success) setQcGroups(qcRes.data || []);
+                if (prodRes?.success) setProductionGroups(prodRes.data || []);
+                
+                if (myGroupsRes?.success && myGroupsRes.data) {
+                    const myQcGroup = myGroupsRes.data.find(g => g.group_type === 'QUALITY' || g.type === 'QUALITY');
+                    const myProdGroup = myGroupsRes.data.find(g => g.group_type === 'PRODUCTION' || g.type === 'PRODUCTION');
+                    
+                    // QC Group is intentionally NOT auto-selected based on user request
+                    if (myProdGroup) {
+                        setSelectedProdGroupId(prev => prev || myProdGroup.id);
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching groups:", err);
+            }
+        };
+        fetchGroups();
+    }, []);
+
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
+    const [selectedProdGroupId, setSelectedProdGroupId] = useState("");
     const [qcRemarks, setQcRemarks] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
     const [userRole, setUserRole] = useState("")
-    const [qcGroups, setQcGroups] = useState([])
-
+    
     const [displayFields, setDisplayFields] = useState({
         msn: "",
         client: "",
@@ -105,7 +137,7 @@ function Stage5({ initialData, inspectionData, isReview = false, readOnly = fals
     useEffect(() => {
         const fetchQcGroups = async () => {
             try {
-                const response = await api.get('/api/qc-groups');
+                const response = await api.get('/api/employee-groups');
                 if (response && response.success) {
                     setQcGroups(response.data || []);
                 }
@@ -143,7 +175,7 @@ function Stage5({ initialData, inspectionData, isReview = false, readOnly = fals
                 } catch (e) { console.error("Error parsing data_json", e) }
             }
 
-            if (inspData[`${sPrefix}_assigned_qc_group_id`]) setSelectedQcGroupId(inspData[`${sPrefix}_assigned_qc_group_id`]);
+            if (inspData[`${sPrefix}_qc_group_id`]) setSelectedQcGroupId(inspData[`${sPrefix}_qc_group_id`]);
             if (inspData[`${sPrefix}_remarks`]) setQcRemarks(inspData[`${sPrefix}_remarks`]);
             if (inspData[`${sPrefix}_prod_eng_name`]) setProductionEngineerName(inspData[`${sPrefix}_prod_eng_name`]);
 
@@ -154,11 +186,17 @@ function Stage5({ initialData, inspectionData, isReview = false, readOnly = fals
 
                     if (stageData?.productionEngineerName) setProductionEngineerName(stageData.productionEngineerName);
                     if (stageData?.submissionDate) setTodayDate(stageData.submissionDate);
-                    if (inspectionData[`${sPrefix}_assigned_qc_group_id`]) {
-                        setSelectedQcGroupId(inspectionData[`${sPrefix}_assigned_qc_group_id`]);
-                    } else if (stageData?.assignedQcGroupId) {
-                        setSelectedQcGroupId(stageData.assignedQcGroupId);
-                    }
+                    if (inspectionData[`${sPrefix}_qc_group_id`]) {
+                setSelectedQcGroupId(inspectionData[`${sPrefix}_qc_group_id`]);
+              } else if (stageData?.qcGroupId) {
+                setSelectedQcGroupId(stageData.qcGroupId);
+              }
+              
+              if (inspectionData[`${sPrefix}_production_group_id`] && !selectedProdGroupId) {
+                setSelectedProdGroupId(inspectionData[`${sPrefix}_production_group_id`]);
+              } else if (stageData?.productionGroupId && !selectedProdGroupId) {
+                setSelectedProdGroupId(stageData.productionGroupId);
+              }
                 } catch (e) { console.error(`Error parsing ${dataKey}`, e) }
             }
         }
@@ -184,6 +222,12 @@ function Stage5({ initialData, inspectionData, isReview = false, readOnly = fals
                 return;
             }
 
+            if (!selectedProdGroupId) {
+                setAlert({ show: true, type: 'error', message: "Please select Production Group" });
+                setIsSubmitting(false);
+                return;
+            }
+
             const categoryKey = getCategoryKey();
             const dataKey = `${sPrefix}_data`;
 
@@ -196,7 +240,8 @@ function Stage5({ initialData, inspectionData, isReview = false, readOnly = fals
             }
 
             const currentStageData = {
-                assignedQcGroupId: selectedQcGroupId,
+                qcGroupId: selectedQcGroupId,
+        productionGroupId: selectedProdGroupId,
                 productionEngineerName,
                 submissionDate: todayDate,
             };
@@ -269,7 +314,8 @@ function Stage5({ initialData, inspectionData, isReview = false, readOnly = fals
                 }
 
                 const currentStageData = {
-                    assignedQcGroupId: selectedQcGroupId,
+                    qcGroupId: selectedQcGroupId,
+        productionGroupId: selectedProdGroupId,
                     productionEngineerName,
                     submissionDate: todayDate,
                 };
@@ -370,15 +416,20 @@ return (
                         <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
-                                <Label>Production Engineer Name:</Label>
-                                <Input
-                                    type="text"
-                                    value={productionEngineerName}
-                                    placeholder="Production Engineer Name"
-                                    readOnly
-                                    className="bg-muted uppercase font-medium"
-                                />
-                            </div>
+              <Label htmlFor="productionGroup">Production Group Name:</Label>
+              <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
+                <SelectTrigger id="productionGroup" className="w-full">
+                  <SelectValue placeholder="Select Production Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productionGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name?.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
                             <div className="space-y-2">
                                 <Label>Date:</Label>
@@ -447,3 +498,6 @@ return (
 }
 
 export default Stage5;
+
+
+

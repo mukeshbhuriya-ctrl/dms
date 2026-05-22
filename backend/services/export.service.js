@@ -1368,8 +1368,8 @@ class ExportService {
         const userIds = new Set();
         joints.forEach(j => {
             j.weld_joint_stages?.forEach(s => {
-                if (s.prod_eng_id) userIds.add(s.prod_eng_id);
-                if (s.qc_eng_id) userIds.add(s.qc_eng_id);
+                if (s.production_engineer_id) userIds.add(s.production_engineer_id);
+                if (s.qc_engineer_id) userIds.add(s.qc_engineer_id);
             });
         });
 

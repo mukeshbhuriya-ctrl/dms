@@ -307,8 +307,8 @@ class NotificationService {
     signature = null,
   }) {
     // Get all users in the group
-    const userGroups = await prisma.user_qc_group.findMany({
-      where: { qc_group_id: group_id },
+    const userGroups = await prisma.user_employee_group.findMany({
+        where: { employee_group_id: group_id },
       select: { user_id: true },
     });
 

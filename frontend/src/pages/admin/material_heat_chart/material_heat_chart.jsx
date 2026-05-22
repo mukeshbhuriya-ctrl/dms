@@ -1010,7 +1010,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const [submitting, setSubmitting] = useState(null) // null | "Draft" | "Pending"
 
   useEffect(() => {
-    apiClient.get("/api/common/jobs?limit=200")
+    apiClient.get("/api/common/jobs")
       .then((res) => setJobs(res.data || []))
       .catch(() => setJobs([]))
       .finally(() => setJobsLoading(false))

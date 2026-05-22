@@ -1,7 +1,6 @@
 export { default as CreateUser } from "./create_user"
 export { default as AdminDashboard } from "./dashboard"
 export { default as DepartmentManagement } from "./create_department"
-export { default as QcGroupManagement } from "./create_qc_group"
 export { default as GroupManagement } from "./group_management"
 export { default as FinalInspectionReports } from "./final_inspection_reports"
 export { default as Reports } from "./reports/Reports"

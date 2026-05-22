@@ -27,7 +27,6 @@ import {
   AdminDashboard,
   CreateUser,
   DepartmentManagement,
-  QcGroupManagement,
   GroupManagement,
   FinalInspectionReports,
   Reports,
@@ -180,10 +179,6 @@ const adminRoutes = [
     element: protect(<DepartmentManagement />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]),
   },
   {
-    path: "/qc-group",
-    element: protect(<QcGroupManagement />, MODULES.ADMINISTRATION.QC_GROUPS, [ROLES.ADMIN]),
-  },
-  {
     path: "/group-management",
     element: protect(<GroupManagement />, MODULES.ADMINISTRATION.QC_GROUPS, [ROLES.ADMIN]), // Reuse same permission module for now
   },
@@ -309,3 +304,4 @@ const appRoutes = [
 ]
 
 export default appRoutes
+

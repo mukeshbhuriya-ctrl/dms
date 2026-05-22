@@ -616,7 +616,7 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
 
   // Fetch Jobs list
   useEffect(() => {
-    apiClient.get("/api/common/jobs?limit=200")
+    apiClient.get("/api/common/jobs")
       .then((res) => setJobs(res.data || []))
       .catch(() => setJobs([]))
       .finally(() => setJobsLoading(false))

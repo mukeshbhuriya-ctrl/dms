@@ -755,7 +755,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    apiClient.get("/api/common/jobs?limit=200")
+    apiClient.get("/api/common/jobs")
       .then((res) => { if (res.success) setMsnOptions(res.data) })
       .catch((err) => console.error("Failed to fetch jobs:", err))
 

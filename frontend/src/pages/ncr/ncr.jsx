@@ -553,7 +553,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
     // Fetch jobs and users on mount
     useEffect(() => {
-        apiClient.get("/api/common/jobs?limit=200")
+        apiClient.get("/api/common/jobs")
             .then((res) => setJobs(res.data || []))
             .catch(() => setJobs([]))
             .finally(() => setJobsLoading(false))
