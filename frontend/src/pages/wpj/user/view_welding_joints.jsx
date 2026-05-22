@@ -230,9 +230,9 @@ function ViewWeldingJoints() {
   useEffect(() => {
     const fetchMyGroups = async () => {
       try {
-        const response = await apiClient.get('/api/qc-groups/my-groups');
+        const response = await apiClient.get('/api/employee-groups/my-groups');
         if (response && response.success) {
-          setUserGroupIds(response.data || []);
+          setUserGroupIds((response.data || []).map(g => typeof g === "object" ? g.id : g));
         }
       } catch (error) {
         console.error("Error fetching my groups:", error);
@@ -291,8 +291,8 @@ function ViewWeldingJoints() {
     const statusKey = `${sPrefix}_status`;
     const isPending = joint.inspectionData?.[statusKey] === 'pending';
 
-    const idKey = `${sPrefix}_qc_eng_id`;
-    const groupIdKey = `${sPrefix}_assigned_qc_group_id`;
+    const idKey = `${sPrefix}_qc_engineer_id`;
+    const groupIdKey = `${sPrefix}_qc_group_id`;
     let assignedId = joint.inspectionData?.[idKey];
     let assignedGroupId = joint.inspectionData?.[groupIdKey];
 
@@ -315,8 +315,8 @@ function ViewWeldingJoints() {
       (assignedGroupId && userGroupIds.includes(assignedGroupId));
     const hasAssignment = !!(assignedId || assignedGroupId);
 
-    const prodKey = `${sPrefix}_prod_eng_id`;
-    const qcKey = `${sPrefix}_qc_eng_id`;
+    const prodKey = `${sPrefix}_production_engineer_id`;
+    const qcKey = `${sPrefix}_qc_engineer_id`;
     const completedAtKey = `${sPrefix}_approved_at`;
 
     const isSubmitted = !!(joint.inspectionData?.[prodKey] ||
@@ -681,4 +681,5 @@ function ViewWeldingJoints() {
 }
 
 export default ViewWeldingJoints
+
 

@@ -1,3 +1,4 @@
+import WpjService from '@/services/wpj.service';
 import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,12 +22,43 @@ import QCReviewSection from "@/components/wpj/QCReviewSection"
 
 function Stage3F({ initialData, inspectionData, isReview = false, readOnly = false, onSuccess }) {
     const stage = "stage3"
+    
+    const [qcGroups, setQcGroups] = useState([]);
+    const [productionGroups, setProductionGroups] = useState([]);
+
+    useEffect(() => {
+        const fetchGroups = async () => {
+            try {
+                const [qcRes, prodRes, myGroupsRes] = await Promise.all([
+                    WpjService.getEmployeeGroups('QUALITY'),
+                    WpjService.getEmployeeGroups('PRODUCTION'),
+                    WpjService.getMyGroups()
+                ]);
+                if (qcRes?.success) setQcGroups(qcRes.data || []);
+                if (prodRes?.success) setProductionGroups(prodRes.data || []);
+                
+                if (myGroupsRes?.success && myGroupsRes.data) {
+                    const myQcGroup = myGroupsRes.data.find(g => g.group_type === 'QUALITY' || g.type === 'QUALITY');
+                    const myProdGroup = myGroupsRes.data.find(g => g.group_type === 'PRODUCTION' || g.type === 'PRODUCTION');
+                    
+                    // QC Group is intentionally NOT auto-selected based on user request
+                    if (myProdGroup) {
+                        setSelectedProdGroupId(prev => prev || myProdGroup.id);
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching groups:", err);
+            }
+        };
+        fetchGroups();
+    }, []);
+
     const [productionEngineerName, setProductionEngineerName] = useState("")
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
+    const [selectedProdGroupId, setSelectedProdGroupId] = useState("");
     const [qcRemarks, setQcRemarks] = useState("")
-    const [qcGroups, setQcGroups] = useState([])
-    const [isSubmitting, setIsSubmitting] = useState(false)
+        const [isSubmitting, setIsSubmitting] = useState(false)
     const [userRole, setUserRole] = useState("")
 
     const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
@@ -57,7 +89,7 @@ function Stage3F({ initialData, inspectionData, isReview = false, readOnly = fal
     useEffect(() => {
         const fetchQcGroups = async () => {
             try {
-                const response = await api.get('/api/qc-groups');
+                const response = await api.get('/api/employee-groups');
                 if (response && response.success) {
                     setQcGroups(response.data || []);
                 }
@@ -83,10 +115,11 @@ function Stage3F({ initialData, inspectionData, isReview = false, readOnly = fal
                     if (s3Data.productionEngineerName) setProductionEngineerName(s3Data.productionEngineerName);
                     if (s3Data.submissionDate) setTodayDate(s3Data.submissionDate);
 
-                    if (inspectionData.s3_assigned_qc_group_id) {
-                        setSelectedQcGroupId(inspectionData.s3_assigned_qc_group_id);
-                    } else if (s3Data.assignedQcGroupId) {
-                        setSelectedQcGroupId(s3Data.assignedQcGroupId);
+                    if (inspectionData.s3_qc_group_id) {
+                        setSelectedQcGroupId(inspectionData.s3_qc_group_id);
+                    } else if (s3Data.qcGroupId) {
+                        setSelectedQcGroupId(s3Data.qcGroupId);
+            if (s3Data.productionGroupId) setSelectedProdGroupId(s3Data.productionGroupId);
                     }
 
                 } catch (e) {
@@ -115,6 +148,12 @@ function Stage3F({ initialData, inspectionData, isReview = false, readOnly = fal
                 return;
             }
 
+            if (!selectedProdGroupId) {
+                setAlert({ show: true, type: 'error', message: "Please select Production Group" });
+                setIsSubmitting(false);
+                return;
+            }
+
             const categoryKey = getCategoryKey();
 
             let existingStageData = {};
@@ -125,7 +164,8 @@ function Stage3F({ initialData, inspectionData, isReview = false, readOnly = fal
             }
 
             const currentStageInnerData = {
-                assignedQcGroupId: selectedQcGroupId,
+                qcGroupId: selectedQcGroupId,
+        productionGroupId: selectedProdGroupId,
                 productionEngineerName: productionEngineerName,
                 submissionDate: todayDate,
             };
@@ -196,7 +236,8 @@ function Stage3F({ initialData, inspectionData, isReview = false, readOnly = fal
                 }
 
                 const currentStageInnerData = {
-                    assignedQcGroupId: selectedQcGroupId,
+                    qcGroupId: selectedQcGroupId,
+        productionGroupId: selectedProdGroupId,
                     productionEngineerName,
                     submissionDate: todayDate
                 };
@@ -295,13 +336,20 @@ return (
                         <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
-                                <Label>Production Engineer Name:</Label>
-                                <Input
-                                    value={productionEngineerName}
-                                    readOnly
-                                    className="bg-muted uppercase"
-                                />
-                            </div>
+              <Label htmlFor="productionGroup">Production Group Name:</Label>
+              <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
+                <SelectTrigger id="productionGroup" className="w-full">
+                  <SelectValue placeholder="Select Production Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productionGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name?.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
                             <div className="space-y-2">
                                 <Label>Date:</Label>
@@ -363,3 +411,6 @@ return (
 }
 
 export default Stage3F
+
+
+

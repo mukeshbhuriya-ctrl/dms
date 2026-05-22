@@ -114,24 +114,24 @@ const WeldJointTrail = ({ jointId, jointCategory }) => {
                                 )}
                                 
                                 <div className="flex flex-wrap items-center gap-3">
-                                    {activity.prod_eng && (
+                                    {activity.production_engineer && (
                                         <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-white px-2 py-1 rounded border border-slate-100">
                                             <User className="w-3 h-3" />
-                                            <span>Prod: {activity.prod_eng.name}</span>
+                                            <span>Prod: {activity.production_engineer.name}</span>
                                         </div>
                                     )}
 
-                                    {activity.qc_eng && (
+                                    {activity.qc_engineer && (
                                         <div className="flex items-center gap-1.5 text-xs text-slate-500 bg-white px-2 py-1 rounded border border-slate-100">
                                             <ShieldCheck className="w-3 h-3 text-green-600" />
-                                            <span>QC: {activity.qc_eng.name}</span>
+                                            <span>QC: {activity.qc_engineer.name}</span>
                                         </div>
                                     )}
 
-                                    {activity.assigned_qc_group && activity.status === 'pending' && (
+                                    {activity.qc_group && activity.status === 'pending' && (
                                         <div className="flex items-center gap-1.5 text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-indigo-100">
                                             <User className="w-3 h-3" />
-                                            <span>Group: {activity.assigned_qc_group.name}</span>
+                                            <span>Group: {activity.qc_group.name}</span>
                                         </div>
                                     )}
                                 </div>
@@ -145,3 +145,4 @@ const WeldJointTrail = ({ jointId, jointCategory }) => {
 };
 
 export default WeldJointTrail;
+

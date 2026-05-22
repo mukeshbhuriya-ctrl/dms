@@ -95,8 +95,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
       const categoryKey = getCategoryKey();
       const inspectionData = initialData.inspectionData;
 
-      if (inspectionData[`${sPrefix}_qc_eng_id`]) {
-        setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_eng_id`]);
+      if (inspectionData[`${sPrefix}_qc_engineer_id`]) {
+        setBackChipQcEngineer(inspectionData[`${sPrefix}_qc_engineer_id`]);
       }
       if (inspectionData[`${sPrefix}_prod_eng_name`]) {
         setProductionEngineerName(inspectionData[`${sPrefix}_prod_eng_name`]);
@@ -109,8 +109,8 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
           if (sbcData?.productionEngineerName) setProductionEngineerName(sbcData.productionEngineerName);
           if (sbcData?.submissionDate) setTodayDate(sbcData.submissionDate);
-          if (!inspectionData[`${sPrefix}_qc_eng_id`] && sbcData?.assignedQcEngineerId) {
-            setBackChipQcEngineer(sbcData.assignedQcEngineerId);
+          if (!inspectionData[`${sPrefix}_qc_engineer_id`] && sbcData?.qcEngineerId) {
+            setBackChipQcEngineer(sbcData.qcEngineerId);
           }
         } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
       }
@@ -151,7 +151,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
       const currentStageData = {
         productionEngineerName,
         submissionDate: todayDate,
-        assignedQcEngineerId: backChipQcEngineer
+        qcEngineerId: backChipQcEngineer
       };
 
       const finalData = {
@@ -226,7 +226,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
         const currentStageData = {
           productionEngineerName,
           submissionDate: todayDate,
-          assignedQcEngineerId: backChipQcEngineer
+          qcEngineerId: backChipQcEngineer
         };
 
         const finalData = {
@@ -323,14 +323,20 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>Production Engineer Name:</Label>
-                <Input
-                  type="text"
-                  value={productionEngineerName}
-                  readOnly
-                  className="bg-muted uppercase"
-                />
-              </div>
+              <Label htmlFor="productionGroup">Production Group:</Label>
+              <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
+                <SelectTrigger id="productionGroup" className="w-full">
+                  <SelectValue placeholder="Select Production Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productionGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.name?.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
               <div className="space-y-2">
                 <Label>Date:</Label>
@@ -396,3 +402,5 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 }
 
 export default Stage2;
+
+

@@ -97,7 +97,7 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
 
     // Fetch User Names if IDs are present
     let qcEngineerName = '';
-    const qcEngId = insp[`${sPrefix}_qc_eng_id`];
+    const qcEngId = insp[`${sPrefix}_qc_engineer_id`];
     if (qcEngId) {
         try {
             const qcUser = await prisma.user.findUnique({ where: { id: qcEngId }, select: { name: true } });
@@ -106,7 +106,7 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
     }
 
     let productionEngineerName = stageData.productionEngineerName || '';
-    const prodEngId = insp[`${sPrefix}_prod_eng_id`];
+    const prodEngId = insp[`${sPrefix}_production_engineer_id`];
     if (!productionEngineerName && prodEngId) {
         try {
             const prodUser = await prisma.user.findUnique({ where: { id: prodEngId }, select: { name: true } });

@@ -103,13 +103,13 @@ class WeldJointService {
             stages.forEach(stage => {
                 const sKey = stage.stage_name.replace('stage', 's'); // "stage1" -> "s1"
                 insp[`${sKey}_status`] = stage.status;
-                if (stage.prod_eng_id) {
-                    insp[`${sKey}_prod_eng_id`] = stage.prod_eng_id;
-                    if (userMap && userMap[stage.prod_eng_id]) insp[`${sKey}_prod_eng_name`] = userMap[stage.prod_eng_id];
+                if (stage.production_engineer_id) {
+                    insp[`${sKey}_production_engineer_id`] = stage.production_engineer_id;
+                    if (userMap && userMap[stage.production_engineer_id]) insp[`${sKey}_prod_eng_name`] = userMap[stage.production_engineer_id];
                 }
-                if (stage.qc_eng_id) {
-                    insp[`${sKey}_qc_eng_id`] = stage.qc_eng_id;
-                    if (userMap && userMap[stage.qc_eng_id]) insp[`${sKey}_qc_eng_name`] = userMap[stage.qc_eng_id];
+                if (stage.qc_engineer_id) {
+                    insp[`${sKey}_qc_engineer_id`] = stage.qc_engineer_id;
+                    if (userMap && userMap[stage.qc_engineer_id]) insp[`${sKey}_qc_eng_name`] = userMap[stage.qc_engineer_id];
                 }
                 insp[`${sKey}_submitted_at`] = stage.submitted_at;
                 insp[`${sKey}_approved_at`] = stage.approved_at;
@@ -167,10 +167,10 @@ class WeldJointService {
         const isQC = roles.includes('QC_ENGINEER') || roles.includes('NDT_ENGINEER');
 
         if (!isAdminOrProd && isQC) {
-            // Relational equivalent: find joints where THIS user is assigned to ANY stage as qc_eng_id
+            // Relational equivalent: find joints where THIS user is assigned to ANY stage as qc_engineer_id
             where.weld_joint_stages = {
                 some: {
-                    qc_eng_id: userId
+                    qc_engineer_id: userId
                 }
             };
         }
@@ -254,8 +254,8 @@ class WeldJointService {
         const userIds = new Set();
         joints.forEach(joint => {
             joint.weld_joint_stages?.forEach(stage => {
-                if (stage.prod_eng_id) userIds.add(stage.prod_eng_id);
-                if (stage.qc_eng_id) userIds.add(stage.qc_eng_id);
+                if (stage.production_engineer_id) userIds.add(stage.production_engineer_id);
+                if (stage.qc_engineer_id) userIds.add(stage.qc_engineer_id);
             });
         });
 
@@ -337,25 +337,27 @@ class WeldJointService {
         else if (status === 'rejected') rejected_at = new Date();
         else if (status === 'pending') submitted_at = new Date();
 
-        let prod_eng_id = undefined, qc_eng_id = undefined;
-        if (role === 'PROD') prod_eng_id = engineerId;
-        else if (role === 'QC' || role === 'NDT') qc_eng_id = engineerId;
+        let production_engineer_id = undefined, qc_engineer_id = undefined;
+        if (role === 'PROD') production_engineer_id = engineerId;
+        else if (role === 'QC' || role === 'NDT') qc_engineer_id = engineerId;
 
         // Extract deep payload
         const sKey = stage.replace('stage', 's');
         let stagePayload = data?.[catKey]?.[sKey] || data?.[catKey] || data || {};
 
         // Assign QC if provided in payload
-        if (stagePayload.assignedQcEngineerId) qc_eng_id = stagePayload.assignedQcEngineerId;
-        if (stagePayload.assignedNdtEngineerId) qc_eng_id = stagePayload.assignedNdtEngineerId;
+        if (stagePayload.qcEngineerId) qc_engineer_id = stagePayload.qcEngineerId;
+        if (stagePayload.assignedNdtEngineerId) qc_engineer_id = stagePayload.assignedNdtEngineerId;
 
         // 3. Upsert stage
         const stageRecord = await prisma.weld_joint_stage.upsert({
             where: { weld_joint_id_stage_name: { weld_joint_id: jointId, stage_name: stage } },
             update: {
                 status,
-                ...(prod_eng_id && { prod_eng_id }),
-                ...(qc_eng_id && { qc_eng_id }),
+                ...(production_engineer_id && { production_engineer_id }),
+                ...(qc_engineer_id && { qc_engineer_id }),
+                qc_group_id: stagePayload.qcGroupId || undefined,
+                production_group_id: stagePayload.productionGroupId || undefined,
                 ...(submitted_at && { submitted_at }),
                 ...(approved_at && { approved_at }),
                 ...(rejected_at && { rejected_at }),
@@ -364,7 +366,10 @@ class WeldJointService {
                 weld_joint_id: jointId,
                 stage_name: stage,
                 status,
-                prod_eng_id, qc_eng_id, submitted_at, approved_at, rejected_at
+                production_engineer_id, qc_engineer_id, 
+                qc_group_id: stagePayload.qcGroupId || undefined,
+                production_group_id: stagePayload.productionGroupId || undefined,
+                submitted_at, approved_at, rejected_at
             }
         });
 
@@ -418,7 +423,7 @@ class WeldJointService {
                 weld_joint_id: jointId,
                 stage_name: stage,
                 status,
-                qc_eng_id: role === 'QC' || role === 'NDT' ? engineerId : undefined,
+                qc_engineer_id: role === 'QC' || role === 'NDT' ? engineerId : undefined,
                 ...(status === 'approved' && { approved_at: new Date() }),
                 ...(status === 'rejected' && { rejected_at: new Date() }),
             }
@@ -468,3 +473,5 @@ class WeldJointService {
 }
 
 module.exports = new WeldJointService();
+
+

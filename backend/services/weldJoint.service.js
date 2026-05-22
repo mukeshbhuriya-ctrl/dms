@@ -161,19 +161,20 @@ class WeldJointService {
                 if (stage.is_active || !insp[`${sKey}_status`] || insp[`${sKey}_status`] === 'pending') {
                     insp[`${sKey}_status`] = stage.status;
                 }
-                if (stage.prod_eng_id) {
-                    insp[`${sKey}_prod_eng_id`] = stage.prod_eng_id;
-                    if (userMap && userMap[stage.prod_eng_id]) insp[`${sKey}_prod_eng_name`] = userMap[stage.prod_eng_id];
+                if (stage.production_engineer_id) {
+                    insp[`${sKey}_production_engineer_id`] = stage.production_engineer_id;
+                    if (userMap && userMap[stage.production_engineer_id]) insp[`${sKey}_prod_eng_name`] = userMap[stage.production_engineer_id];
                 }
-                if (stage.qc_eng_id) {
-                    insp[`${sPrefix}_qc_eng_id`] = stage.qc_eng_id;
-                    if (userMap && userMap[stage.qc_eng_id]) insp[`${sPrefix}_qc_eng_name`] = userMap[stage.qc_eng_id];
+                if (stage.qc_engineer_id) {
+                    insp[`${sPrefix}_qc_engineer_id`] = stage.qc_engineer_id;
+                    if (userMap && userMap[stage.qc_engineer_id]) insp[`${sPrefix}_qc_eng_name`] = userMap[stage.qc_engineer_id];
                 }
                 insp[`${sPrefix}_submitted_at`] = stage.submitted_at;
                 insp[`${sPrefix}_approved_at`] = stage.approved_at;
                 insp[`${sPrefix}_rejected_at`] = stage.rejected_at;
                 insp[`${sPrefix}_remarks`] = stage.remarks;
-                insp[`${sPrefix}_assigned_qc_group_id`] = stage.assigned_qc_group_id;
+                insp[`${sPrefix}_qc_group_id`] = stage.qc_group_id;
+                insp[`${sPrefix}_production_group_id`] = stage.production_group_id;
 
                 // Reconstruct sX_data
                 let innerData = this._mapDbStageDataToCamelCase(stage.stage_data);
@@ -239,8 +240,8 @@ class WeldJointService {
 
         const userIds = new Set();
         joint.weld_joint_stages?.forEach(stage => {
-            if (stage.prod_eng_id) userIds.add(stage.prod_eng_id);
-            if (stage.qc_eng_id) userIds.add(stage.qc_eng_id);
+            if (stage.production_engineer_id) userIds.add(stage.production_engineer_id);
+            if (stage.qc_engineer_id) userIds.add(stage.qc_engineer_id);
         });
 
         let userMap = {};
@@ -294,11 +295,11 @@ class WeldJointService {
 
         if (!isAdminOrProd && isQC) {
             // Fetch the groups this user belongs to
-            const userGroups = await prisma.user_qc_group.findMany({
+            const userGroups = await prisma.user_employee_group.findMany({
                 where: { user_id: userId },
-                select: { qc_group_id: true }
+                select: { employee_group_id: true }
             });
-            const groupIds = userGroups.map(ug => ug.qc_group_id);
+            const groupIds = userGroups.map(ug => ug.employee_group_id);
 
             // Base criteria for QC: MUST be involved in at least one stage (historically or currently)
             // Or specifically filter based on the requested status.
@@ -307,8 +308,8 @@ class WeldJointService {
                 where.weld_joint_stages = {
                     some: {
                         OR: [
-                            { qc_eng_id: userId },
-                            { assigned_qc_group_id: { in: groupIds } }
+                            { qc_engineer_id: userId },
+                            { qc_group_id: { in: groupIds } }
                         ],
                         // For Pending/Rejected we only look at active stages
                         ...( (status === 'pending' || status === 'rejected') && { is_active: true } )
@@ -318,7 +319,7 @@ class WeldJointService {
                 // For Completed, we look for stages they approved
                 where.weld_joint_stages = {
                     some: {
-                        qc_eng_id: userId,
+                        qc_engineer_id: userId,
                         status: 'approved'
                     }
                 };
@@ -508,8 +509,8 @@ class WeldJointService {
         const userIds = new Set();
         joints.forEach(joint => {
             joint.weld_joint_stages?.forEach(stage => {
-                if (stage.prod_eng_id) userIds.add(stage.prod_eng_id);
-                if (stage.qc_eng_id) userIds.add(stage.qc_eng_id);
+                if (stage.production_engineer_id) userIds.add(stage.production_engineer_id);
+                if (stage.qc_engineer_id) userIds.add(stage.qc_engineer_id);
             });
         });
 
@@ -594,17 +595,17 @@ class WeldJointService {
         else if (status === 'rejected') rejected_at = new Date();
         else if (status === 'pending') submitted_at = new Date();
 
-        let prod_eng_id = undefined, qc_eng_id = undefined;
-        if (role === 'PROD') prod_eng_id = engineerId;
-        else if (role === 'QC' || role === 'NDT') qc_eng_id = engineerId;
+        let production_engineer_id = undefined, qc_engineer_id = undefined;
+        if (role === 'PROD') production_engineer_id = engineerId;
+        else if (role === 'QC' || role === 'NDT') qc_engineer_id = engineerId;
 
         // Extract deep payload
         const sKey = stage.replace('stage', 's');
         let stagePayload = data?.[catKey]?.[sKey] || data?.[catKey] || data || {};
 
         // Assign QC if provided in payload
-        if (stagePayload.assignedQcEngineerId) qc_eng_id = stagePayload.assignedQcEngineerId;
-        if (stagePayload.assignedNdtEngineerId) qc_eng_id = stagePayload.assignedNdtEngineerId;
+        if (stagePayload.qcEngineerId) qc_engineer_id = stagePayload.qcEngineerId;
+        if (stagePayload.assignedNdtEngineerId) qc_engineer_id = stagePayload.assignedNdtEngineerId;
 
         // 3. Find active stage or create new revision
         let stageRecord = await prisma.weld_joint_stage.findFirst({
@@ -613,9 +614,10 @@ class WeldJointService {
 
         const updateData = {
             status,
-            ...(prod_eng_id && { prod_eng_id }),
-            ...(qc_eng_id && { qc_eng_id }),
-            assigned_qc_group_id: stagePayload.assignedQcGroupId || undefined,
+            ...(production_engineer_id && { production_engineer_id }),
+            ...(qc_engineer_id && { qc_engineer_id }),
+            qc_group_id: stagePayload.qcGroupId || undefined,
+            production_group_id: stagePayload.productionGroupId || undefined,
             ...(submitted_at && { submitted_at }),
             ...(approved_at && { approved_at }),
             ...(rejected_at && { rejected_at }),
@@ -670,7 +672,7 @@ class WeldJointService {
         }
 
         // 5. Send notification if status changed to pending (Production submitted to QC)
-        if (status === 'pending' && (qc_eng_id || stagePayload.assignedQcGroupId)) {
+        if (status === 'pending' && (qc_engineer_id || stagePayload.qcGroupId)) {
             try {
                 // Background trigger
                 (async () => {
@@ -690,15 +692,15 @@ class WeldJointService {
                     const recipients = new Set();
 
                     // 1. Add specific QC Engineer if assigned
-                    if (qc_eng_id) {
-                        const qcUser = await prisma.user.findUnique({ where: { id: qc_eng_id } });
+                    if (qc_engineer_id) {
+                        const qcUser = await prisma.user.findUnique({ where: { id: qc_engineer_id } });
                         if (qcUser && qcUser.email) recipients.add(qcUser.email);
                     }
 
                     // 2. Add QC Group members if assigned
-                    if (stagePayload.assignedQcGroupId) {
-                        const groupMembers = await prisma.user_qc_group.findMany({
-                            where: { qc_group_id: stagePayload.assignedQcGroupId },
+                    if (stagePayload.qcGroupId) {
+                        const groupMembers = await prisma.user_employee_group.findMany({
+                            where: { employee_group_id: stagePayload.qcGroupId },
                             include: { user: true }
                         });
                         groupMembers.forEach(member => {
@@ -713,19 +715,19 @@ class WeldJointService {
                     }
 
                     // Send System Notifications
-                    if (qc_eng_id) {
+                    if (qc_engineer_id) {
                         await NotificationService.createNotification({
                             company_id: joint.weld_joint_plan.company_id,
-                            user_id: qc_eng_id,
+                            user_id: qc_engineer_id,
                             title: 'New Weld Stage Assigned',
                             message: `Joint ${joint.joint_no} - ${stageLabel} requires inspection.`,
                             action_path: '/view-weldingjoints',
                             action_params: { joint_id: jointId }
                         });
-                    } else if (stagePayload.assignedQcGroupId) {
+                    } else if (stagePayload.qcGroupId) {
                         await NotificationService.broadcastToQcGroup({
                             company_id: joint.weld_joint_plan.company_id,
-                            group_id: stagePayload.assignedQcGroupId,
+                            group_id: stagePayload.qcGroupId,
                             title: 'New Weld Stage Assigned',
                             message: `Joint ${joint.joint_no} - ${stageLabel} requires inspection.`,
                             action_path: '/view-weldingjoints',
@@ -736,10 +738,10 @@ class WeldJointService {
             } catch (err) {
                 console.error("Weld Stage Submission Email Error:", err);
             }
-        } else if ((status === 'approved' || status === 'rejected') && stageRecord.prod_eng_id) {
+        } else if ((status === 'approved' || status === 'rejected') && stageRecord.production_engineer_id) {
             try {
                 (async () => {
-                    const prodUser = await prisma.user.findUnique({ where: { id: stageRecord.prod_eng_id } });
+                    const prodUser = await prisma.user.findUnique({ where: { id: stageRecord.production_engineer_id } });
                     const actionUser = await prisma.user.findUnique({ where: { id: engineerId } });
                     const config = WELD_STAGES_CONFIG[joint.joint_type] || [];
                     const stageConfig = config.find(s => s.id === stage);
@@ -758,7 +760,7 @@ class WeldJointService {
                     // System Notification
                     await NotificationService.createNotification({
                         company_id: joint.weld_joint_plan.company_id,
-                        user_id: stageRecord.prod_eng_id,
+                        user_id: stageRecord.production_engineer_id,
                         severity: status === 'approved' ? 'success' : 'warning',
                         title: status === 'approved' ? 'Weld Stage Approved' : 'Weld Stage Rejected',
                         message: `Joint ${joint.joint_no} - ${stageLabel} has been ${status}.`,
@@ -784,13 +786,11 @@ class WeldJointService {
         });
 
         // 2. Authorization Check: Must be in the assigned QC Group
-        if (stageRecord && stageRecord.assigned_qc_group_id) {
-            const isMember = await prisma.user_qc_group.findUnique({
+        if (stageRecord && stageRecord.qc_group_id) {
+            const isMember = await prisma.user_employee_group.findFirst({
                 where: {
-                    user_id_qc_group_id: {
-                        user_id: engineerId,
-                        qc_group_id: stageRecord.assigned_qc_group_id
-                    }
+                    user_id: engineerId,
+                    employee_group_id: stageRecord.qc_group_id
                 }
             });
             
@@ -815,7 +815,7 @@ class WeldJointService {
                     stage_name: stage,
                     status: status,
                     remarks: remarks,
-                    qc_eng_id: role === 'QC' || role === 'NDT' ? engineerId : undefined,
+                    qc_engineer_id: role === 'QC' || role === 'NDT' ? engineerId : undefined,
                     ...(status === 'approved' && { approved_at: new Date() }),
                     ...(status === 'rejected' && { rejected_at: new Date(), is_active: false }),
                 },
@@ -825,7 +825,7 @@ class WeldJointService {
             const updateData = { 
                 status, 
                 remarks,
-                qc_eng_id: role === 'QC' || role === 'NDT' ? engineerId : undefined
+                qc_engineer_id: role === 'QC' || role === 'NDT' ? engineerId : undefined
             };
             if (status === 'approved') updateData.approved_at = new Date();
             else if (status === 'rejected') {
@@ -841,10 +841,10 @@ class WeldJointService {
         }
 
         // Send notification to Production Engineer (approving/rejecting)
-        if ((status === 'approved' || status === 'rejected') && stageRecord.prod_eng_id) {
+        if ((status === 'approved' || status === 'rejected') && stageRecord.production_engineer_id) {
             try {
                 (async () => {
-                    const prodUser = await prisma.user.findUnique({ where: { id: stageRecord.prod_eng_id } });
+                    const prodUser = await prisma.user.findUnique({ where: { id: stageRecord.production_engineer_id } });
                     const qcUser = await prisma.user.findUnique({ where: { id: engineerId } });
                     const config = WELD_STAGES_CONFIG[stageRecord.weld_joint.joint_type] || [];
                     const stageConfig = config.find(s => s.id === stage);
@@ -863,7 +863,7 @@ class WeldJointService {
                     // System Notification
                     await NotificationService.createNotification({
                         company_id: stageRecord.weld_joint.weld_joint_plan.company_id,
-                        user_id: stageRecord.prod_eng_id,
+                        user_id: stageRecord.production_engineer_id,
                         severity: status === 'approved' ? 'success' : 'warning',
                         title: status === 'approved' ? 'Weld Stage Approved' : 'Weld Stage Rejected',
                         message: `Joint ${stageRecord.weld_joint.joint_no} - ${stageLabel} has been ${status}.`,
@@ -1004,7 +1004,7 @@ class WeldJointService {
             include: {
                 prod_eng: { select: { id: true, name: true } },
                 qc_eng: { select: { id: true, name: true } },
-                assigned_qc_group: { select: { id: true, name: true } }
+                qc_group: { select: { id: true, name: true } }, production_group: { select: { id: true, name: true } }
             },
             orderBy: { createdAt: 'asc' }
         });
@@ -1037,3 +1037,5 @@ class WeldJointService {
 }
 
 module.exports = new WeldJointService();
+
+
