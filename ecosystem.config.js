@@ -81,8 +81,8 @@ module.exports = {
         // Email
         SMTP_HOST: 'smtp.gmail.com',
         SMTP_PORT: 587,
-        SMTP_USER: 'mukesh.bhuriya@sharpandtannan.com',
-        SMTP_PASS: 'gniq fpfn ylog flcb',
+        SMTP_USER: 'your_email@example.com',
+        SMTP_PASS: 'your_smtp_app_password',
         EMAIL_ENABLED: 'true',
       },
     },
