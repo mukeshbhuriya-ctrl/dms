@@ -892,7 +892,10 @@ function CreateTransmission() {
       filterType: "select",
       isMulti: true,
       filterOptions: selectionJobOptions,
-      cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+      cell: (row) => {
+        const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
+        return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
+      },
     },
     {
       header: "Revision",

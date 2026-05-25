@@ -389,7 +389,7 @@ const ClientApprovalStatus = () => {
                 client_doc_no: td.group_document?.client_doc_no || td.group_document?.document?.client_document_number || "-",
                 doc_name: td.group_document?.document?.document_name || "-",
                 po_number: selectedTransmission?.po?.po_number || "-",
-                job_number: td.group_document?.group?.job_group?.[0]?.job?.job_number || "-",
+                job_number: (td.group_document?.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean).join(', ')) || "-",
                 revision: version?.version_no ?? "0",
                 previewUrl: version?.id
                     ? `${backendUrl}/api/dcc/document-preview/${version.id}/${encodeURIComponent(version.file_path?.split('/').pop() || version.file_path?.split('\\').pop() || 'file')}`

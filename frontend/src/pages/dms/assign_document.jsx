@@ -207,7 +207,7 @@ function AssignDocument() {
         }
       }
 
-      const validatedRows = rawData.flatMap((row, index) => {
+      const validatedRows = rawData.map((row, index) => {
         const jobNumberStr = String(row["Job Number"] || "").trim();
         const jobNumbers = jobNumberStr.split(',').map(j => j.trim().toUpperCase()).filter(Boolean);
         const docName = String(row["Document Name"] || "").trim();
@@ -218,43 +218,42 @@ function AssignDocument() {
         const responseDaysRaw = row["Response Due Days"];
 
         const targetUser = users.find(u => String(u.empid) === empid);
+        const errors = [];
+        
+        if (jobNumbers.length === 0) errors.push("Job Number is required");
+        if (!docName) errors.push("Document Name is required");
 
-        // If no job numbers, still create one row to show "required" error
-        const jobsToProcess = jobNumbers.length === 0 ? [""] : jobNumbers;
+        const targetJobs = jobNumbers.map(jn => {
+            const job = allJobs.find(j => String(j.job_number) === jn);
+            if (!job) errors.push(`Job Number "${jn}" not found`);
+            return job;
+        }).filter(Boolean);
 
-        return jobsToProcess.map((jn, subIdx) => {
-          const errors = [];
-          const targetJob = allJobs.find(j => String(j.job_number) === jn);
+        const uploadDays = parseInt(uploadDaysRaw);
+        if (uploadDaysRaw === undefined || isNaN(uploadDays) || uploadDays < 0) {
+          errors.push("Invalid Upload Due Days");
+        }
+        const responseDays = parseInt(responseDaysRaw);
+        if (responseDaysRaw === undefined || isNaN(responseDays) || responseDays < 0) {
+          errors.push("Invalid Response Due Days");
+        }
 
-          if (!jn) errors.push("Job Number is required");
-          else if (!targetJob) errors.push(`Job Number "${jn}" not found`);
+        const firstJob = targetJobs[0] || {};
 
-          if (!docName) errors.push("Document Name is required");
-
-          const uploadDays = parseInt(uploadDaysRaw);
-          if (uploadDaysRaw === undefined || isNaN(uploadDays) || uploadDays < 0) {
-            errors.push("Invalid Upload Due Days");
-          }
-          const responseDays = parseInt(responseDaysRaw);
-          if (responseDaysRaw === undefined || isNaN(responseDays) || responseDays < 0) {
-            errors.push("Invalid Response Due Days");
-          }
-
-          return {
-            rowNo: jobNumbers.length > 1 ? `${index + 1}.${subIdx + 1}` : index + 1,
-            jobNumber: jn || "EMPTY",
-            docName, empid, shrenoNo, clientNo,
-            uploadDays: uploadDays || 0,
-            responseDays: responseDays || 0,
-            status: errors.length === 0 ? "valid" : "error",
-            message: errors.length === 0 ? "Ready to assign" : errors.join(" | "),
-            jobId: targetJob ? [targetJob.id] : [], // Keep as array for backend compatibility
-            customerId: targetJob?.customer_id,
-            poId: targetJob?.po_id,
-            assignUserId: targetUser?.id,
-            userName: targetUser?.name
-          };
-        });
+        return {
+          rowNo: index + 1,
+          jobNumber: jobNumbers.join(', ') || "EMPTY",
+          docName, empid, shrenoNo, clientNo,
+          uploadDays: uploadDays || 0,
+          responseDays: responseDays || 0,
+          status: errors.length === 0 ? "valid" : "error",
+          message: errors.length === 0 ? "Ready to assign" : errors.join(" | "),
+          jobId: targetJobs.map(j => j.id),
+          customerId: firstJob.customer_id,
+          poId: firstJob.po_id,
+          assignUserId: targetUser?.id,
+          userName: targetUser?.name
+        };
       });
 
       setImportReview({
@@ -420,7 +419,10 @@ function AssignDocument() {
       filterType: "select",
       isMulti: true,
       filterOptions: activeJobOptions,
-      cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+      cell: (row) => {
+        const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
+        return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
+      },
     },
     {
       id: "assignee",
@@ -808,21 +810,24 @@ function AssignDocument() {
     setEditingId(row.id)
     setView("assign")
 
-    const targetJob = row.group?.job_group?.[0]?.job;
-    if (targetJob) {
-      // Cache this job and its PO immediately so metadata (like Location) is available
-      setAllJobs(prev => Array.from(new Map([...prev, targetJob].map(item => [item.id, item])).values()));
-      if (targetJob.po) {
-        setAllPos(prev => Array.from(new Map([...prev, targetJob.po].map(item => [item.id, item])).values()));
+    const targetJobs = row.group?.job_group?.map(jg => jg.job).filter(Boolean) || [];
+    if (targetJobs.length > 0) {
+      // Cache these jobs and their POs immediately so metadata (like Location) is available
+      setAllJobs(prev => Array.from(new Map([...prev, ...targetJobs].map(item => [item.id, item])).values()));
+      const pos = targetJobs.map(j => j.po).filter(Boolean);
+      if (pos.length > 0) {
+        setAllPos(prev => Array.from(new Map([...prev, ...pos].map(item => [item.id, item])).values()));
       }
     }
+
+    const firstJob = targetJobs[0] || {};
 
     setAssignments([
       {
         tempId: Date.now(),
-        jobId: row.group?.job_group?.[0]?.job_id ? [row.group.job_group[0].job_id] : [],
-        customerId: row.group?.job_group?.[0]?.job?.customer_id || "",
-        poId: row.group?.job_group?.[0]?.job?.po_id || "",
+        jobId: row.group?.job_group?.map(jg => jg.job_id).filter(Boolean) || [],
+        customerId: firstJob.customer_id || "",
+        poId: firstJob.po_id || "",
         documentName: row.document?.document_name || "",
         documentId: row.document_id || "",
         shrenoDocumentNo: row.shreno_doc_no || "",
@@ -867,19 +872,17 @@ function AssignDocument() {
     setIsLoading(true)
 
     const requestBody = {
-      assignments: validAssignments.flatMap(a =>
-        a.jobId.map(jid => ({
-          job_id: jid,
-          document_name: a.documentName,
-          shreno_document_no: a.shrenoDocumentNo,
-          shreno_reference_no: a.shrenoReferenceNo,
-          client_document_no: a.clientDocumentNo,
-          client_reference_no: a.clientReferenceNo,
-          assign_user_id: a.assignUserId,
-          upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
-          response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
-        }))
-      ),
+      assignments: validAssignments.map(a => ({
+        job_id: a.jobId,
+        document_name: a.documentName,
+        shreno_document_no: a.shrenoDocumentNo,
+        shreno_reference_no: a.shrenoReferenceNo,
+        client_document_no: a.clientDocumentNo,
+        client_reference_no: a.clientReferenceNo,
+        assign_user_id: a.assignUserId,
+        upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
+        response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
+      })),
     }
 
     try {
@@ -1494,9 +1497,9 @@ function AssignDocument() {
             </Table>
           </div>
           <DialogFooter className="p-6 border-t bg-slate-50">
-            <Button variant="outline" onClick={() => setImportReview(prev => ({ ...prev, isOpen: false }))}>Cancel</Button>
+            <Button className="cursor-pointer" variant="outline" onClick={() => setImportReview(prev => ({ ...prev, isOpen: false }))}>Cancel</Button>
             <Button 
-              className="bg-green-600" 
+              className="bg-green-600 cursor-pointer" 
               onClick={finalizeImport} 
               disabled={importReview.summary.valid === 0 || isLoading}
             >

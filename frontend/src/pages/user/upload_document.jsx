@@ -327,7 +327,10 @@ function UploadDocument() {
             filterType: "select",
             isMulti: true,
             filterOptions: jobFilterOptions,
-            cell: (row) => row.group?.job_group?.[0]?.job?.job_number || "-",
+            cell: (row) => {
+                const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
+                return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
+            },
         },
         {
             header: "Created At",
@@ -553,7 +556,7 @@ function UploadDocument() {
                         client_doc_no: doc.client_doc_no || '-',
                         documentName: doc.document.document_name,
                         documentNumber: doc.document.document_number,
-                        job_number: doc.group?.job_group?.[0]?.job?.job_number || 'N/A',
+                        job_number: (doc.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean).join(', ')) || 'N/A',
                         status: displayStatus,
                         approverStatus: approverStatus,
                         client_status: doc.client_status,
