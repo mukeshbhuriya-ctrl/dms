@@ -3163,7 +3163,7 @@ class DccService {
                     user_roles: {
                         some: {
                             role: {
-                                name: { in: ['DCC', 'ADMIN'] }
+                                name: { in: ['DCC'] }
                             }
                         }
                     }
@@ -3284,7 +3284,7 @@ class DccService {
                             some: { 
                                 role: { 
                                     name: { 
-                                        in: ['DMS', 'DCC', 'ADMIN'] 
+                                        in: ['DCC'] 
                                     } 
                                 } 
                             } 
@@ -3353,7 +3353,7 @@ class DccService {
             const dccAdmins = await prisma.user.findMany({
                 where: {
                     company_id,
-                    user_roles: { some: { role: { name: { in: ['DMS', 'DCC', 'ADMIN'] } } } }
+                    user_roles: { some: { role: { name: { in: ['DCC'] } } } }
                 }
             });
 
