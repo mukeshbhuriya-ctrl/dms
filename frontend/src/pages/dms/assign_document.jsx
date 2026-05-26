@@ -460,7 +460,7 @@ function AssignDocument() {
     {
       id: "plant_submission_date",
       accessorKey: "upload_due_days",
-      header: "Plant Submission Date",
+      header: "Planned Submission Date",
       cell: (row) => {
         if (!row.upload_due_days) return "-";
         const created = new Date(row.createdAt);

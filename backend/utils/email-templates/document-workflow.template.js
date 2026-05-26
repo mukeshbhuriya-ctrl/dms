@@ -96,6 +96,10 @@ const getDocumentOverdueTemplate = (user_name, type, documents) => {
     const title = isUpload ? 'Upload Deadline Exceeded' : 'Response Deadline Exceeded';
     const actionNeeded = isUpload ? 'uploading these documents' : 'reviewing these documents';
     
+    // Add column if it's sent to the DCC Team (admins) so they know who is pending
+    const isToAdmin = user_name === 'DCC Team';
+    const userColumnHeader = isToAdmin ? `<th style="padding: 12px; border-bottom: 2px solid #fed7aa;">Pending With</th>` : '';
+
     const docRows = documents.map(doc => `
         <tr>
             <td style="padding: 12px; border-bottom: 1px solid #eee;">
@@ -103,6 +107,7 @@ const getDocumentOverdueTemplate = (user_name, type, documents) => {
                 <span style="font-size: 12px; color: #666;">${doc.document_number}</span>
             </td>
             <td style="padding: 12px; border-bottom: 1px solid #eee;">${doc.job_number || 'N/A'}</td>
+            ${isToAdmin ? `<td style="padding: 12px; border-bottom: 1px solid #eee;">${doc.assigned_user || 'Unknown'}</td>` : ''}
             <td style="padding: 12px; border-bottom: 1px solid #eee; color: #ef4444; font-weight: bold;">OVERDUE</td>
         </tr>
     `).join('');
