@@ -50,7 +50,7 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
 
     // Basic Information (Default from Plan/Job)
     let basicInfo = {
-        msn: plan.serial_no?.toString() || '-',
+        msn: job.job_number?.toString() || '-',
         client: job.customer?.customer_name || '-',
         poNo: (job.po && job.po.po_number) ? job.po.po_number : (job.po_number || '-'),
         tagNo: job.tag_number || '-',
