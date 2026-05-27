@@ -15,60 +15,47 @@ async function generateStageReport(req, res) {
     try {
         const { jointId, stage } = req.params;
 
-        // Fetch Joint Details with Inspection Data reconstructed functionally
-        const joint = await weldJointService.getWeldJointWithInspection(jointId);
+        const joints = await weldJointService.getJointGroupWithInspection(jointId);
         const companyInfo = await getCompanyInfo(req.user.company_id);
 
-        if (!joint) {
+        if (!joints || joints.length === 0) {
             return res.status(404).json({ success: false, message: 'Weld Joint not found' });
         }
 
-        const insp = joint.weld_joint_inspection || {};
-        const plan = joint.weld_joint_plan || {};
-        const job = plan.job || {};
-        const jt = joint.joint_type ? joint.joint_type.toUpperCase() : 'A';
-
-        // Data lookup key: individual key stored in JSON (a, b, c, d, f)
+        const targetJoint = joints.find(j => j.id === jointId) || joints[0];
+        const insp = targetJoint.weld_joint_inspection || {};
+        const jt = targetJoint.joint_type ? targetJoint.joint_type.toUpperCase() : 'A';
         const categoryKey = jt.toLowerCase();
-
-        // PDF template group: determines which generator and stage template to use
         const jointTypeGroup = ['C', 'D'].includes(jt) ? 'cd' : (jt === 'F' ? 'f' : 'ab');
-
-        // Dynamic stage list per category based on joint's boolean flags
-        const getStagesForJoint = (jt, j) => {
-            const config = WELD_STAGES_CONFIG[jt] || [];
-            return config
-                .filter(stage => {
-                    if (!stage.condition) return true;
-                    return !!j[stage.condition];
-                })
-                .map(stage => stage.id);
-        };
 
         if (stage === 'all') {
             const allStagesData = {};
             const config = WELD_STAGES_CONFIG[jt] || [];
             
             await Promise.all(config.map(async (stageObj) => {
-                // Skip if the stage requirement is disabled for this joint
-                if (stageObj.condition && !joint[stageObj.condition]) return;
+                if (stageObj.condition && !targetJoint[stageObj.condition]) return;
 
                 const sKey = stageObj.id;
                 const sPrefix = sKey.replace('stage', 's');
-                
-                // Only include approved stages for the cumulative report
                 const isApproved = insp[`${sPrefix}_status`] === 'approved';
                 const isBaseStage = sKey === 'stage1';
 
                 if (isApproved || isBaseStage) {
-                    const sData = await extractStageData(insp, plan, job, joint, sKey, categoryKey);
-                    allStagesData[sKey] = { ...sData, label: stageObj.label };
+                    const stageDataArray = [];
+                    for (const j of joints) {
+                        const jInsp = j.weld_joint_inspection || {};
+                        const jPlan = j.weld_joint_plan || {};
+                        const jJob = jPlan.job || {};
+                        const sData = await extractStageData(jInsp, jPlan, jJob, j, sKey, categoryKey);
+                        stageDataArray.push(sData);
+                    }
+                    allStagesData[sKey] = { joints: stageDataArray, label: stageObj.label };
                 }
             }));
 
             const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${joint.joint_no}_${dateTime}.pdf`);
+            res.setHeader('Content-Disposition', `attachment; filename=Complete_Report_${targetJoint.joint_no}_${dateTime}.pdf`);
 
             if (jointTypeGroup === 'cd') {
                 pdfGeneratorCD.generateReport(allStagesData, res, companyInfo);
@@ -80,16 +67,22 @@ async function generateStageReport(req, res) {
             return;
         }
 
-        // Single Stage Report
         const stageConfig = (WELD_STAGES_CONFIG[jt] || []).find(s => s.id === stage);
-        const sData = await extractStageData(insp, plan, job, joint, stage, categoryKey);
-        const reportData = { ...sData, label: stageConfig?.label };
+        const stageDataArray = [];
+        for (const j of joints) {
+            const jInsp = j.weld_joint_inspection || {};
+            const jPlan = j.weld_joint_plan || {};
+            const jJob = jPlan.job || {};
+            const sData = await extractStageData(jInsp, jPlan, jJob, j, stage, categoryKey);
+            stageDataArray.push(sData);
+        }
+        
+        const reportData = { joints: stageDataArray, label: stageConfig?.label };
 
         const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=${stage}_${joint.joint_no}_${dateTime}.pdf`);
+        res.setHeader('Content-Disposition', `attachment; filename=${stage}_${targetJoint.joint_no}_${dateTime}.pdf`);
 
-        // Route single-stage report to the correct generator based on joint type
         if (jointTypeGroup === 'cd') {
             pdfGeneratorCD.generateReport({ [stage]: reportData }, res, companyInfo);
         } else if (jointTypeGroup === 'f') {

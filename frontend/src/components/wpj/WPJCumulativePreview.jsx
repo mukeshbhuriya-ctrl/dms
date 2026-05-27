@@ -18,6 +18,7 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [jointData, setJointData] = useState(null)
+  const [joints, setJoints] = useState([])
   const [approvedStages, setApprovedStages] = useState([])
   const [category, setCategory] = useState("")
   const [downloading, setDownloading] = useState(false)
@@ -32,7 +33,8 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
         const response = await apiClient.get(`/api/wpj/cumulative-data/${jointId}`)
         if (response && response.success) {
           setJointData(response.data.joint)
-          setApprovedStages(response.data.approvedStages || [])
+            setJoints(response.data.joints || [response.data.joint])
+            setApprovedStages(response.data.approvedStages || [])
           setCategory(response.data.category)
         } else {
           setError("Failed to load preview data")
@@ -165,6 +167,43 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
 
   const isAB = ["A", "B"].includes(jt)
 
+  // Helper to get stage data from a specific joint
+  const getStageDataForJoint = (j, stageKey) => {
+    if (!j || !j.weld_joint_inspection) return {}
+    const sPrefix = stageKey.replace("stage", "s")
+    const dataKey = `${sPrefix}_data`
+    const raw = j.weld_joint_inspection[dataKey]
+    if (!raw) return {}
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw
+      const catKey = (j.joint_type || "A").toLowerCase()
+      return parsed?.[catKey]?.[sPrefix] || parsed?.[catKey] || parsed || {}
+    } catch (e) {
+      return {}
+    }
+  }
+
+  const getSignatureForJoint = (j, stageKey) => {
+    if (!j || !j.weld_joint_inspection) return {}
+    const sPrefix = stageKey.replace("stage", "s")
+    const insp = j.weld_joint_inspection
+    return {
+      prodName: insp[`${sPrefix}_prod_eng_name`] || insp[`${sPrefix}_production_engineer_name`] || "",
+      prodDate: insp[`${sPrefix}_submitted_at`] ? new Date(insp[`${sPrefix}_submitted_at`]).toLocaleDateString() : "",
+      qcName: insp[`${sPrefix}_qc_eng_name`] || insp[`${sPrefix}_qc_engineer_name`] || "",
+      qcDate: insp[`${sPrefix}_approved_at`] ? new Date(insp[`${sPrefix}_approved_at`]).toLocaleDateString() : "",
+      status: insp[`${sPrefix}_status`] || "pending",
+      remarks: insp[`${sPrefix}_remarks`] || ""
+    }
+  }
+
+  const getS1RowsForJoint = (j, s1Data) => {
+      // Find the inspectionRows or fall back
+      if (s1Data && s1Data.inspectionRows) return s1Data.inspectionRows;
+      return [];
+  }
+
+
   return (
     <div className="cumulative-preview-container">
       {/* Toolbar */}
@@ -228,6 +267,7 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
 
         {isAB ? (
           <SeamWeldingPreview
+            joints={joints}
             jointData={jointData}
             job={job}
             plan={plan}
@@ -235,6 +275,9 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
             approvedStages={approvedStages}
             getStageData={getStageData}
             getSignature={getSignature}
+            getStageDataForJoint={getStageDataForJoint}
+            getSignatureForJoint={getSignatureForJoint}
+            getS1RowsForJoint={getS1RowsForJoint}
           />
         ) : (
           <NozzleReportPreview
@@ -256,19 +299,26 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
 // ==========================================
 // SEAM WELDING REPORT PREVIEW (A/B)
 // ==========================================
-function SeamWeldingPreview({ jointData, job, plan, insp, approvedStages, getStageData, getSignature }) {
-  const s1 = getStageData("stage1")
-  const s1Sig = getSignature("stage1")
-  const s2 = getStageData("stage2")
-  const s2Sig = getSignature("stage2")
-  const s3 = getStageData("stage3")
-  const s3Sig = getSignature("stage3")
-  const s4Sig = getSignature("stage4")
-  const s5Sig = getSignature("stage5")
-  const s6Sig = getSignature("stage6")
-  const s7Sig = getSignature("stage7")
+function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages, getStageData, getSignature, getStageDataForJoint, getSignatureForJoint, getS1RowsForJoint }) {
+  const defaultJoints = joints && joints.length > 0 ? joints : [jointData]
+  const j0 = defaultJoints[0] || {}
+  const j1 = defaultJoints[1] || {}
+  const j2 = defaultJoints[2] || {}
 
-  const inspectionRows = s1.inspectionRows || []
+  const s1 = [getStageDataForJoint(j0, "stage1"), getStageDataForJoint(j1, "stage1"), getStageDataForJoint(j2, "stage1")]
+  const s1Sig = [getSignatureForJoint(j0, "stage1"), getSignatureForJoint(j1, "stage1"), getSignatureForJoint(j2, "stage1")]
+  const s2Sig = [getSignatureForJoint(j0, "stage2"), getSignatureForJoint(j1, "stage2"), getSignatureForJoint(j2, "stage2")]
+  const s3 = [getStageDataForJoint(j0, "stage3"), getStageDataForJoint(j1, "stage3"), getStageDataForJoint(j2, "stage3")]
+  const s3Sig = [getSignatureForJoint(j0, "stage3"), getSignatureForJoint(j1, "stage3"), getSignatureForJoint(j2, "stage3")]
+  const s4Sig = [getSignatureForJoint(j0, "stage4"), getSignatureForJoint(j1, "stage4"), getSignatureForJoint(j2, "stage4")]
+  const s5Sig = [getSignatureForJoint(j0, "stage5"), getSignatureForJoint(j1, "stage5"), getSignatureForJoint(j2, "stage5")]
+  const s6Sig = [getSignatureForJoint(j0, "stage6"), getSignatureForJoint(j1, "stage6"), getSignatureForJoint(j2, "stage6")]
+  const s7Sig = [getSignatureForJoint(j0, "stage7"), getSignatureForJoint(j1, "stage7"), getSignatureForJoint(j2, "stage7")]
+
+  const ir0 = getS1RowsForJoint(j0, s1[0]);
+  const ir1 = getS1RowsForJoint(j1, s1[1]);
+  const ir2 = getS1RowsForJoint(j2, s1[2]);
+
   const defaultChars = [
     "Material Identification", "Weld joint configuration", "Root Gap",
     "Root Face", 'Degree for "V"', "Offset", "Alignment",
@@ -351,83 +401,85 @@ function SeamWeldingPreview({ jointData, job, plan, insp, approvedStages, getSta
         {/* Joint Number */}
         <tr>
           <td className="label-cell" style={{ color: "#FF0000" }}>Joint Number</td>
-          <td style={{ fontWeight: 600 }}>{jointData.joint_no || "-"}</td>
-          <td></td>
-          <td></td>
+          <td style={{ fontWeight: 600 }}>{j0.joint_no || "-"}</td>
+          <td style={{ fontWeight: 600 }}>{j1.joint_no || "-"}</td>
+          <td style={{ fontWeight: 600 }}>{j2.joint_no || "-"}</td>
         </tr>
 
         {/* Stage 1: Setup Inspection Characteristics */}
         {defaultChars.map((charName, idx) => {
-          const row = inspectionRows.find(r => r.name === charName) || inspectionRows[idx] || {}
+          const r0 = ir0?.find(r => r.name === charName) || ir0?.[idx] || {}
+          const r1 = ir1?.find(r => r.name === charName) || ir1?.[idx] || {}
+          const r2 = ir2?.find(r => r.name === charName) || ir2?.[idx] || {}
           return (
             <tr key={`char-${idx}`}>
               <td className="label-cell">{charName}</td>
-              <td>{row.value || ""}</td>
-              <td></td>
-              <td></td>
+              <td>{r0.value || ""}</td>
+              <td>{r1.value || ""}</td>
+              <td>{r2.value || ""}</td>
             </tr>
           )
         })}
 
         {/* Stage 1 Signatures */}
         <tr><td colSpan={4} className="section-header">Set Up Inspection by</td></tr>
-        <SignatureRows sig={s1Sig} qcTitle="QC Engineer" />
+        <SignatureRows sigs={s1Sig} qcTitle="QC Engineer" />
 
         {/* Stage 2: Back Chip */}
-        {jointData.back_chip_req && (
+        {(j0.back_chip_req || j1.back_chip_req || j2.back_chip_req) && (
           <>
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip - Required / not required</td></tr>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip</td></tr>
             <tr>
-              <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT</td>
-              <td>YES / No</td>
-              <td style={{ fontWeight: "bold", color: "#000" }}>{jointData.back_chip_req ? "YES" : "NO"}</td>
-              <td></td>
+              <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT: YES / No</td>
+              <td style={{ fontWeight: "bold", color: "#000" }}>{j0.joint_no ? (j0.back_chip_req ? "YES" : "NO") : ""}</td>
+              <td style={{ fontWeight: "bold", color: "#000" }}>{j1.joint_no ? (j1.back_chip_req ? "YES" : "NO") : ""}</td>
+              <td style={{ fontWeight: "bold", color: "#000" }}>{j2.joint_no ? (j2.back_chip_req ? "YES" : "NO") : ""}</td>
             </tr>
-            {hasStage("stage2") && <SignatureRows sig={s2Sig} qcTitle="QC Engineer" />}
+            {hasStage("stage2") && <SignatureRows sigs={s2Sig} qcTitle="QC Engineer" />}
           </>
         )}
 
         {/* Stage 3: Weld Visual */}
         <tr><td colSpan={4} className="section-header">Weld Visual Inspection by</td></tr>
         <tr>
-          <td className="label-cell">Welder No.</td>
-          <td></td>
-          <td>{s3.welderNo || s3.welderNumber || ""}</td>
-          <td></td>
+          <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Welder No.</td>
+          <td>{s3[0]?.welderNo || s3[0]?.welderNumber || ""}</td>
+          <td>{s3[1]?.welderNo || s3[1]?.welderNumber || ""}</td>
+          <td>{s3[2]?.welderNo || s3[2]?.welderNumber || ""}</td>
         </tr>
         <tr>
-          <td className="label-cell">Welding process</td>
-          <td></td>
-          <td>{s3.weldingProcess || ""}</td>
-          <td></td>
+          <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Welding process</td>
+          <td>{s3[0]?.weldingProcess || ""}</td>
+          <td>{s3[1]?.weldingProcess || ""}</td>
+          <td>{s3[2]?.weldingProcess || ""}</td>
         </tr>
-        {hasStage("stage3") && <SignatureRows sig={s3Sig} qcTitle="QC Engineer" />}
+        {hasStage("stage3") && <SignatureRows sigs={s3Sig} qcTitle="QC Engineer" />}
 
         {/* Stage 4: RT */}
-        {jointData.rt && (
+        {(j0.rt || j1.rt || j2.rt) && (
           <>
             <tr><td colSpan={4} className="section-header">Radiography Testing Requirement</td></tr>
-            {hasStage("stage4") && <SignatureRows sig={s4Sig} qcTitle="NDT Engineer" />}
+            {hasStage("stage4") && <SignatureRows sigs={s4Sig} qcTitle="NDT Engineer" />}
           </>
         )}
 
         {/* Stage 5: PT */}
-        {jointData.pt && (
+        {(j0.pt || j1.pt || j2.pt) && (
           <>
             <tr><td colSpan={4} className="section-header">Liquid Penetrant Testing</td></tr>
-            {hasStage("stage5") && <SignatureRows sig={s5Sig} qcTitle="NDT Engineer" />}
+            {hasStage("stage5") && <SignatureRows sigs={s5Sig} qcTitle="NDT Engineer" />}
           </>
         )}
 
         {/* Stage 6 & 7: PWHT + RT/PT after PWHT */}
-        {jointData.pwht && (
+        {(j0.pwht || j1.pwht || j2.pwht) && (
           <>
             <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>PWHT</td></tr>
             <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
-            {hasStage("stage6") && <SignatureRows sig={s6Sig} qcTitle="NDT Engineer" />}
+            {hasStage("stage6") && <SignatureRows sigs={s6Sig} qcTitle="NDT Engineer" />}
 
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing – After PWHT</td></tr>
-            {hasStage("stage7") && <SignatureRows sig={s7Sig} qcTitle="NDT Engineer" />}
+            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing - After PWHT</td></tr>
+            {hasStage("stage7") && <SignatureRows sigs={s7Sig} qcTitle="NDT Engineer" />}
           </>
         )}
       </tbody>
@@ -470,7 +522,9 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
         { detail: "Tack Welder", value: s1.tackWelder || "" },
         { detail: "Visual Inspection", value: s1.visualInspection || "OK / Not OK" },
         { detail: "Acceptance of L-Seam RT", value: s1.lSeamRt || "OK / Not OK" },
-        { detail: `Dimensions\n  - Nozzle Size: ${s1.nozzleSize || "-"}\n  - Total Length: ${s1.totalLength || "-"}`, value: "" }
+        { detail: `Dimensions
+  - Nozzle Size: ${s1.nozzleSize || "-"}
+  - Total Length: ${s1.totalLength || "-"}`, value: "" }
       ],
       sig: s1Sig,
       qcType: "QC"
@@ -637,7 +691,7 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
 
           {!isF && jointData.back_chip_req && (
               <>
-                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip - Required / not required</td></tr>
+                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip</td></tr>
                 <tr>
                   <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT</td>
                   <td style={{ color: "#FF0000", fontWeight: "bold" }}>YES / No</td>
@@ -725,45 +779,62 @@ function CharacteristicGroup({ char }) {
 // ==========================================
 // Signature rows component for Seam Welding (A/B)
 // ==========================================
-function SignatureRows({ sig, qcTitle }) {
+function SignatureRows({ sigs, qcTitle }) {
+  const s0 = sigs?.[0] || {}
+  const s1 = sigs?.[1] || {}
+  const s2 = sigs?.[2] || {}
   return (
     <>
       <tr>
-        <td className="label-cell">Production Engineer</td>
-        <td>Name</td>
-        <td>{sig.prodName || ""}</td>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Production Engineer: Name</td>
+        <td>{s0.prodName || ""}</td>
+        <td>{s1.prodName || ""}</td>
+        <td>{s2.prodName || ""}</td>
+      </tr>
+      <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td>{s0.prodDate || ""}</td>
+        <td>{s1.prodDate || ""}</td>
+        <td>{s2.prodDate || ""}</td>
+      </tr>
+      <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>{qcTitle}: Name</td>
+        <td>{s0.qcName || ""}</td>
+        <td>{s1.qcName || ""}</td>
+        <td>{s2.qcName || ""}</td>
+      </tr>
+      <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td>{s0.qcDate || ""}</td>
+        <td>{s1.qcDate || ""}</td>
+        <td>{s2.qcDate || ""}</td>
+      </tr>
+      <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Sign</td>
+        <td>{s0.status === "approved" ? "Approve" : ""}</td>
+        <td>{s1.status === "approved" ? "Approve" : ""}</td>
+        <td>{s2.status === "approved" ? "Approve" : ""}</td>
+      </tr>
+      <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Remarks</td>
+        <td>{s0.remarks || ""}</td>
+        <td>{s1.remarks || ""}</td>
+        <td>{s2.remarks || ""}</td>
+      </tr>
+      <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>AI / CLIENT / TPIA: Name</td>
+        <td></td>
+        <td></td>
         <td></td>
       </tr>
       <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
         <td></td>
-        <td>Date</td>
-        <td>{sig.prodDate || ""}</td>
         <td></td>
-      </tr>
-      <tr>
-        <td className="label-cell">{qcTitle}</td>
-        <td>Name</td>
-        <td>{sig.qcName || ""}</td>
         <td></td>
       </tr>
       <tr>
-        <td></td>
-        <td>Date</td>
-        <td>{sig.qcDate || ""}</td>
-        <td></td>
-      </tr>
-      <tr>
-        <td></td>
-        <td>Sign</td>
-        <td>{sig.status === "approved" ? "Approve" : ""}</td>
-        <td></td>
-      </tr>
-      <tr>
-        <td className="label-cell" style={{ fontWeight: "bold" }}>Remarks</td>
-        <td colSpan={3} style={{ whiteSpace: "pre-wrap" }}>{sig.remarks || "-"}</td>
-      </tr>
-      <tr>
-        <td className="label-cell">AI / CLIENT / TPIA</td>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Sign</td>
         <td></td>
         <td></td>
         <td></td>

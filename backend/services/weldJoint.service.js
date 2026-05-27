@@ -207,6 +207,104 @@ class WeldJointService {
         return insp;
     }
 
+    
+    async getJointGroupWithInspection(jointId) {
+        const targetJoint = await prisma.weld_joint.findUnique({
+            where: { id: jointId },
+            select: { 
+                id: true, 
+                joint_type: true, 
+                weld_joint_plan: { select: { job_id: true } } 
+            }
+        });
+
+        if (!targetJoint) return null;
+
+        const allCategoryJoints = await prisma.weld_joint.findMany({
+            where: {
+                weld_joint_plan: { job_id: targetJoint.weld_joint_plan.job_id },
+                joint_type: targetJoint.joint_type
+            },
+            orderBy: { createdAt: 'asc' },
+            select: { id: true }
+        });
+
+        let targetChunk = [];
+        for (let i = 0; i < allCategoryJoints.length; i += 3) {
+            const chunk = allCategoryJoints.slice(i, i + 3);
+            if (chunk.some(j => j.id === targetJoint.id)) {
+                targetChunk = chunk;
+                break;
+            }
+        }
+
+        const chunkIds = targetChunk.map(j => j.id);
+
+        const rawJoints = await prisma.weld_joint.findMany({
+            where: { id: { in: chunkIds } },
+            orderBy: { joint_no: 'asc' },
+            include: {
+                weld_joint_plan: {
+                    include: {
+                        job: {
+                            select: {
+                                job_number: true, project_id: true, equipement_name: true,
+                                tag_number: true, code: true,
+                                customer: { select: { customer_name: true } },
+                                po: { select: { po_number: true } }
+                            }
+                        },
+                    }
+                },
+                weld_joint_report_info: true,
+                weld_joint_stages: {
+                    include: {
+                        stage_data: true,
+                        stage_rows: true
+                    },
+                    orderBy: {
+                        createdAt: 'asc'
+                    }
+                }
+            }
+        });
+
+        const jointsWithInsp = [];
+        for (const joint of rawJoints) {
+            const userIds = new Set();
+            joint.weld_joint_stages?.forEach(stage => {
+                if (stage.production_engineer_id) userIds.add(stage.production_engineer_id);
+                if (stage.qc_engineer_id) userIds.add(stage.qc_engineer_id);
+            });
+
+            let userMap = {};
+            if (userIds.size > 0) {
+                const users = await prisma.user.findMany({
+                    where: { id: { in: Array.from(userIds) } },
+                    select: { id: true, name: true }
+                });
+                users.forEach(u => userMap[u.id] = u.name);
+            }
+
+            const monolithicInsp = this._reconstructMonolithicInspection(
+                joint.id, 
+                joint.joint_type, 
+                joint.weld_joint_report_info, 
+                joint.weld_joint_stages, 
+                userMap
+            );
+            
+            const { weld_joint_report_info, weld_joint_stages, ...jointRest } = joint;
+            
+            jointsWithInsp.push({
+                ...jointRest,
+                weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null
+            });
+        }
+
+        return jointsWithInsp;
+    }
+
     async getWeldJointWithInspection(jointId) {
         const joint = await prisma.weld_joint.findUnique({
             where: { id: jointId },

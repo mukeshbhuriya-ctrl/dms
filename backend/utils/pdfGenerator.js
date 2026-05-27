@@ -57,7 +57,9 @@ class PDFGenerator {
         const innerW = pageW - 10;
         const innerX = startX + 5;
 
-        const firstData = allStagesData.stage1 || Object.values(allStagesData)[0] || {};
+        const firstDataObj = allStagesData.stage1 || Object.values(allStagesData)[0] || {};
+        const firstDataJoints = firstDataObj.joints || (firstDataObj.jointNo ? [firstDataObj] : []);
+        const firstData = firstDataJoints[0] || {};
 
         // ===== HEADER: Logo + Title + Report No =====
         currentY = this._drawHeader(doc, innerX, currentY, innerW, firstData, 'SET UP & WELD VISUAL INSPECTION REPORT', companyInfo);
@@ -69,10 +71,11 @@ class PDFGenerator {
 
         // ===== MAIN TABLE: Long Seam Inspection =====
         // Column widths for the 3-column inspection table
-        const col1W = innerW * 0.35;
-        const col2W = innerW * 0.35;
-        const col3W = innerW - col1W - col2W;
-        const colWidths = [col1W, col2W, col3W];
+        const col1W = innerW * 0.40;
+        const col2W = innerW * 0.20;
+        const col3W = innerW * 0.20;
+        const col4W = innerW - col1W - col2W - col3W;
+        const colWidths = [col1W, col2W, col3W, col4W];
         const rowH = 18;
         const pad = 4;
 
@@ -82,12 +85,17 @@ class PDFGenerator {
             { font: this.fonts.bold, fontSize: 11, color: this.colors.black, align: 'center' });
 
         // Joint Number row — value in col2 aligned with other data rows
-        const s1 = allStagesData.stage1 || {};
+        const s1_obj = allStagesData.stage1 || {};
+        const s1_joints = s1_obj.joints || (s1_obj.jointNo ? [s1_obj] : []);
+        const s1_0 = s1_joints[0] || {};
+        const s1_1 = s1_joints[1] || {};
+        const s1_2 = s1_joints[2] || {};
+        const s1 = s1_joints.length > 0 ? s1_obj : null;
         currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
             { t: 'Joint Number', f: this.fonts.bold, c: this.colors.red },
-            { t: s1.jointNo || '-', f: this.fonts.regular, c: this.colors.black },
-            { t: '' },
-            { t: '' }
+            { t: s1_0.jointNo || '-', f: this.fonts.regular, c: this.colors.black },
+            { t: s1_1.jointNo || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1_2.jointNo || '', f: this.fonts.regular, c: this.colors.black }
         ]);
 
         // Inspection characteristic rows (Stage 1)
@@ -105,14 +113,14 @@ class PDFGenerator {
             const rd = inspRows.find(r => r.name === name) || inspRows[idx] || {};
             currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
                 { t: name, f: this.fonts.bold, c: this.colors.red },
-                { t: rd.value || '', f: this.fonts.regular, c: this.colors.black },
-                { t: '', f: this.fonts.regular, c: this.colors.black },
-                { t: '' }
+                { t: (s1_0.inspectionRows?.find(r => r.name === name) || {}).value || '', f: this.fonts.regular, c: this.colors.black },
+                  { t: (s1_1.inspectionRows?.find(r => r.name === name) || {}).value || '', f: this.fonts.regular, c: this.colors.black },
+                  { t: (s1_2.inspectionRows?.find(r => r.name === name) || {}).value || '', f: this.fonts.regular, c: this.colors.black }
             ]);
         });
 
         // Stage 1 signature
-        currentY = this._pageCheck(doc, currentY, 280, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+        currentY = this._pageCheck(doc, currentY, 190, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
         currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
             'Set Up Inspection by',
             { font: this.fonts.bold, fontSize: 12, color: this.colors.red, align: 'center' });
@@ -120,26 +128,36 @@ class PDFGenerator {
 
         // ===== STAGE 2: Back Chip =====
         if (firstData.backChipReq) {
-            const s2 = allStagesData.stage2 || null;
-            currentY = this._pageCheck(doc, currentY, s2 ? 280 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            const s2_obj = allStagesData.stage2 || {};
+        const s2_joints = s2_obj.joints || (s2_obj.jointNo ? [s2_obj] : []);
+        const s2_0 = s2_joints[0] || {};
+        const s2_1 = s2_joints[1] || {};
+        const s2_2 = s2_joints[2] || {};
+        const s2 = s2_joints.length > 0 ? s2_obj : null;
+            currentY = this._pageCheck(doc, currentY, s2 ? 190 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
 
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
-                'Back chip – Required / not required',
+                'Back chip',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
 
             currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
-                { t: 'Back Chip PT', f: this.fonts.bold, c: this.colors.red },
-                { t: 'YES / No', f: this.fonts.bold, c: this.colors.red },
-                { t: firstData.backChipReq ? 'YES' : 'NO', f: this.fonts.bold, c: this.colors.black },
-                { t: '' }
+                { t: 'Back Chip PT: YES / No', f: this.fonts.bold, c: this.colors.red },
+                { t: s1_0.backChipReq ? 'YES' : 'NO', f: this.fonts.bold, c: this.colors.black },
+                { t: s1_1.jointNo ? (s1_1.backChipReq ? 'YES' : 'NO') : '', f: this.fonts.bold, c: this.colors.black },
+                { t: s1_2.jointNo ? (s1_2.backChipReq ? 'YES' : 'NO') : '', f: this.fonts.bold, c: this.colors.black }
             ]);
 
             if (s2) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s2, 'QC Engineer');
         }
 
         // ===== STAGE 3: Weld Visual =====
-        const s3 = allStagesData.stage3 || null;
-        currentY = this._pageCheck(doc, currentY, s3 ? 280 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+        const s3_obj = allStagesData.stage3 || {};
+        const s3_joints = s3_obj.joints || (s3_obj.jointNo ? [s3_obj] : []);
+        const s3_0 = s3_joints[0] || {};
+        const s3_1 = s3_joints[1] || {};
+        const s3_2 = s3_joints[2] || {};
+        const s3 = s3_joints.length > 0 ? s3_obj : null;
+        currentY = this._pageCheck(doc, currentY, s3 ? 190 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
 
         currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
             'Weld Visual Inspection by',
@@ -147,24 +165,29 @@ class PDFGenerator {
 
         currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
             { t: 'Welder No.', f: this.fonts.bold, c: this.colors.red },
-            { t: '', f: this.fonts.regular, c: this.colors.black },
-            { t: s3?.welderNo || s3?.welderNumber || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+            { t: s3_0.welderNo || s3_0.welderNumber || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s3_1.welderNo || s3_1.welderNumber || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s3_2.welderNo || s3_2.welderNumber || '', f: this.fonts.regular, c: this.colors.black }
         ]);
 
         currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
             { t: 'Welding process', f: this.fonts.bold, c: this.colors.red },
-            { t: '', f: this.fonts.regular, c: this.colors.black },
-            { t: s3?.weldingProcess || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+            { t: s3_0.weldingProcess || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s3_1.weldingProcess || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s3_2.weldingProcess || '', f: this.fonts.regular, c: this.colors.black }
         ]);
 
         if (s3) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s3, 'QC Engineer');
 
         // ===== STAGE 4: RT =====
         if (firstData.rt) {
-            const s4 = allStagesData.stage4 || null;
-            currentY = this._pageCheck(doc, currentY, s4 ? 280 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            const s4_obj = allStagesData.stage4 || {};
+        const s4_joints = s4_obj.joints || (s4_obj.jointNo ? [s4_obj] : []);
+        const s4_0 = s4_joints[0] || {};
+        const s4_1 = s4_joints[1] || {};
+        const s4_2 = s4_joints[2] || {};
+        const s4 = s4_joints.length > 0 ? s4_obj : null;
+            currentY = this._pageCheck(doc, currentY, s4 ? 190 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'Radiography Testing Requirement',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
@@ -173,8 +196,13 @@ class PDFGenerator {
 
         // ===== STAGE 5: PT =====
         if (firstData.pt) {
-            const s5 = allStagesData.stage5 || null;
-            currentY = this._pageCheck(doc, currentY, s5 ? 280 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            const s5_obj = allStagesData.stage5 || {};
+        const s5_joints = s5_obj.joints || (s5_obj.jointNo ? [s5_obj] : []);
+        const s5_0 = s5_joints[0] || {};
+        const s5_1 = s5_joints[1] || {};
+        const s5_2 = s5_joints[2] || {};
+        const s5 = s5_joints.length > 0 ? s5_obj : null;
+            currentY = this._pageCheck(doc, currentY, s5 ? 190 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'Liquid Penetrant Testing',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
@@ -183,8 +211,13 @@ class PDFGenerator {
 
         // ===== STAGE 6 & 7: PWHT + RT/PT After PWHT =====
         if (firstData.pwht) {
-            const s6 = allStagesData.stage6 || null;
-            currentY = this._pageCheck(doc, currentY, s6 ? 280 : 60, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            const s6_obj = allStagesData.stage6 || {};
+        const s6_joints = s6_obj.joints || (s6_obj.jointNo ? [s6_obj] : []);
+        const s6_0 = s6_joints[0] || {};
+        const s6_1 = s6_joints[1] || {};
+        const s6_2 = s6_joints[2] || {};
+        const s6 = s6_joints.length > 0 ? s6_obj : null;
+            currentY = this._pageCheck(doc, currentY, s6 ? 190 : 60, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'PWHT',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
@@ -193,8 +226,13 @@ class PDFGenerator {
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
             if (s6) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s6, 'NDT Engineer');
 
-            const s7 = allStagesData.stage7 || null;
-            currentY = this._pageCheck(doc, currentY, s7 ? 280 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            const s7_obj = allStagesData.stage7 || {};
+        const s7_joints = s7_obj.joints || (s7_obj.jointNo ? [s7_obj] : []);
+        const s7_0 = s7_joints[0] || {};
+        const s7_1 = s7_joints[1] || {};
+        const s7_2 = s7_joints[2] || {};
+        const s7 = s7_joints.length > 0 ? s7_obj : null;
+            currentY = this._pageCheck(doc, currentY, s7 ? 190 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'Liquid Penetrant Testing – After PWHT',
                 { font: this.fonts.bold, fontSize: 9, color: this.colors.red, align: 'center' });
@@ -305,47 +343,70 @@ class PDFGenerator {
 
     // Signature block
     _sigBlock(doc, x, y, ws, rh, pad, data, qcTitle) {
+        const joints = data.joints || (data.jointNo ? [data] : []);
+        const j0 = joints[0] || {};
+        const j1 = joints[1] || {};
+        const j2 = joints[2] || {};
+
         // Production Engineer
         y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: 'Production Engineer', f: this.fonts.bold, c: this.colors.red },
-            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
-            { t: data.productionEngineerName || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+            { t: 'Production Engineer: Name', f: this.fonts.bold, c: this.colors.red },
+            { t: j0.productionEngineerName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j1.productionEngineerName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j2.productionEngineerName || '', f: this.fonts.regular, c: this.colors.black }
         ]);
         y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: '' }, { t: 'Date', f: this.fonts.bold, c: this.colors.red },
-            { t: data.submissionDate || '', f: this.fonts.regular, c: this.colors.black }, { t: '' }
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: j0.submissionDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j1.submissionDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j2.submissionDate || '', f: this.fonts.regular, c: this.colors.black }
         ]);
+
         // QC/NDT Engineer
         y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: qcTitle, f: this.fonts.bold, c: this.colors.red },
-            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
-            { t: data.qcEngineerName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: qcTitle + ': Name', f: this.fonts.bold, c: this.colors.red },
+            { t: j0.qcEngineerName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j1.qcEngineerName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j2.qcEngineerName || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._row4(doc, x, y, ws, rh, pad, [
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: j0.qcDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j1.qcDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j2.qcDate || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+        y = this._row4(doc, x, y, ws, rh, pad, [
+            { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
+            { t: j0.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
+            { t: j1.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
+            { t: j2.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+
+        y = this._row4(doc, x, y, ws, rh, pad, [
+            { t: 'Remarks', f: this.fonts.bold, c: this.colors.red },
+            { t: j0.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j1.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j2.remarks || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+
+        // AI / CLIENT / TPIA
+        y = this._row4(doc, x, y, ws, rh, pad, [
+            { t: 'AI / CLIENT / TPIA: Name', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
             { t: '' }
         ]);
         y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: '' }, { t: 'Date', f: this.fonts.bold, c: this.colors.red },
-            { t: data.qcDate || '', f: this.fonts.regular, c: this.colors.black }, { t: '' }
+            { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
         ]);
         y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: '' }, { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
-            { t: data.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black }, { t: '' }
-        ]);
-        y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: 'Remarks', f: this.fonts.bold, c: this.colors.red },
-            { t: data.remarks || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }, { t: '' }
-        ]);
-        // AI / CLIENT / TPIA
-        y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: 'AI / CLIENT / TPIA', f: this.fonts.bold, c: this.colors.red },
-            { t: 'Name', f: this.fonts.bold, c: this.colors.red }, { t: '' }, { t: '' }
-        ]);
-        y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: '' }, { t: 'Date', f: this.fonts.bold, c: this.colors.red }, { t: '' }, { t: '' }
-        ]);
-        y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: '' }, { t: 'Sign', f: this.fonts.bold, c: this.colors.red }, { t: '' }, { t: '' }
+            { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }
         ]);
         return y;
     }
