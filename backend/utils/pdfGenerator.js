@@ -29,6 +29,7 @@ class PDFGenerator {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
         this._drawSeamReport(doc, { stage1: data }, companyInfo);
+        this._addFooters(doc);
         doc.end();
     }
 
@@ -36,6 +37,7 @@ class PDFGenerator {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
         this._drawSeamReport(doc, allStagesData, companyInfo);
+        this._addFooters(doc);
         doc.end();
     }
 
@@ -110,32 +112,34 @@ class PDFGenerator {
         });
 
         // Stage 1 signature
-        currentY = this._pageCheck(doc, currentY, 180, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+        currentY = this._pageCheck(doc, currentY, 280, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
         currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
             'Set Up Inspection by',
             { font: this.fonts.bold, fontSize: 12, color: this.colors.red, align: 'center' });
         currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s1, 'QC Engineer');
 
         // ===== STAGE 2: Back Chip =====
-        currentY = this._pageCheck(doc, currentY, 140, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
-        const s2 = allStagesData.stage2 || null;
+        if (firstData.backChipReq) {
+            const s2 = allStagesData.stage2 || null;
+            currentY = this._pageCheck(doc, currentY, s2 ? 280 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
 
-        currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
-            'Back chip – Required / not required',
-            { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
+            currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
+                'Back chip – Required / not required',
+                { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
 
-        currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
-            { t: 'Back Chip PT', f: this.fonts.bold, c: this.colors.red },
-            { t: 'YES / No', f: this.fonts.bold, c: this.colors.red },
-            { t: firstData.backChipReq ? 'YES' : 'NO', f: this.fonts.bold, c: this.colors.black },
-            { t: '' }
-        ]);
+            currentY = this._row4(doc, innerX, currentY, colWidths, rowH, pad, [
+                { t: 'Back Chip PT', f: this.fonts.bold, c: this.colors.red },
+                { t: 'YES / No', f: this.fonts.bold, c: this.colors.red },
+                { t: firstData.backChipReq ? 'YES' : 'NO', f: this.fonts.bold, c: this.colors.black },
+                { t: '' }
+            ]);
 
-        if (s2) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s2, 'QC Engineer');
+            if (s2) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s2, 'QC Engineer');
+        }
 
         // ===== STAGE 3: Weld Visual =====
-        currentY = this._pageCheck(doc, currentY, 160, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
         const s3 = allStagesData.stage3 || null;
+        currentY = this._pageCheck(doc, currentY, s3 ? 280 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
 
         currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
             'Weld Visual Inspection by',
@@ -158,39 +162,44 @@ class PDFGenerator {
         if (s3) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s3, 'QC Engineer');
 
         // ===== STAGE 4: RT =====
-        currentY = this._pageCheck(doc, currentY, 100, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
-        const s4 = allStagesData.stage4 || null;
-        currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
-            'Radiography Testing Requirement',
-            { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
-        if (s4) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s4, 'NDT Engineer');
+        if (firstData.rt) {
+            const s4 = allStagesData.stage4 || null;
+            currentY = this._pageCheck(doc, currentY, s4 ? 280 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
+                'Radiography Testing Requirement',
+                { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
+            if (s4) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s4, 'NDT Engineer');
+        }
 
         // ===== STAGE 5: PT =====
-        currentY = this._pageCheck(doc, currentY, 100, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
-        const s5 = allStagesData.stage5 || null;
-        currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
-            'Liquid Penetrant Testing (Required / Not required)',
-            { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
-        if (s5) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s5, 'NDT Engineer');
+        if (firstData.pt) {
+            const s5 = allStagesData.stage5 || null;
+            currentY = this._pageCheck(doc, currentY, s5 ? 280 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
+                'Liquid Penetrant Testing',
+                { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
+            if (s5) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s5, 'NDT Engineer');
+        }
 
-        // ===== STAGE 6: PWHT + RT After PWHT =====
-        currentY = this._pageCheck(doc, currentY, 100, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
-        const s6 = allStagesData.stage6 || null;
-        currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
-            'PWHT (Required / Not required)',
-            { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
-        currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
-            'Radiography Testing Requirement (After PWHT)',
-            { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
-        if (s6) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s6, 'NDT Engineer');
+        // ===== STAGE 6 & 7: PWHT + RT/PT After PWHT =====
+        if (firstData.pwht) {
+            const s6 = allStagesData.stage6 || null;
+            currentY = this._pageCheck(doc, currentY, s6 ? 280 : 60, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
+                'PWHT',
+                { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
+            currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
+                'Radiography Testing Requirement (After PWHT)',
+                { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
+            if (s6) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s6, 'NDT Engineer');
 
-        // ===== STAGE 7: LP After PWHT =====
-        currentY = this._pageCheck(doc, currentY, 100, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
-        const s7 = allStagesData.stage7 || null;
-        currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
-            'Liquid Penetrant Testing (Required / Not required) – After PWHT',
-            { font: this.fonts.bold, fontSize: 9, color: this.colors.red, align: 'center' });
-        if (s7) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s7, 'NDT Engineer');
+            const s7 = allStagesData.stage7 || null;
+            currentY = this._pageCheck(doc, currentY, s7 ? 280 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
+            currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
+                'Liquid Penetrant Testing – After PWHT',
+                { font: this.fonts.bold, fontSize: 9, color: this.colors.red, align: 'center' });
+            if (s7) currentY = this._sigBlock(doc, innerX, currentY, colWidths, rowH, pad, s7, 'NDT Engineer');
+        }
     }
 
     // ==========================================
@@ -211,7 +220,7 @@ class PDFGenerator {
         doc.rect(x + logoW, y, titleBoxW, titleRowH).stroke();
         doc.rect(x + logoW, y + titleRowH, titleBoxW, reportRowH).stroke();
 
-        doc.font(this.fonts.bold).fontSize(14).fillColor(this.colors.red)
+        doc.font(this.fonts.bold).fontSize(14).fillColor(this.colors.darkBlue)
             .text(titleText, x + logoW, y + 15, { width: titleBoxW, align: 'center' });
 
         const reportY = y + titleRowH + 8;
@@ -322,6 +331,11 @@ class PDFGenerator {
             { t: '' }, { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
             { t: data.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black }, { t: '' }
         ]);
+        y = this._row4(doc, x, y, ws, rh, pad, [
+            { t: 'Remarks', f: this.fonts.bold, c: this.colors.red },
+            { t: data.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: '' }, { t: '' }
+        ]);
         // AI / CLIENT / TPIA
         y = this._row4(doc, x, y, ws, rh, pad, [
             { t: 'AI / CLIENT / TPIA', f: this.fonts.bold, c: this.colors.red },
@@ -348,6 +362,30 @@ class PDFGenerator {
             return ny + 5;
         }
         return y;
+    }
+
+    _addFooters(doc) {
+        const range = doc.bufferedPageRange();
+        const oldBottom = doc.page.margins.bottom;
+        for (let i = range.start; i < range.start + range.count; i++) {
+            doc.switchToPage(i);
+            doc.page.margins.bottom = 0; // Prevent auto page break
+            
+            // Border ends at doc.page.height - 25 = 817 (assuming startY=25 and pageH=doc.page.height-50)
+            const borderBottom = doc.page.height - 25;
+            
+            // Exhibit No INSIDE the border, bottom left side
+            const exhibitY = borderBottom - 10; // 807
+            doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black)
+                .text('EXHIBIT 10_3 GENERAL INSPECTION REPORT Rev.01', 30, exhibitY, { align: 'left', lineBreak: false });
+                
+            // Note OUTSIDE the border, centered in footer
+            const noteY = borderBottom + 6; // 823
+            doc.font(this.fonts.bold).fontSize(8).fillColor('#555555')
+                .text('This is computer generated copy, hence no any signature required', 25, noteY, { width: doc.page.width - 50, align: 'center', lineBreak: false });
+                
+            doc.page.margins.bottom = oldBottom;
+        }
     }
 }
 

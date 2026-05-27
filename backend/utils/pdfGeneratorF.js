@@ -27,6 +27,7 @@ class PDFGeneratorF {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
         this._drawReport(doc, allStagesData, companyInfo);
+        this._addFooters(doc);
         doc.end();
     }
 
@@ -118,7 +119,7 @@ class PDFGeneratorF {
         
         // ===== PWHT =====
         y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'PWHT (Required / Not required)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            { t: 'PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
         ]);
 
         y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
@@ -130,7 +131,7 @@ class PDFGeneratorF {
         }
 
         y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'Liquid Penetrant Testing (Required / Not required) - After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            { t: 'Liquid Penetrant Testing – After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
         ]);
         const s4_pwht = allStagesData.stage4 || null;
         if (s4_pwht) {
@@ -138,9 +139,7 @@ class PDFGeneratorF {
         }
 
 
-        y += 6;
-        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('EXHIBIT 10_3 GENERAL INSPECTION REPORT Rev.01', x, y);
+        
     }
 
     _gridRow(doc, x, y, widths, minH, pad, cells) {
@@ -266,6 +265,30 @@ _compactSig(doc, x, y, width, rowH, pad, data) {
         y += sigH;
 
         return y;
+    }
+
+    _addFooters(doc) {
+        const range = doc.bufferedPageRange();
+        const oldBottom = doc.page.margins.bottom;
+        for (let i = range.start; i < range.start + range.count; i++) {
+            doc.switchToPage(i);
+            doc.page.margins.bottom = 0; // Prevent auto page break
+            
+            // Border ends at doc.page.height - 25 = 817 (assuming startY=25 and pageH=doc.page.height-50)
+            const borderBottom = doc.page.height - 25;
+            
+            // Exhibit No INSIDE the border, bottom left side
+            const exhibitY = borderBottom - 10; // 807
+            doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black)
+                .text('EXHIBIT 10_3 GENERAL INSPECTION REPORT Rev.01', 30, exhibitY, { align: 'left', lineBreak: false });
+                
+            // Note OUTSIDE the border, centered in footer
+            const noteY = borderBottom + 6; // 823
+            doc.font(this.fonts.bold).fontSize(8).fillColor('#555555')
+                .text('This is computer generated copy, hence no any signature required', 25, noteY, { width: doc.page.width - 50, align: 'center', lineBreak: false });
+                
+            doc.page.margins.bottom = oldBottom;
+        }
     }
 }
 

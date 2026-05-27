@@ -30,6 +30,7 @@ class PDFGeneratorCD {
         const doc = new PDFDocument({ margin: 20, size: 'A4', bufferPages: true });
         doc.pipe(res);
         this._drawNozzleReport(doc, allStagesData, companyInfo);
+        this._addFooters(doc);
         doc.end();
     }
 
@@ -56,9 +57,9 @@ class PDFGeneratorCD {
 
         const titleBoxW = innerW - logoW;
         doc.rect(x + logoW, y, titleBoxW, headerH).stroke();
-        doc.font(this.fonts.bold).fontSize(13).fillColor(this.colors.red)
+        doc.font(this.fonts.bold).fontSize(13).fillColor(this.colors.darkBlue)
             .text('GENERAL INSPECTION REPORT', x + logoW, y + 10, { width: titleBoxW, align: 'center' });
-        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.red)
+        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.darkBlue)
             .text('(CHECK SHEET FOR', x + logoW, y + 28, { width: titleBoxW, align: 'center' });
         doc.text('NOZZLE SET-UP & WELDING INSPECTION)', x + logoW, y + 40, { width: titleBoxW, align: 'center' });
         y += headerH + 5;
@@ -114,7 +115,7 @@ class PDFGeneratorCD {
         ]);
 
         // ===== CHAR 2: Nozzle pipe to Flange Set-Up =====
-        y = this._checkPage(doc, y, 120, startX, pageW, pageH);
+        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         y = this._gridRow(doc, x, y, [srW, charW, detW, valW + extW], rowH, pad, [
             { t: '2', f: this.fonts.bold, c: this.colors.black },
             { t: 'Nozzle pipe to\nFlange Set-Up', f: this.fonts.bold, c: this.colors.red },
@@ -141,23 +142,25 @@ class PDFGeneratorCD {
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s1);
 
         // ===== CHAR 2.5: BACK CHIP (Stage 2) =====
-        y = this._checkPage(doc, y, 160, startX, pageW, pageH);
-        const s2_cd = allStagesData.stage2 || null;
-        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'Back chip - Required / not required', f: this.fonts.bold, c: this.colors.red, align: 'center' }
-        ]);
-        y = this._gridRow(doc, x, y, [srW + charW, detW, valW + extW], rowH, pad, [
-            { t: 'Back Chip PT', f: this.fonts.bold, c: this.colors.red },
-            { t: 'YES / No', f: this.fonts.bold, c: this.colors.red },
-            { t: firstData.backChipReq ? 'YES' : 'NO', f: this.fonts.bold, c: this.colors.black }
-        ]);
-        if (s2_cd) {
-            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s2_cd, 'QC Engineer');
-        }
+          if (firstData.backChipReq) {
+              const s2_cd = allStagesData.stage2 || null;
+              y = this._checkPage(doc, y, s2_cd ? 260 : 80, startX, pageW, pageH);
+              y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+                  { t: 'Back chip - Required / not required', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+              ]);
+              y = this._gridRow(doc, x, y, [srW + charW, detW, valW + extW], rowH, pad, [
+                  { t: 'Back Chip PT', f: this.fonts.bold, c: this.colors.red },
+                  { t: 'YES / No', f: this.fonts.bold, c: this.colors.red },
+                  { t: firstData.backChipReq ? 'YES' : 'NO', f: this.fonts.bold, c: this.colors.black }
+              ]);
+              if (s2_cd) {
+                  y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s2_cd, 'QC Engineer');
+              }
+          }
 
 
         // ===== CHAR 3: Weld Visual / Overlay PT =====
-        y = this._checkPage(doc, y, 100, startX, pageW, pageH);
+        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s3_cd = allStagesData.stage3 || {};
 
         // In nozzle report, char 3 has QC sign + TPIA sign + Overlay PT
@@ -170,7 +173,7 @@ class PDFGeneratorCD {
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s3_cd);
 
         // ===== CHAR 4: Inspection Of Nozzle Opening =====
-        y = this._checkPage(doc, y, 120, startX, pageW, pageH);
+        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s4_cd = allStagesData.stage4 || {};
         y = this._gridRow(doc, x, y, [srW, charW, detW, valW + extW], rowH, pad, [
             { t: '4', f: this.fonts.bold, c: this.colors.black },
@@ -196,7 +199,7 @@ class PDFGeneratorCD {
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s4_cd);
 
         // ===== CHAR 5: Nozzle Set-Up on Shell / Dish =====
-        y = this._checkPage(doc, y, 180, startX, pageW, pageH);
+        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s5_cd = allStagesData.stage5 || {};
         y = this._gridRow(doc, x, y, [srW, charW, detW, valW + extW], rowH + 10, pad, [
             { t: '5', f: this.fonts.bold, c: this.colors.black },
@@ -222,7 +225,7 @@ class PDFGeneratorCD {
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s5_cd);
 
         // ===== CHAR 6: Inspection after full Welding =====
-        y = this._checkPage(doc, y, 100, startX, pageW, pageH);
+        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s6_cd = allStagesData.stage6 || {};
         y = this._gridRow(doc, x, y, [srW, charW, detW, valW + extW], rowH, pad, [
             { t: '6', f: this.fonts.bold, c: this.colors.black },
@@ -243,7 +246,7 @@ class PDFGeneratorCD {
         y = this._compactSig(doc, x, y, innerW, rowH, pad, s6_cd);
 
         // ===== CHAR 7: R.F. Pad Pneumatic =====
-        y = this._checkPage(doc, y, 80, startX, pageW, pageH);
+        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s7_cd = allStagesData.stage7 || {};
         y = this._gridRow(doc, x, y, [srW, charW, detW, valW + extW], rowH, pad, [
             { t: '7', f: this.fonts.bold, c: this.colors.black },
@@ -258,32 +261,31 @@ class PDFGeneratorCD {
         const jt = firstData.jointType || (companyInfo && companyInfo.jointType) || 'C';
         const isD = jt === 'D';
 
-        y = this._checkPage(doc, y, 100, startX, pageW, pageH);
-        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'PWHT (Required / Not required)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
-        ]);
+        if (firstData.pwht) {
+            y = this._checkPage(doc, y, 260, startX, pageW, pageH);
+            y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+                { t: 'PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            ]);
 
-        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'Radiography Testing Requirement (After PWHT)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
-        ]);
-        const s4_pwht = isD ? (allStagesData.stage8 || null) : (allStagesData.stage4 || null);
-        if (s4_pwht) {
-            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s4_pwht, 'NDT Engineer');
+            y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+                { t: 'Radiography Testing Requirement (After PWHT)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            ]);
+            const s4_pwht = isD ? (allStagesData.stage8 || null) : (allStagesData.stage4 || null);
+            if (s4_pwht) {
+                y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s4_pwht, 'NDT Engineer');
+            }
+
+            y = this._checkPage(doc, y, 260, startX, pageW, pageH);
+            y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+                { t: 'Liquid Penetrant Testing – After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            ]);
+            const s5_pwht = isD ? (allStagesData.stage9 || null) : (allStagesData.stage5 || null);
+            if (s5_pwht) {
+                y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s5_pwht, 'NDT Engineer');
+            }
         }
 
-        y = this._checkPage(doc, y, 100, startX, pageW, pageH);
-        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'Liquid Penetrant Testing (Required / Not required) - After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
-        ]);
-        const s5_pwht = isD ? (allStagesData.stage9 || null) : (allStagesData.stage5 || null);
-        if (s5_pwht) {
-            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s5_pwht, 'NDT Engineer');
-        }
-
-        // Footer note
-        y += 6;
-        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('EXHIBIT 10_3 GENERAL INSPECTION REPORT Rev.01', x, y);
+        
     }
 
     // ==========================================
@@ -419,6 +421,30 @@ _compactSig(doc, x, y, width, rowH, pad, data) {
             return startX + 10;
         }
         return y;
+    }
+
+    _addFooters(doc) {
+        const range = doc.bufferedPageRange();
+        const oldBottom = doc.page.margins.bottom;
+        for (let i = range.start; i < range.start + range.count; i++) {
+            doc.switchToPage(i);
+            doc.page.margins.bottom = 0; // Prevent auto page break
+            
+            // Border ends at doc.page.height - 25 = 817 (assuming startY=25 and pageH=doc.page.height-50)
+            const borderBottom = doc.page.height - 25;
+            
+            // Exhibit No INSIDE the border, bottom left side
+            const exhibitY = borderBottom - 10; // 807
+            doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black)
+                .text('EXHIBIT 10_3 GENERAL INSPECTION REPORT Rev.01', 30, exhibitY, { align: 'left', lineBreak: false });
+                
+            // Note OUTSIDE the border, centered in footer
+            const noteY = borderBottom + 6; // 823
+            doc.font(this.fonts.bold).fontSize(8).fillColor('#555555')
+                .text('*This is computer generated copy, hence no any signature required', 25, noteY, { width: doc.page.width - 50, align: 'center', lineBreak: false });
+                
+            doc.page.margins.bottom = oldBottom;
+        }
     }
 }
 

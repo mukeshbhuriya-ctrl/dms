@@ -158,7 +158,8 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
       prodDate: insp[`${sPrefix}_submitted_at`] ? new Date(insp[`${sPrefix}_submitted_at`]).toLocaleDateString() : "",
       qcName: insp[`${sPrefix}_qc_eng_name`] || insp[`${sPrefix}_qc_engineer_name`] || "",
       qcDate: insp[`${sPrefix}_approved_at`] ? new Date(insp[`${sPrefix}_approved_at`]).toLocaleDateString() : "",
-      status: insp[`${sPrefix}_status`] || "pending"
+      status: insp[`${sPrefix}_status`] || "pending",
+      remarks: insp[`${sPrefix}_remarks`] || ""
     }
   }
 
@@ -373,14 +374,18 @@ function SeamWeldingPreview({ jointData, job, plan, insp, approvedStages, getSta
         <SignatureRows sig={s1Sig} qcTitle="QC Engineer" />
 
         {/* Stage 2: Back Chip */}
-        <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip - Required / not required</td></tr>
-        <tr>
-          <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT</td>
-          <td>YES / No</td>
-          <td style={{ fontWeight: "bold", color: "#000" }}>{jointData.back_chip_req ? "YES" : "NO"}</td>
-          <td></td>
-        </tr>
-        {hasStage("stage2") && <SignatureRows sig={s2Sig} qcTitle="QC Engineer" />}
+        {jointData.back_chip_req && (
+          <>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip - Required / not required</td></tr>
+            <tr>
+              <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT</td>
+              <td>YES / No</td>
+              <td style={{ fontWeight: "bold", color: "#000" }}>{jointData.back_chip_req ? "YES" : "NO"}</td>
+              <td></td>
+            </tr>
+            {hasStage("stage2") && <SignatureRows sig={s2Sig} qcTitle="QC Engineer" />}
+          </>
+        )}
 
         {/* Stage 3: Weld Visual */}
         <tr><td colSpan={4} className="section-header">Weld Visual Inspection by</td></tr>
@@ -399,21 +404,32 @@ function SeamWeldingPreview({ jointData, job, plan, insp, approvedStages, getSta
         {hasStage("stage3") && <SignatureRows sig={s3Sig} qcTitle="QC Engineer" />}
 
         {/* Stage 4: RT */}
-        <tr><td colSpan={4} className="section-header">Radiography Testing Requirement</td></tr>
-        {hasStage("stage4") && <SignatureRows sig={s4Sig} qcTitle="NDT Engineer" />}
+        {jointData.rt && (
+          <>
+            <tr><td colSpan={4} className="section-header">Radiography Testing Requirement</td></tr>
+            {hasStage("stage4") && <SignatureRows sig={s4Sig} qcTitle="NDT Engineer" />}
+          </>
+        )}
 
         {/* Stage 5: PT */}
-        <tr><td colSpan={4} className="section-header">Liquid Penetrant Testing (Required / Not required)</td></tr>
-        {hasStage("stage5") && <SignatureRows sig={s5Sig} qcTitle="NDT Engineer" />}
+        {jointData.pt && (
+          <>
+            <tr><td colSpan={4} className="section-header">Liquid Penetrant Testing</td></tr>
+            {hasStage("stage5") && <SignatureRows sig={s5Sig} qcTitle="NDT Engineer" />}
+          </>
+        )}
 
-        {/* Stage 6: PWHT + RT after PWHT */}
-        <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>PWHT (Required / Not required)</td></tr>
-        <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
-        {hasStage("stage6") && <SignatureRows sig={s6Sig} qcTitle="NDT Engineer" />}
+        {/* Stage 6 & 7: PWHT + RT/PT after PWHT */}
+        {jointData.pwht && (
+          <>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>PWHT</td></tr>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
+            {hasStage("stage6") && <SignatureRows sig={s6Sig} qcTitle="NDT Engineer" />}
 
-        {/* Stage 7: LP after PWHT */}
-        <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing (Required / Not required) - After PWHT</td></tr>
-        {hasStage("stage7") && <SignatureRows sig={s7Sig} qcTitle="NDT Engineer" />}
+            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing – After PWHT</td></tr>
+            {hasStage("stage7") && <SignatureRows sig={s7Sig} qcTitle="NDT Engineer" />}
+          </>
+        )}
       </tbody>
     </table>
     </div>
@@ -619,18 +635,18 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
 
           {!isF && characteristics[1] && <CharacteristicGroup char={characteristics[1]} />}
 
-          {!isF && (
-            <>
-              <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip - Required / not required</td></tr>
-              <tr>
-                <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT</td>
-                <td style={{ color: "#FF0000", fontWeight: "bold" }}>YES / No</td>
-                <td style={{ fontWeight: "bold", color: "#000" }}>{jointData.back_chip_req ? "YES" : "NO"}</td>
-                <td></td>
-              </tr>
-              {hasStage("stage2") && <SignatureRowsRed sig={getSignature("stage2")} qcTitle="QC Engineer" />}
-            </>
-          )}
+          {!isF && jointData.back_chip_req && (
+              <>
+                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip - Required / not required</td></tr>
+                <tr>
+                  <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT</td>
+                  <td style={{ color: "#FF0000", fontWeight: "bold" }}>YES / No</td>
+                  <td style={{ fontWeight: "bold", color: "#000" }}>{jointData.back_chip_req ? "YES" : "NO"}</td>
+                  <td></td>
+                </tr>
+                {hasStage("stage2") && <SignatureRowsRed sig={getSignature("stage2")} qcTitle="QC Engineer" />}
+              </>
+            )}
 
           {!isF && characteristics.slice(2).map((char, cIdx) => (
             <CharacteristicGroup key={cIdx + 2} char={char} />
@@ -640,18 +656,20 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
           ))}
 
           {/* PWHT for C, D, and F */}
-          <>
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>PWHT (Required / Not required)</td></tr>
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
-            {(hasStage("stage4") && !isD && !isF) && <SignatureRowsRed sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
-            {(hasStage("stage8") && isD) && <SignatureRowsRed sig={getSignature("stage8")} qcTitle="NDT Engineer" />}
-            {(hasStage("stage3") && isF) && <SignatureRowsRed sig={getSignature("stage3")} qcTitle="NDT Engineer" />}
+            {jointData.pwht && (
+              <>
+                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>PWHT</td></tr>
+                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
+                {(hasStage("stage4") && !isD && !isF) && <SignatureRowsRed sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage8") && isD) && <SignatureRowsRed sig={getSignature("stage8")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage3") && isF) && <SignatureRowsRed sig={getSignature("stage3")} qcTitle="NDT Engineer" />}
 
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing (Required / Not required) - After PWHT</td></tr>
-            {(hasStage("stage5") && !isD && !isF) && <SignatureRowsRed sig={getSignature("stage5")} qcTitle="NDT Engineer" />}
-            {(hasStage("stage9") && isD) && <SignatureRowsRed sig={getSignature("stage9")} qcTitle="NDT Engineer" />}
-            {(hasStage("stage4") && isF) && <SignatureRowsRed sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
-          </>
+                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing – After PWHT</td></tr>
+                {(hasStage("stage5") && !isD && !isF) && <SignatureRowsRed sig={getSignature("stage5")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage9") && isD) && <SignatureRowsRed sig={getSignature("stage9")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage4") && isF) && <SignatureRowsRed sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
+              </>
+            )}
         </tbody>
       </table>
 
@@ -741,6 +759,10 @@ function SignatureRows({ sig, qcTitle }) {
         <td></td>
       </tr>
       <tr>
+        <td className="label-cell" style={{ fontWeight: "bold" }}>Remarks</td>
+        <td colSpan={3} style={{ whiteSpace: "pre-wrap" }}>{sig.remarks || "-"}</td>
+      </tr>
+      <tr>
         <td className="label-cell">AI / CLIENT / TPIA</td>
         <td></td>
         <td></td>
@@ -785,6 +807,10 @@ function SignatureRowsRed({ sig, qcTitle }) {
         <td style={{ color: "#FF0000", fontWeight: "bold" }}>Sign</td>
         <td style={{ fontWeight: 600 }}>{(sig.qcStatus === "approved" || sig.status === "approved") ? "Approve" : ""}</td>
         <td></td>
+      </tr>
+      <tr>
+        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Remarks</td>
+        <td colSpan={3} style={{ fontWeight: 600, whiteSpace: "pre-wrap", color: "#000" }}>{sig.remarks || "-"}</td>
       </tr>
       <tr>
         <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>AI / CLIENT / TPIA</td>

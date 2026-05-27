@@ -96,16 +96,16 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
     }
 
     // Fetch User Names if IDs are present
-    let qcEngineerName = '';
+    let qcEngineerName = insp[`${sPrefix}_qc_engineer_name`] || '';
     const qcEngId = insp[`${sPrefix}_qc_engineer_id`];
-    if (qcEngId) {
+    if (!qcEngineerName && qcEngId) {
         try {
             const qcUser = await prisma.user.findUnique({ where: { id: qcEngId }, select: { name: true } });
             if (qcUser) qcEngineerName = qcUser.name;
         } catch (e) { console.error("Error fetching QC User", e); }
     }
 
-    let productionEngineerName = stageData.productionEngineerName || '';
+    let productionEngineerName = stageData.productionEngineerName || insp[`${sPrefix}_production_engineer_name`] || '';
     const prodEngId = insp[`${sPrefix}_production_engineer_id`];
     if (!productionEngineerName && prodEngId) {
         try {
@@ -126,6 +126,7 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         qcEngineerName,
         qcDate,
         qcStatus: insp[`${sPrefix}_status`] || 'pending',
+        remarks: insp[`${sPrefix}_remarks`] || stageData.remarks || stageData.qcRemark || stageData.remark || '',
 
         // Stage 1 - A/B: inspection rows table
         inspectionRows: stageData.inspectionRows || [],
