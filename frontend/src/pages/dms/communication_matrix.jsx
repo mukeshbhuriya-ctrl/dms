@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
-import { Plus, Mail, ArrowLeft, Edit, X } from "lucide-react"
+import { Plus, Mail, ArrowLeft, Edit, X, Copy } from "lucide-react"
 import { poApi } from "@/api/po.api"
 
 function CommunicationMatrix() {
@@ -46,6 +46,7 @@ function CommunicationMatrix() {
   }, [])
 
   const [selectedPoId, setSelectedPoId] = useState("")
+  const [isCloning, setIsCloning] = useState(false)
   
   const [shrenoCommunication, setShrenoCommunication] = useState([
     { name: "", email: "" },
@@ -85,7 +86,29 @@ function CommunicationMatrix() {
   }, [])
 
   const handleEdit = useCallback((po) => {
+    setIsCloning(false)
     setSelectedPoId(po.id)
+
+    // Parse matrix
+    const shreno = []
+    const client = []
+    if (po.po_communication_matrix && Array.isArray(po.po_communication_matrix)) {
+      po.po_communication_matrix.forEach(contact => {
+        if (contact.type === 'shreno') shreno.push({ name: contact.name, email: contact.email })
+        if (contact.type === 'client') client.push({ name: contact.name, email: contact.email })
+      })
+    }
+    setShrenoCommunication(shreno.length ? shreno : [{ name: "", email: "" }])
+    setClientCommunication(client.length ? client : [{ name: "", email: "" }])
+
+    setView("create")
+    setError("")
+    setSuccess("")
+  }, [])
+
+  const handleClone = useCallback((po) => {
+    setIsCloning(true)
+    setSelectedPoId("")
 
     // Parse matrix
     const shreno = []
@@ -107,10 +130,18 @@ function CommunicationMatrix() {
   const handlePoChange = (poId) => {
     if (!poId) {
       setSelectedPoId("")
-      setShrenoCommunication([{ name: "", email: "" }])
-      setClientCommunication([{ name: "", email: "" }])
+      if (!isCloning) {
+        setShrenoCommunication([{ name: "", email: "" }])
+        setClientCommunication([{ name: "", email: "" }])
+      }
       return
     }
+    
+    if (isCloning) {
+      setSelectedPoId(poId)
+      return
+    }
+
     const po = pos.find(p => String(p.id) === String(poId))
     if (po) {
       handleEdit(po)
@@ -160,18 +191,31 @@ function CommunicationMatrix() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none"
-          onClick={() => handleEdit(row)}
-        >
-          <Edit className="h-3.5 w-3.5 mr-2" />
-          <span className="text-[11px] font-medium text-nowrap">Edit Matrix</span>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none cursor-pointer"
+            onClick={() => handleEdit(row)}
+          >
+            <Edit className="h-3.5 w-3.5 mr-2" />
+            <span className="text-[11px] font-medium text-nowrap">Edit Matrix</span>
+          </Button>
+          {row.po_communication_matrix && Array.isArray(row.po_communication_matrix) && row.po_communication_matrix.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 border-slate-200 text-slate-600 hover:text-green-600 hover:border-green-200 transition-colors shadow-none cursor-pointer"
+              onClick={() => handleClone(row)}
+            >
+              <Copy className="h-3.5 w-3.5 mr-2" />
+              <span className="text-[11px] font-medium text-nowrap">Clone</span>
+            </Button>
+          )}
+        </div>
       ),
     },
-  ], [handleEdit, filterOptions])
+  ], [handleEdit, handleClone, filterOptions])
 
 
   // Communication Matrix Handlers
@@ -273,7 +317,10 @@ function CommunicationMatrix() {
           <h1 className="text-lg font-bold tracking-tight text-slate-900">Communication Matrix</h1>
         </div>
         {view !== "list" && (
-          <Button variant="outline" onClick={() => setView("list")}>
+          <Button className="cursor-pointer" variant="outline" onClick={() => {
+            setView("list")
+            setIsCloning(false)
+          }}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
           </Button>
         )}
@@ -292,6 +339,7 @@ function CommunicationMatrix() {
                   setSelectedPoId("")
                   setShrenoCommunication([{ name: "", email: "" }])
                   setClientCommunication([{ name: "", email: "" }])
+                  setIsCloning(false)
                   setView("create")
                 }}
                 onAddTooltip="Create New Matrix"
@@ -336,7 +384,7 @@ function CommunicationMatrix() {
                   </CardContent>
                 </Card>
 
-                {selectedPoId && (
+                {(selectedPoId || isCloning) && (
                   <Card>
                     <CardHeader>
                       <CardTitle>Configuration</CardTitle>
@@ -348,7 +396,7 @@ function CommunicationMatrix() {
                           <h3 className="font-semibold flex items-center gap-2">
                             <Mail className="h-4 w-4" /> Shreno Communication
                           </h3>
-                          <Button type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
+                          <Button className="cursor-pointer" type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
                             <Plus className="h-4 w-4 mr-2" /> Add
                           </Button>
                         </div>
@@ -386,7 +434,7 @@ function CommunicationMatrix() {
                           <h3 className="font-semibold flex items-center gap-2">
                             <Mail className="h-4 w-4" /> Client Communication
                           </h3>
-                          <Button type="button" variant="outline" size="sm" onClick={addClientCommunication}>
+                          <Button className="cursor-pointer" type="button" variant="outline" size="sm" onClick={addClientCommunication}>
                             <Plus className="h-4 w-4 mr-2" /> Add
                           </Button>
                         </div>
@@ -421,20 +469,22 @@ function CommunicationMatrix() {
                   </Card>
                 )}
 
-                {selectedPoId && (
-                  <div className="flex justify-end gap-4">
+                {(selectedPoId || isCloning) && (
+                  <div className="flex justify-end gap-4 py-1">
                     <Button
+                      className="cursor-pointer"
                       type="button"
                       variant="outline"
                       onClick={() => {
                         setSelectedPoId("")
                         setShrenoCommunication([{ name: "", email: "" }])
                         setClientCommunication([{ name: "", email: "" }])
+                        setIsCloning(false)
                       }}
                     >
                       Reset
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
+                    <Button className="cursor-pointer" type="submit" disabled={!selectedPoId || isLoading}>
                       {isLoading ? "Saving..." : "Save Communication Matrix"}
                     </Button>
                   </div>
