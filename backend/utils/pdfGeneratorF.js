@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * PDF Generator for Joint Type F — Simplified Nozzle Report
+ * PDF Generator for Joint Type F – Simplified Nozzle Report
  * Same visual style as C/D: RED labels, outer border, header, bullet points
  */
 class PDFGeneratorF {
@@ -44,7 +44,12 @@ class PDFGeneratorF {
         const pad = 4;
         const rowH = 16;
 
-        const firstData = allStagesData.stage1 || Object.values(allStagesData)[0] || {};
+        const stage1Obj = allStagesData.stage1 || Object.values(allStagesData)[0] || {};
+        const s1_joints = stage1Obj.joints || (stage1Obj.jointNo ? [stage1Obj] : []);
+        const j0 = s1_joints[0] || {};
+        const j1 = s1_joints[1] || {};
+        const j2 = s1_joints[2] || {};
+        const firstData = j0;
 
         // Header
         const headerH = 70, logoW = 160;
@@ -72,74 +77,98 @@ class PDFGeneratorF {
             y += metaRowH;
         });
 
-        // Table
-        const srW = innerW * 0.07, charW = innerW * 0.20, detW = innerW * 0.33, valW = innerW - srW - charW - detW;
+        // Table Layout
+        const srW = innerW * 0.07;
+        const charW = innerW * 0.20;
+        const detW = innerW * 0.25;
+        const extW = innerW - srW - charW - detW;
+        const j0W = extW * 0.333;
+        const j1W = extW * 0.333;
+        const j2W = extW - j0W - j1W;
+        const ws = [srW, charW, detW, j0W, j1W, j2W];
 
         // Header row
-        y = this._gridRow(doc, x, y, [srW, charW, detW + valW], rowH + 2, pad, [
+        y = this._gridRow(doc, x, y, [srW, charW, detW + extW], rowH + 2, pad, [
             { t: 'Sr. No.', f: this.fonts.bold, c: this.colors.black },
             { t: 'Characteristics to be checked', f: this.fonts.bold, c: this.colors.black },
             { t: '' }
         ]);
 
         // Joint Number
-        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
-            { t: '' }, { t: 'Joint Number', f: this.fonts.bold, c: this.colors.red },
-            { t: firstData.jointNo || '-' }, { t: '' }
+        y = this._gridRow(doc, x, y, ws, rowH, pad, [
+            { t: '' },
+            { t: 'Joint Number', f: this.fonts.bold, c: this.colors.red },
+            { t: '' },
+            { t: j0.jointNo || '-', f: this.fonts.bold, c: this.colors.black },
+            { t: j1.jointNo || '', f: this.fonts.bold, c: this.colors.black },
+            { t: j2.jointNo || '', f: this.fonts.bold, c: this.colors.black }
         ]);
-
-        const s1 = allStagesData.stage1 || {};
 
         // Char 1: Material ID
-        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+        y = this._gridRow(doc, x, y, ws, rowH, pad, [
             { t: '1', f: this.fonts.bold, c: this.colors.black },
             { t: 'Material identification Marks', f: this.fonts.bold, c: this.colors.red },
-            { t: s1.materialIdMarks || '-' }, { t: '' }
+            { t: 'Available / Not Available', f: this.fonts.regular, c: this.colors.black },
+            { t: j0.jointNo ? (j0.materialIdMarks || 'Available') : '' },
+            { t: j1.jointNo ? (j1.materialIdMarks || 'Available') : '' },
+            { t: j2.jointNo ? (j2.materialIdMarks || 'Available') : '' }
         ]);
-        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+        y = this._gridRow(doc, x, y, ws, rowH, pad, [
             { t: '' }, { t: '' }, { t: '• Tack Welder', f: this.fonts.bold, c: this.colors.red },
-            { t: s1.tackWelder || '' }
+            { t: j0.tackWelder || '' },
+            { t: j1.tackWelder || '' },
+            { t: j2.tackWelder || '' }
         ]);
-        y = this._compactSig(doc, x, y, innerW, rowH, pad, s1);
+        y = this._compactSig(doc, x, y, innerW, rowH, pad, stage1Obj, ws);
 
         // Char 2: Weld Visual
-        const s2 = allStagesData.stage2 || {};
-        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+        const s2_f = allStagesData.stage2 || {};
+        const s2_joints = s2_f.joints || (s2_f.jointNo ? [s2_f] : []);
+        const s2_0 = s2_joints[0] || {};
+        const s2_1 = s2_joints[1] || {};
+        const s2_2 = s2_joints[2] || {};
+        
+        y = this._gridRow(doc, x, y, ws, rowH, pad, [
             { t: '2', f: this.fonts.bold, c: this.colors.black },
             { t: 'Weld Visual', f: this.fonts.bold, c: this.colors.red },
             { t: '• Welder Number', f: this.fonts.bold, c: this.colors.red },
-            { t: s2.welderNumber || s2.welderNo || '' }
+            { t: s2_0.welderNumber || s2_0.welderNo || '' },
+            { t: s2_1.welderNumber || s2_1.welderNo || '' },
+            { t: s2_2.welderNumber || s2_2.welderNo || '' }
         ]);
-        y = this._gridRow(doc, x, y, [srW, charW, detW, valW], rowH, pad, [
+        y = this._gridRow(doc, x, y, ws, rowH, pad, [
             { t: '' }, { t: '' }, { t: '• Welding Process', f: this.fonts.bold, c: this.colors.red },
-            { t: s2.weldingProcess || '' }
+            { t: s2_0.weldingProcess || '' },
+            { t: s2_1.weldingProcess || '' },
+            { t: s2_2.weldingProcess || '' }
         ]);
-        y = this._compactSig(doc, x, y, innerW, rowH, pad, s2);
+        if (s2_joints.length) y = this._compactSig(doc, x, y, innerW, rowH, pad, s2_f, ws);
 
         
         // ===== PWHT =====
-        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
-        ]);
+        if (j0.pwht || j1.pwht || j2.pwht) {
+            y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+                { t: 'PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            ]);
 
-        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'Radiography Testing Requirement (After PWHT)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
-        ]);
-        const s3_pwht = allStagesData.stage3 || null;
-        if (s3_pwht) {
-            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s3_pwht, 'NDT Engineer');
+            y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+                { t: 'Radiography Testing Requirement (After PWHT)', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            ]);
+            const s3_pwht = allStagesData.stage3 || {};
+            const s3_pwht_joints = s3_pwht.joints || (s3_pwht.jointNo ? [s3_pwht] : []);
+            if (s3_pwht_joints.length) {
+                y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s3_pwht, ws, 'NDT Engineer');
+            }
+
+            y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
+                { t: 'Liquid Penetrant Testing – After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
+            ]);
+            const s4_pwht = allStagesData.stage4 || {};
+            const s4_pwht_joints = s4_pwht.joints || (s4_pwht.jointNo ? [s4_pwht] : []);
+            if (s4_pwht_joints.length) {
+                y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s4_pwht, ws, 'NDT Engineer');
+            }
         }
-
-        y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
-            { t: 'Liquid Penetrant Testing – After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
-        ]);
-        const s4_pwht = allStagesData.stage4 || null;
-        if (s4_pwht) {
-            y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s4_pwht, 'NDT Engineer');
-        }
-
-
-        
     }
 
     _gridRow(doc, x, y, widths, minH, pad, cells) {
@@ -167,102 +196,105 @@ class PDFGeneratorF {
     }
 
     
-    _sigBlockRed(doc, x, y, width, rowH, pad, data, qcTitle) {
-        const col1W = width * 0.35;
-        const col2W = width * 0.15;
-        const col3W = width * 0.30;
-        const extW = width - col1W - col2W - col3W;
+    _sigBlockRed(doc, x, y, width, rowH, pad, stageObj, ws, qcTitle) {
+        const joints = stageObj.joints || (stageObj.jointNo ? [stageObj] : []);
+        const s0 = joints[0] || {};
+        const s1 = joints[1] || {};
+        const s2 = joints[2] || {};
         
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: 'Production Engineer', f: this.fonts.bold, c: this.colors.red },
-            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
-            { t: data.productionEngineerName || data.prodName || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+        const labelW = ws[0] + ws[1] + ws[2];
+        const newWs = [labelW, ws[3], ws[4], ws[5]];
+        
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: 'Production Engineer: Name', f: this.fonts.bold, c: this.colors.red },
+            { t: s0.productionEngineerName || s0.prodName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.productionEngineerName || s1.prodName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.productionEngineerName || s2.prodName || '', f: this.fonts.regular, c: this.colors.black }
         ]);
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: '', f: this.fonts.bold, c: this.colors.red },
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
             { t: 'Date', f: this.fonts.bold, c: this.colors.red },
-            { t: data.submissionDate || data.prodDate || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+            { t: s0.submissionDate || s0.prodDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.submissionDate || s1.prodDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.submissionDate || s2.prodDate || '', f: this.fonts.regular, c: this.colors.black }
         ]);
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: qcTitle, f: this.fonts.bold, c: this.colors.red },
-            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
-            { t: data.qcEngineerName || data.qcName || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: qcTitle + ': Name', f: this.fonts.bold, c: this.colors.red },
+            { t: s0.qcEngineerName || s0.qcName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.qcEngineerName || s1.qcName || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.qcEngineerName || s2.qcName || '', f: this.fonts.regular, c: this.colors.black }
         ]);
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: '', f: this.fonts.bold, c: this.colors.red },
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
             { t: 'Date', f: this.fonts.bold, c: this.colors.red },
-            { t: data.qcDate || '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+            { t: s0.qcDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.qcDate || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.qcDate || '', f: this.fonts.regular, c: this.colors.black }
         ]);
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: '', f: this.fonts.bold, c: this.colors.red },
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
             { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
-            { t: (data.qcStatus === 'approved' || data.status === 'approved') ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
-            { t: '' }
+            { t: (s0.qcStatus === 'approved' || s0.status === 'approved') ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
+            { t: (s1.qcStatus === 'approved' || s1.status === 'approved') ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
+            { t: (s2.qcStatus === 'approved' || s2.status === 'approved') ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black }
         ]);
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: 'AI / CLIENT / TPIA', f: this.fonts.bold, c: this.colors.red },
-            { t: 'Name', f: this.fonts.bold, c: this.colors.red },
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: 'AI / CLIENT / TPIA: Name', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
             { t: '', f: this.fonts.regular, c: this.colors.black },
             { t: '' }
         ]);
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: '', f: this.fonts.bold, c: this.colors.red },
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
             { t: 'Date', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
             { t: '', f: this.fonts.regular, c: this.colors.black },
             { t: '' }
         ]);
-        y = this._gridRow(doc, x, y, [col1W, col2W, col3W, extW], rowH, pad, [
-            { t: '', f: this.fonts.bold, c: this.colors.red },
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
             { t: 'Sign', f: this.fonts.bold, c: this.colors.red },
+            { t: '', f: this.fonts.regular, c: this.colors.black },
             { t: '', f: this.fonts.regular, c: this.colors.black },
             { t: '' }
         ]);
         return y;
     }
 
-_compactSig(doc, x, y, width, rowH, pad, data) {
-        const sigH = rowH - 2;
-        const lW = width * 0.50, vW = width * 0.35, eW = width - lW - vW;
+        _compactSig(doc, x, y, width, rowH, pad, stageObj, ws) {
+        const joints = stageObj.joints || (stageObj.jointNo ? [stageObj] : []);
+        const s0 = joints[0] || {};
+        const s1 = joints[1] || {};
+        const s2 = joints[2] || {};
 
-        // Dynamic data from extractStageData
-        const prodName = data.productionEngineerName || '';
-        const prodDate = data.submissionDate || '';
-        const qcName = data.qcEngineerName || '';
-        const qcDate = data.qcDate || '';
-        const qcApproved = data.qcStatus === 'approved';
+        const labelW = ws[0] + ws[1] + ws[2];
+        const newWs = [labelW, ws[3], ws[4], ws[5]];
 
-        doc.rect(x, y, lW, sigH).stroke();
-        doc.rect(x + lW, y, vW, sigH).stroke();
-        doc.rect(x + lW + vW, y, eW, sigH).stroke();
-        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
-            .text('Engineer Production  Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
-        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text(prodName && prodDate ? `${prodName} / ${prodDate}` : (prodName || prodDate || ''), x + lW + pad, y + 2, { width: vW - pad * 2 });
-        y += sigH;
+        const formatSig = (d, isQc) => {
+            const name = isQc ? (d.qcEngineerName || '') : (d.productionEngineerName || '');
+            const date = isQc ? (d.qcDate || '') : (d.submissionDate || '');
+            const approved = isQc ? (d.qcStatus === 'approved') : false;
+            return [name, date, approved ? 'Approve' : ''].filter(Boolean).join(' / ');
+        };
 
-        doc.rect(x, y, lW, sigH).stroke();
-        doc.rect(x + lW, y, vW, sigH).stroke();
-        doc.rect(x + lW + vW, y, eW, sigH).stroke();
-        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
-            .text('Engineer Shop QC Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
-        const qcText = [qcName, qcDate, qcApproved ? 'Approve' : ''].filter(Boolean).join(' / ');
-        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text(qcText || '', x + lW + pad, y + 2, { width: vW - pad * 2 });
-        y += sigH;
+        // Production Engineer
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: 'Engineer Production  Dated Signature', f: this.fonts.bold, c: this.colors.red },
+            { t: s0.jointNo ? formatSig(s0, false) : '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.jointNo ? formatSig(s1, false) : '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.jointNo ? formatSig(s2, false) : '', f: this.fonts.regular, c: this.colors.black }
+        ]);
 
-        doc.rect(x, y, lW, sigH).stroke();
-        doc.rect(x + lW, y, vW, sigH).stroke();
-        doc.rect(x + lW + vW, y, eW, sigH).stroke();
-        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.red)
-            .text('CLIENT / AI /TPIA   Dated Signature', x + pad, y + 2, { width: lW - pad * 2 });
-        doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
-            .text('', x + lW + pad, y + 2);
-        doc.text('Yes/No', x + lW + vW + pad, y + 2, { width: eW - pad * 2 });
-        y += sigH;
+        // QC Engineer
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: 'Engineer Shop QC Dated Signature', f: this.fonts.bold, c: this.colors.red },
+            { t: s0.jointNo ? formatSig(s0, true) : '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.jointNo ? formatSig(s1, true) : '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.jointNo ? formatSig(s2, true) : '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+
+        // TPIA
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: 'CLIENT / AI /TPIA   Dated Signature', f: this.fonts.bold, c: this.colors.red },
+            { t: s0.jointNo ? 'Yes/No' : '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.jointNo ? 'Yes/No' : '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.jointNo ? 'Yes/No' : '', f: this.fonts.regular, c: this.colors.black }
+        ]);
 
         return y;
     }
