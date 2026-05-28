@@ -264,6 +264,9 @@ class QapPdfGenerator {
                 const critH = doc.heightOfString(`${item.acceptance_criteria || ''}\n${item.reference_documents || ''}`.trim(), { width: colWs.cCrit - 8 });
                 const docH = doc.heightOfString(item.verifying_document || '', { width: colWs.cDoc - 8 });
                 const remarkH = doc.heightOfString(item.remark || '', { width: colWs.cRemark - 8 });
+                
+                const shrenoH = doc.heightOfString(item.shreno || '', { width: colWs.cShreno - 8 });
+                const clientH = doc.heightOfString(item.client_tpia || '', { width: colWs.cClient - 8 });
 
                 let maxDynH = 0;
                 if (dynamicCols) {
@@ -274,8 +277,13 @@ class QapPdfGenerator {
                     });
                 }
                 
-                let rowH = Math.max(22, actH + 10, typeH + 10, critH + 10, docH + 10, remarkH + 10, maxDynH + 10);
-                if (item.is_heading) rowH = 18;
+                let rowH = Math.max(22, actH + 10, typeH + 10, critH + 10, docH + 10, remarkH + 10, shrenoH + 10, clientH + 10, maxDynH + 10);
+                if (item.is_heading) {
+                    doc.fontSize(8);
+                    const headH = doc.heightOfString(item.heading_text || item.activity || '', { width: pageWidth - colWs.cSr - 10 });
+                    rowH = Math.max(18, headH + 10);
+                    doc.fontSize(7); // reset to normal font size
+                }
 
                 if (curY + rowH > doc.page.height - 50) {
                     doc.addPage();
@@ -286,8 +294,8 @@ class QapPdfGenerator {
                 if (item.is_heading) {
                     doc.rect(startX, curY, pageWidth, rowH).fillAndStroke(this.colors.grey, this.colors.black);
                     doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.black);
-                    doc.text(item.sr_no || '', startX, curY + 5, { width: colWs.cSr, align: 'center' });
-                    doc.text(item.heading_text || item.activity || '', startX + colWs.cSr + 5, curY + 5);
+                    doc.text(item.sr_no || '', startX, curY + (rowH / 2) - 4, { width: colWs.cSr, align: 'center' });
+                    doc.text(item.heading_text || item.activity || '', startX + colWs.cSr + 5, curY + (rowH / 2) - 4, { width: pageWidth - colWs.cSr - 10 });
                 } else {
                     doc.rect(startX, curY, pageWidth, rowH).stroke();
                     doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
@@ -295,7 +303,8 @@ class QapPdfGenerator {
                     let cx = startX;
                     const drawC = (txt, w, align = 'center', isBold = false) => {
                         doc.font(isBold ? this.fonts.bold : this.fonts.regular);
-                        doc.text(txt || '-', cx + 4, curY + 6, { width: w - 8, align });
+                        // Add lineBreak and ellipsis to ensure long unbroken words don't bleed out of the cell horizontally
+                        doc.text(txt || '-', cx + 4, curY + 6, { width: w - 8, align, lineBreak: true, ellipsis: true });
                         doc.rect(cx, curY, w, rowH).stroke();
                         cx += w;
                     };
