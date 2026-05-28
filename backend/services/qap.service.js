@@ -22,97 +22,168 @@ const computeSerialNumbers = (items) => {
         return { ...item, sr_no };
     });
 };
+const mapItemsForPrisma = (items) => {
+    return computeSerialNumbers(items || []).map((item, index) => ({
+        sort_order: index,
+        sr_no: item.sr_no || null,
+        is_heading: item.is_heading || false,
+        is_root: item.is_root || false,
+        heading_text: item.heading_text || null,
+        parent_header_id: item.parent_header_id || null,
+        activity: item.activity || null,
+        type_method_check: item.type_method_check || null,
+        extent: item.extent || null,
+        acceptance_criteria: item.acceptance_criteria || null,
+        reference_documents: item.reference_documents || null,
+        verifying_document: item.verifying_document || null,
+        shreno: item.shreno || null,
+        client_tpia: item.client_tpia || null,
+        remark: item.remark || null,
+        dynamic_values: item.dynamic_values || {}
+    }));
+};
 
 class QapService {
     async create(company_id, payload) {
         const {
-            job_id, msn, client, po_no, po_date, project_id, equipment_name,
+            job_ids, msns, job_id, msn, client, po_no, po_date, project_id, equipment_name,
             tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns,
-            items, report_no, status
+            items, report_no, status, remarks
         } = payload;
 
-        if (!job_id || !msn) throw new Error("Job ID / MSN is required");
+        const jobsToProcess = Array.isArray(job_ids) && job_ids.length > 0 ? job_ids : [job_id];
+        const msnList = Array.isArray(msns) && msns.length > 0 ? msns : [msn];
 
-        let finalReportNo = report_no;
-        if (!finalReportNo || finalReportNo === "Auto-generated on Submit") {
-            const count = await prisma.quality_assurance_plan.count({ where: { job_id, company_id } });
-            finalReportNo = `SHR/${msn}/QAP/${count + 1}`;
+        if (!jobsToProcess.length || !jobsToProcess[0] || !msnList.length || !msnList[0]) {
+            throw new Error("Job ID / MSN is required");
         }
 
-        return prisma.quality_assurance_plan.create({
-            data: {
-                company_id, job_id, msn, report_no: finalReportNo,
-                client, po_no, po_date, project_id, equipment_name,
-                tag_no, code, shreno_drg_no, customer_drg_no,
-                status: status || "draft",
-                dynamic_columns: dynamic_columns || [],
-                items: {
-                    create: computeSerialNumbers(items || []).map((item, index) => ({
-                        sort_order: index,
-                        sr_no: item.sr_no || null,
-                        is_heading: item.is_heading || false,
-                        is_root: item.is_root || false,
-                        heading_text: item.heading_text || null,
-                        parent_header_id: item.parent_header_id || null,
-                        activity: item.activity || null,
-                        type_method_check: item.type_method_check || null,
-                        extent: item.extent || null,
-                        acceptance_criteria: item.acceptance_criteria || null,
-                        reference_documents: item.reference_documents || null,
-                        verifying_document: item.verifying_document || null,
-                        shreno: item.shreno || null,
-                        client_tpia: item.client_tpia || null,
-                        remark: item.remark || null,
-                        dynamic_values: item.dynamic_values || {}
-                    }))
-                }
-            },
-            include: { items: true }
-        });
+        const createdRecords = [];
+
+        for (let i = 0; i < jobsToProcess.length; i++) {
+            const currentJobId = jobsToProcess[i];
+            const currentMsn = msnList[i] || msnList[0];
+
+            let finalReportNo = report_no;
+            // Always auto-generate when cloning for multiple jobs
+            if (!finalReportNo || finalReportNo === "Auto-generated on Submit" || jobsToProcess.length > 1) {
+                const count = await prisma.quality_assurance_plan.count({ where: { job_id: currentJobId, company_id } });
+                finalReportNo = `SHR/${currentMsn}/QAP/${count + 1}`;
+            }
+
+            const jobDetails = await prisma.job.findFirst({
+                where: { id: currentJobId, company_id },
+                select: { project_id: true, equipement_name: true, tag_number: true, code: true }
+            });
+
+            const currentProjectId = jobDetails?.project_id || project_id;
+            const currentEquipmentName = jobDetails?.equipement_name || equipment_name;
+            const currentTagNo = jobDetails?.tag_number || tag_no;
+            const currentCode = jobDetails?.code || code;
+
+            const record = await prisma.quality_assurance_plan.create({
+                data: {
+                    company_id, job_id: currentJobId, msn: currentMsn, report_no: finalReportNo,
+                    client, po_no, po_date, 
+                    project_id: currentProjectId, 
+                    equipment_name: currentEquipmentName,
+                    tag_no: currentTagNo, 
+                    code: currentCode, 
+                    shreno_drg_no, customer_drg_no,
+                    status: status || "draft",
+                    remarks,
+                    dynamic_columns: dynamic_columns || [],
+                    items: {
+                        create: mapItemsForPrisma(items)
+                    }
+                },
+                include: { items: true }
+            });
+            createdRecords.push(record);
+        }
+
+        return jobsToProcess.length === 1 ? createdRecords[0] : createdRecords;
     }
 
     async update(company_id, id, payload) {
         const {
-            job_id, msn, client, po_no, po_date, project_id, equipment_name,
-            tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns, items, status
+            job_ids, msns, job_id, msn, client, po_no, po_date, project_id, equipment_name,
+            tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns, items, status, remarks
         } = payload;
 
-        if (!job_id || !msn) throw new Error("Job ID / MSN is required");
+        const jobsToProcess = Array.isArray(job_ids) && job_ids.length > 0 ? job_ids : [job_id];
+        const msnList = Array.isArray(msns) && msns.length > 0 ? msns : [msn];
+
+        if (!jobsToProcess.length || !jobsToProcess[0] || !msnList.length || !msnList[0]) {
+            throw new Error("Job ID / MSN is required");
+        }
+
+        const mainJobId = jobsToProcess[0];
+        const mainMsn = msnList[0];
+
+        const mainJobDetails = await prisma.job.findFirst({
+            where: { id: mainJobId, company_id },
+            select: { project_id: true, equipement_name: true, tag_number: true, code: true }
+        });
 
         // Clear existing items
         await prisma.quality_assurance_plan_item.deleteMany({ where: { qap_id: id } });
 
         // Update parent & insert new items
-        return prisma.quality_assurance_plan.update({
+        const updatedRecord = await prisma.quality_assurance_plan.update({
             where: { id, company_id },
             data: {
-                job_id, msn, client, po_no, po_date, project_id, equipment_name,
-                tag_no, code, shreno_drg_no, customer_drg_no,
+                job_id: mainJobId, msn: mainMsn, client, po_no, po_date, 
+                project_id: mainJobDetails?.project_id || project_id, 
+                equipment_name: mainJobDetails?.equipement_name || equipment_name,
+                tag_no: mainJobDetails?.tag_number || tag_no, 
+                code: mainJobDetails?.code || code, 
+                shreno_drg_no, customer_drg_no,
                 status: status,
+                remarks,
                 dynamic_columns: dynamic_columns || [],
                 items: {
-                    create: computeSerialNumbers(items || []).map((item, index) => ({
-                        sort_order: index,
-                        sr_no: item.sr_no || null,
-                        is_heading: item.is_heading || false,
-                        is_root: item.is_root || false,
-                        heading_text: item.heading_text || null,
-                        parent_header_id: item.parent_header_id || null,
-                        activity: item.activity || null,
-                        type_method_check: item.type_method_check || null,
-                        extent: item.extent || null,
-                        acceptance_criteria: item.acceptance_criteria || null,
-                        reference_documents: item.reference_documents || null,
-                        verifying_document: item.verifying_document || null,
-                        shreno: item.shreno || null,
-                        client_tpia: item.client_tpia || null,
-                        remark: item.remark || null,
-                        dynamic_values: item.dynamic_values || {}
-                    }))
+                    create: mapItemsForPrisma(items)
                 }
             },
             include: { items: true }
         });
+
+        // Clone to other jobs if multi-select edit
+        if (jobsToProcess.length > 1) {
+            for (let i = 1; i < jobsToProcess.length; i++) {
+                const currentJobId = jobsToProcess[i];
+                const currentMsn = msnList[i] || msnList[0];
+
+                const count = await prisma.quality_assurance_plan.count({ where: { job_id: currentJobId, company_id } });
+                const finalReportNo = `SHR/${currentMsn}/QAP/${count + 1}`;
+
+                const cloneJobDetails = await prisma.job.findFirst({
+                    where: { id: currentJobId, company_id },
+                    select: { project_id: true, equipement_name: true, tag_number: true, code: true }
+                });
+
+                await prisma.quality_assurance_plan.create({
+                    data: {
+                        company_id, job_id: currentJobId, msn: currentMsn, report_no: finalReportNo,
+                        client, po_no, po_date, 
+                        project_id: cloneJobDetails?.project_id || project_id, 
+                        equipment_name: cloneJobDetails?.equipement_name || equipment_name,
+                        tag_no: cloneJobDetails?.tag_number || tag_no, 
+                        code: cloneJobDetails?.code || code, 
+                        shreno_drg_no, customer_drg_no,
+                        status: status || "draft",
+                        remarks,
+                        dynamic_columns: dynamic_columns || [],
+                        items: {
+                            create: mapItemsForPrisma(items)
+                        }
+                    }
+                });
+            }
+        }
+
+        return updatedRecord;
     }
 
     async list(company_id, queryParams) {

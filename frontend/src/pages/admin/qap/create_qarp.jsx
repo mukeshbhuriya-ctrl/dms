@@ -5,9 +5,11 @@ import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Card,
   CardContent,
@@ -85,7 +87,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
         if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client];
         if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po_no];
       }
-    } 
+    }
     else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
       const selectedPo = columnFilters.po_no[0];
       const match = activeFilters.records.find(r => r.po_no?.toString() === selectedPo?.toString());
@@ -229,11 +231,10 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
       header: "Status",
       accessorKey: "status",
       cell: (row) => (
-        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-          row.status === 'uploaded' 
-            ? "bg-emerald-100 text-emerald-700 border border-emerald-200" 
-            : "bg-amber-100 text-amber-700 border border-amber-200"
-        }`}>
+        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${row.status === 'uploaded'
+          ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+          : "bg-amber-100 text-amber-700 border border-amber-200"
+          }`}>
           {row.status || 'draft'}
         </span>
       )
@@ -323,13 +324,6 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">Quality Assurance Plans</h1>
-          <p className="text-muted-foreground">View and manage all quality assurance plans.</p>
-        </div>
-      </div>
-
 
       <ProDataTable
         columns={columns}
@@ -342,7 +336,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
         globalSearchPlaceholder="Search report no, job, client..."
       />
 
-      <ConfirmDialog 
+      <ConfirmDialog
         isOpen={confirmData.isOpen}
         onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
         onConfirm={confirmData.onConfirm}
@@ -366,9 +360,21 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
   })
 
   // Header section - Dropdowns
-  const [msn, setMsn] = useState("")
+  const [msnIds, setMsnIds] = useState([])
   const [msnOptions, setMsnOptions] = useState([])
   const [jobsLoading, setJobsLoading] = useState(true)
+
+  const filteredMsnOptions = useMemo(() => {
+    if (!msnIds || msnIds.length === 0) return msnOptions;
+
+    const firstSelectedJob = msnOptions.find(job => job.id === msnIds[0]);
+    if (!firstSelectedJob) return msnOptions;
+
+    return msnOptions.filter(job =>
+      job.customer_id === firstSelectedJob.customer_id &&
+      job.po_id === firstSelectedJob.po_id
+    );
+  }, [msnOptions, msnIds]);
 
   const [client, setClient] = useState("")
   const [poNo, setPoNo] = useState("")
@@ -383,6 +389,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
     tagNo: "",
     code: "",
     projectId: "",
+    remarks: "",
   })
 
   // Dynamic Headings from Master Table
@@ -449,17 +456,17 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
         name: quickAddValue.trim(),
         is_active: true
       })
-      
+
       if (res.success) {
         toast.success("New heading added to master")
         // Refresh master list
         await fetchMasterHeadings()
-        
+
         // Auto-select the newly created heading for the target row
         if (targetRowId) {
           handleRowChange(targetRowId, "headingText", quickAddValue.trim())
         }
-        
+
         setInlineQuickAddId(null)
         setQuickAddValue("")
       }
@@ -555,7 +562,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
         .then(res => {
           if (res.success && res.data) {
             const data = res.data;
-            setMsn(data.job_id || "")
+            setMsnIds(data.job_id ? [data.job_id] : [])
             setClient(data.client || "")
             setPoNo(data.po_no || "")
             setPoDate(data.po_date || "")
@@ -567,7 +574,8 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
               equipmentDescription: data.equipment_name || "",
               tagNo: data.tag_no || "",
               code: data.code || "",
-              projectId: data.project_id || ""
+              projectId: data.project_id || "",
+              remarks: data.remarks || ""
             })
 
             // Dynamic columns map
@@ -653,8 +661,25 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
   }
 
   // Handle MSN change to populate equipment, tag and code and set document no
-  const handleMsnChange = async (jobId) => {
-    setMsn(jobId)
+  const handleMsnChange = async (jobIds) => {
+    setMsnIds(jobIds)
+
+    if (!jobIds || jobIds.length === 0) {
+      setFormData((prev) => ({
+        ...prev,
+        documentNo: "",
+        equipmentDescription: "",
+        tagNo: "",
+        code: "",
+        projectId: "",
+      }))
+      setClient("")
+      setPoNo("")
+      setPoDate("")
+      return;
+    }
+
+    const jobId = jobIds[0];
 
     // Skip auto-fetch overrides if we're dealing with an existing doc we're strictly editing
     if (!editId) {
@@ -789,7 +814,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
   const addRow = (afterId = null) => {
     // Prevent event object from being treated as an ID
     const actualAfterId = (afterId && typeof afterId !== 'object') ? afterId : null
-    
+
     const newId = Date.now() + Math.random()
     const newRow = {
       id: newId,
@@ -818,7 +843,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
     const index = tableRows.findIndex(r => r.id === actualAfterId)
     if (index !== -1) {
       const target = tableRows[index]
-      
+
       // New row created via inline '+' is an activity, not a heading
       newRow.isHeading = false
       // Inherit context
@@ -827,7 +852,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
       newRow.isRoot = target.isRoot && !target.isHeading
       // If adding after a heading, the new row is its child. If after a child, same parent.
       newRow.parentHeaderId = target.isHeading ? target.id : target.parentHeaderId
-      
+
       const newRows = [...tableRows]
       newRows.splice(index + 1, 0, newRow)
       setTableRows(newRows)
@@ -901,15 +926,14 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
   }
 
   const handleSubmit = async (status = "uploaded") => {
-    if (!msn) {
+    if (!msnIds || msnIds.length === 0) {
       toast.error("Please select an MSN / Job")
       return
     }
 
     const payload = {
-      job_id: msn,
-      // Find the matched job number to stringify for MSN field
-      msn: msnOptions.find(o => o.id === msn)?.job_number || "",
+      job_ids: msnIds,
+      msns: msnIds.map(id => msnOptions.find(o => o.id === id)?.job_number || ""),
       client,
       po_no: poNo,
       po_date: poDate,
@@ -919,6 +943,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
       code: formData.code,
       shreno_drg_no: formData.drgNo,
       customer_drg_no: formData.customerDrgNo,
+      remarks: formData.remarks,
       report_no: formData.documentNo !== "Loading..." && formData.documentNo !== "Auto-generated on Submit" ? formData.documentNo : undefined,
       status: status,
       dynamic_columns: dynamicColumns,
@@ -963,24 +988,12 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">
-            {isReadOnly ? "View Quality Assurance Plan" : (editId ? "Edit Quality Assurance Plan" : "Create New QAP")}
-          </h1>
-          <p className="text-muted-foreground">
-            {isReadOnly 
-              ? "Comprehensive report and activity tracking view." 
-              : (editId ? "Update existing quality assurance plan information." : "Create and structure quality assurance plan information.")
-            }
-          </p>
-        </div>
-        <Button variant="outline" onClick={onBack} className="h-9">
+      <div className="flex justify-end mb-2">
+        <Button variant="outline" onClick={onBack} className="h-9 cursor-pointer">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>
       </div>
-
       {/* First Section - Dropdowns */}
       <Card className="mb-6">
         <CardHeader>
@@ -991,12 +1004,13 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
             <div className="space-y-2">
               <Label htmlFor="msn">MSN Number <span className="text-destructive">*</span></Label>
               <SearchableSelect
-                options={msnOptions.map(m => ({ label: m.job_number, value: m.id }))}
-                value={msn}
+                options={filteredMsnOptions.map(m => ({ label: m.job_number, value: m.id }))}
+                value={msnIds}
                 onValueChange={handleMsnChange}
                 placeholder={jobsLoading ? "Loading..." : "Select MSN"}
                 searchPlaceholder="Search MSN..."
                 disabled={jobsLoading || isReadOnly}
+                multi={true}
               />
             </div>
 
@@ -1179,18 +1193,18 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                           </div>
                         ) : (
                           <div className="flex-1 flex items-center justify-between group">
-                            <span 
-                              onDoubleClick={() => toggleColumnEdit(col.id)} 
-                              className="cursor-pointer hover:text-blue-600 transition-colors" 
+                            <span
+                              onDoubleClick={() => toggleColumnEdit(col.id)}
+                              className="cursor-pointer hover:text-blue-600 transition-colors"
                               title="Double click to rename"
                             >
                               {col.name}
                             </span>
-                            <Button 
-                              type="button" 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" 
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                               onClick={() => removeColumn(col.id)}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -1201,10 +1215,10 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                     </TableHead>
                   ))}
                   <TableHead className="p-2 text-xs font-bold uppercase min-w-[100px]">
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
                       className="h-8 w-full border border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-500 gap-1.5 px-2 cursor-pointer"
                       onClick={handleAddColumn}
                     >
@@ -1278,7 +1292,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                                 disabled={isReadOnly}
                               />
                             </div>
-                             {(!isReadOnly) && (
+                            {(!isReadOnly) && (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1289,34 +1303,34 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                                 <Plus className="h-3.5 w-3.5" />
                                 Add
                               </Button>
-                             )}
+                            )}
                           </div>
                         )}
                       </TableCell>
                       <TableCell className="p-2">
-                         <div className="flex gap-2">
+                        <div className="flex gap-2">
                           {!isReadOnly && (
                             <>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => addRow(row.id)}
-                                  className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
-                                  title="Add activity row below"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => addHeadingRow(row.id)}
-                                  className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
-                                  title="Insert heading below"
-                                >
-                                  <Type className="h-4 w-4" />
-                                </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => addRow(row.id)}
+                                className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
+                                title="Add activity row below"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => addHeadingRow(row.id)}
+                                className="h-8 w-8 text-slate-600 hover:text-slate-900 cursor-pointer"
+                                title="Insert heading below"
+                              >
+                                <Type className="h-4 w-4" />
+                              </Button>
                               <Button
                                 type="button"
                                 variant="outline"
@@ -1483,23 +1497,42 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
         </CardContent>
       </Card>
 
+      {/* Fourth Section - Notes / Remarks */}
+      <Card className="mt-6 mb-6">
+        <CardHeader>
+          <CardTitle>Notes / Remarks</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Textarea
+            required
+            id="remarks"
+            name="remarks"
+            value={formData.remarks}
+            onChange={handleInputChange}
+            placeholder="Enter any additional notes or remarks..."
+            className="min-h-[100px] resize-y"
+            readOnly={isReadOnly}
+          />
+        </CardContent>
+      </Card>
+
       <div className="flex gap-3 justify-end mt-4 mb-8">
         <Button variant="outline" onClick={onBack} disabled={submitting} className="cursor-pointer">
           {isReadOnly ? "Back" : "Cancel"}
         </Button>
         {!isReadOnly && (
           <>
-            <Button 
-              variant="outline" 
-              onClick={() => handleSubmit("draft")} 
-              disabled={submitting} 
+            <Button
+              variant="outline"
+              onClick={() => handleSubmit("draft")}
+              disabled={submitting}
               className="cursor-pointer"
             >
               {submitting ? "Saving..." : "Save Draft"}
             </Button>
-            <Button 
-              onClick={() => handleSubmit("uploaded")} 
-              disabled={submitting} 
+            <Button
+              onClick={() => handleSubmit("uploaded")}
+              disabled={submitting}
               className="cursor-pointer"
             >
               {submitting ? "Saving..." : (editId ? "Update" : "Submit")}
@@ -1542,11 +1575,45 @@ function QualityAssurancePlan() {
     setView("list")
   }
 
+  const getHeaderProps = () => {
+    switch (view) {
+      case "create":
+        return {
+          title: "Create New QAP",
+          description: "Create and structure quality assurance plan information.",
+          actions: null
+        }
+      case "edit":
+        return {
+          title: "Edit Quality Assurance Plan",
+          description: "Update existing quality assurance plan information.",
+          actions: null
+        }
+      case "view":
+        return {
+          title: "View Quality Assurance Plan",
+          description: "Comprehensive report and activity tracking view.",
+          actions: null
+        }
+      case "list":
+      default:
+        return {
+          title: "Quality Assurance Plan (QAP)",
+          description: "Manage and track quality assurance plans.",
+          actions: null
+        }
+    }
+  }
+
+  const headerProps = getHeaderProps();
+
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
+      <ModuleHeader
+        title={headerProps.title}
+        description={headerProps.description}
+        actions={headerProps.actions}
+      />
       <main className="flex-1 overflow-auto p-6 flex flex-col">
         <div className="flex-1 flex flex-col w-full">
           {view === "list" && (

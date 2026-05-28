@@ -8,14 +8,18 @@ class QapController {
         try {
             const result = await QapService.create(req.user.company_id, req.body);
             
+            const isArray = Array.isArray(result);
+            const mainRecord = isArray ? result[0] : result;
+            const extraCount = isArray ? result.length - 1 : 0;
+
             Audit.insert({
                 req,
                 company_id: req.user.company_id,
                 user_id: req.user.id || req.user.userid,
                 action: 'created',
                 module: 'QAP',
-                description: `Created QAP "${result.report_no}"`,
-                metadata: { target_qap_id: result.id },
+                description: `Created QAP "${mainRecord.report_no}"${extraCount > 0 ? ` and ${extraCount} others` : ''}`,
+                metadata: { target_qap_id: mainRecord.id },
             });
 
             res.status(201).json({

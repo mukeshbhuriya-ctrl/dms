@@ -30,17 +30,19 @@ class QapPdfGenerator {
 
         // 1. Logo Section
         doc.rect(x, y, logoBoxW, headerH).stroke();
-        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
+        const logoPath = path.resolve(__dirname, '..', 'assets', 'shreno-logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 10, { height: 30 });
+                // Center the image within the logo box
+                doc.image(logoPath, x + 5, y + 5, { 
+                    fit: [logoBoxW - 10, headerH - 10],
+                    align: 'center',
+                    valign: 'center'
+                });
             } catch (e) {
-                const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
-                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
+                console.error("Failed to load primary logo:", e);
             }
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
 
         // 2. Title Section
         const titleX = x + logoBoxW;
@@ -191,6 +193,11 @@ class QapPdfGenerator {
         doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.black);
         doc.text('NOTES:', x, remarksY - 12);
         doc.rect(x, remarksY, width, remarksH).stroke();
+        
+        if (data.remarks) {
+            doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black);
+            doc.text(data.remarks, x + 5, remarksY + 5, { width: width - 10, height: remarksH - 10, lineBreak: true });
+        }
         
         // 2. Integrated Signature & Exhibit Section
         doc.rect(x, sigY, width, sigH).stroke();

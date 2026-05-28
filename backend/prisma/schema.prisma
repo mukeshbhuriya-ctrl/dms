@@ -1424,6 +1424,8 @@ model quality_assurance_plan {
 
   is_active  Boolean  @default(true)
   is_deleted Boolean  @default(false)
+  
+  remarks    String?  @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
