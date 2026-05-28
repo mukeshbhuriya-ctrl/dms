@@ -595,12 +595,39 @@ const ProDataTable = ({
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={columns.length + (showSelectionColumn ? 1 : 0)} className="h-24 text-center">
-                  <div className="flex items-center justify-center gap-2 text-slate-400">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
-                    Loading...
-                  </div>
-                </TableCell></TableRow>
+                Array.from({ length: 7 }).map((_, rIdx) => (
+                  <TableRow key={`skeleton-${rIdx}`} className="h-10 hover:bg-transparent border-b border-slate-100">
+                    {showSelectionColumn && (
+                      <TableCell className="w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-40 border-r border-slate-100 p-0 h-10 bg-white">
+                         <div className="flex items-center justify-center h-full w-full">
+                             <div className="h-3.5 w-3.5 rounded-sm bg-slate-200 animate-pulse" />
+                         </div>
+                      </TableCell>
+                    )}
+                    {columns.map((col, idx) => {
+                        const columnId = col.id || col.accessorKey || String(idx);
+                        const isSticky = stickyColumns.includes(columnId);
+                        const stickyClass = isSticky ? 'sticky z-20 shadow-[1px_0_0_0_#f1f5f9]' : '';
+                        
+                        // Pseudo-randomize width a bit for visual variety
+                        const widths = ['w-16', 'w-20', 'w-24', 'w-28', 'w-32'];
+                        const randomWidth = widths[(rIdx + idx) % widths.length];
+
+                        return (
+                          <TableCell 
+                            key={columnId || idx}
+                            className={`p-2.5 px-3 whitespace-nowrap border-r border-slate-50/50 ${stickyClass} ${col.className || ""}`}
+                            style={{
+                              left: isSticky ? `${col.stickyOffset}px` : 'auto',
+                              backgroundColor: isSticky ? 'white' : 'transparent'
+                            }}
+                          >
+                            <div className={`h-3.5 ${randomWidth} bg-slate-200/70 rounded-[4px] animate-pulse`} />
+                          </TableCell>
+                        )
+                    })}
+                  </TableRow>
+                ))
               ) : data.length ? (
                 data.map((row, rIdx) => {
                 const isSelected = selectedRows.has(row.id);

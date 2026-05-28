@@ -482,6 +482,7 @@ function AssignDocument() {
         { label: "Pending for Approval", value: "pending_approval" },
         { label: "Approved", value: "approved" },
         { label: "Rejected", value: "rejected" },
+        { label: "Awaiting Client Review", value: "awaiting_client_review" },
       ],
       cell: (row) => {
         const docStatus = row.status;
@@ -502,6 +503,9 @@ function AssignDocument() {
         } else if (docStatus === 'Rejected') {
           text = "Rejected";
           colorClass = "bg-red-100 text-red-800";
+        } else if (docStatus === 'awaiting_client_review') {
+          text = "Awaiting Client Review";
+          colorClass = "bg-blue-100 text-blue-800 border border-blue-200";
         }
 
         return (
@@ -599,6 +603,7 @@ function AssignDocument() {
         { label: "All Status", value: "all" },
         { label: "Pending", value: "Pending" },
         { label: "Uploaded", value: "Uploaded" },
+        { label: "Awaiting Client Review", value: "awaiting_client_review" },
       ]
     }
   ], [statusFilter]);

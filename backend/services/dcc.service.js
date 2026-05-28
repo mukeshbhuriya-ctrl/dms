@@ -1017,6 +1017,9 @@ class DccService {
                 where.status = { in: ['Pending', 'Upload Due'] };
             } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
                 where.status = 'Pending for Approval';
+            } else if (filterVal === 'awaiting_client_review') {
+                where.status = 'Approved';
+                where.transmission_items = { some: { client_status: 'Pending' } };
             } else if (filterVal === 'uploaded' || filterVal === 'done') {
                 where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
             } else if (filterVal === 'approved') {
@@ -1111,32 +1114,83 @@ class DccService {
             ];
         }
 
-        const [total, data] = await prisma.$transaction([
-            prisma.group_document.count({ where }),
-            prisma.group_document.findMany({
-                where, skip, take,
-                include: {
-                    document: { include: { document_type: true } },
-                    group: {
-                        include: {
-                            job_group: {
-                                include: { job: true }
-                            }
-                        }
-                    },
-                    user: true,
-                    customer: true,
-                    customer_location: true,
-                    po: true,
-                    versions: {
-                        orderBy: { version_no: 'desc' },
-                        take: 1,
-                        include: { uploader: true, files: { where: { is_active: true } } }
-                    }
-                },
-                orderBy: { updatedAt: 'desc' }
-            })
+        // 1. Two-segment pagination (Industry Standard for DB-level priority sorting without arbitrary mapping)
+        const priorityStatuses = ['Pending', 'Pending for Approval', 'Upload Due'];
+        const priorityWhere = { AND: [where, { status: { in: priorityStatuses } }] };
+        const nonPriorityWhere = { AND: [where, { status: { notIn: priorityStatuses } }] };
+
+        const [priorityCount, nonPriorityCount] = await prisma.$transaction([
+            prisma.group_document.count({ where: priorityWhere }),
+            prisma.group_document.count({ where: nonPriorityWhere })
         ]);
+
+        const total = priorityCount + nonPriorityCount;
+        
+        const includeObject = {
+            document: { include: { document_type: true } },
+            group: {
+                include: {
+                    job_group: {
+                        include: { job: true }
+                    }
+                }
+            },
+            user: true,
+            customer: true,
+            customer_location: true,
+            po: true,
+            transmission_items: {
+                orderBy: { transmission: { createdAt: 'desc' } },
+                take: 1,
+                select: { client_status: true }
+            },
+            versions: {
+                orderBy: { version_no: 'desc' },
+                take: 1,
+                include: { uploader: true, files: { where: { is_active: true } } }
+            }
+        };
+
+        let data = [];
+        const actualSkip = skip || 0;
+        const actualTake = take || (total > 0 ? total : 10);
+
+        // 2. Resolve paginated items purely at the database level
+        if (actualSkip < priorityCount) {
+            // Need items from the prioritized subset
+            const priorityData = await prisma.group_document.findMany({
+                where: priorityWhere,
+                skip: actualSkip,
+                take: actualTake,
+                include: includeObject,
+                orderBy: { updatedAt: 'desc' }
+            });
+            data.push(...priorityData);
+
+            // If quota isn't full, grab the remainder from the standard pool (starting at index 0 of non-priority)
+            if (data.length < actualTake) {
+                const remaining = actualTake - data.length;
+                const nonPriorityData = await prisma.group_document.findMany({
+                    where: nonPriorityWhere,
+                    skip: 0, 
+                    take: remaining,
+                    include: includeObject,
+                    orderBy: { updatedAt: 'desc' }
+                });
+                data.push(...nonPriorityData);
+            }
+        } else {
+            // Completely surpassed the priority pool; only query the standard pool
+            const nonPrioritySkip = actualSkip - priorityCount;
+            const nonPriorityData = await prisma.group_document.findMany({
+                where: nonPriorityWhere,
+                skip: nonPrioritySkip,
+                take: actualTake,
+                include: includeObject,
+                orderBy: { updatedAt: 'desc' }
+            });
+            data.push(...nonPriorityData);
+        }
 
         const EnhancedData = this._enhanceWithDueStatuses(data, params);
         const enrichedData = await this._enrichWithVersionContext(EnhancedData);
@@ -2812,6 +2866,20 @@ class DccService {
                     if (now > responseDeadline) {
                         doc.status = 'Response Due';
                     }
+                }
+            }
+
+            // 4. Logic for "Awaiting Client Review"
+            if (doc.status === 'Approved' && doc.transmission_items && doc.transmission_items.length > 0) {
+                if (doc.transmission_items[0].client_status === 'Pending') {
+                    doc.status = 'awaiting_client_review';
+                }
+            }
+
+            // 4. Logic for "Awaiting Client Review"
+            if (doc.status === 'Approved' && doc.transmission_items && doc.transmission_items.length > 0) {
+                if (doc.transmission_items[0].client_status === 'Pending') {
+                    doc.status = 'awaiting_client_review';
                 }
             }
 
