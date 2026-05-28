@@ -89,28 +89,28 @@ function UserDashboard() {
       value: statsData?.internal ? String(statsData.internal.total) : "0",
       description: "All assigned documents",
       icon: Layers,
-      path: "/user/upload-documents?uploader_status_filter=all"
+      path: "/dcc/documents"
     },
     {
       title: "Awaiting Upload",
       value: statsData?.internal ? String(statsData.internal.awaitingUpload) : "0",
       description: "Pending user upload",
       icon: Upload,
-      path: "/user/upload-documents?uploader_status_filter=pending"
+      path: "/dcc/documents?status=awaiting_upload"
     },
     {
       title: "Pending Approval (DCC)",
       value: statsData?.internal ? String(statsData.internal.pendingApproval) : "0",
       description: "Awaiting DCC review",
       icon: Clock,
-      path: "/user/upload-documents?uploader_status_filter=pending_approval"
+      path: "/dcc/documents?status=pending_approval"
     },
     {
       title: "Available for Transmit",
       value: statsData?.internal ? String(statsData.internal.approved) : "0",
       description: "Internally approved",
       icon: FileCheck,
-      path: "/user/upload-documents?uploader_status_filter=approved"
+      path: "/dcc/documents?status=approved"
     },
   ]
 
@@ -120,42 +120,42 @@ function UserDashboard() {
       value: statsData?.client ? String(statsData.client.underReview) : "0",
       description: "Pending client response",
       icon: Clock,
-      path: "/dcc/client-approval-status?client_status=Pending"
+      path: "/dcc/documents?status=awaiting_client_review"
     },
     {
       title: "Final approved",
       value: statsData?.client ? String(statsData.client.approved) : "0",
       description: "Approved by client",
       icon: CheckCircle,
-      path: "/dcc/client-approval-status?client_status=Approved"
+      path: "/dcc/documents?status=Final Approved"
     },
     {
       title: "Rejected",
       value: statsData?.client ? String(statsData.client.rejected) : "0",
       description: "Rejected by client",
       icon: XCircle,
-      path: "/dcc/client-approval-status?client_status=Rejected"
+      path: "/dcc/documents?status=rejected"
     },
     {
       title: "Commented",
       value: statsData?.client ? String(statsData.client.commented) : "0",
       description: "Client feedback received",
       icon: MessageSquare,
-      path: "/dcc/client-approval-status?client_status=Commented"
+      path: "/dcc/documents?status=Commented"
     },
     {
       title: "As-built",
       value: statsData?.client ? String(statsData.client.asBuilt) : "0",
       description: "Marked as As-Built",
       icon: Building2,
-      path: "/dcc/client-approval-status?client_status=As-Built"
+      path: "/dcc/documents?status=As Built"
     },
     {
       title: "Re-approval",
       value: statsData?.client ? String(statsData.client.reApproval) : "0",
       description: "Requires re-approval",
       icon: RefreshCcw,
-      path: "/dcc/client-approval-status?client_status=Re-approval"
+      path: "/dcc/documents?status=Re-approval"
     },
   ]
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
+import { useSearchParams } from "react-router-dom"
 
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
@@ -78,8 +79,18 @@ function AssignDocument() {
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [searchParams] = useSearchParams()
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all")
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+
+  useEffect(() => {
+    const status = searchParams.get("status")
+    if (status) {
+      setStatusFilter(status)
+    } else {
+      setStatusFilter("all")
+    }
+  }, [searchParams])
 
   // Trail State
   const [isTrailOpen, setIsTrailOpen] = useState(false)
@@ -481,8 +492,11 @@ function AssignDocument() {
         { label: "Awaiting Upload", value: "awaiting_upload" },
         { label: "Pending for Approval", value: "pending_approval" },
         { label: "Approved", value: "approved" },
-        { label: "Rejected", value: "rejected" },
         { label: "Awaiting Client Review", value: "awaiting_client_review" },
+        { label: "Rejected", value: "rejected" },
+        { label: "Commented", value: "Commented" },
+        { label: "As Built", value: "As Built" },
+        { label: "Re-approval", value: "Re-approval" },
       ],
       cell: (row) => {
         const docStatus = row.status;
@@ -506,6 +520,21 @@ function AssignDocument() {
         } else if (docStatus === 'awaiting_client_review') {
           text = "Awaiting Client Review";
           colorClass = "bg-blue-100 text-blue-800 border border-blue-200";
+        } else if (docStatus === 'Final Approved') {
+          text = "Final Approved";
+          colorClass = "bg-emerald-100 text-emerald-800 border border-emerald-200";
+        } else if (docStatus === 'Client Rejected') {
+          text = "Client Rejected";
+          colorClass = "bg-red-100 text-red-800 border border-red-200";
+        } else if (docStatus === 'Commented') {
+          text = "Commented";
+          colorClass = "bg-amber-100 text-amber-800 border border-amber-200";
+        } else if (docStatus === 'As Built') {
+          text = "As Built";
+          colorClass = "bg-teal-100 text-teal-800 border border-teal-200";
+        } else if (docStatus === 'Re-approval') {
+          text = "Re-approval";
+          colorClass = "bg-purple-100 text-purple-800 border border-purple-200";
         }
 
         return (
@@ -601,9 +630,14 @@ function AssignDocument() {
       placeholder: "All Status",
       options: [
         { label: "All Status", value: "all" },
-        { label: "Pending", value: "Pending" },
-        { label: "Uploaded", value: "Uploaded" },
+        { label: "Awaiting Upload", value: "awaiting_upload" },
+        { label: "Pending for Approval", value: "pending_approval" },
+        { label: "Approved", value: "approved" },
         { label: "Awaiting Client Review", value: "awaiting_client_review" },
+        { label: "Rejected", value: "rejected" },
+        { label: "Commented", value: "Commented" },
+        { label: "As Built", value: "As Built" },
+        { label: "Re-approval", value: "Re-approval" },
       ]
     }
   ], [statusFilter]);

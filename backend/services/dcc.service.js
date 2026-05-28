@@ -1020,10 +1020,15 @@ class DccService {
             } else if (filterVal === 'awaiting_client_review') {
                 where.status = 'Approved';
                 where.transmission_items = { some: { client_status: 'Pending' } };
+            } else if (filterVal === 'final approved' || filterVal === 'final_approved') {
+                where.status = 'Approved';
+                where.transmission_items = { some: { client_status: { in: ['Approved', 'Partially Approved'] } } };
             } else if (filterVal === 'uploaded' || filterVal === 'done') {
                 where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
             } else if (filterVal === 'approved') {
                 where.status = 'Approved';
+                // For Available for Transmit, exclude those with a pending client review
+                where.transmission_items = { none: { client_status: 'Pending' } };
             } else if (filterVal === 'rejected') {
                 where.status = 'Rejected';
             } else {
