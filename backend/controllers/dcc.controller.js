@@ -343,69 +343,91 @@ class DccController {
             todayStart.setHours(0, 0, 0, 0);
 
             // Internal Status Conditions
-            const docWhere = { company_id, is_deleted: false };
+            const docWhere = { company_id, is_deleted: false, is_active: true };
             if (!isPowerUser) {
                 docWhere.user_id = userId;
             }
 
-            const awaitingUploadWhere = { ...docWhere, status: 'Pending' };
+            const awaitingUploadWhere = { ...docWhere, status: { in: ['Pending', 'Upload Due'] } };
             const pendingApprovalWhere = { ...docWhere, status: { in: ['Uploaded', 'Pending for Approval'] } };
-            const approvedWhere = { ...docWhere, status: 'Approved' };
+            const approvedWhere = { 
+                ...docWhere, 
+                status: 'Approved',
+                versions: {
+                    some: {
+                        status: { not: 'Pending' },
+                        transmission_items: { none: {} }
+                    }
+                }
+            };
 
-            // Client Status Conditions
-            const transDocWhere = isPowerUser 
-                ? { transmission: { company_id } }
-                : { transmission: { company_id }, group_document: { user_id: userId } };
-
-            // Execute all count queries
+            // Execute Internal count queries
             const [
                 totalInternalCount,
                 awaitingUploadCount,
                 pendingApprovalCount,
-                approvedCount,
-                
-                totalClientCount,
-                clientUnderReviewCount,
-                clientApprovedCount,
-                clientCommentedCount,
-                clientAsBuiltCount,
-                clientReApprovalCount
+                approvedCount
             ] = await prisma.$transaction([
-                // Internal
                 prisma.group_document.count({ where: docWhere }),
                 prisma.group_document.count({ where: awaitingUploadWhere }),
                 prisma.group_document.count({ where: pendingApprovalWhere }),
-                prisma.group_document.count({ where: approvedWhere }),
-                
-                // Client
-                prisma.transmission_document.count({ where: transDocWhere }),
-                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Pending' } }),
-                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Approved' } }),
-                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Commented' } }),
-                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'As-Built' } }),
-                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Re-approval' } })
+                prisma.group_document.count({ where: approvedWhere })
             ]);
 
-            // Query Recent Activities (using document_version for now, could be document_activity later)
+            // Calculate Client Status by Unique Documents (using the latest transmission)
+            const transmittedDocsWhere = { 
+                ...docWhere, 
+                transmission_items: { some: {} } 
+            };
+            
+            const transmittedDocs = await prisma.group_document.findMany({
+                where: transmittedDocsWhere,
+                select: {
+                    id: true,
+                    transmission_items: {
+                        orderBy: { transmission: { createdAt: 'desc' } },
+                        take: 1,
+                        select: { client_status: true }
+                    }
+                }
+            });
+
+            let totalClientCount = 0;
+            let clientUnderReviewCount = 0;
+            let clientApprovedCount = 0;
+            let clientRejectedCount = 0;
+            let clientCommentedCount = 0;
+            let clientAsBuiltCount = 0;
+            let clientReApprovalCount = 0;
+
+            for (const doc of transmittedDocs) {
+                if (doc.transmission_items.length > 0) {
+                    totalClientCount++;
+                    const status = doc.transmission_items[0].client_status;
+                    if (status === 'Pending') clientUnderReviewCount++;
+                    else if (status === 'Approved' || status === 'Final Approved') clientApprovedCount++;
+                    else if (status === 'Rejected') clientRejectedCount++;
+                    else if (status === 'Commented') clientCommentedCount++;
+                    else if (status === 'As Built' || status === 'As-Built') clientAsBuiltCount++;
+                    else if (status === 'Re-approval' || status === 'Re-Approval') clientReApprovalCount++;
+                }
+            }
+
+            // Query Recent Activities (using document_version for now)
             const recentVersions = await prisma.document_version.findMany({
                 where: isPowerUser ? {
-                    group_document: { company_id, is_deleted: false }
+                    group_document: { company_id, is_deleted: false, is_active: true }
                 } : {
-                    group_document: { company_id, user_id: userId, is_deleted: false }
+                    group_document: { company_id, user_id: userId, is_deleted: false, is_active: true }
                 },
                 orderBy: { createdAt: 'desc' },
                 take: 5,
                 include: {
                     group_document: {
-                        include: {
-                            document: true
-                        }
+                        include: { document: true }
                     },
                     uploader: {
-                        select: {
-                            name: true,
-                            empid: true
-                        }
+                        select: { name: true, empid: true }
                     }
                 }
             });
@@ -457,6 +479,7 @@ class DccController {
                         total: totalClientCount,
                         underReview: clientUnderReviewCount,
                         approved: clientApprovedCount,
+                        rejected: clientRejectedCount,
                         commented: clientCommentedCount,
                         asBuilt: clientAsBuiltCount,
                         reApproval: clientReApprovalCount,

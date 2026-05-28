@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -20,9 +19,11 @@ import {
   RefreshCcw,
   Building2,
   Layers,
-  FileCheck
+  FileCheck,
+  XCircle
 } from "lucide-react"
 import apiClient from "@/api/api.client"
+import { ModuleHeader } from "@/components/shared/ModuleHeader"
 
 function UserDashboard() {
   const navigate = useNavigate()
@@ -54,12 +55,10 @@ function UserDashboard() {
   if (loading) {
     return (
       <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex-1">
-            <h1 className="text-lg font-semibold">Dashboard</h1>
-          </div>
-        </header>
+        <ModuleHeader 
+          title="Dashboard" 
+          description="Loading your dashboard..." 
+        />
         <div className="flex flex-1 flex-col gap-4 p-4 items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
           <p className="text-sm text-muted-foreground mt-2">Loading dashboard stats...</p>
@@ -71,12 +70,10 @@ function UserDashboard() {
   if (error) {
     return (
       <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <div className="flex-1">
-            <h1 className="text-lg font-semibold">Dashboard</h1>
-          </div>
-        </header>
+        <ModuleHeader 
+          title="Dashboard" 
+          description="Error loading dashboard" 
+        />
         <div className="flex flex-1 flex-col gap-4 p-4 items-center justify-center min-h-[400px]">
           <div className="text-red-500 font-semibold">Error loading dashboard</div>
           <p className="text-sm text-muted-foreground mt-1">{error}</p>
@@ -88,7 +85,7 @@ function UserDashboard() {
 
   const internalStats = [
     {
-      title: "Total Assigned",
+      title: "Total",
       value: statsData?.internal ? String(statsData.internal.total) : "0",
       description: "All assigned documents",
       icon: Layers,
@@ -102,14 +99,14 @@ function UserDashboard() {
       path: "/user/upload-documents?uploader_status_filter=pending"
     },
     {
-      title: "Pending Approval",
+      title: "Pending Approval (DCC)",
       value: statsData?.internal ? String(statsData.internal.pendingApproval) : "0",
       description: "Awaiting DCC review",
       icon: Clock,
       path: "/user/upload-documents?uploader_status_filter=pending_approval"
     },
     {
-      title: "Approved",
+      title: "Available for Transmit",
       value: statsData?.internal ? String(statsData.internal.approved) : "0",
       description: "Internally approved",
       icon: FileCheck,
@@ -119,13 +116,6 @@ function UserDashboard() {
 
   const clientStats = [
     {
-      title: "Total Transmitted",
-      value: statsData?.client ? String(statsData.client.total) : "0",
-      description: "Sent to client",
-      icon: Send,
-      path: "/dcc/client-approval-status?client_status=all"
-    },
-    {
       title: "Under Client Review",
       value: statsData?.client ? String(statsData.client.underReview) : "0",
       description: "Pending client response",
@@ -133,11 +123,18 @@ function UserDashboard() {
       path: "/dcc/client-approval-status?client_status=Pending"
     },
     {
-      title: "Approved",
+      title: "Final approved",
       value: statsData?.client ? String(statsData.client.approved) : "0",
       description: "Approved by client",
       icon: CheckCircle,
       path: "/dcc/client-approval-status?client_status=Approved"
+    },
+    {
+      title: "Rejected",
+      value: statsData?.client ? String(statsData.client.rejected) : "0",
+      description: "Rejected by client",
+      icon: XCircle,
+      path: "/dcc/client-approval-status?client_status=Rejected"
     },
     {
       title: "Commented",
@@ -147,7 +144,7 @@ function UserDashboard() {
       path: "/dcc/client-approval-status?client_status=Commented"
     },
     {
-      title: "As-Built",
+      title: "As-built",
       value: statsData?.client ? String(statsData.client.asBuilt) : "0",
       description: "Marked as As-Built",
       icon: Building2,
@@ -166,20 +163,11 @@ function UserDashboard() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold">Dashboard</h1>
-        </div>
-      </header>
+      <ModuleHeader 
+        title="Dashboard" 
+        description="Here's an overview of your documents and activities" 
+      />
       <div className="flex flex-1 flex-col gap-6 p-6 overflow-auto custom-scrollbar">
-        {/* Welcome Section */}
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back!</h2>
-          <p className="text-slate-500">
-            Here's an overview of your documents and activities
-          </p>
-        </div>
 
         {/* Internal Workflow Section */}
         <div className="space-y-4">
