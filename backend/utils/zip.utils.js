@@ -26,6 +26,9 @@ const createTransmissionZip = (zipName, docs) => {
         const zipPath = path.join(generatedDir, zipName);
         const output = fs.createWriteStream(zipPath);
         const archive = archiver('zip', { zlib: { level: 1 } });
+        
+        const transmissionFolder = sanitizeDirName(zipName.replace('.zip', ''));
+        const addedFiles = new Set();
 
         output.on('close', () => resolve(zipPath));
         archive.on('error', (err) => reject(err));
@@ -70,27 +73,19 @@ const createTransmissionZip = (zipName, docs) => {
                             docName = `${doc.document.document_number}-${doc.document.document_name}${ext}`;
                         }
 
-                        // Build sanitized document folder name: [document_name]
-                        const docFolder = sanitizeDirName(doc.document.document_name);
+                        // Build a flat structure: [Transmission No] / [File]
+                        let docPathInZip = `${transmissionFolder}/${docName}`;
                         
-                        // Build version/revision folder name: version number only
-                        const revFolder = (version.version_no ?? 0).toString();
-
-                        // Check for associated jobs
-                        const jobs = doc.group?.job_group?.map(jg => jg.job) || [];
-
-                        if (jobs.length > 0) {
-                            // Add to each job folder
-                            jobs.forEach(job => {
-                                const jobFolder = job.job_number ? sanitizeDirName(job.job_number) : 'Unknown-Job';
-                                const docPathInZip = `${jobFolder}/${docFolder}/${revFolder}/${docName}`;
-                                archive.file(filePath, { name: docPathInZip });
-                            });
-                        } else {
-                            // No job associated, place in root of ZIP
-                            const docPathInZip = `${docFolder}/${revFolder}/${docName}`;
-                            archive.file(filePath, { name: docPathInZip });
+                        // Prevent duplicate filenames in the flat structure
+                        let counter = 1;
+                        while (addedFiles.has(docPathInZip)) {
+                            const nameWithoutExt = path.basename(docName, ext);
+                            docPathInZip = `${transmissionFolder}/${nameWithoutExt}_${counter}${ext}`;
+                            counter++;
                         }
+                        
+                        addedFiles.add(docPathInZip);
+                        archive.file(filePath, { name: docPathInZip });
                     }
                 });
             }

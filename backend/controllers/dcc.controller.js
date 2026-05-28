@@ -342,32 +342,51 @@ class DccController {
             const todayStart = new Date();
             todayStart.setHours(0, 0, 0, 0);
 
-            // Scoped conditions
+            // Internal Status Conditions
             const docWhere = { company_id, is_deleted: false };
             if (!isPowerUser) {
                 docWhere.user_id = userId;
             }
 
-            const pendingWhere = { ...docWhere, status: 'Pending for Approval' };
+            const awaitingUploadWhere = { ...docWhere, status: 'Pending' };
+            const pendingApprovalWhere = { ...docWhere, status: { in: ['Uploaded', 'Pending for Approval'] } };
             const approvedWhere = { ...docWhere, status: 'Approved' };
 
-            const versionWhere = {};
-            if (isPowerUser) {
-                versionWhere.group_document = { company_id, is_deleted: false };
-            } else {
-                versionWhere.uploaded_by = userId;
-            }
-            versionWhere.createdAt = { gte: todayStart };
+            // Client Status Conditions
+            const transDocWhere = isPowerUser 
+                ? { transmission: { company_id } }
+                : { transmission: { company_id }, group_document: { user_id: userId } };
 
-            // Counts Transaction
-            const [totalDocsCount, pendingApprovalCount, approvedCount, uploadedTodayCount] = await prisma.$transaction([
+            // Execute all count queries
+            const [
+                totalInternalCount,
+                awaitingUploadCount,
+                pendingApprovalCount,
+                approvedCount,
+                
+                totalClientCount,
+                clientUnderReviewCount,
+                clientApprovedCount,
+                clientCommentedCount,
+                clientAsBuiltCount,
+                clientReApprovalCount
+            ] = await prisma.$transaction([
+                // Internal
                 prisma.group_document.count({ where: docWhere }),
-                prisma.group_document.count({ where: pendingWhere }),
+                prisma.group_document.count({ where: awaitingUploadWhere }),
+                prisma.group_document.count({ where: pendingApprovalWhere }),
                 prisma.group_document.count({ where: approvedWhere }),
-                prisma.document_version.count({ where: versionWhere })
+                
+                // Client
+                prisma.transmission_document.count({ where: transDocWhere }),
+                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Pending' } }),
+                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Approved' } }),
+                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Commented' } }),
+                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'As-Built' } }),
+                prisma.transmission_document.count({ where: { ...transDocWhere, client_status: 'Re-approval' } })
             ]);
 
-            // Query Recent Activities
+            // Query Recent Activities (using document_version for now, could be document_activity later)
             const recentVersions = await prisma.document_version.findMany({
                 where: isPowerUser ? {
                     group_document: { company_id, is_deleted: false }
@@ -428,10 +447,20 @@ class DccController {
             res.status(200).json({
                 success: true,
                 data: {
-                    totalDocuments: totalDocsCount,
-                    pendingApproval: pendingApprovalCount,
-                    approved: approvedCount,
-                    uploadedToday: uploadedTodayCount,
+                    internal: {
+                        total: totalInternalCount,
+                        awaitingUpload: awaitingUploadCount,
+                        pendingApproval: pendingApprovalCount,
+                        approved: approvedCount,
+                    },
+                    client: {
+                        total: totalClientCount,
+                        underReview: clientUnderReviewCount,
+                        approved: clientApprovedCount,
+                        commented: clientCommentedCount,
+                        asBuilt: clientAsBuiltCount,
+                        reApproval: clientReApprovalCount,
+                    },
                     recentActivities
                 }
             });

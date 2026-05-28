@@ -15,7 +15,12 @@ import {
   CheckCircle,
   Clock,
   Loader2,
-  ExternalLink,
+  Send,
+  MessageSquare,
+  RefreshCcw,
+  Building2,
+  Layers,
+  FileCheck
 } from "lucide-react"
 import apiClient from "@/api/api.client"
 
@@ -81,34 +86,79 @@ function UserDashboard() {
     )
   }
 
-  const stats = [
+  const internalStats = [
     {
-      title: "Total Documents",
-      value: statsData ? String(statsData.totalDocuments) : "0",
-      description: "Documents assigned",
-      icon: FileText,
+      title: "Total Assigned",
+      value: statsData?.internal ? String(statsData.internal.total) : "0",
+      description: "All assigned documents",
+      icon: Layers,
       path: "/user/upload-documents?uploader_status_filter=all"
     },
     {
+      title: "Awaiting Upload",
+      value: statsData?.internal ? String(statsData.internal.awaitingUpload) : "0",
+      description: "Pending user upload",
+      icon: Upload,
+      path: "/user/upload-documents?uploader_status_filter=pending"
+    },
+    {
       title: "Pending Approval",
-      value: statsData ? String(statsData.pendingApproval) : "0",
-      description: "Awaiting review",
+      value: statsData?.internal ? String(statsData.internal.pendingApproval) : "0",
+      description: "Awaiting DCC review",
       icon: Clock,
       path: "/user/upload-documents?uploader_status_filter=pending_approval"
     },
     {
       title: "Approved",
-      value: statsData ? String(statsData.approved) : "0",
-      description: "Completed documents",
-      icon: CheckCircle,
+      value: statsData?.internal ? String(statsData.internal.approved) : "0",
+      description: "Internally approved",
+      icon: FileCheck,
       path: "/user/upload-documents?uploader_status_filter=approved"
     },
+  ]
+
+  const clientStats = [
     {
-      title: "Uploaded Today",
-      value: statsData ? String(statsData.uploadedToday) : "0",
-      description: "New uploads today",
-      icon: Upload,
-      path: "/user/upload-documents?uploader_status_filter=all"
+      title: "Total Transmitted",
+      value: statsData?.client ? String(statsData.client.total) : "0",
+      description: "Sent to client",
+      icon: Send,
+      path: "/dcc/client-approval-status?client_status=all"
+    },
+    {
+      title: "Under Client Review",
+      value: statsData?.client ? String(statsData.client.underReview) : "0",
+      description: "Pending client response",
+      icon: Clock,
+      path: "/dcc/client-approval-status?client_status=Pending"
+    },
+    {
+      title: "Approved",
+      value: statsData?.client ? String(statsData.client.approved) : "0",
+      description: "Approved by client",
+      icon: CheckCircle,
+      path: "/dcc/client-approval-status?client_status=Approved"
+    },
+    {
+      title: "Commented",
+      value: statsData?.client ? String(statsData.client.commented) : "0",
+      description: "Client feedback received",
+      icon: MessageSquare,
+      path: "/dcc/client-approval-status?client_status=Commented"
+    },
+    {
+      title: "As-Built",
+      value: statsData?.client ? String(statsData.client.asBuilt) : "0",
+      description: "Marked as As-Built",
+      icon: Building2,
+      path: "/dcc/client-approval-status?client_status=As-Built"
+    },
+    {
+      title: "Re-approval",
+      value: statsData?.client ? String(statsData.client.reApproval) : "0",
+      description: "Requires re-approval",
+      icon: RefreshCcw,
+      path: "/dcc/client-approval-status?client_status=Re-approval"
     },
   ]
 
@@ -122,71 +172,88 @@ function UserDashboard() {
           <h1 className="text-lg font-semibold">Dashboard</h1>
         </div>
       </header>
-      <div className="flex flex-1 flex-col gap-4 p-4">
+      <div className="flex flex-1 flex-col gap-6 p-6 overflow-auto custom-scrollbar">
         {/* Welcome Section */}
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">Welcome back!</h2>
-          <p className="text-muted-foreground">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">Welcome back!</h2>
+          <p className="text-slate-500">
             Here's an overview of your documents and activities
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="mb-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => {
-            const Icon = stat.icon
-            return (
-              <Card key={stat.title}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    {stat.title}
-                  </CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stat.description}
-                  </p>
-                </CardContent>
-              </Card>
-            )
-          })}
+        {/* Internal Workflow Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-slate-800">Internal Document Workflow</h3>
+            <div className="h-px flex-1 bg-slate-200 ml-4"></div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {internalStats.map((stat) => {
+              const Icon = stat.icon
+              return (
+                <Card 
+                  key={stat.title} 
+                  className="cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group"
+                  onClick={() => navigate(stat.path)}
+                >
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-600 group-hover:text-blue-600 transition-colors">
+                      {stat.title}
+                    </CardTitle>
+                    <Icon className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {stat.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>
-                Common tasks and shortcuts
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Button onClick={() => navigate("/user/upload-documents")}>
-                <Upload className="mr-2 h-4 w-4" />
-                Upload Document
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/user/upload-documents")}>
-                <FileText className="mr-2 h-4 w-4" />
-                View Documents
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/user/upload-documents?uploader_status_filter=pending_approval")}>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Check Status
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Client Workflow Section */}
+        <div className="space-y-4 mt-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-slate-800">Client Approval Workflow</h3>
+            <div className="h-px flex-1 bg-slate-200 ml-4"></div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {clientStats.map((stat) => {
+              const Icon = stat.icon
+              return (
+                <Card 
+                  key={stat.title} 
+                  className="cursor-pointer hover:shadow-md hover:border-emerald-200 transition-all group bg-slate-50/50"
+                  onClick={() => navigate(stat.path)}
+                >
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-600 group-hover:text-emerald-600 transition-colors">
+                      {stat.title}
+                    </CardTitle>
+                    <Icon className="h-4 w-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
+                    <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider font-medium">
+                      {stat.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
         </div>
 
         {/* Recent Activities */}
-        <div>
+        <div className="mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Recent Activities</CardTitle>
               <CardDescription>
-                Your latest document activities
+                Your latest document upload activities
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -216,10 +283,10 @@ function UserDashboard() {
                             {activity.status}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-sm text-slate-500 mt-1">
                           {activity.description}
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-1 text-xs text-slate-400">
                           {activity.time}
                         </p>
                       </div>

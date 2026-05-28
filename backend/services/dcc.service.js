@@ -101,10 +101,10 @@ class DccService {
         // is_active column filter
         if (columnFilters.is_active && columnFilters.is_active !== 'all') {
             const vals = Array.isArray(columnFilters.is_active) ? columnFilters.is_active : [columnFilters.is_active];
-            const wantsActive   = vals.includes('true');
+            const wantsActive = vals.includes('true');
             const wantsInactive = vals.includes('false');
-            if (wantsActive && !wantsInactive)   where.is_active = true;
-            if (wantsInactive && !wantsActive)   where.is_active = false;
+            if (wantsActive && !wantsInactive) where.is_active = true;
+            if (wantsInactive && !wantsActive) where.is_active = false;
         }
 
         const [total, customers] = await prisma.$transaction([
@@ -257,7 +257,7 @@ class DccService {
 
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
-        const where = { 
+        const where = {
             company_id,
             is_deleted: false
         };
@@ -409,10 +409,10 @@ class DccService {
     }
 
     async getPos(company_id, params = {}) {
-        const { 
-            page = 1, 
-            limit, 
-            search = '', 
+        const {
+            page = 1,
+            limit,
+            search = '',
             customer_id,
             sortBy = 'createdAt',
             sortOrder = 'desc'
@@ -422,7 +422,7 @@ class DccService {
 
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
-        const where = { 
+        const where = {
             company_id,
             is_deleted: false
         };
@@ -488,10 +488,10 @@ class DccService {
             const formattedHistory = po.po_attachment_history ? po.po_attachment_history.map(history => {
                 let parsed = history.po_attachments;
                 if (typeof parsed === 'string') {
-                    try { parsed = JSON.parse(parsed); } catch(e) { parsed = []; }
+                    try { parsed = JSON.parse(parsed); } catch (e) { parsed = []; }
                 }
                 if (!Array.isArray(parsed)) parsed = [];
-                
+
                 const mappedAttachments = parsed.map(doc => {
                     let safeUrl = doc.url;
                     if (safeUrl && !safeUrl.startsWith('http')) {
@@ -504,8 +504,8 @@ class DccService {
                 return { ...history, po_attachments: mappedAttachments };
             }) : [];
 
-            return { 
-                ...po, 
+            return {
+                ...po,
                 po_doc_url: mainUrl,
                 po_attachment_history: formattedHistory
             };
@@ -572,7 +572,7 @@ class DccService {
 
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
-        const where = { 
+        const where = {
             company_id,
             is_deleted: false
         };
@@ -1049,7 +1049,7 @@ class DccService {
             where.client_doc_no = this._processFilter(client_doc_no_filter);
         }
 
-       if (user_id_filter) {
+        if (user_id_filter) {
             if (user_id_filter === 'pending_assignee' || (Array.isArray(user_id_filter) && user_id_filter.includes('pending_assignee'))) {
                 if (Array.isArray(user_id_filter)) {
                     where.OR = [
@@ -1255,8 +1255,8 @@ class DccService {
                 action: groupDoc.status === 'As Built' ? 'As Built Finalized' : 'Uploaded',
                 remarks: groupDoc.status === 'As Built'
                     ? `Final As-Built version ${targetVersionNo} uploaded and automatically approved`
-                    : (rejectedVersion 
-                        ? `Version ${targetVersionNo} (Correction) uploaded` 
+                    : (rejectedVersion
+                        ? `Version ${targetVersionNo} (Correction) uploaded`
                         : `Version ${targetVersionNo} uploaded`),
                 metadata: {
                     version_no: targetVersionNo,
@@ -1461,8 +1461,8 @@ class DccService {
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
         // Transmission screen ONLY needs Approved documents
-        const where = { 
-            company_id, 
+        const where = {
+            company_id,
             status: 'Approved',
             is_deleted: false
         };
@@ -1470,7 +1470,7 @@ class DccService {
         if (customer_name_filter) {
             where.customer = { customer_name: this._processFilter(customer_name_filter) };
         }
-        if (po_number_filter) { 
+        if (po_number_filter) {
             where.po = { po_number: this._processFilter(po_number_filter) };
         }
         if (job_number_filter) {
@@ -1494,10 +1494,10 @@ class DccService {
         if (exclude_transmitted === 'true' || exclude_transmitted === true) {
             versionConditions.transmission_items = { none: {} };
         }
-        
+
         // Ensure we only show docs with at least one uploaded file (not Pending placeholder)
         const nonPendingVersionFilter = { status: { not: 'Pending' } };
-        
+
         if (Object.keys(versionConditions).length > 0) {
             where.versions = { some: { ...versionConditions, ...nonPendingVersionFilter } };
         } else {
@@ -1531,7 +1531,7 @@ class DccService {
                     versions: {
                         orderBy: { version_no: 'desc' },
                         take: 1,
-                        include: { 
+                        include: {
                             uploader: true,
                             transmission_items: true,
                             files: { where: { is_active: true } }
@@ -1562,8 +1562,8 @@ class DccService {
         const groupDoc = await prisma.group_document.findFirst({
             where: { id: document_id, company_id },
             include: {
-                versions: { 
-                    orderBy: { version_no: 'desc' }, 
+                versions: {
+                    orderBy: { version_no: 'desc' },
                     take: 1,
                     include: { files: { where: { is_active: true } } }
                 },
@@ -1599,7 +1599,7 @@ class DccService {
                             file_path: archivedPath,
                             file_url: file.file_url
                         });
-                        
+
                         // Set primary version file path when it matches
                         if (file.file_path === latestVersion.file_path) {
                             rejectedVersionPath = archivedPath;
@@ -1738,7 +1738,7 @@ class DccService {
 
         // Generate Transmission Number
         const count = await prisma.transmission.count({ where: { company_id } });
-        const transNum = `SHRENO-TR-${(count + 1).toString().padStart(7, '0')}`;
+        const transNum = `SHRENO-TR-${(count + 1).toString().padStart(2, '0')}`;
         const password = Math.random().toString(36).slice(-8).toUpperCase();
 
         // 2. Generate ZIP File
@@ -1804,10 +1804,7 @@ class DccService {
             return transmission;
         });
 
-        // 5. Trigger Internal Alert in background
-        this._sendInternalTransmittalAlert(company_id, transmissionId).catch(e =>
-            console.error("[DccService] Internal transmittal alert error:", e)
-        );
+        // 5. Trigger Internal Alert in background (Removed as per user request)
 
         return result;
     }
@@ -2218,7 +2215,7 @@ class DccService {
                         nextGroupStatus = 'Approved';
                     } else if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
                         nextGroupStatus = status === 'As Built' ? 'As Built' : 'Pending';
-                        
+
                         // Auto-calculate new upload deadline: Current Date + 5 Days
                         const now = new Date();
                         const createdAt = new Date(doc.createdAt);
@@ -2229,7 +2226,7 @@ class DccService {
 
                     await tx.group_document.update({
                         where: { id: doc.id },
-                        data: { 
+                        data: {
                             status: nextGroupStatus,
                             upload_due_days: nextUploadDueDays
                         }
@@ -2371,7 +2368,7 @@ class DccService {
                 nextGroupStatus = 'Approved';
             } else if (['Rejected', 'Commented', 'Re-approval'].includes(status)) {
                 nextGroupStatus = 'Pending';
-                
+
                 // Auto-calculate new upload deadline: Current Date + 5 Days
                 const now = new Date();
                 const createdAt = new Date(groupDoc.createdAt);
@@ -2392,7 +2389,7 @@ class DccService {
             // Update database
             await tx.group_document.update({
                 where: { id: groupDoc.id },
-                data: { 
+                data: {
                     status: nextGroupStatus,
                     upload_due_days: nextUploadDueDays
                 }
@@ -3124,7 +3121,7 @@ class DccService {
 
                 if (now > deadline) {
                     if (!uploadOverdueUsers[doc.user_id]) uploadOverdueUsers[doc.user_id] = { user: doc.user, docs: [] };
-                    
+
                     const docDetails = {
                         document_name: doc.document.document_name,
                         document_number: doc.document.document_number,
@@ -3299,7 +3296,7 @@ class DccService {
     async _sendUploadNotificationToAdmins(company_id, group_document_id, uploader_id, versionNo) {
         try {
             console.log(`[DccService] Attempting upload notification for doc ${group_document_id} (uploader: ${uploader_id})`);
-            
+
             const [groupDoc, uploader, dccAdmins] = await Promise.all([
                 prisma.group_document.findUnique({
                     where: { id: group_document_id },
@@ -3312,14 +3309,14 @@ class DccService {
                 prisma.user.findMany({
                     where: {
                         company_id,
-                        user_roles: { 
-                            some: { 
-                                role: { 
-                                    name: { 
-                                        in: ['DCC'] 
-                                    } 
-                                } 
-                            } 
+                        user_roles: {
+                            some: {
+                                role: {
+                                    name: {
+                                        in: ['DCC']
+                                    }
+                                }
+                            }
                         }
                     }
                 })
@@ -3362,55 +3359,7 @@ class DccService {
         }
     }
 
-    /**
-     * Helper to send internal alert for new transmission
-     * @private
-     */
-    async _sendInternalTransmittalAlert(company_id, transmission_id) {
-        try {
-            const transmission = await prisma.transmission.findUnique({
-                where: { id: transmission_id },
-                include: {
-                    customer: true,
-                    po: true,
-                    creator: true, // Matching schema relation name
-                    _count: { select: { documents: true } }
-                }
-            });
 
-            if (!transmission) return;
-
-            // Fetch the creator user if created_by_user relation doesn't exist
-            const creator = transmission.creator || await prisma.user.findUnique({ where: { id: transmission.created_by } });
-
-            // Notify DCC Admins + the Creator
-            const dccAdmins = await prisma.user.findMany({
-                where: {
-                    company_id,
-                    user_roles: { some: { role: { name: { in: ['DCC'] } } } }
-                }
-            });
-
-            const recipients = new Map();
-            if (creator && creator.email) recipients.set(creator.email, creator);
-            dccAdmins.forEach(admin => { if (admin.email) recipients.set(admin.email, admin); });
-
-            const details = {
-                transmissionNo: transmission.transmission_number,
-                customerName: transmission.customer?.customer_name || 'N/A',
-                poNo: transmission.po?.po_number || 'N/A',
-                docCount: transmission._count?.documents || 0,
-                createdBy: creator?.name || 'System'
-            };
-
-            for (const user of recipients.values()) {
-                await EmailService.sendInternalTransmittalAlert(user.email, user.name, details);
-            }
-            console.log(`[DccService] Internal transmittal alert sent to ${recipients.size} users for ${details.transmissionNo}`);
-        } catch (error) {
-            console.error("[DccService] Failed to send internal transmittal alert:", error);
-        }
-    }
 
     async getDocumentFileDetails(fileId) {
         return await prisma.document_file.findFirst({
