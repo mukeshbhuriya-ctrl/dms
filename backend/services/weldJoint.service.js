@@ -206,8 +206,72 @@ class WeldJointService {
 
         return insp;
     }
+    async getJointGroupByIds(jointIds) {
+        const rawJoints = await prisma.weld_joint.findMany({
+            where: { id: { in: jointIds } },
+            orderBy: { joint_no: 'asc' },
+            include: {
+                weld_joint_plan: {
+                    include: {
+                        job: {
+                            select: {
+                                job_number: true, project_id: true, equipement_name: true,
+                                tag_number: true, code: true,
+                                customer: { select: { customer_name: true } },
+                                po: { select: { po_number: true } }
+                            }
+                        },
+                    }
+                },
+                weld_joint_report_info: true,
+                weld_joint_stages: {
+                    include: {
+                        stage_data: true,
+                        stage_rows: true
+                    },
+                    orderBy: {
+                        createdAt: 'asc'
+                    }
+                }
+            }
+        });
 
-    
+        const jointsWithInsp = [];
+        for (const joint of rawJoints) {
+            const userIds = new Set();
+            joint.weld_joint_stages?.forEach(stage => {
+                if (stage.production_engineer_id) userIds.add(stage.production_engineer_id);
+                if (stage.qc_engineer_id) userIds.add(stage.qc_engineer_id);
+            });
+
+            let userMap = {};
+            if (userIds.size > 0) {
+                const users = await prisma.user.findMany({
+                    where: { id: { in: Array.from(userIds) } },
+                    select: { id: true, name: true }
+                });
+                users.forEach(u => userMap[u.id] = u.name);
+            }
+
+            const monolithicInsp = this._reconstructMonolithicInspection(
+                joint.id, 
+                joint.joint_type, 
+                joint.weld_joint_report_info, 
+                joint.weld_joint_stages, 
+                userMap
+            );
+            
+            const { weld_joint_report_info, weld_joint_stages, ...jointRest } = joint;
+            
+            jointsWithInsp.push({
+                ...jointRest,
+                weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null
+            });
+        }
+
+        return jointsWithInsp;
+    }
+
     async getJointGroupWithInspection(jointId) {
         const targetJoint = await prisma.weld_joint.findUnique({
             where: { id: jointId },
@@ -1060,11 +1124,14 @@ class WeldJointService {
                 }
             });
 
+            
             const joints = await prisma.weld_joint.findMany({
                 where: { weld_joint_plan: { company_id } },
                 select: { 
+                    id: true,
                     joint_type: true, 
                     joint_no: true,
+
                     weld_joint_plan: {
                         select: {
                             job: {
@@ -1079,8 +1146,11 @@ class WeldJointService {
                 }
             });
 
+            
             const records = joints.map(j => ({
+                id: j.id,
                 client: j.weld_joint_plan?.job?.customer?.customer_name,
+
                 po: j.weld_joint_plan?.job?.po?.po_number,
                 msn: j.weld_joint_plan?.job?.job_number,
                 joint_no: j.joint_no,

@@ -95,11 +95,35 @@ function ViewWeldingJoints() {
   const [trailJointId, setTrailJointId] = useState(null)
   const [trailJointCategory, setTrailJointCategory] = useState(null)
   const [trailJointNo, setTrailJointNo] = useState("")
-
   // Filter States
   const [statusFilter, setStatusFilter] = useState("all")
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] });
+  const [selectedJointIds, setSelectedJointIds] = useState(new Set());
+  const [autoAppliedFilters, setAutoAppliedFilters] = useState(false);
+
+  useEffect(() => {
+    if (selectedJointIds.size === 1) {
+      const selectedId = Array.from(selectedJointIds)[0];
+      const match = activeFilters.records.find(r => r.id === selectedId);
+      if (match) {
+        setColumnFilters(prev => ({
+          ...prev,
+          msnNumber: [match.msn?.toString()],
+          jointCategory: [match.cat?.toString()]
+        }));
+        setAutoAppliedFilters(true);
+      }
+    } else if (selectedJointIds.size === 0 && autoAppliedFilters) {
+      setColumnFilters(prev => ({
+        ...prev,
+        msnNumber: [],
+        jointCategory: []
+      }));
+      setAutoAppliedFilters(false);
+    }
+  }, [selectedJointIds, activeFilters, autoAppliedFilters]);
+
 
   const fetchActiveFilters = useCallback(async () => {
     try {
@@ -404,24 +428,36 @@ function ViewWeldingJoints() {
       console.error("Export failed:", error)
     }
   };
-
   const handleDownloadReport = async (joint, stage) => {
-    setDownloadError("");
+    let idsToDownload = [joint.id];
+    
+    if (selectedJointIds.has(joint.id)) {
+      idsToDownload = Array.from(selectedJointIds);
+    }
+    
+    if (idsToDownload.length > 3) {
+       console.warn('Max 3 joints can be downloaded together');
+       alert('Max 3 joints can be downloaded together');
+       return;
+    }
+
+    setDownloadError('');
     try {
       const dateTime = new Date().toISOString().replace(/:/g, '-').split('.')[0];
       const filename = `${stage === 'all' ? 'Complete_Report' : stage}_${joint.jointNo}_${dateTime}.pdf`;
 
       await exportApi.download(
-        `/api/wpj/generate-report/${joint.id}/${stage}`,
+        `/api/wpj/generate-report/${joint.id}/${stage}?jointIds=${idsToDownload.join(',')}`,
         filename,
         {},
         { contentType: 'application/pdf' }
       );
     } catch (e) {
-      console.error("Error downloading report", e);
-      setDownloadError(e.message || "Error downloading report: Network or Server Error");
+      console.error('Error downloading report', e);
+      setDownloadError(e.message || 'Error downloading report: Network or Server Error');
     }
   }
+
 
   const columns = useMemo(() => [
     {
@@ -563,6 +599,14 @@ function ViewWeldingJoints() {
       }
     }
   ], [activeMsnOptions, activeClientOptions, activePoOptions, activeJointNoOptions, activeCatOptions, userGroupIds, userId, handleDownloadReport, handleOpenStage, isQCOrNDT, getStageActionState]);
+  const handleSelectionChange = (newSelection) => {
+    if (newSelection.size > 3) {
+      toast.warning("You can only select a maximum of 3 joints for a consolidated report.", { autoClose: 3000, theme: "colored" });
+      return;
+    }
+    setSelectedJointIds(newSelection);
+  };
+
 
   return (
     <>
@@ -573,12 +617,12 @@ function ViewWeldingJoints() {
 
       <main className="flex-1 overflow-auto p-6 flex flex-col">
         <div className="flex-1 flex flex-col w-full">
-
           <div className="flex flex-col gap-4">
-            {/* Right-aligned Status Filter */}
             <div className="flex justify-end mb-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by Status:</span>
+
+
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="All Status" />
@@ -590,7 +634,6 @@ function ViewWeldingJoints() {
                 </Select>
               </div>
             </div>
-
             <ProDataTable
               columns={columns}
               fetchData={fetchJointsData}
@@ -599,7 +642,10 @@ function ViewWeldingJoints() {
               onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
               refreshKey={refreshKey}
               globalSearchPlaceholder="Search joint no, job, client..."
+              selectedRows={selectedJointIds}
+              onSelectionChange={handleSelectionChange}
             />
+
           </div>
         </div>
       </main>

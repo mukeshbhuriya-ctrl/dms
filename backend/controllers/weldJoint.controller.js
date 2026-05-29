@@ -14,15 +14,22 @@ const WELD_STAGES_CONFIG = require('../config/weldStagesConfig');
 async function generateStageReport(req, res) {
     try {
         const { jointId, stage } = req.params;
+        const customJointIds = req.query.jointIds ? req.query.jointIds.split(',') : null;
 
-        const joints = await weldJointService.getJointGroupWithInspection(jointId);
+        let joints;
+        if (customJointIds && customJointIds.length > 0) {
+            joints = await weldJointService.getJointGroupByIds(customJointIds);
+        } else {
+            joints = await weldJointService.getJointGroupWithInspection(jointId);
+        }
+
         const companyInfo = await getCompanyInfo(req.user.company_id);
 
         if (!joints || joints.length === 0) {
             return res.status(404).json({ success: false, message: 'Weld Joint not found' });
         }
 
-        const targetJoint = joints.find(j => j.id === jointId) || joints[0];
+        const targetJoint = customJointIds ? joints[0] : (joints.find(j => j.id === jointId) || joints[0]);
         const insp = targetJoint.weld_joint_inspection || {};
         const jt = targetJoint.joint_type ? targetJoint.joint_type.toUpperCase() : 'A';
         const categoryKey = jt.toLowerCase();
