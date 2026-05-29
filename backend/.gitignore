@@ -9,4 +9,6 @@ node_modules
 
 # Uploaded files
 uploads/*
-!uploads/.gitkeep
+!uploads/.git
+
+test-email.js

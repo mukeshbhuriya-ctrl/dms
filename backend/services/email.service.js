@@ -21,7 +21,7 @@ class EmailService {
     async sendEmail({ to, cc, subject, text, html, attachments }) {
         try {
             if (!this.isEmailEnabled()) {
-                console.log('[EmailService] - disabled');
+                console.log(`[EmailService] - disabled`);
                 return { skipped: true };
             }
 
@@ -38,10 +38,16 @@ class EmailService {
                 html,
                 attachments,
             });
-            console.log("Message sent: %s (Tracked by: %s)", info.messageId, trackingEmail);
+
+            if (info.rejected?.length) {
+                console.warn(`[EmailService] Rejected by mail server:`, info.rejected);
+            } else {
+                console.log(`[EmailService] Message sent: ${info.messageId}`);
+            }
+
             return info;
         } catch (error) {
-            console.error("Error sending email:", error);
+            console.error(`[EmailService] Error:`, error);
             throw error;
         }
     }
