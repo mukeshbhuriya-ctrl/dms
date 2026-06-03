@@ -175,9 +175,9 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const handleDownloadTemplate = () => {
     const headers = [
-      ["Job Number", "Shreno Drg No", "Customer Drg No", "Inspection By", "QC Engineer Emp ID", "Is Heading (Yes/No)", "Heading", "Item No", "Description", "Material Spec", "Size", "Quantity", "Heat No", "GRN No", "MTR No", "Manufacturer", "Remarks"],
-      ["101010232", "DRG-001", "CUS-DRG-001", "John Doe", "EMP001", "Yes", "101", "101", "HEADING SECTION", "", "", "", "", "", "", "", ""],
-      ["101010232", "DRG-001", "CUS-DRG-001", "John Doe", "EMP001", "No", "", "101", "PLATE", "ASTM A234", "10mm", "5 NOS", "HN123", "GRN456", "MTR789", "XYZ Steel", "Accepted"]
+      ["Job Number", "Shreno Drg No", "Customer Drg No", "Inspection By", "Production Engineer Emp ID", "Is Heading (Yes/No)", "Heading", "Item No", "Description", "Material Spec", "Size", "Quantity", "Heat No", "GRN No", "MTR No", "Manufacturer", "Remarks"],
+      ["101010232", "DRG-001", "CUS-DRG-001", "John Doe", "EMP001", "Yes", "HEADING NAME", "", "", "", "", "", "", "", "", "", ""],
+      ["101010232", "DRG-001", "CUS-DRG-001", "John Doe", "EMP001", "No", "", "101", "PLATE", "ASTM A234", "10mm", "5 NOS", "", "", "", "", ""]
     ];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     const wb = XLSX.utils.book_new();
@@ -251,7 +251,7 @@ function ListView({ onCreateClick, onEditClick }) {
           const shreno_drg_no = String(row[1] || "").trim();
           const customer_drg_no = String(row[2] || "").trim();
           const inspection_by = String(row[3] || "").trim();
-          const qcEmpId = String(row[4] || "").trim();
+          const prodEmpId = String(row[4] || "").trim();
           
           const isHeading = String(row[5] || "").trim().toLowerCase() === "yes";
           const heading = String(row[6] || "").trim();
@@ -260,15 +260,15 @@ function ListView({ onCreateClick, onEditClick }) {
           if (!msn) errors.push("Job Number is required");
           if (!shreno_drg_no) errors.push("Shreno Drg No is required");
           
-          const targetQC = allUsers.find(u => String(u.empid || "").trim().toUpperCase() === qcEmpId.toUpperCase());
+          const targetProd = allUsers.find(u => String(u.empid || "").trim().toUpperCase() === prodEmpId.toUpperCase());
           
-          if (!qcEmpId) {
-            errors.push("QC Engineer Emp ID is required");
-          } else if (!targetQC) {
-            errors.push(`QC Employee ID "${qcEmpId}" not found`);
+          if (!prodEmpId) {
+            errors.push("Production Engineer Emp ID is required");
+          } else if (!targetProd) {
+            errors.push(`Production Employee ID "${prodEmpId}" not found`);
           }
           
-          const batchKey = `${msn}-${shreno_drg_no}-${row[7] || ''}-${row[12] || ''}`.toUpperCase();
+          const batchKey = `${msn}-${shreno_drg_no}-${row[7] || ''}`.toUpperCase();
           let isDuplicate = false;
           if (!isHeading && msn && shreno_drg_no) {
              if (seenKeys.has(batchKey)) isDuplicate = true;
@@ -282,19 +282,14 @@ function ListView({ onCreateClick, onEditClick }) {
             shreno_drg_no,
             customer_drg_no,
             inspection_by,
-            itemNo: String(row[7] || "").trim(),
-            description: String(row[8] || "").trim(),
-            materialSpecification: String(row[9] || "").trim(),
-            size: String(row[10] || "").trim(),
-            quantityUnit: String(row[11] || "").trim(),
-            heatNo: String(row[12] || "").trim(),
-            grnAppApNo: String(row[13] || "").trim(),
-            mtrNo: String(row[14] || "").trim(),
-            manufacturerName: String(row[15] || "").trim(),
-            remarks: String(row[16] || "").trim(),
-            qc_empid_raw: qcEmpId,
-            qc_engineer_id: targetQC?.id || null,
-            qc_engineer_name: targetQC?.name || null,
+            itemNo: isHeading ? "" : String(row[7] || "").trim(),
+            description: isHeading ? "" : String(row[8] || "").trim(),
+            materialSpecification: isHeading ? "" : String(row[9] || "").trim(),
+            size: isHeading ? "" : String(row[10] || "").trim(),
+            quantityUnit: isHeading ? "" : String(row[11] || "").trim(),
+            production_empid_raw: prodEmpId,
+            production_engineer_id: targetProd?.id || null,
+            production_engineer_name: targetProd?.name || null,
             status: errors.length > 0 ? "error" : (isDuplicate ? "duplicate" : "valid"),
             message: errors.length > 0 ? errors.join(" | ") : (isDuplicate ? "Duplicate entry in file" : "Ready")
           };
@@ -323,9 +318,9 @@ function ListView({ onCreateClick, onEditClick }) {
   const confirmBulkImport = async () => {
       setIsImporting(true);
       
-      // Group flat rows into Reports
+      const validData = excelData.filter(d => d.status === 'valid');
       const reportGroups = {};
-      excelData.forEach(row => {
+      validData.forEach(row => {
           const key = `${row.msn}-${row.shreno_drg_no}`;
           if (!reportGroups[key]) {
               reportGroups[key] = {
@@ -333,7 +328,7 @@ function ListView({ onCreateClick, onEditClick }) {
                   shreno_drg_no: row.shreno_drg_no,
                   customer_drg_no: row.customer_drg_no,
                   inspection_by: row.inspection_by,
-                  qc_engineer_id: row.qc_engineer_id,
+                  production_engineer_id: row.production_engineer_id,
                   items: []
               };
           }
@@ -344,12 +339,7 @@ function ListView({ onCreateClick, onEditClick }) {
               description: row.description,
               materialSpecification: row.materialSpecification,
               size: row.size,
-              quantityUnit: row.quantityUnit,
-              heatNo: row.heatNo,
-              grn_app_ap_no: row.grnAppApNo,
-              mtrNo: row.mtrNo,
-              manufacturerName: row.manufacturerName,
-              remarks: row.remarks
+              quantityUnit: row.quantityUnit
           });
       });
 
@@ -769,15 +759,12 @@ function ListView({ onCreateClick, onEditClick }) {
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[120px]">SHRENO DRG. NO.</th>
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[140px]">CUSTOMER DRG. NO.</th>
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[120px]">INSPECTION BY</th>
-                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[120px]">ASSIGNED QC</th>
+                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[120px]">ASSIGNED PROD</th>
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[80px]">Item No</th>
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[180px]">Description</th>
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[100px]">Spec</th>
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[80px]">Size</th>
                     <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[60px]">Qty</th>
-                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[100px]">Heat No</th>
-                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[100px]">GRN / MTR</th>
-                    <th className="p-2 text-left font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[150px]">Mfg / Remarks</th>
                     <th className="p-2 text-center font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[250px]">Status</th>
                   </tr>
                 </thead>
@@ -813,12 +800,12 @@ function ListView({ onCreateClick, onEditClick }) {
                          {row.inspection_by || "-"}
                       </td>
 
-                      {/* Assigned QC */}
+                      {/* Assigned PROD */}
                       <td className="p-2 align-top text-[11px]">
-                         {row.qc_engineer_name ? (
-                            <div className="font-bold text-green-600">{row.qc_engineer_name}</div>
+                         {row.production_engineer_name ? (
+                            <div className="font-bold text-green-600">{row.production_engineer_name}</div>
                          ) : (
-                            <div className="font-bold text-red-600">{row.qc_empid_raw || "-"}</div>
+                            <div className="font-bold text-red-600">{row.production_empid_raw || "-"}</div>
                          )}
                       </td>
 
@@ -849,22 +836,7 @@ function ListView({ onCreateClick, onEditClick }) {
                          {row.quantityUnit || "-"}
                       </td>
 
-                      {/* Heat No */}
-                      <td className="p-2 align-top text-[11px]">
-                        {row.heatNo || "-"}
-                      </td>
 
-                      {/* GRN / MTR */}
-                      <td className="p-2 align-top text-xs">
-                        <div>{row.grnAppApNo || "-"}</div>
-                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">{row.mtrNo || "-"}</div>
-                      </td>
-
-                      {/* Mfg / Remarks */}
-                      <td className="p-2 align-top text-xs">
-                         <div className="font-medium text-slate-700 line-clamp-1">{row.manufacturerName || "-"}</div>
-                         <div className="text-[10px] text-slate-400 italic line-clamp-1">{row.remarks || "-"}</div>
-                      </td>
 
                       {/* Status (Far Right) */}
                       <td className="p-2 align-top text-left min-w-[250px]">
@@ -1587,31 +1559,68 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                             <tr className="group/heading border-b-0 bg-amber-50/40">
                               {isView && <td className="bg-amber-100/40 border-t border-t-amber-400/50" />}
                               <td colSpan={11} className="p-0 border-t border-t-amber-400/50">
-                                <div className="flex items-center gap-0 my-1.5 mx-2 sticky left-2 w-fit z-20">
-                                   <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 shrink-0">Heading:</span>
-                                      <Input
-                                        type="text"
-                                        value={row.headingText}
-                                        onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
-                                        placeholder="Enter heading text..."
-                                        className="border-none bg-transparent shadow-none text-sm font-bold text-amber-900 focus-visible:ring-0 placeholder:text-amber-700/30 h-8"
-                                        disabled={isQcInitiationLocked}
-                                      />
-                                      <button
+                                <div className="flex items-center justify-between my-1.5 mx-2 w-full pr-4">
+                                  <div className="flex items-center gap-0 sticky left-2 w-fit z-20">
+                                     <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 shrink-0">Heading:</span>
+                                        <Input
+                                          type="text"
+                                          value={row.headingText}
+                                          onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
+                                          placeholder="Enter heading text..."
+                                          className="border-none bg-transparent shadow-none text-sm font-bold text-amber-900 focus-visible:ring-0 placeholder:text-amber-700/30 h-8"
+                                          disabled={isQcInitiationLocked}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRowChange(row.id, "headingText", "")}
+                                          className={`flex items-center justify-center h-7 w-7 border border-amber-400 bg-white rounded text-orange-500 hover:bg-amber-50 transition-colors shadow-sm ml-2 ${isView ? 'hidden' : ''}`}
+                                        >
+                                          <X className="h-4 w-4 stroke-[3px]" />
+                                        </button>
+                                     </div>
+                                  </div>
+                                  {!isView && (
+                                    <div className="flex items-center gap-1.5 h-10 sticky right-2 bg-amber-50/40 px-2 rounded z-20">
+                                      <Button
                                         type="button"
-                                        onClick={() => handleRowChange(row.id, "headingText", "")}
-                                        className={`flex items-center justify-center h-7 w-7 border border-amber-400 bg-white rounded text-orange-500 hover:bg-amber-50 transition-colors shadow-sm ml-2 ${isView ? 'hidden' : ''}`}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-lg border transition-all text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white"
+                                        onClick={() => toggleHeading(row.id)}
+                                        disabled={isQcInitiationLocked}
                                       >
-                                        <X className="h-4 w-4 stroke-[3px]" />
-                                      </button>
-                                   </div>
+                                        <Type className="h-4 w-4 stroke-[3px]" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-lg border-amber-400/40 text-amber-600 hover:bg-amber-400/20 hover:text-amber-800 transition-all"
+                                        onClick={() => addRowAfter(row.id)}
+                                        disabled={isQcInitiationLocked}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-lg border-amber-400/40 text-amber-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all"
+                                        onClick={() => removeRow(row.id)}
+                                        disabled={isQcInitiationLocked}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                             </tr>
                           )}
-                          <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
-                             {isView && (
+                          {!row.isHeading && (
+                            <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
+                              {isView && (
                                <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40" : "bg-white"} border-r border-slate-100`}>
                                   {row.id && !String(row.id).startsWith("new-") && (
                                     <Checkbox 
@@ -1785,6 +1794,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                               </div>
                             </td>
                           </tr>
+                          )}
                         </React.Fragment>
                       );
                     });

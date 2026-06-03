@@ -137,6 +137,7 @@ class MhcService {
             customer_drg_no,
             inspection_by,
             production_group_id,
+            production_engineer_id,
             qc_group_id,
             items = [],
         } = body;
@@ -185,6 +186,7 @@ class MhcService {
                     inspection_by: inspection_by || null,
                     status: body.status || 'Initiated',
                     production_group_id: production_group_id || null,
+                    production_engineer_id: production_engineer_id || null,
                     qc_group_id: qc_group_id || null,
                     qc_engineer_id: creator_id,
                     submitted_at: new Date(),
@@ -219,7 +221,9 @@ class MhcService {
                         remarks: item.remarks || null,
                         version: 1,
                         is_current: true,
-                        action_by_id: creator_id
+                        action_by_id: creator_id,
+                        production_engineer_id: production_engineer_id || null,
+                        qc_engineer_id: creator_id
                     });
                 });
 
@@ -607,10 +611,34 @@ class MhcService {
                 }
 
                 if (report.job_id) {
-                    // Strict Validation: QC Engineer is required for MHC reports
-                    if (!report.qc_engineer_id) {
-                        console.log(`[MhcService] Skipping report for Job ${report.msn}: QC Engineer ID is required.`);
+                    // Strict Validation: Production Engineer is required for MHC reports
+                    if (!report.production_engineer_id) {
+                        console.log(`[MhcService] Skipping report for Job ${report.msn}: Production Engineer ID is required.`);
                         continue;
+                    }
+
+                    // Auto-resolve Production Group
+                    const prodGroup = await prisma.user_employee_group.findFirst({
+                        where: { 
+                            user_id: report.production_engineer_id,
+                            employee_group: { group_type: "PRODUCTION" }
+                        },
+                        select: { employee_group_id: true }
+                    });
+                    if (prodGroup) {
+                        report.production_group_id = prodGroup.employee_group_id;
+                    }
+
+                    // Auto-resolve QC Group for the uploader
+                    const qcGroup = await prisma.user_employee_group.findFirst({
+                        where: { 
+                            user_id: creator_id,
+                            employee_group: { group_type: "QUALITY" }
+                        },
+                        select: { employee_group_id: true }
+                    });
+                    if (qcGroup) {
+                        report.qc_group_id = qcGroup.employee_group_id;
                     }
 
                     // Deduplication: Check if a report with same Job and Shreno Drawing Number already exists
