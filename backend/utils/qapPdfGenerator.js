@@ -89,24 +89,30 @@ class QapPdfGenerator {
         ];
 
         doc.fontSize(7.5);
-        infoRows.forEach((row, i) => {
-            const curY = y + (i * rowH);
+        let currentY = y;
+        
+        infoRows.forEach((row) => {
+            const v0H = doc.heightOfString(String(row[0].v || '-'), { width: valW - 10 });
+            const v1H = doc.heightOfString(String(row[1].v || '-'), { width: valW - 10 });
+            const rowH = Math.max(18, v0H + 10, v1H + 10);
             
             // Left Side
-            doc.rect(x, curY, labelW, rowH).fillAndStroke(this.colors.grey, this.colors.black);
-            doc.fillColor(this.colors.black).font(this.fonts.bold).text(row[0].l, x + 5, curY + 6);
-            doc.rect(x + labelW, curY, valW, rowH).stroke();
-            doc.font(this.fonts.regular).text(String(row[0].v || '-'), x + labelW + 5, curY + 6, { width: valW - 10, ellipsis: true });
+            doc.rect(x, currentY, labelW, rowH).fillAndStroke(this.colors.grey, this.colors.black);
+            doc.fillColor(this.colors.black).font(this.fonts.bold).text(row[0].l, x + 5, currentY + (rowH / 2) - 3.5);
+            doc.rect(x + labelW, currentY, valW, rowH).stroke();
+            doc.font(this.fonts.regular).text(String(row[0].v || '-'), x + labelW + 5, currentY + (rowH / 2) - (v0H/2) + 1, { width: valW - 10, lineBreak: true });
 
             // Right Side
             const rightX = x + (width / 2);
-            doc.rect(rightX, curY, labelW, rowH).fillAndStroke(this.colors.grey, this.colors.black);
-            doc.fillColor(this.colors.black).font(this.fonts.bold).text(row[1].l, rightX + 5, curY + 6);
-            doc.rect(rightX + labelW, curY, valW, rowH).stroke();
-            doc.font(this.fonts.regular).text(String(row[1].v || '-'), rightX + labelW + 5, curY + 6, { width: valW - 10, ellipsis: true });
+            doc.rect(rightX, currentY, labelW, rowH).fillAndStroke(this.colors.grey, this.colors.black);
+            doc.fillColor(this.colors.black).font(this.fonts.bold).text(row[1].l, rightX + 5, currentY + (rowH / 2) - 3.5);
+            doc.rect(rightX + labelW, currentY, valW, rowH).stroke();
+            doc.font(this.fonts.regular).text(String(row[1].v || '-'), rightX + labelW + 5, currentY + (rowH / 2) - (v1H/2) + 1, { width: valW - 10, lineBreak: true });
+            
+            currentY += rowH;
         });
 
-        return infoRows.length * rowH;
+        return currentY - y;
     }
 
     drawTableHeaders(doc, x, y, width, dynamicCols) {
@@ -142,13 +148,40 @@ class QapPdfGenerator {
             });
         }
 
-        doc.rect(x, y, width, headerH).fillAndStroke(this.colors.grey, this.colors.black);
+        doc.font(this.fonts.bold).fontSize(7.5).fillColor(this.colors.black);
+        
+        let maxHeaderH = 35;
+        const fixedTexts = [
+            { t: 'Sr. No.', w: finalCols.cSr },
+            { t: 'Activity', w: finalCols.cAct },
+            { t: 'Type / Method of Check / Extent', w: finalCols.cType },
+            { t: 'Acceptance Criteria / Reference Documents', w: finalCols.cCrit },
+            { t: 'Verifying Document', w: finalCols.cDoc },
+            { t: 'Shreno', w: finalCols.cShreno },
+            { t: 'Client / TPIA', w: finalCols.cClient },
+            { t: 'Remarks', w: finalCols.cRemark }
+        ];
+
+        fixedTexts.forEach(ft => {
+            const h = doc.heightOfString(ft.t, { width: ft.w - 4 });
+            if (h + 16 > maxHeaderH) maxHeaderH = h + 16;
+        });
+
+        if (dynamicCols) {
+            dynamicCols.forEach(col => {
+                const h = doc.heightOfString(col.name, { width: finalCols[col.id] - 4 });
+                if (h + 16 > maxHeaderH) maxHeaderH = h + 16;
+            });
+        }
+
+        doc.rect(x, y, width, maxHeaderH).fillAndStroke(this.colors.grey, this.colors.black);
         doc.font(this.fonts.bold).fontSize(7.5).fillColor(this.colors.black);
 
         let curX = x;
         const drawH = (txt, w, align = 'center') => {
-            doc.rect(curX, y, w, headerH).stroke();
-            doc.text(txt, curX + 2, y + 8, { width: w - 4, align });
+            doc.rect(curX, y, w, maxHeaderH).stroke();
+            const textH = doc.heightOfString(txt, { width: w - 4 });
+            doc.text(txt, curX + 2, y + (maxHeaderH / 2) - (textH / 2) + 1, { width: w - 4, align });
             curX += w;
         };
 
@@ -170,28 +203,41 @@ class QapPdfGenerator {
         // Remarks at the end
         drawH('Remarks', finalCols.cRemark);
 
-        return { height: headerH, columnWidths: finalCols };
+        return { height: maxHeaderH, columnWidths: finalCols };
     }
 
     drawFooterSections(doc, x, y, width, data) {
         const sigH = 105;
-        const exhibitH = 16;
-        const remarksH = 60;
         const sigGap = 8;
         
-        const footerSpaceNeeded = 220; 
+        let remarksH = 60;
+        if (data.remarks) {
+            doc.font(this.fonts.regular).fontSize(8);
+            const textH = doc.heightOfString(data.remarks, { width: width - 10, lineBreak: true });
+            remarksH = Math.max(60, textH + 15);
+        }
         
-        if (y + footerSpaceNeeded > doc.page.height) {
+        // Prevent remarks box from going off the top of the page
+        const maxRemarksH = doc.page.height - 155 - sigGap - 60; // 60 is top margin/padding
+        if (remarksH > maxRemarksH) {
+            remarksH = maxRemarksH;
+        }
+        
+        const footerSpaceNeeded = remarksH + sigGap + sigH + 40; 
+        
+        let currentY = y + 20;
+
+        // If the entire footer block doesn't fit on the current page, move it to the next page
+        if (currentY + footerSpaceNeeded > doc.page.height - 30) {
             doc.addPage();
-            y = 50; 
+            currentY = 50; 
         }
 
-        const sigY = doc.page.height - 155;
-        const remarksY = sigY - remarksH - sigGap;
+        const remarksY = currentY + 12;
 
         // 1. Remarks / General Notes
         doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.black);
-        doc.text('NOTES:', x, remarksY - 12);
+        doc.text('NOTES:', x, currentY);
         doc.rect(x, remarksY, width, remarksH).stroke();
         
         if (data.remarks) {
@@ -199,6 +245,8 @@ class QapPdfGenerator {
             doc.text(data.remarks, x + 5, remarksY + 5, { width: width - 10, height: remarksH - 10, lineBreak: true });
         }
         
+        const sigY = remarksY + remarksH + sigGap;
+
         // 2. Integrated Signature & Exhibit Section
         doc.rect(x, sigY, width, sigH).stroke();
         const sigW = width / 3;
@@ -210,16 +258,7 @@ class QapPdfGenerator {
         doc.text('CHECKED BY', x + sigW, sigY + sigH - 14, { width: sigW, align: 'center' });
         doc.text('APPROVED BY', x + 2 * sigW, sigY + sigH - 14, { width: sigW, align: 'center' });
 
-        // Tangled Exhibit row (Stuck to bottom of signatures)
-        const exY = sigY + sigH;
-        doc.rect(x, exY, width, exhibitH).stroke();
-        doc.fontSize(7).font(this.fonts.regular);
-        doc.text('EXHIBIT: 10/1 QUALITY ASSURANCE PLAN  Rev. 1', x + 5, exY + 5);
-        
-        const range = doc.bufferedPageRange();
-        doc.text(`Page ${range.count} of ${range.count}`, x, exY + 5, { align: 'right', width: width - 5 });
-
-        return exY + exhibitH;
+        return sigY + sigH;
     }
 
     generatePDF(data, res, companyInfo) {
@@ -337,14 +376,12 @@ class QapPdfGenerator {
         // Finalize page numbering and footer
         const range = doc.bufferedPageRange();
         for (let i = range.start; i < range.start + range.count; i++) {
-            // Standard footer for all pages EXCEPT the last one
-            if (i < range.start + range.count - 1) {
-                doc.switchToPage(i);
-                const footerY = doc.page.height - 45; // Moved higher up to prevent auto-pagination blank pages
-                doc.fontSize(7).font(this.fonts.regular).fillColor(this.colors.black);
-                doc.text('EXHIBIT: 10/1 QUALITY ASSURANCE PLAN  Rev. 1', startX, footerY);
-                doc.text(`Page ${i + 1} of ${range.count}`, startX, footerY, { align: 'right', width: pageWidth });
-            }
+            // Standard footer for all pages
+            doc.switchToPage(i);
+            const footerY = doc.page.height - 45; // Static position at bottom of page
+            doc.fontSize(7).font(this.fonts.regular).fillColor(this.colors.black);
+            doc.text('EXHIBIT: 10/1 QUALITY ASSURANCE PLAN  Rev. 1', startX, footerY);
+            doc.text(`Page ${i + 1} of ${range.count}`, startX, footerY, { align: 'right', width: pageWidth });
         }
 
         doc.end();
