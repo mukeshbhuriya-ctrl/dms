@@ -452,7 +452,8 @@ class MhcController {
                 po_no: `${mhc.po_no || mhc.job?.po?.po_number || '-'} DT.- ${poDate}`,
                 code: mhc.code || '-',
                 inspection_by: mhc.inspection_by || '-',
-                items: finalItems
+                items: finalItems,
+                isSelective: !!itemIds
             };
 
             // 4. Set Headers for Preview/Download

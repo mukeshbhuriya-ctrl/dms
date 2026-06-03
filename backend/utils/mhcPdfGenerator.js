@@ -73,8 +73,9 @@ class MhcPdfGenerator {
                 .text('SHRENO ENGINEERING LIMITED', startX + logoW, y + 8, { width: pageWidth - logoW, align: 'center' });
             
             this.drawLine(doc, startX + logoW, y + 20, startX + pageWidth, y + 20, 0.8);
+            const reportTitle = data.isSelective ? 'MATERIAL IDENTIFICATION REPORT' : 'MATERIAL HEAT CHART';
             doc.font(this.fonts.bold).fontSize(12)
-                .text('MATERIAL HEAT CHART', startX + logoW, y + 24, { width: pageWidth - logoW, align: 'center' });
+                .text(reportTitle, startX + logoW, y + 24, { width: pageWidth - logoW, align: 'center' });
 
             y += headerH;
 
