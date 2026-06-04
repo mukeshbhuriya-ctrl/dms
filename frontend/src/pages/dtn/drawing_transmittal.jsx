@@ -890,14 +890,14 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             <table className="w-full border-collapse min-w-[1200px]">
               <thead>
                 <tr className="bg-slate-50 border-b">
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">Sr. No</th>
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 text-left min-w-[300px]">Document Number / Title</th>
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">Rev No</th>
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 text-center">No. of Copy</th>
+                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 min-w-[64px] text-center">Sr. No</th>
+                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 text-left min-w-[300px] w-[400px] max-w-[500px]">Document Number / Title</th>
+                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 min-w-[96px] whitespace-nowrap text-center">Rev No</th>
+                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 min-w-[96px] whitespace-nowrap text-center">No. of Copy</th>
                   {depts.map(d => (
-                    <th key={d} className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 text-center">{d}</th>
+                    <th key={d} className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 min-w-[64px] text-center">{d}</th>
                   ))}
-                  <th className="p-2 border-l text-[10px] font-bold uppercase text-slate-600 w-32 text-center">Action</th>
+                  <th className="p-2 border-l text-[10px] font-bold uppercase text-slate-600 w-32 min-w-[128px] text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -906,7 +906,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                     <td className="p-2 border-r text-center text-[11px] font-bold text-slate-500 bg-slate-50/30">
                       {row.srNo}
                     </td>
-                    <td className="p-1 border-r">
+                    <td className="p-1 border-r max-w-[500px]">
                       <SearchableSelect
                         options={availableDocuments}
                         value={row.document_master_id || ''}
