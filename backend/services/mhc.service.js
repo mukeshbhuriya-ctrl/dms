@@ -940,6 +940,107 @@ class MhcService {
     }
 
     /**
+     * Request a full MHC revision
+     */
+    async requestMhcRevision(company_id, mhc_id, remarks, user_id) {
+        return await prisma.$transaction(async (tx) => {
+            const mhc = await tx.material_heat_chart.findUnique({
+                where: { id: mhc_id }
+            });
+            if (!mhc) throw new Error('Material Heat Chart not found');
+            if (mhc.status !== 'Approved') throw new Error('Can only request revision on Approved MHCs');
+
+            return await tx.material_heat_chart.update({
+                where: { id: mhc_id },
+                data: {
+                    status: 'Revision_Requested',
+                    approver_remarks: remarks
+                }
+            });
+        });
+    }
+
+    /**
+     * Approve full MHC revision request
+     */
+    async approveMhcRevision(company_id, mhc_id, user_id) {
+        return await prisma.$transaction(async (tx) => {
+            const mhc = await tx.material_heat_chart.findUnique({
+                where: { id: mhc_id },
+                include: { items: true } // Fetch items to clone them
+            });
+            if (!mhc) throw new Error('Material Heat Chart not found');
+            if (mhc.status !== 'Revision_Requested') throw new Error('No revision request pending');
+
+            // 1. Mark old report as inactive and rejected
+            await tx.material_heat_chart.update({
+                where: { id: mhc_id },
+                data: {
+                    status: 'Rejected',
+                    is_active: false,
+                    rejected_at: new Date()
+                }
+            });
+
+            // 2. Clone the header
+            const { id: old_id, created_at, updated_at, approved_at, rejected_at, is_active, ...mhcData } = mhc;
+            delete mhcData.items; // Remove items from the data object to create header first
+            
+            // Generate a new UUID for the clone
+            const { v4: uuidv4 } = require('uuid');
+            const newMhcId = uuidv4();
+
+            const clonedMhc = await tx.material_heat_chart.create({
+                data: {
+                    ...mhcData,
+                    id: newMhcId,
+                    status: 'Initiated',
+                    revision: mhc.revision + 1,
+                    approver_remarks: null
+                }
+            });
+
+            // 3. Clone items
+            const itemsData = mhc.items.map(item => {
+                const { id, mhc_id: oldMhcId, created_at, updated_at, ...itemData } = item;
+                return {
+                    ...itemData,
+                    mhc_id: newMhcId
+                };
+            });
+
+            if (itemsData.length > 0) {
+                await tx.material_heat_chart_item.createMany({
+                    data: itemsData
+                });
+            }
+
+            return clonedMhc;
+        });
+    }
+
+    /**
+     * Deny full MHC revision request
+     */
+    async denyMhcRevision(company_id, mhc_id, user_id) {
+        return await prisma.$transaction(async (tx) => {
+            const mhc = await tx.material_heat_chart.findUnique({
+                where: { id: mhc_id }
+            });
+            if (!mhc) throw new Error('Material Heat Chart not found');
+            if (mhc.status !== 'Revision_Requested') throw new Error('No revision request pending');
+
+            return await tx.material_heat_chart.update({
+                where: { id: mhc_id },
+                data: {
+                    status: 'Approved',
+                    approver_remarks: null
+                }
+            });
+        });
+    }
+
+    /**
      * Get the next report number for a specific job
      */
     async getNextReportNo(company_id, job_id) {

@@ -880,6 +880,7 @@ model material_heat_chart {
   inspection_by    String?
 
   status           String   @default("Pending") // INITIATED, OFFERED, APPROVED, REJECTED
+  revision         Int      @default(0)
   
   // Group Assignments
   production_group_id String?

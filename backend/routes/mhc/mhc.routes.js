@@ -25,5 +25,8 @@ router.get('/:id', MhcController.getById);
 // Admin only actions
 router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), MhcController.toggleStatus);
 router.delete('/:id', authenticateUser(['ADMIN']), MhcController.archive);
+router.post('/request-mhc-revision', MhcController.requestMhcRevision);
+router.post('/approve-mhc-revision', authenticateUser(['ADMIN']), MhcController.approveMhcRevision);
+router.post('/deny-mhc-revision', authenticateUser(['ADMIN']), MhcController.denyMhcRevision);
 
 module.exports = router;

@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, Search, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw, Copy } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, Search, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw, Copy, Undo } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -92,6 +92,32 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   const [jobMetadata, setJobMetadata] = useState({}); // MSN -> Job Details
   const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
+
+  const [revisionDialogOpen, setRevisionDialogOpen] = useState(false);
+  const [revisionMhcId, setRevisionMhcId] = useState("");
+  const [revisionRemarks, setRevisionRemarks] = useState("");
+
+  const handleRevisionSubmit = async () => {
+    if (!revisionMhcId || !revisionRemarks.trim()) {
+      toast.error("Remarks are required for revision request.");
+      return;
+    }
+    try {
+      const res = await apiClient.post("/api/mhc/request-mhc-revision", {
+        mhc_id: revisionMhcId,
+        remarks: revisionRemarks
+      });
+      if (res.success) {
+        toast.success("Revision requested successfully.");
+        setRevisionDialogOpen(false);
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        toast.error(res.message || "Failed to request revision.");
+      }
+    } catch (err) {
+      toast.error("An error occurred.");
+    }
+  };
 
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
@@ -661,6 +687,21 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
                 <CheckCircle className="h-4 w-4 mr-2" /> Review & Continue
               </Button>
             )}
+            {s === "APPROVED" && (isAdmin || isQE) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setRevisionMhcId(row.id);
+                  setRevisionRemarks("");
+                  setRevisionDialogOpen(true);
+                }}
+                title="Request Revision">
+                <Undo className="h-4 w-4 mr-2" /> Revise
+              </Button>
+            )}
             {canFinalize && isAdmin && (
               <Button
                 size="sm"
@@ -939,6 +980,29 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Revision Dialog */}
+      <Dialog open={revisionDialogOpen} onOpenChange={setRevisionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Revision</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Reason for Revision</Label>
+              <Input
+                value={revisionRemarks}
+                onChange={(e) => setRevisionRemarks(e.target.value)}
+                placeholder="Explain why this MHC needs revision..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button className="cursor-pointer" variant="outline" onClick={() => setRevisionDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleRevisionSubmit} className="bg-orange-600 hover:bg-orange-700 text-white cursor-pointer">Submit Request</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -955,6 +1019,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const [production_group_id, setProductionGroupId] = useState("")
 
   const [mhcStatus, setMhcStatus] = useState("Initiated")
+  const [approverRemarks, setApproverRemarks] = useState("")
   const { roles } = useAuth()
   const isQE = roles?.includes("QC_ENGINEER");
   const isPE = roles?.includes("PRODUCTION_ENGINEER");
@@ -1047,6 +1112,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             setQcGroupId(data.qc_group_id || "")
             setProductionGroupId(data.production_group_id || "")
             setMhcStatus(cloneId ? (isQE ? "Draft" : "Initiated") : (data.status || "Initiated"))
+            setApproverRemarks(cloneId ? "" : (data.approver_remarks || ""))
             if (data.items && data.items.length > 0) {
               setTableRows(data.items.map((item, index) => ({
                 id: cloneId ? undefined : item.id,
@@ -1316,6 +1382,20 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     }
   }
 
+  const handleRevisionAction = async (action) => {
+    try {
+      const res = await apiClient.post(`/api/mhc/${action}-mhc-revision`, { mhc_id: editId });
+      if (res.success) {
+        toast.success(`Revision ${action}ed.`);
+        window.location.reload();
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err) {
+      toast.error("Failed to process revision action.");
+    }
+  };
+
   const handleSubmit = async (action = "SUBMIT") => {
     if (!selectedJobId) {
       toast.warn("Please select a Job / MSN.")
@@ -1393,6 +1473,35 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         </Button>
       </div>
 
+      {mhcStatus === "Revision_Requested" && isAdmin && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-orange-800 font-semibold text-lg flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Revision Request Pending
+            </h3>
+            <p className="text-orange-700 text-sm mt-1">
+              {(() => {
+                try {
+                  if (!approverRemarks) return "";
+                  const parsed = JSON.parse(approverRemarks);
+                  return parsed.remarks ? `Reason: ${parsed.remarks}` : approverRemarks;
+                } catch (e) {
+                  return approverRemarks;
+                }
+              })()}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button onClick={() => handleRevisionAction("deny")} variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-100 cursor-pointer">
+              Deny
+            </Button>
+            <Button onClick={() => handleRevisionAction("approve")} className="bg-orange-600 hover:bg-orange-700 text-white cursor-pointer">
+              Approve Revision
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Section 1: Basic Information ── */}
       <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">

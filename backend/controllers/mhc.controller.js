@@ -472,6 +472,83 @@ class MhcController {
             res.status(500).send('Error generating Material Heat Chart report');
         }
     }
+    async requestMhcRevision(req, res) {
+        try {
+            const { mhc_id, remarks } = req.body;
+            const result = await MhcService.requestMhcRevision(req.user.company_id, mhc_id, remarks, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Revision requested for entire MHC report.`,
+                metadata: { target_mhc_id: mhc_id },
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'Revision requested successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC requestMhcRevision error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async approveMhcRevision(req, res) {
+        try {
+            const { mhc_id } = req.body;
+            const result = await MhcService.approveMhcRevision(req.user.company_id, mhc_id, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Admin approved revision request for entire MHC report.`,
+                metadata: { target_mhc_id: mhc_id, new_mhc_id: result.id },
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'Revision request approved successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC approveMhcRevision error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async denyMhcRevision(req, res) {
+        try {
+            const { mhc_id } = req.body;
+            const result = await MhcService.denyMhcRevision(req.user.company_id, mhc_id, req.user.userid || req.user.id);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Material Heat Chart',
+                description: `Admin denied revision request for entire MHC report.`,
+                metadata: { target_mhc_id: mhc_id },
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'Revision request denied successfully',
+                data: result,
+            });
+        } catch (error) {
+            console.error('MHC denyMhcRevision error:', error);
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = new MhcController();
