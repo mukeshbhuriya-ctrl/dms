@@ -12,7 +12,7 @@ class MhcController {
             if (typeof query.columnFilters === "string") {
                 try { query.columnFilters = JSON.parse(query.columnFilters); } catch (e) { query.columnFilters = {}; }
             }
-            const result = await MhcService.list(req.user.company_id, query);
+            const result = await MhcService.list(req.user.company_id, query, req.user);
             res.status(200).json({
                 success: true,
                 message: 'Material heat charts fetched successfully',
@@ -27,7 +27,7 @@ class MhcController {
 
     async getFilters(req, res) {
         try {
-            const result = await MhcService.getFilters(req.user.company_id);
+            const result = await MhcService.getFilters(req.user.company_id, req.user);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
             console.error('MHC getFilters error:', error);

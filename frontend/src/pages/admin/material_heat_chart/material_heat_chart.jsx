@@ -1147,12 +1147,31 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     setTableRows(updated)
   }
 
-  const toggleHeading = (id) =>
-    setTableRows((rows) =>
-      rows.map((r) =>
-        r.id === id ? { ...r, isHeading: !r.isHeading, headingText: r.isHeading ? "" : (r.headingText || r.itemNo) } : r
-      )
-    )
+  const toggleHeading = (id) => {
+    setTableRows((rows) => {
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx === -1) return rows;
+      
+      const clickedRow = rows[idx];
+      const newRows = [...rows];
+      
+      if (clickedRow.isHeading) {
+          // If it's already a heading, toggle it back to an item
+          newRows[idx] = { ...clickedRow, isHeading: false, headingText: "" };
+      } else {
+          // If it's an item, insert a new heading row ABOVE it
+          const newHeadingRow = {
+              ...emptyRow(nextId()),
+              isHeading: true,
+              headingText: "HEADING",
+              parentHeadingId: clickedRow.parentHeadingId
+          };
+          newRows.splice(idx, 0, newHeadingRow);
+      }
+      
+      return newRows;
+    });
+  };
 
   const removeRow = (id) => {
     if (tableRows.length <= 1) return

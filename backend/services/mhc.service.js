@@ -4,7 +4,7 @@ class MhcService {
     /**
      * List material heat charts with pagination and search
      */
-    async list(company_id, params = {}) {
+    async list(company_id, params = {}, user = null) {
         const {
             page = 1,
             limit = 10,
@@ -43,6 +43,27 @@ class MhcService {
             }
         }
 
+        // Role-based visibility
+        if (user && user.roles) {
+            const roles = Array.isArray(user.roles) ? user.roles : [user.roles];
+            const isPE = roles.includes('PRODUCTION_ENGINEER');
+            const isQE = roles.includes('QUALITY_ENGINEER');
+            const isAdmin = roles.includes('ADMIN');
+
+            if (isPE && !isAdmin && !isQE) {
+                // Production Engineers should not see Draft MHCs
+                if (where.status) {
+                    where.AND = [
+                        { status: where.status },
+                        { status: { not: 'Draft' } }
+                    ];
+                    delete where.status;
+                } else {
+                    where.status = { not: 'Draft' };
+                }
+            }
+        }
+
         const [total, data] = await prisma.$transaction([
             prisma.material_heat_chart.count({ where }),
             prisma.material_heat_chart.findMany({
@@ -77,12 +98,25 @@ class MhcService {
         };
     }
 
-    async getFilters(company_id) {
+    async getFilters(company_id, user = null) {
+        const where = { 
+            company_id,
+            is_deleted: false 
+        };
+
+        if (user && user.roles) {
+            const roles = Array.isArray(user.roles) ? user.roles : [user.roles];
+            const isPE = roles.includes('PRODUCTION_ENGINEER');
+            const isQE = roles.includes('QUALITY_ENGINEER');
+            const isAdmin = roles.includes('ADMIN');
+
+            if (isPE && !isAdmin && !isQE) {
+                where.status = { not: 'Draft' };
+            }
+        }
+
         const rawData = await prisma.material_heat_chart.findMany({
-            where: { 
-                company_id,
-                is_deleted: false 
-            },
+            where,
             select: { msn: true, client: true, po_no: true, status: true, is_active: true }
         });
         const records = [];
