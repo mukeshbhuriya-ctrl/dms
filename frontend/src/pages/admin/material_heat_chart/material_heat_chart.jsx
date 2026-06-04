@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, Search, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, Search, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw, Copy } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -73,7 +73,7 @@ function emptyRow(id) {
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick }) {
+function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
@@ -92,7 +92,7 @@ function ListView({ onCreateClick, onEditClick }) {
   const [jobMetadata, setJobMetadata] = useState({}); // MSN -> Job Details
   const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
-  
+
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
@@ -102,48 +102,48 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const handleToggleStatus = async (row) => {
     setConfirmData({
-        title: `${row.is_active ? 'Deactivate' : 'Activate'} Material Heat Chart`,
-        description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} MHC ${row.report_no}?`,
-        confirmText: row.is_active ? 'Deactivate' : 'Activate',
-        variant: 'warning',
-        onConfirm: async () => {
-            try {
-                const res = await apiClient.patch(`/api/mhc/toggle-status/${row.id}`)
-                if (res.success) {
-                    toast.success(res.message)
-                    setRefreshTrigger(prev => prev + 1)
-                } else {
-                    toast.error(res.message || "Failed to toggle status")
-                }
-            } catch (err) {
-                console.error(err)
-                toast.error("Failed to toggle status")
-            }
+      title: `${row.is_active ? 'Deactivate' : 'Activate'} Material Heat Chart`,
+      description: `Are you sure you want to ${row.is_active ? 'deactivate' : 'activate'} MHC ${row.report_no}?`,
+      confirmText: row.is_active ? 'Deactivate' : 'Activate',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          const res = await apiClient.patch(`/api/mhc/toggle-status/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshTrigger(prev => prev + 1)
+          } else {
+            toast.error(res.message || "Failed to toggle status")
+          }
+        } catch (err) {
+          console.error(err)
+          toast.error("Failed to toggle status")
         }
+      }
     })
     setConfirmDialogOpen(true)
   }
 
   const handleDelete = async (row) => {
     setConfirmData({
-        title: 'Archive Material Heat Chart',
-        description: `Are you sure you want to archive MHC ${row.report_no}?`,
-        confirmText: 'Archive',
-        variant: 'danger',
-        onConfirm: async () => {
-            try {
-                const res = await apiClient.delete(`/api/mhc/${row.id}`)
-                if (res.success) {
-                    toast.success(res.message)
-                    setRefreshTrigger(prev => prev + 1)
-                } else {
-                    toast.error(res.message || "Failed to archive MHC")
-                }
-            } catch (err) {
-                console.error(err)
-                toast.error("Failed to archive MHC")
-            }
+      title: 'Archive Material Heat Chart',
+      description: `Are you sure you want to archive MHC ${row.report_no}?`,
+      confirmText: 'Archive',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          const res = await apiClient.delete(`/api/mhc/${row.id}`)
+          if (res.success) {
+            toast.success(res.message)
+            setRefreshTrigger(prev => prev + 1)
+          } else {
+            toast.error(res.message || "Failed to archive MHC")
+          }
+        } catch (err) {
+          console.error(err)
+          toast.error("Failed to archive MHC")
         }
+      }
     })
     setConfirmDialogOpen(true)
   }
@@ -239,8 +239,8 @@ function ListView({ onCreateClick, onEditClick }) {
         }
 
         if (headerIdx === -1) {
-           toast.warn("Warning: Could not find 'Job Number' header. Defaulting to first row.");
-           headerIdx = 0;
+          toast.warn("Warning: Could not find 'Job Number' header. Defaulting to first row.");
+          headerIdx = 0;
         }
 
         const rows = json.slice(headerIdx + 1);
@@ -252,27 +252,27 @@ function ListView({ onCreateClick, onEditClick }) {
           const customer_drg_no = String(row[2] || "").trim();
           const inspection_by = String(row[3] || "").trim();
           const prodEmpId = String(row[4] || "").trim();
-          
+
           const isHeading = String(row[5] || "").trim().toLowerCase() === "yes";
           const heading = String(row[6] || "").trim();
-          
+
           const errors = [];
           if (!msn) errors.push("Job Number is required");
           if (!shreno_drg_no) errors.push("Shreno Drg No is required");
-          
+
           const targetProd = allUsers.find(u => String(u.empid || "").trim().toUpperCase() === prodEmpId.toUpperCase());
-          
+
           if (!prodEmpId) {
             errors.push("Production Engineer Emp ID is required");
           } else if (!targetProd) {
             errors.push(`Production Employee ID "${prodEmpId}" not found`);
           }
-          
+
           const batchKey = `${msn}-${shreno_drg_no}-${row[7] || ''}`.toUpperCase();
           let isDuplicate = false;
           if (!isHeading && msn && shreno_drg_no) {
-             if (seenKeys.has(batchKey)) isDuplicate = true;
-             else seenKeys.add(batchKey);
+            if (seenKeys.has(batchKey)) isDuplicate = true;
+            else seenKeys.add(batchKey);
           }
 
           return {
@@ -316,50 +316,50 @@ function ListView({ onCreateClick, onEditClick }) {
   }, [fetchJobMetadata, allUsers]);
 
   const confirmBulkImport = async () => {
-      setIsImporting(true);
-      
-      const validData = excelData.filter(d => d.status === 'valid');
-      const reportGroups = {};
-      validData.forEach(row => {
-          const key = `${row.msn}-${row.shreno_drg_no}`;
-          if (!reportGroups[key]) {
-              reportGroups[key] = {
-                  msn: row.msn,
-                  shreno_drg_no: row.shreno_drg_no,
-                  customer_drg_no: row.customer_drg_no,
-                  inspection_by: row.inspection_by,
-                  production_engineer_id: row.production_engineer_id,
-                  items: []
-              };
-          }
-          reportGroups[key].items.push({
-              is_heading: row.isHeading,
-              heading_text: row.heading || (row.isHeading ? (row.itemNo || row.description) : null),
-              item_no: row.itemNo,
-              description: row.description,
-              materialSpecification: row.materialSpecification,
-              size: row.size,
-              quantityUnit: row.quantityUnit
-          });
-      });
+    setIsImporting(true);
 
-      const payload = Object.values(reportGroups);
-      
-      try {
-          const res = await apiClient.post("/api/mhc/bulk-create", payload);
-          if (res.success) {
-              toast.success(res.message || "Bulk import completed successfully");
-              setBulkImportDialogOpen(false);
-              setRefreshTrigger(prev => prev + 1);
-          } else {
-              toast.error(res.message || "Failed to complete bulk import");
-          }
-      } catch (err) {
-          console.error(err);
-          toast.error("Failed to save MHC records");
-      } finally {
-          setIsImporting(false);
+    const validData = excelData.filter(d => d.status === 'valid');
+    const reportGroups = {};
+    validData.forEach(row => {
+      const key = `${row.msn}-${row.shreno_drg_no}`;
+      if (!reportGroups[key]) {
+        reportGroups[key] = {
+          msn: row.msn,
+          shreno_drg_no: row.shreno_drg_no,
+          customer_drg_no: row.customer_drg_no,
+          inspection_by: row.inspection_by,
+          production_engineer_id: row.production_engineer_id,
+          items: []
+        };
       }
+      reportGroups[key].items.push({
+        is_heading: row.isHeading,
+        heading_text: row.heading || (row.isHeading ? (row.itemNo || row.description) : null),
+        item_no: row.itemNo,
+        description: row.description,
+        materialSpecification: row.materialSpecification,
+        size: row.size,
+        quantityUnit: row.quantityUnit
+      });
+    });
+
+    const payload = Object.values(reportGroups);
+
+    try {
+      const res = await apiClient.post("/api/mhc/bulk-create", payload);
+      if (res.success) {
+        toast.success(res.message || "Bulk import completed successfully");
+        setBulkImportDialogOpen(false);
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        toast.error(res.message || "Failed to complete bulk import");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save MHC records");
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   // Review Dialog State
@@ -501,8 +501,8 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const activeIsActiveOptions = useMemo(() => {
     return [
-        { label: "Active", value: "true" },
-        { label: "Inactive", value: "false" }
+      { label: "Active", value: "true" },
+      { label: "Inactive", value: "false" }
     ];
   }, []);
 
@@ -518,7 +518,7 @@ function ListView({ onCreateClick, onEditClick }) {
         if (!columnFilters.client || columnFilters.client.length === 0) updates.client = [match.client];
         if (!columnFilters.po_no || columnFilters.po_no.length === 0) updates.po_no = [match.po_no];
       }
-    } 
+    }
     else if (columnFilters.po_no && Array.isArray(columnFilters.po_no) && columnFilters.po_no.length === 1) {
       const selectedPo = columnFilters.po_no[0];
       const match = activeFilters.records.find(r => r.po_no?.toString() === selectedPo?.toString());
@@ -534,22 +534,22 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
-    { 
-      header: "Client", 
+    {
+      header: "Client",
       accessorKey: "client",
       filterType: "select",
       isMulti: true,
       filterOptions: activeClientOptions
     },
-    { 
-      header: "PO No", 
+    {
+      header: "PO No",
       accessorKey: "po_no",
       filterType: "select",
       isMulti: true,
       filterOptions: activePoOptions
     },
-    { 
-      header: "MSN", 
+    {
+      header: "MSN",
       accessorKey: "msn",
       filterType: "select",
       isMulti: true,
@@ -576,17 +576,17 @@ function ListView({ onCreateClick, onEditClick }) {
       isMulti: true,
       filterOptions: activeIsActiveOptions,
       cell: (row) => (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <Switch
-                  checked={row.is_active}
-                  onCheckedChange={() => handleToggleStatus(row)}
-                  className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-                  disabled={!isAdmin}
-              />
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-                  {row.is_active ? "Active" : "Inactive"}
-              </span>
-          </div>
+        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <Switch
+            checked={row.is_active}
+            onCheckedChange={() => handleToggleStatus(row)}
+            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
+            disabled={!isAdmin}
+          />
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
+            {row.is_active ? "Active" : "Inactive"}
+          </span>
+        </div>
       )
     },
     {
@@ -621,24 +621,35 @@ function ListView({ onCreateClick, onEditClick }) {
               <span className="text-[10px] font-bold uppercase">PDF</span>
             </Button>
             {canEdit && (
-               <Button
-               variant="outline"
-               size="sm"
-               className="cursor-pointer"
-               onClick={() => onEditClick(row.id)}
-               title="Edit Initiation">
-               <Edit className="h-4 w-4 mr-2" /> Edit
-             </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                onClick={() => onCloneClick(row.id)}
+                title="Clone MHC"
+              >
+                <Copy className="h-4 w-4 mr-2" /> Clone
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer"
+                onClick={() => onEditClick(row.id)}
+                title="Edit Initiation">
+                <Edit className="h-4 w-4 mr-2" /> Edit
+              </Button>
             )}
             {canOffer && (
-               <Button
-               variant="outline"
-               size="sm"
-               className="cursor-pointer border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-               onClick={() => onEditClick(row.id)}
-               title="Continue MHC">
-               <ArrowRight className="h-4 w-4 mr-2" /> Continue
-             </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                onClick={() => onEditClick(row.id)}
+                title="Continue MHC">
+                <ArrowRight className="h-4 w-4 mr-2" /> Continue
+              </Button>
             )}
             {canFinalize && (
               <Button
@@ -661,21 +672,21 @@ function ListView({ onCreateClick, onEditClick }) {
               </Button>
             )}
             {isAdmin && (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(row)}
-                    title="Archive MHC"
-                    className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
-                >
-                    <Archive className="h-4 w-4" /> Archive
-                </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDelete(row)}
+                title="Archive MHC"
+                className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
+              >
+                <Archive className="h-4 w-4" /> Archive
+              </Button>
             )}
           </div>
         )
       },
     },
-  ], [isQE, isAdmin, isPE, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions, activeIsActiveOptions, handleDownloadPdf, handleViewClick, onEditClick]);
+  ], [isQE, isAdmin, isPE, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions, activeIsActiveOptions, handleDownloadPdf, handleViewClick, onEditClick, onCloneClick]);
 
   const fetchData = useCallback(async (params) => {
     try {
@@ -734,19 +745,19 @@ function ListView({ onCreateClick, onEditClick }) {
         <DialogContent className="sm:max-w-[1100px] w-full max-h-[95vh] flex flex-col p-0 overflow-hidden shadow-2xl border-none">
           <DialogHeader className="p-6 pb-2 border-b">
             <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-               <FileText className="h-6 w-6 text-primary" />
-               Review MHC Import
+              <FileText className="h-6 w-6 text-primary" />
+              Review MHC Import
             </DialogTitle>
             <DialogDescription>
               Verify the material heat chart details and Job (MSN) metadata before confirming.
             </DialogDescription>
             <div className="flex gap-4 mt-4 py-2 border-y bg-slate-50 px-4 rounded-lg">
-               <div className="text-sm font-medium">Total: {excelData.length}</div>
-               <div className="text-sm font-medium text-green-600">Valid: {excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length}</div>
-               <div className="text-sm font-medium text-red-600">Errors: {excelData.filter(r => r.status === 'error' || jobMetadata[r.msn]?.error).length}</div>
-               {excelData.some(r => r.status === 'duplicate') && (
-                 <div className="text-sm font-medium text-amber-600">Duplicates: {excelData.filter(r => r.status === 'duplicate').length}</div>
-               )}
+              <div className="text-sm font-medium">Total: {excelData.length}</div>
+              <div className="text-sm font-medium text-green-600">Valid: {excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length}</div>
+              <div className="text-sm font-medium text-red-600">Errors: {excelData.filter(r => r.status === 'error' || jobMetadata[r.msn]?.error).length}</div>
+              {excelData.some(r => r.status === 'duplicate') && (
+                <div className="text-sm font-medium text-amber-600">Duplicates: {excelData.filter(r => r.status === 'duplicate').length}</div>
+              )}
             </div>
           </DialogHeader>
 
@@ -768,129 +779,129 @@ function ListView({ onCreateClick, onEditClick }) {
                     <th className="p-2 text-center font-bold uppercase text-slate-800 text-[9px] tracking-wider min-w-[250px]">Status</th>
                   </tr>
                 </thead>
-              <tbody>
-                {excelData.map((row, idx) => {
-                  const job = jobMetadata[row.msn];
-                  const hasMsnError = job?.error || !row.msn;
-                  const isDup = row.status === 'duplicate';
-                  const isErr = row.status === 'error' || hasMsnError;
-                  
-                  return (
-                    <tr key={idx} className={`border-b divide-x divide-slate-100 transition-colors ${row.isHeading ? 'bg-slate-50/80 font-bold' : isErr ? 'bg-red-50/20' : 'hover:bg-slate-50'}`}>
-                      {/* Job No */}
-                      <td className="p-2 align-top text-[11px]">
-                        <div className="font-semibold">{row.msn}</div>
-                        {job && !job.error && (
-                           <div className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tight">{job.customer?.customer_name}</div>
-                        )}
-                      </td>
+                <tbody>
+                  {excelData.map((row, idx) => {
+                    const job = jobMetadata[row.msn];
+                    const hasMsnError = job?.error || !row.msn;
+                    const isDup = row.status === 'duplicate';
+                    const isErr = row.status === 'error' || hasMsnError;
 
-                      {/* Shreno Ref */}
-                      <td className="p-2 align-top text-[11px] font-medium">
-                         {row.shreno_drg_no || "-"}
-                      </td>
+                    return (
+                      <tr key={idx} className={`border-b divide-x divide-slate-100 transition-colors ${row.isHeading ? 'bg-slate-50/80 font-bold' : isErr ? 'bg-red-50/20' : 'hover:bg-slate-50'}`}>
+                        {/* Job No */}
+                        <td className="p-2 align-top text-[11px]">
+                          <div className="font-semibold">{row.msn}</div>
+                          {job && !job.error && (
+                            <div className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-tight">{job.customer?.customer_name}</div>
+                          )}
+                        </td>
 
-                      {/* Client Ref */}
-                      <td className="p-2 align-top text-[11px] text-slate-500 italic">
-                         {row.customer_drg_no || "-"}
-                      </td>
+                        {/* Shreno Ref */}
+                        <td className="p-2 align-top text-[11px] font-medium">
+                          {row.shreno_drg_no || "-"}
+                        </td>
 
-                      {/* Inspection By */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.inspection_by || "-"}
-                      </td>
+                        {/* Client Ref */}
+                        <td className="p-2 align-top text-[11px] text-slate-500 italic">
+                          {row.customer_drg_no || "-"}
+                        </td>
 
-                      {/* Assigned PROD */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.production_engineer_name ? (
+                        {/* Inspection By */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.inspection_by || "-"}
+                        </td>
+
+                        {/* Assigned PROD */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.production_engineer_name ? (
                             <div className="font-bold text-green-600">{row.production_engineer_name}</div>
-                         ) : (
+                          ) : (
                             <div className="font-bold text-red-600">{row.production_empid_raw || "-"}</div>
-                         )}
-                      </td>
+                          )}
+                        </td>
 
-                      {/* Item No */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.isHeading ? (row.itemNo || row.heading) : (row.itemNo || "-")}
-                      </td>
+                        {/* Item No */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.isHeading ? (row.itemNo || row.heading) : (row.itemNo || "-")}
+                        </td>
 
-                      {/* Description */}
-                      <td className="p-2 align-top text-[11px]">
-                         <div className={`line-clamp-2 ${row.isHeading ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
-                           {row.description || (row.isHeading ? "" : "-")}
-                         </div>
-                      </td>
+                        {/* Description */}
+                        <td className="p-2 align-top text-[11px]">
+                          <div className={`line-clamp-2 ${row.isHeading ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
+                            {row.description || (row.isHeading ? "" : "-")}
+                          </div>
+                        </td>
 
-                      {/* Spec */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.materialSpecification || "-"}
-                      </td>
+                        {/* Spec */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.materialSpecification || "-"}
+                        </td>
 
-                      {/* Size */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.size || "-"}
-                      </td>
+                        {/* Size */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.size || "-"}
+                        </td>
 
-                      {/* Qty */}
-                      <td className="p-2 align-top text-[11px]">
-                         {row.quantityUnit || "-"}
-                      </td>
+                        {/* Qty */}
+                        <td className="p-2 align-top text-[11px]">
+                          {row.quantityUnit || "-"}
+                        </td>
 
 
 
-                      {/* Status (Far Right) */}
-                      <td className="p-2 align-top text-left min-w-[250px]">
-                         {isFetchingMetadata ? (
+                        {/* Status (Far Right) */}
+                        <td className="p-2 align-top text-left min-w-[250px]">
+                          {isFetchingMetadata ? (
                             <div className="flex items-center gap-2">
-                               <div className="h-3 w-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-                               <span className="text-[10px] text-slate-400">Validating...</span>
+                              <div className="h-3 w-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                              <span className="text-[10px] text-slate-400">Validating...</span>
                             </div>
-                         ) : isErr ? (
+                          ) : isErr ? (
                             <div className="text-red-600 font-medium text-[10px] flex items-start gap-1 p-1 rounded bg-red-50/50 leading-normal">
-                               <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                               <span className="break-words">
-                                  {hasMsnError ? `Job Number "${row.msn || 'Empty'}" not found` : ""}
-                                  {hasMsnError && row.message ? " | " : ""}
-                                  {row.message || ""}
-                               </span>
+                              <XCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                              <span className="break-words">
+                                {hasMsnError ? `Job Number "${row.msn || 'Empty'}" not found` : ""}
+                                {hasMsnError && row.message ? " | " : ""}
+                                {row.message || ""}
+                              </span>
                             </div>
-                         ) : isDup ? (
+                          ) : isDup ? (
                             <div className="text-amber-600 font-medium text-[10px] flex items-center gap-1.5 p-1 rounded bg-amber-50/50">
-                               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                               <span>{row.message}</span>
+                              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                              <span>{row.message}</span>
                             </div>
-                         ) : (
+                          ) : (
                             <div className="text-green-600 font-medium text-[10px] flex items-center gap-1.5 p-1 rounded bg-green-50/50">
-                               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                               <span>Ready</span>
+                              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                              <span>Ready</span>
                             </div>
-                         )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
 
           <DialogFooter className="p-6 border-t bg-slate-50 flex items-center sm:justify-between w-full">
             <Button variant="outline" onClick={() => setBulkImportDialogOpen(false)} disabled={isImporting} className="bg-white border-slate-200">
-               Cancel
+              Cancel
             </Button>
-            <Button 
-                onClick={confirmBulkImport} 
-                className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all px-8 h-10 font-medium"
-                disabled={isImporting || excelData.length === 0 || excelData.some(r => r.status === 'error' || jobMetadata[r.msn]?.error)}
+            <Button
+              onClick={confirmBulkImport}
+              className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all px-8 h-10 font-medium"
+              disabled={isImporting || excelData.length === 0 || excelData.some(r => r.status === 'error' || jobMetadata[r.msn]?.error)}
             >
-                {isImporting ? (
-                    <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                        Processing...
-                    </div>
-                ) : (
-                    `Merge ${excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length} Reports`
-                )}
+              {isImporting ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                  Processing...
+                </div>
+              ) : (
+                `Merge ${excelData.filter(r => r.status === 'valid' && !jobMetadata[r.msn]?.error).length} Reports`
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -933,7 +944,7 @@ function ListView({ onCreateClick, onEditClick }) {
 }
 
 // ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
+function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView = false }) {
   const { user } = useAuth()
   // Jobs list for MSN dropdown
   const [jobs, setJobs] = useState([])
@@ -942,7 +953,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const [qc_group_id, setQcGroupId] = useState("")
   const [productionGroups, setProductionGroups] = useState([])
   const [production_group_id, setProductionGroupId] = useState("")
-  
+
   const [mhcStatus, setMhcStatus] = useState("Initiated")
   const { roles } = useAuth()
   const isQE = roles?.includes("QC_ENGINEER");
@@ -1010,34 +1021,36 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       .catch((err) => console.error("Failed to fetch Production groups:", err))
   }, [isAdmin, isQE, editId])
 
-  // Handle editId logic
+  // Handle editId or cloneId logic
   useEffect(() => {
-    if (editId) {
-      apiClient.get(`/api/mhc/${editId}`)
+    const targetId = editId || cloneId;
+    if (targetId) {
+      apiClient.get(`/api/mhc/${targetId}`)
         .then((res) => {
           if (res.success && res.data) {
             const data = res.data
-            setSelectedJobId(data.job_id)
+            setSelectedJobId(cloneId ? "" : data.job_id)
             setAutoFill({
-              reportNo: data.report_no,
-              client: data.client,
-              poNo: data.po_no,
-              projectId: data.project_id || "",
-              equipmentName: data.equipment_name || "",
-              tagNo: data.tag_no || "",
-              code: data.code || "",
+              reportNo: cloneId ? "" : data.report_no,
+              client: cloneId ? "" : data.client,
+              poNo: cloneId ? "" : data.po_no,
+              projectId: cloneId ? "" : (data.project_id || ""),
+              equipmentName: cloneId ? "" : (data.equipment_name || ""),
+              tagNo: cloneId ? "" : (data.tag_no || ""),
+              code: cloneId ? "" : (data.code || ""),
             })
             setFormData({
-              shrenoDrgNo: data.shreno_drg_no || "",
-              customerDrgNo: data.customer_drg_no || "",
-              inspectionBy: data.inspection_by || "",
+              shrenoDrgNo: cloneId ? "" : (data.shreno_drg_no || ""),
+              customerDrgNo: cloneId ? "" : (data.customer_drg_no || ""),
+              inspectionBy: cloneId ? "" : (data.inspection_by || ""),
             })
             setQcGroupId(data.qc_group_id || "")
             setProductionGroupId(data.production_group_id || "")
-            setMhcStatus(data.status || "Initiated")
+            setMhcStatus(cloneId ? (isQE ? "Draft" : "Initiated") : (data.status || "Initiated"))
             if (data.items && data.items.length > 0) {
-              setTableRows(data.items.map(item => ({
-                id: item.id,
+              setTableRows(data.items.map((item, index) => ({
+                id: cloneId ? undefined : item.id,
+                tempRowId: `row-${Date.now()}-${index}`,
                 itemNo: item.item_no || "",
                 description: item.description || "",
                 size: item.size || "",
@@ -1048,19 +1061,19 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 mtrNo: item.mtr_no || "",
                 manufacturerName: item.manufacturer || "",
                 remarks: item.remarks || "",
-                qcStatus: item.qc_status || "Pending",
-                qcRemarks: item.qc_remarks || "",
-                qcReviewerName: item.qc_reviewer?.name || "",
-                prodEngineerName: item.prod_engineer?.name || "",
+                qcStatus: cloneId ? "Pending" : (item.qc_status || "Pending"),
+                qcRemarks: cloneId ? "" : (item.qc_remarks || ""),
+                qcReviewerName: cloneId ? "" : (item.qc_reviewer?.name || ""),
+                prodEngineerName: cloneId ? "" : (item.prod_engineer?.name || ""),
                 isHeading: Boolean(item.is_heading),
                 headingText: item.heading_text || "",
-                parentHeadingId: item.parent_heading_id,
+                parentHeadingId: cloneId ? undefined : item.parent_heading_id,
               })))
             }
           }
         })
     }
-  }, [editId])
+  }, [editId, cloneId, isQE])
 
   // Handle MSN selection → auto-fill from job details API
   const handleJobSelect = async (jobId) => {
@@ -1137,10 +1150,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const addRowAfter = (rowId) => {
     const idx = tableRows.findIndex((r) => r.id === rowId)
     const clickedRow = tableRows[idx]
-    
+
     // Determine the parent heading for the new row based on the clicked row's heading context
     let parentHeadingId = clickedRow.isHeading ? clickedRow.id : clickedRow.parentHeadingId
-    
+
     const newRow = { ...emptyRow(nextId()), parentHeadingId }
     const updated = [...tableRows]
     updated.splice(idx + 1, 0, newRow)
@@ -1151,24 +1164,24 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     setTableRows((rows) => {
       const idx = rows.findIndex((r) => r.id === id);
       if (idx === -1) return rows;
-      
+
       const clickedRow = rows[idx];
       const newRows = [...rows];
-      
+
       if (clickedRow.isHeading) {
-          // If it's already a heading, toggle it back to an item
-          newRows[idx] = { ...clickedRow, isHeading: false, headingText: "" };
+        // If it's already a heading, toggle it back to an item
+        newRows[idx] = { ...clickedRow, isHeading: false, headingText: "" };
       } else {
-          // If it's an item, insert a new heading row ABOVE it
-          const newHeadingRow = {
-              ...emptyRow(nextId()),
-              isHeading: true,
-              headingText: "HEADING",
-              parentHeadingId: clickedRow.parentHeadingId
-          };
-          newRows.splice(idx, 0, newHeadingRow);
+        // If it's an item, insert a new heading row ABOVE it
+        const newHeadingRow = {
+          ...emptyRow(nextId()),
+          isHeading: true,
+          headingText: "HEADING",
+          parentHeadingId: clickedRow.parentHeadingId
+        };
+        newRows.splice(idx, 0, newHeadingRow);
       }
-      
+
       return newRows;
     });
   };
@@ -1187,16 +1200,16 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const filteredTableRows = useMemo(() => {
     if (!itemSearchQuery.trim()) return tableRows;
     const query = itemSearchQuery.toLowerCase();
-    
+
     const matchingIds = new Set();
     const parentHeadingIds = new Set();
-    
+
     // Pass 1: Identify matching items and their structural dependencies
     tableRows.forEach(row => {
-      const matches = row.itemNo?.toLowerCase().includes(query) || 
-                      row.description?.toLowerCase().includes(query) ||
-                      (row.isHeading && row.headingText?.toLowerCase().includes(query));
-      
+      const matches = row.itemNo?.toLowerCase().includes(query) ||
+        row.description?.toLowerCase().includes(query) ||
+        (row.isHeading && row.headingText?.toLowerCase().includes(query));
+
       if (matches) {
         matchingIds.add(row.id);
         if (row.parentHeadingId) parentHeadingIds.add(row.parentHeadingId);
@@ -1204,7 +1217,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     });
 
     // Pass 2: Filter while preserving structure (Heading matches or Item matches)
-    return tableRows.filter(row => 
+    return tableRows.filter(row =>
       matchingIds.has(row.id) || parentHeadingIds.has(row.id)
     );
   }, [tableRows, itemSearchQuery]);
@@ -1258,74 +1271,74 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
   const handleItemAction = async (item, action) => {
     if (!item.id || String(item.id).startsWith("new-")) {
-       toast.warn("Item must be saved before performing this action.")
-       return
+      toast.warn("Item must be saved before performing this action.")
+      return
     }
     const remarks = prompt(`Enter remarks for item ${action.toLowerCase()}:`)
     if (remarks === null) return;
-    
+
     try {
-       const endpoint = action === "REJECT" ? `/api/mhc/reject-item/${item.id}` : `/api/mhc/request-revision/${item.id}`;
-       const res = await apiClient.post(endpoint, { remarks });
-       if (res.success) {
-          toast.success(`Item ${action.toLowerCase()}ed successfully.`)
-          // Refresh MHC data to get new item versions
-          apiClient.get(`/api/mhc/${editId}`).then(r => {
-             if (r.success && r.data) {
-                setTableRows(r.data.items.map(i => ({
-                  id: i.id,
-                  itemNo: i.item_no || "",
-                  description: i.description || "",
-                  size: i.size || "",
-                  materialSpecification: i.material_spec || "",
-                  quantityUnit: i.quantity_unit || "",
-                  heatNo: i.heat_no || "",
-                  grnAppApNo: i.grn_app_ap_no || "",
-                  mtrNo: i.mtr_no || "",
-                  manufacturerName: i.manufacturer || "",
-                  remarks: i.remarks || "",
-                  qcStatus: i.qc_status || "Pending",
-                  qcRemarks: i.qc_remarks || "",
-                  qcReviewerName: i.qc_reviewer?.name || "",
-                  prodEngineerName: i.prod_engineer?.name || "",
-                  isHeading: Boolean(i.is_heading),
-                  headingText: i.heading_text || "",
-                  parentHeadingId: i.parent_heading_id,
-                  version: i.version,
-                })))
-             }
-          })
-       } else {
-          toast.error(res.message || "Action failed.")
-       }
+      const endpoint = action === "REJECT" ? `/api/mhc/reject-item/${item.id}` : `/api/mhc/request-revision/${item.id}`;
+      const res = await apiClient.post(endpoint, { remarks });
+      if (res.success) {
+        toast.success(`Item ${action.toLowerCase()}ed successfully.`)
+        // Refresh MHC data to get new item versions
+        apiClient.get(`/api/mhc/${editId}`).then(r => {
+          if (r.success && r.data) {
+            setTableRows(r.data.items.map(i => ({
+              id: i.id,
+              itemNo: i.item_no || "",
+              description: i.description || "",
+              size: i.size || "",
+              materialSpecification: i.material_spec || "",
+              quantityUnit: i.quantity_unit || "",
+              heatNo: i.heat_no || "",
+              grnAppApNo: i.grn_app_ap_no || "",
+              mtrNo: i.mtr_no || "",
+              manufacturerName: i.manufacturer || "",
+              remarks: i.remarks || "",
+              qcStatus: i.qc_status || "Pending",
+              qcRemarks: i.qc_remarks || "",
+              qcReviewerName: i.qc_reviewer?.name || "",
+              prodEngineerName: i.prod_engineer?.name || "",
+              isHeading: Boolean(i.is_heading),
+              headingText: i.heading_text || "",
+              parentHeadingId: i.parent_heading_id,
+              version: i.version,
+            })))
+          }
+        })
+      } else {
+        toast.error(res.message || "Action failed.")
+      }
     } catch (err) {
-       toast.error("Failed to perform item action.")
+      toast.error("Failed to perform item action.")
     }
   }
 
   const handleSubmit = async (action = "SUBMIT") => {
-    if (!selectedJobId) { 
+    if (!selectedJobId) {
       toast.warn("Please select a Job / MSN.")
-      return 
+      return
     }
 
     const items = tableRows.map((row, idx) => ({
-        id: row.id && !String(row.id).startsWith("new-") ? row.id : undefined,
-        sort_order: idx,
-        is_heading: row.isHeading,
-        heading_text: row.isHeading ? (row.headingText || row.itemNo || "HEADING") : null,
-        item_no: row.itemNo || null,
-        description: row.description || null,
-        size: row.size || null,
-        material_spec: row.materialSpecification || null,
-        quantity_unit: row.quantityUnit || null,
-        heat_no: row.heatNo || null,
-        grn_app_ap_no: row.grnAppApNo || null,
-        mtr_no: row.mtrNo || null,
-        manufacturer: row.manufacturerName || null,
-        remarks: row.remarks || null,
-        qc_status: row.qcStatus || "Pending",
-        qc_remarks: row.qcRemarks || null,
+      id: row.id && !String(row.id).startsWith("new-") ? row.id : undefined,
+      sort_order: idx,
+      is_heading: row.isHeading,
+      heading_text: row.isHeading ? (row.headingText || row.itemNo || "HEADING") : null,
+      item_no: row.itemNo || null,
+      description: row.description || null,
+      size: row.size || null,
+      material_spec: row.materialSpecification || null,
+      quantity_unit: row.quantityUnit || null,
+      heat_no: row.heatNo || null,
+      grn_app_ap_no: row.grnAppApNo || null,
+      mtr_no: row.mtrNo || null,
+      manufacturer: row.manufacturerName || null,
+      remarks: row.remarks || null,
+      qc_status: row.qcStatus || "Pending",
+      qc_remarks: row.qcRemarks || null,
     }))
 
     const payload = {
@@ -1433,13 +1446,14 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               { label: "INSPECTION BY:", field: "inspectionBy" },
             ].map((f) => (
               <div className="space-y-2" key={f.field}>
-                <Label className="uppercase text-xs font-semibold text-muted-foreground">{f.label}</Label>
+                <Label className="uppercase text-xs font-semibold text-muted-foreground">{f.label} <span className="text-destructive">*</span></Label>
                 <Input
                   value={formData[f.field]}
                   onChange={(e) => setFormData({ ...formData, [f.field]: e.target.value })}
                   placeholder={`Enter ${f.label.toLowerCase().replace(':', '')}`}
                   className="h-10 rounded-xl border-muted-foreground/30"
                   disabled={isView}
+                  required
                 />
               </div>
             ))}
@@ -1454,9 +1468,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
             <CardTitle className="text-base font-semibold text-slate-800">Material Heat Chart Details</CardTitle>
             {isView && editId && (
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleDownloadSelectedPdf('print')}
                   className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm bg-white"
                   title="Print Selected Items"
@@ -1465,9 +1479,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                   <span className="text-[10px] font-bold uppercase">Print</span>
                 </Button>
 
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleDownloadSelectedPdf('download')}
                   className="h-8 px-2 cursor-pointer bg-slate-900 border-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm rounded-sm"
                   title="Download Selected PDF"
@@ -1486,13 +1500,13 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 <thead className="sticky top-0 z-40 shadow-sm">
                   <tr className="border-b bg-slate-100 text-slate-700">
                     {isView && (
-                       <th className="p-3 w-12 sticky left-0 bg-slate-100 z-[51] border-b-2 border-slate-200">
-                          <Checkbox 
-                            checked={selectedItemIds.size > 0 && selectedItemIds.size === tableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-")).length}
-                            onCheckedChange={toggleSelectAll}
-                            className="border-slate-400 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
-                          />
-                       </th>
+                      <th className="p-3 w-12 sticky left-0 bg-slate-100 z-[51] border-b-2 border-slate-200">
+                        <Checkbox
+                          checked={selectedItemIds.size > 0 && selectedItemIds.size === tableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-")).length}
+                          onCheckedChange={toggleSelectAll}
+                          className="border-slate-400 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
+                        />
+                      </th>
                     )}
                     {[
                       {
@@ -1515,55 +1529,54 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                       "QC REVIEWER",
                       "Action",
                     ].filter(h => showQcCols || (h !== "QC REVIEW" && h !== "QC REMARKS" && h !== "PROD. PERSON" && h !== "QC REVIEWER"))
-                    .map((h, i) => {
-                      const isObj = typeof h === "object";
-                      const label = isObj ? h.label : h;
-                      
-                      return (
-                        <th
-                          key={label}
-                          className={`p-3 text-left font-bold uppercase text-slate-800 text-[10px] tracking-wider whitespace-nowrap border-b-2 border-slate-200 sticky top-0 z-40 bg-slate-100 ${
-                            i === 0 ? "sticky left-0 z-[52] min-w-[150px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-2 group">
-                            {isObj && h.id === "itemNo" && itemSearchActive ? (
-                              <div className="flex items-center gap-1 w-full bg-white border border-primary/30 rounded px-1.5 py-0.5 shadow-sm animate-in fade-in slide-in-from-left-1 duration-200">
-                                <Search className="h-3 w-3 text-primary/60" />
-                                <input 
-                                  autoFocus
-                                  className="bg-transparent border-none outline-none text-[11px] w-full font-medium placeholder:font-normal placeholder:text-slate-400"
-                                  placeholder="Search..."
-                                  value={itemSearchQuery}
-                                  onChange={(e) => setItemSearchQuery(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Escape') {
-                                      setItemSearchActive(false);
-                                      setItemSearchQuery("");
-                                    }
-                                  }}
-                                />
-                                <button onClick={() => { setItemSearchActive(false); setItemSearchQuery(""); }}>
-                                  <X className="h-3 w-3 text-slate-400 hover:text-rose-500 transition-colors" />
-                                </button>
-                              </div>
-                            ) : (
-                              <>
-                                <span className="truncate">{label}</span>
-                                {isObj && h.searchable && (
-                                  <button 
-                                    onClick={() => setItemSearchActive(true)}
-                                    className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-primary transition-all focus:opacity-100"
-                                  >
-                                    <Search className="h-3.5 w-3.5" />
+                      .map((h, i) => {
+                        const isObj = typeof h === "object";
+                        const label = isObj ? h.label : h;
+
+                        return (
+                          <th
+                            key={label}
+                            className={`p-3 text-left font-bold uppercase text-slate-800 text-[10px] tracking-wider whitespace-nowrap border-b-2 border-slate-200 sticky top-0 z-40 bg-slate-100 ${i === 0 ? "sticky left-0 z-[52] min-w-[150px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
+                              }`}
+                          >
+                            <div className="flex items-center justify-between gap-2 group">
+                              {isObj && h.id === "itemNo" && itemSearchActive ? (
+                                <div className="flex items-center gap-1 w-full bg-white border border-primary/30 rounded px-1.5 py-0.5 shadow-sm animate-in fade-in slide-in-from-left-1 duration-200">
+                                  <Search className="h-3 w-3 text-primary/60" />
+                                  <input
+                                    autoFocus
+                                    className="bg-transparent border-none outline-none text-[11px] w-full font-medium placeholder:font-normal placeholder:text-slate-400"
+                                    placeholder="Search..."
+                                    value={itemSearchQuery}
+                                    onChange={(e) => setItemSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Escape') {
+                                        setItemSearchActive(false);
+                                        setItemSearchQuery("");
+                                      }
+                                    }}
+                                  />
+                                  <button onClick={() => { setItemSearchActive(false); setItemSearchQuery(""); }}>
+                                    <X className="h-3 w-3 text-slate-400 hover:text-rose-500 transition-colors" />
                                   </button>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </th>
-                      )
-                    })}
+                                </div>
+                              ) : (
+                                <>
+                                  <span className="truncate">{label}</span>
+                                  {isObj && h.searchable && (
+                                    <button
+                                      onClick={() => setItemSearchActive(true)}
+                                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-primary transition-all focus:opacity-100"
+                                    >
+                                      <Search className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </th>
+                        )
+                      })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -1580,24 +1593,24 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                               <td colSpan={11} className="p-0 border-t border-t-amber-400/50">
                                 <div className="flex items-center justify-between my-1.5 mx-2 w-full pr-4">
                                   <div className="flex items-center gap-0 sticky left-2 w-fit z-20">
-                                     <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 shrink-0">Heading:</span>
-                                        <Input
-                                          type="text"
-                                          value={row.headingText}
-                                          onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
-                                          placeholder="Enter heading text..."
-                                          className="border-none bg-transparent shadow-none text-sm font-bold text-amber-900 focus-visible:ring-0 placeholder:text-amber-700/30 h-8"
-                                          disabled={isQcInitiationLocked}
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRowChange(row.id, "headingText", "")}
-                                          className={`flex items-center justify-center h-7 w-7 border border-amber-400 bg-white rounded text-orange-500 hover:bg-amber-50 transition-colors shadow-sm ml-2 ${isView ? 'hidden' : ''}`}
-                                        >
-                                          <X className="h-4 w-4 stroke-[3px]" />
-                                        </button>
-                                     </div>
+                                    <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 shrink-0">Heading:</span>
+                                      <Input
+                                        type="text"
+                                        value={row.headingText}
+                                        onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
+                                        placeholder="Enter heading text..."
+                                        className="border-none bg-transparent shadow-none text-sm font-bold text-amber-900 focus-visible:ring-0 placeholder:text-amber-700/30 h-8"
+                                        disabled={isQcInitiationLocked}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRowChange(row.id, "headingText", "")}
+                                        className={`flex items-center justify-center h-7 w-7 border border-amber-400 bg-white rounded text-orange-500 hover:bg-amber-50 transition-colors shadow-sm ml-2 ${isView ? 'hidden' : ''}`}
+                                      >
+                                        <X className="h-4 w-4 stroke-[3px]" />
+                                      </button>
+                                    </div>
                                   </div>
                                   {!isView && (
                                     <div className="flex items-center gap-1.5 h-10 sticky right-2 bg-amber-50/40 px-2 rounded z-20">
@@ -1640,179 +1653,179 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                           {!row.isHeading && (
                             <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
                               {isView && (
-                               <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40" : "bg-white"} border-r border-slate-100`}>
+                                <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40" : "bg-white"} border-r border-slate-100`}>
                                   {row.id && !String(row.id).startsWith("new-") && (
-                                    <Checkbox 
+                                    <Checkbox
                                       checked={selectedItemIds.has(row.id)}
                                       onCheckedChange={() => toggleItemSelection(row.id)}
                                       className="border-slate-400 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                                     />
                                   )}
-                               </td>
-                             )}
-                            {[
-                              { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked },
-                              { field: "description", placeholder: "Description", locked: isQcInitiationLocked },
-                              { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked },
-                              { field: "size", placeholder: "Size", locked: isQcInitiationLocked },
-                              { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked },
-                              { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked },
-                              { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked },
-                              { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked },
-                              { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked },
-                              { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked },
-                            ].map(({ field, placeholder, locked }, i) => (
-                              <td
-                                key={field}
-                                className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40 shadow-[2px_0_4px_-2px_rgba(251,191,36,0.3)]" : "bg-white"}` : ""}`}
-                              >
-                                <Input
-                                  type="text"
-                                  value={row[field]}
-                                  onChange={(e) => handleRowChange(row.id, field, e.target.value)}
-                                  placeholder={placeholder}
-                                  className={`text-[13px] min-w-[120px] h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-amber-400 focus-visible:ring-amber-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
-                                  disabled={locked || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED'}
-                                />
-                              </td>
-                            ))}
+                                </td>
+                              )}
+                              {[
+                                { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked },
+                                { field: "description", placeholder: "Description", locked: isQcInitiationLocked },
+                                { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked },
+                                { field: "size", placeholder: "Size", locked: isQcInitiationLocked },
+                                { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked },
+                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked },
+                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked },
+                                { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked },
+                                { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked },
+                                { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked },
+                              ].map(({ field, placeholder, locked }, i) => (
+                                <td
+                                  key={field}
+                                  className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40 shadow-[2px_0_4px_-2px_rgba(251,191,36,0.3)]" : "bg-white"}` : ""}`}
+                                >
+                                  <Input
+                                    type="text"
+                                    value={row[field]}
+                                    onChange={(e) => handleRowChange(row.id, field, e.target.value)}
+                                    placeholder={placeholder}
+                                    className={`text-[13px] min-w-[120px] h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-amber-400 focus-visible:ring-amber-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
+                                    disabled={locked || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED'}
+                                  />
+                                </td>
+                              ))}
 
-                            {/* QC REVIEW */}
-                            {showQcCols && (
-                              <td className="p-2 align-top min-w-[120px]">
-                                <div className="flex items-center gap-2 h-10">
-                                  {(() => {
-                                    const s = String(row.qcStatus || "Pending").toUpperCase();
-                                    if (isAdmin || isQE) {
-                                      return (
-                                        <>
-                                          <TooltipProvider>
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <Button
-                                                  type="button"
-                                                  size="icon"
-                                                  variant="outline"
-                                                  className={`h-8 w-8 rounded-lg transition-all ${s === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'hover:bg-emerald-50 text-emerald-600 border-emerald-200'}`}
-                                                  onClick={() => handleRowChange(row.id, "qcStatus", s === 'APPROVED' ? 'Pending' : 'Approved')}
-                                                  disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
-                                                >
-                                                  <Check className="h-4 w-4" />
-                                                </Button>
-                                              </TooltipTrigger>
-                                              <TooltipContent>Approve Item</TooltipContent>
-                                            </Tooltip>
+                              {/* QC REVIEW */}
+                              {showQcCols && (
+                                <td className="p-2 align-top min-w-[120px]">
+                                  <div className="flex items-center gap-2 h-10">
+                                    {(() => {
+                                      const s = String(row.qcStatus || "Pending").toUpperCase();
+                                      if (isAdmin || isQE) {
+                                        return (
+                                          <>
+                                            <TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Button
+                                                    type="button"
+                                                    size="icon"
+                                                    variant="outline"
+                                                    className={`h-8 w-8 rounded-lg transition-all ${s === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'hover:bg-emerald-50 text-emerald-600 border-emerald-200'}`}
+                                                    onClick={() => handleRowChange(row.id, "qcStatus", s === 'APPROVED' ? 'Pending' : 'Approved')}
+                                                    disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
+                                                  >
+                                                    <Check className="h-4 w-4" />
+                                                  </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Approve Item</TooltipContent>
+                                              </Tooltip>
 
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <Button
-                                                  type="button"
-                                                  size="icon"
-                                                  variant="outline"
-                                                  className={`h-8 w-8 rounded-lg transition-all ${s === 'REJECTED' ? 'bg-rose-500 text-white border-rose-600' : 'hover:bg-rose-50 text-rose-600 border-rose-200'}`}
-                                                  onClick={() => handleRowChange(row.id, "qcStatus", s === 'REJECTED' ? 'Pending' : 'Rejected')}
-                                                  disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
-                                                >
-                                                  <X className="h-4 w-4" />
-                                                </Button>
-                                              </TooltipTrigger>
-                                              <TooltipContent>Reject Item</TooltipContent>
-                                            </Tooltip>
-                                          </TooltipProvider>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <Button
+                                                    type="button"
+                                                    size="icon"
+                                                    variant="outline"
+                                                    className={`h-8 w-8 rounded-lg transition-all ${s === 'REJECTED' ? 'bg-rose-500 text-white border-rose-600' : 'hover:bg-rose-50 text-rose-600 border-rose-200'}`}
+                                                    onClick={() => handleRowChange(row.id, "qcStatus", s === 'REJECTED' ? 'Pending' : 'Rejected')}
+                                                    disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
+                                                  >
+                                                    <X className="h-4 w-4" />
+                                                  </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>Reject Item</TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
 
-                                          {s !== 'PENDING' && (
-                                            <span className={`text-[10px] font-bold uppercase tracking-tight ${s === 'APPROVED' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                              {s === 'APPROVED' ? 'Approved' : 'Rejected'}
-                                            </span>
-                                          )}
-                                        </>
-                                      );
-                                    } else {
-                                      // Production View: ONLY show if NOT pending
-                                      if (s === 'PENDING') return null;
+                                            {s !== 'PENDING' && (
+                                              <span className={`text-[10px] font-bold uppercase tracking-tight ${s === 'APPROVED' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                {s === 'APPROVED' ? 'Approved' : 'Rejected'}
+                                              </span>
+                                            )}
+                                          </>
+                                        );
+                                      } else {
+                                        // Production View: ONLY show if NOT pending
+                                        if (s === 'PENDING') return null;
 
-                                      return (
-                                        <div className="flex items-center gap-2">
-                                          {s === 'APPROVED' && (
-                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
-                                              <CheckCircle className="h-3.5 w-3.5" />
-                                              <span className="text-[10px] font-black uppercase tracking-tight">Approved</span>
-                                            </div>
-                                          )}
-                                          {s === 'REJECTED' && (
-                                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
-                                              <XCircle className="h-3.5 w-3.5" />
-                                              <span className="text-[10px] font-black uppercase tracking-tight">Rejected</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      );
-                                    }
-                                  })()}
+                                        return (
+                                          <div className="flex items-center gap-2">
+                                            {s === 'APPROVED' && (
+                                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+                                                <CheckCircle className="h-3.5 w-3.5" />
+                                                <span className="text-[10px] font-black uppercase tracking-tight">Approved</span>
+                                              </div>
+                                            )}
+                                            {s === 'REJECTED' && (
+                                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+                                                <XCircle className="h-3.5 w-3.5" />
+                                                <span className="text-[10px] font-black uppercase tracking-tight">Rejected</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+                                    })()}
+                                  </div>
+                                </td>
+                              )}
+                              {showQcCols && (
+                                <td className="p-2 align-top min-w-[200px]">
+                                  <Input
+                                    value={row.qcRemarks || ""}
+                                    onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
+                                    placeholder="QC feedback..."
+                                    className={`text-[13px] h-10 rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
+                                    disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
+                                  />
+                                </td>
+                              )}
+                              {showQcCols && (
+                                <td className="p-2 align-top min-w-[150px]">
+                                  <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
+                                    {row.prodEngineerName || "-"}
+                                  </div>
+                                </td>
+                              )}
+                              {showQcCols && (
+                                <td className="p-2 align-top min-w-[150px]">
+                                  <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
+                                    {row.qcReviewerName || "-"}
+                                  </div>
+                                </td>
+                              )}
+                              {/* Actions */}
+                              <td className={`p-2 align-top ${isView ? 'hidden' : ''}`}>
+                                <div className="flex items-center gap-1.5 h-10">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className={`h-8 w-8 rounded-lg border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
+                                    onClick={() => toggleHeading(row.id)}
+                                    disabled={isQcInitiationLocked}
+                                  >
+                                    <Type className={`h-4 w-4 ${row.isHeading ? "stroke-[3px]" : ""}`} />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
+                                    onClick={() => addRowAfter(row.id)}
+                                    disabled={isQcInitiationLocked}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
+                                    onClick={() => removeRow(row.id)}
+                                    disabled={isQcInitiationLocked}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </div>
                               </td>
-                            )}
-                            {showQcCols && (
-                              <td className="p-2 align-top min-w-[200px]">
-                                   <Input 
-                                     value={row.qcRemarks || ""}
-                                     onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
-                                     placeholder="QC feedback..."
-                                     className={`text-[13px] h-10 rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
-                                     disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
-                                   />
-                              </td>
-                            )}
-                             {showQcCols && (
-                               <td className="p-2 align-top min-w-[150px]">
-                                 <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
-                                   {row.prodEngineerName || "-"}
-                                 </div>
-                               </td>
-                             )}
-                             {showQcCols && (
-                               <td className="p-2 align-top min-w-[150px]">
-                                 <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
-                                   {row.qcReviewerName || "-"}
-                                 </div>
-                               </td>
-                             )}
-                            {/* Actions */}
-                            <td className={`p-2 align-top ${isView ? 'hidden' : ''}`}>
-                              <div className="flex items-center gap-1.5 h-10">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className={`h-8 w-8 rounded-lg border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
-                                  onClick={() => toggleHeading(row.id)}
-                                  disabled={isQcInitiationLocked}
-                                >
-                                  <Type className={`h-4 w-4 ${row.isHeading ? "stroke-[3px]" : ""}`} />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
-                                  onClick={() => addRowAfter(row.id)}
-                                  disabled={isQcInitiationLocked}
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
-                                  onClick={() => removeRow(row.id)}
-                                  disabled={isQcInitiationLocked}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
+                            </tr>
                           )}
                         </React.Fragment>
                       );
@@ -1876,9 +1889,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
         {!isView && (
           <>
             {(isAdmin || isQE) && (!editId || mhcStatus?.toUpperCase() === "DRAFT") && (
-              <Button 
+              <Button
                 variant="outline"
-                onClick={() => handleSubmit("DRAFT")} 
+                onClick={() => handleSubmit("DRAFT")}
                 disabled={submitting !== null}
                 className="border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
@@ -1886,8 +1899,8 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               </Button>
             )}
             {(!editId || ["INITIATED", "PENDING", "DRAFT"].includes(mhcStatus?.toUpperCase())) && (isAdmin || isQE) && (
-              <Button 
-                onClick={() => handleSubmit("INITIATE")} 
+              <Button
+                onClick={() => handleSubmit("INITIATE")}
                 disabled={submitting !== null}
                 className="cursor-pointer"
               >
@@ -1895,9 +1908,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               </Button>
             )}
             {(mhcStatus?.toUpperCase() === "INITIATED" || mhcStatus?.toUpperCase() === "PENDING" || mhcStatus?.toUpperCase() === "REJECTED") && (isAdmin || isPE) && (
-              <Button 
+              <Button
                 variant="secondary"
-                onClick={() => handleSubmit("OFFER")} 
+                onClick={() => handleSubmit("OFFER")}
                 disabled={submitting !== null}
                 className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 cursor-pointer gap-2"
               >
@@ -1907,17 +1920,17 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
             )}
             {mhcStatus?.toUpperCase() === "OFFERED" && (isAdmin || isQE) && (
               <>
-                <Button 
+                <Button
                   variant="secondary"
-                  onClick={() => handleSubmit("SAVE_REVIEW")} 
+                  onClick={() => handleSubmit("SAVE_REVIEW")}
                   disabled={submitting !== null || !tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
                   className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
                 >
                   {submitting === "SAVE_REVIEW" ? "Saving..." : "Review & Continue"}
                   <Save className="h-4 w-4" />
                 </Button>
-                <Button 
-                  onClick={() => handleSubmit("FINALIZE")} 
+                <Button
+                  onClick={() => handleSubmit("FINALIZE")}
                   disabled={submitting !== null || tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2"
                 >
@@ -1927,9 +1940,9 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               </>
             )}
             {mhcStatus?.toUpperCase() === "OFFERED" && isAdmin && (
-              <Button 
+              <Button
                 variant="destructive"
-                onClick={() => handleSubmit("REJECT")} 
+                onClick={() => handleSubmit("REJECT")}
                 disabled={submitting !== null}
                 className="cursor-pointer"
               >
@@ -1945,30 +1958,38 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function MaterialHeatChart() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [view, setView] = useState("list") // "list", "create", "members"
+  const [view, setView] = useState("list")
   const [editId, setEditId] = useState(null)
-  const [selectedGroup, setSelectedGroup] = useState(null)
+  const [cloneId, setCloneId] = useState(null)
   const [isReadOnly, setIsReadOnly] = useState(false)
+  const [searchParams] = useSearchParams()
 
   useEffect(() => {
-    const id = searchParams.get("id")
-    if (id) {
-      setEditId(id)
-      setIsReadOnly(true) // Notifications usually open in view mode
-      setView("create")
+    const action = searchParams.get('action')
+    const id = searchParams.get('id')
+    if (action === 'edit' && id) {
+      handleEditClick(id)
     }
   }, [searchParams])
 
   const handleCreateClick = () => {
     setEditId(null)
+    setCloneId(null)
     setIsReadOnly(false)
     setView("create")
   }
 
   const handleEditClick = (id, isView = false) => {
     setEditId(id)
+    setCloneId(null)
     setIsReadOnly(isView)
+    setView("create")
+  }
+
+  const handleCloneClick = (id) => {
+    setCloneId(id)
+    setEditId(null)
+    setIsReadOnly(false)
     setView("create")
   }
 
@@ -1979,20 +2000,20 @@ export default function MaterialHeatChart() {
 
   return (
     <>
-        <ModuleHeader 
-          title="Material Heat Chart" 
-          description="Manage inspection records, production data, and quality approvals for heat-treated materials."
-        />
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
+      <ModuleHeader
+        title="Material Heat Chart"
+        description="Manage inspection records, production data, and quality approvals for heat-treated materials."
+      />
+      <main className="flex-1 overflow-auto p-6 flex flex-col">
+        <div className="flex-1 flex flex-col w-full">
 
-            {view === "list" ? (
-              <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} />
-            ) : (
-              <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} isView={isReadOnly} />
-            )}
-          </div>
-        </main>
+          {view === "list" ? (
+            <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} onCloneClick={handleCloneClick} />
+          ) : (
+            <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} />
+          )}
+        </div>
+      </main>
     </>
   )
 }

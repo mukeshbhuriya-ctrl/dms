@@ -16,9 +16,9 @@ class MhcService {
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
 
-        const where = { 
+        const where = {
             company_id,
-            is_deleted: false 
+            is_deleted: false
         };
 
         if (search) {
@@ -44,10 +44,11 @@ class MhcService {
         }
 
         // Role-based visibility
-        if (user && user.roles) {
-            const roles = Array.isArray(user.roles) ? user.roles : [user.roles];
+        if (user && (user.roles || user.role)) {
+            const userRoles = user.roles || user.role;
+            const roles = Array.isArray(userRoles) ? userRoles : [userRoles];
             const isPE = roles.includes('PRODUCTION_ENGINEER');
-            const isQE = roles.includes('QUALITY_ENGINEER');
+            const isQE = roles.includes('QC_ENGINEER') || roles.includes('QUALITY_ENGINEER');
             const isAdmin = roles.includes('ADMIN');
 
             if (isPE && !isAdmin && !isQE) {
@@ -99,9 +100,9 @@ class MhcService {
     }
 
     async getFilters(company_id, user = null) {
-        const where = { 
+        const where = {
             company_id,
-            is_deleted: false 
+            is_deleted: false
         };
 
         if (user && user.roles) {
@@ -270,9 +271,9 @@ class MhcService {
             return tx.material_heat_chart.findUnique({
                 where: { id: header.id },
                 include: {
-                    items: { 
+                    items: {
                         where: { is_current: true },
-                        orderBy: { sort_order: 'asc' } 
+                        orderBy: { sort_order: 'asc' }
                     },
                     production_group: { select: { id: true, name: true } },
                     qc_group: { select: { id: true, name: true } },
@@ -300,7 +301,7 @@ class MhcService {
             for (const item of items) {
                 // Try to find by ID first, then fallback to sort_order
                 let targetId = item.id;
-                
+
                 if (!targetId && item.sort_order !== undefined) {
                     const found = await tx.material_heat_chart_item.findFirst({
                         where: { mhc_id: id, sort_order: item.sort_order, is_current: true },
@@ -380,9 +381,9 @@ class MhcService {
                     submitted_at: new Date()
                 },
                 include: {
-                    items: { 
+                    items: {
                         where: { is_current: true },
-                        orderBy: { sort_order: 'asc' } 
+                        orderBy: { sort_order: 'asc' }
                     }
                 }
             });
@@ -405,14 +406,14 @@ class MhcService {
         return await prisma.$transaction(async (tx) => {
             for (const item of items) {
                 if (!item.id) continue;
-                
+
                 // Fetch current item state to prevent overwriting approved data
                 const currentItem = await tx.material_heat_chart_item.findUnique({
                     where: { id: item.id }
                 });
-                
+
                 if (currentItem && currentItem.qc_status === 'Approved') continue;
-                
+
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
                     data: {
@@ -446,9 +447,9 @@ class MhcService {
                     approver_remarks: approver_remarks || null
                 },
                 include: {
-                    items: { 
+                    items: {
                         where: { is_current: true },
-                        orderBy: { sort_order: 'asc' } 
+                        orderBy: { sort_order: 'asc' }
                     }
                 }
             });
@@ -472,14 +473,14 @@ class MhcService {
 
             for (const item of items) {
                 if (!item.id) continue;
-                
+
                 // Fetch current item state to prevent overwriting approved data
                 const currentItem = await tx.material_heat_chart_item.findUnique({
                     where: { id: item.id }
                 });
 
                 if (currentItem && currentItem.qc_status === 'Approved') continue;
-                
+
                 const status = item.qc_status || 'Pending';
                 if (status === 'Rejected') hasRejections = true;
 
@@ -511,9 +512,9 @@ class MhcService {
                     approver_remarks: approver_remarks || null
                 },
                 include: {
-                    items: { 
+                    items: {
                         where: { is_current: true },
-                        orderBy: { sort_order: 'asc' } 
+                        orderBy: { sort_order: 'asc' }
                     }
                 }
             });
@@ -653,7 +654,7 @@ class MhcService {
 
                     // Auto-resolve Production Group
                     const prodGroup = await prisma.user_employee_group.findFirst({
-                        where: { 
+                        where: {
                             user_id: report.production_engineer_id,
                             employee_group: { group_type: "PRODUCTION" }
                         },
@@ -665,7 +666,7 @@ class MhcService {
 
                     // Auto-resolve QC Group for the uploader
                     const qcGroup = await prisma.user_employee_group.findFirst({
-                        where: { 
+                        where: {
                             user_id: creator_id,
                             employee_group: { group_type: "QUALITY" }
                         },
@@ -678,10 +679,10 @@ class MhcService {
                     // Deduplication: Check if a report with same Job and Shreno Drawing Number already exists
                     if (report.shreno_drg_no) {
                         const existing = await prisma.material_heat_chart.findFirst({
-                            where: { 
+                            where: {
                                 job_id: report.job_id,
                                 shreno_drg_no: String(report.shreno_drg_no).trim(),
-                                company_id 
+                                company_id
                             },
                             select: { id: true }
                         });
@@ -768,7 +769,7 @@ class MhcService {
                     }
 
                     const isPending = (item.qcStatus || item.qc_status || 'Pending').toUpperCase() === 'PENDING';
-                    
+
                     const data = {
                         sort_order: idx,
                         is_heading: isHeading,
@@ -858,7 +859,7 @@ class MhcService {
         const mhc = await prisma.material_heat_chart.findFirst({
             where: { id, company_id },
             include: {
-                items: { 
+                items: {
                     where: includeHistory ? {} : { is_current: true },
                     orderBy: { sort_order: 'asc' },
                     include: {
@@ -902,7 +903,7 @@ class MhcService {
             }
         });
 
-        const allItems = approvedCharts.flatMap(chart => 
+        const allItems = approvedCharts.flatMap(chart =>
             chart.items.map(item => ({
                 ...item,
                 mhc_report_no: chart.report_no
@@ -928,7 +929,7 @@ class MhcService {
             }
         });
 
-        const allItems = approvedCharts.flatMap(chart => 
+        const allItems = approvedCharts.flatMap(chart =>
             chart.items.map(item => ({
                 ...item,
                 mhc_report_no: chart.report_no
