@@ -348,6 +348,13 @@ class PDFGenerator {
         const j1 = joints[1] || {};
         const j2 = joints[2] || {};
 
+        y = this._row4(doc, x, y, ws, rh, pad, [
+            { t: 'Remarks', f: this.fonts.bold, c: this.colors.red },
+            { t: j0.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j1.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: j2.remarks || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+
         // Production Engineer
         y = this._row4(doc, x, y, ws, rh, pad, [
             { t: 'Production Engineer: Name', f: this.fonts.bold, c: this.colors.red },
@@ -380,13 +387,6 @@ class PDFGenerator {
             { t: j0.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
             { t: j1.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black },
             { t: j2.qcStatus === 'approved' ? 'Approve' : '', f: this.fonts.regular, c: this.colors.black }
-        ]);
-
-        y = this._row4(doc, x, y, ws, rh, pad, [
-            { t: 'Remarks', f: this.fonts.bold, c: this.colors.red },
-            { t: j0.remarks || '', f: this.fonts.regular, c: this.colors.black },
-            { t: j1.remarks || '', f: this.fonts.regular, c: this.colors.black },
-            { t: j2.remarks || '', f: this.fonts.regular, c: this.colors.black }
         ]);
 
         // AI / CLIENT / TPIA

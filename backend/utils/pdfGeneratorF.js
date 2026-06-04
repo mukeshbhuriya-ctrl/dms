@@ -206,6 +206,13 @@ class PDFGeneratorF {
         const newWs = [labelW, ws[3], ws[4], ws[5]];
         
         y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: 'Remarks', f: this.fonts.bold, c: this.colors.red },
+            { t: s0.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.remarks || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
+
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
             { t: 'Production Engineer: Name', f: this.fonts.bold, c: this.colors.red },
             { t: s0.productionEngineerName || s0.prodName || '', f: this.fonts.regular, c: this.colors.black },
             { t: s1.productionEngineerName || s1.prodName || '', f: this.fonts.regular, c: this.colors.black },
@@ -271,6 +278,13 @@ class PDFGeneratorF {
             const approved = isQc ? (d.qcStatus === 'approved') : false;
             return [name, date, approved ? 'Approve' : ''].filter(Boolean).join(' / ');
         };
+
+        y = this._gridRow(doc, x, y, newWs, rowH, pad, [
+            { t: 'Remarks', f: this.fonts.bold, c: this.colors.red },
+            { t: s0.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s1.remarks || '', f: this.fonts.regular, c: this.colors.black },
+            { t: s2.remarks || '', f: this.fonts.regular, c: this.colors.black }
+        ]);
 
         // Production Engineer
         y = this._gridRow(doc, x, y, newWs, rowH, pad, [
