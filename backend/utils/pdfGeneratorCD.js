@@ -53,6 +53,15 @@ class PDFGeneratorCD {
         const j1 = s1_joints[1] || {};
         const j2 = s1_joints[2] || {};
         const firstData = j0;
+        
+        this.doc = doc;
+        this.startX = startX;
+        this.pageW = pageW;
+        this.pageH = pageH;
+        this.innerX = x;
+        this.innerW = innerW;
+        this.firstData = firstData;
+        this.companyInfo = companyInfo;
 
         // ===== HEADER =====
         const headerH = 70;
@@ -70,7 +79,6 @@ class PDFGeneratorCD {
         y += headerH + 5;
 
         // ===== HEADER METADATA =====
-        const metaRowH = 20;
         const pad = 4;
         const metaRows = [
             { l: 'Shreno Manufacturer sr. no.:', v: firstData.msn || '-' },
@@ -78,11 +86,15 @@ class PDFGeneratorCD {
             { l: 'Drawing no. :', v: firstData.drgNo || '-' }
         ];
         metaRows.forEach(r => {
+            doc.font(this.fonts.regular).fontSize(9);
+            const textH = doc.heightOfString(r.v || '', { width: innerW * 0.6 - pad * 2 });
+            const metaRowH = Math.max(20, textH + 10);
+            
             doc.rect(x, y, innerW, metaRowH).stroke();
             doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red)
                 .text(r.l, x + pad, y + 5, { width: innerW * 0.4 - pad * 2 });
             doc.font(this.fonts.regular).fontSize(9).fillColor(this.colors.black)
-                .text(r.v, x + innerW * 0.4 + pad, y + 5, { width: innerW * 0.6 - pad * 2 });
+                .text(r.v || '', x + innerW * 0.4 + pad, y + 5, { width: innerW * 0.6 - pad * 2 });
             y += metaRowH;
         });
 
@@ -125,7 +137,6 @@ class PDFGeneratorCD {
         ]);
 
         // ===== CHAR 2: Nozzle pipe to Flange Set-Up =====
-        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         y = this._gridRow(doc, x, y, ws, rowH, pad, [
             { t: '2', f: this.fonts.bold, c: this.colors.black },
             { t: 'Nozzle pipe to\nFlange Set-Up', f: this.fonts.bold, c: this.colors.red },
@@ -164,7 +175,6 @@ class PDFGeneratorCD {
             const s2_cd = allStagesData.stage2 || {};
             const s2_joints = s2_cd.joints || (s2_cd.jointNo ? [s2_cd] : []);
             
-            y = this._checkPage(doc, y, s2_joints.length ? 260 : 80, startX, pageW, pageH);
             y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
                 { t: 'Back chip - Required / not required', f: this.fonts.bold, c: this.colors.red, align: 'center' }
             ]);
@@ -183,7 +193,6 @@ class PDFGeneratorCD {
 
 
         // ===== CHAR 3: Weld Visual / Overlay PT =====
-        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s3_cd = allStagesData.stage3 || {};
         const s3_joints = s3_cd.joints || (s3_cd.jointNo ? [s3_cd] : []);
         const s3_0 = s3_joints[0] || {};
@@ -201,7 +210,6 @@ class PDFGeneratorCD {
         if (s3_joints.length) y = this._compactSig(doc, x, y, innerW, rowH, pad, s3_cd, ws);
 
         // ===== CHAR 4: Inspection Of Nozzle Opening =====
-        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s4_cd = allStagesData.stage4 || {};
         const s4_joints = s4_cd.joints || (s4_cd.jointNo ? [s4_cd] : []);
         const s4_0 = s4_joints[0] || {};
@@ -240,7 +248,6 @@ class PDFGeneratorCD {
         if (s4_joints.length) y = this._compactSig(doc, x, y, innerW, rowH, pad, s4_cd, ws);
 
         // ===== CHAR 5: Nozzle Set-Up on Shell / Dish =====
-        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s5_cd = allStagesData.stage5 || {};
         const s5_joints = s5_cd.joints || (s5_cd.jointNo ? [s5_cd] : []);
         const s5_0 = s5_joints[0] || {};
@@ -274,7 +281,6 @@ class PDFGeneratorCD {
         if (s5_joints.length) y = this._compactSig(doc, x, y, innerW, rowH, pad, s5_cd, ws);
 
         // ===== CHAR 6: Inspection after full Welding =====
-        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s6_cd = allStagesData.stage6 || {};
         const s6_joints = s6_cd.joints || (s6_cd.jointNo ? [s6_cd] : []);
         const s6_0 = s6_joints[0] || {};
@@ -306,7 +312,6 @@ class PDFGeneratorCD {
         if (s6_joints.length) y = this._compactSig(doc, x, y, innerW, rowH, pad, s6_cd, ws);
 
         // ===== CHAR 7: R.F. Pad Pneumatic =====
-        y = this._checkPage(doc, y, 260, startX, pageW, pageH);
         const s7_cd = allStagesData.stage7 || {};
         const s7_joints = s7_cd.joints || (s7_cd.jointNo ? [s7_cd] : []);
         const s7_0 = s7_joints[0] || {};
@@ -329,7 +334,6 @@ class PDFGeneratorCD {
         const isD = jt === 'D';
 
         if (j0.pwht || j1.pwht || j2.pwht) {
-            y = this._checkPage(doc, y, 260, startX, pageW, pageH);
             y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
                 { t: 'PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
             ]);
@@ -343,7 +347,6 @@ class PDFGeneratorCD {
                 y = this._sigBlockRed(doc, x, y, innerW, rowH, pad, s4_pwht, ws, 'NDT Engineer');
             }
 
-            y = this._checkPage(doc, y, 260, startX, pageW, pageH);
             y = this._gridRow(doc, x, y, [innerW], rowH + 6, pad, [
                 { t: 'Liquid Penetrant Testing – After PWHT', f: this.fonts.bold, c: this.colors.red, align: 'center' }
             ]);
@@ -368,7 +371,7 @@ class PDFGeneratorCD {
             }
         });
         const h = Math.max(minH, maxTextH + 6);
-
+        y = this._checkPage(y, h);
         let cx = x;
         widths.forEach((w, i) => {
             doc.rect(cx, y, w, h).stroke();
@@ -500,12 +503,12 @@ class PDFGeneratorCD {
         return y;
     }
 
-    _checkPage(doc, y, needed, startX, pageW, pageH) {
-        if (y + needed > startX + pageH - 10) {
-            doc.addPage();
-            doc.rect(startX, startX, pageW, pageH).strokeColor(this.colors.black).lineWidth(1.5).stroke();
-            doc.lineWidth(0.5);
-            return startX + 10;
+    _checkPage(y, needed) {
+        if (y + needed > this.startX + this.pageH - 10) {
+            this.doc.addPage();
+            this.doc.rect(this.startX, this.startX, this.pageW, this.pageH).strokeColor(this.colors.black).lineWidth(1.5).stroke();
+            this.doc.lineWidth(0.5);
+            return this.startX + 10;
         }
         return y;
     }

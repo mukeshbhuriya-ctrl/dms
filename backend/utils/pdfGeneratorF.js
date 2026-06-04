@@ -50,6 +50,15 @@ class PDFGeneratorF {
         const j1 = s1_joints[1] || {};
         const j2 = s1_joints[2] || {};
         const firstData = j0;
+        
+        this.doc = doc;
+        this.startX = startX;
+        this.pageW = pageW;
+        this.pageH = pageH;
+        this.innerX = x;
+        this.innerW = innerW;
+        this.firstData = firstData;
+        this.companyInfo = companyInfo;
 
         // Header
         const headerH = 70, logoW = 160;
@@ -65,15 +74,18 @@ class PDFGeneratorF {
         y += headerH + 5;
 
         // Metadata
-        const metaRowH = 20;
         [
             ['Shreno Manufacturer sr. no.:', firstData.msn || '-'],
             ['Equipment  Name & Tag Number:', `${firstData.equipment || ''} ${firstData.tagNo || ''}`.trim() || '-'],
             ['Drawing no. :', firstData.drgNo || '-']
         ].forEach(([l, v]) => {
+            doc.font(this.fonts.regular).fontSize(9);
+            const textH = doc.heightOfString(v || '', { width: innerW * 0.6 - pad * 2 });
+            const metaRowH = Math.max(20, textH + 10);
+
             doc.rect(x, y, innerW, metaRowH).stroke();
             doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text(l, x + pad, y + 5, { width: innerW * 0.4 });
-            doc.font(this.fonts.regular).fillColor(this.colors.black).text(v, x + innerW * 0.4 + pad, y + 5, { width: innerW * 0.6 });
+            doc.font(this.fonts.regular).fillColor(this.colors.black).text(v || '', x + innerW * 0.4 + pad, y + 5, { width: innerW * 0.6 - pad * 2 });
             y += metaRowH;
         });
 
@@ -181,7 +193,7 @@ class PDFGeneratorF {
             }
         });
         const h = Math.max(minH, maxTextH + 6);
-
+        y = this._checkPage(y, h);
         let cx = x;
         widths.forEach((w, i) => {
             doc.rect(cx, y, w, h).stroke();
@@ -310,6 +322,17 @@ class PDFGeneratorF {
             { t: s2.jointNo ? 'Yes/No' : '', f: this.fonts.regular, c: this.colors.black }
         ]);
 
+        return y;
+    }
+
+    
+    _checkPage(y, needed) {
+        if (y + needed > this.startX + this.pageH - 10) {
+            this.doc.addPage();
+            this.doc.rect(this.startX, this.startX, this.pageW, this.pageH).strokeColor(this.colors.black).lineWidth(1.5).stroke();
+            this.doc.lineWidth(0.5);
+            return this.startX + 10;
+        }
         return y;
     }
 

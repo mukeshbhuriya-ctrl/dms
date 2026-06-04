@@ -60,6 +60,16 @@ class PDFGenerator {
         const firstDataObj = allStagesData.stage1 || Object.values(allStagesData)[0] || {};
         const firstDataJoints = firstDataObj.joints || (firstDataObj.jointNo ? [firstDataObj] : []);
         const firstData = firstDataJoints[0] || {};
+        
+        this.doc = doc;
+        this.startX = startX;
+        this.pageW = pageW;
+        this.pageH = pageH;
+        this.innerX = innerX;
+        this.innerW = innerW;
+        this.firstData = firstData;
+        this.companyInfo = companyInfo;
+        this.reportTitle = 'SET UP & WELD VISUAL INSPECTION REPORT';
 
         // ===== HEADER: Logo + Title + Report No =====
         currentY = this._drawHeader(doc, innerX, currentY, innerW, firstData, 'SET UP & WELD VISUAL INSPECTION REPORT', companyInfo);
@@ -120,7 +130,6 @@ class PDFGenerator {
         });
 
         // Stage 1 signature
-        currentY = this._pageCheck(doc, currentY, 190, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
         currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
             'Set Up Inspection by',
             { font: this.fonts.bold, fontSize: 12, color: this.colors.red, align: 'center' });
@@ -134,8 +143,6 @@ class PDFGenerator {
         const s2_1 = s2_joints[1] || {};
         const s2_2 = s2_joints[2] || {};
         const s2 = s2_joints.length > 0 ? s2_obj : null;
-            currentY = this._pageCheck(doc, currentY, s2 ? 190 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
-
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'Back chip',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
@@ -157,8 +164,6 @@ class PDFGenerator {
         const s3_1 = s3_joints[1] || {};
         const s3_2 = s3_joints[2] || {};
         const s3 = s3_joints.length > 0 ? s3_obj : null;
-        currentY = this._pageCheck(doc, currentY, s3 ? 190 : 80, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
-
         currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
             'Weld Visual Inspection by',
             { font: this.fonts.bold, fontSize: 12, color: this.colors.red, align: 'center' });
@@ -187,7 +192,6 @@ class PDFGenerator {
         const s4_1 = s4_joints[1] || {};
         const s4_2 = s4_joints[2] || {};
         const s4 = s4_joints.length > 0 ? s4_obj : null;
-            currentY = this._pageCheck(doc, currentY, s4 ? 190 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'Radiography Testing Requirement',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
@@ -202,7 +206,6 @@ class PDFGenerator {
         const s5_1 = s5_joints[1] || {};
         const s5_2 = s5_joints[2] || {};
         const s5 = s5_joints.length > 0 ? s5_obj : null;
-            currentY = this._pageCheck(doc, currentY, s5 ? 190 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'Liquid Penetrant Testing',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
@@ -217,7 +220,6 @@ class PDFGenerator {
         const s6_1 = s6_joints[1] || {};
         const s6_2 = s6_joints[2] || {};
         const s6 = s6_joints.length > 0 ? s6_obj : null;
-            currentY = this._pageCheck(doc, currentY, s6 ? 190 : 60, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'PWHT',
                 { font: this.fonts.bold, fontSize: 11, color: this.colors.red, align: 'center' });
@@ -232,7 +234,6 @@ class PDFGenerator {
         const s7_1 = s7_joints[1] || {};
         const s7_2 = s7_joints[2] || {};
         const s7 = s7_joints.length > 0 ? s7_obj : null;
-            currentY = this._pageCheck(doc, currentY, s7 ? 190 : 40, startX, pageW, pageH, innerX, innerW, firstData, companyInfo);
             currentY = this._fullSpanRow(doc, innerX, currentY, innerW, 22,
                 'Liquid Penetrant Testing – After PWHT',
                 { font: this.fonts.bold, fontSize: 9, color: this.colors.red, align: 'center' });
@@ -278,7 +279,6 @@ class PDFGenerator {
     // Info Grid: MSN, Client, PO, TAG, Equipment, etc.
     // ==========================================
     _drawInfoGrid(doc, x, y, width, data) {
-        const rowH = 22;
         const c1 = width * 0.15, c2 = width * 0.35, c3 = width * 0.15, c4 = width * 0.35;
         const rows = [
             { l1: 'MSN:', v1: data.msn, l2: 'TAG NO.:', v2: data.tagNo },
@@ -288,20 +288,33 @@ class PDFGenerator {
             { l1: 'CODE:', v1: data.code, l2: 'INSP. AGENCY:', v2: data.inspAgency },
         ];
         let curY = y;
-        doc.fontSize(9);
         rows.forEach(row => {
+            const p = 4;
+            doc.font(this.fonts.regular).fontSize(9);
+            const hV1 = doc.heightOfString(row.v1 || '', { width: c2 - p * 2 });
+            const hV2 = doc.heightOfString(row.v2 || '', { width: c4 - p * 2 });
+            
+            doc.font(this.fonts.bold).fontSize(9);
+            const hL1 = doc.heightOfString(row.l1 || '', { width: c1 - p * 2 });
+            const hL2 = doc.heightOfString(row.l2 || '', { width: c3 - p * 2 });
+            
+            const rowH = Math.max(22, hV1 + 10, hV2 + 10, hL1 + 10, hL2 + 10);
+
             doc.rect(x, curY, c1, rowH).stroke();
             doc.rect(x + c1, curY, c2, rowH).stroke();
             doc.rect(x + c1 + c2, curY, c3, rowH).stroke();
             doc.rect(x + c1 + c2 + c3, curY, c4, rowH).stroke();
-            const tY = curY + 7;
-            const p = 4;
+            
+            const tY = curY + 6;
+            
             doc.font(this.fonts.bold).fillColor(this.colors.red);
-            doc.text(row.l1, x + p, tY, { width: c1 - p * 2 });
-            doc.text(row.l2, x + c1 + c2 + p, tY, { width: c3 - p * 2 });
+            doc.text(row.l1 || '', x + p, tY, { width: c1 - p * 2 });
+            doc.text(row.l2 || '', x + c1 + c2 + p, tY, { width: c3 - p * 2 });
+            
             doc.font(this.fonts.regular).fillColor(this.colors.black);
             doc.text(row.v1 || '', x + c1 + p, tY, { width: c2 - p * 2 });
             doc.text(row.v2 || '', x + c1 + c2 + c3 + p, tY, { width: c4 - p * 2 });
+
             curY += rowH;
         });
         return curY + 5;
@@ -327,7 +340,7 @@ class PDFGenerator {
             }
         });
         const h = Math.max(minH, maxTextH + 8);
-
+        y = this._pageCheck(y, h);
         let cx = x;
         ws.forEach((w, i) => {
             doc.rect(cx, y, w, h).stroke();
@@ -412,14 +425,14 @@ class PDFGenerator {
     }
 
     // Page break check — adds new page with outer border + header + info grid
-    _pageCheck(doc, y, needed, startX, pageW, pageH, innerX, innerW, data, companyInfo) {
-        if (y + needed > startX + pageH - 10) {
-            doc.addPage();
-            doc.rect(startX, startX, pageW, pageH).strokeColor(this.colors.black).lineWidth(1.5).stroke();
-            doc.lineWidth(0.5);
-            let ny = startX + 5;
-            ny = this._drawHeader(doc, innerX, ny, innerW, data, 'SET UP & WELD VISUAL INSPECTION REPORT', companyInfo);
-            ny = this._drawInfoGrid(doc, innerX, ny, innerW, data);
+    _pageCheck(y, needed) {
+        if (y + needed > this.startX + this.pageH - 10) {
+            this.doc.addPage();
+            this.doc.rect(this.startX, this.startX, this.pageW, this.pageH).strokeColor(this.colors.black).lineWidth(1.5).stroke();
+            this.doc.lineWidth(0.5);
+            let ny = this.startX + 5;
+            ny = this._drawHeader(this.doc, this.innerX, ny, this.innerW, this.firstData, this.reportTitle, this.companyInfo);
+            ny = this._drawInfoGrid(this.doc, this.innerX, ny, this.innerW, this.firstData);
             return ny + 5;
         }
         return y;
