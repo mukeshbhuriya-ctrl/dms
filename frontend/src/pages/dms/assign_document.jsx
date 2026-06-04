@@ -1453,8 +1453,8 @@ function AssignDocument() {
                     </Table>
                   </div>
                   <div className="flex justify-end gap-3 mt-6">
-                    <Button variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
-                    <Button onClick={handleAssign} disabled={isSubmitDisabled}>
+                    <Button className="cursor-pointer" variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
+                    <Button className="cursor-pointer" onClick={handleAssign} disabled={isSubmitDisabled}>
                       {isLoading ? (editingId ? "Updating..." : "Assigning...") : (editingId ? "Update Document" : "Assign Documents")}
                     </Button>
                   </div>

@@ -2997,36 +2997,11 @@ class DccService {
                 const customer_location_id = targetJob.customer_location_id;
                 const po_id = targetJob.po_id;
 
-                // 1. Find or Create Document Master for this name and type
-                let documentMaster = await tx.document_master.findFirst({
-                    where: {
-                        company_id,
-                        document_name: cleanDocName
-                    }
-                });
-
-                if (!documentMaster) {
-                    // Increment batch counter for the new document
-                    batchSerialCounter++;
-                    const docNumber = this._getFormattedDocNumber(batchSerialCounter);
-
-                    documentMaster = await tx.document_master.create({
-                        data: {
-                            company_id,
-                            serial_no: batchSerialCounter,
-                            document_name: cleanDocName,
-                            document_number: docNumber,
-                            document_type_id: document_type_id || null
-                        }
-                    });
-                }
-
-                // 2. Create a unique Group for this specific assignment
-                // Check if this document name is already assigned to ANY of the selected jobs
+                // 1. Check if this document name is already assigned to ANY of the selected jobs
                 const existingAssignments = await tx.group_document.findMany({
                     where: {
                         company_id,
-                        document_id: documentMaster.id,
+                        document: { document_name: cleanDocName },
                         group: {
                             job_group: {
                                 some: { job_id: { in: jobIdsToProcess } }
@@ -3044,6 +3019,20 @@ class DccService {
                     });
                     continue;
                 }
+
+                // 2. ALWAYS Create a New Document Master for this assignment (Ensures Unique System Doc ID)
+                batchSerialCounter++;
+                const docNumber = this._getFormattedDocNumber(batchSerialCounter);
+
+                const documentMaster = await tx.document_master.create({
+                    data: {
+                        company_id,
+                        serial_no: batchSerialCounter,
+                        document_name: cleanDocName,
+                        document_number: docNumber,
+                        document_type_id: document_type_id || null
+                    }
+                });
 
                 const group = await tx.group.create({
                     data: { company_id }
@@ -3444,7 +3433,7 @@ class DccService {
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
-        return `DOC-${year}-${month}-${String(serial_no).padStart(5, '0')}`;
+        return `DOC-${year}-${month}-${String(serial_no).padStart(3, '0')}`;
     }
 }
 
