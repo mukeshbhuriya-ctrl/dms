@@ -27,6 +27,11 @@ class MhcPdfGenerator {
         };
     }
 
+    formatText(text) {
+        if (text === null || text === undefined || text === '') return '-';
+        return String(text).replace(/([/,_.\-])/g, '$1\u200B');
+    }
+
     drawBox(doc, x, y, width, height, lineWidth = 0.8) {
         doc.lineWidth(lineWidth).strokeColor(this.colors.black).rect(x, y, width, height).stroke();
     }
@@ -73,7 +78,7 @@ class MhcPdfGenerator {
                 .text('SHRENO ENGINEERING LIMITED', startX + logoW, y + 8, { width: pageWidth - logoW, align: 'center' });
             
             this.drawLine(doc, startX + logoW, y + 20, startX + pageWidth, y + 20, 0.8);
-            const reportTitle = data.isSelective ? 'MATERIAL IDENTIFICATION REPORT' : 'MATERIAL HEAT CHART';
+            const reportTitle = data.isSelective ? 'Material Identification Report' : 'MATERIAL HEAT CHART';
             doc.font(this.fonts.bold).fontSize(12)
                 .text(reportTitle, startX + logoW, y + 24, { width: pageWidth - logoW, align: 'center' });
 
@@ -81,10 +86,10 @@ class MhcPdfGenerator {
 
             // ─── 2. INFO GRID ───────────────────────────────────────────────────────
             const infoRows = [
-                { l1: 'CLIENT', v1: data.client, l2: 'MSN', v2: data.msn },
-                { l1: 'EQUIPMENT NAME.', v1: data.equipment_name, l2: 'TAG NO.', v2: data.tag_no },
-                { l1: 'DRG. No.', v1: data.shreno_drg_no, l2: 'PO. NO.', v2: data.po_no },
-                { l1: 'CODE:', v1: data.code, l2: 'INSPECTION BY', v2: data.inspection_by }
+                { l1: 'CLIENT', v1: this.formatText(data.client), l2: 'MSN', v2: this.formatText(data.msn) },
+                { l1: 'EQUIPMENT NAME.', v1: this.formatText(data.equipment_name), l2: 'TAG NO.', v2: this.formatText(data.tag_no) },
+                { l1: 'DRG. No.', v1: this.formatText(data.shreno_drg_no), l2: 'PO. NO.', v2: this.formatText(data.po_no) },
+                { l1: 'CODE:', v1: this.formatText(data.code), l2: 'INSPECTION BY', v2: this.formatText(data.inspection_by) }
             ];
 
             const midX = startX + (pageWidth * 0.6);
@@ -92,15 +97,15 @@ class MhcPdfGenerator {
             doc.fontSize(8); // Needed for heightOfString calculations
 
             infoRows.forEach((row, i) => {
-                const v1H = doc.heightOfString(String(row.v1 || '-'), { width: (pageWidth * 0.6) - 130 });
-                const v2H = doc.heightOfString(String(row.v2 || '-'), { width: (pageWidth * 0.4) - 90 });
+                const v1H = doc.heightOfString(row.v1, { width: (pageWidth * 0.6) - 130 });
+                const v2H = doc.heightOfString(row.v2, { width: (pageWidth * 0.4) - 90 });
                 const rH = Math.max(16, v1H + 8, v2H + 8);
                 
                 doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black).text(row.l1, startX + 5, y + (rH/2) - 3.5);
-                doc.font(this.fonts.regular).fontSize(8).text(String(row.v1 || '-'), startX + 120, y + (rH/2) - (v1H/2) + 1, { width: (pageWidth * 0.6) - 125, lineBreak: true });
+                doc.font(this.fonts.regular).fontSize(8).text(row.v1, startX + 120, y + (rH/2) - (v1H/2) + 1, { width: (pageWidth * 0.6) - 125, height: rH - 2, ellipsis: true, lineBreak: true });
                 
                 doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black).text(row.l2, midX + 5, y + (rH/2) - 3.5);
-                doc.font(this.fonts.regular).fontSize(8).text(String(row.v2 || '-'), midX + 80, y + (rH/2) - (v2H/2) + 1, { width: (pageWidth * 0.4) - 85, lineBreak: true });
+                doc.font(this.fonts.regular).fontSize(8).text(row.v2, midX + 80, y + (rH/2) - (v2H/2) + 1, { width: (pageWidth * 0.4) - 85, height: rH - 2, ellipsis: true, lineBreak: true });
                 
                 y += rH;
                 if (i < 3) this.drawLine(doc, startX, y, startX + pageWidth, y);
@@ -170,7 +175,7 @@ class MhcPdfGenerator {
             if (item.item_no || item.description) {
                 doc.font(this.fonts.regular).fontSize(7);
                 
-                const getH = (val, w) => doc.heightOfString(String(val || '-'), { width: w - 4, lineBreak: true });
+                const getH = (val, w) => doc.heightOfString(this.formatText(val), { width: w - 4, lineBreak: true });
                 const h0 = getH(item.item_no, cols[0].w);
                 const h1 = getH(item.description, cols[1].w);
                 const h2 = getH(item.size, cols[2].w);
@@ -181,7 +186,8 @@ class MhcPdfGenerator {
                 const h7 = getH(item.manufacturer, cols[7].w);
                 const h8 = getH(item.remarks, cols[8].w);
                 
-                const rowH = Math.max(22, h0+10, h1+10, h2+10, h3+10, h4+10, h5+10, h6+10, h7+10, h8+10);
+                let rowH = Math.max(22, h0+10, h1+10, h2+10, h3+10, h4+10, h5+10, h6+10, h7+10, h8+10);
+                if (rowH > 80) rowH = 80; // Bound max height to prevent layout breaks on massive text
                 
                 if (curY + rowH > bodyMaxY) {
                     doc.addPage({ margin: 30, size: 'A4', layout: 'landscape' });
@@ -193,8 +199,10 @@ class MhcPdfGenerator {
                 let tx = startX;
                 doc.fillColor(this.colors.black);
                 const drawCell = (val, w, align = 'center') => {
-                    const textH = doc.heightOfString(String(val || '-'), { width: w - 4, lineBreak: true });
-                    doc.text(String(val || '-'), tx + 2, curY + (rowH/2) - (textH/2) + 1, { width: w - 4, align, lineBreak: true, ellipsis: true });
+                    const formatted = this.formatText(val);
+                    const textH = doc.heightOfString(formatted, { width: w - 4, lineBreak: true });
+                    const renderH = Math.min(textH, rowH - 4);
+                    doc.text(formatted, tx + 2, curY + (rowH/2) - (renderH/2) + 1, { width: w - 4, height: renderH + 2, align, lineBreak: true, ellipsis: true });
                     tx += w;
                     this.drawLine(doc, tx, curY, tx, curY + rowH, 0.5);
                 };
@@ -208,9 +216,10 @@ class MhcPdfGenerator {
                 drawCell(item.mtr_no, cols[6].w);
                 drawCell(item.manufacturer, cols[7].w);
                 
-                const val8 = String(item.remarks || '-');
+                const val8 = this.formatText(item.remarks);
                 const textH8 = doc.heightOfString(val8, { width: cols[8].w - 4, lineBreak: true });
-                doc.text(val8, tx + 2, curY + (rowH/2) - (textH8/2) + 1, { width: cols[8].w - 4, align: 'center', lineBreak: true, ellipsis: true });
+                const renderH8 = Math.min(textH8, rowH - 4);
+                doc.text(val8, tx + 2, curY + (rowH/2) - (renderH8/2) + 1, { width: cols[8].w - 4, height: renderH8 + 2, align: 'center', lineBreak: true, ellipsis: true });
                 
                 curY += rowH;
             }
@@ -226,10 +235,10 @@ class MhcPdfGenerator {
         }
 
         this.drawBox(doc, startX, footerY, pageWidth, footerH, 1);
-        const footerCols = [{ label: 'Q.C ENGINEER', w: pageWidth / 3 }, { label: 'CLIENT', w: pageWidth / 3 }, { label: 'AI', w: pageWidth / 3 }];
+        const footerCols = [{ label: 'Q.C ENGINEER', w: pageWidth / 3 }, { label: 'CLIENT', w: pageWidth / 3 }, { label: 'CLIENT / AI / TPI', w: pageWidth / 3 }];
         let fx = startX;
         footerCols.forEach((col, i) => {
-            doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.red).text(col.label, fx, footerY + 40, { width: col.w, align: 'center' });
+            doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black).text(col.label, fx, footerY + 40, { width: col.w, align: 'center' });
             fx += col.w;
             if (i < footerCols.length - 1) this.drawLine(doc, fx, footerY, fx, footerY + footerH, 1);
         });
