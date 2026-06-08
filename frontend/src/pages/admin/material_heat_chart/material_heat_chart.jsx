@@ -622,7 +622,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
         const status = row.status // Keep case from DB
         const s = status?.toUpperCase()
         const canEdit = (isAdmin || isQE) && ["DRAFT", "INITIATED", "PENDING", "REJECTED"].includes(s)
-        const canOffer = (isAdmin || isPE) && (s === "INITIATED" || s === "REJECTED" || s === "PENDING")
+        const canOffer = (isAdmin || isPE) && (s === "INITIATED" || s === "REJECTED" || s === "PENDING" || s === "OFFERED")
         const canFinalize = (isAdmin || isQE) && s === "OFFERED"
 
         return (
@@ -673,8 +673,8 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
                 size="sm"
                 className="cursor-pointer border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
                 onClick={() => onEditClick(row.id)}
-                title="Continue MHC">
-                <ArrowRight className="h-4 w-4 mr-2" /> Continue
+                title="Edit & Continue MHC">
+                <ArrowRight className="h-4 w-4 mr-2" /> Edit & Continue
               </Button>
             )}
             {canFinalize && (
@@ -1259,7 +1259,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
 
   const sStatus = mhcStatus?.toUpperCase() || "";
   const isQcInitiationLocked = isView || !((isAdmin || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "DRAFT" || !editId));
-  const isProdOfferLocked = isView || !((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED") && editId);
+  const isProdOfferLocked = isView || !((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED" || sStatus === "OFFERED") && editId);
   const isQcFinalLocked = isView || !((isAdmin || isQE) && sStatus === "OFFERED");
   const showQcCols = isView || (sStatus !== "DRAFT" && sStatus !== "INITIATED" && sStatus !== "");
 
@@ -1444,6 +1444,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         res = await apiClient.post(`/api/mhc/save-review/${editId}`, payload)
       } else if (currentStatus === "OFFERED" && action === "FINALIZE") {
         res = await apiClient.post(`/api/mhc/finalize/${editId}`, payload)
+      } else if (currentStatus === "OFFERED" && action === "UPDATE_OFFERED") {
+        res = await apiClient.put(`/api/mhc/update/${editId}`, payload)
       } else {
         // This covers update of DRAFT, INITIATED, or saving as DRAFT/INITIATED
         res = await apiClient.put(`/api/mhc/update/${editId}`, payload)
@@ -2025,6 +2027,16 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               >
                 {submitting === "OFFER" ? "Continuing..." : "Continue (Production Submit)"}
                 <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+            {(mhcStatus?.toUpperCase() === "OFFERED") && (isPE || isAdmin) && (
+              <Button
+                onClick={() => handleSubmit("UPDATE_OFFERED")}
+                disabled={submitting !== null}
+                className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
+              >
+                {submitting === "UPDATE_OFFERED" ? "Updating..." : "Update (Production)"}
+                <Save className="h-4 w-4" />
               </Button>
             )}
             {mhcStatus?.toUpperCase() === "OFFERED" && (isAdmin || isQE) && (
