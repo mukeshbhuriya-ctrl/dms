@@ -24,7 +24,19 @@ class MasterListPdfGenerator {
         const logoBoxW = 160;
         const mainTitleW = 180;
         const infoGridW = width - logoBoxW - mainTitleW;
-        const totalH = 68;
+        const labelW = 60;
+        const valueW = infoGridW - labelW - 6;
+
+        const poText = jobData.po_number ? `${jobData.po_number} dt ${jobData.po_date ? new Date(jobData.po_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '-'}` : '-';
+        const msnText = jobData.msn || '-';
+
+        doc.font(this.fonts.regular).fontSize(7);
+        const poH = doc.heightOfString(poText, { width: valueW });
+        const msnH = doc.heightOfString(msnText, { width: valueW });
+
+        const minRowH = 17; // 68 / 4 = 17
+        const rowH = Math.max(minRowH, poH + 6, msnH + 6);
+        const totalH = rowH * 4;
 
         // Outer Border
         doc.lineWidth(0.5).strokeColor(this.colors.black);
@@ -34,37 +46,36 @@ class MasterListPdfGenerator {
         const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + 5, y + 15, { height: 35 });
+                doc.image(logoPath, x + (logoBoxW - 140) / 2, y + (totalH - 45) / 2, { fit: [140, 45], align: 'center', valign: 'center' });
             } catch (e) {
                 // Silently skip if image fails
             }
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text('Shreno Engineering Limited', x + 50, y + 25, { width: logoBoxW - 55, align: 'left' });
 
         // 2. Main Title Box
         const titleX = x + logoBoxW;
         doc.rect(titleX, y, mainTitleW, totalH).stroke();
-        doc.font(this.fonts.bold).fontSize(13).fillColor(this.colors.black)
-            .text('MASTER LIST OF\nDRAWING/DOCUMENTS', titleX, y + 22, { width: mainTitleW, align: 'center', lineGap: 5 });
+        const titleText = 'MASTER LIST OF\nDRAWING/DOCUMENTS';
+        doc.font(this.fonts.bold).fontSize(13).fillColor(this.colors.black);
+        const titleHeight = doc.heightOfString(titleText, { width: mainTitleW, align: 'center', lineGap: 5 });
+        doc.text(titleText, titleX, y + (totalH - titleHeight) / 2, { width: mainTitleW, align: 'center', lineGap: 5 });
 
         // 3. Info Grid Box (Top Right)
         const gridX = titleX + mainTitleW;
-        const rowH = totalH / 4;
-        const labelW = 60;
 
         const drawInfoRow = (label, val, rowIdx) => {
             const rowY = y + (rowIdx * rowH);
             // Label
             doc.rect(gridX, rowY, labelW, rowH).stroke();
-            doc.font(this.fonts.bold).fontSize(7).text(label, gridX + 3, rowY + 5);
+            doc.font(this.fonts.bold).fontSize(7).text(label, gridX + 3, rowY + (rowH - 7) / 2);
             // Value
             doc.rect(gridX + labelW, rowY, infoGridW - labelW, rowH).stroke();
-            doc.font(this.fonts.regular).fontSize(7).text(val || '-', gridX + labelW + 3, rowY + 5, { ellipsis: true });
+            const valHeight = doc.heightOfString(val || '-', { width: valueW });
+            doc.font(this.fonts.regular).fontSize(7).text(val || '-', gridX + labelW + 3, rowY + (rowH - valHeight) / 2, { width: valueW });
         };
 
-        drawInfoRow('PO NO.', jobData.po_number ? `${jobData.po_number} dt ${jobData.po_date ? new Date(jobData.po_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '-'}` : '-', 0);
-        drawInfoRow('MSN', jobData.msn || '-', 1);
+        drawInfoRow('PO NO.', poText, 0);
+        drawInfoRow('MSN', msnText, 1);
         drawInfoRow('DATE', new Date().toLocaleDateString('en-GB').replace(/\//g, '-'), 2);
         drawInfoRow('REV NO.', '02', 3);
 
@@ -143,12 +154,28 @@ class MasterListPdfGenerator {
         curY += headerH;
 
         // Items
-        const rowH = 18;
         doc.font(this.fonts.regular).fontSize(7);
 
         data.forEach((item, idx) => {
+            const drgText = `[${item.shreno_doc_no || item.drgNo}] ${item.docName || ''}`;
+            const remarkText = item.remark || '-';
+            
+            // Calculate dynamic row height
+            const drgHeight = doc.heightOfString(drgText, { width: colWs.drg - 6, align: 'center' });
+            const remarkHeight = doc.heightOfString(remarkText, { width: colWs.remark - 6, align: 'center' });
+            
+            const minRowH = 18;
+            const padding = 10;
+            const rowH = Math.max(minRowH, drgHeight + padding, remarkHeight + padding);
+
             // New Page check
             if (curY + rowH > doc.page.height - 40) {
+                // Fill remaining space on current page
+                const bottomY = doc.page.height - 40;
+                if (curY < bottomY) {
+                    doc.rect(startX, curY, pageWidth, bottomY - curY).stroke();
+                }
+
                 doc.addPage();
                 curY = 20;
                 this.drawTableHeader(doc, startX, curY, pageWidth);
@@ -160,22 +187,23 @@ class MasterListPdfGenerator {
             doc.rect(startX, curY, pageWidth, rowH).stroke();
 
             // SR
-            doc.text(String(idx + 1), cx, curY + 6, { width: colWs.sr, align: 'center' });
+            doc.text(String(idx + 1), cx, curY + (rowH - doc.heightOfString(String(idx + 1), { width: colWs.sr })) / 2, { width: colWs.sr, align: 'center' });
             this.drawLine(doc, cx + colWs.sr, curY, cx + colWs.sr, curY + rowH);
             cx += colWs.sr;
 
             // DRG NO
-            doc.text(item.drgNo || '-', cx + 3, curY + 6, { width: colWs.drg - 6, align: 'center' });
+            doc.text(drgText, cx + 3, curY + (rowH - drgHeight) / 2, { width: colWs.drg - 6, align: 'center' });
             this.drawLine(doc, cx + colWs.drg, curY, cx + colWs.drg, curY + rowH);
             cx += colWs.drg;
 
             // SHEET
-            doc.text('1 OF 1', cx, curY + 6, { width: colWs.sheet, align: 'center' });
+            doc.text('1 OF 1', cx, curY + (rowH - doc.heightOfString('1 OF 1', { width: colWs.sheet })) / 2, { width: colWs.sheet, align: 'center' });
             this.drawLine(doc, cx + colWs.sheet, curY, cx + colWs.sheet, curY + rowH);
             cx += colWs.sheet;
 
             // REV
-            doc.text(item.rev || '00', cx, curY + 6, { width: colWs.rev, align: 'center' });
+            const revText = item.rev || '00';
+            doc.text(revText, cx, curY + (rowH - doc.heightOfString(revText, { width: colWs.rev })) / 2, { width: colWs.rev, align: 'center' });
             this.drawLine(doc, cx + colWs.rev, curY, cx + colWs.rev, curY + rowH);
             cx += colWs.rev;
 
@@ -183,24 +211,25 @@ class MasterListPdfGenerator {
             const rowDcrs = item.dcrs || [];
             for (let i = 0; i < 5; i++) {
                 if (rowDcrs[i]) {
-                    doc.fontSize(5).text(rowDcrs[i], cx + (i * dcrSubW), curY + 7, { width: dcrSubW, align: 'center' });
+                    doc.fontSize(5).text(rowDcrs[i], cx + (i * dcrSubW), curY + (rowH - doc.heightOfString(rowDcrs[i], { width: dcrSubW })) / 2, { width: dcrSubW, align: 'center' });
                 }
+                doc.fontSize(7); // reset back to 7
                 this.drawLine(doc, cx + (i + 1) * dcrSubW, curY, cx + (i + 1) * dcrSubW, curY + rowH);
             }
             cx += colWs.dcrs;
 
             // REMARK
-            doc.fontSize(7).text(item.remark || '-', cx + 3, curY + 6, { width: colWs.remark - 6, align: 'center' });
+            doc.fontSize(7).text(remarkText, cx + 3, curY + (rowH - remarkHeight) / 2, { width: colWs.remark - 6, align: 'center' });
 
             curY += rowH;
         });
 
         // Fill remaining rows to end of page OR at least some empty rows (Optimization: Purely blank box)
-        const bottomY = doc.page.height - 40;
-        if (curY < bottomY) {
-            const emptyAreaH = bottomY - curY;
+        const finalBottomY = doc.page.height - 40;
+        if (curY < finalBottomY) {
+            const emptyAreaH = finalBottomY - curY;
             doc.rect(startX, curY, pageWidth, emptyAreaH).stroke();
-            curY = bottomY;
+            curY = finalBottomY;
         }
 
         // Add Footer to all pages
