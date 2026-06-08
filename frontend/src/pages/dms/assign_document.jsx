@@ -73,9 +73,12 @@ import {
   XCircle
 } from "lucide-react"
 import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+import { useAuth } from "@/context/AuthContext"
 
 function AssignDocument() {
   const isAdmin = useCheckAdmin()
+  const { roles } = useAuth()
+  const isPowerUser = isAdmin || (roles && roles.includes("DCC"));
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
@@ -788,6 +791,18 @@ function AssignDocument() {
 
       let updatedRow = { ...row, [field]: value };
 
+      // Two-way sync between upload_due_days and planned_submission_date
+      if (field === 'planned_submission_date' && value) {
+        const targetDate = new Date(value);
+        const createdAt = new Date(row.createdAt || new Date());
+        targetDate.setHours(0,0,0,0);
+        createdAt.setHours(0,0,0,0);
+        const diffMs = targetDate.getTime() - createdAt.getTime();
+        updatedRow.upload_due_days = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24))).toString();
+      } else if (field === 'upload_due_days') {
+        updatedRow.planned_submission_date = ""; // Clear explicit date so it derives from days again
+      }
+
       // Handle search queries with debouncing
       if (['customerSearch', 'poSearch', 'searchQuery'].includes(field)) {
         const key = `${tempId}_${field}`;
@@ -874,6 +889,8 @@ function AssignDocument() {
         assignUserId: row.user_id || "",
         upload_due_days: row.upload_due_days || "",
         response_due_days: row.response_due_days || "",
+        createdAt: row.createdAt || new Date().toISOString(),
+        planned_submission_date: ""
       }
     ])
   }
@@ -897,6 +914,8 @@ function AssignDocument() {
         assignUserId: "",
         upload_due_days: "",
         response_due_days: "",
+        createdAt: new Date().toISOString(),
+        planned_submission_date: ""
       }
     ])
   }
@@ -937,6 +956,9 @@ function AssignDocument() {
           shreno_document_no: a.shrenoDocumentNo,
           client_document_no: a.clientDocumentNo,
         };
+        if (a.planned_submission_date) {
+            updateBody.planned_submission_date = a.planned_submission_date;
+        }
         response = await apiClient.put(`/api/dcc/update-assigned-document/${editingId}`, updateBody);
       } else {
         response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody);
@@ -1221,7 +1243,7 @@ function AssignDocument() {
                           <TableHead className="min-w-[150px]">Client Document No</TableHead>
                           <TableHead className="min-w-[100px]">Upload Due Days</TableHead>
                           <TableHead className="min-w-[100px]">Response Due Days</TableHead>
-                          <TableHead className="min-w-[150px]">Plant Submission Date</TableHead>
+                          <TableHead className="min-w-[150px]">Planned Submission Date</TableHead>
                           <TableHead className="min-w-[180px]">Assign User <span className="text-destructive">*</span></TableHead>
                           <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
@@ -1396,17 +1418,32 @@ function AssignDocument() {
                               </TableCell>
 
                               <TableCell>
-                                <Input
-                                  value={(() => {
-                                    if (!assignment.upload_due_days || isNaN(assignment.upload_due_days)) return "Enter Days First";
-                                    const d = new Date();
-                                    d.setDate(d.getDate() + parseInt(assignment.upload_due_days));
-                                    return d.toLocaleDateString("en-GB");
-                                  })()}
-                                  className="w-full bg-slate-50 text-slate-500  cursor-not-allowed"
-                                  readOnly
-                                  disabled
-                                />
+                                {isPowerUser ? (
+                                  <Input
+                                    type="date"
+                                    value={assignment.planned_submission_date || (() => {
+                                      if (!assignment.upload_due_days || isNaN(assignment.upload_due_days)) return "";
+                                      const d = new Date(assignment.createdAt || new Date());
+                                      d.setDate(d.getDate() + parseInt(assignment.upload_due_days));
+                                      // format to YYYY-MM-DD for input type date
+                                      return d.toISOString().split('T')[0];
+                                    })()}
+                                    onChange={e => handleAssignmentChange(assignment.tempId, 'planned_submission_date', e.target.value)}
+                                    className="w-full"
+                                  />
+                                ) : (
+                                  <Input
+                                    value={(() => {
+                                      if (!assignment.upload_due_days || isNaN(assignment.upload_due_days)) return "Enter Days First";
+                                      const d = new Date(assignment.createdAt || new Date());
+                                      d.setDate(d.getDate() + parseInt(assignment.upload_due_days));
+                                      return d.toLocaleDateString("en-GB");
+                                    })()}
+                                    className="w-full bg-slate-50 text-slate-500  cursor-not-allowed"
+                                    readOnly
+                                    disabled
+                                  />
+                                )}
                               </TableCell>
 
                               {/* User Selection with SearchableSelect */}

@@ -2759,8 +2759,8 @@ class DccService {
     /**
      * Update Assigned Document
      */
-    async updateAssignedDocument(company_id, id, data) {
-        const { document_id, job_ids, assign_user_id, upload_due_days, response_due_days, shreno_document_no, shreno_reference_no, client_document_no, client_reference_no } = data;
+    async updateAssignedDocument(company_id, id, data, performer_id) {
+        const { document_id, job_ids, assign_user_id, upload_due_days, response_due_days, shreno_document_no, shreno_reference_no, client_document_no, client_reference_no, planned_submission_date } = data;
 
         const groupDoc = await prisma.group_document.findFirst({
             where: { id, company_id },
@@ -2770,13 +2770,28 @@ class DccService {
         if (!groupDoc) throw new Error('Assignment not found');
 
         return await prisma.$transaction(async (tx) => {
+            let finalUploadDueDays = upload_due_days === undefined ? undefined : (upload_due_days !== null && upload_due_days !== '' ? parseInt(upload_due_days) : null);
+            let dateWasEdited = false;
+
+            if (planned_submission_date) {
+                const targetDate = new Date(planned_submission_date);
+                const createdAt = new Date(groupDoc.createdAt);
+                // Zero out time for accurate day difference
+                targetDate.setHours(0,0,0,0);
+                const start = new Date(createdAt);
+                start.setHours(0,0,0,0);
+                const diffMs = targetDate.getTime() - start.getTime();
+                finalUploadDueDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+                dateWasEdited = true;
+            }
+
             // 1. Update Group Document
             const updatedGroupDoc = await tx.group_document.update({
                 where: { id },
                 data: {
                     document_id: document_id || undefined,
                     user_id: assign_user_id === undefined ? undefined : assign_user_id,
-                    upload_due_days: upload_due_days === undefined ? undefined : (upload_due_days ? parseInt(upload_due_days) : null),
+                    upload_due_days: finalUploadDueDays,
                     response_due_days: response_due_days === undefined ? undefined : (response_due_days ? parseInt(response_due_days) : null),
                     shreno_doc_no: shreno_document_no === undefined ? undefined : (shreno_document_no || null),
                     shreno_reference_no: shreno_reference_no === undefined ? undefined : (shreno_reference_no || null),
@@ -2804,6 +2819,19 @@ class DccService {
                         }
                     });
                 }
+            }
+
+            // 3. Log Activity if Planned Submission Date was manually edited
+            if (dateWasEdited && finalUploadDueDays !== groupDoc.upload_due_days && performer_id) {
+                const newDeadline = new Date(groupDoc.createdAt.getTime() + (finalUploadDueDays * 24 * 60 * 60 * 1000));
+                await ActivityService.logActivity({
+                    company_id,
+                    group_document_id: id,
+                    user_id: performer_id,
+                    action: 'Submission Date Edited',
+                    remarks: `Planned Submission Date manually updated to ${newDeadline.toLocaleDateString('en-GB')}`,
+                    metadata: { old_due_days: groupDoc.upload_due_days, new_due_days: finalUploadDueDays }
+                }, tx);
             }
 
             return updatedGroupDoc;

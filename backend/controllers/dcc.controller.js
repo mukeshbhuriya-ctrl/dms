@@ -721,7 +721,8 @@ class DccController {
 
     async updateAssignedDocument(req, res) {
         try {
-            const result = await DccService.updateAssignedDocument(req.user.company_id, req.params.id, req.body);
+            const performer_id = req.user.userid || req.user.id;
+            const result = await DccService.updateAssignedDocument(req.user.company_id, req.params.id, req.body, performer_id);
 
             let sysDocId = req.params.id;
             if (result && result.document_id) {
