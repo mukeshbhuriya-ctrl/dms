@@ -31,31 +31,31 @@ import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog
 // ─── Master List Table Row ──────────────────────────────────────────────────
 const MasterRow = ({ item, index, onShowTrail }) => {
    return (
-      <tr key={item.drgNo} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors group">
-         <td className="p-3 border-r text-center text-[11px] font-bold text-slate-500 bg-slate-50/30 w-16">
+      <tr key={item.drgNo} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
+         <td className="p-3 border-r border-slate-200 text-center text-[11px] font-medium text-slate-600 w-16">
             {index + 1}
          </td>
 
-         <td className="p-3 border-r text-center text-[12px] font-bold uppercase w-64">
+         <td className="p-3 border-r border-slate-200 text-center text-[11px] font-medium uppercase text-slate-800 w-64">
             [{item.shreno_doc_no || item.drgNo}] {item.docName}
          </td>
 
-         <td className="p-3 border-r text-center text-[11px] font-medium w-32">
-            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full border border-blue-100">
+         <td className="p-3 border-r border-slate-200 text-center text-[11px] font-medium w-32">
+            <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
                {item.rev}
             </span>
          </td>
 
          {[0, 1, 2, 3, 4].map(idx => (
             <td key={idx} className={cn(
-               "p-3 border-r text-center text-[11px] w-20 transition-all font-semibold",
-               item.dcrs && item.dcrs[idx] ? "text-slate-800 bg-blue-50/10" : "text-slate-400"
+               "p-3 border-r border-slate-200 text-center text-[11px] w-20 font-medium",
+               item.dcrs && item.dcrs[idx] ? "text-slate-800 bg-slate-50" : "text-slate-400"
             )}>
                {item.dcrs && item.dcrs[idx] ? item.dcrs[idx] : "-"}
             </td>
          ))}
 
-         <td className="p-3 border-r text-center text-[10px] uppercase font-semibold text-slate-500 italic">
+         <td className="p-3 border-r border-slate-200 text-center text-[11px] uppercase font-medium text-slate-600">
             {item.remark || "-"}
          </td>
 
@@ -63,7 +63,7 @@ const MasterRow = ({ item, index, onShowTrail }) => {
             <Button
                variant="outline"
                size="sm"
-               className="h-7 px-2 text-[10px] flex items-center gap-1 border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-all font-bold uppercase shadow-none"
+               className="h-7 px-2 text-[10px] flex items-center gap-1 border-slate-200 hover:bg-slate-100 transition-all font-medium uppercase shadow-none rounded-md cursor-pointer"
                onClick={() => onShowTrail(item.id)}
                disabled={!item.id}
             >
@@ -337,81 +337,73 @@ export default function DrawingMaster() {
                      fetchData={fetchMasterSummaries}
                      showSearch={true}
                      globalSearchPlaceholder="Quick search projects..."
-                     className="border border-slate-200/60 shadow-lg rounded-2xl overflow-hidden bg-white"
+                     className="border border-slate-200 shadow-sm rounded-md overflow-hidden bg-white"
                      columnFilters={columnFilters}
                      onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
                   />
                </div>
             ) : (
-               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in slide-in-from-bottom-3 duration-500">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                     <div className="flex items-center gap-5">
-                        <Button variant="outline" size="icon" onClick={handleBack} className="rounded-xl border-slate-200 hover:bg-white hover:text-blue-600 hover:border-blue-200 transition-all shadow-sm h-11 w-11">
-                           <ArrowLeft className="h-5 w-5" />
-                        </Button>
-                        <div>
-                           <h1 className="text-2xl font-black tracking-tighter text-slate-900 border-l-4 border-blue-600 pl-4 uppercase">
-                              Master List of Drawings
-                           </h1>
-                           <div className="flex items-center gap-3 mt-2 pl-4">
-                              <span className="text-[10px] font-black uppercase bg-slate-900 text-white px-2.5 py-1 rounded tracking-widest shadow-sm">
-                                 JOB: {selectedJob?.job_number}
-                              </span>
-                              <div className="h-1 w-1 rounded-full bg-slate-300" />
-                              <span className="text-[10px] font-black uppercase text-slate-500 tracking-tighter">
-                                 {selectedJob?.customer} | PO: {selectedJob?.po}
-                              </span>
-                           </div>
+               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                     <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                           <span className="text-[11px] font-semibold uppercase bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 shadow-none">
+                              JOB: {selectedJob?.job_number}
+                           </span>
+                           <span className="text-[11px] font-medium uppercase text-slate-500">
+                              PO: {selectedJob?.po}
+                           </span>
                         </div>
                      </div>
 
-                     <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-3">
+                        <div className="relative w-64 group">
+                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
+                           <Input
+                              placeholder="Filter drawings..."
+                              className="pl-9 h-9 border-slate-200 bg-white font-medium focus:ring-0 focus:border-slate-300 transition-all shadow-none rounded-md text-sm"
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                           />
+                        </div>
+                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
                         <Button 
                            variant="outline" 
-                           className="h-10 px-4 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg font-medium flex items-center gap-2 transition-all shadow-sm"
+                           className="h-9 px-3 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-md font-medium flex items-center gap-2 transition-all shadow-none text-sm"
                            onClick={() => handleExport(selectedJob?.job_id, 'print')}
                         >
-                           <Printer className="h-4 w-4 text-slate-600" />
+                           <Printer className="h-3.5 w-3.5 text-slate-600" />
                            <span>Print</span>
                         </Button>
                         <Button 
-                           className="h-10 px-4 bg-slate-950 hover:bg-slate-900 text-white rounded-lg font-medium flex items-center gap-2 transition-all shadow-md"
+                           className="h-9 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-md font-medium flex items-center gap-2 transition-all shadow-none text-sm"
                            onClick={() => handleExport(selectedJob?.job_id, 'download')}
                         >
-                           <Download className="h-4 w-4" />
+                           <Download className="h-3.5 w-3.5" />
                            <span>Download PDF</span>
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={handleBack} className="rounded-md border-slate-200 hover:bg-slate-100 transition-all shadow-none h-9 w-9">
+                           <ArrowLeft className="h-4 w-4 text-slate-600" />
                         </Button>
                      </div>
                   </div>
 
-                  <div className="flex justify-end mb-6">
-                     <div className="relative w-full max-w-sm group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-blue-600 transition-colors" />
-                        <Input
-                           placeholder="Filter drawing database..."
-                           className="pl-11 h-12 border-slate-200 bg-white italic font-medium focus:ring-4 focus:ring-blue-50 focus:border-blue-400 transition-all shadow-sm rounded-xl"
-                           value={searchTerm}
-                           onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                     </div>
-                  </div>
-
-                  <Card className="rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden flex-1 bg-white">
+                  <Card className="rounded-md shadow-sm border border-slate-200 overflow-hidden flex-1 bg-white">
                      <CardContent className="p-0">
                         <div className="overflow-x-auto">
                            <table className="w-full border-collapse min-w-[1000px]">
                               <thead>
                                  <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th rowSpan={2} className="p-4 border-r border-slate-200/60 text-[10px] font-bold uppercase text-slate-500 w-16 text-center">SR NO.</th>
-                                    <th rowSpan={2} className="p-4 border-r border-slate-200/60 text-[10px] font-bold uppercase text-slate-500 text-center w-64">DRG NO. / DOCUMENT NO.</th>
-                                    <th rowSpan={2} className="p-4 border-r border-slate-200/60 text-[10px] font-bold uppercase text-slate-500 w-32 text-center">LATEST REV. NO</th>
-                                    <th colSpan={5} className="p-2 border-r border-slate-200/60 text-[10px] font-bold uppercase text-slate-500 text-center bg-slate-100/50">DCR AND DATE</th>
-                                    <th rowSpan={2} className="p-4 border-r text-[10px] font-bold uppercase text-slate-500 text-center w-48 bg-slate-50/50 shadow-inner">REMARK</th>
-                                    <th rowSpan={2} className="p-4 text-[10px] font-bold uppercase text-slate-500 text-center w-24">ACTION</th>
+                                    <th rowSpan={2} className="p-3 border-r border-slate-200 text-[11px] font-semibold uppercase text-slate-600 w-16 text-center">SR NO.</th>
+                                    <th rowSpan={2} className="p-3 border-r border-slate-200 text-[11px] font-semibold uppercase text-slate-600 text-center w-64">DRG NO. / DOCUMENT NO.</th>
+                                    <th rowSpan={2} className="p-3 border-r border-slate-200 text-[11px] font-semibold uppercase text-slate-600 w-32 text-center">LATEST REV. NO</th>
+                                    <th colSpan={5} className="p-2 border-r border-slate-200 text-[11px] font-semibold uppercase text-slate-600 text-center">DCR AND DATE</th>
+                                    <th rowSpan={2} className="p-3 border-r border-slate-200 text-[11px] font-semibold uppercase text-slate-600 text-center w-48">REMARK</th>
+                                    <th rowSpan={2} className="p-3 text-[11px] font-semibold uppercase text-slate-600 text-center w-24">ACTION</th>
                                  </tr>
-                                 <tr className="bg-slate-50/30 border-b border-slate-200">
+                                 <tr className="bg-slate-50 border-b border-slate-200">
                                     {[1, 2, 3, 4, 5].map(i => (
-                                       <th key={i} className="p-2 border-r border-slate-200/60 text-[10px] font-bold text-slate-400 text-center w-20">{i}</th>
+                                       <th key={i} className="p-2 border-r border-slate-200 text-[11px] font-medium text-slate-500 text-center w-20">{i}</th>
                                     ))}
                                  </tr>
                               </thead>
