@@ -1592,6 +1592,77 @@ class ExportService {
     }
 
     /**
+     * Export Assigned Documents (VDR) reports.
+     */
+    async exportAssignedDocuments(company_id, startDate, endDate) {
+        const documents = await prisma.group_document.findMany({
+            where: { 
+                company_id,
+                ...this._getDateFilter(startDate, endDate)
+            },
+            include: {
+                document: true,
+                po: true,
+                user: true,
+                versions: {
+                    orderBy: { version_no: 'desc' }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const flatData = documents.map(d => {
+            const createdAt = new Date(d.createdAt);
+            let plannedSubmissionDate = '-';
+            if (d.upload_due_days) {
+                const deadline = new Date(createdAt.getTime() + (d.upload_due_days * 24 * 60 * 60 * 1000));
+                plannedSubmissionDate = deadline.toLocaleDateString('en-GB');
+            }
+
+            let docStatus = d.status || 'Pending';
+            let statusText = docStatus;
+            if (docStatus === 'Pending') statusText = 'Awaiting Upload';
+            else if (docStatus === 'Upload Due') statusText = 'Upload Overdue';
+            else if (docStatus === 'Response Due') statusText = 'Response Overdue';
+            else if (docStatus === 'awaiting_client_review') statusText = 'Awaiting Client Review';
+
+            let display_version_no = null;
+            if (d.versions && d.versions.length > 0) {
+                const uploadedVersion = d.versions.find(v => v.status !== 'Pending');
+                const versionToDisplay = uploadedVersion || d.versions[0];
+                display_version_no = versionToDisplay.version_no;
+            }
+
+            return {
+                system_doc_id: d.document?.document_number || '-',
+                shreno_doc_no: d.shreno_doc_no || '-',
+                client_doc_no: d.client_doc_no || '-',
+                document_name: d.document?.document_name || '-',
+                revision_no: (display_version_no === 0 || display_version_no) ? `${display_version_no}` : '-',
+                po_number: d.po?.po_number || '-',
+                uploaded_by: d.user?.name || '-',
+                planned_submission_date: plannedSubmissionDate,
+                status: statusText,
+            };
+        });
+
+        const columns = [
+            { header: 'System Doc ID', key: 'system_doc_id', width: 25 },
+            { header: 'Shreno Doc No', key: 'shreno_doc_no', width: 20 },
+            { header: 'Client Doc No', key: 'client_doc_no', width: 20 },
+            { header: 'Document Name', key: 'document_name', width: 30 },
+            { header: 'Revision No', key: 'revision_no', width: 15 },
+            { header: 'PO NUMBER', key: 'po_number', width: 20 },
+            { header: 'Uploaded by', key: 'uploaded_by', width: 20 },
+            { header: 'Planned submission date', key: 'planned_submission_date', width: 25 },
+            { header: 'Status', key: 'status', width: 20 },
+        ];
+
+        const sheets = [{ name: 'Assigned Documents', columns, data: flatData }];
+        return await excelGenerator.generateReport(sheets);
+    }
+
+    /**
      * Generic Export with relationship awareness.
      */
     async exportModule(moduleName, company_id, startDate, endDate) {
@@ -1602,6 +1673,7 @@ class ExportService {
         if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id, startDate, endDate);
         if (modelName === 'dcr') return this.exportDCR(company_id, startDate, endDate);
         if (modelName === 'ncr') return this.exportNCR(company_id, startDate, endDate);
+        if (modelName === 'group_document') return this.exportAssignedDocuments(company_id, startDate, endDate);
         if (modelName === 'weld_joint_plan') return this.exportWeldJointPlan(company_id, startDate, endDate);
         if (modelName === 'weld_joint') return this.exportWeldJoint(company_id, startDate, endDate);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');
