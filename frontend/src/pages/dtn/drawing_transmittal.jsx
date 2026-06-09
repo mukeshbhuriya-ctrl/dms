@@ -335,7 +335,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
   ], [onEditClick, handleExport, activeCustomerOptions, activePoOptions, activeJobOptions])
 
   return (
-    <div>
+    <div className="flex-1 flex flex-col overflow-hidden w-full">
 
       <ProDataTable
         fetchData={fetchDtns}
@@ -1118,7 +1118,7 @@ export default function DrawingTransmittal() {
   }, [])
 
   return (
-    <div className="flex-1 flex flex-col w-full h-full bg-slate-50/20 overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden w-full bg-slate-50/20">
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6 bg-white sticky top-0 z-40">
         <SidebarTrigger className="-ml-1" />
         <div className="h-4 w-px bg-border mx-2" />
@@ -1128,21 +1128,23 @@ export default function DrawingTransmittal() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-          {view === "list" ? (
+      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
+        {view === "list" ? (
+          <div className="flex-1 flex flex-col w-full overflow-hidden p-6">
             <ListView
               onCreateClick={handleCreate}
               onEditClick={handleEdit}
               refreshKey={refreshKey}
             />
-          ) : (
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col w-full overflow-auto p-6">
             <CreateView
               onBack={handleBack}
               editId={editId}
             />
-          )}
-        </div>
+          </div>
+        )}
       </main>
     </div>
   )

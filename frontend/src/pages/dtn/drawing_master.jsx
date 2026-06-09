@@ -312,7 +312,7 @@ export default function DrawingMaster() {
    ]
 
    return (
-      <div className="flex-1 flex flex-col w-full h-full bg-slate-50/20 overflow-hidden text-slate-900">
+      <div className="flex h-screen flex-col w-full bg-slate-50/20 overflow-hidden text-slate-900">
          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6 bg-white sticky top-0 z-40">
             <SidebarTrigger className="-ml-1" />
             <div className="h-4 w-px bg-border mx-2" />
@@ -322,16 +322,9 @@ export default function DrawingMaster() {
             </div>
          </header>
 
-         <main className="flex-1 overflow-auto p-4 md:p-8">
+         <main className="flex-1 flex flex-col overflow-hidden">
             {view === "summary" ? (
-               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
-                  <div className="mb-8 flex items-end justify-between">
-                     <div>
-                        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Master List Hub</h1>
-                        <p className="text-slate-500 text-[14px] mt-1 font-medium">Global repository for all drawings and documents by project.</p>
-                     </div>
-                  </div>
-
+               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500 overflow-hidden p-4 md:p-8">
                   <ProDataTable
                      columns={summaryColumns}
                      fetchData={fetchMasterSummaries}
@@ -343,8 +336,8 @@ export default function DrawingMaster() {
                   />
                </div>
             ) : (
-               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500 overflow-auto p-4 md:p-8">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0">
                      <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
                            <span className="text-[11px] font-semibold uppercase bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 shadow-none">
