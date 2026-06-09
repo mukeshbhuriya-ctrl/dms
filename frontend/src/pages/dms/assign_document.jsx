@@ -411,34 +411,6 @@ function AssignDocument() {
       cell: (row) => (row.display_version_no === 0 || row.display_version_no) ? `${row.display_version_no}` : "-",
     },
     {
-      id: "customer_name",
-      header: "Client",
-      accessorKey: "customer.customer_name",
-      filterType: "select",
-      filterOptions: activeClientOptions,
-      cell: (row) => row.customer?.customer_name || "-",
-    },
-    {
-      id: "po_number",
-      header: "PO",
-      accessorKey: "po.po_number",
-      filterType: "select",
-      filterOptions: activePoOptions,
-      cell: (row) => row.po?.po_number || "-",
-    },
-    {
-      id: "job_number",
-      header: "Job Number",
-      accessorKey: "job_number",
-      filterType: "select",
-      isMulti: true,
-      filterOptions: activeJobOptions,
-      cell: (row) => {
-        const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
-        return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
-      },
-    },
-    {
       id: "assignee",
       header: "Assigned To",
       accessorKey: "user.name",
@@ -466,11 +438,7 @@ function AssignDocument() {
         ) : name;
       },
     },
-    {
-      accessorKey: "upload_due_days",
-      header: "Upload Due Days",
-      cell: (row) => row.upload_due_days || "-",
-    },
+    
     {
       id: "plant_submission_date",
       accessorKey: "upload_due_days",
@@ -481,11 +449,6 @@ function AssignDocument() {
         const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
         return deadline.toLocaleDateString("en-GB");
       },
-    },
-    {
-      accessorKey: "response_due_days",
-      header: "Response Due Days",
-      cell: (row) => row.response_due_days || "-",
     },
     {
       id: "status",
@@ -547,19 +510,9 @@ function AssignDocument() {
         );
       },
     },
-    {
-      accessorKey: "createdAt",
-      header: "Created At",
-      cell: (row) => new Date(row.createdAt).toLocaleDateString("en-GB"),
-    },
-    {
-      accessorKey: "updatedAt",
-      header: "Last Updated",
-      cell: (row) => new Date(row.updatedAt).toLocaleDateString("en-GB"),
-    },
      {
       accessorKey: "is_active",
-      header: "Status",
+      header: "Active",
       filterType: "select",
       isMulti: true,
       filterOptions: [
@@ -623,6 +576,54 @@ function AssignDocument() {
           </div>
         );
       },
+    },
+    {
+      id: "customer_name",
+      header: "Client",
+      accessorKey: "customer.customer_name",
+      filterType: "select",
+      filterOptions: activeClientOptions,
+      cell: (row) => row.customer?.customer_name || "-",
+    },
+    {
+      id: "po_number",
+      header: "PO",
+      accessorKey: "po.po_number",
+      filterType: "select",
+      filterOptions: activePoOptions,
+      cell: (row) => row.po?.po_number || "-",
+    },
+    {
+      id: "job_number",
+      header: "Job Number",
+      accessorKey: "job_number",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeJobOptions,
+      cell: (row) => {
+        const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
+        return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
+      },
+    },
+    {
+      accessorKey: "upload_due_days",
+      header: "Upload Due Days",
+      cell: (row) => row.upload_due_days || "-",
+    },
+    {
+      accessorKey: "response_due_days",
+      header: "Response Due Days",
+      cell: (row) => row.response_due_days || "-",
+    },
+     {
+      accessorKey: "createdAt",
+      header: "Created At",
+      cell: (row) => new Date(row.createdAt).toLocaleDateString("en-GB"),
+    },
+    {
+      accessorKey: "updatedAt",
+      header: "Last Updated",
+      cell: (row) => new Date(row.updatedAt).toLocaleDateString("en-GB"),
     },
   ], [activeClientOptions, activePoOptions, activeJobOptions, isAdmin])
 

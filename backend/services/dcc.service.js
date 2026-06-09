@@ -1737,7 +1737,7 @@ class DccService {
             if (uploader && uploader.email) {
                 await EmailService.sendDocumentReviewNotification(uploader.email, uploader.name, {
                     documentName: groupDoc.document?.document_name || 'Document',
-                    documentNumber: groupDoc.document?.document_number || 'N/A',
+                    documentNumber: groupDoc.shreno_doc_no || groupDoc.client_doc_no || groupDoc.document?.document_number || 'N/A',
                     versionNo: latestVersion.version_no,
                     status: status,
                     remarks: remarks || ''
@@ -2577,7 +2577,7 @@ class DccService {
             if (uploader && uploader.email) {
                 await EmailService.sendClientReviewNotification(uploader.email, uploader.name, {
                     documentName: groupDoc.document?.document_name || 'Document',
-                    documentNumber: groupDoc.document?.document_number || 'N/A',
+                    documentNumber: groupDoc.shreno_doc_no || groupDoc.client_doc_no || groupDoc.document?.document_number || 'N/A',
                     versionNo: version?.version_no ?? 0,
                     status: status,
                     remarks: remarks || '',
@@ -3172,7 +3172,7 @@ class DccService {
 
                 const emailDocs = fullDocs.map(fd => ({
                     document_name: fd.document.document_name,
-                    document_number: fd.document.document_number,
+                    document_number: fd.shreno_doc_no || fd.client_doc_no || fd.document.document_number,
                     job_number: fd.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
                     upload_due_days: fd.upload_due_days
                 }));
@@ -3214,7 +3214,7 @@ class DccService {
 
                     const docDetails = {
                         document_name: doc.document.document_name,
-                        document_number: doc.document.document_number,
+                        document_number: doc.shreno_doc_no || doc.client_doc_no || doc.document.document_number,
                         job_number: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
                         assigned_user: doc.user?.name || 'Unknown'
                     };
@@ -3285,7 +3285,7 @@ class DccService {
                     }
                     overdueByCompany[doc.company_id].push({
                         document_name: doc.document.document_name,
-                        document_number: doc.document.document_number,
+                        document_number: doc.shreno_doc_no || doc.client_doc_no || doc.document.document_number,
                         job_number: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
                         assigned_user: doc.user?.name || 'Unknown'
                     });
@@ -3428,7 +3428,7 @@ class DccService {
 
             const details = {
                 documentName: groupDoc.document?.document_name || 'Document',
-                documentNumber: groupDoc.document?.document_number || 'N/A',
+                documentNumber: groupDoc.shreno_doc_no || groupDoc.client_doc_no || groupDoc.document?.document_number || 'N/A',
                 uploaderName: uploader.name,
                 versionNo: versionNo,
                 jobNo: groupDoc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A'
