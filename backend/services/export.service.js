@@ -1604,6 +1604,7 @@ class ExportService {
                 document: true,
                 po: true,
                 user: true,
+                customer: true,
                 versions: {
                     orderBy: { version_no: 'desc' }
                 }
@@ -1639,6 +1640,7 @@ class ExportService {
                 client_doc_no: d.client_doc_no || '-',
                 document_name: d.document?.document_name || '-',
                 revision_no: (display_version_no === 0 || display_version_no) ? `${display_version_no}` : '-',
+                client: d.customer?.customer_name || '-',
                 po_number: d.po?.po_number || '-',
                 uploaded_by: d.user?.name || '-',
                 planned_submission_date: plannedSubmissionDate,
@@ -1652,6 +1654,7 @@ class ExportService {
             { header: 'Client Doc No', key: 'client_doc_no', width: 20 },
             { header: 'Document Name', key: 'document_name', width: 30 },
             { header: 'Revision No', key: 'revision_no', width: 15 },
+            { header: 'Client', key: 'client', width: 25 },
             { header: 'PO NUMBER', key: 'po_number', width: 20 },
             { header: 'Uploaded by', key: 'uploaded_by', width: 20 },
             { header: 'Planned submission date', key: 'planned_submission_date', width: 25 },
