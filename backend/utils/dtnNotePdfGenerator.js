@@ -56,14 +56,17 @@ class DtnNotePdfGenerator {
         
         // Logo Section
         const logoW = 180;
-        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
+        const logoPath = path.join(process.cwd(), 'assets', 'shreno-logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, startX + 5, curY + 10, { height: 30 });
+                const padding = 8;
+                doc.image(logoPath, startX + padding, curY + padding, { 
+                    fit: [logoW - padding * 2, headerH - padding * 2], 
+                    align: 'center', 
+                    valign: 'center' 
+                });
             } catch (e) {}
         }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text('Shreno Engineering Limited', startX + 45, curY + 18, { width: logoW - 50 });
 
         // Vertical Line after logo
         this.drawLine(doc, startX + logoW, curY, startX + logoW, curY + headerH, 1);
@@ -84,48 +87,74 @@ class DtnNotePdfGenerator {
         curY += subTitleH;
 
         // ─── 3. INFO GRID ───────────────────────────────────────────────────────
-        const infoGridH = 150;
-        this.drawBox(doc, startX, curY, pageWidth, infoGridH, 1);
-        
         const midX = startX + (pageWidth * 0.45);
-        this.drawLine(doc, midX, curY, midX, curY + infoGridH, 1);
+        const rightX = midX;
+        const leftW = pageWidth * 0.45;
+        const rightW = pageWidth - leftW;
+        const leftValW = leftW - 145;
+        const rightLabelW = rightW - 45;
 
-        const rowH = 16;
-        
-        // --- Left Side ---
-        doc.font(this.fonts.bold).fontSize(this.fontSize.label);
-        const drawLabelValue = (lx, ly, lw, label, value) => {
-            doc.font(this.fonts.bold).text(label, lx + 5, ly + 5);
-            doc.font(this.fonts.regular).text(value || '-', lx + 140, ly + 5, { width: lw - 145, ellipsis: true });
-            this.drawLine(doc, startX, ly + rowH, midX, ly + rowH);
-        };
-
-        drawLabelValue(startX, curY, (pageWidth * 0.45), 'TRANSMITTAL REFERENCE NO.:', data.ref_no);
-        drawLabelValue(startX, curY + rowH, (pageWidth * 0.45), 'CUSTOMER/VENDOR:-', data.client_name);
-        drawLabelValue(startX, curY + (rowH * 2), (pageWidth * 0.45), 'PURCHASE ORDER NO :-', `${data.po_number || '-'} dt ${data.po_date || '-'}`);
-        
         const attn = [];
-        if (data.to_hm) attn.push('HQ'); // Matching ss1 labels if possible
+        if (data.to_hm) attn.push('HQ');
         if (data.to_hq) attn.push('HQ');
         if (data.to_hmf) attn.push('HMF');
         if (data.to_hpl) attn.push('HPL');
-        drawLabelValue(startX, curY + (rowH * 3), (pageWidth * 0.45), 'ATTN:', attn.join(', '));
+
+        doc.font(this.fonts.regular).fontSize(this.fontSize.label);
         
-        doc.font(this.fonts.bold).text('ADDRESS:-', startX + 5, curY + (rowH * 4) + 5);
-        doc.font(this.fonts.regular).text(data.address || '-', startX + 50, curY + (rowH * 4) + 5, { width: (pageWidth * 0.45) - 55 });
-
-        // --- Right Side ---
-        const rightX = midX;
-        const rightW = pageWidth - (pageWidth * 0.45);
+        // Calculate Dynamic Heights
+        const minH = 18;
+        const pad = 10;
         
-        // MSN
-        doc.font(this.fonts.bold).text(`MSN :- ${data.msn || '-'}`, rightX + 5, curY + 5, { width: rightW - 10 });
-        this.drawLine(doc, rightX, curY + rowH, startX + pageWidth, curY + rowH);
+        const h1L = doc.heightOfString(data.ref_no || '-', { width: leftValW });
+        const h1R = doc.heightOfString(`MSN :- ${data.msn || '-'}`, { width: rightW - 10 });
+        const row1H = Math.max(minH, h1L + pad, h1R + pad);
 
-        // Issued To Grid
-        doc.text('ISSUED TO :', rightX + 5, curY + rowH + 5);
-        this.drawLine(doc, rightX, curY + (rowH * 2), startX + pageWidth, curY + (rowH * 2));
+        const h2L = doc.heightOfString(data.client_name || '-', { width: leftValW });
+        const h2R = doc.heightOfString('ISSUED TO :', { width: rightW - 10 });
+        const row2H = Math.max(minH, h2L + pad, h2R + pad);
 
+        const poStr = `${data.po_number || '-'} dt ${data.po_date || '-'}`;
+        const h3L = doc.heightOfString(poStr, { width: leftValW });
+        const h3R = doc.heightOfString('HEAD MARKETING (HM)', { width: rightLabelW });
+        const row3H = Math.max(minH, h3L + pad, h3R + pad);
+
+        const attnStr = attn.join(', ') || '-';
+        const h4L = doc.heightOfString(attnStr, { width: leftValW });
+        const h4R = doc.heightOfString('HEAD QUALITY (HQ)', { width: rightLabelW });
+        const row4H = Math.max(minH, h4L + pad, h4R + pad);
+
+        // Row 5 is complex: Left side is Address block. Right side is 5 distinct checkboxes.
+        const addrLeftW = leftW - 55;
+        const addrStr = data.address || '-';
+        const addrH = doc.heightOfString(addrStr, { width: addrLeftW });
+        
+        const remRightRowH = 16;
+        const remRightTotalH = remRightRowH * 5; // HMF, HPL, HST, HPC, PPD
+        const row5H = Math.max(remRightTotalH, addrH + pad * 2);
+
+        const infoGridH = row1H + row2H + row3H + row4H + row5H;
+
+        this.drawBox(doc, startX, curY, pageWidth, infoGridH, 1);
+        this.drawLine(doc, midX, curY, midX, curY + infoGridH, 1);
+
+        // Draw Helper
+        const drawGridCell = (lx, ly, w, h, label, value, isRight = false) => {
+            if (label) doc.font(this.fonts.bold).text(label, lx + 5, ly + 6, { width: isRight ? w - 10 : 135 });
+            if (value) doc.font(this.fonts.regular).text(value, lx + (isRight ? 0 : 140), ly + 6, { width: isRight ? w : w - 145 });
+        };
+
+        // --- Row 1 ---
+        drawGridCell(startX, curY, leftW, row1H, 'TRANSMITTAL REFERENCE NO.:', data.ref_no);
+        drawGridCell(rightX, curY, rightW, row1H, `MSN :- ${data.msn || '-'}`, null, true);
+        this.drawLine(doc, startX, curY + row1H, startX + pageWidth, curY + row1H);
+
+        // --- Row 2 ---
+        drawGridCell(startX, curY + row1H, leftW, row2H, 'CUSTOMER/VENDOR:-', data.client_name);
+        drawGridCell(rightX, curY + row1H, rightW, row2H, 'ISSUED TO :', null, true);
+        this.drawLine(doc, startX, curY + row1H + row2H, startX + pageWidth, curY + row1H + row2H);
+
+        // Right side remaining items (7 items)
         const depts = [
             { label: 'HEAD MARKETING (HM)', key: 'to_hm' },
             { label: 'HEAD QUALITY (HQ)', key: 'to_hq' },
@@ -136,23 +165,38 @@ class DtnNotePdfGenerator {
             { label: 'PREPRATORY DEPARTMENT (PPD)', key: 'to_ppd' }
         ];
 
-        const deptCol1W = rightW - 45;
+        const deptCol1W = rightW - 35;
         const deptCol2W = 35;
 
-        depts.forEach((d, i) => {
-            const dy = curY + (rowH * 2) + (i * rowH);
-            const gridBoxX = rightX + 5;
-            
-            // Dept Label Box
-            doc.rect(gridBoxX, dy, deptCol1W, rowH).stroke();
-            doc.font(this.fonts.regular).fontSize(7).text(d.label, gridBoxX + 5, dy + 5);
-            
-            // Checkmark Box
-            doc.rect(gridBoxX + deptCol1W, dy, deptCol2W, rowH).stroke();
-            if (data[d.key]) {
-                this.drawCheck(doc, gridBoxX + deptCol1W + (deptCol2W / 2) - 4, dy + 4);
+        const drawDeptCell = (dy, dh, deptObj) => {
+            doc.rect(rightX, dy, deptCol1W, dh).stroke();
+            doc.font(this.fonts.regular).fontSize(7).text(deptObj.label, rightX + 5, dy + (dh - 7) / 2);
+            doc.rect(rightX + deptCol1W, dy, deptCol2W, dh).stroke();
+            if (data[deptObj.key]) {
+                this.drawCheck(doc, rightX + deptCol1W + (deptCol2W / 2) - 4, dy + (dh - 8) / 2);
             }
-        });
+        };
+
+        // --- Row 3 ---
+        drawGridCell(startX, curY + row1H + row2H, leftW, row3H, 'PURCHASE ORDER NO :-', poStr);
+        drawDeptCell(curY + row1H + row2H, row3H, depts[0]);
+        this.drawLine(doc, startX, curY + row1H + row2H + row3H, startX + pageWidth, curY + row1H + row2H + row3H);
+
+        // --- Row 4 ---
+        drawGridCell(startX, curY + row1H + row2H + row3H, leftW, row4H, 'ATTN:', attnStr);
+        drawDeptCell(curY + row1H + row2H + row3H, row4H, depts[1]);
+        this.drawLine(doc, startX, curY + row1H + row2H + row3H + row4H, startX + pageWidth, curY + row1H + row2H + row3H + row4H);
+
+        // --- Row 5 (Left: Address, Right: 5 Depts) ---
+        const row5StartY = curY + row1H + row2H + row3H + row4H;
+        doc.font(this.fonts.bold).fontSize(this.fontSize.label).text('ADDRESS:-', startX + 5, row5StartY + 6);
+        doc.font(this.fonts.regular).text(addrStr, startX + 50, row5StartY + 6, { width: addrLeftW });
+
+        // Divide row5H into 5 equal parts for the remaining 5 departments
+        const row5SubH = row5H / 5;
+        for (let i = 0; i < 5; i++) {
+            drawDeptCell(row5StartY + (i * row5SubH), row5SubH, depts[i + 2]);
+        }
 
         curY += infoGridH;
 
@@ -178,13 +222,14 @@ class DtnNotePdfGenerator {
         const col2X = startX + (pageWidth * 0.45);
         
         const startIfY = curY + 18;
+        const ifRowH = 18;
         drawCheckRow(col1X, startIfY, 'Reference', data.for_reference);
-        drawCheckRow(col1X, startIfY + rowH, 'Planning', data.for_planning);
-        drawCheckRow(col1X, startIfY + (rowH * 2), 'Construction', data.for_construction);
+        drawCheckRow(col1X, startIfY + ifRowH, 'Planning', data.for_planning);
+        drawCheckRow(col1X, startIfY + (ifRowH * 2), 'Construction', data.for_construction);
 
         drawCheckRow(col2X, startIfY, 'MANUFACTURING:', data.for_manufacturing);
-        drawCheckRow(col2X, startIfY + rowH, 'OUTSOURCING:', data.for_outsourcing);
-        drawCheckRow(col2X, startIfY + (rowH * 2), 'PROCUREMENT:', data.for_procurement);
+        drawCheckRow(col2X, startIfY + ifRowH, 'OUTSOURCING:', data.for_outsourcing);
+        drawCheckRow(col2X, startIfY + (ifRowH * 2), 'PROCUREMENT:', data.for_procurement);
 
         curY += issuedForH;
 

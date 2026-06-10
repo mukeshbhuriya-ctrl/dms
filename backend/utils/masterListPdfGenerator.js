@@ -43,10 +43,15 @@ class MasterListPdfGenerator {
         
         // 1. Logo Box
         doc.rect(x, y, logoBoxW, totalH).stroke();
-        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), '..', 'frontend', 'public', 'logo.png');
+        const logoPath = path.join(process.cwd(), 'assets', 'shreno-logo.png');
         if (fs.existsSync(logoPath)) {
             try {
-                doc.image(logoPath, x + (logoBoxW - 140) / 2, y + (totalH - 45) / 2, { fit: [140, 45], align: 'center', valign: 'center' });
+                const padding = 10;
+                doc.image(logoPath, x + padding, y + padding, { 
+                    fit: [logoBoxW - padding * 2, totalH - padding * 2], 
+                    align: 'center', 
+                    valign: 'center' 
+                });
             } catch (e) {
                 // Silently skip if image fails
             }
