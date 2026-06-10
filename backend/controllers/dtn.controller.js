@@ -253,10 +253,21 @@ class DtnController {
                 return res.status(404).json({ success: false, message: 'Job details not found' });
             }
 
+            // 2.5 Calculate Master List Revision based on maximum document revision
+            let maxRev = 0;
+            drawings.forEach(d => {
+                const docRev = parseInt(d.rev, 10);
+                if (!isNaN(docRev) && docRev > maxRev) {
+                    maxRev = docRev;
+                }
+            });
+            const revNoStr = maxRev.toString().padStart(2, '0');
+
             const headerInfo = {
                 po_number: job.po?.po_number,
                 po_date: job.po?.po_date,
-                msn: `${job.job_number} (${job.equipement_name || ''})`.toUpperCase()
+                msn: `${job.job_number} (${job.equipement_name || ''})`.toUpperCase(),
+                rev_no: revNoStr
             };
 
             // 3. Set Headers for Download

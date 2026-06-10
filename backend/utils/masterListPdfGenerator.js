@@ -82,7 +82,7 @@ class MasterListPdfGenerator {
         drawInfoRow('PO NO.', poText, 0);
         drawInfoRow('MSN', msnText, 1);
         drawInfoRow('DATE', new Date().toLocaleDateString('en-GB').replace(/\//g, '-'), 2);
-        drawInfoRow('REV NO.', '02', 3);
+        drawInfoRow('REV NO.', jobData.rev_no || '00', 3);
 
         return totalH;
     }
@@ -244,7 +244,8 @@ class MasterListPdfGenerator {
             const footerY = doc.page.height - 30;
             doc.fontSize(7).font(this.fonts.bold).fillColor(this.colors.black);
             doc.text('EXHIBIT: 8_7 MASTER LIST OF DRAWING / DOCUMENT', startX, footerY, { lineBreak: false });
-            doc.text('REV: R1', startX, footerY, { align: 'right', width: pageWidth, lineBreak: false });
+            const revNum = jobHeader && jobHeader.rev_no ? parseInt(jobHeader.rev_no, 10) : 0;
+            doc.text(`REV: ${revNum}`, startX, footerY, { align: 'right', width: pageWidth, lineBreak: false });
         }
 
         doc.end();
