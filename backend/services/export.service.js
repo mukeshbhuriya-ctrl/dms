@@ -7,7 +7,7 @@ class ExportService {
      */
     _getDateFilter(startDate, endDate, dateField = 'createdAt') {
         if (!startDate && !endDate) return {};
-        
+
         const filter = {};
         if (startDate && startDate !== '') {
             const start = new Date(startDate);
@@ -20,7 +20,7 @@ class ExportService {
                 filter.lte = end;
             }
         }
-        
+
         if (Object.keys(filter).length === 0) return {};
         return { [dateField]: filter };
     }
@@ -30,7 +30,7 @@ class ExportService {
      */
     async getReportSummary(company_id, startDate, endDate) {
         const summary = {};
-        
+
         // Define modules and their primary date fields
         const modules = [
             { key: 'ncr', model: 'ncr', dateField: 'date' },
@@ -85,7 +85,7 @@ class ExportService {
      */
     async exportLocations(company_id, startDate, endDate) {
         const locations = await prisma.customer_location.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -149,7 +149,7 @@ class ExportService {
      */
     async exportCustomers(company_id, startDate, endDate) {
         const customers = await prisma.customer.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -201,7 +201,7 @@ class ExportService {
      */
     async exportJobs(company_id, startDate, endDate) {
         const jobs = await prisma.job.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -253,7 +253,7 @@ class ExportService {
      */
     async exportDepartments(company_id, startDate, endDate) {
         const departments = await prisma.department.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -326,7 +326,7 @@ class ExportService {
      */
     async exportMHC(company_id, startDate, endDate) {
         const reports = await prisma.material_heat_chart.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -447,7 +447,7 @@ class ExportService {
      */
     async exportHydro(company_id, startDate, endDate) {
         const reports = await prisma.hydrostatic_test_report.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -554,7 +554,7 @@ class ExportService {
      */
     async exportDishEnd(company_id, startDate, endDate) {
         const reports = await prisma.dish_end_inspection_report.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -637,7 +637,7 @@ class ExportService {
      */
     async exportFinalInspection(company_id, startDate, endDate) {
         const reports = await prisma.final_inspection_report.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -755,7 +755,7 @@ class ExportService {
      */
     async exportRFQRegister(company_id, startDate, endDate) {
         const reports = await prisma.rfq_register.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate, 'enq_date')
             },
@@ -900,7 +900,7 @@ class ExportService {
      */
     async exportQAP(company_id, startDate, endDate) {
         const plans = await prisma.quality_assurance_plan.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -1101,7 +1101,7 @@ class ExportService {
      */
     async exportNCR(company_id, startDate, endDate) {
         const reports = await prisma.ncr.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate, 'date')
             },
@@ -1232,7 +1232,7 @@ class ExportService {
      */
     async exportWeldJointPlan(company_id, startDate, endDate) {
         const plans = await prisma.weld_joint_plan.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -1254,7 +1254,7 @@ class ExportService {
 
         const flatData = plans.map(p => {
             const joints = p.weld_joints || [];
-            
+
             return {
                 weld_plan_no: p.weld_plan_no || 'N/A',
                 job_no: p.job?.job_number || 'N/A',
@@ -1272,21 +1272,21 @@ class ExportService {
                 joint_no: joints.map(j => j.joint_no || '-').join('\n'),
                 joint_type: joints.map(j => j.joint_type || '-').join('\n'),
                 joint_description: joints.map(j => j.joint_description || '-').join('\n'),
-                
+
                 thickness: joints.map(j => `${j.base_metal_thickness_p1 || '-'}/${j.base_metal_thickness_p2 || '-'}`).join('\n'),
                 spec: joints.map(j => `${j.base_metal_spec_p1 || '-'}/${j.base_metal_spec_p2 || '-'}`).join('\n'),
-                
+
                 consumable: joints.map(j => j.consumable || '-').join('\n'),
                 wps_pqr_no: joints.map(j => j.wps_pqr_no || '-').join('\n'),
                 process: joints.map(j => j.process || '-').join('\n'),
                 impact_test: joints.map(j => j.impact_test || '-').join('\n'),
-                
+
                 // NDT Flags (Boolean to String)
                 back_chip: joints.map(j => j.back_chip_req ? 'YES' : 'NO').join('\n'),
                 pwht: joints.map(j => j.pwht ? 'YES' : 'NO').join('\n'),
                 rt: joints.map(j => j.rt ? 'YES' : 'NO').join('\n'),
                 pt: joints.map(j => j.pt ? 'YES' : 'NO').join('\n'),
-                
+
                 remarks: joints.map(j => j.remarks || '-').join('\n')
             };
         });
@@ -1301,7 +1301,7 @@ class ExportService {
             { header: 'SHRENO DRG NO', key: 'shr_drg_no', width: 20 },
             { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
             { header: 'CODE OF CONSTRUCTION', key: 'code_of_construction', width: 20 },
-            
+
             { header: 'JOINT NO', key: 'joint_no', width: 15 },
             { header: 'JOINT TYPE', key: 'joint_type', width: 12 },
             { header: 'DESCRIPTION', key: 'joint_description', width: 30 },
@@ -1311,12 +1311,12 @@ class ExportService {
             { header: 'WPS / PQR NO', key: 'wps_pqr_no', width: 20 },
             { header: 'PROCESS', key: 'process', width: 15 },
             { header: 'IMPACT TEST', key: 'impact_test', width: 15 },
-            
+
             { header: 'BACK CHIP', key: 'back_chip', width: 12 },
             { header: 'PWHT', key: 'pwht', width: 10 },
             { header: 'RT', key: 'rt', width: 10 },
             { header: 'PT', key: 'pt', width: 10 },
-            
+
             { header: 'REMARKS', key: 'remarks', width: 30 },
             { header: 'CREATED BY', key: 'created_by', width: 20 },
             { header: 'CREATED AT', key: 'created_at', width: 20 }
@@ -1333,11 +1333,11 @@ class ExportService {
         const weldJointService = require('./weldJoint.service.js');
 
         const joints = await prisma.weld_joint.findMany({
-            where: { 
-                weld_joint_plan: { 
+            where: {
+                weld_joint_plan: {
                     company_id,
                     ...this._getDateFilter(startDate, endDate)
-                } 
+                }
             },
             include: {
                 weld_joint_plan: {
@@ -1385,16 +1385,16 @@ class ExportService {
         const flatData = joints.map(joint => {
             // Reconstruct the legacy standard object format perfectly!
             const monolithicInsp = weldJointService._reconstructMonolithicInspection(
-                joint.id, 
-                joint.joint_type, 
-                joint.weld_joint_report_info, 
-                joint.weld_joint_stages, 
+                joint.id,
+                joint.joint_type,
+                joint.weld_joint_report_info,
+                joint.weld_joint_stages,
                 userMap
             );
 
             // Temporarily assign it back to mimic the legacy object structure for mapping
             const j = { ...joint, weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null };
-            
+
             const p = j.weld_joint_plan || {};
             const job = p.job || {};
             const insp = j.weld_joint_inspection || {};
@@ -1446,7 +1446,7 @@ class ExportService {
                 }
                 return 'COMPLETED';
             };
-            
+
             return {
                 msn: job.job_number || 'N/A',
                 client: job.customer?.customer_name || 'N/A',
@@ -1456,28 +1456,28 @@ class ExportService {
                 weld_plan_no: p.weld_plan_no || 'N/A',
                 shr_drg_no: p.shreno_drg_no || 'N/A',
                 customer_drg_no: p.customer_drg_no || 'N/A',
-                
+
                 joint_no: j.joint_no || 'N/A',
                 joint_type: j.joint_type || 'N/A',
                 joint_description: j.joint_description || 'N/A',
-                
+
                 thickness_p1: j.base_metal_thickness_p1 || 'N/A',
                 thickness_p2: j.base_metal_thickness_p2 || 'N/A',
                 spec_p1: j.base_metal_spec_p1 || 'N/A',
                 spec_p2: j.base_metal_spec_p2 || 'N/A',
-                
+
                 consumable: j.consumable || 'N/A',
                 wps_pqr_no: j.wps_pqr_no || 'N/A',
                 process: j.process || 'N/A',
                 impact_test: j.impact_test || 'N/A',
-                
+
                 back_chip: j.back_chip_req ? 'YES' : 'NO',
                 pwht: j.pwht ? 'YES' : 'NO',
                 rt: j.rt ? 'YES' : 'NO',
                 pt: j.pt ? 'YES' : 'NO',
-                
+
                 remarks: j.remarks || '-',
-                
+
                 overall_status: getOverallStatus(j),
                 s1_status: (insp.s1_status || 'PENDING').toUpperCase(),
                 s2_status: (insp.s2_status || 'PENDING').toUpperCase(),
@@ -1501,28 +1501,28 @@ class ExportService {
             { header: 'WELD PLAN NO', key: 'weld_plan_no', width: 25 },
             { header: 'SHRENO DRG NO', key: 'shr_drg_no', width: 20 },
             { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
-            
+
             { header: 'JOINT NO', key: 'joint_no', width: 15 },
             { header: 'CATEGORY', key: 'joint_type', width: 12 },
             { header: 'DESCRIPTION', key: 'joint_description', width: 30 },
-            
+
             { header: 'THICKNESS P1', key: 'thickness_p1', width: 15 },
             { header: 'THICKNESS P2', key: 'thickness_p2', width: 15 },
             { header: 'SPEC P1', key: 'spec_p1', width: 15 },
             { header: 'SPEC P2', key: 'spec_p2', width: 15 },
-            
+
             { header: 'CONSUMABLE', key: 'consumable', width: 15 },
             { header: 'WPS / PQR NO', key: 'wps_pqr_no', width: 20 },
             { header: 'PROCESS', key: 'process', width: 15 },
             { header: 'IMPACT TEST', key: 'impact_test', width: 15 },
-            
+
             { header: 'BACK CHIP', key: 'back_chip', width: 12 },
             { header: 'PWHT', key: 'pwht', width: 10 },
             { header: 'RT', key: 'rt', width: 10 },
             { header: 'PT', key: 'pt', width: 10 },
-            
+
             { header: 'REMARKS', key: 'remarks', width: 30 },
-            
+
             { header: 'WORKFLOW STATUS', key: 'overall_status', width: 20 },
             { header: 'S1 STATUS', key: 's1_status', width: 12 },
             { header: 'S2 STATUS', key: 's2_status', width: 12 },
@@ -1596,7 +1596,7 @@ class ExportService {
      */
     async exportAssignedDocuments(company_id, startDate, endDate) {
         const documents = await prisma.group_document.findMany({
-            where: { 
+            where: {
                 company_id,
                 ...this._getDateFilter(startDate, endDate)
             },
@@ -1607,6 +1607,10 @@ class ExportService {
                 customer: true,
                 versions: {
                     orderBy: { version_no: 'desc' }
+                },
+                transmission_items: {
+                    orderBy: { transmission: { createdAt: 'desc' } },
+                    take: 1
                 }
             },
             orderBy: { createdAt: 'desc' },
@@ -1625,13 +1629,24 @@ class ExportService {
             if (docStatus === 'Pending') statusText = 'Awaiting Upload';
             else if (docStatus === 'Upload Due') statusText = 'Upload Overdue';
             else if (docStatus === 'Response Due') statusText = 'Response Overdue';
-            else if (docStatus === 'awaiting_client_review') statusText = 'Awaiting Client Review';
 
             let display_version_no = null;
             if (d.versions && d.versions.length > 0) {
                 const uploadedVersion = d.versions.find(v => v.status !== 'Pending');
                 const versionToDisplay = uploadedVersion || d.versions[0];
                 display_version_no = versionToDisplay.version_no;
+            }
+
+            let clientStatus = '-';
+            if (d.transmission_items && d.transmission_items.length > 0) {
+                const status = d.transmission_items[0].client_status;
+                if (status === 'Pending') {
+                    clientStatus = 'Awaiting Client Review';
+                } else if (status === 'Approved') {
+                    clientStatus = 'Approved';
+                } else if (status && status !== 'Not Sent') {
+                    clientStatus = status;
+                }
             }
 
             return {
@@ -1645,6 +1660,7 @@ class ExportService {
                 uploaded_by: d.user?.name || '-',
                 planned_submission_date: plannedSubmissionDate,
                 status: statusText,
+                client_status: clientStatus,
             };
         });
 
@@ -1658,7 +1674,8 @@ class ExportService {
             { header: 'PO NUMBER', key: 'po_number', width: 20 },
             { header: 'Uploaded by', key: 'uploaded_by', width: 20 },
             { header: 'Planned submission date', key: 'planned_submission_date', width: 25 },
-            { header: 'Status', key: 'status', width: 20 },
+            { header: 'Internal Status', key: 'status', width: 20 },
+            { header: 'Client Status', key: 'client_status', width: 20 },
         ];
 
         const sheets = [{ name: 'Assigned Documents', columns, data: flatData }];
@@ -1771,7 +1788,7 @@ class ExportService {
         };
 
         const include = RELATIONS_CONFIG[modelName] || {};
-        
+
         // Dynamic where clause for relation-based filtering
         const modulesConfig = [
             { key: 'document-master', model: 'document_master' },
@@ -1822,8 +1839,8 @@ class ExportService {
                     const baseUrl = process.env.BACKEND_URL || 'http://localhost:3000';
                     const relUrl = item.versions[0].file_url;
                     // Prepend baseUrl if relUrl is a relative API path
-                    mainRow['Document URL'] = (relUrl && relUrl.startsWith('/') && !relUrl.startsWith('http')) 
-                        ? `${baseUrl}${relUrl}` 
+                    mainRow['Document URL'] = (relUrl && relUrl.startsWith('/') && !relUrl.startsWith('http'))
+                        ? `${baseUrl}${relUrl}`
                         : relUrl;
                 }
             }

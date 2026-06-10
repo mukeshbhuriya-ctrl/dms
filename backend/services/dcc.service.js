@@ -1081,6 +1081,42 @@ class DccService {
                 if (wantsActive && !wantsInactive) where.is_active = true;
                 if (wantsInactive && !wantsActive) where.is_active = false;
             }
+            
+            if (cFilters.client_status && cFilters.client_status !== 'all') {
+                const clientStatusVals = Array.isArray(cFilters.client_status) ? cFilters.client_status : [cFilters.client_status];
+
+                // We must filter by the LATEST transmission item's client_status, not any historical one.
+                // Fetch all transmissions for this company to determine the latest state per document
+                const allTransmissions = await prisma.transmission_document.findMany({
+                    where: { 
+                        group_document_id: { not: null },
+                        transmission: { company_id: company_id }
+                    },
+                    include: { transmission: { select: { createdAt: true } } }
+                });
+
+                // Group by group_document_id and keep the latest
+                const latestMap = new Map();
+                for (const t of allTransmissions) {
+                    const existing = latestMap.get(t.group_document_id);
+                    if (!existing || new Date(t.transmission.createdAt) > new Date(existing.transmission.createdAt)) {
+                        latestMap.set(t.group_document_id, t);
+                    }
+                }
+
+                const validGroupDocIds = [];
+                for (const [docId, t] of latestMap.entries()) {
+                    if (clientStatusVals.includes(t.client_status)) {
+                        validGroupDocIds.push(docId);
+                    }
+                }
+
+                if (validGroupDocIds.length > 0) {
+                    where.id = { in: validGroupDocIds };
+                } else {
+                    where.id = 'NO_MATCH_FOUND';
+                }
+            }
         }
 
         // ID-based filters (existing)
@@ -1130,7 +1166,7 @@ class DccService {
         ]);
 
         const total = priorityCount + nonPriorityCount;
-        
+
         const includeObject = {
             document: { include: { document_type: true } },
             group: {
@@ -1177,7 +1213,7 @@ class DccService {
                 const remaining = actualTake - data.length;
                 const nonPriorityData = await prisma.group_document.findMany({
                     where: nonPriorityWhere,
-                    skip: 0, 
+                    skip: 0,
                     take: remaining,
                     include: includeObject,
                     orderBy: { updatedAt: 'desc' }
@@ -2777,9 +2813,9 @@ class DccService {
                 const targetDate = new Date(planned_submission_date);
                 const createdAt = new Date(groupDoc.createdAt);
                 // Zero out time for accurate day difference
-                targetDate.setHours(0,0,0,0);
+                targetDate.setHours(0, 0, 0, 0);
                 const start = new Date(createdAt);
-                start.setHours(0,0,0,0);
+                start.setHours(0, 0, 0, 0);
                 const diffMs = targetDate.getTime() - start.getTime();
                 finalUploadDueDays = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
                 dateWasEdited = true;
@@ -2902,19 +2938,7 @@ class DccService {
                 }
             }
 
-            // 4. Logic for "Awaiting Client Review"
-            if (doc.status === 'Approved' && doc.transmission_items && doc.transmission_items.length > 0) {
-                if (doc.transmission_items[0].client_status === 'Pending') {
-                    doc.status = 'awaiting_client_review';
-                }
-            }
 
-            // 4. Logic for "Awaiting Client Review"
-            if (doc.status === 'Approved' && doc.transmission_items && doc.transmission_items.length > 0) {
-                if (doc.transmission_items[0].client_status === 'Pending') {
-                    doc.status = 'awaiting_client_review';
-                }
-            }
 
             return doc;
         });

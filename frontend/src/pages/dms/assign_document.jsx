@@ -458,11 +458,6 @@ function AssignDocument() {
         { label: "Awaiting Upload", value: "awaiting_upload" },
         { label: "Pending for Approval", value: "pending_approval" },
         { label: "Approved", value: "approved" },
-        { label: "Awaiting Client Review", value: "awaiting_client_review" },
-        { label: "Rejected", value: "rejected" },
-        { label: "Commented", value: "Commented" },
-        { label: "As Built", value: "As Built" },
-        { label: "Re-approval", value: "Re-approval" },
       ],
       cell: (row) => {
         const docStatus = row.status;
@@ -483,23 +478,54 @@ function AssignDocument() {
         } else if (docStatus === 'Rejected') {
           text = "Rejected";
           colorClass = "bg-red-100 text-red-800";
-        } else if (docStatus === 'awaiting_client_review') {
+        }
+
+        return (
+          <span className={`whitespace-nowrap px-2 py-1 rounded-full text-xs font-semibold ${colorClass}`}>
+            {text}
+          </span>
+        );
+      },
+    },
+    {
+      id: "client_status",
+      header: "Client Status",
+      filterType: "select",
+      filterOptions: [
+        { label: "Awaiting Client Review", value: "Pending" },
+        { label: "Approved", value: "Approved" },
+        { label: "Rejected", value: "Rejected" },
+        { label: "Commented", value: "Commented" },
+        { label: "Re-approval", value: "Re-approval" },
+        { label: "As Built", value: "As Built" }
+      ],
+      cell: (row) => {
+        let docStatus = 'Not Sent';
+        if (row.transmission_items && row.transmission_items.length > 0) {
+          docStatus = row.transmission_items[0].client_status || 'Pending';
+        }
+
+        if (docStatus === 'Not Sent') {
+            return <span className="text-gray-400 font-medium italic">-</span>;
+        }
+
+        let text = docStatus;
+        let colorClass = "bg-gray-100 text-gray-800 border border-gray-200";
+
+        if (docStatus === 'Pending') {
           text = "Awaiting Client Review";
-          colorClass = "bg-blue-100 text-blue-800 border border-blue-200";
+          colorClass = "bg-indigo-100 text-indigo-800 border border-indigo-200";
+        } else if (docStatus === 'Approved') {
+          colorClass = "bg-green-100 text-green-800";
         } else if (docStatus === 'Final Approved') {
-          text = "Final Approved";
           colorClass = "bg-emerald-100 text-emerald-800 border border-emerald-200";
-        } else if (docStatus === 'Client Rejected') {
-          text = "Client Rejected";
+        } else if (docStatus === 'Rejected') {
           colorClass = "bg-red-100 text-red-800 border border-red-200";
         } else if (docStatus === 'Commented') {
-          text = "Commented";
           colorClass = "bg-amber-100 text-amber-800 border border-amber-200";
         } else if (docStatus === 'As Built') {
-          text = "As Built";
           colorClass = "bg-teal-100 text-teal-800 border border-teal-200";
         } else if (docStatus === 'Re-approval') {
-          text = "Re-approval";
           colorClass = "bg-purple-100 text-purple-800 border border-purple-200";
         }
 
@@ -670,7 +696,11 @@ function AssignDocument() {
           else if (key === 'shreno_doc_no') params.shreno_doc_no_filter = val;
           else if (key === 'client_doc_no') params.client_doc_no_filter = val;
           else if (key === 'assignee') params.user_id_filter = val;
-          else if (key === 'is_active') params.columnFilters = JSON.stringify({ is_active: val });
+          else if (key === 'is_active' || key === 'client_status') {
+             const currentFilters = params.columnFilters ? JSON.parse(params.columnFilters) : {};
+             currentFilters[key] = val;
+             params.columnFilters = JSON.stringify(currentFilters);
+          }
         });
       }
 
