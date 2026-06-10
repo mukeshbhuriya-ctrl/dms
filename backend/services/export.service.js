@@ -1621,7 +1621,7 @@ class ExportService {
             let plannedSubmissionDate = '-';
             if (d.upload_due_days) {
                 const deadline = new Date(createdAt.getTime() + (d.upload_due_days * 24 * 60 * 60 * 1000));
-                plannedSubmissionDate = deadline.toLocaleDateString('en-GB');
+                plannedSubmissionDate = deadline.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
             }
 
             let docStatus = d.status || 'Pending';

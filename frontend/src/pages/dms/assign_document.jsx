@@ -447,7 +447,7 @@ function AssignDocument() {
         if (!row.upload_due_days) return "-";
         const created = new Date(row.createdAt);
         const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
-        return deadline.toLocaleDateString("en-GB");
+        return deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
       },
     },
     {
