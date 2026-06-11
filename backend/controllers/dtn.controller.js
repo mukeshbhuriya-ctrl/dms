@@ -146,7 +146,9 @@ class DtnController {
     async getNextRef(req, res) {
         try {
             const { company_id } = req.user;
-            const nextRef = await DtnService.getNextRefNo(company_id);
+            const { jobIds } = req.query;
+            const jobIdArray = jobIds ? jobIds.split(',').map(id => id.trim()).filter(Boolean) : [];
+            const nextRef = await DtnService.getNextRefNo(company_id, jobIdArray);
             res.status(200).json({ success: true, data: nextRef });
         } catch (error) {
             console.error('getNextRef error:', error);

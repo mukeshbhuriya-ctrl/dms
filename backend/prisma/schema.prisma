@@ -762,6 +762,9 @@ model drawing_transmittal {
   tag_no                String?
   code                  String?
 
+  // Dedicated Sequence Tracking
+  sequence_no           Int?
+
   // Issued To
   to_hm                Boolean  @default(false)
   to_hq                Boolean  @default(false)

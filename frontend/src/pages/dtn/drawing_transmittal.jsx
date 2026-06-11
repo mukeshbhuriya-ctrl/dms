@@ -374,7 +374,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
 
   // Auto-fill (Identical state structure to MHC)
   const [autoFill, setAutoFill] = useState({
-    reportNo: defaultRefNo || "SHR/DGN/001",
+    reportNo: editId ? (defaultRefNo || "") : "SHR/DGN/",
     client: "",
     poNo: "",
     projectId: "",
@@ -563,6 +563,18 @@ function CreateView({ onBack, editId, defaultRefNo }) {
           tagNo: firstJob.tag_number || "T095656",
           code: firstJob.code || "ASME BPVC VIII-1",
         }))
+      }
+
+      // Fetch dynamic reference number based on selected jobs
+      if (!editId) {
+          try {
+            const refRes = await apiClient.get(`/api/dtn/next-ref?jobIds=${ids.join(',')}`);
+            if (refRes.success && refRes.data) {
+                setAutoFill(prev => ({ ...prev, reportNo: refRes.data }));
+            }
+          } catch (error) {
+              console.error("Error fetching dynamic ref no:", error);
+          }
       }
 
       // Fetch related documents (Unique Union for all selected jobs)

@@ -82,12 +82,43 @@ class DtnService {
         } = data;
 
         return await prisma.$transaction(async (tx) => {
+            let finalRefNo = ref_no;
+            let finalSeqNo = null;
+
+            if (jobIds && jobIds.length > 0) {
+                const jobPrefix = await this.calculateJobPrefix(jobIds, tx);
+                
+                // Relational Query inside transaction
+                const dtns = await tx.drawing_transmittal.findMany({
+                    where: {
+                        company_id: companyId,
+                        jobs: {
+                            every: { job_id: { in: jobIds } }
+                        }
+                    },
+                    include: { jobs: true }
+                });
+                
+                const exactMatchDtns = dtns.filter(d => d.jobs.length === jobIds.length);
+                let maxSeq = 0;
+                for (const dtn of exactMatchDtns) {
+                    if (dtn.sequence_no && dtn.sequence_no > maxSeq) {
+                        maxSeq = dtn.sequence_no;
+                    }
+                }
+                finalSeqNo = maxSeq + 1;
+                finalRefNo = `SHR/DGN/${jobPrefix}/${finalSeqNo.toString().padStart(2, '0')}`;
+            } else if (!finalRefNo) {
+                finalRefNo = "SHR/DGN/001";
+            }
+
             // 1. Create Header
             const dtn = await tx.drawing_transmittal.create({
                 data: {
                     company_id: companyId,
                     created_by: userId,
-                    ref_no,
+                    ref_no: finalRefNo,
+                    sequence_no: finalSeqNo,
                     date: date ? new Date(date) : new Date(),
                     customer_id,
                     customer_location_id,
@@ -449,30 +480,60 @@ class DtnService {
 
         return { records };
     }
+    async calculateJobPrefix(jobIds, prismaClient = prisma) {
+        if (!jobIds || jobIds.length === 0) return "";
+        const jobs = await prismaClient.job.findMany({
+            where: { id: { in: jobIds } },
+            select: { job_number: true }
+        });
+        if (jobs.length === 0) return "";
+        const jobNumbers = jobs.map(j => j.job_number).sort();
+        if (jobNumbers.length === 1) return jobNumbers[0];
+        
+        const first = jobNumbers[0];
+        const last = jobNumbers[jobNumbers.length - 1];
+        if (first.length >= 8 && last.length >= 8 && first.substring(0, 8) === last.substring(0, 8)) {
+            return `${first}-${last.slice(-2)}`;
+        }
+        return `${first}-MULTI`;
+    }
+
     /**
      * Get the next available Reference Number
      */
-    async getNextRefNo(companyId) {
-        const lastRef = await prisma.drawing_transmittal.findFirst({
-            where: { company_id: companyId },
-            orderBy: { createdAt: 'desc' },
-            select: { ref_no: true }
-        });
-
-        if (!lastRef || !lastRef.ref_no) {
-            return "SHR/DGN/001";
+    async getNextRefNo(companyId, jobIds) {
+        if (!jobIds || !Array.isArray(jobIds) || jobIds.length === 0) {
+            return "SHR/DGN/";
         }
 
-        const parts = lastRef.ref_no.split('/');
-        if (parts.length < 3) return "SHR/DGN/001"; // Fallback if format is strange
+        const jobPrefix = await this.calculateJobPrefix(jobIds);
+        if (!jobPrefix) return "SHR/DGN/";
 
-        const lastNumStr = parts[parts.length - 1];
-        const lastNum = parseInt(lastNumStr);
+        // Relational Query: Find all DTNs linked to exactly these jobIds
+        const dtns = await prisma.drawing_transmittal.findMany({
+            where: {
+                company_id: companyId,
+                jobs: {
+                    every: { job_id: { in: jobIds } }
+                }
+            },
+            include: { jobs: true }
+        });
 
-        if (isNaN(lastNum)) return "SHR/DGN/001";
-
-        const nextNum = (lastNum + 1).toString().padStart(3, '0');
-        return `SHR/DGN/${nextNum}`;
+        // Filter exact match of job list length
+        const exactMatchDtns = dtns.filter(dtn => dtn.jobs.length === jobIds.length);
+        
+        let maxSeq = 0;
+        for (const dtn of exactMatchDtns) {
+            if (dtn.sequence_no && dtn.sequence_no > maxSeq) {
+                maxSeq = dtn.sequence_no;
+            }
+        }
+        
+        const nextSeq = maxSeq + 1;
+        const nextSeqStr = nextSeq.toString().padStart(2, '0');
+        
+        return `SHR/DGN/${jobPrefix}/${nextSeqStr}`;
     }
 
     /**
