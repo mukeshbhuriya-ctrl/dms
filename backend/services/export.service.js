@@ -561,7 +561,7 @@ class ExportService {
             include: {
                 items: { orderBy: { sr_no: 'asc' } },
                 instruments: true,
-                quality_engineer: true
+                production_engineer: true
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -581,7 +581,7 @@ class ExportService {
                 drg_no: r.drg_no || 'N/A',
                 insp_agency: r.insp_agency || 'N/A',
                 report_no: r.report_no,
-                quality_engineer: r.quality_engineer?.name || 'N/A',
+                production_engineer: r.production_engineer?.name || 'N/A',
                 vendor_dish_end_number: r.vendor_dish_end_number || 'N/A',
                 status: (r.status || 'Pending').toUpperCase(),
                 createdAt: r.createdAt.toLocaleString(),
@@ -612,7 +612,7 @@ class ExportService {
                     { header: 'DRG NO', key: 'drg_no', width: 20 },
                     { header: 'INSP AGENCY', key: 'insp_agency', width: 20 },
                     { header: 'REPORT NO', key: 'report_no', width: 25 },
-                    { header: 'QUALITY ENGINEER', key: 'quality_engineer', width: 20 },
+                    { header: 'PRODUCTION ENGINEER', key: 'production_engineer', width: 20 },
                     { header: 'VENDOR DISH END NO', key: 'vendor_dish_end_number', width: 20 },
                     { header: 'ITEM SR NO', key: 'item_sr', width: 10 },
                     { header: 'ITEM DESCRIPTION', key: 'item_desc', width: 30 },
@@ -647,7 +647,7 @@ class ExportService {
                 parts: { orderBy: { sr_no: 'asc' } },
                 instruments: true,
                 remarks: { orderBy: { sr_no: 'asc' } },
-                quality_engineer: true
+                production_engineer: true
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -669,7 +669,7 @@ class ExportService {
                 code: r.code || 'N/A',
                 drg_no: r.drg_no || 'N/A',
                 report_no: r.report_no,
-                quality_engineer: r.quality_engineer?.name || 'N/A',
+                production_engineer: r.production_engineer?.name || 'N/A',
                 status: (r.status || 'Pending').toUpperCase(),
                 createdAt: r.createdAt.toLocaleString(),
                 // Details Aggregation
@@ -716,7 +716,7 @@ class ExportService {
                     { header: 'CODE', key: 'code', width: 15 },
                     { header: 'DRG NO', key: 'drg_no', width: 20 },
                     { header: 'REPORT NO', key: 'report_no', width: 25 },
-                    { header: 'QUALITY ENGINEER', key: 'quality_engineer', width: 20 },
+                    { header: 'PRODUCTION ENGINEER', key: 'production_engineer', width: 20 },
                     { header: 'INSP. DESCRIPTION', key: 'det_desc', width: 30 },
                     { header: 'INSP. REQUIRED', key: 'det_req', width: 20 },
                     { header: 'INSP. ACTUAL', key: 'det_act', width: 20 },
