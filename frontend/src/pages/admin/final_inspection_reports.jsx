@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
+import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -455,12 +455,7 @@ function ListView({ onCreateClick, onEditClick }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">Final Dimension Inspection Reports</h1>
-          <p className="text-muted-foreground">View and manage all Final Dimension Inspection Reports.</p>
-        </div>
-      </div>
+      
 
       {error && (
         <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1081,11 +1076,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">{editId ? "Edit" : "Create"} Final Dimension Inspection</h1>
-          <p className="text-muted-foreground">{editId ? "Update the details for this final dimension inspection." : "Fill in the details for a new final dimension inspection."}</p>
-        </div>
+      <div className="flex items-center justify-end mb-6">
         <Button variant="outline" onClick={onBack} className="h-9">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
         </Button>
@@ -1910,9 +1901,10 @@ export default function FinalInspectionReports() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
+      <ModuleHeader
+        title="Final Dimension Inspection"
+        description="Manage and track final dimension inspections."
+      />
       <main className="flex-1 overflow-auto p-6 flex flex-col">
         <div className="flex-1 flex flex-col w-full">
           {view === "list" ? (

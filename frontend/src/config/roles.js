@@ -44,6 +44,7 @@ export const MODULES = {
     
     INSPECTION: {
         DISH_END: "INSPECTION_DISH_END",
+        TUBE_SHEET: "INSPECTION_TUBE_SHEET",
         FINAL: "INSPECTION_FINAL",
     },
 
@@ -235,7 +236,6 @@ export const MENU_CONFIG = [
             { title: "Hydro Pres Test", path: "/hydrostatic-pressure-test", moduleKey: MODULES.HYDRO_TEST },
         ],
     },
-
     // ── Inspection ──
     {
         title: "Inspection",
@@ -244,6 +244,7 @@ export const MENU_CONFIG = [
         items: [
             { title: "Dish End", path: "/inspections/dish-end", moduleKey: MODULES.INSPECTION.DISH_END },
             { title: "Final Dimension", path: "/inspections/final", moduleKey: MODULES.INSPECTION.FINAL },
+            { title: "Tube Sheet", path: "/inspections/tube-sheet", moduleKey: MODULES.INSPECTION.TUBE_SHEET },
         ],
     },
 

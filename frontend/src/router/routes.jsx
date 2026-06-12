@@ -33,6 +33,7 @@ import {
   AuditLogs,
   ApprovalCenter,
 } from "@/pages/admin"
+import { TubeSheetInspection } from "@/pages/admin/tube_sheet"
 import JobOverview from "@/pages/admin/job_360"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
@@ -189,6 +190,14 @@ const adminRoutes = [
   {
     path: "/hydrostatic-pressure-test",
     element: protect(<HydroPresText />, MODULES.HYDRO_TEST, [ROLES.ADMIN]),
+  },
+  {
+    path: "/inspections/tube-sheet",
+    element: protect(
+      <TubeSheetInspection />,
+      MODULES.INSPECTION.TUBE_SHEET,
+      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
+    ),
   },
   {
     path: "/inspections/dish-end",

@@ -52,6 +52,7 @@ const MODULES = {
 
     INSPECTION: {
         DISH_END: "INSPECTION_DISH_END",
+        TUBE_SHEET: "INSPECTION_TUBE_SHEET",
         FINAL: "INSPECTION_FINAL",
     },
 
