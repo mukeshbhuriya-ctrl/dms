@@ -426,7 +426,19 @@ async function updateWeldJointPlan(req, res) {
                 }
             });
 
-            // 2. Update/Create Joints
+            // 2. Delete Removed Joints
+            const incomingIds = tableRows
+                ? tableRows.map(row => row.id).filter(id => id && typeof id === 'string' && id.length > 10)
+                : [];
+            
+            await tx.weld_joint.deleteMany({
+                where: {
+                    weld_joint_plan_id: id,
+                    id: { notIn: incomingIds }
+                }
+            });
+
+            // 3. Update/Create Joints
             if (tableRows && tableRows.length > 0) {
                 for (const row of tableRows) {
                     const jointData = {
