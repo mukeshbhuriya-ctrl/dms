@@ -45,6 +45,7 @@ export const MODULES = {
     INSPECTION: {
         DISH_END: "INSPECTION_DISH_END",
         TUBE_SHEET: "INSPECTION_TUBE_SHEET",
+        TUBE_BUNDLE: "INSPECTION_TUBE_BUNDLE",
         FINAL: "INSPECTION_FINAL",
     },
 
@@ -245,6 +246,8 @@ export const MENU_CONFIG = [
             { title: "Dish End", path: "/inspections/dish-end", moduleKey: MODULES.INSPECTION.DISH_END },
             { title: "Final Dimension", path: "/inspections/final", moduleKey: MODULES.INSPECTION.FINAL },
             { title: "Tube Sheet", path: "/inspections/tube-sheet", moduleKey: MODULES.INSPECTION.TUBE_SHEET },
+            { title: "Tube Bundle", path: "/inspections/tube-bundle", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
+            { title: "Instrument Details", path: "/masters/instruments", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
         ],
     },
 

@@ -34,6 +34,7 @@ import {
   ApprovalCenter,
 } from "@/pages/admin"
 import { TubeSheetInspection } from "@/pages/admin/tube_sheet"
+import { TubeBundleInspection } from "@/pages/admin/tube_bundle"
 import JobOverview from "@/pages/admin/job_360"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
@@ -44,6 +45,7 @@ import { CreateDCR } from "@/pages/dcr"
 import { RfqRegister, RfqLookupManager, RfqDashboard } from "@/pages/marketing"
 import { CreateNCR } from "@/pages/ncr"
 import { DrawingMaster, DrawingTransmittal } from "@/pages/dtn"
+import { InstrumentsMaster } from "@/pages/admin/masters"
 
 // ─── Helper: wrap element with ProtectedRoute + Permission guard ─────
 const protect = (element, moduleKey = null, allowedRoles = null) => (
@@ -180,6 +182,10 @@ const adminRoutes = [
     element: protect(<DepartmentManagement />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]),
   },
   {
+    path: "/masters/instruments",
+    element: protect(<InstrumentsMaster />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]), // Reuse an existing admin module permission for now
+  },
+  {
     path: "/group-management",
     element: protect(<GroupManagement />, MODULES.ADMINISTRATION.QC_GROUPS, [ROLES.ADMIN]), // Reuse same permission module for now
   },
@@ -196,6 +202,14 @@ const adminRoutes = [
     element: protect(
       <TubeSheetInspection />,
       MODULES.INSPECTION.TUBE_SHEET,
+      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
+    ),
+  },
+  {
+    path: "/inspections/tube-bundle",
+    element: protect(
+      <TubeBundleInspection />,
+      MODULES.INSPECTION.TUBE_BUNDLE,
       [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]
     ),
   },
