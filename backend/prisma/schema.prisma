@@ -1653,3 +1653,25 @@ model client_reviewed_document_file {
 
   transmission_document   transmission_document @relation(fields: [transmission_document_id], references: [id], onDelete: Cascade)
 }
+
+
+model instruments_master {
+  id                String    @id @default(uuid())
+  type              String    // CALIBRATION_INSTRUMENT or PRESSURE_GAUGE
+  equipment_desc    String    // Equipment Description / Name
+  make              String?
+  range             String?
+  serial_no         String    @unique // SR No./ Model No./ Equipment Id. No (Unique for duplicate skipping)
+  frequency         String?
+  required_accuracy String?
+  least_count       String?
+  certificate_no    String?
+  calibration_date  DateTime?
+  due_date          DateTime?
+  remarks           String?
+  is_active         Boolean   @default(true)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@index([type])
+}

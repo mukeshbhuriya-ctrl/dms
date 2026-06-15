@@ -50,17 +50,17 @@ export function ImportReviewDialog({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[1200px] w-full max-h-[95vh] flex flex-col p-0 overflow-hidden shadow-2xl border-none bg-white">
-            <DialogHeader className="p-6 pb-2 border-b">
-                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                    <FileText className="h-6 w-6 text-primary" />
+            <DialogHeader className="p-4 pb-0 border-b">
+                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
                     {title}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-sm">
                     {description}
                 </DialogDescription>
                 
                 {/* Summary counters */}
-                <div className="flex gap-4 mt-4 py-2 border-y bg-slate-50 px-4 rounded-lg">
+                <div className="flex gap-4 mt-2 py-1.5 border-y bg-slate-50 px-4 rounded-lg">
                     <div className="text-sm font-medium">Total Rows: {totalCount}</div>
                     <div className="text-sm font-medium text-green-600">Valid: {validCount}</div>
                     <div className="text-sm font-medium text-red-600">Errors: {errorCount}</div>
@@ -70,7 +70,7 @@ export function ImportReviewDialog({
                 </div>
             </DialogHeader>
 
-            <div className="flex-1 overflow-x-auto p-4 custom-scrollbar-x">
+            <div className="flex-1 overflow-auto px-4 pb-4 pt-0 custom-scrollbar">
                 <div className="border rounded-xl w-fit min-w-full">
                 <table className="w-full border-collapse text-sm">
                     <thead className="sticky top-0 bg-slate-100 shadow-sm z-10">
@@ -139,7 +139,7 @@ export function ImportReviewDialog({
                 </div>
             </div>
 
-            <DialogFooter className="p-6 border-t bg-slate-50 flex items-center sm:justify-between w-full">
+            <DialogFooter className="p-4 border-t bg-slate-50 flex items-center sm:justify-between w-full">
                 <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isImporting} className="bg-white border-slate-200">
                     Cancel
                 </Button>

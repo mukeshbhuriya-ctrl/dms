@@ -237,6 +237,18 @@ export const MENU_CONFIG = [
             { title: "Hydro Pres Test", path: "/hydrostatic-pressure-test", moduleKey: MODULES.HYDRO_TEST },
         ],
     },
+
+    // ── Instruments ──
+    {
+        title: "Instruments Master",
+        icon: Folder,
+        moduleKey: MODULES.INSPECTION.TUBE_BUNDLE,
+        items: [
+            { title: "Calibration Instruments", path: "/masters/calibration-instruments", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
+            { title: "Pressure Gauges", path: "/masters/pressure-gauges", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
+        ],
+    },
+    
     // ── Inspection ──
     {
         title: "Inspection",
@@ -247,7 +259,6 @@ export const MENU_CONFIG = [
             { title: "Final Dimension", path: "/inspections/final", moduleKey: MODULES.INSPECTION.FINAL },
             { title: "Tube Sheet", path: "/inspections/tube-sheet", moduleKey: MODULES.INSPECTION.TUBE_SHEET },
             { title: "Tube Bundle", path: "/inspections/tube-bundle", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
-            { title: "Instrument Details", path: "/masters/instruments", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
         ],
     },
 

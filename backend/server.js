@@ -111,6 +111,9 @@ app.use('/api/admin/audit-logs', auditLogRoutes);
 const jobOverviewRoutes = require('#routes/admin/job360.routes.js');
 app.use('/api/admin/job-360', jobOverviewRoutes);
 
+const instrumentRoutes = require('#routes/masters/instrument.routes.js');
+app.use('/api/masters/instruments', instrumentRoutes);
+
 const notificationRoutes = require('#routes/notification.routes.js');
 app.use('/api/notifications', notificationRoutes);
 

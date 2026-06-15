@@ -45,7 +45,7 @@ import { CreateDCR } from "@/pages/dcr"
 import { RfqRegister, RfqLookupManager, RfqDashboard } from "@/pages/marketing"
 import { CreateNCR } from "@/pages/ncr"
 import { DrawingMaster, DrawingTransmittal } from "@/pages/dtn"
-import { InstrumentsMaster } from "@/pages/admin/masters"
+import { CalibrationInstruments, PressureGauges } from "@/pages/admin/masters"
 
 // ─── Helper: wrap element with ProtectedRoute + Permission guard ─────
 const protect = (element, moduleKey = null, allowedRoles = null) => (
@@ -182,8 +182,12 @@ const adminRoutes = [
     element: protect(<DepartmentManagement />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]),
   },
   {
-    path: "/masters/instruments",
-    element: protect(<InstrumentsMaster />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]), // Reuse an existing admin module permission for now
+    path: "/masters/calibration-instruments",
+    element: protect(<CalibrationInstruments />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]), // Reuse an existing admin module permission for now
+  },
+  {
+    path: "/masters/pressure-gauges",
+    element: protect(<PressureGauges />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]), // Reuse an existing admin module permission for now
   },
   {
     path: "/group-management",
