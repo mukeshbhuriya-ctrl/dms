@@ -183,11 +183,11 @@ const adminRoutes = [
   },
   {
     path: "/masters/calibration-instruments",
-    element: protect(<CalibrationInstruments />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]), // Reuse an existing admin module permission for now
+    element: protect(<CalibrationInstruments />, MODULES.MASTERS.INSTRUMENTS),
   },
   {
     path: "/masters/pressure-gauges",
-    element: protect(<PressureGauges />, MODULES.ADMINISTRATION.DEPARTMENTS, [ROLES.ADMIN]), // Reuse an existing admin module permission for now
+    element: protect(<PressureGauges />, MODULES.MASTERS.INSTRUMENTS),
   },
   {
     path: "/group-management",

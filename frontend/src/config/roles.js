@@ -51,6 +51,11 @@ export const MODULES = {
 
     QAP: "QAP_CREATE",
 
+    // ── Masters Block ──
+    MASTERS: {
+        INSTRUMENTS: "MASTERS_INSTRUMENTS",
+    },
+
     // ── Marketing Block ──
     MARKETING: {
         RFQ: "MARKETING_RFQ",
@@ -242,10 +247,10 @@ export const MENU_CONFIG = [
     {
         title: "Instruments Master",
         icon: Folder,
-        moduleKey: MODULES.INSPECTION.TUBE_BUNDLE,
+        moduleKey: MODULES.MASTERS.INSTRUMENTS,
         items: [
-            { title: "Calibration Instruments", path: "/masters/calibration-instruments", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
-            { title: "Pressure Gauges", path: "/masters/pressure-gauges", moduleKey: MODULES.INSPECTION.TUBE_BUNDLE },
+            { title: "Calibration Instruments", path: "/masters/calibration-instruments", moduleKey: MODULES.MASTERS.INSTRUMENTS },
+            { title: "Pressure Gauges", path: "/masters/pressure-gauges", moduleKey: MODULES.MASTERS.INSTRUMENTS },
         ],
     },
     

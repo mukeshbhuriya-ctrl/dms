@@ -60,6 +60,11 @@ const MODULES = {
         CREATE: "QAP_CREATE",
     },
 
+    // ── Masters ─────────────────────────────────────────────────────
+    MASTERS: {
+        INSTRUMENTS: "MASTERS_INSTRUMENTS",
+    },
+
     // ── Marketing ───────────────────────────────────────────────────
     MARKETING: {
         RFQ: "MARKETING_RFQ",
