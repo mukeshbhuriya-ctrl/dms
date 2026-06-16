@@ -1,11 +1,43 @@
 const prisma = require("#prisma");
 
-exports.getInstruments = async (type) => {
+exports.getInstruments = async (type, options = {}) => {
+  const { page, limit, search } = options;
+  const whereClause = { is_active: true };
+  if (type && type !== "ALL") {
+    whereClause.type = type;
+  }
+
+  if (search) {
+    whereClause.OR = [
+      { equipment_desc: { contains: search } },
+      { serial_no: { contains: search } }
+    ];
+  }
+
+  if (page && limit) {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      prisma.instruments_master.findMany({
+        where: whereClause,
+        skip,
+        take: limit,
+        orderBy: { created_at: 'desc' }
+      }),
+      prisma.instruments_master.count({ where: whereClause })
+    ]);
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
   return await prisma.instruments_master.findMany({
-    where: {
-      type: type,
-      is_active: true
-    },
+    where: whereClause,
     orderBy: {
       created_at: 'desc'
     }

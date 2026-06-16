@@ -12,26 +12,20 @@ export default function CalibrationInstruments() {
 
   const fetchData = useCallback(async ({ page, limit, search }) => {
     try {
-      // Simulate API pagination on the frontend for now since the backend might just return all active
-      const response = await apiClient.get('/api/masters/instruments?type=CALIBRATION_INSTRUMENT');
-      let data = Array.isArray(response) ? response : (response.data || []);
-
+      const queryParams = new URLSearchParams({
+        type: 'CALIBRATION_INSTRUMENT',
+        page: page.toString(),
+        limit: limit.toString(),
+      });
       if (search) {
-        const s = search.toLowerCase();
-        data = data.filter(i =>
-          (i.equipment_desc && i.equipment_desc.toLowerCase().includes(s)) ||
-          (i.serial_no && i.serial_no.toLowerCase().includes(s))
-        );
+        queryParams.append('search', search);
       }
 
-      const total = data.length;
-      const totalPages = Math.ceil(total / limit) || 1;
-      const start = (page - 1) * limit;
-      const paginatedData = data.slice(start, start + limit);
-
+      const response = await apiClient.get(`/api/masters/instruments?${queryParams.toString()}`);
+      
       return {
-        data: paginatedData,
-        meta: { total, page, totalPages }
+        data: response?.data || [],
+        meta: response?.meta || { total: 0, page: 1, totalPages: 1 }
       };
     } catch (error) {
       console.error("Error fetching instruments:", error);

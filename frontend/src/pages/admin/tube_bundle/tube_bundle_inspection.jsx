@@ -443,7 +443,7 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   };
 
-  
+
 
 
   return (
@@ -605,7 +605,7 @@ function ListView({ onCreateClick, onEditClick }) {
                         </tr>
                       ))
                     )}
-</tbody>
+                  </tbody>
                 </table>
               </div>
 
@@ -664,16 +664,27 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const [vendorTubeBundleNo, setVendorTubeBundleNo] = useState("")
 
   const [masterInstruments, setMasterInstruments] = useState([])
-  
+
   useEffect(() => {
-    setMasterInstruments(getMockInstruments())
+    apiClient.get("/api/masters/instruments?type=ALL")
+      .then((res) => {
+        let data = Array.isArray(res) ? res : (res.data || []);
+        const mapped = data.map(item => ({
+          id: item.id,
+          name: `${item.equipment_desc || ''}${item.range ? ` / ${item.range}` : ''}`.trim(),
+          id_no: item.serial_no || '',
+          due_date: item.due_date ? new Date(item.due_date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''
+        }));
+        setMasterInstruments(mapped)
+      })
+      .catch((err) => console.error("Failed to fetch instruments:", err))
   }, [])
 
   const { roles } = useAuth()
   const userRole = (roles?.includes("QC_ENGINEER") || roles?.includes("ADMIN") || roles?.includes("QC")) ? "QC" : (roles?.includes("PRODUCTION_ENGINEER") ? "PROD" : "")
 
   // Description options for the table
-    const defaultItems = [
+  const defaultItems = [
     { srNo: 1, desc: 'RHS TUBE SHEET THICKNESS' },
     { srNo: 2, desc: 'RHS T/S INSIDE FACE TO "U" BAFFLE PLATE DISTANCE' },
     { srNo: 3, desc: '"U" BAFFLE PLATE TO "L" BAFFLE PLATE DISTANCE' },
@@ -708,7 +719,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     { id: 1, name: "", idNo: "", dueDate: "" },
   ])
 
-    const [remarksRows, setRemarksRows] = useState([
+  const [remarksRows, setRemarksRows] = useState([
     { id: 1, remark: "FITUP INSPECTED & FOUND SATISFACTORY." },
     { id: 2, remark: "RELEASE FOR FURTHER PROCESS." },
     { id: 3, remark: "ALL DIMENSIONS ARE IN MM UNLESS OTHERWISE SPECIFIED." }
@@ -722,7 +733,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
   const [submitting, setSubmitting] = useState(false)
 
-  
+
   useEffect(() => {
     apiClient.get("/api/common/groups?type=PRODUCTION")
       .then((res) => { if (res.success) setProductionGroups(res.data) })
@@ -968,10 +979,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     }
   }
 
-  
+
   const s = inspectionStatus?.toUpperCase() || "NEW"
   const isQcInitiationLocked = userRole !== 'QC' || !(s === 'NEW' || s === 'DRAFT')
-  
+
   // Overall readonly for the whole form based on status
   const isFormReadOnly = isView || s === 'APPROVED'
 
@@ -1045,7 +1056,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
             </div>
 
 
-          
+
             <div className="space-y-2">
               <Label htmlFor="qapClause">QAP CLAUSE:</Label>
               <Input
@@ -1265,22 +1276,13 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                   instrumentRows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
-                        <Select
+                        <SearchableSelect
+                          options={masterInstruments.map(inst => ({ value: inst.id.toString(), label: inst.name }))}
                           value={masterInstruments.find(i => i.name === row.name)?.id?.toString() || ""}
                           onValueChange={(val) => handleInstrumentSelect(row.id, val)}
+                          placeholder="Select Instrument"
                           disabled={isQcInitiationLocked || isFormReadOnly}
-                        >
-                          <SelectTrigger className={`w-full text-xs h-9 border-0 focus:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}>
-                            <SelectValue placeholder="Select Instrument" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {masterInstruments.map(inst => (
-                              <SelectItem key={inst.id} value={inst.id.toString()}>
-                                {inst.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </TableCell>
                       <TableCell>
                         <Input
@@ -1292,7 +1294,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                       </TableCell>
                       <TableCell>
                         <Input
-                          type="date"
+                          type="text"
                           value={row.dueDate}
                           readOnly
                           className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
@@ -1414,13 +1416,13 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 {submitting === "INITIATE" ? "Submitting..." : "Submit"}
               </Button>
             )}
-            
+
             {userRole === 'PROD' && (s === 'INITIATED' || s === 'PENDING') && (
               <Button type="button" variant="secondary" onClick={() => handleSubmit("OFFER")} disabled={submitting !== null} className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200">
                 {submitting === "OFFER" ? "Submitting..." : "Submit to QC"}
               </Button>
             )}
-            
+
             {userRole === 'QC' && s === 'OFFERED' && (
               <>
                 <Button type="button" variant="secondary" onClick={() => handleSubmit("SAVE_REVIEW")} disabled={submitting !== null} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200">
