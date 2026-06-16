@@ -305,47 +305,15 @@ function UploadDocument() {
             },
         },
         {
-            id: "customer_name",
-            header: "Client",
-            accessorKey: "customer.customer_name",
-            filterType: "select",
-            filterOptions: clientFilterOptions,
-            cell: (row) => row.customer?.customer_name || "-",
+        id: "plant_submission_date",
+        accessorKey: "upload_due_days",
+        header: "Planned Submission Date",
+        cell: (row) => {
+            if (!row.upload_due_days) return "-";
+            const created = new Date(row.createdAt);
+            const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
+            return deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
         },
-        {
-            id: "po_number",
-            header: "PO",
-            accessorKey: "po.po_number",
-            filterType: "select",
-            filterOptions: poFilterOptions,
-            cell: (row) => row.po?.po_number || "-",
-        },
-        {
-            id: "job_number",
-            header: "Job Number",
-            accessorKey: "job_number",
-            filterType: "select",
-            isMulti: true,
-            filterOptions: jobFilterOptions,
-            cell: (row) => {
-                const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
-                return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
-            },
-        },
-        {
-            header: "Created At",
-            accessorKey: "createdAt",
-            cell: (row) => new Date(row.createdAt).toLocaleDateString()
-        },
-        {
-            header: "Upload Due Days",
-            accessorKey: "upload_due_days",
-            cell: (row) => row.upload_due_days || "-"
-        },
-        {
-            header: "Response Due Days",
-            accessorKey: "response_due_days",
-            cell: (row) => row.response_due_days || "-"
         },
         {
             header: "Uploader Status",
@@ -490,7 +458,50 @@ function UploadDocument() {
                 )
             },
             className: "w-[150px]"
-        }
+        },
+        {
+            id: "customer_name",
+            header: "Client",
+            accessorKey: "customer.customer_name",
+            filterType: "select",
+            filterOptions: clientFilterOptions,
+            cell: (row) => row.customer?.customer_name || "-",
+        },
+        {
+            id: "po_number",
+            header: "PO",
+            accessorKey: "po.po_number",
+            filterType: "select",
+            filterOptions: poFilterOptions,
+            cell: (row) => row.po?.po_number || "-",
+        },
+        {
+            id: "job_number",
+            header: "Job Number",
+            accessorKey: "job_number",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: jobFilterOptions,
+            cell: (row) => {
+                const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
+                return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
+            },
+        },
+        {
+            header: "Created At",
+            accessorKey: "createdAt",
+            cell: (row) => new Date(row.createdAt).toLocaleDateString()
+        },
+        {
+            header: "Upload Due Days",
+            accessorKey: "upload_due_days",
+            cell: (row) => row.upload_due_days || "-"
+        },
+        {
+            header: "Response Due Days",
+            accessorKey: "response_due_days",
+            cell: (row) => row.response_due_days || "-"
+        },
     ], [uploadingIds, backendUrl, clientFilterOptions, poFilterOptions, jobFilterOptions])
 
     const proTableTopFilters = useMemo(() => [

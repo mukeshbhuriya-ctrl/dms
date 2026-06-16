@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useSearchParams } from "react-router-dom"
 import {
   Table,
   TableBody,
@@ -79,6 +80,7 @@ import WELD_STAGES_CONFIG from "@/config/weldStagesConfig"
 function ViewWeldingJoints() {
   const [userRoles, setUserRoles] = useState([])
   const [userId, setUserId] = useState(null)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   // Dialog State
   const [selectedJoint, setSelectedJoint] = useState(null)
@@ -137,6 +139,24 @@ function ViewWeldingJoints() {
   useEffect(() => {
     fetchActiveFilters();
   }, [fetchActiveFilters, refreshKey]);
+
+  // Handle Notifications Routing (?joint_id=...)
+  useEffect(() => {
+    const jointIdParam = searchParams.get('joint_id');
+    if (jointIdParam && activeFilters?.records?.length > 0) {
+      const match = activeFilters.records.find(r => String(r.id) === jointIdParam);
+      if (match) {
+        setColumnFilters(prev => ({
+          ...prev,
+          msnNumber: match.msn ? [match.msn.toString()] : undefined,
+          jointNo: match.joint_no ? [match.joint_no.toString()] : undefined,
+          jointCategory: match.cat ? [match.cat.toString()] : undefined
+        }));
+        // Clean URL so user can clear filters normally later
+        setSearchParams(new URLSearchParams(), { replace: true });
+      }
+    }
+  }, [searchParams, activeFilters.records, setSearchParams]);
 
   // Auto-selection logic for reverse cascading
   useEffect(() => {
