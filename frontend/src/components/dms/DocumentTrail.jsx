@@ -54,6 +54,9 @@ const DocumentTrail = ({ documentId, onPreview }) => {
             case 'Client As Built': return <CheckCircle2 className="w-4 h-4 text-indigo-500" />;
             case 'Client Re-approval': return <Send className="w-4 h-4 text-amber-500" />;
             case 'Client Commented': return <FileText className="w-4 h-4 text-sky-500" />;
+            case 'Revision Requested': return <History className="w-4 h-4 text-orange-500" />;
+            case 'Revision Request Approved': return <CheckCircle2 className="w-4 h-4 text-emerald-600" />;
+            case 'Revision Request Rejected': return <XCircle className="w-4 h-4 text-rose-600" />;
             default: return <History className="w-4 h-4 text-gray-500" />;
         }
     };

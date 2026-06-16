@@ -1101,6 +1101,69 @@ class DccController {
             res.status(500).send("An unexpected error occurred while loading the document.");
         }
     }
+
+    async requestRevision(req, res) {
+        try {
+            const userId = req.user.userid || req.user.id;
+            const result = await DccService.requestRevision(req.user.company_id, userId, req.params.id, req.body.remarks);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: userId,
+                action: 'created',
+                module: 'Revision Request',
+                description: `Requested Revision for Assigned Document ID: ${req.params.id}`,
+                metadata: { target_document_id: req.params.id },
+            });
+
+            res.status(200).json({ success: true, data: result, message: 'Revision requested successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async approveRevisionRequest(req, res) {
+        try {
+            const adminUserId = req.user.userid || req.user.id;
+            const result = await DccService.approveRevisionRequest(req.user.company_id, adminUserId, req.params.id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: adminUserId,
+                action: 'approved',
+                module: 'Revision Request',
+                description: `Approved Revision Request for Assigned Document ID: ${req.params.id}`,
+                metadata: { target_document_id: req.params.id },
+            });
+
+            res.status(200).json({ success: true, data: result, message: 'Revision request approved successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async rejectRevisionRequest(req, res) {
+        try {
+            const adminUserId = req.user.userid || req.user.id;
+            const result = await DccService.rejectRevisionRequest(req.user.company_id, adminUserId, req.params.id, req.body.remarks);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: adminUserId,
+                action: 'rejected',
+                module: 'Revision Request',
+                description: `Rejected Revision Request for Assigned Document ID: ${req.params.id}`,
+                metadata: { target_document_id: req.params.id },
+            });
+
+            res.status(200).json({ success: true, data: result, message: 'Revision request rejected successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = new DccController();

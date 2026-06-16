@@ -244,7 +244,8 @@ function DocumentApprover() {
       header: "Planned Submission Date",
       cell: (row) => {
         const upload_due_days = row.originalDoc?.upload_due_days;
-        const createdAt = row.originalDoc?.createdAt;
+        const latestVersion = row.originalDoc?.versions && row.originalDoc.versions.length > 0 ? row.originalDoc.versions[0] : null;
+        const createdAt = latestVersion ? latestVersion.createdAt : row.originalDoc?.createdAt;
         if (!upload_due_days) return "-";
         const created = new Date(createdAt);
         const deadline = new Date(created.getTime() + (upload_due_days * 24 * 60 * 60 * 1000));

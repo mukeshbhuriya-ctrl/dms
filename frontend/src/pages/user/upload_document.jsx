@@ -310,7 +310,7 @@ function UploadDocument() {
         header: "Planned Submission Date",
         cell: (row) => {
             if (!row.upload_due_days) return "-";
-            const created = new Date(row.createdAt);
+            const created = new Date(row.versionCreatedAt || row.createdAt);
             const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
             return deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
         },
@@ -572,9 +572,10 @@ function UploadDocument() {
                         approverStatus: approverStatus,
                         client_status: doc.client_status,
                         createdAt: doc.createdAt,
+                        versionCreatedAt: latestVersion ? latestVersion.createdAt : null,
                         upload_due_days: doc.upload_due_days,
                         response_due_days: doc.response_due_days,
-                        versionNo: doc.display_version_no || 0,
+                        versionNo: latestVersion ? latestVersion.version_no : 0,
                         files: latestVersion?.files || [],
                         mimeType: latestVersion?.mime_type,
                         filePath: latestVersion?.file_path,

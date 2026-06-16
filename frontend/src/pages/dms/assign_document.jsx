@@ -29,7 +29,8 @@ import {
 } from "@/components/ui/sheet"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
-import ConfirmDialog from "../../components/shared/ConfirmDialog"
+import { ConfirmDialog } from "../../components/shared/ConfirmDialog"
+import { PromptDialog } from "../../components/shared/PromptDialog"
 import {
   Popover,
   PopoverContent,
@@ -445,8 +446,9 @@ function AssignDocument() {
       header: "Planned Submission Date",
       cell: (row) => {
         if (!row.upload_due_days) return "-";
-        const created = new Date(row.createdAt);
-        const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
+        const latestVersion = row.versions && row.versions.length > 0 ? row.versions[0] : null;
+        const baseDate = latestVersion ? new Date(latestVersion.createdAt) : new Date(row.createdAt);
+        const deadline = new Date(baseDate.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
         return deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
       },
     },
@@ -478,6 +480,9 @@ function AssignDocument() {
         } else if (docStatus === 'Rejected') {
           text = "Rejected";
           colorClass = "bg-red-100 text-red-800";
+        } else if (docStatus === 'Revision Requested') {
+          text = "Revision Requested";
+          colorClass = "bg-purple-100 text-purple-800 border border-purple-200";
         }
 
         return (
@@ -501,8 +506,9 @@ function AssignDocument() {
       ],
       cell: (row) => {
         let docStatus = 'Not Sent';
-        if (row.transmission_items && row.transmission_items.length > 0) {
-          docStatus = row.transmission_items[0].client_status || 'Pending';
+        const latestVersion = row.versions && row.versions.length > 0 ? row.versions[0] : null;
+        if (latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0) {
+          docStatus = latestVersion.transmission_items[0].client_status || 'Pending';
         }
 
         if (docStatus === 'Not Sent') {
@@ -597,7 +603,7 @@ function AssignDocument() {
               >
                 <Archive className="h-4 w-4" />
                 Archive
-              </Button>
+                </Button>
             )}
           </div>
         );
@@ -650,6 +656,55 @@ function AssignDocument() {
       accessorKey: "updatedAt",
       header: "Last Updated",
       cell: (row) => new Date(row.updatedAt).toLocaleDateString("en-GB"),
+    },
+     {
+      id: "revision_request",
+      header: "Revision Request",
+      cell: (row) => {
+        return (
+          <div className="flex gap-2">
+            {(() => {
+                const latestVersion = row.versions && row.versions.length > 0 ? row.versions[0] : null;
+                const clientStatus = (latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0) ? latestVersion.transmission_items[0].client_status : null;
+                const isClientApproved = clientStatus === 'Approved' || clientStatus === 'Final Approved' || clientStatus === 'As Built';
+                
+                return isClientApproved && row.status !== 'Revision Requested' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-orange-600 hover:text-orange-700 border-orange-200 rounded-sm cursor-pointer bg-orange-50"
+                    onClick={() => handleRequestRevision(row)}
+                  >
+                    <History className="h-4 w-4 mr-2" />
+                    Request Revision
+                  </Button>
+                );
+            })()}
+            {row.status === 'Revision Requested' && isAdmin && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-emerald-600 hover:text-emerald-700 border-emerald-200 rounded-sm cursor-pointer bg-emerald-50"
+                  onClick={() => handleApproveRevision(row)}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-rose-600 hover:text-rose-700 border-rose-200 rounded-sm cursor-pointer bg-rose-50"
+                  onClick={() => handleRejectRevision(row)}
+                >
+                  <XCircle className="h-4 w-4 mr-1" />
+                  Reject
+                </Button>
+              </>
+            )}
+          </div>
+        );
+      },
     },
   ], [activeClientOptions, activePoOptions, activeJobOptions, isAdmin])
 
@@ -1118,9 +1173,73 @@ function AssignDocument() {
     setConfirmDialogOpen(true)
   }
 
-  const confirmAction = async () => {
+  const handleRequestRevision = (row) => {
+    setConfirmData({
+      title: "Request Revision",
+      description: "Are you sure you want to request a new revision for this document? It will be sent to the Admin for approval.",
+      showInput: true,
+      inputPlaceholder: "Reason for revision...",
+      action: async (remarks) => {
+        try {
+          const res = await apiClient.post(`/api/dcc/assigned-documents/${row.id}/request-revision`, { remarks })
+          if (res.success) {
+            toast.success("Revision requested successfully")
+            setRefreshKey(prev => prev + 1)
+          }
+        } catch (err) {
+          toast.error(err.message || "Failed to request revision")
+        }
+      },
+      variant: "default"
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const handleApproveRevision = (row) => {
+    setConfirmData({
+      title: "Approve Revision Request",
+      description: "Are you sure you want to approve this revision request? A new pending version will be created for the uploader.",
+      action: async () => {
+        try {
+          const res = await apiClient.post(`/api/dcc/assigned-documents/${row.id}/approve-revision`)
+          if (res.success) {
+            toast.success("Revision request approved")
+            setRefreshKey(prev => prev + 1)
+          }
+        } catch (err) {
+          toast.error(err.message || "Failed to approve revision request")
+        }
+      },
+      variant: "default"
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const handleRejectRevision = (row) => {
+    setConfirmData({
+      title: "Reject Revision Request",
+      description: "Are you sure you want to reject this revision request? The document will remain Approved.",
+      showInput: true,
+      inputPlaceholder: "Reason for rejection...",
+      action: async (remarks) => {
+        try {
+          const res = await apiClient.post(`/api/dcc/assigned-documents/${row.id}/reject-revision`, { remarks })
+          if (res.success) {
+            toast.success("Revision request rejected")
+            setRefreshKey(prev => prev + 1)
+          }
+        } catch (err) {
+          toast.error(err.message || "Failed to reject revision request")
+        }
+      },
+      variant: "danger"
+    })
+    setConfirmDialogOpen(true)
+  }
+
+  const confirmAction = async (inputValue) => {
     if (confirmData.action) {
-      await confirmData.action()
+      await confirmData.action(inputValue)
     }
   }
 
@@ -1235,14 +1354,26 @@ function AssignDocument() {
             />
           )}
 
-          <ConfirmDialog
-            isOpen={confirmDialogOpen}
-            onClose={() => setConfirmDialogOpen(false)}
-            title={confirmData.title}
-            description={confirmData.description}
-            onConfirm={confirmAction}
-            variant={confirmData.variant}
-          />
+          {confirmData.showInput ? (
+            <PromptDialog
+              isOpen={confirmDialogOpen}
+              onClose={() => setConfirmDialogOpen(false)}
+              title={confirmData.title}
+              description={confirmData.description}
+              onConfirm={confirmAction}
+              variant={confirmData.variant}
+              inputPlaceholder={confirmData.inputPlaceholder}
+            />
+          ) : (
+            <ConfirmDialog
+              isOpen={confirmDialogOpen}
+              onClose={() => setConfirmDialogOpen(false)}
+              title={confirmData.title}
+              description={confirmData.description}
+              onConfirm={confirmAction}
+              variant={confirmData.variant}
+            />
+          )}
 
           {view === 'assign' && (
             <div className="flex-1 flex flex-col w-full space-y-6">

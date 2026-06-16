@@ -103,4 +103,8 @@ router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), 
 router.delete('/delete-assigned-document/:id', authenticateUser(['ADMIN']), DccController.deleteAssignedDocument);
 router.patch('/assigned-documents/toggle-status/:id', authenticateUser(['ADMIN']), DccController.toggleAssignedDocumentStatus);
 
+router.post('/assigned-documents/:id/request-revision', authenticateUser(['DCC']), DccController.requestRevision);
+router.post('/assigned-documents/:id/approve-revision', authenticateUser(['ADMIN', 'DCC']), DccController.approveRevisionRequest);
+router.post('/assigned-documents/:id/reject-revision', authenticateUser(['ADMIN', 'DCC']), DccController.rejectRevisionRequest);
+
 module.exports = router;

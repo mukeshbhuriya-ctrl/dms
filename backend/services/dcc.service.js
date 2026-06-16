@@ -974,7 +974,7 @@ class DccService {
                     po: true,
                     versions: versionsInclude
                 },
-                orderBy: { createdAt: 'desc' }
+                orderBy: { updatedAt: 'desc' }
             })
         ]);
 
@@ -1180,15 +1180,18 @@ class DccService {
             customer: true,
             customer_location: true,
             po: true,
-            transmission_items: {
-                orderBy: { transmission: { createdAt: 'desc' } },
-                take: 1,
-                select: { client_status: true }
-            },
             versions: {
                 orderBy: { version_no: 'desc' },
                 take: 1,
-                include: { uploader: true, files: { where: { is_active: true } } }
+                include: { 
+                    uploader: true, 
+                    files: { where: { is_active: true } },
+                    transmission_items: {
+                        orderBy: { transmission: { createdAt: 'desc' } },
+                        take: 1,
+                        select: { client_status: true }
+                    }
+                }
             }
         };
 
@@ -2600,6 +2603,176 @@ class DccService {
     }
 
     /**
+     * Request a new revision for an Approved document
+     */
+    async requestRevision(company_id, user_id, document_id, remarks) {
+        const groupDoc = await prisma.group_document.findFirst({
+            where: { id: document_id, company_id },
+            include: {
+                versions: {
+                    orderBy: { version_no: 'desc' },
+                    take: 1,
+                    include: {
+                        transmission_items: {
+                            orderBy: { transmission: { createdAt: 'desc' } },
+                            take: 1,
+                            select: { client_status: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!groupDoc) throw new Error('Document not found');
+        
+        const latestVersion = groupDoc.versions && groupDoc.versions.length > 0 ? groupDoc.versions[0] : null;
+        const latestTransmission = latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0 
+            ? latestVersion.transmission_items[0] 
+            : null;
+            
+        const clientStatus = latestTransmission ? latestTransmission.client_status : null;
+
+        if (clientStatus !== 'Approved' && clientStatus !== 'Final Approved' && clientStatus !== 'As Built') {
+            throw new Error('Can only request revision for documents approved by the client');
+        }
+
+        return await prisma.$transaction(async (tx) => {
+            const updated = await tx.group_document.update({
+                where: { id: document_id },
+                data: { status: 'Revision Requested' }
+            });
+
+            const ActivityService = require('./activity.service');
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: document_id,
+                user_id,
+                action: 'Revision Requested',
+                remarks: remarks || 'User requested a new revision.',
+                metadata: { previous_status: groupDoc.status }
+            }, tx);
+
+            return updated;
+        });
+    }
+
+    /**
+     * Approve a revision request
+     */
+    async approveRevisionRequest(company_id, admin_user_id, document_id) {
+        const groupDoc = await prisma.group_document.findFirst({
+            where: { id: document_id, company_id },
+            include: {
+                versions: {
+                    orderBy: { version_no: 'desc' },
+                    take: 1
+                },
+                document: true,
+                group: { include: { job_group: { include: { job: true } } } }
+            }
+        });
+
+        if (!groupDoc) throw new Error('Document not found');
+        if (groupDoc.status !== 'Revision Requested') {
+            throw new Error('Document is not in Revision Requested state');
+        }
+
+        const latestVersion = groupDoc.versions[0];
+        const nextVersionNo = latestVersion ? latestVersion.version_no + 1 : 1;
+
+        return await prisma.$transaction(async (tx) => {
+            // Deactivate previous version
+            if (latestVersion) {
+                await tx.document_version.update({
+                    where: { id: latestVersion.id },
+                    data: { is_active: false }
+                });
+            }
+
+            // Create physical folder for the next revision
+            const docNumber = groupDoc.document?.document_number || 'NA';
+            const job_number = groupDoc.group?.job_group[0]?.job?.job_number || 'NA';
+            const StorageUtils = require('../utils/storage.utils');
+            StorageUtils.getDocRevisionDir(company_id, job_number, docNumber, nextVersionNo);
+
+            // Create new pending version
+            const newVersion = await tx.document_version.create({
+                data: {
+                    group_document_id: groupDoc.id,
+                    version_no: nextVersionNo,
+                    file_url: '', 
+                    file_path: '',
+                    status: 'Pending',
+                    remarks: `Admin approved Revision Request`,
+                    uploaded_by: groupDoc.user_id, // Assigned user will upload
+                    is_active: true
+                }
+            });
+
+            // Update group document to Pending
+            const updated = await tx.group_document.update({
+                where: { id: document_id },
+                data: { status: 'Pending' }
+            });
+
+            const ActivityService = require('./activity.service');
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: document_id,
+                user_id: admin_user_id,
+                action: 'Revision Request Approved',
+                remarks: `Revision request approved. Created Version ${nextVersionNo}.`,
+                metadata: { version_no: nextVersionNo }
+            }, tx);
+
+            return updated;
+        });
+    }
+
+    /**
+     * Reject a revision request
+     */
+    async rejectRevisionRequest(company_id, admin_user_id, document_id, remarks) {
+        const groupDoc = await prisma.group_document.findFirst({
+            where: { id: document_id, company_id },
+            include: {
+                activities: {
+                    where: { action: 'Revision Requested' },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
+        });
+
+        if (!groupDoc) throw new Error('Document not found');
+        if (groupDoc.status !== 'Revision Requested') {
+            throw new Error('Document is not in Revision Requested state');
+        }
+
+        // Revert to previous status if possible, default to Approved
+        const prevStatus = groupDoc.activities[0]?.metadata?.previous_status || 'Approved';
+
+        return await prisma.$transaction(async (tx) => {
+            const updated = await tx.group_document.update({
+                where: { id: document_id },
+                data: { status: prevStatus }
+            });
+
+            const ActivityService = require('./activity.service');
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: document_id,
+                user_id: admin_user_id,
+                action: 'Revision Request Rejected',
+                remarks: remarks || 'Admin rejected the revision request.',
+                metadata: { reverted_to: prevStatus }
+            }, tx);
+
+            return updated;
+        });
+    }
+
+    /**
      * Helper to send client review notification in background
      * @private
      */
@@ -2915,10 +3088,13 @@ class DccService {
             }
 
             // 2. Logic for "Upload Due"
-            // If Pending and deadline passed since assignment (createdAt)
+            // If Pending and deadline passed since assignment or latest revision (createdAt)
             if (doc.status === 'Pending' && doc.upload_due_days) {
-                const created = new Date(doc.createdAt);
-                const uploadDeadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
+                // Use the latest version's createdAt if it exists, otherwise use the assignment's createdAt
+                const latestPendingVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+                const baseDate = latestPendingVersion ? new Date(latestPendingVersion.createdAt) : new Date(doc.createdAt);
+                
+                const uploadDeadline = new Date(baseDate.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
                 if (now > uploadDeadline) {
                     doc.status = 'Upload Due';
                 }
