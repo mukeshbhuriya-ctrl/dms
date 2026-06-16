@@ -570,7 +570,7 @@ function AssignDocument() {
               variant="outline"
               size="sm"
               onClick={() => handleEditAssign(row)}
-              disabled={!isEditable}
+              disabled={!(isEditable || isPowerUser)}
               className="h-8 rounded-sm cursor-pointer"
             >
               <Edit className="h-4 w-4 mr-2" />
@@ -981,6 +981,7 @@ function AssignDocument() {
         const updateBody = {
           job_ids: a.jobId,
           document_id: a.documentId,
+          document_name: a.documentName,
           assign_user_id: a.assignUserId || null,
           upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
           response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
