@@ -235,49 +235,20 @@ function DocumentApprover() {
       ),
     },
     {
-      id: "customer_name",
-      header: "Client",
-      accessorKey: "customer.customer_name",
-      filterType: "select",
-      filterOptions: clientFilterOptions,
-      cell: (row) => row.customer?.customer_name || "-",
-    },
-    {
-      id: "po_number",
-      header: "PO",
-      accessorKey: "po.po_number",
-      filterType: "select",
-      filterOptions: poFilterOptions,
-      cell: (row) => row.po?.po_number || "-",
-    },
-    {
-      id: "job_number",
-      header: "Job Number",
-      accessorKey: "job_number",
-      filterType: "select",
-      isMulti: true,
-      filterOptions: jobFilterOptions,
-      cell: (row) => {
-        const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
-        return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
-      },
-    },
-
-    {
       header: "Uploaded By",
       accessorKey: "uploadedBy"
     },
     {
       id: "plant_submission_date",
       accessorKey: "upload_due_days",
-      header: "Plant Submission Date",
+      header: "Planned Submission Date",
       cell: (row) => {
         const upload_due_days = row.originalDoc?.upload_due_days;
         const createdAt = row.originalDoc?.createdAt;
         if (!upload_due_days) return "-";
         const created = new Date(createdAt);
         const deadline = new Date(created.getTime() + (upload_due_days * 24 * 60 * 60 * 1000));
-        return deadline.toLocaleDateString("en-GB");
+        return deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
       },
     },
     {
@@ -422,7 +393,35 @@ function DocumentApprover() {
           {row.remarks || '-'}
         </div>
       )
-    }
+    },
+    {
+      id: "customer_name",
+      header: "Client",
+      accessorKey: "customer.customer_name",
+      filterType: "select",
+      filterOptions: clientFilterOptions,
+      cell: (row) => row.customer?.customer_name || "-",
+    },
+    {
+      id: "po_number",
+      header: "PO",
+      accessorKey: "po.po_number",
+      filterType: "select",
+      filterOptions: poFilterOptions,
+      cell: (row) => row.po?.po_number || "-",
+    },
+    {
+      id: "job_number",
+      header: "Job Number",
+      accessorKey: "job_number",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: jobFilterOptions,
+      cell: (row) => {
+        const jobs = row.group?.job_group?.map(jg => jg.job?.job_number).filter(Boolean);
+        return jobs && jobs.length > 0 ? jobs.join(', ') : "-";
+      },
+    },
   ], [clientFilterOptions, poFilterOptions, jobFilterOptions, reviewDialogOpen, isPreviewOpen]); // Memo dependencies
   
   const proTableTopFilters = useMemo(() => [
