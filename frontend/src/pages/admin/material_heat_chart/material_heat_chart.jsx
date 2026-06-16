@@ -122,6 +122,33 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Handle Notifications Routing (?id=...)
+  useEffect(() => {
+    const idParam = searchParams.get('id') || searchParams.get('mhc_id');
+    if (idParam) {
+      const fetchMhcAndFilter = async () => {
+        try {
+          const res = await apiClient.get(`/api/mhc/${idParam}`);
+          if (res.success && res.data) {
+            const match = res.data;
+            setColumnFilters(prev => ({
+              ...prev,
+              msn: match.msn ? [match.msn.toString()] : undefined,
+              po_no: match.po_no ? [match.po_no.toString()] : undefined,
+              client: match.client ? [match.client.toString()] : undefined
+            }));
+            // Clean URL so user can clear filters normally later
+            setSearchParams(new URLSearchParams(), { replace: true });
+          }
+        } catch (err) {
+          console.error("Error fetching MHC from notification:", err);
+        }
+      };
+      fetchMhcAndFilter();
+    }
+  }, [searchParams, setSearchParams]);
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });
