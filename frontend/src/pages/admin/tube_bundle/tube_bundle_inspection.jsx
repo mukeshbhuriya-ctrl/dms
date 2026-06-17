@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
-import { getMockInstruments } from "@/data/mockInstruments"
 
 import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
@@ -38,7 +37,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Plus, Trash2, ArrowLeft, FileText, Eye, Edit, CheckCircle, XCircle, Download, Archive } from "lucide-react"
-import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { toast } from 'react-toastify'
 import { useAuth } from "@/context/AuthContext"

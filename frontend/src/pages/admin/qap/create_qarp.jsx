@@ -679,7 +679,6 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
         documentNo: "",
         equipmentDescription: "",
         tagNo: "",
-        code: "",
         projectId: "",
       }))
       setClient("")
@@ -723,7 +722,6 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
             projectId: job.project_id || "",
             equipmentDescription: job.equipement_name || "",
             tagNo: job.tag_number || "",
-            code: job.code || "",
           }))
         }
       } catch (error) {
@@ -733,7 +731,6 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
           documentNo: nextReportNo,
           equipmentDescription: "",
           tagNo: "",
-          code: "",
           projectId: "",
         }))
         setClient("")
@@ -1073,18 +1070,6 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="code">CODE <span className="text-destructive">*</span></Label>
-              <Input
-                id="code"
-                type="text"
-                value={formData.code}
-                readOnly
-                className="bg-muted"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="poNo">P.O. No. <span className="text-destructive">*</span></Label>
               <Input
                 id="poNo"
@@ -1143,6 +1128,20 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
                 value={formData.customerDrgNo}
                 onChange={handleInputChange}
                 placeholder="Enter Customer DRG No"
+                required
+                readOnly={isReadOnly}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="code">CODE OF CONSTRUCTION <span className="text-destructive">*</span></Label>
+              <Input
+                id="code"
+                name="code"
+                type="text"
+                value={formData.code}
+                onChange={handleInputChange}
+                placeholder="Enter Code of Construction"
                 required
                 readOnly={isReadOnly}
               />

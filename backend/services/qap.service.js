@@ -79,7 +79,7 @@ class QapService {
             const currentProjectId = jobDetails?.project_id || project_id;
             const currentEquipmentName = jobDetails?.equipement_name || equipment_name;
             const currentTagNo = jobDetails?.tag_number || tag_no;
-            const currentCode = jobDetails?.code || code;
+            const currentCode = code;
 
             const record = await prisma.quality_assurance_plan.create({
                 data: {
@@ -137,7 +137,7 @@ class QapService {
                 project_id: mainJobDetails?.project_id || project_id, 
                 equipment_name: mainJobDetails?.equipement_name || equipment_name,
                 tag_no: mainJobDetails?.tag_number || tag_no, 
-                code: mainJobDetails?.code || code, 
+                code: code, 
                 shreno_drg_no, customer_drg_no,
                 status: status,
                 remarks,
