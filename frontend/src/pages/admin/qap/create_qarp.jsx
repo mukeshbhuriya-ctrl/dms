@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive, PlusCircle } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive, PlusCircle, Copy } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Switch } from "@/components/ui/switch"
@@ -32,7 +32,7 @@ import { useAuth } from "@/context/AuthContext"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick, onViewClick }) {
+function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
 
   const handleDownloadPdf = async (id) => {
     try {
@@ -283,6 +283,14 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
           <Button
             variant="outline"
             size="sm"
+            className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+            onClick={() => onCloneClick(row.id)}
+            title="Clone">
+            <Copy className="h-4 w-4 mr-2" /> Clone
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
             onClick={() => handleDownloadPdf(row.id)}
             title="Download PDF">
@@ -351,7 +359,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
 }
 
 // ─── Create / Edit View ──────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
+function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOnly = false }) {
   // Get today's date
   const today = new Date().toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -555,27 +563,28 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
     },
   ])
 
-  // If editId is present and jobs loaded, fetch QAP data to compose edit form
+  // If editId or cloneId is present and jobs loaded, fetch QAP data to compose edit form
   useEffect(() => {
-    if (editId && msnOptions.length > 0) {
-      apiClient.get(`/api/qap/${editId}`)
+    const targetId = editId || cloneId;
+    if (targetId && msnOptions.length > 0) {
+      apiClient.get(`/api/qap/${targetId}`)
         .then(res => {
           if (res.success && res.data) {
             const data = res.data;
-            setMsnIds(data.job_id ? [data.job_id] : [])
-            setClient(data.client || "")
-            setPoNo(data.po_no || "")
-            setPoDate(data.po_date || "")
+            setMsnIds(cloneId ? [] : (data.job_id ? [data.job_id] : []))
+            setClient(cloneId ? "" : (data.client || ""))
+            setPoNo(cloneId ? "" : (data.po_no || ""))
+            setPoDate(cloneId ? "" : (data.po_date || ""))
 
             setFormData({
-              documentNo: data.report_no || "",
-              drgNo: data.shreno_drg_no || "",
-              customerDrgNo: data.customer_drg_no || "",
-              equipmentDescription: data.equipment_name || "",
-              tagNo: data.tag_no || "",
-              code: data.code || "",
-              projectId: data.project_id || "",
-              remarks: data.remarks || ""
+              documentNo: cloneId ? "" : (data.report_no || ""),
+              drgNo: cloneId ? "" : (data.shreno_drg_no || ""),
+              customerDrgNo: cloneId ? "" : (data.customer_drg_no || ""),
+              equipmentDescription: cloneId ? "" : (data.equipment_name || ""),
+              tagNo: cloneId ? "" : (data.tag_no || ""),
+              code: cloneId ? "" : (data.code || ""),
+              projectId: cloneId ? "" : (data.project_id || ""),
+              remarks: cloneId ? "" : (data.remarks || "")
             })
 
             // Dynamic columns map
@@ -591,7 +600,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
             // Sync Table Rows
             if (data.items && data.items.length > 0) {
               setTableRows(data.items.sort((a, b) => a.sort_order - b.sort_order).map((item, idx) => ({
-                id: item.id || idx + 1,
+                id: cloneId ? (Date.now() + Math.random() + idx) : (item.id || idx + 1),
                 activity: item.activity || "",
                 typeMethodCheck: item.type_method_check || "",
                 extent: item.extent || "",
@@ -604,7 +613,7 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
                 isHeading: item.is_heading || false,
                 isRoot: item.is_root || false,
                 headingText: item.heading_text || "",
-                parentHeaderId: item.parent_header_id || null,
+                parentHeaderId: cloneId ? null : (item.parent_header_id || null),
                 dynamicValues: item.dynamic_values || {}
               })))
             }
@@ -612,10 +621,10 @@ function CreateView({ onBack, onSuccess, editId = null, isReadOnly = false }) {
         })
         .catch(err => {
           console.error(err)
-          toast.error("Failed to load existing record for editing")
+          toast.error(`Failed to load existing record for ${cloneId ? 'cloning' : 'editing'}`)
         })
     }
-  }, [editId, msnOptions])
+  }, [editId, cloneId, msnOptions])
 
 
   // Calculate serial numbers
@@ -1550,28 +1559,40 @@ function QualityAssurancePlan() {
   const [view, setView] = useState("list") // "list" | "create" | "edit" | "view"
   const [editId, setEditId] = useState(null)
   const [viewId, setViewId] = useState(null)
+  const [cloneId, setCloneId] = useState(null)
 
   const handleCreateClick = () => {
     setEditId(null)
     setViewId(null)
+    setCloneId(null)
     setView("create")
   }
 
   const handleEditClick = (id) => {
     setEditId(id)
     setViewId(null)
+    setCloneId(null)
     setView("edit")
   }
 
   const handleViewClick = (id) => {
     setViewId(id)
     setEditId(null)
+    setCloneId(null)
     setView("view")
+  }
+
+  const handleCloneClick = (id) => {
+    setCloneId(id)
+    setEditId(null)
+    setViewId(null)
+    setView("create")
   }
 
   const handleBackToList = () => {
     setEditId(null)
     setViewId(null)
+    setCloneId(null)
     setView("list")
   }
 
@@ -1621,6 +1642,7 @@ function QualityAssurancePlan() {
               onCreateClick={handleCreateClick}
               onEditClick={handleEditClick}
               onViewClick={handleViewClick}
+              onCloneClick={handleCloneClick}
             />
           )}
           {(view === "create" || view === "edit" || view === "view") && (
@@ -1628,6 +1650,7 @@ function QualityAssurancePlan() {
               onBack={handleBackToList}
               onSuccess={handleBackToList}
               editId={view === "view" ? viewId : editId}
+              cloneId={cloneId}
               isReadOnly={view === "view"}
             />
           )}
