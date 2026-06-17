@@ -153,7 +153,26 @@ class EmailService {
         return this.sendEmail({ to, subject, html });
     }
 
+    async sendRevisionRequestedNotification(to, admin_name, details) {
+        const { getRevisionRequestedTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[Action Required] Revision Request for ${details.shrenoDocNo}`;
+        const html = getRevisionRequestedTemplate(admin_name, details);
+        return this.sendEmail({ to, subject, html });
+    }
 
+    async sendRevisionApprovedNotification(to, uploader_name, details) {
+        const { getRevisionApprovedTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[Approved] Revision Request for ${details.shrenoDocNo}`;
+        const html = getRevisionApprovedTemplate(uploader_name, details);
+        return this.sendEmail({ to, subject, html });
+    }
+
+    async sendRevisionRejectedNotification(to, requester_name, details) {
+        const { getRevisionRejectedTemplate } = require('../utils/email-templates/document-workflow.template');
+        const subject = `[Rejected] Revision Request for ${details.shrenoDocNo}`;
+        const html = getRevisionRejectedTemplate(requester_name, details);
+        return this.sendEmail({ to, subject, html });
+    }
 }
 
 module.exports = new EmailService();

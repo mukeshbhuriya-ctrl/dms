@@ -2652,6 +2652,11 @@ class DccService {
                 metadata: { previous_status: groupDoc.status }
             }, tx);
 
+            // Trigger notification
+            this._sendRevisionRequestedNotificationToAdmins(company_id, groupDoc, user_id, clientStatus).catch(err => {
+                console.error("[DccService] Non-fatal error sending revision request email:", err);
+            });
+
             return updated;
         });
     }
@@ -2725,6 +2730,11 @@ class DccService {
                 metadata: { version_no: nextVersionNo }
             }, tx);
 
+            // Trigger email notification to the assigned Uploader
+            this._sendRevisionApprovedNotificationToUploader(company_id, groupDoc, nextVersionNo).catch(err => {
+                console.error("[DccService] Non-fatal error sending revision approved email:", err);
+            });
+
             return updated;
         });
     }
@@ -2767,6 +2777,11 @@ class DccService {
                 remarks: remarks || 'Admin rejected the revision request.',
                 metadata: { reverted_to: prevStatus }
             }, tx);
+
+            // Trigger rejection email notification
+            this._sendRevisionRejectedNotificationToRequester(company_id, groupDoc, remarks).catch(err => {
+                console.error("[DccService] Non-fatal error sending revision rejected email:", err);
+            });
 
             return updated;
         });
@@ -3658,6 +3673,110 @@ class DccService {
             console.error("[DccService] Failed to send upload notification to admins:", error);
         }
     }
+
+    // --- Revision Email Helpers ---
+
+    async _sendRevisionRequestedNotificationToAdmins(company_id, groupDoc, requester_id, clientStatus) {
+        try {
+            const [requester, dccAdmins] = await Promise.all([
+                prisma.user.findUnique({ where: { id: requester_id } }),
+                prisma.user.findMany({
+                    where: {
+                        company_id,
+                        user_roles: {
+                            some: {
+                                role: {
+                                    name: { in: ['ADMIN', 'DCC'] }
+                                }
+                            }
+                        }
+                    }
+                })
+            ]);
+
+            if (!dccAdmins.length) return;
+
+            const latestVersion = groupDoc.versions && groupDoc.versions.length > 0 ? groupDoc.versions[0] : null;
+
+            const details = {
+                documentName: groupDoc.document?.document_name || 'Document',
+                shrenoDocNo: groupDoc.shreno_doc_no || 'N/A',
+                clientDocNo: groupDoc.client_doc_no || 'N/A',
+                versionNo: latestVersion ? latestVersion.version_no : 'N/A',
+                clientStatus: clientStatus,
+                requesterName: requester?.name || 'A user'
+            };
+
+            let sentCount = 0;
+            const uniqueEmails = new Set();
+            for (const admin of dccAdmins) {
+                if (admin.email && !uniqueEmails.has(admin.email)) {
+                    uniqueEmails.add(admin.email);
+                    await EmailService.sendRevisionRequestedNotification(admin.email, admin.name, details);
+                    sentCount++;
+                }
+            }
+            console.log(`[DccService] Revision Requested notification sent to ${sentCount} admins for ${details.documentNumber}`);
+        } catch (error) {
+            console.error("[DccService] Failed to send revision requested notification to admins:", error);
+        }
+    }
+
+    async _sendRevisionApprovedNotificationToUploader(company_id, groupDoc, newVersionNo) {
+        try {
+            const uploader = await prisma.user.findUnique({ where: { id: groupDoc.user_id } });
+            if (!uploader || !uploader.email) return;
+
+            const created = new Date();
+            const deadline = new Date(created.getTime() + (groupDoc.upload_due_days * 24 * 60 * 60 * 1000));
+            const formattedDeadline = deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
+
+            const details = {
+                documentName: groupDoc.document?.document_name || 'Document',
+                shrenoDocNo: groupDoc.shreno_doc_no || 'N/A',
+                clientDocNo: groupDoc.client_doc_no || 'N/A',
+                newVersionNo: newVersionNo,
+                plannedSubmissionDate: groupDoc.upload_due_days ? formattedDeadline : 'N/A'
+            };
+
+            await EmailService.sendRevisionApprovedNotification(uploader.email, uploader.name, details);
+            console.log(`[DccService] Revision Approved notification sent to uploader ${uploader.email} for ${details.documentNumber}`);
+        } catch (error) {
+            console.error("[DccService] Failed to send revision approved notification to uploader:", error);
+        }
+    }
+
+    async _sendRevisionRejectedNotificationToRequester(company_id, groupDoc, adminRemarks) {
+        try {
+            // Find the user who requested the revision from activities
+            const requestedActivity = await prisma.document_activity.findFirst({
+                where: { 
+                    group_document_id: groupDoc.id,
+                    action: 'Revision Requested'
+                },
+                orderBy: { createdAt: 'desc' },
+                include: { user: true }
+            });
+
+            // Fallback to assigned user if activity not found
+            const targetUser = requestedActivity?.user || await prisma.user.findUnique({ where: { id: groupDoc.user_id } });
+            if (!targetUser || !targetUser.email) return;
+
+            const details = {
+                documentName: groupDoc.document?.document_name || 'Document',
+                shrenoDocNo: groupDoc.shreno_doc_no || 'N/A',
+                clientDocNo: groupDoc.client_doc_no || 'N/A',
+                adminRemarks: adminRemarks || 'No remarks provided'
+            };
+
+            await EmailService.sendRevisionRejectedNotification(targetUser.email, targetUser.name, details);
+            console.log(`[DccService] Revision Rejected notification sent to ${targetUser.email} for ${details.documentNumber}`);
+        } catch (error) {
+            console.error("[DccService] Failed to send revision rejected notification to requester:", error);
+        }
+    }
+
+
 
 
 

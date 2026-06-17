@@ -273,11 +273,121 @@ const getInternalTransmittalAlertTemplate = (user_name, details) => {
     `;
 };
 
+const getRevisionRequestedTemplate = (admin_name, details) => {
+    const { documentName, shrenoDocNo, clientDocNo, versionNo, clientStatus, requesterName } = details;
+
+    return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden; color: #333;">
+        <div style="background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">Revision Request Pending</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">Action Required: Approval Needed</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; margin-top: 0;">Hello <strong>${admin_name}</strong>,</p>
+            <p style="line-height: 1.6;">A user has requested a new revision for a finalized document. Please review the request and approve or reject it.</p>
+            
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0 0 10px 0;"><strong>Document Name:</strong> ${documentName}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Shreno Doc No:</strong> ${shrenoDocNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Client Doc No:</strong> ${clientDocNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Current Revision:</strong> ${versionNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Client Status:</strong> ${clientStatus || 'N/A'}</p>
+                <p style="margin: 0 0 0 0;"><strong>Requested By:</strong> ${requesterName}</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/dcc/document-approver" 
+                   style="background-color: #d97706; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    Review in DCC Portal
+                </a>
+            </div>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} DMS System. All rights reserved.</p>
+        </div>
+    </div>
+    `;
+};
+
+const getRevisionApprovedTemplate = (uploader_name, details) => {
+    const { documentName, shrenoDocNo, clientDocNo, newVersionNo, plannedSubmissionDate } = details;
+
+    return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden; color: #333;">
+        <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">Revision Request Approved</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">You can now upload the new version</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; margin-top: 0;">Hello <strong>${uploader_name}</strong>,</p>
+            <p style="line-height: 1.6;">Your request to create a new revision has been approved by the Admin. A new placeholder has been created for you to upload the document.</p>
+            
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #10b981;">
+                <p style="margin: 0 0 10px 0;"><strong>Document Name:</strong> ${documentName}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Shreno Doc No:</strong> ${shrenoDocNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Client Doc No:</strong> ${clientDocNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>New Revision:</strong> ${newVersionNo}</p>
+                <p style="margin: 0 0 0 0;"><strong>New Deadline:</strong> ${plannedSubmissionDate || 'N/A'}</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/user/upload-documents" 
+                   style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    Upload New Revision
+                </a>
+            </div>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} DMS System. All rights reserved.</p>
+        </div>
+    </div>
+    `;
+};
+
+const getRevisionRejectedTemplate = (requester_name, details) => {
+    const { documentName, shrenoDocNo, clientDocNo, adminRemarks } = details;
+
+    return `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 8px; overflow: hidden; color: #333;">
+        <div style="background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); padding: 30px; text-align: center; color: white;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 1px;">Revision Request Rejected</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">The request was denied by the Admin</p>
+        </div>
+        <div style="padding: 30px; background-color: #ffffff;">
+            <p style="font-size: 16px; margin-top: 0;">Hello <strong>${requester_name}</strong>,</p>
+            <p style="line-height: 1.6;">Your request to create a new revision for the following document has been rejected.</p>
+            
+            <div style="background-color: #f8fafc; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #ef4444;">
+                <p style="margin: 0 0 10px 0;"><strong>Document Name:</strong> ${documentName}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Shreno Doc No:</strong> ${shrenoDocNo}</p>
+                <p style="margin: 0 0 10px 0;"><strong>Client Doc No:</strong> ${clientDocNo}</p>
+                <p style="margin: 0 0 0 0;"><strong>Admin Remarks:</strong> "${adminRemarks || 'No remarks provided'}"</p>
+            </div>
+
+            <p style="font-size: 14px; color: #64748b;">The document status has been reverted to its previous state. If you believe this is an error, please contact the DCC team.</p>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}" 
+                   style="background-color: #b91c1c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                    Open Dashboard
+                </a>
+            </div>
+        </div>
+        <div style="background-color: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} DMS System. All rights reserved.</p>
+        </div>
+    </div>
+    `;
+};
+
 module.exports = {
     getDocumentAssignedTemplate,
     getDocumentReviewTemplate,
     getDocumentOverdueTemplate,
     getClientReviewTemplate,
     getDocumentUploadedTemplate,
-    getInternalTransmittalAlertTemplate
+    getInternalTransmittalAlertTemplate,
+    getRevisionRequestedTemplate,
+    getRevisionApprovedTemplate,
+    getRevisionRejectedTemplate
 };
