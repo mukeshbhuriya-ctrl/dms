@@ -87,7 +87,7 @@ async function createWeldJointPlan(req, res) {
         } = req.body;
 
         const company_id = req.user.company_id;
-        const user_id = req.user.id;
+        const user_id = req.user.userid || req.user.id;
 
         if (!jobNo) {
             return res.status(400).json({ success: false, message: 'Job Number is required' });
@@ -516,7 +516,7 @@ async function bulkCreateWeldJointPlan(req, res) {
     try {
         const payload = req.body;
         const company_id = req.user.company_id;
-        const user_id = req.user.id;
+        const user_id = req.user.userid || req.user.id;
 
         if (!Array.isArray(payload) || payload.length === 0) {
             return res.status(400).json({ success: false, message: 'Invalid payload' });

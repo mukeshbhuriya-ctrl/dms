@@ -41,7 +41,7 @@ import { generateExcelTemplate, parseExcelFile } from "@/utils/excelImportEngine
 import ImportReviewDialog from "@/components/shared/ImportReviewDialog"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
-import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircle, Download, Archive } from "lucide-react"
+import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircle, Download, Archive, ArrowLeft } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
@@ -352,33 +352,13 @@ function WeldingJoints() {
     setError("")
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
+      const res = await apiClient.get(`/api/wpj/get-weld-joint-plan/${planId}`)
 
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/wpj/get-weld-joint-plan/${planId}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-
-      const data = await res.json()
-      if (res.ok) {
-        setSelectedPlanDetails(data.data)
+      if (res.success) {
+        setSelectedPlanDetails(res.data)
         setIsViewOpen(true)
       } else {
-        console.error("Failed to fetch plan details", data)
+        console.error("Failed to fetch plan details", res)
         setError("Failed to fetch plan details")
       }
     } catch (err) {
@@ -395,30 +375,10 @@ function WeldingJoints() {
     setEditingPlanId(planId)
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
-      const authData = localStorage.getItem("user_auth")
-      let token = null
-      if (authData) {
-        try {
-          const parsed = JSON.parse(authData)
-          token = parsed?.payload?.token || parsed?.token
-        } catch { }
-      }
+      const res = await apiClient.get(`/api/wpj/get-weld-joint-plan/${planId}`)
 
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": token ? `Bearer ${token}` : ""
-      }
-
-      const res = await fetch(`${backendUrl}/api/wpj/get-weld-joint-plan/${planId}`, {
-        method: "GET",
-        headers,
-        credentials: "include",
-      })
-
-      const responseData = await res.json()
-      if (res.ok && responseData.success) {
-        const plan = responseData.data
+      if (res.success && res.data) {
+        const plan = res.data
         
         // Map backend data to form state
         setFormData({
@@ -480,6 +440,83 @@ function WeldingJoints() {
       }
     } catch (err) {
       console.error("Error fetching plan for edit:", err)
+      setError("An error occurred while loading plan details")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const handleCloneClick = useCallback(async (planId) => {
+    setIsLoading(true)
+    setError("")
+    setEditingPlanId(null) // Keep null to trigger POST (create) instead of PUT
+
+    try {
+      const res = await apiClient.get(`/api/wpj/get-weld-joint-plan/${planId}`)
+
+      if (res.success && res.data) {
+        const plan = res.data
+        
+        // Map backend data to form state, clearing job-specific metadata
+        setFormData({
+          weldPlanNo: "", // Will be auto-generated when new job is selected
+          jobNo: "",
+          tagId: "",
+          projectId: "",
+          clientName: "",
+          equipmentName: "",
+          shrDrgNo: "", // Clear drawing numbers to prevent accidental carryover
+          customerDrgNumber: "",
+          codeOfConstruction: "", // Clear code of construction
+        })
+
+        // Map joints to tableRows, preserving joint info but clearing remarks
+        const mappedRows = plan.weld_joints?.map((joint, index) => ({
+          id: index + 1, // Fresh frontend ID
+          jointNo: joint.joint_no, // Preserve Joint No
+          jointType: joint.joint_type,
+          joint: joint.joint_description,
+          baseMetalThicknessPart1: joint.base_metal_thickness_p1,
+          baseMetalThicknessPart2: joint.base_metal_thickness_p2,
+          baseMetalSpecPart1: joint.base_metal_spec_p1,
+          baseMetalSpecPart2: joint.base_metal_spec_p2,
+          consumable: joint.consumable,
+          wpsNoPqrNo: joint.wps_pqr_no,
+          process: joint.process,
+          impactTest: joint.impact_test,
+          backChipReq: joint.back_chip_req === true ? 'yes' : (joint.back_chip_req === false ? 'no' : ''),
+          pwht: joint.pwht === true ? 'yes' : (joint.pwht === false ? 'no' : ''),
+          rt: joint.rt === true ? 'yes' : (joint.rt === false ? 'no' : ''),
+          pt: joint.pt === true ? 'yes' : (joint.pt === false ? 'no' : ''),
+          remarks: joint.remarks || "", // Preserve remarks as requested by client
+        })) || []
+
+        setTableRows(mappedRows.length > 0 ? mappedRows : [{
+          id: 1,
+          jointNo: "",
+          jointType: "",
+          joint: "",
+          baseMetalThicknessPart1: "",
+          baseMetalThicknessPart2: "",
+          baseMetalSpecPart1: "",
+          baseMetalSpecPart2: "",
+          consumable: "",
+          wpsNoPqrNo: "",
+          process: "",
+          impactTest: "",
+          backChipReq: "",
+          pwht: "",
+          rt: "",
+          pt: "",
+          remarks: "",
+        }])
+
+        setView("create")
+      } else {
+        setError(responseData.message || "Failed to fetch plan details for cloning")
+      }
+    } catch (err) {
+      console.error("Error fetching plan for clone:", err)
       setError("An error occurred while loading plan details")
     } finally {
       setIsLoading(false)
@@ -569,6 +606,14 @@ function WeldingJoints() {
             title="Edit">
             <Pencil className="h-4 w-4" /> Edit
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+            onClick={() => handleCloneClick(row.id)}
+            title="Clone">
+            <Copy className="h-4 w-4" /> Clone
+          </Button>
           {isAdmin && (
               <Button
                   variant="outline"
@@ -583,7 +628,7 @@ function WeldingJoints() {
         </div>
       ),
     },
-  ], [handleEditClick])
+  ], [handleEditClick, handleCloneClick])
 
   const fetchPlans = useCallback(async ({ page, limit, search, sorting }) => {
     try {
@@ -878,15 +923,8 @@ function WeldingJoints() {
   return (
     <>
         <ModuleHeader 
-          title={view === "list" ? "Welding Plans List" : view === "edit" ? "Edit Welding Joint Plan" : "Create Welding Joints"}
+          title={view === "list" ? "Welding Plans" : view === "edit" ? "Edit Welding Joint Plan" : "Create Welding Joints"}
           description={view === "list" ? "List of all welding joint plans" : view === "edit" ? "Update the details for the existing Welding Joints plan." : "Fill in the details to create a new Welding Joints plan."}
-          actions={
-            view !== "list" && (
-              <Button variant="outline" onClick={() => setView("list")}>
-                Back to List
-              </Button>
-            )
-          }
         />
         <main className="flex-1 overflow-auto p-6 flex flex-col">
           <div className="flex-1 flex flex-col w-full overflow-x-hidden">
@@ -934,8 +972,14 @@ function WeldingJoints() {
                 />
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
-                <div className="grid gap-6 w-full">
+              <div className="flex flex-col gap-4">
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => setView("list")}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+                  </Button>
+                </div>
+                <form onSubmit={handleSubmit}>
+                  <div className="grid gap-6 w-full">
                   {/* First Section: Job Information */}
                   <Card>
                     <CardHeader>
@@ -1056,6 +1100,7 @@ function WeldingJoints() {
                       <div className="space-y-2">
                         <Label htmlFor="customerDrgNumber">
                           Customer DRG. NO.
+                          <span className="text-destructive">*</span>
                         </Label>
                         <Input
                           id="customerDrgNumber"
@@ -1519,6 +1564,7 @@ function WeldingJoints() {
                     <Button
                       type="button"
                       variant="outline"
+                      className="cursor-pointer"
                       onClick={() => {
                         handleReset()
                         setView("list")
@@ -1527,13 +1573,14 @@ function WeldingJoints() {
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
+                    <Button type="submit" disabled={isLoading} className="cursor-pointer">
                       {isLoading ? (view === 'edit' ? "Updating..." : "Creating...") : view === 'edit' ? "Update Plan" : "Create Plan"}
                     </Button>
 
                   </div>
                 </div>
               </form>
+             </div>
             )}
 
             {/* View Details Modal */}
