@@ -2969,11 +2969,11 @@ class DccService {
      * Update Assigned Document
      */
     async updateAssignedDocument(company_id, id, data, performer_id) {
-        const { document_id, job_ids, assign_user_id, upload_due_days, response_due_days, shreno_document_no, shreno_reference_no, client_document_no, client_reference_no, planned_submission_date } = data;
+        const { document_id, document_name, job_ids, assign_user_id, upload_due_days, response_due_days, shreno_document_no, shreno_reference_no, client_document_no, client_reference_no, planned_submission_date } = data;
 
         const groupDoc = await prisma.group_document.findFirst({
             where: { id, company_id },
-            include: { group: true }
+            include: { group: true, document: true }
         });
 
         if (!groupDoc) throw new Error('Assignment not found');
@@ -3008,6 +3008,16 @@ class DccService {
                     client_reference_no: client_reference_no === undefined ? undefined : (client_reference_no || null)
                 }
             });
+
+            // 1.5 Update Document Name if provided
+            if (document_name !== undefined && groupDoc.document_id) {
+                await tx.document_master.update({
+                    where: { id: groupDoc.document_id },
+                    data: {
+                        document_name: document_name
+                    }
+                });
+            }
 
             // 2. Update Job Groups if job_ids provided
             if (job_ids && Array.isArray(job_ids)) {
