@@ -43,6 +43,7 @@ model company{
   hydrostatic_test_reports hydrostatic_test_report[]
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
+  tube_sheet_inspection_reports tube_sheet_inspection_report[]
   quality_assurance_plans quality_assurance_plan[]
   qap_activity_headings qap_activity_heading_master[]
   dcr dcr[]
@@ -158,6 +159,7 @@ model user{
   assigned_dish_end_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
+  created_tube_sheet_inspection_reports tube_sheet_inspection_report[]
   dcr_quality_engineer dcr[] @relation("DcrQualityEngineer")
   mhc_production_reports material_heat_chart[] @relation("MhcProductionEngineer")
   mhc_qc_reports         material_heat_chart[] @relation("MhcQcEngineer")
@@ -350,6 +352,7 @@ model job{
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
   quality_assurance_plans quality_assurance_plan[]
+  tube_sheet_inspection_reports tube_sheet_inspection_report[]
   dcr dcr[]
   dcr_change_request dcr_change_request[]
 
@@ -1674,5 +1677,88 @@ model instruments_master {
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
 
+  tube_sheet_inspection_instruments tube_sheet_inspection_instrument[]
+
   @@index([type])
+}
+
+// ============================================
+// Tube Sheet Inspection Models
+// ============================================
+
+model tube_sheet_inspection_report {
+  id              String   @id @default(uuid())
+  company_id      String
+  job_id          String
+
+  msn             String
+  report_no       String   @unique
+  client          String
+  po_no           String
+  equipment_name  String?
+  tag_no          String?
+  code            String?
+  drg_no          String?
+  insp_agency     String?
+  actual_dimension_1_header  String?
+  actual_dimension_2_header  String?
+
+  created_by      String?
+
+  company   company  @relation(fields: [company_id], references: [id])
+  job       job      @relation(fields: [job_id], references: [id])
+  creator   user?    @relation(fields: [created_by], references: [id])
+
+  items       tube_sheet_inspection_item[]
+  instruments tube_sheet_inspection_instrument[]
+  remarks     tube_sheet_inspection_remark[]
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([msn, report_no])
+}
+
+model tube_sheet_inspection_item {
+  id          String   @id @default(uuid())
+  report_id   String
+  sr_no       Int
+  description String
+  drg_dim     String?
+  actual_dimension_1 String?
+  actual_dimension_2 String?
+  remarks     String?
+
+  report      tube_sheet_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  
+  @@index([report_id])
+}
+
+model tube_sheet_inspection_instrument {
+  id            String   @id @default(uuid())
+  report_id     String
+  instrument_id String?
+
+  name          String?
+  id_no         String?
+  due_date      String?
+
+  report        tube_sheet_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  instrument    instruments_master?          @relation(fields: [instrument_id], references: [id])
+  
+  @@index([report_id])
+}
+
+model tube_sheet_inspection_remark {
+  id          String   @id @default(uuid())
+  report_id   String
+  sr_no       Int
+  text        String?
+
+  report      tube_sheet_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  
+  @@index([report_id])
 }

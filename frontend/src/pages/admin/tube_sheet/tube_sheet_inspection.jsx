@@ -3,6 +3,7 @@ import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
 import { ModuleHeader } from "@/components/shared/ModuleHeader"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -556,14 +557,7 @@ function ListView({ onCreateClick, onEditClick }) {
                   <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">REPORT NO:</span>
                   <span className="font-medium">{selectedRecord.report_no || "-"}</span>
                 </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PRODUCTION ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.production_engineer?.name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">VENDOR DISH END NO:</span>
-                  <span className="font-medium">{selectedRecord.vendor_dish_end_number || "-"}</span>
-                </div>
+      
               </div>
 
               {/* Items Table */}
@@ -657,9 +651,25 @@ function CreateView({ onBack, onSuccess, editId = null }) {
     inspectionDate: ""
   })
 
-  const [vendorTubeSheetNo, setVendorTubeSheetNo] = useState("")
-  const [actual_dimension_1, setActualDimension1] = useState("Actual 1")
-  const [actual_dimension_2, setActualDimension2] = useState("Actual 2")
+  const [actual_dimension_1, setActualDimension1] = useState("")
+  const [actual_dimension_2, setActualDimension2] = useState("")
+
+  const [masterInstruments, setMasterInstruments] = useState([])
+
+  useEffect(() => {
+    apiClient.get("/api/masters/instruments?type=CALIBRATION_INSTRUMENT")
+      .then((res) => {
+        let data = Array.isArray(res) ? res : (res.data || []);
+        const mapped = data.map(item => ({
+          id: item.id,
+          name: `${item.equipment_desc || ''}${item.range ? ` / ${item.range}` : ''}`.trim(),
+          id_no: item.serial_no || '',
+          due_date: item.due_date ? new Date(item.due_date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''
+        }));
+        setMasterInstruments(mapped)
+      })
+      .catch((err) => console.error("Failed to fetch instruments:", err))
+  }, [])
 
   const { roles } = useAuth()
   const userRole = (roles?.includes("QC_ENGINEER") || roles?.includes("ADMIN") || roles?.includes("QC")) ? "QC" : (roles?.includes("PRODUCTION_ENGINEER") ? "PROD" : "")
@@ -696,7 +706,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       id: item.srNo,
       srNo: item.srNo,
       description: item.desc,
-      asPerDrg: "",
+      drgDim: "",
       actual1: "",
       actual2: "",
       remarks: "",
@@ -743,18 +753,17 @@ function CreateView({ onBack, onSuccess, editId = null }) {
               inspAgency: data.insp_agency || ""
             })
 
-            setVendorTubeSheetNo(data.vendor_dish_end_number || "")
-            setActualDimension1(data.actual1_header || "text")
-            setActualDimension2(data.actual2_header || "text")
+            setActualDimension1(data.actual_dimension_1_header || "text")
+            setActualDimension2(data.actual_dimension_2_header || "text")
 
             if (data.items && data.items.length > 0) {
               setTableRows(data.items.map((item, i) => ({
                 id: i + 1,
                 srNo: item.sr_no || (i + 1),
                 description: item.description || "",
-                asPerDrg: item.as_per_drg || "",
-                actual1: item.actual1 || "",
-                actual2: item.actual2 || "",
+                drgDim: item.drg_dim || "",
+                actual1: item.actual_dimension_1 || "",
+                actual2: item.actual_dimension_2 || "",
                 remarks: item.remarks || ""
               })))
             }
@@ -762,16 +771,17 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             if (data.instruments && data.instruments.length > 0) {
               setInstrumentRows(data.instruments.map((inst, i) => ({
                 id: i + 1,
+                instrument_id: inst.instrument_id || "",
                 name: inst.name || "",
                 idNo: inst.id_no || "",
                 dueDate: inst.due_date || ""
               })))
             }
 
-            if (data.general_remarks && data.general_remarks.length > 0) {
-              setRemarksRows(data.general_remarks.map((rmk, i) => ({
-                id: i + 1,
-                remark: rmk
+            if (data.remarks && data.remarks.length > 0) {
+              setRemarksRows(data.remarks.map((rmk) => ({
+                id: rmk.sr_no,
+                remark: rmk.text || ""
               })))
             }
           }
@@ -819,7 +829,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       id: Date.now(),
       srNo: "",
       description: "",
-      asPerDrg: "",
+      drgDim: "",
       actual1: "",
       actual2: "",
       remarks: "",
@@ -848,8 +858,21 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   const addInstrumentRow = () => {
     setInstrumentRows([
       ...instrumentRows,
-      { id: Date.now(), name: "", idNo: "", dueDate: "" },
+      { id: Date.now(), instrument_id: "", name: "", idNo: "", dueDate: "" },
     ])
+  }
+
+  const handleInstrumentSelect = (rowId, instrumentId) => {
+    const selected = masterInstruments.find(i => i.id.toString() === instrumentId);
+    if (selected) {
+      setInstrumentRows(instrumentRows.map(row => row.id === rowId ? {
+        ...row,
+        instrument_id: selected.id,
+        name: selected.name,
+        idNo: selected.id_no,
+        dueDate: selected.due_date
+      } : row));
+    }
   }
 
   const removeInstrumentRow = (id) => {
@@ -888,23 +911,26 @@ function CreateView({ onBack, onSuccess, editId = null }) {
       code: formData.code,
       drg_no: formData.drgNo,
       insp_agency: formData.inspAgency,
-      vendor_dish_end_number: vendorTubeSheetNo,
-      actual1_header: actual_dimension_1,
-      actual2_header: actual_dimension_2,
+      actual_dimension_1_header: actual_dimension_1,
+      actual_dimension_2_header: actual_dimension_2,
       items: tableRows.map(r => ({
         sr_no: r.srNo,
         description: r.description,
-        as_per_drg: r.asPerDrg,
-        actual1: r.actual1,
-        actual2: r.actual2,
+        drg_dim: r.drgDim,
+        actual_dimension_1: r.actual1,
+        actual_dimension_2: r.actual2,
         remarks: r.remarks,
       })),
       instruments: instrumentRows.filter(r => r.name || r.idNo || r.dueDate).map(r => ({
+        instrument_id: r.instrument_id,
         name: r.name,
         id_no: r.idNo,
         due_date: r.dueDate
       })),
-      general_remarks: remarksRows.filter(r => r.remark.trim() !== "").map(r => r.remark)
+      remarks: remarksRows.filter(r => r.remark.trim() !== "").map((r, i) => ({
+        sr_no: i + 1,
+        text: r.remark
+      }))
     }
 
     try {
@@ -1049,44 +1075,44 @@ function CreateView({ onBack, onSuccess, editId = null }) {
             <Table className="min-w-[1200px]">
               <TableHeader>
                 <TableRow className="bg-blue-100">
-                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 w-16 text-center align-middle">
+                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 min-w-[60px] text-center align-middle">
                     SR NO.
                   </TableHead>
                   <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center min-w-[350px]">
                     DESCRIPTION
                   </TableHead>
-                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center w-[200px]">
+                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center min-w-[200px]">
                     DRG. DIM
                   </TableHead>
-                  <TableHead colSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 text-center align-middle">
+                  <TableHead colSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 text-center align-middle min-w-[300px]">
                     Actual Dimension
                   </TableHead>
-                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center w-[250px]">
+                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center min-w-[250px]">
                     REMARKS
                   </TableHead>
-                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center w-[120px]">
+                  <TableHead rowSpan={2} className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center min-w-[120px]">
                     ACTIONS
                   </TableHead>
                 </TableRow>
                 <TableRow className="bg-blue-100">
-                  <TableHead className="p-1 text-xs font-bold text-red-600 border border-gray-300 text-center bg-blue-100">
+                  <TableHead className="p-1 text-xs font-bold text-gray-500 border border-gray-300 text-center bg-blue-100 w-1/2 min-w-[150px]">
                     <Input
                       type="text"
                       value={actual_dimension_1}
                       onChange={(e) => setActualDimension1(e.target.value)}
                       readOnly={userRole === 'PROD'}
-                      placeholder="Column Name"
-                      className="text-xs font-bold text-red-600 text-center border border-input focus-visible:ring-1 focus-visible:ring-ring bg-white/50 hover:bg-white/80 h-8 px-2 w-full transition-colors"
+                      placeholder="Enter Column 1"
+                      className="text-xs font-bold text-gray-500 text-center border border-input focus-visible:ring-1 focus-visible:ring-ring bg-white/50 hover:bg-white/80 h-8 px-2 w-full transition-colors"
                     />
                   </TableHead>
-                  <TableHead className="p-1 text-xs font-bold text-red-600 border border-gray-300 text-center bg-blue-100">
+                  <TableHead className="p-1 text-xs font-bold text-gray-500 border border-gray-300 text-center bg-blue-100 w-1/2 min-w-[150px]">
                     <Input
                       type="text"
                       value={actual_dimension_2}
                       onChange={(e) => setActualDimension2(e.target.value)}
                       readOnly={userRole === 'PROD'}
-                      placeholder="Column Name"
-                      className="text-xs font-bold text-red-600 text-center border border-input focus-visible:ring-1 focus-visible:ring-ring bg-white/50 hover:bg-white/80 h-8 px-2 w-full transition-colors"
+                      placeholder="Enter Column 2"
+                      className="text-xs font-bold text-gray-500 text-center border border-input focus-visible:ring-1 focus-visible:ring-ring bg-white/50 hover:bg-white/80 h-8 px-2 w-full transition-colors"
                     />
                   </TableHead>
                 </TableRow>
@@ -1110,8 +1136,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                     <TableCell className="p-2 border border-gray-300">
                       <Input
                         type="text"
-                        value={row.asPerDrg}
-                        onChange={(e) => handleRowChange(row.id, "asPerDrg", e.target.value)}
+                        value={row.drgDim}
+                        onChange={(e) => handleRowChange(row.id, "drgDim", e.target.value)}
                         readOnly={userRole === 'PROD'}
                         className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : 'bg-transparent'} rounded-md`}
                       />
@@ -1199,33 +1225,28 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                   instrumentRows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
-                        <Input
-                          type="text"
-                          value={row.name}
-                          onChange={(e) => handleInstrumentRowChange(row.id, "name", e.target.value)}
-                          placeholder="Name"
-                          readOnly={userRole === 'PROD'}
-                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
+                        <SearchableSelect
+                          options={masterInstruments.map(inst => ({ value: inst.id.toString(), label: inst.name }))}
+                          value={masterInstruments.find(i => i.name === row.name)?.id?.toString() || ""}
+                          onValueChange={(val) => handleInstrumentSelect(row.id, val)}
+                          placeholder="Select Instrument"
+                          disabled={userRole === 'PROD'}
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="text"
                           value={row.idNo}
-                          onChange={(e) => handleInstrumentRowChange(row.id, "idNo", e.target.value)}
-                          placeholder="ID No. / SR No."
-                          readOnly={userRole === 'PROD'}
-                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
+                          readOnly
+                          className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
-                          type="date"
+                          type="text"
                           value={row.dueDate}
-                          onChange={(e) => handleInstrumentRowChange(row.id, "dueDate", e.target.value)}
-                          placeholder="Due Date"
-                          readOnly={userRole === 'PROD'}
-                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
+                          readOnly
+                          className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
                         />
                       </TableCell>
                       <TableCell>

@@ -664,7 +664,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const [masterInstruments, setMasterInstruments] = useState([])
 
   useEffect(() => {
-    apiClient.get("/api/masters/instruments?type=ALL")
+    apiClient.get("/api/masters/instruments?type=CALIBRATION_INSTRUMENT")
       .then((res) => {
         let data = Array.isArray(res) ? res : (res.data || []);
         const mapped = data.map(item => ({

@@ -117,6 +117,9 @@ app.use('/api/masters/instruments', instrumentRoutes);
 const notificationRoutes = require('#routes/notification.routes.js');
 app.use('/api/notifications', notificationRoutes);
 
+const tubeSheetInspectionRoutes = require('#routes/tube_sheet_inspection/tube_sheet_inspection.routes.js');
+app.use('/api/tube-sheet-inspection', tubeSheetInspectionRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
