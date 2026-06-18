@@ -37,7 +37,8 @@ class TubeSheetInspectionController {
 
     async create(req, res) {
         try {
-            const { company_id, id: user_id } = req.user;
+            const company_id = req.user.company_id;
+            const user_id = req.user.userid || req.user.id;
             const report = await TubeSheetInspectionService.create(company_id, user_id, req.body);
             res.status(201).json({ success: true, message: "Report created successfully", data: report });
         } catch (error) {
