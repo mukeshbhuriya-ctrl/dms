@@ -72,6 +72,7 @@ class UserService {
                 user_roles: {
                     include: { role: true },
                 },
+                user_settings: true,
                 createdAt: true,
             },
             orderBy: { [sortBy]: sortOrder },
@@ -94,7 +95,7 @@ class UserService {
      * Create a new user
      */
     async createUser(userData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation } = userData;        
+        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications } = userData;        
         const trimmedName = name?.trim();
         const trimmedEmail = email?.trim().toLowerCase();
         const trimmedEmpid = empid?.trim();
@@ -133,6 +134,11 @@ class UserService {
                     department_id: trimmedDepartmentId,
                     designation: trimmedDesignation,
                     company_id,
+                    user_settings: {
+                        create: {
+                            email_notifications: email_notifications !== undefined ? email_notifications : true
+                        }
+                    }
                 },
             });
 
@@ -202,7 +208,7 @@ class UserService {
      * Update user details
      */
     async updateUser(id, updateData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation } = updateData;
+        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications } = updateData;
 
         // Verify user exists and belongs to company
         const existingUser = await prisma.user.findFirst({
@@ -245,6 +251,12 @@ class UserService {
                     department_id: trimmedDepartmentId,
                     designation,
                     ...(hashedPassword && { password: hashedPassword }),
+                    user_settings: email_notifications !== undefined ? {
+                        upsert: {
+                            create: { email_notifications },
+                            update: { email_notifications }
+                        }
+                    } : undefined
                 },
             });
 

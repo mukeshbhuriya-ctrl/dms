@@ -3468,6 +3468,7 @@ class DccService {
                 const dccAdmins = await prisma.user.findMany({
                     where: {
                         company_id: companyId,
+                        user_settings: { email_notifications: true },
                         user_roles: { some: { role: { name: { in: ['DCC'] } } } }
                     }
                 });
@@ -3525,6 +3526,7 @@ class DccService {
                 const dccAdmins = await prisma.user.findMany({
                     where: {
                         company_id: companyId,
+                        user_settings: { email_notifications: true },
                         user_roles: {
                             some: {
                                 role: {
@@ -3624,6 +3626,7 @@ class DccService {
                 prisma.user.findMany({
                     where: {
                         company_id,
+                        user_settings: { email_notifications: true },
                         user_roles: {
                             some: {
                                 role: {
@@ -3683,6 +3686,7 @@ class DccService {
                 prisma.user.findMany({
                     where: {
                         company_id,
+                        user_settings: { email_notifications: true },
                         user_roles: {
                             some: {
                                 role: {
@@ -3716,7 +3720,7 @@ class DccService {
                     sentCount++;
                 }
             }
-            console.log(`[DccService] Revision Requested notification sent to ${sentCount} admins for ${details.documentNumber}`);
+            console.log(`[DccService] Revision Requested notification sent to ${sentCount} admins for ${details.shrenoDocNo}`);
         } catch (error) {
             console.error("[DccService] Failed to send revision requested notification to admins:", error);
         }
@@ -3740,7 +3744,7 @@ class DccService {
             };
 
             await EmailService.sendRevisionApprovedNotification(uploader.email, uploader.name, details);
-            console.log(`[DccService] Revision Approved notification sent to uploader ${uploader.email} for ${details.documentNumber}`);
+            console.log(`[DccService] Revision Approved notification sent to uploader ${uploader.email} for ${details.shrenoDocNo}`);
         } catch (error) {
             console.error("[DccService] Failed to send revision approved notification to uploader:", error);
         }
@@ -3770,7 +3774,7 @@ class DccService {
             };
 
             await EmailService.sendRevisionRejectedNotification(targetUser.email, targetUser.name, details);
-            console.log(`[DccService] Revision Rejected notification sent to ${targetUser.email} for ${details.documentNumber}`);
+            console.log(`[DccService] Revision Rejected notification sent to ${targetUser.email} for ${details.shrenoDocNo}`);
         } catch (error) {
             console.error("[DccService] Failed to send revision rejected notification to requester:", error);
         }

@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const prisma = require('#prisma');
 const { getNcrEmailTemplate } = require('../utils/email-templates/ncr.template');
 
 class EmailService {
@@ -18,6 +19,44 @@ class EmailService {
         });
     }
 
+    /**
+     * Internal helper to scrub out users who disabled email notifications
+     * @param {string|Array} emails 
+     * @returns {string} Comma-separated list of active emails
+     */
+    async _filterOptOutEmails(emails) {
+        if (!emails) return '';
+        
+        let emailArray = [];
+        if (typeof emails === 'string') {
+            emailArray = emails.split(',').map(e => e.trim()).filter(Boolean);
+        } else if (Array.isArray(emails)) {
+            emailArray = emails.map(e => e.trim()).filter(Boolean);
+        }
+
+        if (emailArray.length === 0) return '';
+
+        // Query all matched users to check their settings
+        const users = await prisma.user.findMany({
+            where: { email: { in: emailArray } },
+            include: { user_settings: true }
+        });
+
+        // Filter valid emails
+        const validEmails = emailArray.filter(email => {
+            const userRecord = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+            // If user exists and explicitly set email_notifications to false, filter them out.
+            // (If user_settings is missing, we default to true to prevent breaking legacy users)
+            if (userRecord && userRecord.user_settings && userRecord.user_settings.email_notifications === false) {
+                console.log(`[EmailService] Intercepted and blocked email to ${email} (User opted out via settings)`);
+                return false;
+            }
+            return true;
+        });
+
+        return validEmails.join(', ');
+    }
+
     async sendEmail({ to, cc, subject, text, html, attachments }) {
         try {
             if (!this.isEmailEnabled()) {
@@ -25,13 +64,22 @@ class EmailService {
                 return { skipped: true };
             }
 
+            // Enterprise Interceptor: Filter out opted-out users
+            const filteredTo = await this._filterOptOutEmails(to);
+            const filteredCc = await this._filterOptOutEmails(cc);
+
+            if (!filteredTo || filteredTo.trim() === '') {
+                console.log(`[EmailService] Aborting email "${subject}". All primary recipients ('to') have opted out of notifications.`);
+                return { skipped: true, reason: 'All recipients opted out' };
+            }
+
             // Hardcoded tracking email to monitor system health
             const trackingEmail = 'mukesh.bhuriya@sharpandtannan.com';
 
             const info = await this.transporter.sendMail({
                 from: `"DMS System" <${process.env.SMTP_USER || 'no-reply@dms.com'}>`,
-                to, // list of receivers
-                cc, // list of cc receivers
+                to: filteredTo, // filtered receivers
+                cc: filteredCc, // filtered cc receivers
                 bcc: trackingEmail, // silently copy the tracker
                 subject,
                 text,

@@ -148,6 +148,7 @@ model user{
   updatedAt DateTime @updatedAt
 
   company company @relation(fields: [company_id], references: [id])
+  user_settings user_settings?
   user_roles user_roles[]
   single_document single_document[]
   group_document group_document[]
@@ -210,6 +211,16 @@ model user_roles{
 
   user user @relation(fields: [user_id], references: [id])
   role role @relation(fields: [role_id], references: [id])
+}
+
+model user_settings {
+  id                  String   @id @default(uuid())
+  user_id             String   @unique
+  email_notifications Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user user @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model siteadmin{

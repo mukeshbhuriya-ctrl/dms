@@ -5,7 +5,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive, Key } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive, Key, Settings } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { ChevronDownIcon, RefreshCcw } from "lucide-react"
 import {
@@ -50,6 +50,7 @@ function CreateUser() {
     mobileNumber: "",
     roles: [],
     password: "",
+    emailNotifications: true,
   })
   const [showPassword, setShowPassword] = useState(false)
   const [roles, setRoles] = useState([])
@@ -191,6 +192,7 @@ function CreateUser() {
       mobileNumber: "",
       roles: [],
       password: "",
+      emailNotifications: true,
     })
     setEditingId(null)
     setError("")
@@ -208,8 +210,27 @@ function CreateUser() {
       mobileNumber: user.mobile || "",
       roles: user.user_roles?.map(ur => ur.role_id) || [],
       password: "",
+      emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
     })
     setView("create")
+    setError("")
+    setSuccess("")
+  }
+
+  const handleSettingsClick = (user) => {
+    setEditingId(user.id)
+    setFormData({
+      fullName: user.name || "",
+      email: user.email || "",
+      employeeId: user.empid || "",
+      department: user.department_id || "",
+      designation: user.designation || "",
+      mobileNumber: user.mobile || "",
+      roles: user.user_roles?.map(ur => ur.role_id) || [],
+      password: "",
+      emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
+    })
+    setView("settings")
     setError("")
     setSuccess("")
   }
@@ -350,11 +371,9 @@ function CreateUser() {
           <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => handleEdit(row)} title="Edit">
             <Edit className="h-4 w-4" />
           </Button>
-          <Switch 
-            checked={row.is_active} 
-            onCheckedChange={() => handleToggleClick(row)}
-            title={row.is_active ? "Deactivate" : "Activate"}
-          />
+          <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => handleSettingsClick(row)} title="Settings">
+            <Settings className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -364,6 +383,11 @@ function CreateUser() {
           >
             <Key className="h-4 w-4" />
           </Button>
+          <Switch 
+            checked={row.is_active} 
+            onCheckedChange={() => handleToggleClick(row)}
+            title={row.is_active ? "Deactivate" : "Activate"}
+          />
           <Button
             variant="outline"
             size="sm"
@@ -402,6 +426,7 @@ function CreateUser() {
         role_ids: formData.roles || [],
         department: formData.department,
         designation: formData.designation,
+        email_notifications: formData.emailNotifications,
       }
 
       if (editingId) {
@@ -444,8 +469,12 @@ function CreateUser() {
           {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-3xl font-bold mb-2">{editingId ? "Edit User" : "Create User"}</h1>
-                <p className="text-muted-foreground">Fill in the user information below.</p>
+                <h1 className="text-3xl font-bold mb-2">
+                  {view === "settings" ? "User Settings" : (editingId ? "Edit User" : "Create User")}
+                </h1>
+                <p className="text-muted-foreground">
+                  {view === "settings" ? "Manage system configuration for this user." : "Fill in the user information below."}
+                </p>
               </div>
               <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
@@ -471,6 +500,56 @@ function CreateUser() {
               onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
             />
             </>
+          ) : view === "settings" ? (
+            <div className="space-y-6">
+              <form onSubmit={handleSubmit}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>System Settings</CardTitle>
+                    <CardDescription>
+                      Configure system notifications and preferences for {formData.fullName}.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {error && (
+                      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        {error}
+                      </div>
+                    )}
+                    {success && (
+                      <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
+                        {success}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between border rounded-lg p-4 bg-muted/20">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="emailNotifications" className="text-base font-semibold">Email Notifications</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Receive system alerts and updates via email.
+                        </p>
+                      </div>
+                      <Switch
+                        id="emailNotifications"
+                        checked={formData.emailNotifications}
+                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, emailNotifications: checked }))}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Submit Buttons */}
+                <div className="flex justify-end gap-4 mt-6">
+                  <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading} className="cursor-pointer">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading} className="cursor-pointer">
+                    {isLoading ? "Saving..." : "Save Settings"}
+                  </Button>
+                </div>
+              </form>
+            </div>
           ) : (
             <div className="space-y-6">
               <form onSubmit={handleSubmit}>
