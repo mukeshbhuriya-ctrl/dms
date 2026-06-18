@@ -44,6 +44,7 @@ model company{
   dish_end_inspection_reports dish_end_inspection_report[]
   final_inspection_reports final_inspection_report[]
   tube_sheet_inspection_reports tube_sheet_inspection_report[]
+  tube_bundle_inspection_reports tube_bundle_inspection_report[]
   quality_assurance_plans quality_assurance_plan[]
   qap_activity_headings qap_activity_heading_master[]
   dcr dcr[]
@@ -100,6 +101,10 @@ model employee_group {
 
   weld_joint_stages_prod weld_joint_stage[] @relation("WeldStageProdGroup")
   weld_joint_stages_qc   weld_joint_stage[] @relation("WeldStageQcGroup")
+
+  tube_bundle_production_inspections tube_bundle_inspection_report[] @relation("TbiProductionGroup")
+  tube_bundle_qc_inspections         tube_bundle_inspection_report[] @relation("TbiQcGroup")
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -161,6 +166,9 @@ model user{
   final_inspection_reports final_inspection_report[]
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
   created_tube_sheet_inspection_reports tube_sheet_inspection_report[]
+  created_tube_bundle_inspection_reports tube_bundle_inspection_report[]
+  tube_bundle_production_inspections     tube_bundle_inspection_report[] @relation("TbiProductionEngineer")
+  tube_bundle_qc_inspections             tube_bundle_inspection_report[] @relation("TbiQcEngineer")
   dcr_quality_engineer dcr[] @relation("DcrQualityEngineer")
   mhc_production_reports material_heat_chart[] @relation("MhcProductionEngineer")
   mhc_qc_reports         material_heat_chart[] @relation("MhcQcEngineer")
@@ -364,6 +372,7 @@ model job{
   final_inspection_reports final_inspection_report[]
   quality_assurance_plans quality_assurance_plan[]
   tube_sheet_inspection_reports tube_sheet_inspection_report[]
+  tube_bundle_inspection_reports tube_bundle_inspection_report[]
   dcr dcr[]
   dcr_change_request dcr_change_request[]
 
@@ -1689,6 +1698,7 @@ model instruments_master {
   updated_at        DateTime  @updatedAt
 
   tube_sheet_inspection_instruments tube_sheet_inspection_instrument[]
+  tube_bundle_inspection_instruments tube_bundle_inspection_instrument[]
 
   @@index([type])
 }
@@ -1771,5 +1781,85 @@ model tube_sheet_inspection_remark {
 
   report      tube_sheet_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
   
+  @@index([report_id])
+}
+
+model tube_bundle_inspection_report {
+  id              String   @id @default(uuid())
+  company_id      String
+  inspection_type String?
+  job_id          String
+  msn             String?
+  client          String?
+  po_no           String?
+  equipment_name  String?
+  tag_no          String?
+  code            String?
+  drg_no          String?
+  insp_agency     String?
+  qap_clause      String?
+  report_no       String?
+  status          String?
+  production_group_id String?
+  production_engineer_id String?
+  qc_group_id         String?
+  qc_engineer_id      String?
+  created_by          String?
+
+  company   company  @relation(fields: [company_id], references: [id])
+  job       job      @relation(fields: [job_id], references: [id])
+  creator   user?    @relation(fields: [created_by], references: [id])
+
+  production_group    employee_group? @relation("TbiProductionGroup", fields: [production_group_id], references: [id])
+  qc_group            employee_group? @relation("TbiQcGroup", fields: [qc_group_id], references: [id])
+  production_engineer user?           @relation("TbiProductionEngineer", fields: [production_engineer_id], references: [id])
+  qc_engineer         user?           @relation("TbiQcEngineer", fields: [qc_engineer_id], references: [id])
+
+  items       tube_bundle_inspection_item[]
+  instruments tube_bundle_inspection_instrument[]
+  remarks     tube_bundle_inspection_remark[]
+
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model tube_bundle_inspection_item {
+  id              String   @id @default(uuid())
+  report_id       String
+  sr_no           Int?
+  description     String?
+  as_per_drg      String?
+  actual_dimension String?
+  remarks         String?
+
+  report          tube_bundle_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+
+  @@index([report_id])
+}
+
+model tube_bundle_inspection_instrument {
+  id              String   @id @default(uuid())
+  report_id       String
+  instrument_id   String?
+  name            String?
+  id_no           String?
+  due_date        String?
+
+  report          tube_bundle_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  instrument      instruments_master?           @relation(fields: [instrument_id], references: [id])
+
+  @@index([report_id])
+}
+
+model tube_bundle_inspection_remark {
+  id              String   @id @default(uuid())
+  report_id       String
+  text            String?
+
+  report          tube_bundle_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+
   @@index([report_id])
 }

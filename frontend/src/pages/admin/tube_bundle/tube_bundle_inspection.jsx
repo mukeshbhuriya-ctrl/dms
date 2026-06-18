@@ -44,12 +44,13 @@ import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick }) {
+function ListView({ onCreateClick, onEditClick, onViewClick }) {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [error, setError] = useState("")
 
   const { user, roles } = useAuth()
+  const userRole = (roles?.includes("QC_ENGINEER") || roles?.includes("ADMIN") || roles?.includes("QC")) ? "QC" : (roles?.includes("PRODUCTION_ENGINEER") ? "PROD" : "")
   const isAdmin = roles?.includes("ADMIN");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
@@ -198,25 +199,14 @@ function ListView({ onCreateClick, onEditClick }) {
     }
   }
 
-  const handleViewClick = async (id) => {
-    setError("")
-    try {
-      const res = await apiClient.get(`/api/tube-bundle-inspection/${id}`)
-      if (res.success) {
-        setSelectedRecord(res.data)
-        setIsViewOpen(true)
-      } else {
-        setError("Failed to fetch details")
-      }
-    } catch (err) {
-      setError("Error fetching details")
-      console.error(err)
-    }
+  const handleViewClick = (id) => {
+    onViewClick(id)
   }
 
   const handleDownload = async (id, reportNo) => {
     try {
-      const filename = `DISH_END_${reportNo.replace(/\//g, '_')}.pdf`;
+      const typePrefix = reportNo?.includes("TSI") ? "TUBE_SKELETON_" : "TUBE_BUNDLE_";
+      const filename = `${typePrefix}${reportNo.replace(/\//g, '_')}.pdf`;
       await exportApi.download(
         `/api/tube-bundle-inspection/${id}/download`,
         filename,
@@ -343,8 +333,8 @@ function ListView({ onCreateClick, onEditClick }) {
         const isAssignedPE = row.production_engineer_id === user?.id
         const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC")
         const status = row.status?.trim()?.toLowerCase()
-        // Only non-QC users who are assigned can review, or Admin
-        const canReview = !isQE && (isAssignedPE || isAdmin) && status !== "approved" && status !== "rejected"
+        // Quick approve/reject from list is not needed for PROD.
+        const canReview = false;
         return (
           <div className="flex gap-2">
             <Button
@@ -362,8 +352,12 @@ function ListView({ onCreateClick, onEditClick }) {
                 onClick={() => onEditClick(row.id)}
                 disabled={row.status?.trim()?.toLowerCase() === "approved"}
                 className={row.status?.trim()?.toLowerCase() === "approved" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
-                <Edit className="h-4 w-4 mr-2" /> Edit
+                title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : (row.status?.trim()?.toLowerCase() === "offered" ? "Review & Finalize" : "Edit")}>
+                {row.status?.trim()?.toLowerCase() === "offered" ? (
+                  <><CheckCircle className="h-4 w-4 mr-2" /> Review & Finalize</>
+                ) : (
+                  <><Edit className="h-4 w-4 mr-2" /> Edit</>
+                )}
               </Button>
             ) : (
               row.status?.trim()?.toLowerCase() !== "approved" && (
@@ -372,8 +366,8 @@ function ListView({ onCreateClick, onEditClick }) {
                   size="sm"
                   onClick={() => onEditClick(row.id)}
                   className="cursor-pointer"
-                  title="Review">
-                  <CheckCircle className="h-4 w-4 mr-2" /> Review
+                  title={userRole === 'PROD' ? "Continue" : "Review"}>
+                  <CheckCircle className="h-4 w-4 mr-2" /> {userRole === 'PROD' ? "Continue ->" : "Review"}
                 </Button>
               )
             )}
@@ -507,136 +501,6 @@ function ListView({ onCreateClick, onEditClick }) {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* View Details Modal */}
-      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-bold text-center">Tube Bundle Inspection Report Details</DialogTitle>
-            <DialogDescription className="text-center">
-              Complete details of the selected Tube Bundle Inspection Report.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedRecord && (
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-y-6 gap-x-4 text-sm border border-border p-6 bg-white rounded-xl shadow-sm">
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">MSN / JOB NO:</span>
-                  <span className="font-medium">{selectedRecord.msn || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CLIENT:</span>
-                  <span className="font-medium">{selectedRecord.client || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PO NO:</span>
-                  <span className="font-medium">{selectedRecord.po_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">EQUIPMENT:</span>
-                  <span className="font-medium">{selectedRecord.equipment_name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">TAG NO:</span>
-                  <span className="font-medium">{selectedRecord.tag_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">CODE:</span>
-                  <span className="font-medium">{selectedRecord.code || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">DRG NO:</span>
-                  <span className="font-medium">{selectedRecord.drg_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">INSP AGENCY:</span>
-                  <span className="font-medium">{selectedRecord.insp_agency || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">REPORT NO:</span>
-                  <span className="font-medium">{selectedRecord.report_no || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">PRODUCTION ENGINEER:</span>
-                  <span className="font-medium">{selectedRecord.production_engineer?.name || "-"}</span>
-                </div>
-                <div className="flex flex-col space-y-1">
-                  <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">VENDOR DISH END NO:</span>
-                  <span className="font-medium">{selectedRecord.vendor_dish_end_number || "-"}</span>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="overflow-x-auto rounded-md border border-border">
-                <table className="w-full border-collapse text-xs text-left">
-                  <thead>
-                    <tr className="bg-[#f4f4f5] border-b border-border">
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">SR NO.</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider min-w-[350px]">DESCRIPTION (QC)</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">AS PER DRG. (QC)</th>
-                      <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">
-                        <div className="flex flex-col gap-1">
-                          <span>ACTUAL</span>
-                          <span className="text-muted-foreground font-normal">{selectedRecord.vendor_dish_end_number || "Vendor Tube Bundle Number"}</span>
-                        </div>
-                      </th>
-                      <th className="p-3 font-bold text-[11px] uppercase tracking-wider">REMARKS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(!selectedRecord.items || selectedRecord.items.length === 0) ? (
-                      <tr>
-                        <td colSpan={5} className="border border-border p-4 text-center">
-                          No items added.
-                        </td>
-                      </tr>
-                    ) : (
-                      selectedRecord.items.map((row) => (
-                        <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                          <td className="border-r border-border p-3 align-top font-medium">{row.sr_no || "-"}</td>
-                          <td className="border-r border-border p-3 align-top">{row.description || "-"}</td>
-                          <td className="border-r border-border p-3 align-top">{row.as_per_drg || "-"}</td>
-                          <td className="border-r border-border p-3 align-top text-red-600 font-medium">{row.actual1 || "-"}</td>
-                          <td className="p-3 align-top">{row.remarks || "-"}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Instruments Table */}
-              {selectedRecord.instruments && selectedRecord.instruments.length > 0 && (
-                <div className="overflow-x-auto rounded-md border border-border mt-6">
-                  <h3 className="p-3 font-bold text-sm bg-muted/40 border-b border-border">Instrument Calibration Details</h3>
-                  <table className="w-full border-collapse text-xs text-left">
-                    <thead>
-                      <tr className="bg-[#f4f4f5] border-b border-border">
-                        <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">NAME</th>
-                        <th className="border-r border-border p-3 font-bold text-[11px] uppercase tracking-wider">ID NO. / SR NO.</th>
-                        <th className="p-3 font-bold text-[11px] uppercase tracking-wider">DUE DATE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedRecord.instruments.map((row) => (
-                        <tr key={row.id} className="hover:bg-muted/30 border-b border-border last:border-0">
-                          <td className="border-r border-border p-3 align-top font-medium">{row.name || "-"}</td>
-                          <td className="border-r border-border p-3 align-top">{row.id_no || "-"}</td>
-                          <td className="p-3 align-top">{row.due_date || "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -659,7 +523,6 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
     qapClause: ""
   })
 
-  const [vendorTubeBundleNo, setVendorTubeBundleNo] = useState("")
 
   const [masterInstruments, setMasterInstruments] = useState([])
 
@@ -678,7 +541,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       .catch((err) => console.error("Failed to fetch instruments:", err))
   }, [])
 
-  const { roles } = useAuth()
+  const { user, roles } = useAuth()
   const userRole = (roles?.includes("QC_ENGINEER") || roles?.includes("ADMIN") || roles?.includes("QC")) ? "QC" : (roles?.includes("PRODUCTION_ENGINEER") ? "PROD" : "")
 
   // Description options for the table
@@ -706,7 +569,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       srNo: item.srNo,
       description: item.desc,
       asPerDrg: "",
-      actual1: "",
+      actual_dimension: "",
       remarks: "",
     }))
   )
@@ -728,15 +591,29 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
   const [inspectionStatus, setInspectionStatus] = useState("NEW")
   const [productionGroupId, setProductionGroupId] = useState("")
   const [productionGroups, setProductionGroups] = useState([])
+  const [qcGroupId, setQcGroupId] = useState("")
+  const [qcGroups, setQcGroups] = useState([])
 
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(null)
 
 
   useEffect(() => {
-    apiClient.get("/api/common/groups?type=PRODUCTION")
+    apiClient.get("/api/employee-groups?group_type=PRODUCTION")
       .then((res) => { if (res.success) setProductionGroups(res.data) })
       .catch((err) => console.error("Failed to fetch production groups:", err))
   }, [])
+
+  useEffect(() => {
+    apiClient.get("/api/employee-groups?group_type=QUALITY")
+      .then((res) => {
+        if (res.success) {
+          setQcGroups(res.data);
+          const userGroupId = res.data.find(g => g.users?.some(u => u.user?.id === user?.id))?.id;
+          if (userGroupId && !editId) setQcGroupId(userGroupId);
+        }
+      })
+      .catch((err) => console.error("Failed to fetch QC groups:", err))
+  }, [user?.id, editId])
 
   useEffect(() => {
     apiClient.get("/api/common/jobs")
@@ -766,10 +643,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               qapClause: data.qap_clause || ""
             })
 
-            setVendorTubeBundleNo(data.vendor_dish_end_number || "")
 
             setInspectionStatus(data.status?.toUpperCase() || "NEW")
             setProductionGroupId(data.production_group_id || "")
+            setQcGroupId(data.qc_group_id || "")
 
             if (data.items && data.items.length > 0) {
               setTableRows(data.items.map((item, i) => ({
@@ -777,7 +654,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 srNo: item.sr_no || (i + 1),
                 description: item.description || "",
                 asPerDrg: item.as_per_drg || "",
-                actual1: item.actual1 || "",
+                actual_dimension: item.actual_dimension || "",
                 remarks: item.remarks || ""
               })))
             }
@@ -856,7 +733,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       srNo: "",
       description: "",
       asPerDrg: "",
-      actual1: "",
+      actual_dimension: "",
       remarks: "",
     }
     const newRows = [...tableRows]
@@ -931,15 +808,15 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       qap_clause: formData.qapClause,
       drg_no: formData.drgNo,
       production_group_id: productionGroupId || null,
+      qc_group_id: qcGroupId || null,
       status: action === "DRAFT" ? "Draft" : (action === "INITIATE" ? "Initiated" : (action === "OFFER" ? "Offered" : (action === "FINALIZE" ? "Approved" : inspectionStatus))),
 
       insp_agency: formData.inspAgency,
-      vendor_dish_end_number: vendorTubeBundleNo,
       items: tableRows.map(r => ({
         sr_no: r.srNo,
         description: r.description,
         as_per_drg: r.asPerDrg,
-        actual1: r.actual1,
+        actual_dimension: r.actual_dimension,
         remarks: r.remarks,
       })),
       instruments: instrumentRows.filter(r => r.name || r.idNo || r.dueDate).map(r => ({
@@ -955,12 +832,6 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       let res;
       if (!editId) {
         res = await apiClient.post("/api/tube-bundle-inspection/create", payload)
-      } else if (action === "OFFER") {
-        res = await apiClient.post(`/api/tube-bundle-inspection/offer/${editId}`, payload)
-      } else if (action === "FINALIZE") {
-        res = await apiClient.post(`/api/tube-bundle-inspection/finalize/${editId}`, payload)
-      } else if (action === "SAVE_REVIEW") {
-        res = await apiClient.post(`/api/tube-bundle-inspection/save-review/${editId}`, payload)
       } else {
         res = await apiClient.put(`/api/tube-bundle-inspection/update/${editId}`, payload)
       }
@@ -979,7 +850,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
 
   const s = inspectionStatus?.toUpperCase() || "NEW"
-  const isQcInitiationLocked = userRole !== 'QC' || !(s === 'NEW' || s === 'DRAFT')
+  const isQcInitiationLocked = userRole !== 'QC'
 
   // Overall readonly for the whole form based on status
   const isFormReadOnly = isView || s === 'APPROVED'
@@ -1186,19 +1057,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                     <TableCell className="p-2 border border-gray-300">
                       <Input
                         type="text"
-                        value={row.actual1}
-                        onChange={(e) => handleRowChange(row.id, "actual1", e.target.value)}
-                        readOnly={isQcInitiationLocked || isFormReadOnly}
-                        className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : 'bg-transparent'} rounded-md`}
-                      />
-                    </TableCell>
-                    <TableCell className="p-2 border border-gray-300">
-                      <Input
-                        type="text"
-                        value={row.actual2}
-                        onChange={(e) => handleRowChange(row.id, "actual2", e.target.value)}
-                        readOnly={isQcInitiationLocked || isFormReadOnly}
-                        className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : 'bg-transparent'} rounded-md`}
+                        value={row.actual_dimension}
+                        onChange={(e) => handleRowChange(row.id, "actual_dimension", e.target.value)}
+                        readOnly={isFormReadOnly}
+                        className={`w-full text-xs border-0 focus-visible:ring-0 bg-transparent rounded-md`}
                       />
                     </TableCell>
                     <TableCell className="p-2 border border-gray-300">
@@ -1206,8 +1068,8 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                         type="text"
                         value={row.remarks}
                         onChange={(e) => handleRowChange(row.id, "remarks", e.target.value)}
-                        readOnly={isQcInitiationLocked || isFormReadOnly}
-                        className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : 'bg-transparent'} rounded-md`}
+                        readOnly={isFormReadOnly}
+                        className={`w-full text-xs border-0 focus-visible:ring-0 bg-transparent rounded-md`}
                       />
                     </TableCell>
                     <TableCell className="p-2 border border-gray-300">
@@ -1216,7 +1078,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 bg-white"
+                          className="h-8 w-8 bg-white cursor-pointer"
                           onClick={() => addTableRow(tableRows.findIndex(r => r.id === row.id))}
                           disabled={userRole === 'PROD'}
                         >
@@ -1226,7 +1088,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="h-8 w-8 bg-white"
+                          className="h-8 w-8 bg-white cursor-pointer"
                           onClick={() => removeTableRow(row.id)}
                           disabled={tableRows.length <= 1 || userRole === 'PROD'}
                         >
@@ -1239,7 +1101,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               </TableBody>
             </Table>
           </div>
-          <Button type="button" variant="outline" onClick={() => addTableRow(tableRows.length - 1)} className="w-full sm:w-auto mt-2" disabled={userRole === 'PROD'}>
+          <Button type="button" variant="outline" onClick={() => addTableRow(tableRows.length - 1)} className=" w-full sm:w-auto mt-2 cursor-pointer" disabled={userRole === 'PROD'}>
             <Plus className="h-4 w-4 mr-2" />
             Add Row
           </Button>
@@ -1322,7 +1184,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               </TableBody>
             </Table>
           </div>
-          <Button type="button" variant="outline" onClick={addInstrumentRow} className="w-full sm:w-auto mt-2" disabled={userRole === 'PROD'}>
+          <Button type="button" variant="outline" onClick={addInstrumentRow} className="w-full sm:w-auto mt-2 cursor-pointer" disabled={userRole === 'PROD'}>
             <Plus className="h-4 w-4 mr-2" />
             Add Row
           </Button>
@@ -1366,7 +1228,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 variant="outline"
                 onClick={addRemarkRow}
                 disabled={userRole === 'PROD'}
-                className="w-auto"
+                className="w-auto cursor-pointer"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Remark
@@ -1394,6 +1256,16 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 disabled={isQcInitiationLocked || isFormReadOnly}
               />
             </div>
+            <div className="space-y-2">
+              <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">QC GROUP <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={qcGroups?.map((g) => ({ value: g.id, label: g.name })) || []}
+                value={qcGroupId}
+                onValueChange={setQcGroupId}
+                placeholder="Select QC group"
+                disabled={isQcInitiationLocked || isFormReadOnly}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1410,7 +1282,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
               </Button>
             )}
             {userRole === 'QC' && (s === 'NEW' || s === 'DRAFT' || s === 'INITIATED') && (
-              <Button type="button" onClick={() => handleSubmit("INITIATE")} disabled={submitting !== null || !productionGroupId}>
+              <Button type="button" onClick={() => handleSubmit("INITIATE")} disabled={submitting !== null || !productionGroupId || !qcGroupId} className="cursor-pointer">
                 {submitting === "INITIATE" ? "Submitting..." : "Submit"}
               </Button>
             )}
@@ -1423,10 +1295,10 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
             {userRole === 'QC' && s === 'OFFERED' && (
               <>
-                <Button type="button" variant="secondary" onClick={() => handleSubmit("SAVE_REVIEW")} disabled={submitting !== null} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200">
+                <Button type="button" variant="secondary" onClick={() => handleSubmit("SAVE_REVIEW")} disabled={submitting !== null} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer">
                   {submitting === "SAVE_REVIEW" ? "Saving..." : "Save Review"}
                 </Button>
-                <Button type="button" onClick={() => handleSubmit("FINALIZE")} disabled={submitting !== null} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button type="button" onClick={() => handleSubmit("FINALIZE")} disabled={submitting !== null} className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer">
                   {submitting === "FINALIZE" ? "Finalizing..." : "Finalize & Approve"}
                 </Button>
               </>
@@ -1440,17 +1312,26 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function TubeBundleInspection() {
-  const [view, setView] = useState("list") // "list" | "create" | "edit"
+  const [view, setView] = useState("list") // "list" | "create" | "edit" | "view"
   const [editId, setEditId] = useState(null)
+  const [isViewMode, setIsViewMode] = useState(false)
 
   const handleSuccess = () => {
     setView("list")
     setEditId(null)
+    setIsViewMode(false)
   }
 
   const handleEdit = (id) => {
     setEditId(id)
+    setIsViewMode(false)
     setView("edit")
+  }
+
+  const handleView = (id) => {
+    setEditId(id)
+    setIsViewMode(true)
+    setView("view")
   }
 
   return (
@@ -1465,18 +1346,22 @@ function TubeBundleInspection() {
             <ListView
               onCreateClick={() => {
                 setEditId(null)
+                setIsViewMode(false)
                 setView("create")
               }}
               onEditClick={handleEdit}
+              onViewClick={handleView}
             />
           ) : (
             <CreateView
               onBack={() => {
                 setView("list")
                 setEditId(null)
+                setIsViewMode(false)
               }}
               onSuccess={handleSuccess}
               editId={editId}
+              isView={isViewMode}
             />
           )}
         </div>

@@ -120,6 +120,9 @@ app.use('/api/notifications', notificationRoutes);
 const tubeSheetInspectionRoutes = require('#routes/tube_sheet_inspection/tube_sheet_inspection.routes.js');
 app.use('/api/tube-sheet-inspection', tubeSheetInspectionRoutes);
 
+const tubeBundleInspectionRoutes = require('#routes/tube_bundle_inspection.routes.js');
+app.use('/api/tube-bundle-inspection', tubeBundleInspectionRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
