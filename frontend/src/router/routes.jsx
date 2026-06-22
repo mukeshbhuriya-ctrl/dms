@@ -38,6 +38,7 @@ import { TubeBundleInspection } from "@/pages/admin/tube_bundle"
 import JobOverview from "@/pages/admin/job_360"
 import { WeldingJoints } from "@/pages/wpj/admin"
 import { ViewWeldingJoints } from "@/pages/wpj/user"
+import TravelerWeldingNDE from "@/pages/wpj/traveler_welding_nde"
 import { MaterialHeatChart } from "@/pages/admin/material_heat_chart"
 import { InspectionReport, HydroPresText } from "@/pages/admin/hydro"
 import { CreateQARP, HeadingMaster } from "@/pages/admin/qap"
@@ -259,6 +260,14 @@ const weldRoutes = [
       <ViewWeldingJoints />,
       MODULES.WELD_JOINTS,
       [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER]
+    ),
+  },
+  {
+    path: "/traveler-welding-nde",
+    element: protect(
+      <TravelerWeldingNDE />,
+      MODULES.TRAVELER_WELDING,
+      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN]
     ),
   },
 ]

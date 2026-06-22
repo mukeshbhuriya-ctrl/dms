@@ -40,6 +40,7 @@ export const MODULES = {
     MHC: "MHC_VIEW",
     WELD_PLAN: "WELD_PLAN",
     WELD_JOINTS: "WELD_JOINTS",
+    TRAVELER_WELDING: "TRAVELER_WELDING",
     HYDRO_TEST: "HYDRO_TEST_VIEW",
     
     INSPECTION: {
@@ -232,6 +233,12 @@ export const MENU_CONFIG = [
         icon: Wrench,
         path: "/view-weldingjoints",
         moduleKey: MODULES.WELD_JOINTS,
+    },
+    {
+        title: "Traveler Welding & NDE",
+        icon: Wrench,
+        path: "/traveler-welding-nde",
+        moduleKey: MODULES.TRAVELER_WELDING,
     },
 
     // ── Hydrostatic Pressure Test ──

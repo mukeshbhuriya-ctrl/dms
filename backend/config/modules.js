@@ -44,6 +44,7 @@ const MODULES = {
     WELDING: {
         WELD_PLAN: "WELD_PLAN",
         WELD_JOINTS: "WELD_JOINTS",
+        TRAVELER_WELDING: "TRAVELER_WELDING",
     },
 
     HYDRO_TEST: {
