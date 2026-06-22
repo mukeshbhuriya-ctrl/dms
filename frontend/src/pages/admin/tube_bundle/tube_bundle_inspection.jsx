@@ -1013,13 +1013,13 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                     SR NO.
                   </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center min-w-[350px]">
-                    DESCRIPTION (QC)
+                    DESCRIPTION
                   </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center w-[200px]">
-                    AS PER DRG. (QC)
+                    AS PER DRG.
                   </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 text-center align-middle w-[200px]">
-                    ACTUAL (Prod.)/ (QC)
+                    ACTUAL
                   </TableHead>
                   <TableHead className="p-2 text-xs font-bold uppercase text-red-600 border border-gray-300 align-middle text-center w-[250px]">
                     REMARKS
