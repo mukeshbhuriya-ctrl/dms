@@ -221,6 +221,43 @@ class EmailService {
         const html = getRevisionRejectedTemplate(requester_name, details);
         return this.sendEmail({ to, subject, html });
     }
+
+    async sendMhcNotification(to, details) {
+        const { getMhcEmailTemplate } = require('../utils/email-templates/mhc.template');
+        const subject = `[MHC ${details.action}] Report: ${details.report_no} (Job ${details.msn})`;
+        
+        const payload = {
+            ...details,
+            url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/material-heat-chart`
+        };
+        
+        const html = getMhcEmailTemplate(payload);
+        return this.sendEmail({ to, subject, html });
+    }
+
+    async broadcastMhcToEmployeeGroup(group_id, details) {
+        if (!group_id || !process.env.EMAIL_ENABLED || process.env.EMAIL_ENABLED !== 'true') return;
+
+        try {
+            const groupMembers = await prisma.user_employee_group.findMany({
+                where: { employee_group_id: group_id },
+                include: { user: true }
+            });
+
+            // Filter for users who have email_notifications turned on and have an email
+            const validEmails = groupMembers
+                .map(gm => gm.user)
+                .filter(user => user && user.email && user.email_notifications)
+                .map(user => user.email);
+
+            if (validEmails.length > 0) {
+                // Send an email to everyone in the group
+                await Promise.all(validEmails.map(email => this.sendMhcNotification(email, details)));
+            }
+        } catch (error) {
+            console.error(`[EmailService] Failed to broadcast MHC notification to group ${group_id}:`, error);
+        }
+    }
 }
 
 module.exports = new EmailService();

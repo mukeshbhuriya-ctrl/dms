@@ -965,7 +965,9 @@ model material_heat_chart_item {
   parent_item_id        String? // Self-reference to the first version (v1)
   action_by_id          String? // User who created this specific version
   production_engineer_id String? // Tracks who submitted Heat/GRN data
+  production_date       DateTime? // Exact time when Prod submitted
   qc_engineer_id        String? // Tracks who reviewed/approved the item
+  qc_date               DateTime? // Exact time when QC reviewed
   
   mhc material_heat_chart @relation(fields: [mhc_id], references: [id], onDelete: Cascade)
   action_by user? @relation("MhcItemActionBy", fields: [action_by_id], references: [id])

@@ -356,18 +356,31 @@ class MhcService {
                     });
                 } else {
                     // Standard update for Pending/Initiated items
+                    const newHeatNo = item.heat_no || item.heatNo || null;
+                    const newGrnAppApNo = item.grn_app_ap_no || item.grnAppApNo || null;
+                    const newRemarks = item.remarks || null;
+                    const newMtrNo = item.mtr_no || null;
+                    const newManufacturer = item.manufacturer || null;
+
+                    const hasChanged = newHeatNo !== currentItem.heat_no || 
+                                       newGrnAppApNo !== currentItem.grn_app_ap_no || 
+                                       newRemarks !== currentItem.remarks || 
+                                       newMtrNo !== currentItem.mtr_no || 
+                                       newManufacturer !== currentItem.manufacturer;
+
                     await tx.material_heat_chart_item.update({
                         where: { id: targetId },
                         data: {
-                            heat_no: item.heat_no || item.heatNo || null,
-                            grn_app_ap_no: item.grn_app_ap_no || item.grnAppApNo || null,
+                            heat_no: newHeatNo,
+                            grn_app_ap_no: newGrnAppApNo,
                             qc_status: 'Pending',
                             qc_remarks: null, // CLEAR REMARKS: Ensure no stale data
-                            remarks: item.remarks || undefined,
-                            mtr_no: item.mtr_no || undefined,
-                            manufacturer: item.manufacturer || undefined,
-                            production_engineer_id: user_id,
-                            action_by_id: user_id
+                            remarks: newRemarks,
+                            mtr_no: newMtrNo,
+                            manufacturer: newManufacturer,
+                            production_engineer_id: hasChanged ? user_id : currentItem.production_engineer_id,
+                            production_date: hasChanged ? new Date() : currentItem.production_date,
+                            action_by_id: hasChanged ? user_id : currentItem.action_by_id
                         }
                     });
                 }
@@ -414,16 +427,29 @@ class MhcService {
 
                 if (currentItem && currentItem.qc_status === 'Approved') continue;
 
+                const newMtrNo = item.mtr_no || null;
+                const newManufacturer = item.manufacturer || null;
+                const newRemarks = item.remarks || null;
+                const newQcStatus = item.qc_status || 'Approved';
+                const newQcRemarks = item.qc_remarks || null;
+
+                const hasChanged = newMtrNo !== currentItem.mtr_no || 
+                                   newManufacturer !== currentItem.manufacturer || 
+                                   newRemarks !== currentItem.remarks || 
+                                   newQcStatus !== currentItem.qc_status || 
+                                   newQcRemarks !== currentItem.qc_remarks;
+
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
                     data: {
-                        mtr_no: item.mtr_no || null,
-                        manufacturer: item.manufacturer || null,
-                        remarks: item.remarks || null,
-                        qc_status: item.qc_status || 'Approved', // Default to Approved if finalizing
-                        qc_remarks: item.qc_remarks || null,
-                        qc_engineer_id: user_id,
-                        action_by_id: user_id
+                        mtr_no: newMtrNo,
+                        manufacturer: newManufacturer,
+                        remarks: newRemarks,
+                        qc_status: newQcStatus,
+                        qc_remarks: newQcRemarks,
+                        qc_engineer_id: hasChanged ? user_id : currentItem.qc_engineer_id,
+                        qc_date: hasChanged ? new Date() : currentItem.qc_date,
+                        action_by_id: hasChanged ? user_id : currentItem.action_by_id
                     }
                 });
             }
@@ -484,17 +510,28 @@ class MhcService {
                 const status = item.qc_status || 'Pending';
                 if (status === 'Rejected') hasRejections = true;
 
+                const newMtrNo = item.mtr_no || null;
+                const newManufacturer = item.manufacturer || null;
+                const newRemarks = item.remarks || null;
+                const newQcRemarks = item.qc_remarks || null;
+
+                const hasChanged = newMtrNo !== currentItem.mtr_no || 
+                                   newManufacturer !== currentItem.manufacturer || 
+                                   newRemarks !== currentItem.remarks || 
+                                   status !== currentItem.qc_status || 
+                                   newQcRemarks !== currentItem.qc_remarks;
+
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
                     data: {
                         qc_status: status,
-                        qc_remarks: item.qc_remarks || null,
-                        // If approved by QC, they might also provide MTR/Manufacturer at this stage
-                        mtr_no: item.mtr_no || undefined,
-                        manufacturer: item.manufacturer || undefined,
-                        remarks: item.remarks || undefined,
-                        qc_engineer_id: user_id,
-                        action_by_id: user_id
+                        qc_remarks: newQcRemarks,
+                        mtr_no: newMtrNo,
+                        manufacturer: newManufacturer,
+                        remarks: newRemarks,
+                        qc_engineer_id: hasChanged ? user_id : currentItem.qc_engineer_id,
+                        qc_date: hasChanged ? new Date() : currentItem.qc_date,
+                        action_by_id: hasChanged ? user_id : currentItem.action_by_id
                     }
                 });
             }
@@ -706,7 +743,7 @@ class MhcService {
     /**
      * Update an existing MHC record
      */
-    async update(company_id, id, body) {
+    async update(company_id, id, body, user_id) {
         const {
             shreno_drg_no,
             customer_drg_no,
@@ -793,6 +830,20 @@ class MhcService {
                         // Update existing (unless Approved)
                         const current = existingMap.get(item.id);
                         if (current.qc_status !== 'Approved') {
+                            const prodChanged = data.heat_no !== current.heat_no || data.grn_app_ap_no !== current.grn_app_ap_no;
+                            if (prodChanged && user_id) {
+                                data.production_engineer_id = user_id;
+                                data.production_date = new Date();
+                                data.action_by_id = user_id;
+                            }
+                            
+                            const qcChanged = data.mtr_no !== current.mtr_no || data.manufacturer !== current.manufacturer || data.remarks !== current.remarks || data.qc_status !== current.qc_status || data.qc_remarks !== current.qc_remarks;
+                            if (qcChanged && user_id) {
+                                data.qc_engineer_id = user_id;
+                                data.qc_date = new Date();
+                                data.action_by_id = user_id;
+                            }
+
                             await tx.material_heat_chart_item.update({
                                 where: { id: item.id },
                                 data
@@ -800,6 +851,11 @@ class MhcService {
                         }
                     } else {
                         // Create new
+                        if (user_id) {
+                            data.action_by_id = user_id;
+                            data.production_engineer_id = user_id;
+                            data.production_date = new Date();
+                        }
                         await tx.material_heat_chart_item.create({
                             data: {
                                 ...data,

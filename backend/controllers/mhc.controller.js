@@ -3,6 +3,7 @@ const NotificationService = require('#services/notification.service.js');
 const Audit = require('#utils/audit.js');
 const MhcPdfGenerator = require('../utils/mhcPdfGenerator');
 const { getCompanyInfo } = require('../utils/companyInfo');
+const EmailService = require('../services/email.service');
 const prisma = require('#prisma');
 
 class MhcController {
@@ -59,6 +60,17 @@ class MhcController {
                     action_path: `/material-heat-chart`,
                     action_params: { id: result.id }
                 });
+
+                // Trigger background email
+                EmailService.broadcastMhcToEmployeeGroup(result.production_group_id, {
+                    action: 'Initiated',
+                    report_no: result.report_no,
+                    msn: result.msn,
+                    client: result.client,
+                    po_no: result.po_no,
+                    equipment_name: result.equipment_name,
+                    action_by: req.user.name || req.user.username || 'Admin'
+                }).catch(err => console.error('MHC Init Email Error:', err));
             }
 
             res.status(201).json({
@@ -97,6 +109,17 @@ class MhcController {
                     action_path: `/material-heat-chart`,
                     action_params: { id: result.id }
                 });
+
+                // Trigger background email
+                EmailService.broadcastMhcToEmployeeGroup(result.qc_group_id, {
+                    action: 'Offered to QC',
+                    report_no: result.report_no,
+                    msn: result.msn,
+                    client: result.client,
+                    po_no: result.po_no,
+                    equipment_name: result.equipment_name,
+                    action_by: req.user.name || req.user.username || 'Production Engineer'
+                }).catch(err => console.error('MHC Offer Email Error:', err));
             }
 
             res.status(200).json({
@@ -135,6 +158,18 @@ class MhcController {
                     action_path: `/material-heat-chart`,
                     action_params: { id: result.id }
                 });
+
+                // Trigger background email
+                EmailService.broadcastMhcToEmployeeGroup(result.production_group_id, {
+                    action: 'Approved',
+                    report_no: result.report_no,
+                    msn: result.msn,
+                    client: result.client,
+                    po_no: result.po_no,
+                    equipment_name: result.equipment_name,
+                    remarks: 'MHC has been finalized and approved by QC.',
+                    action_by: req.user.name || req.user.username || 'QC Engineer'
+                }).catch(err => console.error('MHC Finalize Email Error:', err));
             }
 
             res.status(200).json({
@@ -173,6 +208,18 @@ class MhcController {
                     action_path: `/material-heat-chart`,
                     action_params: { id: result.id }
                 });
+
+                // Trigger background email
+                EmailService.broadcastMhcToEmployeeGroup(result.production_group_id, {
+                    action: 'Rejected (Correction Required)',
+                    report_no: result.report_no,
+                    msn: result.msn,
+                    client: result.client,
+                    po_no: result.po_no,
+                    equipment_name: result.equipment_name,
+                    remarks: 'MHC requires corrections. Please review QC remarks.',
+                    action_by: req.user.name || req.user.username || 'QC Engineer'
+                }).catch(err => console.error('MHC Reject Email Error:', err));
             }
 
             res.status(200).json({
@@ -265,7 +312,7 @@ class MhcController {
 
     async update(req, res) {
         try {
-            const result = await MhcService.update(req.user.company_id, req.params.id, req.body);
+            const result = await MhcService.update(req.user.company_id, req.params.id, req.body, req.user.userid || req.user.id);
             
             Audit.insert({
                 req,

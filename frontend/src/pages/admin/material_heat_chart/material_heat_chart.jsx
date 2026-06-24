@@ -1047,6 +1047,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
 
   const [mhcStatus, setMhcStatus] = useState("Initiated")
   const [approverRemarks, setApproverRemarks] = useState("")
+  const [submittedAt, setSubmittedAt] = useState(null)
+  const [approvedAt, setApprovedAt] = useState(null)
   const { roles } = useAuth()
   const isQE = roles?.includes("QC_ENGINEER");
   const isPE = roles?.includes("PRODUCTION_ENGINEER");
@@ -1140,6 +1142,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             setProductionGroupId(data.production_group_id || "")
             setMhcStatus(cloneId ? (isQE ? "Draft" : "Initiated") : (data.status || "Initiated"))
             setApproverRemarks(cloneId ? "" : (data.approver_remarks || ""))
+            setSubmittedAt(cloneId ? null : (data.submitted_at || null))
+            setApprovedAt(cloneId ? null : (data.approved_at || null))
             if (data.items && data.items.length > 0) {
               setTableRows(data.items.map((item, index) => ({
                 id: cloneId ? undefined : item.id,
@@ -1158,6 +1162,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                 qcRemarks: cloneId ? "" : (item.qc_remarks || ""),
                 qcReviewerName: cloneId ? "" : (item.qc_reviewer?.name || ""),
                 prodEngineerName: cloneId ? "" : (item.prod_engineer?.name || ""),
+                productionDate: cloneId ? null : item.production_date,
+                qcDate: cloneId ? null : item.qc_date,
                 isHeading: Boolean(item.is_heading),
                 headingText: item.heading_text || "",
                 parentHeadingId: cloneId ? undefined : item.parent_heading_id,
@@ -1908,7 +1914,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                   <Input
                                     value={row.qcRemarks || ""}
                                     onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
-                                    placeholder="QC feedback..."
+                                    placeholder="QC remarks..."
                                     className={`text-[13px] h-10 rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
                                     disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
                                   />
@@ -1916,15 +1922,25 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                               )}
                               {showQcCols && (
                                 <td className="p-2 align-top min-w-[150px]">
-                                  <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
-                                    {row.prodEngineerName || "-"}
+                                  <div className="flex flex-col justify-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50">
+                                    <span className="text-xs font-bold text-slate-700 leading-tight">{row.prodEngineerName || "-"}</span>
+                                    {row.prodEngineerName && row.productionDate && (
+                                      <span className="text-[9px] font-medium text-slate-500 leading-tight">
+                                        {new Date(row.productionDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                               )}
                               {showQcCols && (
                                 <td className="p-2 align-top min-w-[150px]">
-                                  <div className="flex items-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50 text-xs font-medium text-slate-600">
-                                    {row.qcReviewerName || "-"}
+                                  <div className="flex flex-col justify-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50">
+                                    <span className="text-xs font-bold text-slate-700 leading-tight">{row.qcReviewerName || "-"}</span>
+                                    {row.qcReviewerName && row.qcDate && (
+                                      <span className="text-[9px] font-medium text-slate-500 leading-tight">
+                                        {new Date(row.qcDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                               )}
