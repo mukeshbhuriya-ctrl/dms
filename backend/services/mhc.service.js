@@ -223,7 +223,7 @@ class MhcService {
                     production_group_id: production_group_id || null,
                     production_engineer_id: production_engineer_id || null,
                     qc_group_id: qc_group_id || null,
-                    qc_engineer_id: creator_id,
+                    qc_engineer_id: null,
                     submitted_at: new Date(),
                 },
             });
@@ -258,7 +258,7 @@ class MhcService {
                         is_current: true,
                         action_by_id: creator_id,
                         production_engineer_id: production_engineer_id || null,
-                        qc_engineer_id: creator_id
+                        qc_engineer_id: null
                     });
                 });
 
@@ -319,6 +319,25 @@ class MhcService {
 
                 if (!currentItem || currentItem.qc_status === 'Approved') continue;
 
+                const newHeatNo = item.heat_no || item.heatNo || null;
+                const newGrnAppApNo = item.grn_app_ap_no || item.grnAppApNo || null;
+                const newRemarks = item.remarks || null;
+                const newMtrNo = item.mtr_no || null;
+                const newManufacturer = item.manufacturer || null;
+
+                const oldHeatNo = currentItem.heat_no || null;
+                const oldGrn = currentItem.grn_app_ap_no || null;
+                const oldRemarks = currentItem.remarks || null;
+                const oldMtrNo = currentItem.mtr_no || null;
+                const oldManufacturer = currentItem.manufacturer || null;
+
+                const prodChanged = newHeatNo !== oldHeatNo || newGrnAppApNo !== oldGrn;
+                const anyChanged = prodChanged || newRemarks !== oldRemarks || newMtrNo !== oldMtrNo || newManufacturer !== oldManufacturer;
+
+                // CRITICAL FIX: If no fields were changed by the user, DO NOT touch this item.
+                // This ensures rejected items keep their original QC names and remarks if untouched.
+                if (!anyChanged) continue;
+
                 // VERSIONING LOGIC: If item was previously Rejected, archive it and create new version
                 if (currentItem.qc_status === 'Rejected') {
                     // 1. Archive rejected version (this preserves the old qc_remarks in history)
@@ -340,34 +359,25 @@ class MhcService {
                             size: currentItem.size,
                             material_spec: currentItem.material_spec,
                             quantity_unit: currentItem.quantity_unit,
-                            heat_no: item.heat_no || item.heatNo || null,
-                            grn_app_ap_no: item.grn_app_ap_no || item.grnAppApNo || null,
-                            mtr_no: currentItem.mtr_no,
-                            manufacturer: currentItem.manufacturer,
-                            remarks: currentItem.remarks,
+                            heat_no: newHeatNo,
+                            grn_app_ap_no: newGrnAppApNo,
+                            mtr_no: newMtrNo,
+                            manufacturer: newManufacturer,
+                            remarks: newRemarks,
                             qc_status: 'Pending', // Reset to pending for QC re-review
                             qc_remarks: null,     // CLEAR REMARKS: Fresh start for QC
+                            qc_engineer_id: null, // CLEAR QC ENGINEER: Fresh start for QC
+                            qc_date: null,        // CLEAR QC DATE
                             version: currentItem.version + 1,
                             is_current: true,
                             parent_item_id: currentItem.parent_item_id || currentItem.id,
-                            production_engineer_id: user_id,
+                            production_engineer_id: prodChanged ? user_id : currentItem.production_engineer_id,
+                            production_date: prodChanged ? new Date() : currentItem.production_date,
                             action_by_id: user_id
                         }
                     });
                 } else {
                     // Standard update for Pending/Initiated items
-                    const newHeatNo = item.heat_no || item.heatNo || null;
-                    const newGrnAppApNo = item.grn_app_ap_no || item.grnAppApNo || null;
-                    const newRemarks = item.remarks || null;
-                    const newMtrNo = item.mtr_no || null;
-                    const newManufacturer = item.manufacturer || null;
-
-                    const hasChanged = newHeatNo !== currentItem.heat_no || 
-                                       newGrnAppApNo !== currentItem.grn_app_ap_no || 
-                                       newRemarks !== currentItem.remarks || 
-                                       newMtrNo !== currentItem.mtr_no || 
-                                       newManufacturer !== currentItem.manufacturer;
-
                     await tx.material_heat_chart_item.update({
                         where: { id: targetId },
                         data: {
@@ -378,9 +388,9 @@ class MhcService {
                             remarks: newRemarks,
                             mtr_no: newMtrNo,
                             manufacturer: newManufacturer,
-                            production_engineer_id: hasChanged ? user_id : currentItem.production_engineer_id,
-                            production_date: hasChanged ? new Date() : currentItem.production_date,
-                            action_by_id: hasChanged ? user_id : currentItem.action_by_id
+                            production_engineer_id: prodChanged ? user_id : currentItem.production_engineer_id,
+                            production_date: prodChanged ? new Date() : currentItem.production_date,
+                            action_by_id: user_id
                         }
                     });
                 }
@@ -433,11 +443,17 @@ class MhcService {
                 const newQcStatus = item.qc_status || 'Approved';
                 const newQcRemarks = item.qc_remarks || null;
 
-                const hasChanged = newMtrNo !== currentItem.mtr_no || 
-                                   newManufacturer !== currentItem.manufacturer || 
-                                   newRemarks !== currentItem.remarks || 
-                                   newQcStatus !== currentItem.qc_status || 
-                                   newQcRemarks !== currentItem.qc_remarks;
+                const oldMtrNo = currentItem.mtr_no || null;
+                const oldManufacturer = currentItem.manufacturer || null;
+                const oldRemarks = currentItem.remarks || null;
+                const oldQcStatus = currentItem.qc_status || 'Pending';
+                const oldQcRemarks = currentItem.qc_remarks || null;
+
+                const qcChanged = newMtrNo !== oldMtrNo || 
+                                   newManufacturer !== oldManufacturer || 
+                                   newRemarks !== oldRemarks || 
+                                   newQcStatus !== oldQcStatus || 
+                                   newQcRemarks !== oldQcRemarks;
 
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
@@ -447,9 +463,9 @@ class MhcService {
                         remarks: newRemarks,
                         qc_status: newQcStatus,
                         qc_remarks: newQcRemarks,
-                        qc_engineer_id: hasChanged ? user_id : currentItem.qc_engineer_id,
-                        qc_date: hasChanged ? new Date() : currentItem.qc_date,
-                        action_by_id: hasChanged ? user_id : currentItem.action_by_id
+                        qc_engineer_id: qcChanged ? user_id : currentItem.qc_engineer_id,
+                        qc_date: qcChanged ? new Date() : currentItem.qc_date,
+                        action_by_id: qcChanged ? user_id : currentItem.action_by_id
                     }
                 });
             }
@@ -509,17 +525,22 @@ class MhcService {
 
                 const status = item.qc_status || 'Pending';
                 if (status === 'Rejected') hasRejections = true;
-
                 const newMtrNo = item.mtr_no || null;
                 const newManufacturer = item.manufacturer || null;
                 const newRemarks = item.remarks || null;
                 const newQcRemarks = item.qc_remarks || null;
 
-                const hasChanged = newMtrNo !== currentItem.mtr_no || 
-                                   newManufacturer !== currentItem.manufacturer || 
-                                   newRemarks !== currentItem.remarks || 
-                                   status !== currentItem.qc_status || 
-                                   newQcRemarks !== currentItem.qc_remarks;
+                const oldMtrNo = currentItem.mtr_no || null;
+                const oldManufacturer = currentItem.manufacturer || null;
+                const oldRemarks = currentItem.remarks || null;
+                const oldQcStatus = currentItem.qc_status || 'Pending';
+                const oldQcRemarks = currentItem.qc_remarks || null;
+
+                const qcChanged = newMtrNo !== oldMtrNo || 
+                                   newManufacturer !== oldManufacturer || 
+                                   newRemarks !== oldRemarks || 
+                                   status !== oldQcStatus || 
+                                   newQcRemarks !== oldQcRemarks;
 
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
@@ -529,9 +550,9 @@ class MhcService {
                         mtr_no: newMtrNo,
                         manufacturer: newManufacturer,
                         remarks: newRemarks,
-                        qc_engineer_id: hasChanged ? user_id : currentItem.qc_engineer_id,
-                        qc_date: hasChanged ? new Date() : currentItem.qc_date,
-                        action_by_id: hasChanged ? user_id : currentItem.action_by_id
+                        qc_engineer_id: qcChanged ? user_id : currentItem.qc_engineer_id,
+                        qc_date: qcChanged ? new Date() : currentItem.qc_date,
+                        action_by_id: qcChanged ? user_id : currentItem.action_by_id
                     }
                 });
             }
@@ -830,14 +851,26 @@ class MhcService {
                         // Update existing (unless Approved)
                         const current = existingMap.get(item.id);
                         if (current.qc_status !== 'Approved') {
-                            const prodChanged = data.heat_no !== current.heat_no || data.grn_app_ap_no !== current.grn_app_ap_no;
+                            const oldHeatNo = current.heat_no || null;
+                            const oldGrn = current.grn_app_ap_no || null;
+                            const prodChanged = (data.heat_no || null) !== oldHeatNo || (data.grn_app_ap_no || null) !== oldGrn;
                             if (prodChanged && user_id) {
                                 data.production_engineer_id = user_id;
                                 data.production_date = new Date();
                                 data.action_by_id = user_id;
                             }
                             
-                            const qcChanged = data.mtr_no !== current.mtr_no || data.manufacturer !== current.manufacturer || data.remarks !== current.remarks || data.qc_status !== current.qc_status || data.qc_remarks !== current.qc_remarks;
+                            const oldMtrNo = current.mtr_no || null;
+                            const oldManufacturer = current.manufacturer || null;
+                            const oldRemarks = current.remarks || null;
+                            const oldQcStatus = current.qc_status || 'Pending';
+                            const oldQcRemarks = current.qc_remarks || null;
+
+                            const qcChanged = (data.mtr_no || null) !== oldMtrNo || 
+                                              (data.manufacturer || null) !== oldManufacturer || 
+                                              (data.remarks || null) !== oldRemarks || 
+                                              (data.qc_status || 'Pending') !== oldQcStatus || 
+                                              (data.qc_remarks || null) !== oldQcRemarks;
                             if (qcChanged && user_id) {
                                 data.qc_engineer_id = user_id;
                                 data.qc_date = new Date();
