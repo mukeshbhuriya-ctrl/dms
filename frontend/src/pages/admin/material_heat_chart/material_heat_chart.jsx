@@ -1478,7 +1478,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       } else if (currentStatus === "OFFERED" && action === "FINALIZE") {
         res = await apiClient.post(`/api/mhc/finalize/${editId}`, payload)
       } else if (currentStatus === "OFFERED" && action === "UPDATE_OFFERED") {
-        res = await apiClient.put(`/api/mhc/update/${editId}`, payload)
+        res = await apiClient.post(`/api/mhc/offer/${editId}`, payload)
       } else {
         // This covers update of DRAFT, INITIATED, or saving as DRAFT/INITIATED
         res = await apiClient.put(`/api/mhc/update/${editId}`, payload)

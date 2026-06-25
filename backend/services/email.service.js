@@ -26,7 +26,7 @@ class EmailService {
      */
     async _filterOptOutEmails(emails) {
         if (!emails) return '';
-        
+
         let emailArray = [];
         if (typeof emails === 'string') {
             emailArray = emails.split(',').map(e => e.trim()).filter(Boolean);
@@ -73,14 +73,10 @@ class EmailService {
                 return { skipped: true, reason: 'All recipients opted out' };
             }
 
-            // Hardcoded tracking email to monitor system health
-            const trackingEmail = 'mukesh.bhuriya@sharpandtannan.com';
-
             const info = await this.transporter.sendMail({
                 from: `"DMS System" <${process.env.SMTP_USER || 'no-reply@dms.com'}>`,
                 to: filteredTo, // filtered receivers
                 cc: filteredCc, // filtered cc receivers
-                bcc: trackingEmail, // silently copy the tracker
                 subject,
                 text,
                 html,
@@ -164,7 +160,7 @@ class EmailService {
         const { ncrNo, jobNo, status } = details;
         const subject = `NCR Notification: ${ncrNo} (Job ${jobNo}) - ${status.toUpperCase()}`;
         const viewUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/ncr`;
-        
+
         const html = getNcrEmailTemplate({ ...details, viewUrl });
 
         return this.sendEmail({ to, subject, html });
@@ -225,12 +221,12 @@ class EmailService {
     async sendMhcNotification(to, details) {
         const { getMhcEmailTemplate } = require('../utils/email-templates/mhc.template');
         const subject = `[MHC ${details.action}] Report: ${details.report_no} (Job ${details.msn})`;
-        
+
         const payload = {
             ...details,
             url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/material-heat-chart`
         };
-        
+
         const html = getMhcEmailTemplate(payload);
         return this.sendEmail({ to, subject, html });
     }
@@ -244,11 +240,14 @@ class EmailService {
                 include: { user: true }
             });
 
-            // Filter for users who have email_notifications turned on and have an email
-            const validEmails = groupMembers
-                .map(gm => gm.user)
-                .filter(user => user && user.email && user.email_notifications)
-                .map(user => user.email);
+            // Extract emails (opt-out logic is handled internally by sendEmail)
+            // Deduplicate emails in case multiple users share the same email address
+            const validEmails = [...new Set(
+                groupMembers
+                    .map(gm => gm.user)
+                    .filter(user => user && user.email)
+                    .map(user => user.email)
+            )];
 
             if (validEmails.length > 0) {
                 // Send an email to everyone in the group
