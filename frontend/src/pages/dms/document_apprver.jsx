@@ -522,9 +522,22 @@ function DocumentApprover() {
 
   const handleExport = async () => {
     try {
-      await exportApi.exportModule('group_document', 'Approve documents export.xlsx')
+      const params = {};
+      if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
+      
+      if (columnFilters) {
+        if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+        if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+        if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+        if (columnFilters.status) params.approver_status_filter = columnFilters.status;
+        if (columnFilters.documentName) params.search = columnFilters.documentName;
+        if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+        if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
+      }
+
+      await exportApi.exportModule('group_document', 'Approve documents export.xlsx', params);
     } catch (error) {
-      console.error("Export failed:", error)
+      console.error("Export failed:", error);
     }
   };
 

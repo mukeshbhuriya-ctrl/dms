@@ -608,9 +608,24 @@ function UploadDocument() {
 
     const handleExport = async () => {
         try {
-            await exportApi.exportModule("group_document")
+            const params = {};
+            if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
+            
+            if (columnFilters) {
+                if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+                if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+                if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+                if (columnFilters.documentName) params.search = columnFilters.documentName;
+                if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+                if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
+                if (columnFilters.documentNumber) params.document_number_filter = columnFilters.documentNumber;
+                if (columnFilters.uploader_status) params.uploader_status_filter = columnFilters.uploader_status;
+                if (columnFilters.status) params.approver_status_filter = columnFilters.status;
+            }
+
+            await exportApi.exportModule("group_document", "My Uploads Export.xlsx", params);
         } catch (error) {
-            console.error("Export failed:", error)
+            console.error("Export failed:", error);
         }
     }
 
