@@ -1591,15 +1591,103 @@ class ExportService {
         return flattened;
     }
 
+    _processFilter(filterValue) {
+        if (!filterValue) return undefined;
+        if (Array.isArray(filterValue)) {
+            return { in: filterValue };
+        }
+        if (typeof filterValue === 'string' && filterValue.includes(',')) {
+            return { in: filterValue.split(',').map(v => v.trim()) };
+        }
+        return filterValue;
+    }
+
     /**
      * Export Assigned Documents (VDR) reports.
      */
-    async exportAssignedDocuments(company_id, startDate, endDate) {
+    async exportAssignedDocuments(company_id, startDate, endDate, otherFilters = {}) {
+        const {
+            status_filter,
+            customer_name_filter,
+            po_number_filter,
+            job_number_filter,
+            shreno_doc_no_filter,
+            client_doc_no_filter,
+            search
+        } = otherFilters;
+
+        const where = {
+            company_id,
+            is_deleted: false,
+            ...this._getDateFilter(startDate, endDate)
+        };
+
+        if (status_filter && status_filter !== 'all') {
+            const filterVal = status_filter.toLowerCase();
+            if (filterVal === 'pending' || filterVal === 'awaiting_upload') {
+                where.status = { in: ['Pending', 'Upload Due'] };
+            } else if (filterVal === 'pending_approval' || filterVal === 'pending for approval') {
+                where.status = 'Pending for Approval';
+            } else if (filterVal === 'awaiting_client_review') {
+                where.status = 'Approved';
+                where.transmission_items = { some: { client_status: 'Pending' } };
+            } else if (filterVal === 'final approved' || filterVal === 'final_approved') {
+                where.status = 'Approved';
+                where.transmission_items = { some: { client_status: { in: ['Approved', 'Partially Approved'] } } };
+            } else if (filterVal === 'uploaded' || filterVal === 'done') {
+                where.status = { notIn: ['Pending', 'Upload Due', 'Rejected'] };
+            } else if (filterVal === 'approved') {
+                where.status = 'Approved';
+                where.transmission_items = { none: { client_status: 'Pending' } };
+            } else if (filterVal === 'rejected') {
+                where.status = 'Rejected';
+            } else {
+                where.status = status_filter;
+            }
+        }
+
+        if (customer_name_filter) {
+            where.customer = { customer_name: this._processFilter(customer_name_filter) };
+        }
+        if (po_number_filter) {
+            where.po = { po_number: this._processFilter(po_number_filter) };
+        }
+        if (job_number_filter) {
+            where.group = {
+                job_group: {
+                    some: { job: { job_number: this._processFilter(job_number_filter) } }
+                }
+            };
+        }
+        if (shreno_doc_no_filter) {
+            where.shreno_doc_no = this._processFilter(shreno_doc_no_filter);
+        }
+        if (client_doc_no_filter) {
+            where.client_doc_no = this._processFilter(client_doc_no_filter);
+        }
+
+        if (search) {
+            where.OR = [
+                { document: { document_name: { contains: search, mode: 'insensitive' } } },
+                { document: { document_number: { contains: search, mode: 'insensitive' } } },
+                { customer: { customer_name: { contains: search, mode: 'insensitive' } } },
+                { po: { po_number: { contains: search, mode: 'insensitive' } } },
+                {
+                    group: {
+                        job_group: {
+                            some: {
+                                job: {
+                                    job_number: { contains: search, mode: 'insensitive' }
+                                }
+                            }
+                        }
+                    }
+                }
+            ];
+        }
+
         const documents = await prisma.group_document.findMany({
-            where: {
-                company_id,
-                ...this._getDateFilter(startDate, endDate)
-            },
+            where,
             include: {
                 document: true,
                 po: true,
@@ -1685,7 +1773,7 @@ class ExportService {
     /**
      * Generic Export with relationship awareness.
      */
-    async exportModule(moduleName, company_id, startDate, endDate) {
+    async exportModule(moduleName, company_id, startDate, endDate, otherFilters = {}) {
         const modelName = moduleName.replace(/-/g, '_');
 
         // SPECIAL HANDLING FOR RFQ LOOKUPS & USERS
@@ -1693,7 +1781,7 @@ class ExportService {
         if (modelName === 'quality_assurance_plan') return this.exportQAP(company_id, startDate, endDate);
         if (modelName === 'dcr') return this.exportDCR(company_id, startDate, endDate);
         if (modelName === 'ncr') return this.exportNCR(company_id, startDate, endDate);
-        if (modelName === 'group_document') return this.exportAssignedDocuments(company_id, startDate, endDate);
+        if (modelName === 'group_document') return this.exportAssignedDocuments(company_id, startDate, endDate, otherFilters);
         if (modelName === 'weld_joint_plan') return this.exportWeldJointPlan(company_id, startDate, endDate);
         if (modelName === 'weld_joint') return this.exportWeldJoint(company_id, startDate, endDate);
         if (modelName === 'rfq_type') return this.exportRFQLookup(company_id, 'rfq_type', 'RFQ Types');

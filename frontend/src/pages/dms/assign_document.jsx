@@ -1126,8 +1126,23 @@ function AssignDocument() {
 
   const handleExport = async () => {
     try {
-      await exportApi.exportModule("group_document", "Assigned documents export.xlsx")
+      const params = {};
+      if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
+      
+      if (columnFilters) {
+        if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+        if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+        if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+        if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
+        if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+        if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
+        if (columnFilters.documentName) params.search = columnFilters.documentName;
+        if (columnFilters.assignee) params.user_id_filter = columnFilters.assignee;
+      }
+
+      await exportApi.exportModule("group_document", "Assigned documents export.xlsx", params)
       setRefreshKey(prev => prev + 1)
+
 
     } catch (error) {
       console.error("Export failed:", error)

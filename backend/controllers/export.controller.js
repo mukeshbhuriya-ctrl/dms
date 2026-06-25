@@ -204,7 +204,7 @@ class ExportController {
             const { moduleName } = req.params;
             const { company_id } = req.user;
             const { startDate, endDate } = req.query;
-            const buffer = await ExportService.exportModule(moduleName, company_id, startDate, endDate);
+            const buffer = await ExportService.exportModule(moduleName, company_id, startDate, endDate, req.query);
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             res.setHeader('Content-Disposition', `attachment; filename=${moduleName}_export.xlsx`);
