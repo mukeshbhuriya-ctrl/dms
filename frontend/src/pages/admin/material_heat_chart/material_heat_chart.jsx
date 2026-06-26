@@ -1435,6 +1435,13 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       return
     }
 
+    if (action === "INITIATE") {
+      if (!qc_group_id || !production_group_id) {
+        toast.error("Please assign both a QUALITY GROUP and a PRODUCTION GROUP before initiating.", { theme: "colored" })
+        return;
+      }
+    }
+
     const items = tableRows.map((row, idx) => ({
       id: row.id && !String(row.id).startsWith("new-") ? row.id : undefined,
       sort_order: idx,
@@ -2040,6 +2047,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                   placeholder="Select quality group"
                   disabled={isQcInitiationLocked}
                 />
+                {!qc_group_id && !isQcInitiationLocked && (
+                  <p className="text-[11px] text-rose-500 font-medium tracking-tight flex items-center gap-1 mt-1">
+                    <AlertCircle className="h-3 w-3" /> Required for initiation
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-4">
@@ -2052,6 +2064,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                   placeholder="Select production group"
                   disabled={isQcInitiationLocked}
                 />
+                {!production_group_id && !isQcInitiationLocked && (
+                  <p className="text-[11px] text-rose-500 font-medium tracking-tight flex items-center gap-1 mt-1">
+                    <AlertCircle className="h-3 w-3" /> Required for initiation
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -2078,8 +2095,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             {(!editId || ["INITIATED", "PENDING", "DRAFT"].includes(mhcStatus?.toUpperCase())) && (isAdmin || isQE) && (
               <Button
                 onClick={() => handleSubmit("INITIATE")}
-                disabled={submitting !== null}
-                className="cursor-pointer"
+                disabled={submitting !== null || !qc_group_id || !production_group_id}
+                className={`cursor-pointer ${(!qc_group_id || !production_group_id) ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 {submitting === "INITIATE" ? "Initiating..." : (editId && mhcStatus?.toUpperCase() !== "DRAFT" ? "Update Initiation" : "Initiate MHC")}
               </Button>
