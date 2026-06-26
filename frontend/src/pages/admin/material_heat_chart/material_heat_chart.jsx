@@ -648,7 +648,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
       cell: (row) => {
         const status = row.status // Keep case from DB
         const s = status?.toUpperCase()
-        const canEdit = (isAdmin || isQE) && ["DRAFT", "INITIATED", "PENDING", "REJECTED"].includes(s)
+        const canEdit = (isAdmin || isQE) && ["DRAFT", "INITIATED", "PENDING", "REJECTED", "OFFERED"].includes(s)
         const canOffer = (isAdmin || isPE) && (s === "INITIATED" || s === "REJECTED" || s === "PENDING" || s === "OFFERED")
         const canFinalize = (isAdmin || isQE) && s === "OFFERED"
 
@@ -714,6 +714,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
                 <CheckCircle className="h-4 w-4 mr-2" /> Review & Continue
               </Button>
             )}
+
             {s === "APPROVED" && (isAdmin || isQE) && (
               <Button
                 variant="outline"
@@ -727,16 +728,6 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
                 }}
                 title="Request Revision">
                 <Undo className="h-4 w-4 mr-2" /> Revise
-              </Button>
-            )}
-            {canFinalize && isAdmin && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200 cursor-pointer"
-                onClick={() => handleReviewClick(row, "REJECTED")}
-                title="Reject MHC">
-                <XCircle className="h-4 w-4 mr-2" /> Reject
               </Button>
             )}
             {isAdmin && (
@@ -1060,10 +1051,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     reportNo: "",
     client: "",
     poNo: "",
-    projectId: "",
     equipmentName: "",
     tagNo: "",
-    code: "",
   })
 
   // Equipment Details
@@ -1071,6 +1060,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     shrenoDrgNo: "",
     customerDrgNo: "",
     inspectionBy: "",
+    projectId: "",
+    code: "",
   })
 
   // Table rows
@@ -1128,15 +1119,15 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               reportNo: cloneId ? "" : data.report_no,
               client: cloneId ? "" : data.client,
               poNo: cloneId ? "" : data.po_no,
-              projectId: cloneId ? "" : (data.project_id || ""),
               equipmentName: cloneId ? "" : (data.equipment_name || ""),
               tagNo: cloneId ? "" : (data.tag_no || ""),
-              code: cloneId ? "" : (data.code || ""),
             })
             setFormData({
               shrenoDrgNo: cloneId ? "" : (data.shreno_drg_no || ""),
               customerDrgNo: cloneId ? "" : (data.customer_drg_no || ""),
               inspectionBy: cloneId ? "" : (data.inspection_by || ""),
+              projectId: cloneId ? "" : (data.project_id || ""),
+              code: cloneId ? "" : (data.code || ""),
             })
             setQcGroupId(data.qc_group_id || "")
             setProductionGroupId(data.production_group_id || "")
@@ -1198,11 +1189,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           reportNo: nextReportNo,
           client: job.customer?.customer_name || "",
           poNo: job.po?.po_number || "",
-          projectId: job.project_id || "",
           equipmentName: job.equipement_name || "",
           tagNo: job.tag_number || "",
-          code: job.code || "",
         })
+        setFormData(prev => ({
+          ...prev,
+          projectId: job.project_id || "",
+          code: job.code || "",
+        }))
       }
     } catch (err) {
       console.error("Failed to fetch job details:", err)
@@ -1210,11 +1204,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         reportNo: nextReportNo,
         client: "",
         poNo: "",
-        projectId: "",
         equipmentName: "",
         tagNo: "",
-        code: "",
       })
+      setFormData(prev => ({
+        ...prev,
+        projectId: "",
+        code: "",
+      }))
     }
   }
 
@@ -1291,8 +1288,10 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   }
 
   const sStatus = mhcStatus?.toUpperCase() || "";
-  const isQcInitiationLocked = isView || !((isAdmin || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "DRAFT" || !editId));
-  const isProdOfferLocked = isView || !((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED" || sStatus === "OFFERED") && editId);
+  const isQcInitiationLocked = isView || !((isAdmin || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "DRAFT" || sStatus === "OFFERED" || !editId));
+  const isProdOfferLocked = isView || !(
+    ((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED" || sStatus === "OFFERED") && editId)
+  );
   const isQcFinalLocked = isView || !((isAdmin || isQE) && sStatus === "OFFERED");
   const showQcCols = isView || (sStatus !== "DRAFT" && sStatus !== "INITIATED" && sStatus !== "");
 
@@ -1459,6 +1458,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       shreno_drg_no: formData.shrenoDrgNo || null,
       customer_drg_no: formData.customerDrgNo || null,
       inspection_by: formData.inspectionBy || null,
+      project_id: formData.projectId || null,
+      code: formData.code || null,
       production_group_id: production_group_id || null,
       qc_group_id: qc_group_id || null,
       items,
@@ -1479,6 +1480,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         res = await apiClient.post(`/api/mhc/finalize/${editId}`, payload)
       } else if (currentStatus === "OFFERED" && action === "UPDATE_OFFERED") {
         res = await apiClient.post(`/api/mhc/offer/${editId}`, payload)
+      } else if (currentStatus === "OFFERED" && action === "UPDATE_FULL") {
+        res = await apiClient.put(`/api/mhc/update/${editId}`, payload)
       } else {
         // This covers update of DRAFT, INITIATED, or saving as DRAFT/INITIATED
         res = await apiClient.put(`/api/mhc/update/${editId}`, payload)
@@ -1563,16 +1566,36 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               { label: "REPORT NO.:", value: autoFill.reportNo },
               { label: "CLIENT:", value: autoFill.client },
               { label: "PO. NO.:", value: autoFill.poNo },
-              { label: "PROJECT ID:", value: autoFill.projectId },
               { label: "EQUIPMENT NAME:", value: autoFill.equipmentName },
               { label: "TAG NO.:", value: autoFill.tagNo },
-              { label: "CODE:", value: autoFill.code },
             ].map(({ label, value }) => (
               <div key={label} className="space-y-2">
                 <Label className="uppercase text-xs font-semibold text-muted-foreground">{label}</Label>
                 <Input value={value} readOnly className="bg-muted/50 h-9 border-muted" />
               </div>
             ))}
+
+            <div className="space-y-2">
+              <Label className="uppercase text-xs font-semibold text-muted-foreground">PROJECT ID:</Label>
+              <Input
+                value={formData.projectId}
+                onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value }))}
+                className="h-9 border-muted-foreground/30"
+                disabled={isView || (!isAdmin && !isQE)}
+                placeholder="Enter project ID"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="uppercase text-xs font-semibold text-muted-foreground">CONSTRUCTION CODE:</Label>
+              <Input
+                value={formData.code}
+                onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                className="h-9 border-muted-foreground/30"
+                disabled={isView || (!isAdmin && !isQE)}
+                placeholder="Enter construction code"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1732,37 +1755,37 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                       return (
                         <React.Fragment key={row.id}>
                           {row.isHeading && (
-                            <tr className="group/heading border-b-0 bg-amber-50/40">
-                              {isView && <td className="bg-amber-100/40 border-t border-t-amber-400/50" />}
-                              <td colSpan={11} className="p-0 border-t border-t-amber-400/50">
+                            <tr className="group/heading border-b-0 bg-slate-50/60">
+                              {isView && <td className="bg-slate-100/60 border-t border-t-slate-200" />}
+                              <td colSpan={11} className="p-0 border-t border-t-slate-200">
                                 <div className="flex items-center justify-between my-1.5 mx-2 w-full pr-4">
                                   <div className="flex items-center gap-0 sticky left-2 w-fit z-20">
-                                    <div className="flex items-center gap-2 border border-amber-400/60 bg-amber-50/80 rounded-md p-1 pl-3 w-full shadow-sm">
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-orange-600 shrink-0">Heading:</span>
+                                    <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-md p-1 pl-3 w-full shadow-sm">
+                                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 shrink-0">Heading:</span>
                                       <Input
                                         type="text"
                                         value={row.headingText}
                                         onChange={(e) => handleRowChange(row.id, "headingText", e.target.value)}
                                         placeholder="Enter heading text..."
-                                        className="border-none bg-transparent shadow-none text-sm font-bold text-amber-900 focus-visible:ring-0 placeholder:text-amber-700/30 h-8"
+                                        className="border-none bg-transparent shadow-none text-sm font-bold text-slate-800 focus-visible:ring-0 placeholder:text-slate-400 h-8"
                                         disabled={isQcInitiationLocked}
                                       />
                                       <button
                                         type="button"
                                         onClick={() => handleRowChange(row.id, "headingText", "")}
-                                        className={`flex items-center justify-center h-7 w-7 border border-amber-400 bg-white rounded text-orange-500 hover:bg-amber-50 transition-colors shadow-sm ml-2 ${isView ? 'hidden' : ''}`}
+                                        className={`flex items-center justify-center h-7 w-7 border border-slate-200 bg-slate-50 rounded text-slate-400 hover:bg-slate-100 transition-colors shadow-sm ml-2 ${isView ? 'hidden' : ''}`}
                                       >
                                         <X className="h-4 w-4 stroke-[3px]" />
                                       </button>
                                     </div>
                                   </div>
                                   {!isView && (
-                                    <div className="flex items-center gap-1.5 h-10 sticky right-2 bg-amber-50/40 px-2 rounded z-20">
+                                    <div className="flex items-center gap-1.5 h-10 sticky right-2 bg-slate-50/60 px-2 rounded z-20">
                                       <Button
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8 rounded-lg border transition-all text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white"
+                                        className="h-8 w-8 rounded-lg border transition-all text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
                                         onClick={() => toggleHeading(row.id)}
                                         disabled={isQcInitiationLocked}
                                       >
@@ -1772,7 +1795,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8 rounded-lg border-amber-400/40 text-amber-600 hover:bg-amber-400/20 hover:text-amber-800 transition-all"
+                                        className="h-8 w-8 rounded-lg border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all"
                                         onClick={() => addRowAfter(row.id)}
                                         disabled={isQcInitiationLocked}
                                       >
@@ -1782,7 +1805,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8 rounded-lg border-amber-400/40 text-amber-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all"
+                                        className="h-8 w-8 rounded-lg border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all"
                                         onClick={() => removeRow(row.id)}
                                         disabled={isQcInitiationLocked}
                                       >
@@ -1795,9 +1818,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                             </tr>
                           )}
                           {!row.isHeading && (
-                            <tr className={`${isInGroup ? "bg-amber-50/30 border-l-2 border-l-amber-500" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
+                            <tr className={`${isInGroup ? "bg-slate-50/40 border-l-2 border-l-indigo-400" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
                               {isView && (
-                                <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40" : "bg-white"} border-r border-slate-100`}>
+                                <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-slate-50" : "bg-white"} border-r border-slate-100`}>
                                   {row.id && !String(row.id).startsWith("new-") && (
                                     <Checkbox
                                       checked={selectedItemIds.has(row.id)}
@@ -1821,14 +1844,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                               ].map(({ field, placeholder, locked }, i) => (
                                 <td
                                   key={field}
-                                  className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-amber-100/40 shadow-[2px_0_4px_-2px_rgba(251,191,36,0.3)]" : "bg-white"}` : ""}`}
+                                  className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-slate-100/40 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : "bg-white"}` : ""}`}
                                 >
                                   <Input
                                     type="text"
                                     value={row[field]}
                                     onChange={(e) => handleRowChange(row.id, field, e.target.value)}
                                     placeholder={placeholder}
-                                    className={`text-[13px] min-w-[120px] h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-amber-400 focus-visible:ring-amber-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
+                                    className={`text-[13px] min-w-[240px] w-full h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
                                     disabled={locked || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED'}
                                   />
                                 </td>
@@ -1836,7 +1859,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
 
                               {/* QC REVIEW */}
                               {showQcCols && (
-                                <td className="p-2 align-top min-w-[120px]">
+                                <td className="p-2 align-top min-w-[240px]">
                                   <div className="flex items-center gap-2 h-10">
                                     {(() => {
                                       const s = String(row.qcStatus || "Pending").toUpperCase();
@@ -2086,11 +2109,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               <>
                 <Button
                   variant="secondary"
-                  onClick={() => handleSubmit("SAVE_REVIEW")}
+                  onClick={() => handleSubmit("UPDATE_FULL")}
                   disabled={submitting !== null || !tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
                   className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
                 >
-                  {submitting === "SAVE_REVIEW" ? "Saving..." : "Review & Continue"}
+                  {submitting === "UPDATE_FULL" ? "Saving..." : "Review & Continue"}
                   <Save className="h-4 w-4" />
                 </Button>
                 <Button
