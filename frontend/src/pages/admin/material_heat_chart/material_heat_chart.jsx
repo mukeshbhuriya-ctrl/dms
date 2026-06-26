@@ -4,6 +4,7 @@ import { toast } from "react-toastify"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import {
@@ -1846,12 +1847,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                   key={field}
                                   className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-slate-100/40 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : "bg-white"}` : ""}`}
                                 >
-                                  <Input
-                                    type="text"
+                                  <Textarea
                                     value={row[field]}
                                     onChange={(e) => handleRowChange(row.id, field, e.target.value)}
                                     placeholder={placeholder}
-                                    className={`text-[13px] min-w-[240px] w-full h-10 shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
+                                    className={`text-[13px] min-w-[240px] w-full min-h-[40px] max-h-[120px] py-2.5 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
                                     disabled={locked || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED'}
                                   />
                                 </td>
@@ -1934,11 +1934,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                               )}
                               {showQcCols && (
                                 <td className="p-2 align-top min-w-[200px]">
-                                  <Input
+                                  <Textarea
                                     value={row.qcRemarks || ""}
                                     onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
                                     placeholder="QC remarks..."
-                                    className={`text-[13px] h-10 rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
+                                    className={`text-[13px] min-h-[40px] max-h-[120px] py-2.5 resize-y rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
                                     disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
                                   />
                                 </td>

@@ -29,7 +29,8 @@ class MhcPdfGenerator {
 
     formatText(text) {
         if (text === null || text === undefined || text === '') return '-';
-        return String(text).replace(/([/,_.\-])/g, '$1\u200B');
+        // Use real spaces instead of zero-width spaces (\u200B) because PDFKit sometimes miscalculates their width
+        return String(text).replace(/([/,_.\-])(?!\s)/g, '$1 ').trim();
     }
 
     drawBox(doc, x, y, width, height, lineWidth = 0.8) {
@@ -93,19 +94,21 @@ class MhcPdfGenerator {
             ];
 
             const midX = startX + (pageWidth * 0.6);
+            const lineX1 = startX + 115;
+            const lineX2 = midX + 80;
             let infoGridStartY = y;
             doc.fontSize(8); // Needed for heightOfString calculations
 
             infoRows.forEach((row, i) => {
-                const v1H = doc.heightOfString(row.v1, { width: (pageWidth * 0.6) - 130 });
-                const v2H = doc.heightOfString(row.v2, { width: (pageWidth * 0.4) - 90 });
+                const v1H = doc.heightOfString(row.v1, { width: (midX - lineX1) - 10 });
+                const v2H = doc.heightOfString(row.v2, { width: (startX + pageWidth - lineX2) - 10 });
                 const rH = Math.max(16, v1H + 8, v2H + 8);
                 
                 doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black).text(row.l1, startX + 5, y + (rH/2) - 3.5);
-                doc.font(this.fonts.regular).fontSize(8).text(row.v1, startX + 120, y + (rH/2) - (v1H/2) + 1, { width: (pageWidth * 0.6) - 125, height: rH - 2, ellipsis: true, lineBreak: true });
+                doc.font(this.fonts.regular).fontSize(8).text(row.v1, lineX1 + 5, y + (rH/2) - (v1H/2) + 1, { width: (midX - lineX1) - 10, height: rH - 2, ellipsis: true, lineBreak: true });
                 
                 doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black).text(row.l2, midX + 5, y + (rH/2) - 3.5);
-                doc.font(this.fonts.regular).fontSize(8).text(row.v2, midX + 80, y + (rH/2) - (v2H/2) + 1, { width: (pageWidth * 0.4) - 85, height: rH - 2, ellipsis: true, lineBreak: true });
+                doc.font(this.fonts.regular).fontSize(8).text(row.v2, lineX2 + 5, y + (rH/2) - (v2H/2) + 1, { width: (startX + pageWidth - lineX2) - 10, height: rH - 2, ellipsis: true, lineBreak: true });
                 
                 y += rH;
                 if (i < 3) this.drawLine(doc, startX, y, startX + pageWidth, y);
@@ -113,6 +116,8 @@ class MhcPdfGenerator {
             
             this.drawBox(doc, startX, infoGridStartY, pageWidth, y - infoGridStartY, 1);
             this.drawLine(doc, midX, infoGridStartY, midX, y, 1);
+            this.drawLine(doc, lineX1, infoGridStartY, lineX1, y, 1);
+            this.drawLine(doc, lineX2, infoGridStartY, lineX2, y, 1);
 
             // ─── 3. TABLE HEADER ───────────────────────────────────────────────────
             const cols = [
@@ -175,7 +180,7 @@ class MhcPdfGenerator {
             if (item.item_no || item.description) {
                 doc.font(this.fonts.regular).fontSize(7);
                 
-                const getH = (val, w) => doc.heightOfString(this.formatText(val), { width: w - 4, lineBreak: true });
+                const getH = (val, w) => doc.heightOfString(this.formatText(val), { width: w - 12, lineBreak: true });
                 const h0 = getH(item.item_no, cols[0].w);
                 const h1 = getH(item.description, cols[1].w);
                 const h2 = getH(item.size, cols[2].w);
@@ -187,7 +192,7 @@ class MhcPdfGenerator {
                 const h8 = getH(item.remarks, cols[8].w);
                 
                 let rowH = Math.max(22, h0+10, h1+10, h2+10, h3+10, h4+10, h5+10, h6+10, h7+10, h8+10);
-                if (rowH > 80) rowH = 80; // Bound max height to prevent layout breaks on massive text
+                if (rowH > 320) rowH = 320; // Bound max height to safely fit within a single page layout
                 
                 if (curY + rowH > bodyMaxY) {
                     doc.addPage({ margin: 30, size: 'A4', layout: 'landscape' });
@@ -200,9 +205,9 @@ class MhcPdfGenerator {
                 doc.fillColor(this.colors.black);
                 const drawCell = (val, w, align = 'center') => {
                     const formatted = this.formatText(val);
-                    const textH = doc.heightOfString(formatted, { width: w - 4, lineBreak: true });
+                    const textH = doc.heightOfString(formatted, { width: w - 12, lineBreak: true });
                     const renderH = Math.min(textH, rowH - 4);
-                    doc.text(formatted, tx + 2, curY + (rowH/2) - (renderH/2) + 1, { width: w - 4, height: renderH + 2, align, lineBreak: true, ellipsis: true });
+                    doc.text(formatted, tx + 6, curY + (rowH/2) - (renderH/2) + 1, { width: w - 12, height: renderH + 2, align, lineBreak: true, ellipsis: true });
                     tx += w;
                     this.drawLine(doc, tx, curY, tx, curY + rowH, 0.5);
                 };
@@ -217,9 +222,9 @@ class MhcPdfGenerator {
                 drawCell(item.manufacturer, cols[7].w);
                 
                 const val8 = this.formatText(item.remarks);
-                const textH8 = doc.heightOfString(val8, { width: cols[8].w - 4, lineBreak: true });
+                const textH8 = doc.heightOfString(val8, { width: cols[8].w - 12, lineBreak: true });
                 const renderH8 = Math.min(textH8, rowH - 4);
-                doc.text(val8, tx + 2, curY + (rowH/2) - (renderH8/2) + 1, { width: cols[8].w - 4, height: renderH8 + 2, align: 'center', lineBreak: true, ellipsis: true });
+                doc.text(val8, tx + 6, curY + (rowH/2) - (renderH8/2) + 1, { width: cols[8].w - 12, height: renderH8 + 2, align: 'center', lineBreak: true, ellipsis: true });
                 
                 curY += rowH;
             }
