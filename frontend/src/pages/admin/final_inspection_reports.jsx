@@ -35,7 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, Eye, Edit, CheckCircle, XCircle, Download, Archive } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Eye, Edit, CheckCircle, XCircle, Download, Archive, Copy } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { toast } from 'react-toastify'
@@ -44,7 +44,7 @@ import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick }) {
+function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
@@ -365,15 +365,25 @@ function ListView({ onCreateClick, onEditClick }) {
               <Eye className="h-4 w-4 mr-2" /> View
             </Button>
             {isAdmin || isQE ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEditClick(row.id)}
-                className={row.status?.trim()?.toLowerCase() === "approved" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                disabled={row.status?.trim()?.toLowerCase() === "approved"}
-                title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
-                <Edit className="h-4 w-4 mr-2" /> Edit
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditClick(row.id)}
+                  className={row.status?.trim()?.toLowerCase() === "approved" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                  disabled={row.status?.trim()?.toLowerCase() === "approved"}
+                  title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
+                  <Edit className="h-4 w-4 mr-2" /> Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCloneClick(row.id)}
+                   className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                  title="Clone Final">
+                  <Copy className="h-4 w-4 mr-2" /> Clone
+                </Button>
+              </>
             ) : (
               row.status?.trim()?.toLowerCase() !== "approved" && (
                 <Button
@@ -726,7 +736,7 @@ function ListView({ onCreateClick, onEditClick }) {
 }
 
 // ─── Create / Edit View (Original Legacy Visual UI) ──────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null }) {
+function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
 
   const normalizeUser = (user) => {
     const id = String(user?.id || "")
@@ -825,41 +835,42 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 
   // Auto-fill for Edit View
   useEffect(() => {
-    if (editId && msnOptions.length > 0) {
-      apiClient.get(`/api/inspection-report/final/${editId}`)
+    const targetId = editId || cloneId;
+    if (targetId && msnOptions.length > 0) {
+      apiClient.get(`/api/inspection-report/final/${targetId}`)
         .then((res) => {
           if (res.success && res.data) {
             const data = res.data
-            setMsn(data.job_id || "")
-            setReportNo(data.report_no || "")
+            setMsn(cloneId ? "" : (data.job_id || ""))
+            setReportNo(cloneId ? "" : (data.report_no || ""))
             setEquipment(data.equipment_name || "")
             setCode(data.code || "")
-            setClient(data.client || "")
-            setPoNo(data.po_no || "")
+            setClient(cloneId ? "" : (data.client || ""))
+            setPoNo(cloneId ? "" : (data.po_no || ""))
 
             setFormData({
-              tagNo: data.tag_no || "",
-              drgNo: data.drg_no || "",
-              project_id: data.project_id || "",
+              tagNo: cloneId ? "" : (data.tag_no || ""),
+              drgNo: cloneId ? "" : (data.drg_no || ""),
+              project_id: cloneId ? "" : (data.project_id || ""),
             })
 
             setProductionEngineer(data.production_engineer_id || "")
 
             if (data.details && data.details.length > 0) {
               setTable1Rows(data.details.map((item, i) => ({
-                id: i + 1, srNo: item.sr_no || (i + 1), description: item.description || "", required: item.required || "", actual: item.actual || "", remarks: item.remarks || ""
+                id: i + 1, srNo: item.sr_no || (i + 1), description: item.description || "", required: item.required || "", actual: cloneId ? "" : (item.actual || ""), remarks: cloneId ? "" : (item.remarks || "")
               })))
             } else { setTable1Rows(initialTable1Rows) }
 
             if (data.nozzles && data.nozzles.length > 0) {
               setTable2Rows(data.nozzles.map((nz, i) => ({
-                id: i + 1, srNo: nz.sr_no || (i + 1), nozzleMark: nz.nozzle_mark || "", orientation: nz.orientation || "", size: nz.size || "", location: nz.location || "", elevationApproved: nz.elevation_approved || "", projectionApproved: nz.projection_approved || "", elevationActual: nz.elevation_actual || "", projectionActual: nz.projection_actual || ""
+                id: i + 1, srNo: nz.sr_no || (i + 1), nozzleMark: nz.nozzle_mark || "", orientation: nz.orientation || "", size: nz.size || "", location: nz.location || "", elevationApproved: nz.elevation_approved || "", projectionApproved: nz.projection_approved || "", elevationActual: cloneId ? "" : (nz.elevation_actual || ""), projectionActual: cloneId ? "" : (nz.projection_actual || "")
               })))
             } else { setTable2Rows(initialTable2Rows) }
 
             if (data.parts && data.parts.length > 0) {
               setTable3Rows(data.parts.map((pt, i) => ({
-                id: i + 1, srNo: pt.sr_no || (i + 1), partNo: pt.part_no || "", description: pt.description || "", orientationApproved: pt.orientation_approved || "", elevationApproved: pt.elevation_approved || "", projectionApproved: pt.projection_approved || "", elevationActual: pt.elevation_actual || "", projectionActual: pt.projection_actual || ""
+                id: i + 1, srNo: pt.sr_no || (i + 1), partNo: pt.part_no || "", description: pt.description || "", orientationApproved: pt.orientation_approved || "", elevationApproved: pt.elevation_approved || "", projectionApproved: pt.projection_approved || "", elevationActual: cloneId ? "" : (pt.elevation_actual || ""), projectionActual: cloneId ? "" : (pt.projection_actual || "")
               })))
             } else { setTable3Rows(initialTable3Rows) }
 
@@ -876,7 +887,7 @@ function CreateView({ onBack, onSuccess, editId = null }) {
         })
         .catch((err) => console.error("Failed to fetch report details:", err))
     }
-  }, [editId, msnOptions])
+  }, [editId, cloneId, msnOptions])
 
   // Handle Dropdown Change
   const handleMsnChange = async (value) => {
@@ -1888,15 +1899,24 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 export default function FinalInspectionReports() {
   const [view, setView] = useState("list") // "list" | "create" | "edit"
   const [editId, setEditId] = useState(null)
+  const [cloneId, setCloneId] = useState(null)
 
   const handleSuccess = () => {
     setView("list")
     setEditId(null)
+    setCloneId(null)
   }
 
   const handleEdit = (id) => {
     setEditId(id)
+    setCloneId(null)
     setView("edit")
+  }
+
+  const handleClone = (id) => {
+    setCloneId(id)
+    setEditId(null)
+    setView("create")
   }
 
   return (
@@ -1911,18 +1931,22 @@ export default function FinalInspectionReports() {
             <ListView
               onCreateClick={() => {
                 setEditId(null)
+                setCloneId(null)
                 setView("create")
               }}
               onEditClick={handleEdit}
+              onCloneClick={handleClone}
             />
           ) : (
             <CreateView
               onBack={() => {
                 setView("list")
                 setEditId(null)
+                setCloneId(null)
               }}
               onSuccess={handleSuccess}
               editId={editId}
+              cloneId={cloneId}
             />
           )}
         </div>

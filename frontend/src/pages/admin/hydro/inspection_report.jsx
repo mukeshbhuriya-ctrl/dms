@@ -34,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, ArrowLeft, FileText, Eye, Edit, CheckCircle, XCircle, Download, Archive } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, FileText, Eye, Edit, CheckCircle, XCircle, Download, Archive, Copy } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { toast } from 'react-toastify'
@@ -43,7 +43,7 @@ import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick }) {
+function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [isViewLoading, setIsViewLoading] = useState(false)
@@ -361,15 +361,25 @@ function ListView({ onCreateClick, onEditClick }) {
               <Eye className="h-4 w-4 mr-2" /> View
             </Button>
             {isAdmin || isQE ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEditClick(row.id)}
-                disabled={row.status?.trim()?.toLowerCase() === "approved"}
-                className={row.status?.trim()?.toLowerCase() === "approved" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
-                <Edit className="h-4 w-4 mr-2" /> Edit
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditClick(row.id)}
+                  disabled={row.status?.trim()?.toLowerCase() === "approved"}
+                  className={row.status?.trim()?.toLowerCase() === "approved" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
+                  title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
+                  <Edit className="h-4 w-4 mr-2" /> Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onCloneClick(row.id)}
+                  className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                  title="Clone Dish">
+                  <Copy className="h-4 w-4 mr-2" /> Clone
+                </Button>
+              </>
             ) : (
               row.status?.trim()?.toLowerCase() !== "approved" && (
                 <Button
@@ -645,7 +655,7 @@ function ListView({ onCreateClick, onEditClick }) {
 }
 
 // ─── Create / Edit View ──────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null }) {
+function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
   const normalizeUser = (user) => {
     const id = String(user?.id || "")
     const name = String(user?.name || user?.full_name || user?.email || "User")
@@ -760,24 +770,24 @@ function CreateView({ onBack, onSuccess, editId = null }) {
   }, [])
 
   useEffect(() => {
-    // If we have an editId, fetch the existing report details
-    if (editId && msnOptions.length > 0) {
-      apiClient.get(`/api/inspection-report/${editId}`)
+    const targetId = editId || cloneId
+    if (targetId && msnOptions.length > 0) {
+      apiClient.get(`/api/inspection-report/${targetId}`)
         .then((res) => {
           if (res.success && res.data) {
             const data = res.data
             // Match MSN option by job_id
-            setMsn(data.job_id || "")
-            setReportNo(data.report_no || "")
+            setMsn(cloneId ? "" : (data.job_id || ""))
+            setReportNo(cloneId ? "" : (data.report_no || ""))
             setEquipment(data.equipment_name || "")
             setCode(data.code || "")
-            setClient(data.client || "")
-            setPoNo(data.po_no || "")
+            setClient(cloneId ? "" : (data.client || ""))
+            setPoNo(cloneId ? "" : (data.po_no || ""))
             setVendorDishEndNo(data.vendor_dish_end_number || "")
 
             setFormData({
-              tagNo: data.tag_no || "",
-              drgNo: data.drg_no || "",
+              tagNo: cloneId ? "" : (data.tag_no || ""),
+              drgNo: cloneId ? "" : (data.drg_no || ""),
               inspAgency: data.insp_agency || "",
             })
             setProductionEngineer(data.production_engineer_id || "")
@@ -788,8 +798,8 @@ function CreateView({ onBack, onSuccess, editId = null }) {
                 srNo: item.sr_no || (i + 1),
                 description: item.description || "",
                 asPerDrg: item.as_per_drg || "",
-                actual: item.actual || "",
-                remarks: item.remarks || ""
+                actual: cloneId ? "" : (item.actual || ""),
+                remarks: cloneId ? "" : (item.remarks || "")
               })))
             }
 
@@ -1276,15 +1286,24 @@ function CreateView({ onBack, onSuccess, editId = null }) {
 function InspectionReport() {
   const [view, setView] = useState("list") // "list" | "create" | "edit"
   const [editId, setEditId] = useState(null)
+  const [cloneId, setCloneId] = useState(null)
 
   const handleSuccess = () => {
     setView("list")
     setEditId(null)
+    setCloneId(null)
   }
 
   const handleEdit = (id) => {
     setEditId(id)
+    setCloneId(null)
     setView("edit")
+  }
+
+  const handleClone = (id) => {
+    setCloneId(id)
+    setEditId(null)
+    setView("create")
   }
 
   return (
@@ -1299,18 +1318,22 @@ function InspectionReport() {
             <ListView
               onCreateClick={() => {
                 setEditId(null)
+                setCloneId(null)
                 setView("create")
               }}
               onEditClick={handleEdit}
+              onCloneClick={handleClone}
             />
           ) : (
             <CreateView
               onBack={() => {
                 setView("list")
                 setEditId(null)
+                setCloneId(null)
               }}
               onSuccess={handleSuccess}
               editId={editId}
+              cloneId={cloneId}
             />
           )}
         </div>
