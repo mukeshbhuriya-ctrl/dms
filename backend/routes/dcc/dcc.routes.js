@@ -100,6 +100,7 @@ router.get('/transmission/:id/download-feedback', DccController.downloadTransmis
 
 router.post('/document/:documentId/rollback', documentController.rollbackVersion);
 router.put('/update-assigned-document/:id', authenticateUser(['DCC', 'ADMIN']), DccController.updateAssignedDocument);
+router.put('/bulk-update-assigned-documents', authenticateUser(['DCC', 'ADMIN']), DccController.bulkUpdateAssignedDocuments);
 router.delete('/delete-assigned-document/:id', authenticateUser(['ADMIN']), DccController.deleteAssignedDocument);
 router.patch('/assigned-documents/toggle-status/:id', authenticateUser(['ADMIN']), DccController.toggleAssignedDocumentStatus);
 

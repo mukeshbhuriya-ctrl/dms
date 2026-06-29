@@ -751,6 +751,32 @@ class DccController {
         }
     }
 
+    async bulkUpdateAssignedDocuments(req, res) {
+        try {
+            const performer_id = req.user.userid || req.user.id;
+            const result = await DccService.bulkUpdateAssignedDocuments(req.user.company_id, req.body, performer_id);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: performer_id,
+                action: 'updated',
+                module: 'Document Assignment',
+                description: `Bulk updated ${result.length || 0} document assignment(s)`,
+                metadata: { update_count: result.length || 0 },
+            });
+
+            res.status(200).json({
+                success: true,
+                message: 'Assignments updated successfully',
+                data: result
+            });
+        } catch (error) {
+            console.error('Bulk update document error:', error);
+            res.status(400).json({ success: false, message: error.message || 'Failed to update documents' });
+        }
+    }
+
     async deleteAssignedDocument(req, res) {
         try {
             const groupDoc = await prisma.group_document.findUnique({

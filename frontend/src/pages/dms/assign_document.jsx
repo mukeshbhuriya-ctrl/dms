@@ -83,6 +83,9 @@ function AssignDocument() {
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
+  const [selectedRowIds, setSelectedRowIds] = useState(new Set())
+  const [selectedRowObjects, setSelectedRowObjects] = useState(new Map())
+  const [currentTableData, setCurrentTableData] = useState([])
   const [searchParams] = useSearchParams()
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all")
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
@@ -763,17 +766,43 @@ function AssignDocument() {
       const response = await apiClient.get("/api/dcc/get-assigned-documents", params);
 
       if (response && response.success) {
+        setCurrentTableData(response.data || []);
         return {
           data: response.data || [],
           meta: response.meta || { total: (response.data || []).length, page: p, limit: l }
         };
       }
+      setCurrentTableData([]);
       return { data: [], meta: {} };
     } catch (err) {
       console.error("Error fetching documents:", err);
+      setCurrentTableData([]);
       return { data: [], meta: {} };
     }
   }, [statusFilter]);
+
+  const handleSelectionChange = useCallback((newSelectedIds) => {
+    setSelectedRowIds(newSelectedIds);
+    setSelectedRowObjects(prev => {
+      const next = new Map(prev);
+      // Remove any that are no longer in newSelectedIds
+      for (const id of next.keys()) {
+        if (!newSelectedIds.has(id)) {
+          next.delete(id);
+        }
+      }
+      // Add any newly selected from currentTableData
+      newSelectedIds.forEach(id => {
+        if (!next.has(id)) {
+          const row = currentTableData.find(r => r.id === id);
+          if (row) {
+            next.set(id, row);
+          }
+        }
+      });
+      return next;
+    });
+  }, [currentTableData]);
 
   // Helper to fetch and merge POs
   const fetchPos = async (customerId = "", search = "") => {
@@ -965,6 +994,7 @@ function AssignDocument() {
     setAssignments([
       {
         tempId: Date.now(),
+        editingId: row.id,
         jobId: row.group?.job_group?.map(jg => jg.job_id).filter(Boolean) || [],
         customerId: firstJob.customer_id || "",
         poId: firstJob.po_id || "",
@@ -981,12 +1011,66 @@ function AssignDocument() {
     ])
   }
 
+  const handleBulkEdit = () => {
+    if (selectedRowIds.size === 0) return;
+    
+    // Convert Set to array of rows from mapped objects
+    const selectedRows = Array.from(selectedRowObjects.values()).filter(Boolean);
+    
+    if (selectedRows.length === 0) {
+       toast.error("Could not load data for selected rows.");
+       return;
+    }
+
+    setView("assign")
+    setEditingId(true) 
+    
+    const allTargetJobs = [];
+    selectedRows.forEach(row => {
+        const targetJobs = row.group?.job_group?.map(jg => jg.job).filter(Boolean) || [];
+        allTargetJobs.push(...targetJobs);
+    });
+    
+    if (allTargetJobs.length > 0) {
+      setAllJobs(prev => Array.from(new Map([...prev, ...allTargetJobs].map(item => [item.id, item])).values()));
+      const pos = allTargetJobs.map(j => j.po).filter(Boolean);
+      if (pos.length > 0) {
+        setAllPos(prev => Array.from(new Map([...prev, ...pos].map(item => [item.id, item])).values()));
+      }
+    }
+
+    const newAssignments = selectedRows.map((row, idx) => {
+        const targetJobs = row.group?.job_group?.map(jg => jg.job).filter(Boolean) || [];
+        const firstJob = targetJobs[0] || {};
+        return {
+            tempId: Date.now() + idx,
+            editingId: row.id,
+            jobId: row.group?.job_group?.map(jg => jg.job_id).filter(Boolean) || [],
+            customerId: firstJob.customer_id || "",
+            poId: firstJob.po_id || "",
+            documentName: row.document?.document_name || "",
+            documentId: row.document_id || "",
+            shrenoDocumentNo: row.shreno_doc_no || "",
+            clientDocumentNo: row.client_doc_no || "",
+            assignUserId: row.user_id || "",
+            upload_due_days: row.upload_due_days || "",
+            response_due_days: row.response_due_days || "",
+            createdAt: row.createdAt || new Date().toISOString(),
+            planned_submission_date: ""
+        }
+    });
+
+    setAssignments(newAssignments);
+  }
+
   // handleNext removed during streamlining
 
   // Handle back to selection and reset form
   const handleBack = () => {
     setView("list")
     setEditingId(null)
+    setSelectedRowIds(new Set())
+    setSelectedRowObjects(new Map())
     // Reset form data removed
     setAssignments([
       {
@@ -1032,27 +1116,37 @@ function AssignDocument() {
     try {
       let response;
       if (editingId) {
-        const a = validAssignments[0];
-        const updateBody = {
-          job_ids: a.jobId,
-          document_id: a.documentId,
-          document_name: a.documentName,
-          assign_user_id: a.assignUserId || null,
-          upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
-          response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
-          shreno_document_no: a.shrenoDocumentNo,
-          client_document_no: a.clientDocumentNo,
-        };
-        if (a.planned_submission_date) {
-            updateBody.planned_submission_date = a.planned_submission_date;
+        const updates = validAssignments.filter(a => a.editingId).map(a => {
+          const updateBody = {
+            id: a.editingId,
+            job_ids: a.jobId,
+            document_id: a.documentId,
+            document_name: a.documentName,
+            assign_user_id: a.assignUserId || null,
+            upload_due_days: a.upload_due_days ? parseInt(a.upload_due_days) : null,
+            response_due_days: a.response_due_days ? parseInt(a.response_due_days) : null,
+            shreno_document_no: a.shrenoDocumentNo,
+            client_document_no: a.clientDocumentNo,
+          };
+          if (a.planned_submission_date) {
+              updateBody.planned_submission_date = a.planned_submission_date;
+          }
+          return updateBody;
+        });
+
+        if (updates.length === 0) {
+          toast.warn("No valid assignments to update.");
+          setIsLoading(false);
+          return;
         }
-        response = await apiClient.put(`/api/dcc/update-assigned-document/${editingId}`, updateBody);
+
+        response = await apiClient.put("/api/dcc/bulk-update-assigned-documents", { updates });
       } else {
         response = await apiClient.post("/api/dcc/bulk-assign-documents", requestBody);
       }
 
       if (response.success) {
-        toast.success(editingId ? "Assignment updated successfully!" : "Documents assigned successfully!");
+        toast.success(editingId ? "Assignments updated successfully!" : "Documents assigned successfully!");
         handleBack();
         setRefreshKey(prev => prev + 1);
       }
@@ -1272,9 +1366,13 @@ function AssignDocument() {
         </div>
         <div className="flex items-center gap-2">
           {view === "list" ? (
-              <Button onClick={() => setView("assign")} size="sm" className="rounded-sm">
-                <Plus className="mr-2 h-4 w-4" /> Assign Documents
-              </Button> 
+              <>
+              {selectedRowIds.size > 0 && (
+                <Button onClick={handleBulkEdit} size="sm" className="rounded-sm bg-slate-800 text-white hover:bg-slate-700 shadow-none cursor-pointer">
+                  <Edit className="mr-2 h-4 w-4" /> Edit Selected ({selectedRowIds.size})
+                </Button>
+              )}
+              </>
           ) : (
             <Button variant="outline" size="sm" onClick={handleBack} className="rounded-sm">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
@@ -1297,6 +1395,8 @@ function AssignDocument() {
               }}
               onImport={handleImportExcel}
               onDownloadTemplate={handleDownloadTemplate}
+              selectedRows={selectedRowIds}
+              onSelectionChange={handleSelectionChange}
               columnFilters={columnFilters}
               onFilterChange={(newFilter) => {
                 setColumnFilters(prev => {
