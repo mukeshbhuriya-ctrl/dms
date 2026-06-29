@@ -3564,7 +3564,6 @@ class DccService {
                 const dccAdmins = await prisma.user.findMany({
                     where: {
                         company_id: companyId,
-                        user_settings: { email_notifications: true },
                         user_roles: { some: { role: { name: { in: ['DCC'] } } } }
                     }
                 });
@@ -3622,7 +3621,6 @@ class DccService {
                 const dccAdmins = await prisma.user.findMany({
                     where: {
                         company_id: companyId,
-                        user_settings: { email_notifications: true },
                         user_roles: {
                             some: {
                                 role: {
@@ -3722,7 +3720,6 @@ class DccService {
                 prisma.user.findMany({
                     where: {
                         company_id,
-                        user_settings: { email_notifications: true },
                         user_roles: {
                             some: {
                                 role: {
@@ -3782,7 +3779,6 @@ class DccService {
                 prisma.user.findMany({
                     where: {
                         company_id,
-                        user_settings: { email_notifications: true },
                         user_roles: {
                             some: {
                                 role: {
