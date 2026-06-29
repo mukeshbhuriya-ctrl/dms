@@ -551,11 +551,9 @@ const ClientApprovalStatus = () => {
                 const update = rowUpdates[row.id] || { loading: false, submitted: false, status: '', remarks: '', files: [], existingFiles: [] };
                 
                 // MANDATORY VALIDATION:
-                // Commented: only remarks required, file optional
-                // Others: remarks + file required
+                // Status and remarks are required. Files are optional for all statuses.
                 const canSubmit = update.status && 
-                                  update.remarks?.trim().length > 0 && 
-                                  (update.status === 'Commented' || (update.files && update.files.length > 0) || (update.existingFiles && update.existingFiles.length > 0));
+                                  update.remarks?.trim().length > 0;
 
                 return (
                     <div className="flex flex-col gap-2">
