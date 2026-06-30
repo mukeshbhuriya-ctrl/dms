@@ -1276,8 +1276,16 @@ class WeldJointService {
                         
                         // Check PWHT logic for NDE stages
                         const isPwht = joint.pwht;
-                        const ptStage = isPwht ? getSig("s7") : getSig("s5");
-                        const rtStage = isPwht ? getSig("s6") : getSig("s4");
+                        const s5Pt = getSig("s5");
+                        const s7Pt = getSig("s7");
+                        const s4Rt = getSig("s4");
+                        const s6Rt = getSig("s6");
+
+                        // If PWHT is required, the 'final' NDE is technically after PWHT.
+                        // However, to ensure signatures show up during the workflow, 
+                        // fallback to pre-PWHT signatures if post-PWHT is not yet signed.
+                        const ptStage = isPwht ? (s7Pt.qcCheck ? s7Pt : s5Pt) : s5Pt;
+                        const rtStage = isPwht ? (s6Rt.qcCheck ? s6Rt : s4Rt) : s4Rt;
 
                         // Populate the 30 cells (indices 5 to 34)
                         // Fit Up Inspection
@@ -1288,8 +1296,8 @@ class WeldJointService {
                         // 9, 10 AI (empty defaults to "")
 
                         // Back Chip
-                        row_data[11] = { value: s2Sig.qcCheck, type: "stage" };
-                        row_data[12] = { value: s2Sig.qcSignDate, type: "stage" };
+                        row_data[11] = { value: joint.back_chip_req ? s2Sig.qcCheck : "NA", type: "stage" };
+                        row_data[12] = { value: joint.back_chip_req ? s2Sig.qcSignDate : "NA", type: "stage" };
 
                         // Visual
                         row_data[13] = { value: s3Sig.prodSign, type: "stage" };
@@ -1299,16 +1307,26 @@ class WeldJointService {
                         // 17, 18 AI (empty)
 
                         // Final NDE - PT
-                        row_data[19] = { value: ptStage.qcCheck, type: "stage" };
-                        row_data[20] = { value: ptStage.qcSignDate, type: "stage" };
+                        row_data[19] = { value: joint.pt ? ptStage.qcCheck : "", type: "stage" };
+                        row_data[20] = { value: joint.pt ? ptStage.qcSignDate : "", type: "stage" };
                         // 21, 22 AI (empty)
 
                         // Final NDE - RT
-                        row_data[23] = { value: rtStage.qcCheck, type: "stage" };
-                        row_data[24] = { value: rtStage.qcSignDate, type: "stage" };
+                        row_data[23] = { value: joint.rt ? rtStage.qcCheck : "", type: "stage" };
+                        row_data[24] = { value: joint.rt ? rtStage.qcSignDate : "", type: "stage" };
                         // 25, 26 AI (empty)
                         
-                        // UT (27-30) and MT (31-34) left blank as per current DB schema
+                        // Final NDE - UT
+                        const utStage = getSig("s8");
+                        row_data[27] = { value: utStage.qcCheck, type: "stage" };
+                        row_data[28] = { value: utStage.qcSignDate, type: "stage" };
+                        // 29, 30 AI (empty)
+
+                        // Final NDE - MT
+                        const mtStage = getSig("s9");
+                        row_data[31] = { value: mtStage.qcCheck, type: "stage" };
+                        row_data[32] = { value: mtStage.qcSignDate, type: "stage" };
+                        // 33, 34 AI (empty)
                     } else {
                         row_data[3] = { value: "-", type: "welder" };
                         row_data[4] = { value: "-", type: "welder" };
