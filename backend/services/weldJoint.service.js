@@ -1222,7 +1222,11 @@ class WeldJointService {
 
                     row_data[0] = { value: joint.joint_no || "-", type: "joint" };
                     row_data[1] = { value: joint.process || "-", type: "process" };
-                    row_data[2] = { value: joint.wps_pqr_no || "-", type: "wps" };
+                    let wpsVal = joint.wps_pqr_no || "-";
+                    if (wpsVal.includes("/")) {
+                        wpsVal = wpsVal.split("/")[0].trim();
+                    }
+                    row_data[2] = { value: wpsVal, type: "wps" };
 
                     const inspectionData = joint.weld_joint_inspection;
                     if (inspectionData) {
