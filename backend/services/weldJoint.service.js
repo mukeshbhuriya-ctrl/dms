@@ -1247,7 +1247,7 @@ class WeldJointService {
                         };
 
                         let tackFromRows = getRowValue(s1Data?.inspectionRows, "Tack Welder Number");
-                        tackWelder = tackFromRows || s1Data?.tackWelder || s1Data?.welderNumber || s1Data?.welderNo || "-";
+                        tackWelder = tackFromRows || s1Data?.tackWelder || s1Data?.welderNumber || s1Data?.welderNo || "";
                         finalWelder = s3Data?.welderNumber || s3Data?.welderNo || s1Data?.welderNumber || s1Data?.welderNo || tackWelder;
                         
                         row_data[3] = { value: tackWelder, type: "welder" };
@@ -1328,8 +1328,8 @@ class WeldJointService {
                         row_data[32] = { value: mtStage.qcSignDate, type: "stage" };
                         // 33, 34 AI (empty)
                     } else {
-                        row_data[3] = { value: "-", type: "welder" };
-                        row_data[4] = { value: "-", type: "welder" };
+                        row_data[3] = { value: "", type: "welder" };
+                        row_data[4] = { value: "", type: "welder" };
                     }
 
                     return {
