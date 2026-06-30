@@ -1,16 +1,65 @@
-import React from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { TableVirtuoso } from "react-virtuoso";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Card, CardContent } from "@/components/ui/card";
-
-const dummyData = [
-  { id: "1A03", process: "GTAW+SAW", wps: "SE50101-A-1-B Rev.0", tackWelder: "SCW-216", finalWelder: "SCW-216" },
-  { id: "A2", process: "SMAW", wps: "SE50101-A-1-B", tackWelder: "SCW-215", finalWelder: "SCW-215" },
-  { id: "B1", process: "GTAW", wps: "SE50101-A-1-C", tackWelder: "SCW-210", finalWelder: "SCW-210" },
-  { id: "B2", process: "GTAW", wps: "SE50101-A-1-C", tackWelder: "SCW-210", finalWelder: "SCW-210" },
-  { id: "B3", process: "GTAW", wps: "SE50101-A-1-C", tackWelder: "SCW-211", finalWelder: "SCW-211" },
-];
+import { Textarea } from "@/components/ui/textarea";
+import apiClient from "@/api/api.client";
 
 export default function TravelerWeldingNDE() {
+  const [joints, setJoints] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  
+  /* 
+   * NOTE: TRUE SERVER-SIDE BIDIRECTIONAL SCROLLING (Client Option 1)
+   * If you ever need to fetch back previous rows from the server when scrolling UP (and clearing them from DOM),
+   * you must:
+   * 1. Maintain a 'startPage' and 'endPage' in state.
+   * 2. Add an IntersectionObserver to the FIRST row in the table.
+   * 3. When scrolling UP hits the top observer, fetch 'startPage - 1', prepend to 'joints' array, and slice off the bottom of the array.
+   * 4. When scrolling DOWN hits the bottom observer, fetch 'endPage + 1', append to 'joints', and slice off the top of the array.
+   * 5. You MUST maintain empty space (padding) above the first row to preserve the scrollbar position (using padding-top based on deleted row count).
+   * 
+   * We are currently using DOM Virtualization (Option 2) via react-virtuoso.
+   * It destroys HTML elements off-screen but keeps JSON data in RAM, giving the same performance boost but a much smoother scroll experience.
+   */
+  const [loadingMore, setLoadingMore] = useState(false);
+  const limit = 50;
+
+  useEffect(() => {
+    const fetchJoints = async () => {
+      try {
+        if (page === 1) setLoading(true);
+        else setLoadingMore(true);
+
+        const response = await apiClient.get('/api/wpj/traveler-summary', { 
+          limit, 
+          page,
+          sortBy: 'joint_no',
+          sortOrder: 'asc'
+        });
+        
+        if (response && response.success) {
+          const newData = response.data || [];
+          setJoints(prev => page === 1 ? newData : [...prev, ...newData]);
+          
+          if (response.meta && response.meta.totalPages) {
+             setHasMore(page < response.meta.totalPages);
+          } else {
+             setHasMore(newData.length === limit);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching weld joints:", error);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    };
+    
+    fetchJoints();
+  }, [page]);
   return (
     <div>
       <ModuleHeader 
@@ -23,11 +72,66 @@ export default function TravelerWeldingNDE() {
           <CardContent className="p-0">
             <div className="overflow-auto max-h-[calc(100vh-150px)] w-full border-t border-black bg-white">
               <div className="min-w-[2800px] inline-block align-top">
-                <table className="w-full border-collapse text-[11px] font-sans text-black table-fixed relative">
-                  <thead className="sticky top-0 z-30 shadow-[0_1px_0_0_black]">
+                
+                <TableVirtuoso
+                  style={{ height: 'calc(100vh - 150px)', width: '100%', minWidth: '2800px' }}
+                  data={joints}
+                  endReached={() => {
+                    if (hasMore && !loadingMore && !loading) {
+                      setPage(prevPage => prevPage + 1);
+                    }
+                  }}
+                  components={{
+                    Table: (props) => <table {...props} className="w-full border-collapse text-[11px] font-sans text-black table-fixed relative min-w-[2800px]" />,
+                    TableHead: React.forwardRef((props, ref) => <thead {...props} ref={ref} className="sticky top-0 z-50 shadow-[0_1px_0_0_black] bg-[#BFBFBF]" />),
+                    TableBody: React.forwardRef((props, ref) => <tbody {...props} ref={ref} className="bg-white relative z-0" />),
+                    TableRow: (props) => <tr {...props} className="h-[40px]" />,
+                    TableFoot: React.forwardRef((props, ref) => (
+                      <tfoot {...props} ref={ref}>
+                        {(!loading && joints.length < 25) && Array.from({ length: 25 - joints.length }).map((_, rowIndex) => (
+                          <tr key={`empty-padding-${rowIndex}`} className="h-[40px]">
+                            <td className="border border-black px-1 py-1 text-center sticky left-0 z-10 bg-white shadow-[1px_0_0_0_black]"></td>
+                            {Array.from({ length: 34 }).map((_, colIndex) => (
+                              <td key={colIndex} className="border border-black px-1 py-1 text-center"></td>
+                            ))}
+                          </tr>
+                        ))}
+                        {loadingMore && (
+                          <tr>
+                            <td colSpan={35} className="border border-black px-2 py-3 text-center sticky left-0 z-10 bg-gray-50 text-gray-500 font-medium">
+                              <div className="flex items-center justify-center gap-2">
+                                <svg className="animate-spin h-4 w-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Loading more joints...
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        {loading && joints.length === 0 && (
+                          <tr>
+                            <td colSpan={35} className="border border-black px-2 py-4 text-center sticky left-0 z-10 bg-white shadow-[1px_0_0_0_black]">
+                              Loading joints...
+                            </td>
+                          </tr>
+                        )}
+                        {!loading && joints.length === 0 && (
+                          <tr>
+                            <td colSpan={35} className="border border-black px-2 py-4 text-center sticky left-0 z-10 bg-white shadow-[1px_0_0_0_black]">
+                              No joints found.
+                            </td>
+                          </tr>
+                        )}
+                      </tfoot>
+                    ))
+                  }}
+                  fixedHeaderContent={() => (
+                    <>
+                      
                     {/* Row 1 */}
                     <tr className="bg-[#BFBFBF]">
-                      <th rowSpan={4} className="border border-black px-2 py-1.5 font-bold w-[70px] sticky left-0 z-40 bg-[#BFBFBF] shadow-[1px_0_0_0_black]">
+                      <th rowSpan={4} className="border border-black px-2 py-1.5 font-bold w-[70px] sticky left-0 z-[60] bg-[#BFBFBF] shadow-[1px_0_0_0_black]">
                         Joint No.
                       </th>
                       <th rowSpan={4} className="border border-black px-2 py-1.5 font-bold w-[90px] -rotate-90 origin-center whitespace-nowrap">
@@ -126,88 +230,109 @@ export default function TravelerWeldingNDE() {
                         </React.Fragment>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    {dummyData.map((row, index) => (
-                      <tr key={index} className="h-[40px]">
-                        <td className="border border-black px-2 py-1 text-center font-bold text-red-600 sticky left-0 z-20 bg-white shadow-[1px_0_0_0_black]">
-                          {row.id}
+                  
+                    </>
+                  )}
+                  itemContent={(index, joint) => {
+                    const jointNo = joint.joint_no || "-";
+                    const process = joint.process || "-";
+                    const wps = joint.wps_pqr_no || "-";
+                    
+                    let tackWelder = "-";
+                    let finalWelder = "-";
+                    
+                    const inspectionData = joint.weld_joint_inspection;
+                    if (inspectionData) {
+                      const catKey = (joint.joint_type || "A").toLowerCase();
+                      const s1Data = inspectionData[catKey]?.s1;
+                      const s3Data = inspectionData[catKey]?.s3;
+                      
+                      tackWelder = s1Data?.tackWelder || s1Data?.welderNumber || s1Data?.welderNo || "-";
+                      finalWelder = s3Data?.welderNumber || s3Data?.welderNo || s1Data?.welderNumber || s1Data?.welderNo || tackWelder;
+                    }
+                    return (
+                      <>
+                        <td className="border border-black px-2 py-1 text-center font-bold text-red-600 sticky left-0 z-10 bg-white shadow-[1px_0_0_0_black]">
+                          {jointNo}
                         </td>
                         <td className="border border-black px-2 py-1 text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                          {row.process}
+                          {process}
                         </td>
                         <td className="border border-black px-2 py-1 text-center">
-                          {row.wps}
+                          {wps}
                         </td>
                         <td className="border border-black px-1 py-1 text-center text-[10px]">
-                          {row.tackWelder}
+                          {tackWelder}
                         </td>
                         <td className="border border-black px-1 py-1 text-center text-[10px]">
-                          {row.finalWelder}
+                          {finalWelder}
                         </td>
-
                         {Array.from({ length: 30 }).map((_, i) => (
-                          <td key={i} className="border border-black px-1 py-1 text-center"></td>
+                          <td key={`empty-${index}-${i}`} className="border border-black px-1 py-1 text-center"></td>
                         ))}
-                      </tr>
-                    ))}
-                    
-                    {Array.from({ length: 25 }).map((_, rowIndex) => (
-                      <tr key={`empty-${rowIndex}`} className="h-[40px]">
-                        <td className="border border-black px-1 py-1 text-center sticky left-0 z-20 bg-white shadow-[1px_0_0_0_black]"></td>
-                        {Array.from({ length: 34 }).map((_, colIndex) => (
-                          <td key={colIndex} className="border border-black px-1 py-1 text-center"></td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {/* Bottom Section: Instructions & Legends */}
-                <table className="w-full border-collapse text-[11px] font-sans text-black table-fixed border-t-0">
-                  <tbody>
-                    <tr>
-                      <td className="w-1/2 border border-t-0 border-black text-center p-1">
-                        To Be Checked While Fit-Up Inspection
-                      </td>
-                      <td className="w-1/2 border border-t-0 border-black text-center p-1">
-                        To Be Checked While Weld Visual Inspection
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="w-1/2 border border-black align-top p-1 pl-2">
-                        <ul className="list-none space-y-[2px]">
-                          <li><span className="mr-1">•</span>Edge preparation, Root Gap, Root Face, Bevel Angle as shown in drawing</li>
-                          <li><span className="mr-1">•</span>Surface to be weld is free from Scale, Rust, Oil, Slag, Foreign Material Etc.</li>
-                          <li><span className="mr-1">•</span>Tack Welding for any defects</li>
-                          <li><span className="mr-1">•</span>Mis-Match (Tolerance as per UW-33)</li>
-                          <li><span className="mr-1">•</span>Orientation</li>
-                          <li><span className="mr-1">•</span>Identification Mark</li>
-                          <li><span className="mr-1">•</span>Previous stage NDE completion (If Entry in to vessel not possible after closing)</li>
-                        </ul>
-                      </td>
-                      <td className="w-1/2 border border-black align-top p-1 pl-2">
-                        <ul className="list-none space-y-[2px]">
-                          <li><span className="mr-1">•</span>As welded surface are sufficiently free from coarse ripples, Groove, Overlaps, abrupt ridges, valise, undercuts, weld spatters & Slags.</li>
-                          <li><span className="mr-1">•</span>Weld Reinforcement of Butt joints as per UW – 35</li>
-                          <li><span className="mr-1">•</span>Leg Length of fillet welds with required throat</li>
-                          <li><span className="mr-1">•</span>In complete penetration & Fusion in single welded joints.</li>
-                        </ul>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td colSpan={2} className="border border-black p-1 pl-2 align-top">
-                        <div className="mb-0">LEGENDS:</div>
-                        <div className="space-y-[2px]">
-                          <div>H – Inspection stage of Manufacturing beyond which no further operation shall be carried out until the Engr. QC & AI have signed off the traveler or other applicable documents signifying their acceptance. The AI shall be notified for HOLD Point Inspection in advance.</div>
-                          <div>W – Witness Point. A Stage beyond which no work can proceed until the AI has seen it or granted his / her written consent or permission to proceed further.</div>
-                          <div>R – Review an indication that documents result of test, examination OR Inspection requires review prior to completion of the job. Presence of the AI during the action being reported is not required.</div>
-                        </div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                      </>
+                    )
+                  }}
+                />
+
               </div>
+            </div>
+            
+            {/* Bottom Section: Instructions & Legends (Outside the horizontal scroll container) */}
+            <div className="w-full bg-white">
+              <table className="w-full border-collapse text-[11px] font-sans text-black table-fixed border border-t-0 border-black">
+                <tbody>
+                  <tr>
+                    <td className="w-1/2 border border-black border-t-0 text-center p-1">
+                      To Be Checked While Fit-Up Inspection
+                    </td>
+                    <td className="w-1/2 border border-black border-t-0 text-center p-1">
+                      To Be Checked While Weld Visual Inspection
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="w-1/2 border border-black align-top p-1 pl-2">
+                      <ul className="list-none space-y-[2px]">
+                        <li><span className="mr-1">•</span>Edge preparation, Root Gap, Root Face, Bevel Angle as shown in drawing</li>
+                        <li><span className="mr-1">•</span>Surface to be weld is free from Scale, Rust, Oil, Slag, Foreign Material Etc.</li>
+                        <li><span className="mr-1">•</span>Tack Welding for any defects</li>
+                        <li><span className="mr-1">•</span>Mis-Match (Tolerance as per UW-33)</li>
+                        <li><span className="mr-1">•</span>Orientation</li>
+                        <li><span className="mr-1">•</span>Identification Mark</li>
+                        <li><span className="mr-1">•</span>Previous stage NDE completion (If Entry in to vessel not possible after closing)</li>
+                      </ul>
+                    </td>
+                    <td className="w-1/2 border border-black align-top p-1 pl-2">
+                      <ul className="list-none space-y-[2px]">
+                        <li><span className="mr-1">•</span>As welded surface are sufficiently free from coarse ripples, Groove, Overlaps, abrupt ridges, valise, undercuts, weld spatters & Slags.</li>
+                        <li><span className="mr-1">•</span>Weld Reinforcement of Butt joints as per UW – 35</li>
+                        <li><span className="mr-1">•</span>Leg Length of fillet welds with required throat</li>
+                        <li><span className="mr-1">•</span>In complete penetration & Fusion in single welded joints.</li>
+                      </ul>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} className="border border-black p-1 pl-2 align-top">
+                      <div className="mb-0 font-bold">LEGENDS:</div>
+                      <div className="space-y-[2px]">
+                        <div>H – Inspection stage of Manufacturing beyond which no further operation shall be carried out until the Engr. QC & AI have signed off the traveler or other applicable documents signifying their acceptance. The AI shall be notified for HOLD Point Inspection in advance.</div>
+                        <div>W – Witness Point. A Stage beyond which no work can proceed until the AI has seen it or granted his / her written consent or permission to proceed further.</div>
+                        <div>R – Review an indication that documents result of test, examination OR Inspection requires review prior to completion of the job. Presence of the AI during the action being reported is not required.</div>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Remarks Section */}
+            <div className="w-full bg-white p-2 border-x border-b border-black">
+              <div className="text-[11px] font-bold font-sans text-black mb-1">
+                Remarks.:-
+              </div>
+              <Textarea 
+                className="min-h-[80px] text-[11px] resize-y rounded-none border-black focus-visible:ring-0 focus-visible:ring-offset-0" 
+              />
             </div>
           </CardContent>
         </Card>

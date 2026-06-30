@@ -362,6 +362,27 @@ async function archivePlan(req, res) {
     }
 }
 
+async function getTravelerSummary(req, res) {
+    try {
+        const company_id = req.user.company_id;
+        const result = await weldJointService.getTravelerSummary(company_id, req.query);
+
+        res.status(200).json({
+            success: true,
+            message: 'Traveler summary fetched successfully',
+            data: result.data,
+            meta: result.meta
+        });
+    } catch (error) {
+        console.error('Get traveler summary error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+        });
+    }
+}
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -374,5 +395,6 @@ module.exports = {
     getReportNo,
     getJointTrail,
     togglePlanStatus,
-    archivePlan
+    archivePlan,
+    getTravelerSummary
 };

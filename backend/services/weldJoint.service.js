@@ -1203,6 +1203,20 @@ class WeldJointService {
             data: { is_deleted: true }
         });
     }
+    async getTravelerSummary(company_id, query) {
+        try {
+            // Use findAll with provided pagination parameters (default to page 1, limit 50 if not provided)
+            const result = await this.findAll(company_id, { 
+                ...query, 
+                limit: query.limit || 50,
+                page: query.page || 1
+            });
+            return result;
+        } catch (error) {
+            console.error("Get Traveler Summary error:", error);
+            throw error;
+        }
+    }
 }
 
 module.exports = new WeldJointService();
