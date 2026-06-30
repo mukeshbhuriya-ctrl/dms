@@ -2,6 +2,7 @@ const weldJointService = require('../services/weldJoint.service.js');
 const pdfGenerator = require('#utils/pdfGenerator');
 const pdfGeneratorCD = require('#utils/pdfGeneratorCD');
 const pdfGeneratorF = require('#utils/pdfGeneratorF');
+const travelerPdfGenerator = require('../utils/travelerPdfGenerator');
 const prisma = require('#prisma');
 const Audit = require('#utils/audit.js');
 const { extractStageData } = require('../utils/weldJointData');
@@ -383,6 +384,35 @@ async function getTravelerSummary(req, res) {
     }
 }
 
+async function downloadTravelerSummaryPdf(req, res) {
+    try {
+        const company_id = req.user.company_id;
+        
+        // Fetch all data without pagination by setting a very high limit
+        const queryParams = { ...req.query, limit: 10000, page: 1 };
+        const result = await weldJointService.getTravelerSummary(company_id, queryParams);
+
+        const data = {
+            joints: result.data || []
+        };
+
+        const filename = `Traveler_Welding_NDE_Summary.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        travelerPdfGenerator.generatePDF(data, res);
+    } catch (error) {
+        console.error('Download traveler summary pdf error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            });
+        }
+    }
+}
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -396,5 +426,6 @@ module.exports = {
     getJointTrail,
     togglePlanStatus,
     archivePlan,
-    getTravelerSummary
+    getTravelerSummary,
+    downloadTravelerSummaryPdf
 };

@@ -3,6 +3,8 @@ import { TableVirtuoso } from "react-virtuoso";
 import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import apiClient from "@/api/api.client";
 
 export default function TravelerWeldingNDE() {
@@ -60,11 +62,35 @@ export default function TravelerWeldingNDE() {
     
     fetchJoints();
   }, [page]);
+
+  const handleDownloadPdf = async () => {
+    try {
+      const blob = await apiClient.get('/api/wpj/traveler-summary-pdf', {}, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Traveler_Welding_NDE_Summary.pdf');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error("Failed to download PDF:", error);
+    }
+  };
+
   return (
     <div>
       <ModuleHeader 
         title="Traveler Welding & NDE" 
         description="Welding and Non-Destructive Examination Inspection Records"
+        actions={
+          <Button onClick={handleDownloadPdf} size="sm" className="h-8">
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
+        }
       />
       
       <div className="p-6">
