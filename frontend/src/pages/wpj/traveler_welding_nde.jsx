@@ -260,42 +260,31 @@ export default function TravelerWeldingNDE() {
                     </>
                   )}
                   itemContent={(index, joint) => {
-                    const jointNo = joint.joint_no || "-";
-                    const process = joint.process || "-";
-                    const wps = joint.wps_pqr_no || "-";
-                    
-                    let tackWelder = "-";
-                    let finalWelder = "-";
-                    
-                    const inspectionData = joint.weld_joint_inspection;
-                    if (inspectionData) {
-                      const catKey = (joint.joint_type || "A").toLowerCase();
-                      const s1Data = inspectionData[catKey]?.s1;
-                      const s3Data = inspectionData[catKey]?.s3;
-                      
-                      tackWelder = s1Data?.tackWelder || s1Data?.welderNumber || s1Data?.welderNo || "-";
-                      finalWelder = s3Data?.welderNumber || s3Data?.welderNo || s1Data?.welderNumber || s1Data?.welderNo || tackWelder;
-                    }
+                    const rowData = joint.row_data || Array(35).fill({ value: "", type: "stage" });
+
                     return (
                       <>
-                        <td className="border border-border px-2 py-1 text-center font-bold text-red-600 sticky left-0 z-10 bg-card shadow-[1px_0_0_0_hsl(var(--border))]">
-                          {jointNo}
-                        </td>
-                        <td className="border border-border px-2 py-1 text-center whitespace-nowrap overflow-hidden text-ellipsis">
-                          {process}
-                        </td>
-                        <td className="border border-border px-2 py-1 text-center">
-                          {wps}
-                        </td>
-                        <td className="border border-border px-1 py-1 text-center text-[10px]">
-                          {tackWelder}
-                        </td>
-                        <td className="border border-border px-1 py-1 text-center text-[10px]">
-                          {finalWelder}
-                        </td>
-                        {Array.from({ length: 30 }).map((_, i) => (
-                          <td key={`empty-${index}-${i}`} className="border border-border px-1 py-1 text-center"></td>
-                        ))}
+                        {rowData.map((cell, i) => {
+                          let classes = "border border-border px-1 py-1 text-center";
+                          
+                          // Style overrides driven entirely by the backend data type, making it scalable
+                          if (cell.type === "joint") {
+                            classes += " font-bold text-red-600 sticky left-0 z-10 bg-card shadow-[1px_0_0_0_hsl(var(--border))] px-2";
+                          } else if (cell.type === "process") {
+                            classes += " whitespace-nowrap overflow-hidden text-ellipsis px-2";
+                          } else if (cell.type === "wps") {
+                            classes += " px-2";
+                          } else {
+                            // welders and stages
+                            classes += " text-[10px]";
+                          }
+
+                          return (
+                            <td key={`cell-${index}-${i}`} className={classes}>
+                              {cell.value}
+                            </td>
+                          );
+                        })}
                       </>
                     )
                   }}

@@ -1205,12 +1205,122 @@ class WeldJointService {
     }
     async getTravelerSummary(company_id, query) {
         try {
-            // Use findAll with provided pagination parameters (default to page 1, limit 50 if not provided)
             const result = await this.findAll(company_id, { 
                 ...query, 
                 limit: query.limit || 50,
                 page: query.page || 1
             });
+
+            // Map the raw data into a structured summary for the Traveler module
+            if (result && result.data) {
+                result.data = result.data.map(joint => {
+                    let tackWelder = "";
+                    let finalWelder = "";
+                    
+                    // The full 35-column row data array as self-describing objects
+                    const row_data = Array(35).fill({ value: "", type: "stage" });
+
+                    row_data[0] = { value: joint.joint_no || "-", type: "joint" };
+                    row_data[1] = { value: joint.process || "-", type: "process" };
+                    row_data[2] = { value: joint.wps_pqr_no || "-", type: "wps" };
+
+                    const inspectionData = joint.weld_joint_inspection;
+                    if (inspectionData) {
+                        const catKey = (joint.joint_type || "A").toLowerCase();
+                        
+                        const parseStage = (sKey) => {
+                            const raw = inspectionData[`${sKey}_data`];
+                            if (!raw) return {};
+                            try {
+                                const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+                                return parsed?.[catKey]?.[sKey] || parsed?.[catKey] || parsed || {};
+                            } catch(e) { return {}; }
+                        };
+
+                        const s1Data = parseStage("s1");
+                        const s3Data = parseStage("s3");
+                        
+                        const getRowValue = (rows, searchName) => {
+                            if (!Array.isArray(rows)) return null;
+                            const row = rows.find(r => r.name === searchName);
+                            return row ? row.value : null;
+                        };
+
+                        let tackFromRows = getRowValue(s1Data?.inspectionRows, "Tack Welder Number");
+                        tackWelder = tackFromRows || s1Data?.tackWelder || s1Data?.welderNumber || s1Data?.welderNo || "-";
+                        finalWelder = s3Data?.welderNumber || s3Data?.welderNo || s1Data?.welderNumber || s1Data?.welderNo || tackWelder;
+                        
+                        row_data[3] = { value: tackWelder, type: "welder" };
+                        row_data[4] = { value: finalWelder, type: "welder" };
+
+                        // Helper to safely format dates
+                        const formatDate = (dateStr) => {
+                            if (!dateStr) return "";
+                            const d = new Date(dateStr);
+                            return isNaN(d.getTime()) ? "" : d.toLocaleDateString();
+                        };
+
+                        // Helper to get signatures
+                        const getSig = (stagePrefix) => {
+                            return {
+                                prodSign: inspectionData[`${stagePrefix}_prod_eng_name`] || "",
+                                prodDate: formatDate(inspectionData[`${stagePrefix}_submitted_at`]),
+                                qcCheck: inspectionData[`${stagePrefix}_qc_eng_name`] || "",
+                                qcSignDate: formatDate(inspectionData[`${stagePrefix}_approved_at`])
+                            };
+                        };
+
+                        const s1Sig = getSig("s1"); // Fit Up
+                        const s2Sig = getSig("s2"); // Back Chip
+                        const s3Sig = getSig("s3"); // Visual
+                        
+                        // Check PWHT logic for NDE stages
+                        const isPwht = joint.pwht;
+                        const ptStage = isPwht ? getSig("s7") : getSig("s5");
+                        const rtStage = isPwht ? getSig("s6") : getSig("s4");
+
+                        // Populate the 30 cells (indices 5 to 34)
+                        // Fit Up Inspection
+                        row_data[5] = { value: s1Sig.prodSign, type: "stage" };
+                        row_data[6] = { value: s1Sig.prodDate, type: "stage" };
+                        row_data[7] = { value: s1Sig.qcCheck, type: "stage" };
+                        row_data[8] = { value: s1Sig.qcSignDate, type: "stage" };
+                        // 9, 10 AI (empty defaults to "")
+
+                        // Back Chip
+                        row_data[11] = { value: s2Sig.qcCheck, type: "stage" };
+                        row_data[12] = { value: s2Sig.qcSignDate, type: "stage" };
+
+                        // Visual
+                        row_data[13] = { value: s3Sig.prodSign, type: "stage" };
+                        row_data[14] = { value: s3Sig.prodDate, type: "stage" };
+                        row_data[15] = { value: s3Sig.qcCheck, type: "stage" };
+                        row_data[16] = { value: s3Sig.qcSignDate, type: "stage" };
+                        // 17, 18 AI (empty)
+
+                        // Final NDE - PT
+                        row_data[19] = { value: ptStage.qcCheck, type: "stage" };
+                        row_data[20] = { value: ptStage.qcSignDate, type: "stage" };
+                        // 21, 22 AI (empty)
+
+                        // Final NDE - RT
+                        row_data[23] = { value: rtStage.qcCheck, type: "stage" };
+                        row_data[24] = { value: rtStage.qcSignDate, type: "stage" };
+                        // 25, 26 AI (empty)
+                        
+                        // UT (27-30) and MT (31-34) left blank as per current DB schema
+                    } else {
+                        row_data[3] = { value: "-", type: "welder" };
+                        row_data[4] = { value: "-", type: "welder" };
+                    }
+
+                    return {
+                        ...joint, // keep original for reference
+                        row_data: row_data
+                    };
+                });
+            }
+
             return result;
         } catch (error) {
             console.error("Get Traveler Summary error:", error);

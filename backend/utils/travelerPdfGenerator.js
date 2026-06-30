@@ -274,32 +274,28 @@ class TravelerPdfGenerator {
 
         if (data.joints && data.joints.length > 0) {
             data.joints.forEach((joint) => {
-                const jointNo = joint.joint_no || "-";
-                const process = joint.process || "-";
-                const wps = joint.wps_pqr_no || "-";
-                
-                let tackWelder = "-";
-                let finalWelder = "-";
-                
-                const inspectionData = joint.weld_joint_inspection;
-                if (inspectionData) {
-                    const catKey = (joint.joint_type || "A").toLowerCase();
-                    const s1Data = inspectionData[catKey]?.s1;
-                    const s3Data = inspectionData[catKey]?.s3;
-                    
-                    tackWelder = s1Data?.tackWelder || s1Data?.welderNumber || s1Data?.welderNo || "-";
-                    finalWelder = s3Data?.welderNumber || s3Data?.welderNo || s1Data?.welderNumber || s1Data?.welderNo || tackWelder;
-                }
+                const rowData = joint.row_data || Array(35).fill({ value: "-", type: "stage" });
 
                 // Calculate dynamic row height based on text length to prevent overlap
                 doc.fontSize(8);
-                const hJoint = doc.heightOfString(jointNo, { width: cols[0] - 4 });
-                const wProcess = doc.widthOfString(process); // Vertical text height = width of string
-                const hWps = doc.heightOfString(wps, { width: cols[2] - 4 });
-                const wTack = doc.widthOfString(tackWelder); // Vertical text
-                const wFinal = doc.widthOfString(finalWelder); // Vertical text
+                let maxRowH = 20;
 
-                const dynamicRowH = Math.max(20, hJoint + 10, wProcess + 10, hWps + 10, wTack + 10, wFinal + 10);
+                rowData.forEach((cell) => {
+                    const val = cell.value;
+                    if (val && val !== "-") {
+                        if (cell.type === "joint" || cell.type === "wps") {
+                            // Horizontal text: jointNo and wps
+                            const h = doc.heightOfString(val, { width: 40 }); // approximated width
+                            if (h + 10 > maxRowH) maxRowH = h + 10;
+                        } else {
+                            // Vertical text: process, tack, final, and all dates/signs
+                            const w = doc.widthOfString(val); // width of string becomes height when rotated -90
+                            if (w + 10 > maxRowH) maxRowH = w + 10;
+                        }
+                    }
+                });
+
+                const dynamicRowH = maxRowH;
 
                 if (curY + dynamicRowH > doc.page.height - 60) {
                     doc.addPage();
@@ -317,7 +313,7 @@ class TravelerPdfGenerator {
                     doc.font(isBold ? this.fonts.bold : this.fonts.regular).fontSize(8).fillColor(color);
                     // Add vertical line
                     doc.moveTo(cx, curY).lineTo(cx, curY + dynamicRowH).stroke();
-                    if (val) {
+                    if (val && val !== "-") { // don't render "-" dashes in the small cells
                         if (vText) {
                             doc.save();
                             doc.translate(cx + cW / 2, curY + dynamicRowH / 2);
@@ -334,16 +330,14 @@ class TravelerPdfGenerator {
                     colIdx++;
                 };
 
-                dCell(jointNo, this.colors.red, true, false); // Joint No (Horizontal)
-                dCell(process, this.colors.black, false, true); // Process (Vertical)
-                dCell(wps, this.colors.black, false, false); // WPS (Horizontal)
-                dCell(tackWelder, this.colors.black, false, true); // Tack (Vertical)
-                dCell(finalWelder, this.colors.black, false, true); // Final (Vertical)
-
-                // Add empty cells for the remaining 30 columns
-                for (let i = 0; i < 30; i++) {
-                    dCell("");
-                }
+                rowData.forEach((cell) => {
+                    const isBold = (cell.type === "joint");
+                    const color = (cell.type === "joint") ? this.colors.red : this.colors.black;
+                    const vText = (cell.type !== "joint" && cell.type !== "wps"); // jointNo and wps are horizontal, rest are vertical
+                    
+                    // If it's empty, we pass empty string so it skips rendering text but draws the cell
+                    dCell(cell.value || "", color, isBold, vText);
+                });
 
                 curY += dynamicRowH;
             });
