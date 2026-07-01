@@ -2313,13 +2313,8 @@ class DccService {
                         nextGroupStatus = 'Approved';
                     } else if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
                         nextGroupStatus = status === 'As Built' ? 'As Built' : 'Pending';
-
-                        // Auto-calculate new upload deadline: Current Date + 5 Days
-                        const now = new Date();
-                        const createdAt = new Date(doc.createdAt);
-                        const diffMs = Math.max(0, now.getTime() - createdAt.getTime());
-                        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                        nextUploadDueDays = diffDays + 5;
+                        // Keep original SLA intact. The deadline automatically extends 
+                        // by using the new revision's createdAt date as the baseline.
                     }
 
                     await tx.group_document.update({
