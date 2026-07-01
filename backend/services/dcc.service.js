@@ -2466,22 +2466,11 @@ class DccService {
                 nextGroupStatus = 'Approved';
             } else if (['Rejected', 'Commented', 'Re-approval'].includes(status)) {
                 nextGroupStatus = 'Pending';
-
-                // Auto-calculate new upload deadline: Current Date + 5 Days
-                const now = new Date();
-                const createdAt = new Date(groupDoc.createdAt);
-                const diffMs = Math.max(0, now.getTime() - createdAt.getTime());
-                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                nextUploadDueDays = diffDays + 5;
+                // We do NOT change upload_due_days. The deadline will automatically extend 
+                // because the baseline date shifts to the new revision's createdAt.
             } else if (status === 'As Built') {
                 nextGroupStatus = 'As Built';
-
-                // Auto-calculate new upload deadline: Current Date + 5 Days
-                const now = new Date();
-                const createdAt = new Date(groupDoc.createdAt);
-                const diffMs = Math.max(0, now.getTime() - createdAt.getTime());
-                const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-                nextUploadDueDays = diffDays + 5;
+                // Keep original SLA intact.
             }
 
             // Update database
@@ -3520,15 +3509,21 @@ class DccService {
                     status: 'Pending',
                     upload_due_days: { not: null }
                 },
-                include: { user: true, document: true, group: { include: { job_group: { include: { job: true } } } } }
+                include: { 
+                    user: true, 
+                    document: true, 
+                    group: { include: { job_group: { include: { job: true } } } },
+                    versions: { orderBy: { version_no: 'desc' }, take: 1 } 
+                }
             });
 
             const uploadOverdueUsers = {}; // userId -> docs[]
             const uploadOverdueByCompany = {}; // companyId -> docs[]
 
             for (const doc of pendingDocs) {
-                const created = new Date(doc.createdAt);
-                const deadline = new Date(created.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
+                const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
+                const baseDate = latestVersion ? new Date(latestVersion.createdAt) : new Date(doc.createdAt);
+                const deadline = new Date(baseDate.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
 
                 if (now > deadline) {
                     if (!uploadOverdueUsers[doc.user_id]) uploadOverdueUsers[doc.user_id] = { user: doc.user, docs: [] };
