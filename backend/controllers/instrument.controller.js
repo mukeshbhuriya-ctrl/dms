@@ -25,7 +25,8 @@ exports.bulkUploadInstruments = async (req, res, next) => {
       return res.status(400).json({ error: "data array is required" });
     }
 
-    const result = await instrumentService.bulkUploadInstruments(data, type);
+    const userId = req.user.userid || req.user.id;
+    const result = await instrumentService.bulkUploadInstruments(data, type, userId);
     res.json(result);
   } catch (error) {
     next(error);

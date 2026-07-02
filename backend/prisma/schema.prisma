@@ -175,6 +175,7 @@ model user{
   rfq_registers rfq_register[]
   drawing_versions drawing_version[]
   drawing_activities_performed drawing_activity[]
+  created_instruments instruments_master[]
 
   // MHC Item relations
   mhc_item_actions       material_heat_chart_item[] @relation("MhcItemActionBy")
@@ -1698,6 +1699,8 @@ model instruments_master {
   is_active         Boolean   @default(true)
   created_at        DateTime  @default(now())
   updated_at        DateTime  @updatedAt
+  created_by        String?
+  creator           user?     @relation(fields: [created_by], references: [id])
 
   tube_sheet_inspection_instruments tube_sheet_inspection_instrument[]
   tube_bundle_inspection_instruments tube_bundle_inspection_instrument[]

@@ -257,6 +257,13 @@ class EmailService {
             console.error(`[EmailService] Failed to broadcast MHC notification to group ${group_id}:`, error);
         }
     }
+
+    async sendInstrumentExpiryNotification(to, details) {
+        const { getInstrumentExpiryTemplate } = require('../utils/email-templates/instrument.template');
+        const subject = `[Action Required] Instrument Calibration Expiring Soon: ${details.serial_no}`;
+        const html = getInstrumentExpiryTemplate(details);
+        return this.sendEmail({ to, subject, html });
+    }
 }
 
 module.exports = new EmailService();
