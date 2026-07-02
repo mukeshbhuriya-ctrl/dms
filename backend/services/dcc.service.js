@@ -3496,16 +3496,26 @@ class DccService {
                     where: { id: { in: userGroups[userId] } },
                     include: {
                         document: true,
-                        group: { include: { job_group: { include: { job: true } } } }
+                        group: { include: { job_group: { include: { job: true } } } },
+                        versions: { orderBy: { version_no: 'desc' }, take: 1 }
                     }
                 });
 
-                const emailDocs = fullDocs.map(fd => ({
-                    document_name: fd.document.document_name,
-                    document_number: fd.shreno_doc_no || fd.client_doc_no || fd.document.document_number,
-                    job_number: fd.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
-                    upload_due_days: fd.upload_due_days
-                }));
+                const emailDocs = fullDocs.map(fd => {
+                    const latestVersion = fd.versions && fd.versions.length > 0 ? fd.versions[0] : null;
+                    const baseDate = latestVersion ? new Date(latestVersion.createdAt) : new Date(fd.createdAt);
+                    const deadline = fd.upload_due_days !== null && fd.upload_due_days !== undefined 
+                        ? new Date(baseDate.getTime() + (fd.upload_due_days * 24 * 60 * 60 * 1000)) 
+                        : null;
+
+                    return {
+                        document_name: fd.document.document_name,
+                        document_number: fd.shreno_doc_no || fd.client_doc_no || fd.document.document_number,
+                        job_number: fd.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
+                        upload_due_days: fd.upload_due_days,
+                        planned_submission_date: deadline
+                    };
+                });
 
                 await EmailService.sendDocumentAssignmentNotification(user.email, user.name, emailDocs);
                 console.log(`[DccService] Assignment email sent to ${user.email} for ${emailDocs.length} items`);

@@ -1,84 +1,49 @@
-/**
- * Get Email Template for NCR Notifications
- * @param {Object} details - NCR Details
- * @returns {string} HTML content
- */
 function getNcrEmailTemplate(details) {
-    const { 
-        ncrNo, 
-        jobNo, 
-        stageLabel, 
-        status, 
-        nextAction, 
-        submittedBy, 
-        description,
-        viewUrl 
-    } = details;
-
-    const statusColor = status === 'REJECTED' ? '#ef4444' : '#10b981';
+    const { ncrNo, jobNo, stageLabel, status, nextAction, submittedBy, description, viewUrl } = details;
 
     return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            .container { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; line-height: 1.6; color: #333; }
-            .header { background-color: #000; color: #fff; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; }
-            .details-box { background-color: #f9fafb; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #000; }
-            .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
-            .btn { display: inline-block; background-color: #000; color: #fff; padding: 12px 25px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 20px; }
-            .footer { font-size: 12px; color: #6b7280; text-align: center; margin-top: 20px; }
-            .label { font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 2px; }
-            .value { font-size: 15px; font-weight: 500; margin-bottom: 12px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h2 style="margin: 0;">NCR WORKFLOW UPDATE</h2>
-            </div>
-            <div class="content">
-                <p>Hello,</p>
-                <p>An update has been made to a Non-Conformance Report (NCR) that requires your attention or awareness.</p>
-                
-                <div class="details-box">
-                    <div class="label">NCR Number</div>
-                    <div class="value">${ncrNo}</div>
-                    
-                    <div class="label">Job Number</div>
-                    <div class="value">${jobNo}</div>
-                    
-                    <div class="label">Current Status</div>
-                    <div style="color: ${statusColor}; font-weight: bold; margin-bottom: 12px;">${status.toUpperCase()}</div>
-                    
-                    <div class="label">Recent Activity</div>
-                    <div class="value">${stageLabel} submitted by ${submittedBy}</div>
+    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000; line-height: 1.5;">
+        <p>Dear Team,</p>
+        
+        <p>An update has been made to a Non-Conformance Report (NCR) that requires your attention or awareness.</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; text-align: left;">
+            <thead>
+                <tr>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">NCR Number</th>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Job Number</th>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Current Status</th>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Recent Activity</th>
+                    ${description ? `<th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Description</th>` : ''}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;"><strong>${ncrNo}</strong></td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${jobNo}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${status.toUpperCase()}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${stageLabel} by ${submittedBy}</td>
+                    ${description ? `<td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${description}</td>` : ''}
+                </tr>
+            </tbody>
+        </table>
+        
+        <p><strong>Action Required:</strong> Next task: ${nextAction}</p>
+        
+        <p>You can view the full NCR details here:<br>
+        <a href="${viewUrl}">${viewUrl}</a></p>
+        
+        <p>Best regards,<br>
+        DMS Workflow Automated System</p>
 
-                    ${description ? `
-                    <div class="label">Description</div>
-                    <div class="value" style="font-size: 13px; color: #4b5563;">${description}</div>
-                    ` : ''}
-                </div>
-
-                <div style="background-color: #f0fdf4; padding: 15px; border-radius: 6px; border-left: 4px solid #10b981;">
-                    <strong style="color: #166534;">Action Required:</strong>
-                    <p style="margin: 5px 0 0 0; font-size: 14px; color: #166534;">Next task: <strong>${nextAction}</strong></p>
-                </div>
-
-                <a href="${viewUrl}" class="btn">View NCR Details</a>
-
-                <p style="margin-top: 30px;">Thank you,<br>DMS Workflow Automated System</p>
-            </div>
-            <div class="footer">
-                This is an automated notification. Please do not reply to this email.
-            </div>
+        <br>
+        <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;">
+        <div style="font-size: 12px; color: #666666; text-align: left;">
+            <p style="margin: 0;"><strong>DMS Portal &bull; Shreno Engineering Limited</strong></p>
+            <p style="margin: 4px 0 0 0;">This is an automated system-generated email. Please do not reply to this message.</p>
         </div>
-    </body>
-    </html>
+    </div>
     `;
 }
 
-module.exports = {
-    getNcrEmailTemplate
-};
+module.exports = { getNcrEmailTemplate };

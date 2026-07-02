@@ -2,62 +2,47 @@ const getMhcEmailTemplate = (data) => {
     const { action, report_no, po_no, client, equipment_name, remarks, action_by, url, msn } = data;
     
     return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Material Heat Chart Update</title>
-        <style>
-            body { font-family: Arial, sans-serif; background-color: #ffffff; margin: 0; padding: 20px; color: #333333; font-size: 14px; }
-            .content { max-width: 650px; margin: 0 auto; }
-            p { line-height: 1.5; margin-bottom: 16px; }
-            table.details-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
-            table.details-table td { padding: 6px 0; vertical-align: top; }
-            .label { font-weight: bold; color: #555555; width: 140px; }
-            .value { color: #111111; }
-            .btn { display: inline-block; background-color: #0056b3; color: #ffffff !important; text-decoration: none; padding: 10px 20px; font-weight: bold; font-size: 13px; margin-top: 10px; border-radius: 3px; }
-            .footer { margin-top: 40px; padding-top: 15px; border-top: 1px solid #dddddd; font-size: 12px; color: #888888; }
-        </style>
-    </head>
-    <body>
-        <div class="content">
-            <p>Hello,</p>
-            <p>Please be advised that the Material Heat Chart has been <strong>${action.toUpperCase()}</strong> by ${action_by}.</p>
-            
-            <table class="details-table">
+    <div style="font-family: Arial, sans-serif; font-size: 14px; color: #000000; line-height: 1.5;">
+        <p>Dear Team,</p>
+        
+        <p>Please be advised that the Material Heat Chart has been <strong>${action.toUpperCase()}</strong> by ${action_by}.</p>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px; text-align: left;">
+            <thead>
                 <tr>
-                    <td class="label">Report No:</td>
-                    <td class="value">${report_no}</td>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Report No</th>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Job No (MSN)</th>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Client</th>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Equipment</th>
+                    <th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Status</th>
+                    ${remarks ? `<th style="padding: 8px 0; border-bottom: 2px solid #cccccc;">Remarks</th>` : ''}
                 </tr>
+            </thead>
+            <tbody>
                 <tr>
-                    <td class="label">Job No (MSN):</td>
-                    <td class="value">${msn || 'N/A'}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;"><strong>${report_no}</strong></td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${msn || 'N/A'}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${client || 'N/A'}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${equipment_name || 'N/A'}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${action}</td>
+                    ${remarks ? `<td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${remarks}</td>` : ''}
                 </tr>
-                <tr>
-                    <td class="label">Client:</td>
-                    <td class="value">${client || 'N/A'}</td>
-                </tr>
-                <tr>
-                    <td class="label">Equipment:</td>
-                    <td class="value">${equipment_name || 'N/A'}</td>
-                </tr>
-                <tr>
-                    <td class="label">Status:</td>
-                    <td class="value">${action}</td>
-                </tr>
-                ${remarks ? `<tr><td class="label">Remarks:</td><td class="value">${remarks}</td></tr>` : ''}
-            </table>
+            </tbody>
+        </table>
+        
+        <p>You can view the Material Heat Chart in the DMS Portal here:<br>
+        <a href="${url}">${url}</a></p>
+        
+        <p>Best regards,<br>
+        DMS System</p>
 
-            <p>
-                <a href="${url}" class="btn">DMS Portal</a>
-            </p>
-
-            <div class="footer">
-                <p>This is an automated notification from the Document Management System (DMS). Please do not reply directly to this email.</p>
-            </div>
+        <br>
+        <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;">
+        <div style="font-size: 12px; color: #666666; text-align: left;">
+            <p style="margin: 0;"><strong>DMS Portal &bull; Shreno Engineering Limited</strong></p>
+            <p style="margin: 4px 0 0 0;">This is an automated system-generated email. Please do not reply to this message.</p>
         </div>
-    </body>
-    </html>
+    </div>
     `;
 };
 
