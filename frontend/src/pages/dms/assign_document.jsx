@@ -1005,7 +1005,7 @@ function AssignDocument() {
         assignUserId: row.user_id || "",
         upload_due_days: row.upload_due_days || "",
         response_due_days: row.response_due_days || "",
-        createdAt: row.createdAt || new Date().toISOString(),
+        createdAt: (row.versions && row.versions.length > 0) ? row.versions[0].createdAt : (row.createdAt || new Date().toISOString()),
         planned_submission_date: ""
       }
     ])
@@ -1055,7 +1055,7 @@ function AssignDocument() {
             assignUserId: row.user_id || "",
             upload_due_days: row.upload_due_days || "",
             response_due_days: row.response_due_days || "",
-            createdAt: row.createdAt || new Date().toISOString(),
+            createdAt: (row.versions && row.versions.length > 0) ? row.versions[0].createdAt : (row.createdAt || new Date().toISOString()),
             planned_submission_date: ""
         }
     });

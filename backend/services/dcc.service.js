@@ -2540,13 +2540,12 @@ class DccService {
                     // Create physical folder for the next revision
                     StorageUtils.getDocRevisionDir(company_id, job_number, docNumber, nextVersionNo);
 
-                    // Deactivate current version and create Pending placeholder
                     await tx.document_version.update({
                         where: { id: reviewedVersionId },
                         data: { is_active: false }
                     });
 
-                    await tx.document_version.create({
+                    const newRev = await tx.document_version.create({
                         data: {
                             group_document_id: groupDoc.id,
                             version_no: nextVersionNo,
@@ -2558,6 +2557,22 @@ class DccService {
                             is_active: true
                         }
                     });
+
+                    // Log the system-side date auto-extension to the Document Trail
+                    if (groupDoc.upload_due_days) {
+                        const newDeadline = new Date(newRev.createdAt.getTime() + (groupDoc.upload_due_days * 24 * 60 * 60 * 1000));
+                        await ActivityService.logActivity({
+                            company_id,
+                            group_document_id: groupDoc.id,
+                            user_id,
+                            action: 'Deadline Updated',
+                            remarks: `Planned Submission Date automatically extended to ${newDeadline.toLocaleDateString('en-GB')} due to new Revision ${nextVersionNo}`,
+                            metadata: {
+                                status: 'Auto Extended',
+                                new_version: nextVersionNo
+                            }
+                        }, tx);
+                    }
                 }
             }
 
@@ -3040,8 +3055,13 @@ class DccService {
             }
 
             // 3. Log Activity if Planned Submission Date was manually edited
-            if (dateWasEdited && finalUploadDueDays !== groupDoc.upload_due_days && performer_id) {
-                const newDeadline = new Date(groupDoc.createdAt.getTime() + (finalUploadDueDays * 24 * 60 * 60 * 1000));
+            if (finalUploadDueDays !== undefined && finalUploadDueDays !== groupDoc.upload_due_days && performer_id) {
+                const latestVersion = await tx.document_version.findFirst({
+                    where: { group_document_id: id },
+                    orderBy: { version_no: 'desc' }
+                });
+                const baseDate = latestVersion ? new Date(latestVersion.createdAt) : new Date(groupDoc.createdAt);
+                const newDeadline = new Date(baseDate.getTime() + (finalUploadDueDays * 24 * 60 * 60 * 1000));
                 await ActivityService.logActivity({
                     company_id,
                     group_document_id: id,
@@ -3134,8 +3154,13 @@ class DccService {
                     }
                 }
 
-                if (dateWasEdited && finalUploadDueDays !== groupDoc.upload_due_days && performer_id) {
-                    const newDeadline = new Date(groupDoc.createdAt.getTime() + (finalUploadDueDays * 24 * 60 * 60 * 1000));
+                if (finalUploadDueDays !== undefined && finalUploadDueDays !== groupDoc.upload_due_days && performer_id) {
+                    const latestVersion = await tx.document_version.findFirst({
+                        where: { group_document_id: id },
+                        orderBy: { version_no: 'desc' }
+                    });
+                    const baseDate = latestVersion ? new Date(latestVersion.createdAt) : new Date(groupDoc.createdAt);
+                    const newDeadline = new Date(baseDate.getTime() + (finalUploadDueDays * 24 * 60 * 60 * 1000));
                     await ActivityService.logActivity({
                         company_id,
                         group_document_id: id,
