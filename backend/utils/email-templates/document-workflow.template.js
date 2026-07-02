@@ -70,7 +70,7 @@ const getDocumentReviewTemplate = (user_name, details) => {
                     <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea; word-break: break-word; overflow-wrap: break-word;">
                         <strong>${documentName}</strong> (${documentNumber})
                     </td>
-                    <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea;">Rev ${versionNo}</td>
+                    <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea;">${versionNo}</td>
                     <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea;">${status.toUpperCase()}</td>
                     ${remarks ? `<td style="padding: 8px 0; border-bottom: 1px solid #eaeaea; word-break: break-word; overflow-wrap: break-word;">${remarks}</td>` : ''}
                 </tr>
@@ -171,7 +171,7 @@ const getClientReviewTemplate = (user_name, details) => {
                     <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea; word-break: break-word; overflow-wrap: break-word;">
                         <strong>${documentName}</strong> (${documentNumber})
                     </td>
-                    <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea;">Rev ${versionNo}</td>
+                    <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea;">${versionNo}</td>
                     <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea; word-break: break-word;">${transmissionNo}</td>
                     <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea;">${status.toUpperCase()}</td>
                     ${remarks ? `<td style="padding: 8px 0; border-bottom: 1px solid #eaeaea; word-break: break-word; overflow-wrap: break-word;">${remarks}</td>` : ''}
@@ -224,7 +224,7 @@ const getDocumentUploadedTemplate = (admin_name, details) => {
                     </td>
                     <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea; word-break: break-word;">${jobNo}</td>
                     <td style="padding: 8px 10px 8px 0; border-bottom: 1px solid #eaeaea;">${uploaderName}</td>
-                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">Rev ${versionNo}</td>
+                    <td style="padding: 8px 0; border-bottom: 1px solid #eaeaea;">${versionNo}</td>
                 </tr>
             </tbody>
         </table>
