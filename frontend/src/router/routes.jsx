@@ -252,13 +252,13 @@ const adminRoutes = [
 const weldRoutes = [
   {
     path: "/welding-joints",
-    element: protect(<WeldingJoints />, MODULES.WELD_PLAN, [ROLES.ADMIN, ROLES.WELD_PLAN_ADMIN]),
+    element: protect(<WeldingJoints />, MODULES.WELDING.WELD_PLAN, [ROLES.ADMIN, ROLES.WELD_PLAN_ADMIN]),
   },
   {
     path: "/view-weldingjoints",
     element: protect(
       <ViewWeldingJoints />,
-      MODULES.WELD_JOINTS,
+      MODULES.WELDING.WELD_JOINTS,
       [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER]
     ),
   },
@@ -266,7 +266,7 @@ const weldRoutes = [
     path: "/traveler-welding-nde",
     element: protect(
       <TravelerWeldingNDE />,
-      MODULES.TRAVELER_WELDING,
+      MODULES.WELDING.TRAVELER_WELDING,
       [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER, ROLES.NDT_ENGINEER, ROLES.WELD_PLAN_ADMIN]
     ),
   },

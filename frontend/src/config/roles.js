@@ -7,6 +7,7 @@ import {
     ShieldCheck,
     Wrench,
     ClipboardCheck,
+    Flame,
 } from "lucide-react"
 
 // ─── Module Keys (Hierarchical structure for maximum clarity) ─────────────
@@ -38,9 +39,11 @@ export const MODULES = {
     DCR: "DCR_REQUEST",
     NCR: "NCR_CREATE",
     MHC: "MHC_VIEW",
-    WELD_PLAN: "WELD_PLAN",
-    WELD_JOINTS: "WELD_JOINTS",
-    TRAVELER_WELDING: "TRAVELER_WELDING",
+    WELDING: {
+        WELD_PLAN: "WELD_PLAN",
+        WELD_JOINTS: "WELD_JOINTS",
+        TRAVELER_WELDING: "TRAVELER_WELDING",
+    },
     HYDRO_TEST: "HYDRO_TEST_VIEW",
     
     INSPECTION: {
@@ -223,22 +226,13 @@ export const MENU_CONFIG = [
 
     // ── Welding ──
     {
-        title: "Weld Plan",
-        icon: Wrench,
-        path: "/welding-joints",
-        moduleKey: MODULES.WELD_PLAN,
-    },
-    {
-        title: "Welding Joints",
-        icon: Wrench,
-        path: "/view-weldingjoints",
-        moduleKey: MODULES.WELD_JOINTS,
-    },
-    {
-        title: "Traveler Welding & NDE",
-        icon: Wrench,
-        path: "/traveler-welding-nde",
-        moduleKey: MODULES.TRAVELER_WELDING,
+        title: "WELDING",
+        icon: Folder,
+        items: [
+            { title: "Weld Plan", path: "/welding-joints", moduleKey: MODULES.WELDING.WELD_PLAN },
+            { title: "Welding Joints", path: "/view-weldingjoints", moduleKey: MODULES.WELDING.WELD_JOINTS },
+            { title: "Traveler Welding & NDE", path: "/traveler-welding-nde", moduleKey: MODULES.WELDING.TRAVELER_WELDING },
+        ],
     },
 
     // ── Hydrostatic Pressure Test ──
