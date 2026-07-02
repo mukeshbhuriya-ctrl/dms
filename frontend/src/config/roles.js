@@ -111,19 +111,18 @@ export const MENU_CONFIG = [
         moduleKey: MODULES.DASHBOARD_ADMIN,
     },
     {
-        title: "Job Overview",
-        icon: LayoutDashboard,
-        path: "/admin/job-overview",
-        moduleKey: MODULES.JOB_OVERVIEW,
-    },
-    {
         title: "Dashboard",
         icon: LayoutDashboard,
         path: "/user/dashboard",
         moduleKey: MODULES.DASHBOARD_USER,
         hideFor: [ROLES.ADMIN],
     },
-
+    {
+        title: "Job Overview",
+        icon: FileText,
+        path: "/admin/job-overview",
+        moduleKey: MODULES.JOB_OVERVIEW,
+    },
     // ── Administration ──
     {
         title: "Administration",
@@ -237,8 +236,8 @@ export const MENU_CONFIG = [
 
     // ── Hydrostatic Pressure Test ──
     {
-        title: "Hydrostatic Pressure Test",
-        icon: FileText,
+        title: "HPT",
+        icon: Folder,
         items: [
             { title: "Hydro Pres Test", path: "/hydrostatic-pressure-test", moduleKey: MODULES.HYDRO_TEST },
         ],
