@@ -434,154 +434,49 @@ function Stage2({ initialData, isReview = false, readOnly = false, stage = "stag
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Display Fields (Read-only) */}
             <div className="space-y-2">
               <Label htmlFor="msn">MSN:</Label>
-              <Input
-                id="msn"
-                name="msn"
-                type="text"
-                value={displayFields.msn}
-                readOnly
-                className="bg-muted"
-              />
+              <Input id="msn" name="msn" type="text" value={displayFields?.msn || ""} readOnly className="bg-muted" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="client">CLIENT:</Label>
-              <Input
-                id="client"
-                name="client"
-                type="text"
-                value={displayFields.client}
-                readOnly
-                className="bg-muted"
-              />
+              <Input id="client" name="client" type="text" value={displayFields?.client || ""} readOnly className="bg-muted" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="poNo">P.O. NO.:</Label>
-              <Input
-                id="poNo"
-                name="poNo"
-                type="text"
-                value={displayFields.poNo}
-                readOnly
-                className="bg-muted"
-              />
+              <Input id="poNo" name="poNo" type="text" value={displayFields?.poNo || ""} readOnly className="bg-muted" />
             </div>
-
-            {/* Input Fields */}
             <div className="space-y-2">
               <Label htmlFor="reportNo">Report No:</Label>
-              <Input
-                id="reportNo"
-                name="reportNo"
-                type="text"
-                value={inputFields.reportNo}
-                onChange={handleInputChange}
-                placeholder="Enter Report No"
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="reportNo" name="reportNo" type="text" value={inputFields?.reportNo || ""} readOnly className="bg-muted" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="tagNo">TAG NO.:</Label>
-              <Input
-                id="tagNo"
-                name="tagNo"
-                type="text"
-                value={inputFields.tagNo}
-                onChange={handleInputChange}
-                placeholder="Enter TAG NO."
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="tagNo" name="tagNo" type="text" value={inputFields?.tagNo || ""} readOnly className="bg-muted" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="equipment">EQUIPMENT:</Label>
-              <Input
-                id="equipment"
-                name="equipment"
-                type="text"
-                value={inputFields.equipment}
-                onChange={handleInputChange}
-                placeholder="Enter EQUIPMENT"
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="equipment" name="equipment" type="text" value={inputFields?.equipment || ""} readOnly className="bg-muted" />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="projectsId">Projects ID:</Label>
-              <Input
-                id="projectsId"
-                name="projectsId"
-                type="text"
-                value={inputFields.projectsId}
-                onChange={handleInputChange}
-                placeholder="Enter Projects ID"
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="projectsId" name="projectsId" type="text" value={inputFields?.projectsId || ""} onChange={handleInputChange} placeholder="Enter Projects ID" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="lindeDrgNo">CLIENT DRG.:</Label>
-              <Input
-                id="lindeDrgNo"
-                name="lindeDrgNo"
-                type="text"
-                value={inputFields.lindeDrgNo}
-                onChange={handleInputChange}
-                placeholder="Enter CLIENT DRG."
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="lindeDrgNo" name="lindeDrgNo" type="text" value={inputFields?.lindeDrgNo || ""} onChange={handleInputChange} placeholder="Enter CLIENT DRG." readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="drgNo">SHRENO DRG NO.:</Label>
-              <Input
-                id="drgNo"
-                name="drgNo"
-                type="text"
-                value={inputFields.drgNo}
-                onChange={handleInputChange}
-                placeholder="Enter SHRENO DRG NO."
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="drgNo" name="drgNo" type="text" value={inputFields?.drgNo || ""} onChange={handleInputChange} placeholder="Enter SHRENO DRG NO." readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="code">CODE:</Label>
-              <Input
-                id="code"
-                name="code"
-                type="text"
-                value={inputFields.code}
-                onChange={handleInputChange}
-                placeholder="Enter CODE"
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="code" name="code" type="text" value={inputFields?.code || ""} onChange={handleInputChange} placeholder="Enter CODE" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="inspAgency">INSP. AGENCY:</Label>
-              <Input
-                id="inspAgency"
-                name="inspAgency"
-                type="text"
-                value={inputFields.inspAgency}
-                onChange={handleInputChange}
-                placeholder="Enter INSP. AGENCY"
-                readOnly={isReadOnly}
-                className={isReadOnly ? "bg-muted" : ""}
-              />
+              <Input id="inspAgency" name="inspAgency" type="text" value={inputFields?.inspAgency || ""} onChange={handleInputChange} placeholder="Enter INSP. AGENCY" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
           </div>
         </CardContent>

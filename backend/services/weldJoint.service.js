@@ -728,14 +728,14 @@ class WeldJointService {
             await prisma.weld_joint_report_info.upsert({
                 where: { weld_joint_id: jointId },
                 update: {
-                    report_no: info.reportNo || undefined,
-                    tag_no: info.tagNo || undefined,
-                    equipment: info.equipment || undefined,
-                    projects_id: info.projectsId || undefined,
-                    linde_drg_no: info.lindeDrgNo || undefined,
-                    drg_no: info.drgNo || undefined,
-                    code: info.code || undefined,
-                    insp_agency: info.inspAgency || undefined
+                    report_no: info.reportNo !== undefined ? info.reportNo : undefined,
+                    tag_no: info.tagNo !== undefined ? info.tagNo : undefined,
+                    equipment: info.equipment !== undefined ? info.equipment : undefined,
+                    projects_id: info.projectsId !== undefined ? info.projectsId : undefined,
+                    linde_drg_no: info.lindeDrgNo !== undefined ? info.lindeDrgNo : undefined,
+                    drg_no: info.drgNo !== undefined ? info.drgNo : undefined,
+                    code: info.code !== undefined ? info.code : undefined,
+                    insp_agency: info.inspAgency !== undefined ? info.inspAgency : undefined
                 },
                 create: {
                     weld_joint_id: jointId,
