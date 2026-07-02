@@ -290,7 +290,7 @@ class TravelerPdfGenerator {
                         } else {
                             // Vertical text: process, tack, final, and all dates/signs
                             const w = doc.widthOfString(val); // width of string becomes height when rotated -90
-                            if (w + 10 > maxRowH) maxRowH = w + 10;
+                            if (w + 50 > maxRowH) maxRowH = w + 50; // Add 50 points of padding for physical signature space
                         }
                     }
                 });

@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import apiClient from "@/api/api.client";
+import { SearchableSelect } from "@/components/shared/SearchableSelect";
 
 export default function TravelerWeldingNDE() {
   const [joints, setJoints] = useState([]);
@@ -29,18 +30,44 @@ export default function TravelerWeldingNDE() {
   const [loadingMore, setLoadingMore] = useState(false);
   const limit = 50;
 
+  const [weldPlanOptions, setWeldPlanOptions] = useState([]);
+  const [selectedWeldPlans, setSelectedWeldPlans] = useState([]);
+
+  // Fetch filters once
+  useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const response = await apiClient.get('/api/wpj/active-filters');
+        if (response?.data?.records) {
+          const uniqueWeldPlans = [...new Set(response.data.records.map(r => r.weldPlanNo).filter(Boolean))];
+          setWeldPlanOptions(uniqueWeldPlans.map(wp => ({ label: wp, value: wp })));
+        }
+      } catch (error) {
+        console.error("Error fetching filters:", error);
+      }
+    };
+    fetchFilters();
+  }, []);
+
+  // Fetch joints when page OR selectedWeldPlans change
   useEffect(() => {
     const fetchJoints = async () => {
       try {
         if (page === 1) setLoading(true);
         else setLoadingMore(true);
 
-        const response = await apiClient.get('/api/wpj/traveler-summary', { 
+        const params = { 
           limit, 
           page,
           sortBy: 'joint_no',
           sortOrder: 'asc'
-        });
+        };
+
+        if (selectedWeldPlans.length > 0) {
+          params.columnFilters = JSON.stringify({ weldPlanNo: selectedWeldPlans });
+        }
+
+        const response = await apiClient.get('/api/wpj/traveler-summary', params);
         
         if (response && response.success) {
           const newData = response.data || [];
@@ -61,11 +88,21 @@ export default function TravelerWeldingNDE() {
     };
     
     fetchJoints();
-  }, [page]);
+  }, [page, selectedWeldPlans]);
+
+  const handleWeldPlanChange = (val) => {
+    setSelectedWeldPlans(val);
+    setPage(1); // Reset page to 1 whenever filters change
+  };
 
   const handleDownloadPdf = async () => {
     try {
-      const blob = await apiClient.get('/api/wpj/traveler-summary-pdf', {}, {
+      const params = {};
+      if (selectedWeldPlans.length > 0) {
+        params.columnFilters = JSON.stringify({ weldPlanNo: selectedWeldPlans });
+      }
+
+      const blob = await apiClient.get('/api/wpj/traveler-summary-pdf', params, {
         responseType: 'blob'
       });
       const url = window.URL.createObjectURL(blob);
@@ -85,15 +122,26 @@ export default function TravelerWeldingNDE() {
       <ModuleHeader 
         title="Traveler Welding & NDE" 
         description="Welding and Non-Destructive Examination Inspection Records"
-        actions={
-          <Button onClick={handleDownloadPdf} size="sm" className="h-8">
-            <Download className="mr-2 h-4 w-4" />
-            Download PDF
-          </Button>
-        }
       />
       
       <div className="p-6">
+        <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="w-full sm:w-80">
+            <SearchableSelect
+              options={weldPlanOptions}
+              value={selectedWeldPlans}
+              onValueChange={handleWeldPlanChange}
+              placeholder="All Weld Plans"
+              searchPlaceholder="Search Weld Plan No..."
+              multi
+            />
+          </div>
+          <Button onClick={handleDownloadPdf} size="sm" className="h-8 shrink-0 cursor-pointer">
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </Button>
+        </div>
+        
         <Card className="rounded-md shadow-sm border border-border bg-card overflow-hidden">
           <CardContent className="p-0">
             <div className="overflow-auto max-h-[calc(100vh-150px)] w-full border-t border-border bg-card">

@@ -598,6 +598,12 @@ class WeldJointService {
                     job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(cFilters.msn || cFilters.msnNumber) } 
                 };
             }
+            if (cFilters.weldPlanNo) {
+                where.weld_joint_plan = {
+                    ...where.weld_joint_plan,
+                    weld_plan_no: handleMultiFilter(cFilters.weldPlanNo)
+                };
+            }
             if (cFilters.is_active) {
                 const activeStatus = Array.isArray(cFilters.is_active) ? cFilters.is_active : cFilters.is_active.split(',').map(v => v.trim());
                 if (activeStatus.length === 1) {
@@ -1134,6 +1140,7 @@ class WeldJointService {
 
                     weld_joint_plan: {
                         select: {
+                            weld_plan_no: true,
                             job: {
                                 select: {
                                     job_number: true,
@@ -1154,7 +1161,8 @@ class WeldJointService {
                 po: j.weld_joint_plan?.job?.po?.po_number,
                 msn: j.weld_joint_plan?.job?.job_number,
                 joint_no: j.joint_no,
-                cat: j.joint_type
+                cat: j.joint_type,
+                weldPlanNo: j.weld_joint_plan?.weld_plan_no
             }));
 
             return { records };
