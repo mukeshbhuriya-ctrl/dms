@@ -245,7 +245,7 @@ export const MENU_CONFIG = [
 
     // ── Instruments ──
     {
-        title: "Instruments Master",
+        title: "Instruments",
         icon: Folder,
         moduleKey: MODULES.MASTERS.INSTRUMENTS,
         items: [

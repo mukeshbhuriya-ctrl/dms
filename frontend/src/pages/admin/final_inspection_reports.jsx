@@ -1158,8 +1158,10 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
                 id="code"
                 type="text"
                 value={code}
-                readOnly
-                className="bg-muted"
+                onChange={(e) => setCode(e.target.value)}
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted text-xs" : "text-xs"}
+                placeholder="Enter code"
               />
             </div>
 
@@ -1173,6 +1175,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
                 onChange={handleInputChange}
                 readOnly={userRole === 'PROD'}
                 className={userRole === 'PROD' ? "bg-muted" : ""}
+                placeholder="Enter project ID"
               />
             </div>
 
@@ -1186,6 +1189,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
                 onChange={handleInputChange}
                 readOnly={userRole === 'PROD'}
                 className={userRole === 'PROD' ? "bg-muted" : ""}
+                placeholder="Enter tag no"
               />
             </div>
 
@@ -1199,6 +1203,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
                 onChange={handleInputChange}
                 readOnly={userRole === 'PROD'}
                 className={userRole === 'PROD' ? "bg-muted" : ""}
+                placeholder="Enter drg no"
               />
             </div>
           </div>

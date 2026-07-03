@@ -983,17 +983,6 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="code">CODE:</Label>
-              <Input
-                id="code"
-                type="text"
-                value={code}
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="client">CLIENT:</Label>
               <Input
                 id="client"
@@ -1012,6 +1001,19 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
                 value={poNo}
                 readOnly
                 className="bg-muted"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="code">CONSTRUCTION CODE:</Label>
+              <Input
+                id="code"
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                readOnly={userRole === 'PROD'}
+                className={userRole === 'PROD' ? "bg-muted text-xs" : "text-xs"}
+                placeholder="Enter construction code"
               />
             </div>
 
@@ -1123,7 +1125,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
                       <div className="text-sm font-medium">{row.srNo}</div>
                     </TableCell>
                     <TableCell className="p-2 border border-gray-300">
-                      <div className="text-sm">{row.description}</div>
+                      <Input
+                        type="text"
+                        value={row.description}
+                        onChange={(e) => handleRowChange(row.id, "description", e.target.value)}
+                        placeholder="Description"
+                        readOnly={userRole === 'PROD'}
+                        className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? 'bg-muted' : ''}`}
+                      />
                     </TableCell>
                     <TableCell className="p-2 border border-gray-300">
                       <Input
