@@ -2101,14 +2101,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                 {submitting === "INITIATE" ? "Initiating..." : (editId && mhcStatus?.toUpperCase() !== "DRAFT" ? "Update Initiation" : "Initiate MHC")}
               </Button>
             )}
-            {(mhcStatus?.toUpperCase() === "INITIATED" || mhcStatus?.toUpperCase() === "PENDING" || mhcStatus?.toUpperCase() === "REJECTED") && (isAdmin || isPE) && (
+            {editId && (mhcStatus?.toUpperCase() === "INITIATED" || mhcStatus?.toUpperCase() === "PENDING" || mhcStatus?.toUpperCase() === "REJECTED") && (isAdmin || isPE) && (
               <Button
                 variant="secondary"
                 onClick={() => handleSubmit("OFFER")}
                 disabled={submitting !== null}
                 className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 cursor-pointer gap-2"
               >
-                {submitting === "OFFER" ? "Continuing..." : "Continue (Production Submit)"}
+                {submitting === "OFFER" ? "Continuing..." : "Continue (Production)"}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
