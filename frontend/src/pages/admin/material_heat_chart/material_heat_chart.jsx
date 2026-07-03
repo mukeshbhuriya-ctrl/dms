@@ -1291,7 +1291,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const sStatus = mhcStatus?.toUpperCase() || "";
   const isQcInitiationLocked = isView || !((isAdmin || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "DRAFT" || sStatus === "OFFERED" || !editId));
   const isProdOfferLocked = isView || !(
-    ((isAdmin || isPE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED" || sStatus === "OFFERED") && editId)
+    ((isAdmin || isPE || isQE) && (sStatus === "INITIATED" || sStatus === "PENDING" || sStatus === "REJECTED" || sStatus === "OFFERED" || sStatus === "DRAFT" || sStatus === ""))
   );
   const isQcFinalLocked = isView || !((isAdmin || isQE) && sStatus === "OFFERED");
   const showQcCols = isView || (sStatus !== "DRAFT" && sStatus !== "INITIATED" && sStatus !== "");

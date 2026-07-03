@@ -444,18 +444,24 @@ class MhcService {
                 const newRemarks = item.remarks || null;
                 const newQcStatus = item.qc_status || 'Approved';
                 const newQcRemarks = item.qc_remarks || null;
+                const newHeatNo = item.heat_no || null;
+                const newGrnAppApNo = item.grn_app_ap_no || null;
 
                 const oldMtrNo = currentItem.mtr_no || null;
                 const oldManufacturer = currentItem.manufacturer || null;
                 const oldRemarks = currentItem.remarks || null;
                 const oldQcStatus = currentItem.qc_status || 'Pending';
                 const oldQcRemarks = currentItem.qc_remarks || null;
+                const oldHeatNo = currentItem.heat_no || null;
+                const oldGrn = currentItem.grn_app_ap_no || null;
 
                 const qcChanged = newMtrNo !== oldMtrNo || 
                                    newManufacturer !== oldManufacturer || 
                                    newRemarks !== oldRemarks || 
                                    newQcStatus !== oldQcStatus || 
-                                   newQcRemarks !== oldQcRemarks;
+                                   newQcRemarks !== oldQcRemarks ||
+                                   newHeatNo !== oldHeatNo ||
+                                   newGrnAppApNo !== oldGrn;
 
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
@@ -463,6 +469,8 @@ class MhcService {
                         mtr_no: newMtrNo,
                         manufacturer: newManufacturer,
                         remarks: newRemarks,
+                        heat_no: newHeatNo,
+                        grn_app_ap_no: newGrnAppApNo,
                         qc_status: newQcStatus,
                         qc_remarks: newQcRemarks,
                         qc_engineer_id: qcChanged ? user_id : currentItem.qc_engineer_id,
@@ -531,18 +539,24 @@ class MhcService {
                 const newManufacturer = item.manufacturer || null;
                 const newRemarks = item.remarks || null;
                 const newQcRemarks = item.qc_remarks || null;
+                const newHeatNo = item.heat_no || null;
+                const newGrnAppApNo = item.grn_app_ap_no || null;
 
                 const oldMtrNo = currentItem.mtr_no || null;
                 const oldManufacturer = currentItem.manufacturer || null;
                 const oldRemarks = currentItem.remarks || null;
                 const oldQcStatus = currentItem.qc_status || 'Pending';
                 const oldQcRemarks = currentItem.qc_remarks || null;
+                const oldHeatNo = currentItem.heat_no || null;
+                const oldGrn = currentItem.grn_app_ap_no || null;
 
                 const qcChanged = newMtrNo !== oldMtrNo || 
                                    newManufacturer !== oldManufacturer || 
                                    newRemarks !== oldRemarks || 
                                    status !== oldQcStatus || 
-                                   newQcRemarks !== oldQcRemarks;
+                                   newQcRemarks !== oldQcRemarks ||
+                                   newHeatNo !== oldHeatNo ||
+                                   newGrnAppApNo !== oldGrn;
 
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
@@ -552,6 +566,8 @@ class MhcService {
                         mtr_no: newMtrNo,
                         manufacturer: newManufacturer,
                         remarks: newRemarks,
+                        heat_no: newHeatNo,
+                        grn_app_ap_no: newGrnAppApNo,
                         qc_engineer_id: qcChanged ? user_id : currentItem.qc_engineer_id,
                         qc_date: qcChanged ? new Date() : currentItem.qc_date,
                         action_by_id: qcChanged ? user_id : currentItem.action_by_id
