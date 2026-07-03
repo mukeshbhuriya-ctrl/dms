@@ -3555,7 +3555,17 @@ class DccService {
                 const baseDate = latestVersion ? new Date(latestVersion.createdAt) : new Date(doc.createdAt);
                 const deadline = new Date(baseDate.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
 
-                if (now > deadline) {
+                // Strip time to calculate pure day difference
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const deadlineDate = new Date(deadline);
+                deadlineDate.setHours(0, 0, 0, 0);
+
+                const msOverdue = today.getTime() - deadlineDate.getTime();
+                const daysOverdue = Math.floor(msOverdue / (1000 * 60 * 60 * 24));
+
+                // BEST PRACTICE: Only alert on Day 1, Day 3, and then once every 7 days. (Stops daily spam)
+                if (daysOverdue > 0 && (daysOverdue === 1 || daysOverdue === 3 || daysOverdue % 7 === 0)) {
                     if (!uploadOverdueUsers[doc.user_id]) uploadOverdueUsers[doc.user_id] = { user: doc.user, docs: [] };
 
                     const docDetails = {
@@ -3625,7 +3635,17 @@ class DccService {
                 const uploadedAt = new Date(lastVersion.createdAt);
                 const deadline = new Date(uploadedAt.getTime() + (doc.response_due_days * 24 * 60 * 60 * 1000));
 
-                if (now > deadline) {
+                // Strip time to calculate pure day difference
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const deadlineDate = new Date(deadline);
+                deadlineDate.setHours(0, 0, 0, 0);
+
+                const msOverdue = today.getTime() - deadlineDate.getTime();
+                const daysOverdue = Math.floor(msOverdue / (1000 * 60 * 60 * 24));
+
+                // BEST PRACTICE: Only alert on Day 1, Day 3, and then once every 7 days. (Stops daily spam)
+                if (daysOverdue > 0 && (daysOverdue === 1 || daysOverdue === 3 || daysOverdue % 7 === 0)) {
                     if (!overdueByCompany[doc.company_id]) {
                         overdueByCompany[doc.company_id] = [];
                     }
