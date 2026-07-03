@@ -8,9 +8,9 @@ const InstrumentService = require('../services/instrument.service');
 const initScheduler = () => {
     console.log("[Scheduler] Initializing automated tasks...");
 
-    // Run Daily Overdue Check at 08:30 AM every day
+    // Run Daily Overdue Check at 09:30 AM every day
     // Pattern: minute hour day-of-month month day-of-week
-    cron.schedule('30 8 * * *', async () => {
+    cron.schedule('30 9 * * *', async () => {
         try {
             await DccService.checkOverdueDocuments();
         } catch (error) {
