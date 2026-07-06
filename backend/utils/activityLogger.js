@@ -78,6 +78,10 @@ const activityLogMiddleware = (req, res, next) => {
       // Example: [2023-10-27 10:00:00] [Module: DCC] User John Doe (EMP-001) created a record in the DCC module [Path: /api/dcc/...] with status code 201
       const logEntry = `[${timestamp}] [Module: ${moduleName}] User ${name} (${empid}) ${actionWord} a record in the ${moduleName} module [Path: ${url}] with status code ${status}\n`;
 
+      // Pass it to the Trace Engine to tag it with the TRC-ID for the frontend dashboard
+      console.info(`[Performer] ${name} (${empid})`);
+      console.info(`[GenericActivity] ${actionWord} record in ${moduleName} module`);
+
       // Asynchronously append to the log file
       fs.appendFile(logFilePath, logEntry, (err) => {
         if (err) {

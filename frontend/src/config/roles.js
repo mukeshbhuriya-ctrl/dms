@@ -81,6 +81,7 @@ export const MODULES = {
         DEPARTMENTS: "ADMIN_DEPARTMENTS",
         QC_GROUPS: "ADMIN_QC_GROUPS",
         AUDIT_LOGS: "ADMIN_AUDIT_LOGS",
+        DEBUG_TRACES: "ADMIN_DEBUG_TRACES",
     }
 };
 
@@ -133,6 +134,7 @@ export const MENU_CONFIG = [
             { title: "Departments", path: "/departments", moduleKey: MODULES.ADMINISTRATION.DEPARTMENTS },
             { title: "Group Management", path: "/group-management", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
             { title: "Audit Logs", path: "/admin/audit-logs", moduleKey: MODULES.ADMINISTRATION.AUDIT_LOGS },
+            { title: "Debug Traces", path: "/admin/debug-traces", moduleKey: MODULES.ADMINISTRATION.DEBUG_TRACES },
             { title: "Approval Center", path: "/approval-center", moduleKey: MODULES.DASHBOARD_ADMIN },
         ],
     },
