@@ -34,7 +34,7 @@ import { useAuth } from "@/context/AuthContext"
 function CreatePO() {
   const isAdmin = useCheckAdmin()
   const { roles } = useAuth()
-  const canArchive = roles?.some(role => ["ADMIN", "MARKETING", "DCC"].includes(role))
+  const canArchive = roles?.some(role => ["ADMIN", "MARKETING", "DCC", "TAXATION"].includes(role))
 
   const [view, setView] = useState("list") // 'list', 'create', or 'attachments'
   const [selectedHistoryPo, setSelectedHistoryPo] = useState(null)
