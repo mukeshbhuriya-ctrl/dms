@@ -1,5 +1,6 @@
 const TubeBundleInspectionService = require('../../services/tube_bundle_inspection/tube_bundle_inspection.service');
 const TubeBundlePdfGenerator = require('../../utils/tubeBundlePdfGenerator');
+const Audit = require('#utils/audit.js');
 
 class TubeBundleInspectionController {
     async list(req, res) {
@@ -40,6 +41,17 @@ class TubeBundleInspectionController {
             const company_id = req.user.company_id;
             const user_id = req.user.userid || req.user.id;
             const report = await TubeBundleInspectionService.create(company_id, user_id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id,
+                user_id,
+                action: 'created',
+                module: 'Tube Bundle Inspection',
+                description: `Created Tube Bundle Inspection "${report.report_no}"`,
+                metadata: { target_id: report.id },
+            });
+
             res.status(201).json({ success: true, message: "Report created successfully", data: report });
         } catch (error) {
             console.error("TubeBundleInspectionController.create Error:", error);
@@ -52,6 +64,17 @@ class TubeBundleInspectionController {
             const { company_id } = req.user;
             const user_id = req.user.userid || req.user.id;
             const report = await TubeBundleInspectionService.update(req.params.id, company_id, user_id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id,
+                user_id,
+                action: 'updated',
+                module: 'Tube Bundle Inspection',
+                description: `Updated Tube Bundle Inspection "${report.report_no}"`,
+                metadata: { target_id: report.id },
+            });
+
             res.status(200).json({ success: true, message: "Report updated successfully", data: report });
         } catch (error) {
             console.error("TubeBundleInspectionController.update Error:", error);
@@ -63,6 +86,17 @@ class TubeBundleInspectionController {
         try {
             const { company_id } = req.user;
             const report = await TubeBundleInspectionService.toggleStatus(req.params.id, company_id);
+            
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: report.is_active ? 'activated' : 'deactivated',
+                module: 'Tube Bundle Inspection',
+                description: `${report.is_active ? 'Activated' : 'Deactivated'} Tube Bundle Inspection "${report.report_no}"`,
+                metadata: { target_id: report.id, is_active: report.is_active },
+            });
+
             res.status(200).json({ success: true, message: "Status updated successfully", data: report });
         } catch (error) {
             console.error("TubeBundleInspectionController.toggleStatus Error:", error);
@@ -73,7 +107,21 @@ class TubeBundleInspectionController {
     async delete(req, res) {
         try {
             const { company_id } = req.user;
+            const report = await TubeBundleInspectionService.getById(req.params.id, company_id);
             await TubeBundleInspectionService.delete(req.params.id, company_id);
+            
+            if (report) {
+                Audit.insert({
+                    req,
+                    company_id,
+                    user_id: req.user.userid || req.user.id,
+                    action: 'deleted',
+                    module: 'Tube Bundle Inspection',
+                    description: `Deleted Tube Bundle Inspection "${report.report_no}"`,
+                    metadata: { target_id: req.params.id },
+                });
+            }
+
             res.status(200).json({ success: true, message: "Report deleted successfully" });
         } catch (error) {
             console.error("TubeBundleInspectionController.delete Error:", error);

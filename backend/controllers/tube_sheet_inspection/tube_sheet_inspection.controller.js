@@ -1,5 +1,6 @@
 const TubeSheetInspectionService = require('../../services/tube_sheet_inspection/tube_sheet_inspection.service');
 const TubeSheetPdfGenerator = require('../../utils/tubeSheetPdfGenerator');
+const Audit = require('#utils/audit.js');
 
 class TubeSheetInspectionController {
     async list(req, res) {
@@ -40,6 +41,17 @@ class TubeSheetInspectionController {
             const company_id = req.user.company_id;
             const user_id = req.user.userid || req.user.id;
             const report = await TubeSheetInspectionService.create(company_id, user_id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id,
+                user_id,
+                action: 'created',
+                module: 'Tube Sheet Inspection',
+                description: `Created Tube Sheet Inspection "${report.report_no}"`,
+                metadata: { target_id: report.id },
+            });
+
             res.status(201).json({ success: true, message: "Report created successfully", data: report });
         } catch (error) {
             console.error("TubeSheetInspectionController.create Error:", error);
@@ -51,6 +63,17 @@ class TubeSheetInspectionController {
         try {
             const { company_id } = req.user;
             const report = await TubeSheetInspectionService.update(req.params.id, company_id, req.body);
+            
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: 'updated',
+                module: 'Tube Sheet Inspection',
+                description: `Updated Tube Sheet Inspection "${report.report_no}"`,
+                metadata: { target_id: report.id },
+            });
+
             res.status(200).json({ success: true, message: "Report updated successfully", data: report });
         } catch (error) {
             console.error("TubeSheetInspectionController.update Error:", error);
@@ -62,6 +85,17 @@ class TubeSheetInspectionController {
         try {
             const { company_id } = req.user;
             const report = await TubeSheetInspectionService.toggleStatus(req.params.id, company_id);
+            
+            Audit.insert({
+                req,
+                company_id,
+                user_id: req.user.userid || req.user.id,
+                action: report.is_active ? 'activated' : 'deactivated',
+                module: 'Tube Sheet Inspection',
+                description: `${report.is_active ? 'Activated' : 'Deactivated'} Tube Sheet Inspection "${report.report_no}"`,
+                metadata: { target_id: report.id, is_active: report.is_active },
+            });
+
             res.status(200).json({ success: true, message: "Status updated successfully", data: report });
         } catch (error) {
             console.error("TubeSheetInspectionController.toggleStatus Error:", error);
@@ -72,7 +106,21 @@ class TubeSheetInspectionController {
     async delete(req, res) {
         try {
             const { company_id } = req.user;
+            const report = await TubeSheetInspectionService.getById(req.params.id, company_id);
             await TubeSheetInspectionService.delete(req.params.id, company_id);
+            
+            if (report) {
+                Audit.insert({
+                    req,
+                    company_id,
+                    user_id: req.user.userid || req.user.id,
+                    action: 'deleted',
+                    module: 'Tube Sheet Inspection',
+                    description: `Deleted Tube Sheet Inspection "${report.report_no}"`,
+                    metadata: { target_id: req.params.id },
+                });
+            }
+
             res.status(200).json({ success: true, message: "Report deleted successfully" });
         } catch (error) {
             console.error("TubeSheetInspectionController.delete Error:", error);
