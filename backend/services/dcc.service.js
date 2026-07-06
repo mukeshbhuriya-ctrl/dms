@@ -3008,6 +3008,21 @@ class DccService {
                 dateWasEdited = true;
             }
 
+            let jobUpdateData = {};
+            if (job_ids && Array.isArray(job_ids) && job_ids.length > 0) {
+                const firstJob = await tx.job.findUnique({
+                    where: { id: job_ids[0] },
+                    select: { customer_id: true, customer_location_id: true, po_id: true }
+                });
+                if (firstJob) {
+                    jobUpdateData = {
+                        customer_id: firstJob.customer_id,
+                        customer_location_id: firstJob.customer_location_id,
+                        po_id: firstJob.po_id
+                    };
+                }
+            }
+
             // 1. Update Group Document
             const updatedGroupDoc = await tx.group_document.update({
                 where: { id },
@@ -3019,7 +3034,8 @@ class DccService {
                     shreno_doc_no: shreno_document_no === undefined ? undefined : (shreno_document_no || null),
                     shreno_reference_no: shreno_reference_no === undefined ? undefined : (shreno_reference_no || null),
                     client_doc_no: client_document_no === undefined ? undefined : (client_document_no || null),
-                    client_reference_no: client_reference_no === undefined ? undefined : (client_reference_no || null)
+                    client_reference_no: client_reference_no === undefined ? undefined : (client_reference_no || null),
+                    ...jobUpdateData
                 }
             });
 
@@ -3115,6 +3131,21 @@ class DccService {
                     dateWasEdited = true;
                 }
 
+                let jobUpdateData = {};
+                if (job_ids && Array.isArray(job_ids) && job_ids.length > 0) {
+                    const firstJob = await tx.job.findUnique({
+                        where: { id: job_ids[0] },
+                        select: { customer_id: true, customer_location_id: true, po_id: true }
+                    });
+                    if (firstJob) {
+                        jobUpdateData = {
+                            customer_id: firstJob.customer_id,
+                            customer_location_id: firstJob.customer_location_id,
+                            po_id: firstJob.po_id
+                        };
+                    }
+                }
+
                 const updatedGroupDoc = await tx.group_document.update({
                     where: { id },
                     data: {
@@ -3125,7 +3156,8 @@ class DccService {
                         shreno_doc_no: shreno_document_no === undefined ? undefined : (shreno_document_no || null),
                         shreno_reference_no: shreno_reference_no === undefined ? undefined : (shreno_reference_no || null),
                         client_doc_no: client_document_no === undefined ? undefined : (client_document_no || null),
-                        client_reference_no: client_reference_no === undefined ? undefined : (client_reference_no || null)
+                        client_reference_no: client_reference_no === undefined ? undefined : (client_reference_no || null),
+                        ...jobUpdateData
                     }
                 });
 
