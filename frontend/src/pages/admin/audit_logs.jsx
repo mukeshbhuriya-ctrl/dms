@@ -93,11 +93,23 @@ function AuditLogs() {
         filterType: "select",
         isMulti: true,
         filterOptions: actionFilterOptions,
-        cell: (row) => (
-          <span className="inline-flex items-center px-2 py-0.5 border border-slate-200 text-slate-600 text-[10px] font-semibold uppercase rounded-sm bg-white">
-            {row.action}
-          </span>
-        ),
+        cell: (row) => {
+          const action = row.action?.toLowerCase() || ""
+          let colorClass = "text-slate-600"
+          if (action.includes("delete")) {
+            colorClass = "text-red-500"
+          } else if (action.includes("update") || action.includes("patch")) {
+            colorClass = "text-amber-500"
+          } else if (action.includes("create")) {
+            colorClass = "text-emerald-500"
+          }
+
+          return (
+            <span className={`inline-flex items-center text-[11px] font-bold uppercase tracking-wider ${colorClass}`}>
+              {row.action}
+            </span>
+          )
+        },
       },
       {
         accessorKey: "module",
