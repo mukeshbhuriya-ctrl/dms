@@ -25,6 +25,7 @@ import ProDataTable from "@/components/shared/ProDataTable"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+import { commonApi } from "@/api/common.api"
 
 function CreateJob() {
   const isAdmin = useCheckAdmin()
@@ -49,7 +50,12 @@ function CreateJob() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true)
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false)
+  const [isLoadingPOs, setIsLoadingPOs] = useState(false)
+  
   const [customers, setCustomers] = useState([])
+  const [locations, setLocations] = useState([])
+  const [availablePOs, setAvailablePOs] = useState([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
@@ -154,7 +160,7 @@ function CreateJob() {
     if (!activeFilters.records || activeFilters.records.length === 0) return
 
     const updates = {}
-    
+
     // Reverse Auto-Selection from Job Number (MSN)
     if (columnFilters.job_number && Array.isArray(columnFilters.job_number) && columnFilters.job_number.length === 1) {
       const selectedJob = columnFilters.job_number[0]
@@ -164,7 +170,7 @@ function CreateJob() {
         if (!columnFilters.po_number || columnFilters.po_number.length === 0) updates.po_number = [match.po_number]
         if (!columnFilters.location || columnFilters.location.length === 0) updates.location = [match.location]
       }
-    } 
+    }
     // Reverse Auto-Selection from PO Number
     else if (columnFilters.po_number && Array.isArray(columnFilters.po_number) && columnFilters.po_number.length === 1) {
       const selectedPo = columnFilters.po_number[0]
@@ -278,12 +284,6 @@ function CreateJob() {
       cell: (row) => row.customer_location?.location_name || "-"
     },
     {
-      accessorKey: "project_id",
-      header: "Project ID",
-      filterType: "text",
-      cell: (row) => row.project_id || "-",
-    },
-    {
       accessorKey: "equipment",
       header: "Equipment",
       filterType: "text",
@@ -357,10 +357,11 @@ function CreateJob() {
     return responseData;
   }, [])
 
-  // Fetch customers
+  // Fetch lightweight customers list on mount
   const fetchCustomers = async () => {
+    setIsLoadingCustomers(true)
     try {
-      const responseData = await apiClient.get('/api/dcc/get-customers', { limit: 1000 })
+      const responseData = await commonApi.getCustomers()
       if (responseData.success) {
         setCustomers(responseData.data || [])
       } else {
@@ -374,52 +375,55 @@ function CreateJob() {
     }
   }
 
+  // Fetch locations from backend when customer changes
+  const fetchLocations = async (customerId) => {
+    if (!customerId) {
+      setLocations([])
+      return
+    }
+    setIsLoadingLocations(true)
+    try {
+      const res = await commonApi.getLocations({ customer_id: customerId })
+      if (res.success) setLocations(res.data || [])
+    } catch (err) {
+      console.error("Error fetching locations:", err)
+    } finally {
+      setIsLoadingLocations(false)
+    }
+  }
+
+  // Fetch POs from backend when customer/location changes
+  const fetchPOs = async (customerId, locationId) => {
+    if (!customerId) {
+      setAvailablePOs([])
+      return
+    }
+    setIsLoadingPOs(true)
+    try {
+      const params = { customer_id: customerId }
+      if (locationId) params.location_id = locationId
+      const res = await commonApi.getPos(params)
+      if (res.success) setAvailablePOs(res.data || [])
+    } catch (err) {
+      console.error("Error fetching POs:", err)
+    } finally {
+      setIsLoadingPOs(false)
+    }
+  }
+
   useEffect(() => {
     if (view === "create") {
       fetchCustomers()
     }
   }, [view])
 
-  const getLocationsForCustomer = (customerId) => {
-    const customer = customers.find((c) => c.id === customerId)
-    return customer?.customer_locations || []
-  }
+  useEffect(() => {
+    fetchLocations(formData.customerId)
+  }, [formData.customerId])
 
-  const getPOsForLocation = (locationId) => {
-    if (!formData.customerId || !locationId) return []
-    const customer = customers.find((c) => c.id === formData.customerId)
-    if (!customer) return []
-    const location = customer.customer_locations?.find((loc) => loc.id === locationId)
-    return location?.pos || []
-  }
-
-  const getAllPOs = () => {
-    const allPOs = []
-    customers.forEach((customer) => {
-      customer.customer_locations?.forEach((location) => {
-        location.pos?.forEach((po) => {
-          allPOs.push({
-            ...po,
-            customer_id: customer.id,
-            customer_name: customer.customer_name || customer.name,
-            location_id: location.id,
-            location_name: location.location_name || location.name,
-          })
-        })
-      })
-    })
-    return allPOs
-  }
-
-  const availableLocations = formData.customerId
-    ? getLocationsForCustomer(formData.customerId)
-    : []
-
-  const availablePOs = formData.locationId
-    ? getPOsForLocation(formData.locationId)
-    : []
-
-  const allPOs = getAllPOs()
+  useEffect(() => {
+    fetchPOs(formData.customerId, formData.locationId)
+  }, [formData.customerId, formData.locationId])
 
   const handleCustomerChange = (customerId) => {
     setFormData((prev) => ({
@@ -442,13 +446,12 @@ function CreateJob() {
 
   const handlePOChange = (poId) => {
     if (poId) {
-      const selectedPO = allPOs.find((po) => po.id === poId)
+      const selectedPO = availablePOs.find((po) => po.id === poId)
       if (selectedPO) {
-        setFormData({
-          customerId: selectedPO.customer_id,
-          locationId: selectedPO.location_id,
+        setFormData((prev) => ({
+          ...prev,
           poId: poId,
-        })
+        }))
       } else {
         setFormData((prev) => ({ ...prev, poId }))
       }
@@ -667,8 +670,8 @@ function CreateJob() {
                             <SelectValue placeholder="Select a location" />
                           </SelectTrigger>
                           <SelectContent>
-                            {availableLocations.length > 0 ? (
-                              availableLocations.map((location) => (
+                            {locations.length > 0 ? (
+                              locations.map((location) => (
                                 <SelectItem
                                   key={location.id}
                                   value={String(location.id)}
@@ -683,7 +686,9 @@ function CreateJob() {
                                 </SelectItem>
                               ))
                             ) : (
-                              <SelectItem value="no-location" disabled>No locations available</SelectItem>
+                              <SelectItem value="no-location" disabled>
+                                {isLoadingLocations ? "Loading..." : "No locations available"}
+                              </SelectItem>
                             )}
                           </SelectContent>
                         </Select>
@@ -704,9 +709,9 @@ function CreateJob() {
                           <SelectValue placeholder="Select a purchase order" />
                         </SelectTrigger>
                         <SelectContent>
-                          {allPOs.map((po) => (
+                          {availablePOs.map((po) => (
                             <SelectItem key={po.id} value={String(po.id)}>
-                              {po.po_number} ({po.customer_name})
+                              {po.po_number} {po.customer?.customer_name ? `(${po.customer.customer_name})` : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>

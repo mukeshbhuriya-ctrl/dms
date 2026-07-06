@@ -48,7 +48,7 @@ router.get('/get-pos', DccController.getPos);
 router.get('/get-po-filters', DccController.getPoFilters);
 router.post('/create-po', upload.single('po_document'), createPo);
 router.put('/update-po/:id', upload.single('po_document'), updatePo);
-router.delete('/delete-po/:id', authenticateUser(['ADMIN']), deletePo);
+router.delete('/delete-po/:id', authenticateUser(['ADMIN', 'MARKETING', 'DCC']), deletePo);
 router.patch('/pos/toggle-status/:id', authenticateUser(['ADMIN']), DccController.togglePoStatus);
 router.put('/update-po-communication-matrix/:id', updatePoCommunicationMatrix);
 router.get('/get-po-attachments/:po_id', getPoAttachments);

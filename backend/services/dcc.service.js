@@ -636,7 +636,7 @@ class DccService {
 
     async getManageJobFilters(company_id) {
         const jobs = await prisma.job.findMany({
-            where: { company_id, is_deleted: false },
+            where: { company_id, is_deleted: false, po: { is_deleted: false } },
             select: {
                 job_number: true,
                 customer: { select: { customer_name: true } },
@@ -660,7 +660,7 @@ class DccService {
      */
     async getActiveFilters(company_id, user_id = null, options = {}) {
         const getFilters = async (uid = null) => {
-            const whereClause = { company_id, is_deleted: false, is_active: true };
+            const whereClause = { company_id, is_deleted: false, is_active: true, po: { is_deleted: false } };
             if (uid) whereClause.user_id = uid;
 
             // Check for specific document status/approval filters

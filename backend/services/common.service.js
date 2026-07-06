@@ -39,18 +39,21 @@ class CommonService {
     /**
      * Get a standardized list of Purchase Orders (POs)
      */
-    async getPos(company_id, search = '', customer_id = null) {
-        const where = { company_id };
+    async getPos(company_id, search = '', customer_id = null, location_id = null) {
+        const where = { company_id, is_deleted: false };
         if (search) {
             where.po_number = { contains: search, mode: 'insensitive' };
         }
         if (customer_id) {
             where.customer_id = customer_id;
         }
+        if (location_id) {
+            where.customer_location_id = location_id;
+        }
 
         return await prisma.po.findMany({
             where,
-            select: { id: true, po_number: true, customer_id: true },
+            select: { id: true, po_number: true, customer_id: true, customer_location_id: true, customer: { select: { customer_name: true } } },
             orderBy: { po_number: 'asc' }
         });
     }
@@ -59,7 +62,7 @@ class CommonService {
      * Get a standardized list of Jobs/MSNs
      */
     async getJobs(company_id, search = '', customer_id = null, po_id = null) {
-        const where = { company_id, is_active: true };
+        const where = { company_id, is_active: true, is_deleted: false, po: { is_deleted: false } };
         if (search) {
             where.OR = [
                 { job_number: { contains: search, mode: 'insensitive' } },
@@ -97,7 +100,7 @@ class CommonService {
      */
     async getJobByNumber(company_id, job_number) {
         return await prisma.job.findFirst({
-            where: { job_number: String(job_number), company_id },
+            where: { job_number: String(job_number), company_id, is_deleted: false, po: { is_deleted: false } },
             select: {
                 id: true,
                 job_number: true,
@@ -119,7 +122,7 @@ class CommonService {
      */
     async getJobDetails(company_id, id) {
         return await prisma.job.findFirst({
-            where: { id, company_id },
+            where: { id, company_id, is_deleted: false, po: { is_deleted: false } },
             select: {
                 id: true,
                 job_number: true,

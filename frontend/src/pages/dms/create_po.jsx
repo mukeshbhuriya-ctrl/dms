@@ -29,9 +29,13 @@ import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Trash2 } from "lucide-react"
 import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+import { useAuth } from "@/context/AuthContext"
 
 function CreatePO() {
   const isAdmin = useCheckAdmin()
+  const { roles } = useAuth()
+  const canArchive = roles?.some(role => ["ADMIN", "MARKETING", "DCC"].includes(role))
+
   const [view, setView] = useState("list") // 'list', 'create', or 'attachments'
   const [selectedHistoryPo, setSelectedHistoryPo] = useState(null)
 
@@ -391,7 +395,7 @@ function CreatePO() {
           >
             <History className="h-4 w-4" /> Attachments
           </Button>
-          {isAdmin && (
+          {canArchive && (
             <Button
               variant="outline"
               size="sm"
@@ -406,7 +410,7 @@ function CreatePO() {
         </div>
       ),
     },
-  ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions])
+  ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions, isAdmin, canArchive])
 
   const fetchPos = useCallback(async (params) => {
     try {

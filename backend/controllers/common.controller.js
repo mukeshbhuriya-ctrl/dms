@@ -29,8 +29,8 @@ class CommonController {
     async getPos(req, res) {
         try {
             const { company_id } = req.user;
-            const { search, customer_id } = req.query;
-            const data = await CommonService.getPos(company_id, search, customer_id);
+            const { search, customer_id, location_id } = req.query;
+            const data = await CommonService.getPos(company_id, search, customer_id, location_id);
             res.status(200).json({ success: true, message: "POs fetched successfully", data });
         } catch (error) {
             console.error("CommonController.getPos Error:", error);

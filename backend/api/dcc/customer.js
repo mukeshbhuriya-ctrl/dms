@@ -884,6 +884,7 @@ async function getCustomers(req, res) {
         customer_locations: {
           include: {
             pos: {
+              where: { is_deleted: false },
               include: {
                 jobs: true,
                 po_communication_matrix: true,
@@ -893,6 +894,7 @@ async function getCustomers(req, res) {
           },
         },
         pos: {
+          where: { is_deleted: false },
           include: {
             jobs: true,
             po_communication_matrix: true,
@@ -1057,7 +1059,7 @@ async function getPoFilters(req, res) {
     const company_id = req.user.company_id;
 
     const data = await prisma.po.findMany({
-      where: { company_id },
+      where: { company_id, is_deleted: false },
       select: {
         po_number: true,
         customer: { select: { customer_name: true } },
@@ -1133,7 +1135,7 @@ async function getJobs(req, res) {
     const company_id = req.user.company_id;
     const { po_id, customer_id, customer_location_id } = req.query;
 
-    const where = { company_id, is_deleted: false };
+    const where = { company_id, is_deleted: false, po: { is_deleted: false } };
 
     if (po_id) where.po_id = typeof po_id === 'string' ? po_id.trim() : String(po_id);
     if (customer_id) where.customer_id = typeof customer_id === 'string' ? customer_id.trim() : String(customer_id);
