@@ -1,5 +1,8 @@
 const prisma = require('#prisma');
 const Audit = require('#utils/audit.js');
+const fs = require('fs');
+const path = require('path');
+const { UPLOAD_DIR } = require('#utils/upload.js');
 
 /**
  * Create Customer API - Create a new customer for the authenticated user's company
@@ -1606,6 +1609,82 @@ async function updatePoCommunicationMatrix(req, res) {
   }
 }
 
+/**
+ * Delete PO Attachment
+ */
+async function deletePoAttachment(req, res) {
+  try {
+    const { id } = req.params;
+    const company_id = req.user.company_id;
+
+    // 1. Find the attachment history record
+    const attachment = await prisma.po_attachment_history.findFirst({
+      where: { id: id.trim(), company_id }
+    });
+
+    if (!attachment) return res.status(404).json({ success: false, message: 'Attachment not found' });
+
+    const po_id = attachment.po_id;
+
+    // 2. Extract filename before deleting the record
+    let filesToDelete = [];
+    if (attachment.po_attachments && Array.isArray(attachment.po_attachments)) {
+      filesToDelete = attachment.po_attachments
+        .map(att => att.filename)
+        .filter(filename => filename); // only non-null filenames
+    }
+
+    // 3. Delete the record
+    await prisma.po_attachment_history.delete({
+      where: { id: id.trim() }
+    });
+
+    // 4. Delete the physical files
+    filesToDelete.forEach(filename => {
+      const filePath = path.join(UPLOAD_DIR, filename);
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (err) {
+          console.error(`Failed to delete physical file: ${filePath}`, err);
+        }
+      }
+    });
+
+    // 3. Update the Parent PO's current document URL
+    const latestAttachment = await prisma.po_attachment_history.findFirst({
+      where: { po_id: po_id, company_id },
+      orderBy: { revision: 'desc' }
+    });
+
+    let newDocUrl = null;
+    if (latestAttachment && latestAttachment.po_attachments.length > 0) {
+       newDocUrl = latestAttachment.po_attachments[0].filename || latestAttachment.po_attachments[0].url;
+    }
+
+    await prisma.po.update({
+      where: { id: po_id },
+      data: { po_doc_url: newDocUrl }
+    });
+
+    // 4. Log the action
+    Audit.insert({
+      req,
+      company_id: company_id,
+      user_id: req.user.userid || req.user.id,
+      action: 'deleted',
+      module: 'Purchase Orders',
+      description: `Deleted PO Attachment Revision ${attachment.revision}`,
+      metadata: { po_id: po_id, attachment_id: id },
+    });
+
+    res.status(200).json({ success: true, message: 'Attachment deleted successfully' });
+  } catch (error) {
+    console.error('Delete PO attachment error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+}
+
 module.exports = {
   createCustomer,
   createCustomerLocation,
@@ -1624,5 +1703,6 @@ module.exports = {
   deleteCustomer,
   deleteCustomerLocation,
   deletePo,
-  deleteJob
+  deleteJob,
+  deletePoAttachment
 };

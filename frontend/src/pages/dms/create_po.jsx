@@ -74,6 +74,10 @@ function CreatePO() {
   const [poToToggle, setPoToToggle] = useState(null)
   const [isToggling, setIsToggling] = useState(false)
 
+  const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false)
+  const [attachmentToDelete, setAttachmentToDelete] = useState(null)
+  const [isDeletingAttachment, setIsDeletingAttachment] = useState(false)
+
   const fetchActiveFilters = useCallback(async () => {
     try {
       const res = await apiClient.get("/api/dcc/get-po-filters")
@@ -240,6 +244,24 @@ function CreatePO() {
       setError(err.message || "Something went wrong")
     } finally {
       setIsToggling(false)
+    }
+  }
+
+  const confirmDeleteAttachment = async () => {
+    setIsDeletingAttachment(true)
+    try {
+      const res = await apiClient.delete(`/api/dcc/delete-po-attachment/${attachmentToDelete.id}`)
+      if (res.success) {
+        setSuccess("Attachment deleted successfully")
+        setRefreshKey(prev => prev + 1)
+        setDeleteAttachmentDialogOpen(false)
+      } else {
+        setError(res.message || "Failed to delete attachment")
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong")
+    } finally {
+      setIsDeletingAttachment(false)
     }
   }
 
@@ -612,22 +634,39 @@ function CreatePO() {
                     const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt);
 
                     return (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActivePreviewUrl(doc.url);
-                          setActivePreviewDoc({
-                            documentName: doc.name || doc.filename || "Attachment",
-                            isImage
-                          });
-                          setIsPreviewOpen(true);
-                        }}
-                      >
-                        <FileText className="h-4 w-4" />
-                        Preview
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          className="cursor-pointer"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePreviewUrl(doc.url);
+                            setActivePreviewDoc({
+                              documentName: doc.name || doc.filename || "Attachment",
+                              isImage
+                            });
+                            setIsPreviewOpen(true);
+                          }}
+                        >
+                          <FileText className="h-4 w-4 mr-2" />
+                          Preview
+                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAttachmentToDelete(row);
+                              setDeleteAttachmentDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     );
                   }
                 }
@@ -852,6 +891,7 @@ function CreatePO() {
                                   <Button
                                     type="button"
                                     variant="outline"
+                                    className="cursor-pointer"
                                     size="sm"
                                     onClick={() => {
                                       setActivePreviewUrl(previewUrl)
@@ -881,6 +921,7 @@ function CreatePO() {
                     <Button
                       type="button"
                       variant="outline"
+                      className="cursor-pointer"
                       onClick={() => {
                         if (!editingId) {
                           setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
@@ -900,7 +941,7 @@ function CreatePO() {
                     >
                       {editingId ? "Cancel" : "Reset"}
                     </Button>
-                    <Button type="submit" disabled={isLoading}>
+                    <Button type="submit" disabled={isLoading} className="cursor-pointer">
                       {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update PO" : "Create PO")}
                     </Button>
                   </div>
@@ -938,6 +979,16 @@ function CreatePO() {
         onOpenChange={setIsPreviewOpen}
         previewUrl={activePreviewUrl}
         activePreviewDoc={activePreviewDoc}
+      />
+      <ConfirmDialog
+        isOpen={deleteAttachmentDialogOpen}
+        onClose={() => setDeleteAttachmentDialogOpen(false)}
+        onConfirm={confirmDeleteAttachment}
+        title="Delete Attachment"
+        description={<span>Are you sure you want to permanently delete revision <strong>{attachmentToDelete?.revision}</strong>? This action cannot be undone.</span>}
+        confirmText="Delete"
+        variant="danger"
+        isLoading={isDeletingAttachment}
       />
     </>
   )
