@@ -134,7 +134,6 @@ export const MENU_CONFIG = [
             { title: "Departments", path: "/departments", moduleKey: MODULES.ADMINISTRATION.DEPARTMENTS },
             { title: "Group Management", path: "/group-management", moduleKey: MODULES.ADMINISTRATION.QC_GROUPS },
             { title: "Audit Logs", path: "/admin/audit-logs", moduleKey: MODULES.ADMINISTRATION.AUDIT_LOGS },
-            { title: "Debug Traces", path: "/admin/debug-traces", moduleKey: MODULES.ADMINISTRATION.DEBUG_TRACES },
             { title: "Approval Center", path: "/approval-center", moduleKey: MODULES.DASHBOARD_ADMIN },
         ],
     },

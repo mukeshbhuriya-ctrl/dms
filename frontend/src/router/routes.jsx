@@ -31,8 +31,7 @@ import {
   FinalInspectionReports,
   Reports,
   AuditLogs,
-  ApprovalCenter,
-  DebugTraces,
+  ApprovalCenter
 } from "@/pages/admin"
 import { TubeSheetInspection } from "@/pages/admin/tube_sheet"
 import { TubeBundleInspection } from "@/pages/admin/tube_bundle"
@@ -246,10 +245,6 @@ const adminRoutes = [
   {
     path: "/admin/audit-logs",
     element: protect(<AuditLogs />, MODULES.ADMINISTRATION.AUDIT_LOGS, [ROLES.ADMIN]),
-  },
-  {
-    path: "/admin/debug-traces",
-    element: protect(<DebugTraces />, MODULES.ADMINISTRATION.DEBUG_TRACES, [ROLES.ADMIN]),
   },
 ]
 

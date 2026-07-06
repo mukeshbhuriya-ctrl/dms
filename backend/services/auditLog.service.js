@@ -47,9 +47,7 @@ class AuditLogService {
    */
   async create(data) {
     try {
-      if (data && data.description) {
-        console.info(`[Activity] ${data.description}`);
-      }
+
       return await prisma.audit_log.create({ data });
     } catch (error) {
       // Fire-and-forget — never block the main request

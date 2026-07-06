@@ -13,14 +13,12 @@ const { setupAdmin } = require('./utils/startup/steup_admin');
 const { initScheduler } = require('./utils/scheduler');
 const NotificationSocketService = require('#services/notification.socket.js');
 const { activityLogMiddleware } = require('./utils/activityLogger');
-const { traceMiddleware } = require('./utils/traceLogger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 
 // Middleware
-app.use(traceMiddleware); // Deep Debug Trace Engine
 app.use(cors);
 app.use(cookieParser());
 const MAX_PAYLOAD_SIZE = parseInt(process.env.MAX_FILE_SIZE || 1073741824);
@@ -109,9 +107,6 @@ app.use('/api/admin/approval-center', approvalCenterRoutes);
 
 const auditLogRoutes = require('#routes/admin/auditLog.routes.js');
 app.use('/api/admin/audit-logs', auditLogRoutes);
-
-const traceLogRoutes = require('./routes/admin/traceLog.routes.js');
-app.use('/api/admin/debug-traces', traceLogRoutes);
 
 const jobOverviewRoutes = require('#routes/admin/job360.routes.js');
 app.use('/api/admin/job-360', jobOverviewRoutes);
