@@ -83,7 +83,7 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
         <Button 
           variant="outline" 
           size="sm" 
-          className="h-7 text-[10px] font-normal w-full min-w-[90px] justify-between px-2 bg-white border-slate-300 shadow-none"
+          className="!h-7 py-0 min-h-[28px] text-[10px] font-normal w-full min-w-[90px] justify-between px-2 bg-white border-slate-300 shadow-none"
         >
           <div className="flex items-center gap-1 truncate mr-1">
             {selectedValues.length === 0 ? (
@@ -222,7 +222,8 @@ const ProDataTable = ({
   // Controlled Selection Props
   selectedRows: controlledSelectedRows,
   onSelectionChange,
-  showSelectionColumn = true
+  showSelectionColumn = true,
+  lockActiveFilters = false
 }) => {
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({});
@@ -499,6 +500,8 @@ const ProDataTable = ({
                   const hasFilter = Array.isArray(columnFilters[columnId]) 
                     ? columnFilters[columnId].length > 0 
                     : !!(columnFilters[columnId]);
+                    
+                  const isFilterOpen = activeHeaderFilters.has(columnId) || (lockActiveFilters && hasFilter);
 
                   return (
                     <TableHead 
@@ -513,7 +516,7 @@ const ProDataTable = ({
                       }}
                     >
                       <div className="flex items-center justify-between gap-1 h-full py-1">
-                        {!activeHeaderFilters.has(columnId) ? (
+                        {!isFilterOpen ? (
                           <>
                             <span className="truncate">{col.header}</span>
                             {col.filterType && (
@@ -542,7 +545,7 @@ const ProDataTable = ({
                                   value={columnFilters[columnId] || "all"}
                                   onValueChange={(val) => onFilterChange({ [columnId]: val === 'all' ? "" : val })}
                                 >
-                                  <SelectTrigger className="h-7 text-[10px] w-full bg-white border-slate-300 shadow-none ring-0 focus:ring-1 focus:ring-blue-400 font-normal">
+                                  <SelectTrigger className="!h-7 py-0 min-h-[28px] text-[10px] w-full bg-white border-slate-300 shadow-none ring-0 focus:ring-1 focus:ring-blue-400 font-normal">
                                     <SelectValue placeholder={`All ${col.header}`} />
                                   </SelectTrigger>
                                   <SelectContent className="max-h-[250px]">
@@ -560,7 +563,7 @@ const ProDataTable = ({
                                   autoFocus
                                   value={columnFilters[columnId] || ""}
                                   onChange={(e) => onFilterChange({ [columnId]: e.target.value })}
-                                  className="h-7 text-[10px] px-2 bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none font-normal"
+                                  className="!h-7 py-0 min-h-[28px] text-[10px] px-2 bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none font-normal"
                                 />
                               </div>
                              ) : (
@@ -570,7 +573,7 @@ const ProDataTable = ({
                                   placeholder={`Filter ${col.header}...`}
                                   value={columnFilters[columnId] || ""}
                                   onChange={(e) => onFilterChange({ [columnId]: e.target.value })}
-                                  className="h-7 text-[10px] px-2 bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none normal-case font-normal"
+                                  className="!h-7 py-0 min-h-[28px] text-[10px] px-2 bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none normal-case font-normal"
                                 />
                               </div>
                             )}

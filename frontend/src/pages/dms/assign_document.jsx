@@ -1467,6 +1467,7 @@ function AssignDocument() {
               globalSearchPlaceholder="Search documents..."
               initialStickyColumns={["document.document_number"]}
               defaultColumnFilters={{ is_active: ['true'] }}
+              lockActiveFilters={true}
             />
           )}
 

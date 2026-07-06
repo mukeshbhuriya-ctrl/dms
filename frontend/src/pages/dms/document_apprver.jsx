@@ -631,6 +631,7 @@ function DocumentApprover() {
               topFilters={proTableTopFilters}
               globalSearchPlaceholder="Search documents..."
               initialStickyColumns={["documentNumber"]}
+              lockActiveFilters={true}
             />
           </div>
         </div>

@@ -650,6 +650,7 @@ function UploadDocument() {
                             topFilters={proTableTopFilters}
                             globalSearchPlaceholder="Search documents..."
                             initialStickyColumns={["documentNumber"]}
+                            lockActiveFilters={true}
                         />
                     </div>
                 </div>
