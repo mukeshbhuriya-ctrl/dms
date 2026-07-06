@@ -52,7 +52,7 @@ router.delete('/delete-po/:id', authenticateUser(['ADMIN']), deletePo);
 router.patch('/pos/toggle-status/:id', authenticateUser(['ADMIN']), DccController.togglePoStatus);
 router.put('/update-po-communication-matrix/:id', updatePoCommunicationMatrix);
 router.get('/get-po-attachments/:po_id', getPoAttachments);
-router.delete('/delete-po-attachment/:id', authenticateUser(['ADMIN']), deletePoAttachment);
+router.delete('/delete-po-attachment/:id', authenticateUserOnly, deletePoAttachment);
 
 // Document Versioning and Secure Access
 router.get('/document/:documentId/download', authenticateUserOnly, documentController.downloadDocument);

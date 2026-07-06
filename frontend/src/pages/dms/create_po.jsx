@@ -650,20 +650,18 @@ function CreatePO() {
                           <FileText className="h-4 w-4 mr-2" />
                           Preview
                         </Button>
-                        {isAdmin && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:text-destructive cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAttachmentToDelete(row);
-                              setDeleteAttachmentDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:text-destructive cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAttachmentToDelete(row);
+                            setDeleteAttachmentDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     );
                   }
