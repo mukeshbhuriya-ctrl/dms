@@ -389,7 +389,7 @@ function CreatePO() {
               setView("attachments");
             }}
           >
-            <History className="h-4 w-4" />
+            <History className="h-4 w-4" /> Attachments
           </Button>
           {isAdmin && (
             <Button
@@ -534,8 +534,6 @@ function CreatePO() {
 
       if (poDocument) {
         formDataToSend.append("po_document", poDocument)
-      } else if (existingDocUrl) {
-        formDataToSend.append("po_doc_url", existingDocUrl)
       }
 
       if (editingId) {

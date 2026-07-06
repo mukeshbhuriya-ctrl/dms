@@ -1323,8 +1323,6 @@ async function updatePo(req, res) {
     if (uploadedFile) {
       // Store ONLY the bare filename
       finalPoDocUrl = uploadedFile.filename;
-    } else if (po_doc_url && po_doc_url.trim() !== '') {
-      finalPoDocUrl = po_doc_url.trim();
     }
 
     let parsedCommunicationMatrix = null;
@@ -1362,15 +1360,6 @@ async function updatePo(req, res) {
             size: uploadedFile.size,
             type: uploadedFile.mimetype,
             filename: uploadedFile.filename
-          });
-        } else if (finalPoDocUrl) {
-          const filename = finalPoDocUrl.split('/').pop() || 'document';
-          newAttachments.push({
-            url: finalPoDocUrl.startsWith('/') ? finalPoDocUrl : `/api/files/${finalPoDocUrl}`,
-            name: filename,
-            size: 0,
-            type: 'application/octet-stream',
-            filename: filename
           });
         }
 
