@@ -1394,15 +1394,20 @@ model hydrostatic_test_item {
   actual_test_pressure   String?
   
   // Pressure Gauge Details
+  pg1_instrument_id      String?
   pg1_range              String?
   pg1_id_no              String?
   pg1_calib_date         String?
   pg1_due_date           String?
 
+  pg2_instrument_id      String?
   pg2_range              String?
   pg2_id_no              String?
   pg2_calib_date         String?
   pg2_due_date           String?
+
+  pg1_instrument         instruments_master? @relation("pg1_instrument", fields: [pg1_instrument_id], references: [id])
+  pg2_instrument         instruments_master? @relation("pg2_instrument", fields: [pg2_instrument_id], references: [id])
 
   holding_time           String?
   test_result            String?
@@ -1710,6 +1715,8 @@ model instruments_master {
   tube_bundle_inspection_instruments tube_bundle_inspection_instrument[]
   dish_end_inspection_instruments   dish_end_inspection_instrument[]
   final_inspection_instruments      final_inspection_instrument[]
+  hydrostatic_pg1_instruments       hydrostatic_test_item[] @relation("pg1_instrument")
+  hydrostatic_pg2_instruments       hydrostatic_test_item[] @relation("pg2_instrument")
 
   @@index([type])
 }

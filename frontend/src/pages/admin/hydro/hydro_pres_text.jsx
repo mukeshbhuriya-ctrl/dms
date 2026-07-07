@@ -33,6 +33,7 @@ import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
 
 function emptyRow(id) {
   return {
@@ -43,10 +44,12 @@ function emptyRow(id) {
     actual_test_pressure: "",
     holding_time: "",
     test_result: "",
+    pg1_instrument_id: "",
     pg1_range: "",
     pg1_id_no: "",
     pg1_calib_date: "",
     pg1_due_date: "",
+    pg2_instrument_id: "",
     pg2_range: "",
     pg2_id_no: "",
     pg2_calib_date: "",
@@ -614,6 +617,25 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
+  const [masterInstruments, setMasterInstruments] = useState([])
+
+  useEffect(() => {
+    apiClient.get("/api/masters/instruments?type=PRESSURE_GAUGE")
+      .then((res) => {
+        let data = Array.isArray(res) ? res : (res.data || []);
+        const mapped = data.map(item => ({
+          id: item.id.toString(),
+          name: `${item.range || ''} (${item.equipment_desc || ''})`.trim(),
+          range: item.range || '',
+          id_no: item.serial_no || '',
+          due_date: item.due_date ? new Date(item.due_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '',
+          calib_date: item.calibration_date ? new Date(item.calibration_date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''
+        }));
+        setMasterInstruments(mapped)
+      })
+      .catch((err) => console.error("Failed to fetch instruments:", err))
+  }, [])
+
   // Fetch Jobs list
   useEffect(() => {
     apiClient.get("/api/common/jobs")
@@ -662,10 +684,12 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                 actual_test_pressure: item.actual_test_pressure || "",
                 holding_time: item.holding_time || "",
                 test_result: item.test_result || "",
+                pg1_instrument_id: item.pg1_instrument_id || "",
                 pg1_range: item.pg1_range || "",
                 pg1_id_no: item.pg1_id_no || "",
                 pg1_calib_date: item.pg1_calib_date || "",
                 pg1_due_date: item.pg1_due_date || "",
+                pg2_instrument_id: item.pg2_instrument_id || "",
                 pg2_range: item.pg2_range || "",
                 pg2_id_no: item.pg2_id_no || "",
                 pg2_calib_date: item.pg2_calib_date || "",
@@ -753,6 +777,20 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
     setTableRows((rows) => rows.map((r) => (r.id === id ? { ...r, [field]: value } : r)))
   }
 
+  const handleGaugeSelect = (rowId, gaugeType, instrumentId) => {
+    const selected = masterInstruments.find(i => i.id === instrumentId);
+    if (selected) {
+      setTableRows(tableRows.map(row => row.id === rowId ? {
+        ...row,
+        [`${gaugeType}_instrument_id`]: selected.id,
+        [`${gaugeType}_range`]: selected.range,
+        [`${gaugeType}_id_no`]: selected.id_no,
+        [`${gaugeType}_calib_date`]: selected.calib_date,
+        [`${gaugeType}_due_date`]: selected.due_date
+      } : row));
+    }
+  }
+
   const nextId = () => Math.max(...tableRows.map((r) => r.id), 0) + 1
   const addRow = () => setTableRows((rows) => [...rows, emptyRow(nextId())])
   const removeRow = (id) => {
@@ -781,10 +819,12 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
       mawp_int_ext: row.mawp_int_ext,
       required_test_pressure: row.required_test_pressure,
       actual_test_pressure: row.actual_test_pressure,
+      pg1_instrument_id: row.pg1_instrument_id,
       pg1_range: row.pg1_range,
       pg1_id_no: row.pg1_id_no,
       pg1_calib_date: row.pg1_calib_date,
       pg1_due_date: row.pg1_due_date,
+      pg2_instrument_id: row.pg2_instrument_id,
       pg2_range: row.pg2_range,
       pg2_id_no: row.pg2_id_no,
       pg2_calib_date: row.pg2_calib_date,
@@ -1043,16 +1083,16 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                     </th>
                   </tr>
                   <tr>
-                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[80px]">
+                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[280px]">
                       RANGE<br />(Kg/Cm2) (g)
                     </th>
-                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[80px]">
+                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[120px]">
                       I.D No.
                     </th>
-                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[100px]">
+                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[130px]">
                       DATE OF<br />CALIBRATION
                     </th>
-                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[100px]">
+                    <th className="border border-border p-2 bg-[#f4f4f5] font-bold text-[11px] uppercase whitespace-nowrap min-w-[130px]">
                       DATE OF DUE
                     </th>
                   </tr>
@@ -1098,39 +1138,37 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                         </td>
                         {/* Gauge 1 */}
                         <td className="border border-border p-1 align-top">
-                          <Input
-                            type="text"
-                            value={row.pg1_range}
-                            onChange={(e) => handleRowChange(row.id, "pg1_range", e.target.value)}
-                            placeholder="Range"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
+                          <SearchableSelect
+                            options={masterInstruments.map(inst => ({ value: inst.id, label: inst.name }))}
+                            value={row.pg1_instrument_id || ""}
+                            onValueChange={(val) => handleGaugeSelect(row.id, 'pg1', val)}
+                            placeholder="Select Gauge"
+                          />
+                        </td>
+                        <td className="border border-border p-1 align-top">
+                          <SearchableSelect
+                            options={masterInstruments.map(inst => ({ value: inst.id, label: inst.id_no || "N/A" }))}
+                            value={row.pg1_instrument_id || ""}
+                            onValueChange={(val) => handleGaugeSelect(row.id, 'pg1', val)}
+                            placeholder="Select I.D No."
                           />
                         </td>
                         <td className="border border-border p-1 align-top">
                           <Input
                             type="text"
-                            value={row.pg1_id_no}
-                            onChange={(e) => handleRowChange(row.id, "pg1_id_no", e.target.value)}
-                            placeholder="I.D No."
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
-                          />
-                        </td>
-                        <td className="border border-border p-1 align-top">
-                          <Input
-                            type="date"
                             value={row.pg1_calib_date}
-                            onChange={(e) => handleRowChange(row.id, "pg1_calib_date", e.target.value)}
+                            readOnly
                             placeholder="Calib Date"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
+                            className="w-full text-xs border-0 focus-visible:ring-1 h-9 bg-muted"
                           />
                         </td>
                         <td className="border border-border p-1 align-top">
                           <Input
-                            type="date"
+                            type="text"
                             value={row.pg1_due_date}
-                            onChange={(e) => handleRowChange(row.id, "pg1_due_date", e.target.value)}
+                            readOnly
                             placeholder="Due Date"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
+                            className="w-full text-xs border-0 focus-visible:ring-1 h-9 bg-muted"
                           />
                         </td>
 
@@ -1168,39 +1206,37 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                       {/* Gauge 2 */}
                       <tr className="border-b">
                         <td className="border border-border p-1 align-top">
-                          <Input
-                            type="text"
-                            value={row.pg2_range}
-                            onChange={(e) => handleRowChange(row.id, "pg2_range", e.target.value)}
-                            placeholder="Range"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
+                          <SearchableSelect
+                            options={masterInstruments.map(inst => ({ value: inst.id, label: inst.name }))}
+                            value={row.pg2_instrument_id || ""}
+                            onValueChange={(val) => handleGaugeSelect(row.id, 'pg2', val)}
+                            placeholder="Select Gauge"
+                          />
+                        </td>
+                        <td className="border border-border p-1 align-top">
+                          <SearchableSelect
+                            options={masterInstruments.map(inst => ({ value: inst.id, label: inst.id_no || "N/A" }))}
+                            value={row.pg2_instrument_id || ""}
+                            onValueChange={(val) => handleGaugeSelect(row.id, 'pg2', val)}
+                            placeholder="Select I.D No."
                           />
                         </td>
                         <td className="border border-border p-1 align-top">
                           <Input
                             type="text"
-                            value={row.pg2_id_no}
-                            onChange={(e) => handleRowChange(row.id, "pg2_id_no", e.target.value)}
-                            placeholder="I.D No."
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
-                          />
-                        </td>
-                        <td className="border border-border p-1 align-top">
-                          <Input
-                            type="date"
                             value={row.pg2_calib_date}
-                            onChange={(e) => handleRowChange(row.id, "pg2_calib_date", e.target.value)}
+                            readOnly
                             placeholder="Calib Date"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
+                            className="w-full text-xs border-0 focus-visible:ring-1 h-9 bg-muted"
                           />
                         </td>
                         <td className="border border-border p-1 align-top">
                           <Input
-                            type="date"
+                            type="text"
                             value={row.pg2_due_date}
-                            onChange={(e) => handleRowChange(row.id, "pg2_due_date", e.target.value)}
+                            readOnly
                             placeholder="Due Date"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9"
+                            className="w-full text-xs border-0 focus-visible:ring-1 h-9 bg-muted"
                           />
                         </td>
                       </tr>
