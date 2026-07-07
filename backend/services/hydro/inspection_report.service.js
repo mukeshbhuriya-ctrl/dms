@@ -138,7 +138,7 @@ class InspectionReportService {
             production_engineer_id,
             vendor_dish_end_number,
             items, // array of { sr_no, description, as_per_drg, actual, remarks }
-            instruments // array of { name, id_no, due_date }
+            instruments // array of { instrument_id, name, id_no, due_date }
         } = payload;
 
         // Verify the job
@@ -182,6 +182,7 @@ class InspectionReportService {
                     },
                     instruments: {
                         create: instruments.map(inst => ({
+                            instrument_id: inst.instrument_id,
                             name: inst.name,
                             id_no: inst.id_no,
                             due_date: inst.due_date
@@ -212,7 +213,7 @@ class InspectionReportService {
             production_engineer_id,
             vendor_dish_end_number,
             items, // array of { sr_no, description, as_per_drg, actual, remarks }
-            instruments // array of { name, id_no, due_date }
+            instruments // array of { instrument_id, name, id_no, due_date }
         } = payload;
 
         // Verify report exists and belongs to company
@@ -253,6 +254,7 @@ class InspectionReportService {
                     },
                     instruments: {
                         create: instruments.map(inst => ({
+                            instrument_id: inst.instrument_id,
                             name: inst.name,
                             id_no: inst.id_no,
                             due_date: inst.due_date

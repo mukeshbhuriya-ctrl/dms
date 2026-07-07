@@ -208,6 +208,7 @@ class FinalInspectionService {
                     },
                     instruments: {
                         create: instruments?.map(inst => ({
+                            instrument_id: inst.instrument_id,
                             name: inst.name,
                             id_no: inst.id_no,
                             due_date: inst.due_date
@@ -314,6 +315,7 @@ class FinalInspectionService {
                     },
                     instruments: {
                         create: instruments?.map(inst => ({
+                            instrument_id: inst.instrument_id,
                             name: inst.name,
                             id_no: inst.id_no,
                             due_date: inst.due_date

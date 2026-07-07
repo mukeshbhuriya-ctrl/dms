@@ -1031,13 +1031,15 @@ model dish_end_inspection_item {
 }
 
 model dish_end_inspection_instrument {
-  id          String   @id @default(uuid())
-  report_id   String
-  name        String?
-  id_no       String?
-  due_date    String?
+  id            String   @id @default(uuid())
+  report_id     String
+  instrument_id String?
+  name          String?
+  id_no         String?
+  due_date      String?
 
-  report      dish_end_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  report        dish_end_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  instrument    instruments_master?        @relation(fields: [instrument_id], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1136,13 +1138,15 @@ model final_inspection_part {
 }
 
 model final_inspection_instrument {
-  id          String   @id @default(uuid())
-  report_id   String
-  name        String?
-  id_no       String?
-  due_date    String?
+  id            String   @id @default(uuid())
+  report_id     String
+  instrument_id String?
+  name          String?
+  id_no         String?
+  due_date      String?
 
-  report      final_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  report        final_inspection_report @relation(fields: [report_id], references: [id], onDelete: Cascade)
+  instrument    instruments_master?     @relation(fields: [instrument_id], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1704,6 +1708,8 @@ model instruments_master {
 
   tube_sheet_inspection_instruments tube_sheet_inspection_instrument[]
   tube_bundle_inspection_instruments tube_bundle_inspection_instrument[]
+  dish_end_inspection_instruments   dish_end_inspection_instrument[]
+  final_inspection_instruments      final_inspection_instrument[]
 
   @@index([type])
 }

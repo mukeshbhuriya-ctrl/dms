@@ -3,6 +3,7 @@ import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
 import { ModuleHeader } from "@/components/shared/ModuleHeader"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -795,7 +796,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
   const [remarks, setRemarks] = useState(initialRemarks)
 
   // Instrument Calibration Details table
-  const [instrumentRows, setInstrumentRows] = useState([{ id: 1, name: "", idNo: "", dueDate: "" }])
+  const [instrumentRows, setInstrumentRows] = useState([{ id: 1, instrument_id: "", name: "", idNo: "", dueDate: "" }])
+
+  const [masterInstruments, setMasterInstruments] = useState([])
 
   // API State
   const [msnOptions, setMsnOptions] = useState([])
@@ -831,6 +834,19 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
     apiClient.get("/api/users/by-role/PRODUCTION_ENGINEER")
       .then((res) => { if (res.success) setProductionEngineers(res.data) })
       .catch((err) => console.error("Failed to fetch production engineers:", err))
+
+    apiClient.get("/api/masters/instruments?type=CALIBRATION_INSTRUMENT")
+      .then((res) => {
+        let data = Array.isArray(res) ? res : (res.data || []);
+        const mapped = data.map(item => ({
+          id: item.id.toString(),
+          name: `${item.equipment_desc || ''}${item.range ? ` / ${item.range}` : ''}`.trim(),
+          id_no: item.serial_no || '',
+          due_date: item.due_date ? new Date(item.due_date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''
+        }));
+        setMasterInstruments(mapped)
+      })
+      .catch((err) => console.error("Failed to fetch instruments:", err))
   }, [])
 
   // Auto-fill for Edit View
@@ -876,9 +892,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
 
             if (data.instruments && data.instruments.length > 0) {
               setInstrumentRows(data.instruments.map((inst, i) => ({
-                id: i + 1, name: inst.name || "", idNo: inst.id_no || "", dueDate: inst.due_date || ""
+                id: i + 1, instrument_id: inst.instrument_id || "", name: inst.name || "", idNo: inst.id_no || "", dueDate: inst.due_date || ""
               })))
-            } else { setInstrumentRows([{ id: 1, name: "", idNo: "", dueDate: "" }]) }
+            } else { setInstrumentRows([{ id: 1, instrument_id: "", name: "", idNo: "", dueDate: "" }]) }
 
             if (data.remarks && data.remarks.length > 0) {
               setRemarks(data.remarks.map((rem, i) => ({ id: i + 1, text: rem.text || "" })))
@@ -945,6 +961,19 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
     setInstrumentRows(instrumentRows.map((row) => row.id === id ? { ...row, [field]: value } : row))
   }
 
+  const handleInstrumentSelect = (rowId, instrumentId) => {
+    const selected = masterInstruments.find(i => i.id.toString() === instrumentId);
+    if (selected) {
+      setInstrumentRows(instrumentRows.map(row => row.id === rowId ? {
+        ...row,
+        instrument_id: selected.id,
+        name: selected.name,
+        idNo: selected.id_no,
+        dueDate: selected.due_date
+      } : row));
+    }
+  }
+
   // Handle remarks changes
   const handleRemarkChange = (id, value) => {
     setRemarks(remarks.map((remark) => remark.id === id ? { ...remark, text: value } : remark))
@@ -965,7 +994,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
   }
   const addInstrumentRow = () => {
     const newId = Math.max(...instrumentRows.map((row) => row.id), 0) + 1
-    setInstrumentRows([...instrumentRows, { id: newId, name: "", idNo: "", dueDate: "" }])
+    setInstrumentRows([...instrumentRows, { id: newId, instrument_id: "", name: "", idNo: "", dueDate: "" }])
   }
   const addRemark = () => {
     const newId = Math.max(...remarks.map((r) => r.id), 0) + 1
@@ -1048,6 +1077,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
         projection_actual: r.projectionActual
       })),
       instruments: instrumentRows.filter(r => r.name?.trim() || r.idNo?.trim() || r.dueDate).map(r => ({
+        instrument_id: r.instrument_id,
         name: r.name,
         id_no: r.idNo,
         due_date: r.dueDate
@@ -1777,39 +1807,28 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
                   instrumentRows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
-                        <Input
-                          type="text"
-                          value={row.name}
-                          onChange={(e) =>
-                            handleInstrumentRowChange(row.id, "name", e.target.value)
-                          }
-                          placeholder="Name"
-                          readOnly={userRole === 'PROD'}
-                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
+                        <SearchableSelect
+                          options={masterInstruments.map(inst => ({ value: inst.id.toString(), label: inst.name }))}
+                          value={masterInstruments.find(i => i.name === row.name)?.id?.toString() || ""}
+                          onValueChange={(val) => handleInstrumentSelect(row.id, val)}
+                          placeholder="Select Instrument"
+                          disabled={userRole === 'PROD'}
                         />
                       </TableCell>
                       <TableCell>
                         <Input
                           type="text"
                           value={row.idNo}
-                          onChange={(e) =>
-                            handleInstrumentRowChange(row.id, "idNo", e.target.value)
-                          }
-                          placeholder="ID No. / SR No."
-                          readOnly={userRole === 'PROD'}
-                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
+                          readOnly
+                          className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
                         />
                       </TableCell>
                       <TableCell>
                         <Input
-                          type="date"
+                          type="text"
                           value={row.dueDate}
-                          onChange={(e) =>
-                            handleInstrumentRowChange(row.id, "dueDate", e.target.value)
-                          }
-                          placeholder="Due Date"
-                          readOnly={userRole === 'PROD'}
-                          className={`w-full text-xs border-0 focus-visible:ring-0 ${userRole === 'PROD' ? "bg-muted" : ""}`}
+                          readOnly
+                          className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
                         />
                       </TableCell>
                       <TableCell>
