@@ -34,6 +34,7 @@ import { toast } from "react-toastify"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { ModuleHeader } from "@/components/shared/ModuleHeader"
 
 function emptyRow(id) {
   return {
@@ -357,10 +358,7 @@ function ListView({ onCreateClick, onEditClick }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">Hydrostatic Pressure Test Reports</h1>
-          <p className="text-muted-foreground">View and manage all hydrostatic pressure test reports.</p>
-        </div>
+        <div />
       </div>
 
       {error && (
@@ -872,10 +870,7 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">{isEdit ? "Edit" : "Create"} Hydrostatic Pressure Test Report</h1>
-          <p className="text-muted-foreground">{isEdit ? "Edit the" : "Fill in the"} details for the hydrostatic pressure test report.</p>
-        </div>
+        <div />
         <Button variant="outline" onClick={onBack} className="h-9">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
@@ -1334,9 +1329,10 @@ function HydroPresText() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
+      <ModuleHeader
+        title="Hydrostatic Pressure Test Reports"
+        description="View and manage all hydrostatic pressure test reports."
+      />
         <main className="flex-1 overflow-auto p-6 flex flex-col">
           <div className="flex-1 flex flex-col w-full">
             {successMsg && (
