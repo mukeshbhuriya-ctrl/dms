@@ -1,7 +1,7 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import React, { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import ProDataTable from "@/components/shared/ProDataTable";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -122,9 +122,6 @@ export function ApprovalCenter() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
       <main className="flex-1 flex flex-col overflow-auto p-6">
         <div className="w-full flex-1 flex flex-col">
           <ProDataTable

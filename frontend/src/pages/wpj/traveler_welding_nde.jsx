@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { TableVirtuoso } from "react-virtuoso";
-import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -119,10 +118,6 @@ export default function TravelerWeldingNDE() {
 
   return (
     <div>
-      <ModuleHeader 
-        title="Traveler Welding & NDE" 
-        description="Welding and Non-Destructive Examination Inspection Records"
-      />
       
       <div className="p-6">
         <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

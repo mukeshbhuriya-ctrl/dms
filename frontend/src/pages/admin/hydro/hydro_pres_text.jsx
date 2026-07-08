@@ -1,6 +1,6 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useCallback, Fragment, useMemo } from "react"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,8 +34,6 @@ import { toast } from "react-toastify"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
-import { ModuleHeader } from "@/components/shared/ModuleHeader"
-
 function emptyRow(id) {
   return {
     id,
@@ -357,10 +355,6 @@ function ListView({ onCreateClick, onEditClick }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div />
-      </div>
-
       {error && (
         <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
@@ -869,8 +863,7 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div />
+      <div className="flex justify-end mb-4">
         <Button variant="outline" onClick={onBack} className="h-9">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
@@ -1328,14 +1321,7 @@ function HydroPresText() {
   }
 
   return (
-    <>
-      <ModuleHeader
-        title="Hydrostatic Pressure Test Reports"
-        description="View and manage all hydrostatic pressure test reports."
-      />
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full">
-            {successMsg && (
+    <PageContainer>{successMsg && (
               <div className="mb-4 rounded-md border border-green-500 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 {successMsg}
@@ -1346,10 +1332,7 @@ function HydroPresText() {
               <ListView onCreateClick={handleCreate} onEditClick={handleEdit} />
             ) : (
               <FormView onBack={handleBack} onSuccess={handleSuccess} isEdit={view === "edit"} editId={editId} />
-            )}
-          </div>
-        </main>
-    </>
+            )}</PageContainer>
   )
 }
 

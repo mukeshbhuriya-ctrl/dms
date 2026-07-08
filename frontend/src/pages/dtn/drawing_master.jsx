@@ -1,5 +1,5 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import React, { useState, useEffect, useMemo } from "react"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -313,15 +313,6 @@ export default function DrawingMaster() {
 
    return (
       <div className="flex h-screen flex-col w-full bg-slate-50/20 overflow-hidden text-slate-900">
-         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6 bg-white sticky top-0 z-40">
-            <SidebarTrigger className="-ml-1" />
-            <div className="h-4 w-px bg-border mx-2" />
-            <div className="flex items-center gap-2 text-sm">
-               <Layers className="h-4 w-4 text-blue-600" />
-               <span className="font-bold text-slate-800 uppercase tracking-tight text-[13px]">Drawing Master Board</span>
-            </div>
-         </header>
-
          <main className="flex-1 flex flex-col overflow-hidden">
             {view === "summary" ? (
                <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500 overflow-hidden p-4 md:p-8">

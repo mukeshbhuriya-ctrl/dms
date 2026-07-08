@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useCallback, useRef } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -627,19 +626,6 @@ const ClientApprovalStatus = () => {
 
     return (
         <div className="flex h-screen flex-col overflow-hidden">
-            <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-                <div className="flex items-center gap-3">
-                    <SidebarTrigger className="-ml-1" />
-                    <h1 className="text-lg font-bold tracking-tight text-slate-900">
-                        {view === 'list' ? 'Transmission Approval' : 'Review Transmission'}
-                    </h1>
-                </div>
-                {view === 'review' && (
-                    <Button variant="outline" className="h-9 border-slate-200 font-semibold" onClick={() => setView('list')}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-                    </Button>
-                )}
-            </header>
 
             <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
                 <div className={`flex-1 min-h-0 flex flex-col w-full max-w-[1700px] mx-auto ${view === "list" ? "overflow-hidden" : ""}`}>

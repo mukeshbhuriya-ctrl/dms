@@ -1,6 +1,6 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import React, { useState, useEffect, useRef } from 'react';
 ;
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -205,98 +205,9 @@ const Reports = () => {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center justify-between border-b px-6 bg-white shadow-sm">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
-            <h1 className="text-xl font-bold tracking-tight">Report Dashboard</h1>
-          </div>
 
-          <div className="relative" ref={filterRef}>
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 border-slate-200"
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-            >
-              <Filter className="h-4 w-4" />
-              <span>{startDate && endDate ? `${startDate} to ${endDate}` : 'Filter by Date'}</span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${isFilterOpen ? 'rotate-180' : ''}`} />
-            </Button>
-
-            {isFilterOpen && (
-              <div className="absolute right-0 mt-2 w-[400px] bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-6 space-y-6">
-                <div className="flex items-center justify-between border-b pb-3">
-                  <h3 className="font-bold text-slate-800">Date Filtering</h3>
-                  <Button variant="ghost" size="icon" onClick={() => setIsFilterOpen(false)}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    {['today', 'yesterday', 'thisWeek', 'thisMonth', 'lastMonth'].map((p) => (
-                      <Button
-                        key={p}
-                        variant="ghost"
-                        size="sm"
-                        className="justify-start font-medium text-xs uppercase tracking-wider h-9"
-                        onClick={() => setDatePreset(p)}
-                      >
-                        {p.replace(/([A-Z])/g, ' $1')}
-                      </Button>
-                    ))}
-                  </div>
-
-                  <div className="h-px bg-slate-100" />
-
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-slate-400">START DATE</Label>
-                        <Input
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-bold text-slate-400">END DATE</Label>
-                        <Input
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className="h-9 text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="text-red-500 font-bold text-[10px] uppercase h-8"
-                        onClick={() => { setStartDate(''); setEndDate(''); }}
-                      >
-                        Reset
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-slate-900 h-8 text-xs font-bold"
-                        onClick={() => setIsFilterOpen(false)}
-                      >
-                        Apply
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-auto p-6 flex flex-col gap-6">
-          <div className="flex-1 flex flex-col w-full gap-6">
-            
-            {/* Simple Tab Switcher */}
+        <PageContainer>
+{/* Simple Tab Switcher */}
             <div className="flex items-center gap-2 border-b border-gray-200">
               {categories.map((cat) => (
                 <button
@@ -358,9 +269,7 @@ const Reports = () => {
                 )
               })}
             </div>
-
-          </div>
-        </main>
+</PageContainer>
     </>
   );
 };

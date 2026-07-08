@@ -1,7 +1,7 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useCallback, useMemo, useEffect } from "react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -209,23 +209,9 @@ function RfqLookupManager() {
 
     return (
         <>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-            </header>
-            <main className="flex-1 overflow-auto p-6 flex flex-col">
-                <div className="flex-1 flex flex-col w-full">
-                    {view !== "list" && (
-                    <div className="flex justify-between items-center mb-6">
-                        <div>
-                            <h1 className="text-3xl font-bold mb-2">
-                                {editItem ? `Update ${config.singular}` : `Create ${config.singular}`}
-                            </h1>
-                            <p className="text-muted-foreground">
-                                Enter the details for the {config.singular.toLowerCase()}.
-                            </p>
-                        </div>
-                        <div>
-                            <Button variant="outline" onClick={() => setView("list")}>
+            <PageContainer>
+<div className="flex-1 flex flex-col w-full">
+                    {view !== "list" && (<div className="flex justify-end mb-4"><div><Button variant="outline" onClick={() => setView("list")}>
                                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                             </Button>
                         </div>
@@ -319,7 +305,7 @@ function RfqLookupManager() {
                     confirmText="Delete"
                     variant="danger"
                 />
-            </main>
+</PageContainer>
         </>
     )
 }

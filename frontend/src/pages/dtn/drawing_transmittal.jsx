@@ -1,6 +1,6 @@
+import { PageContainer } from "@/components/layout/PageContainer"
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { toast } from "react-toastify"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -718,11 +718,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-6 w-full">
-        <div>
-          <h1 className="text-3xl font-bold mb-1 tracking-tight">{editId ? "Edit Drawing Transmittal" : "Create Drawing Transmittal"}</h1>
-          <p className="text-muted-foreground text-sm">{editId ? "Update the details and drawing items." : "Fill in the details and add drawing items."}</p>
-        </div>
+      <div className="flex justify-end mb-4 w-full">
         <Button variant="outline" onClick={onBack} className="rounded-sm border-slate-200 shadow-none">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
@@ -1130,34 +1126,19 @@ export default function DrawingTransmittal() {
   }, [])
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden w-full bg-slate-50/20">
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-6 bg-white sticky top-0 z-40">
-        <SidebarTrigger className="-ml-1" />
-        <div className="h-4 w-px bg-border mx-2" />
-        <div className="flex items-center gap-2 text-sm">
-          <Layers className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold text-foreground uppercase tracking-tight text-[13px]">Drawing Transmittal</span>
-        </div>
-      </header>
-
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
-        {view === "list" ? (
-          <div className="flex-1 flex flex-col w-full overflow-hidden p-6">
-            <ListView
-              onCreateClick={handleCreate}
-              onEditClick={handleEdit}
-              refreshKey={refreshKey}
-            />
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col w-full overflow-auto p-6">
-            <CreateView
-              onBack={handleBack}
-              editId={editId}
-            />
-          </div>
-        )}
-      </main>
-    </div>
+    <PageContainer>
+      {view === "list" ? (
+        <ListView
+          onCreateClick={handleCreate}
+          onEditClick={handleEdit}
+          refreshKey={refreshKey}
+        />
+      ) : (
+        <CreateView
+          onBack={handleBack}
+          editId={editId}
+        />
+      )}
+    </PageContainer>
   )
 }

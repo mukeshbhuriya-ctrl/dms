@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { dccService } from "../../services/dcc.service"
 import {
@@ -9,7 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import DocumentTrail from "../../components/dms/DocumentTrail"
@@ -612,12 +612,6 @@ function DocumentApprover() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-3">
-          <SidebarTrigger className="-ml-1" />
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">Document Approver</h1>
-        </div>
-      </header>
       <main className="flex-1 min-h-0 overflow-hidden p-6 flex flex-col">
         <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">

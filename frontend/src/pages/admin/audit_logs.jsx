@@ -1,8 +1,8 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useCallback, useEffect, useMemo } from "react"
 import { getAuditLogs, getAuditLogFilters, exportAuditLogs } from "@/api/audit-log.api"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { Badge } from "@/components/ui/badge"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import apiClient from "@/api/api.client"
 
 /**
@@ -175,9 +175,6 @@ function AuditLogs() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
       <main className="flex-1 flex flex-col overflow-auto p-6">
         <div className="w-full flex-1 flex flex-col">
           <ProDataTable

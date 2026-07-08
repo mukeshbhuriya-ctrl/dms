@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -25,8 +26,6 @@ import {
 } from "lucide-react";
 
 import adminDashboardApi from "@/api/admin-dashboard.api";
-import { ModuleHeader } from "@/components/shared/ModuleHeader";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -500,22 +499,6 @@ function AdminDashboard() {
 
   return (
     <>
-      <ModuleHeader 
-        title="Admin Dashboard" 
-        description="System health, operational pressure, and module execution in one place."
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onManualRefresh}
-            disabled={isRefreshing || isLoading || !!activeTask}
-            className="h-9 gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        }
-      />
 
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">
         {isLoading ? (

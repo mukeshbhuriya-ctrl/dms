@@ -1,8 +1,8 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -45,8 +45,6 @@ import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircl
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
-import { ModuleHeader } from "@/components/shared/ModuleHeader"
-
 function WeldingJoints() {
   const [formData, setFormData] = useState({
     weldPlanNo: "",
@@ -922,12 +920,8 @@ function WeldingJoints() {
 
   return (
     <>
-        <ModuleHeader 
-          title={view === "list" ? "Welding Plans" : view === "edit" ? "Edit Welding Joint Plan" : "Create Welding Joints"}
-          description={view === "list" ? "List of all welding joint plans" : view === "edit" ? "Update the details for the existing Welding Joints plan." : "Fill in the details to create a new Welding Joints plan."}
-        />
-        <main className="flex-1 overflow-auto p-6 flex flex-col">
-          <div className="flex-1 flex flex-col w-full overflow-x-hidden">
+        <PageContainer>
+<div className="flex-1 flex flex-col w-full overflow-x-hidden">
 
 
             {error && (
@@ -1757,7 +1751,7 @@ function WeldingJoints() {
                 confirmLabel={`Create ${Object.keys(excelData.reduce((acc, row) => { if (row.status === 'valid' && !jobMetadata[row.msn]?.error) acc[row.msn] = true; return acc; }, {})).length} Plans`}
             />
           </div>
-        </main>
+</PageContainer>
     </>
   )
 }

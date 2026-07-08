@@ -1,5 +1,5 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useMemo, useCallback, useEffect } from "react"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -197,15 +197,11 @@ function CreateDepartment() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
       <main className="flex-1 flex flex-col p-6 overflow-auto">
         <div className="w-full flex-1 flex flex-col">
           {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-3xl font-bold">{editingId ? "Edit Department" : "Create Department"}</h1>
                 <p className="text-muted-foreground">Manage organizational units</p>
               </div>
               <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>

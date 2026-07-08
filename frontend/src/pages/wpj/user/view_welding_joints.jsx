@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
@@ -19,7 +20,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -39,8 +39,6 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { FormAlert } from "@/components/ui/form-alert"
 import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
 import WeldJointTrail from "@/components/wpj/WeldJointTrail"
-import { ModuleHeader } from "@/components/shared/ModuleHeader"
-
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
 import Stage2 from "@/components/form/ab/stage2"
@@ -630,30 +628,10 @@ function ViewWeldingJoints() {
 
   return (
     <>
-      <ModuleHeader 
-        title="Welding Joints"
-        description="List of all welding joints with their details and status."
-      />
 
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-          <div className="flex flex-col gap-4">
-            <div className="flex justify-end mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Filter by Status:</span>
-
-
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+      <PageContainer>
+<div className="flex flex-col gap-4">
+            
             <ProDataTable
               columns={columns}
               fetchData={fetchJointsData}
@@ -667,8 +645,7 @@ function ViewWeldingJoints() {
             />
 
           </div>
-        </div>
-      </main>
+</PageContainer>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">

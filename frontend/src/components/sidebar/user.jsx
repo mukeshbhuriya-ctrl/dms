@@ -1,11 +1,6 @@
 import { useEffect, useState, useMemo } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
-import {
-  LogOut,
-  ChevronRight,
-  Search,
-} from "lucide-react"
-import { User as UserIcon } from "lucide-react"
+import { ChevronRight, LogOut } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -20,7 +15,6 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
@@ -32,13 +26,15 @@ import "./sidebar.css"
 function UserSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { state: sidebarState } = useSidebar()
-  
-  const { roles: userRoles, permissions: userPermissions, userName, companyName, companyLogo, isLoading, logout } = useAuth()
+  const { roles: userRoles, permissions: userPermissions, companyName, companyLogo, isLoading, logout } = useAuth()
+
+  const handleLogout = () => {
+    logout()
+    navigate("/")
+  }
 
   const [openItems, setOpenItems] = useState({})
   const [imageError, setImageError] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
 
   const getInitials = (name) => {
     if (!name) return "CO"
@@ -51,38 +47,7 @@ function UserSidebar() {
       .toUpperCase()
   }
 
-  const roleClass = (role) => {
-    const r = role.toUpperCase()
-    if (r === "ADMIN") return "role-badge-admin"
-    if (r === "DCC") return "role-badge-dcc"
-    if (r.includes("ENGINEER")) return "role-badge-engineer"
-    return "role-badge-default"
-  }
-
-  const rawMenuItems = useMemo(() => getFilteredMenu(userPermissions, userRoles), [userPermissions, userRoles])
-
-  // Filter menu items based on search query
-  const menuItems = useMemo(() => {
-    if (!searchQuery) return rawMenuItems
-
-    const filterNested = (items) => {
-      return items.reduce((acc, item) => {
-        const matchesTitle = item.title.toLowerCase().includes(searchQuery.toLowerCase())
-        if (matchesTitle) {
-          acc.push(item)
-          return acc
-        }
-        if (item.items) {
-          const matchedSubs = filterNested(item.items)
-          if (matchedSubs.length > 0) {
-            acc.push({ ...item, items: matchedSubs })
-          }
-        }
-        return acc
-      }, [])
-    }
-    return filterNested(rawMenuItems)
-  }, [rawMenuItems, searchQuery])
+  const menuItems = useMemo(() => getFilteredMenu(userPermissions, userRoles), [userPermissions, userRoles])
 
   useEffect(() => {
     const newOpenItems = {}
@@ -101,14 +66,9 @@ function UserSidebar() {
         }
       })
     }
-    setNestedOpen(rawMenuItems)
+    setNestedOpen(menuItems)
     setOpenItems((prev) => ({ ...prev, ...newOpenItems }))
-  }, [location.pathname, rawMenuItems])
-
-  const handleLogout = () => {
-    logout()
-    navigate("/")
-  }
+  }, [location.pathname, menuItems])
 
   const toggleOpen = (title) => {
     setOpenItems((prev) => ({
@@ -119,11 +79,11 @@ function UserSidebar() {
 
   if (isLoading) {
     return (
-      <Sidebar className="border-r border-sidebar-border bg-sidebar-background">
+      <Sidebar className="border-r border-sidebar-border">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-3 py-4">
-            <UserIcon className="h-5 w-5 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Loading Profile...</span>
+            <div className="h-8 w-8 rounded bg-slate-100 animate-pulse" />
+            <div className="h-4 w-24 rounded bg-slate-100 animate-pulse" />
           </div>
         </SidebarHeader>
       </Sidebar>
@@ -131,10 +91,11 @@ function UserSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" className="group-data-[collapsible=icon]:w-[64px]">
-      <SidebarHeader className="border-b border-sidebar-border space-y-0 pb-2">
-        <div className="flex items-center gap-3 px-3 py-4 overflow-hidden">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-sidebar-border bg-sidebar-accent overflow-hidden">
+    <Sidebar collapsible="icon" className="group-data-[collapsible=icon]:w-[52px]">
+      {/* ── Company Header ── */}
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className="sidebar-logo-area flex items-center gap-2.5 px-3 py-3 min-h-[56px] overflow-hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-white overflow-hidden shadow-sm">
             {companyLogo && !imageError ? (
               <img
                 src={companyLogo}
@@ -143,49 +104,23 @@ function UserSidebar() {
                 onError={() => setImageError(true)}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-sidebar-accent text-sidebar-foreground font-bold text-xs">
+              <div className="flex h-full w-full items-center justify-center bg-primary/5 text-primary font-bold text-xs">
                 {getInitials(companyName)}
               </div>
             )}
           </div>
-          <div className="flex flex-col overflow-hidden transition-all duration-200 group-data-[collapsible=icon]:opacity-0">
-            <span className="truncate font-semibold text-xs text-sidebar-foreground uppercase tracking-tight">{companyName || "Shreno Engineering"}</span>
-            <span className="truncate text-[9px] font-medium text-muted-foreground tracking-wider uppercase">DMS System</span>
-          </div>
-        </div>
-
-        {/* Minimal Search - Hidden on collapsed */}
-        <div className="px-3 py-1 group-data-[collapsible=icon]:hidden">
-          <div className="sidebar-search flex items-center gap-2 px-2 py-1 rounded">
-            <Search className="h-3 w-3 text-muted-foreground" />
-            <input 
-              type="text" 
-              placeholder="Search..." 
-              className="bg-transparent border-none text-[11px] text-sidebar-foreground focus:outline-none w-full placeholder:text-muted-foreground/40"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Minimalist Profile Section */}
-        <div className="px-3 transition-all duration-200 group-data-[collapsible=icon]:px-1.5">
-          <div className="sidebar-profile-minimal flex items-center gap-2.5 p-1.5 rounded">
-            <div className="h-7 w-7 shrink-0 rounded bg-sidebar-border flex items-center justify-center">
-              <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
-            </div>
-            <div className="flex flex-col overflow-hidden group-data-[collapsible=icon]:hidden">
-              <span className="truncate text-[11px] font-bold text-sidebar-foreground">{userName}</span>
-              <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-                {userRoles.slice(0, 2).map(role => (
-                  <span key={role} className={`role-badge ${roleClass(role)}`}>{role}</span>
-                ))}
-              </div>
-            </div>
+          <div className="flex flex-col min-w-0 overflow-hidden transition-all duration-200 group-data-[collapsible=icon]:hidden">
+            <span className="truncate font-semibold text-xs text-sidebar-foreground leading-tight">
+              {companyName || "Shreno Engineering"}
+            </span>
+            <span className="truncate text-[9px] font-medium text-muted-foreground tracking-wider uppercase">
+              DMS System
+            </span>
           </div>
         </div>
       </SidebarHeader>
 
+      {/* ── Navigation ── */}
       <SidebarContent className="py-1">
         <SidebarGroup>
           <SidebarGroupLabel className="text-[9px] font-bold uppercase text-muted-foreground/60 px-4 mb-1 group-data-[collapsible=icon]:hidden">
@@ -211,7 +146,7 @@ function UserSidebar() {
                         <SidebarMenuSubItem>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuSubButton 
-                              className={`nav-link-enterprise text-[11px] h-8 px-2`}
+                              className="nav-link-enterprise text-[11px] h-8 px-2"
                             >
                               <span>{subItem.title}</span>
                               <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-100 group-data-[state=open]/sub-collapsible:rotate-90" />
@@ -293,19 +228,16 @@ function UserSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter className="border-t border-sidebar-border py-2 px-3">
+      <SidebarFooter className="border-t border-sidebar-border p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
-              asChild 
+              tooltip="Logout" 
               onClick={handleLogout}
-              className="hover:bg-sidebar-accent text-muted-foreground h-9"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 transition-colors justify-start"
             >
-              <button className="w-full flex items-center justify-center gap-2 cursor-pointer">
-                <LogOut className="h-3.5 w-3.5" />
-                <span className="font-bold text-[10px] uppercase tracking-wider group-data-[collapsible=icon]:hidden">Logout</span>
-              </button>
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="text-[12px] font-semibold">Logout</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useCallback, useEffect, useState, useMemo } from "react"
 
 import apiClient from "@/api/api.client"
@@ -5,7 +6,6 @@ import { exportApi } from "@/api/export.api"
 import {
   SidebarProvider,
   SidebarInset,
-  SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -999,24 +999,9 @@ function CreateDCR() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
-
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-          {view !== "list" && (
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">
-                  {view === "create" ? (editId ? "Edit DCR" : "Create DCR") : "View DCR"}
-                </h1>
-                <p className="text-muted-foreground">
-                  {view === "create"
-                    ? (editId ? "Modify the DCR information below." : "Fill in the DCR (Design Change Request) information below.")
-                    : "DCR details fetched from /api/dcr/get-dcr-by-id/:id"}
-                </p>
-              </div>
+      <PageContainer>
+{view !== "list" && (
+            <div className="flex justify-end items-center mb-4">
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
@@ -1411,8 +1396,7 @@ function CreateDCR() {
               </div>
             </form>
           )}
-        </div>
-      </main>
+</PageContainer>
       <ConfirmDialog
         isOpen={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}

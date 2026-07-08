@@ -1,6 +1,6 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useCallback } from "react";
 import ProDataTable from "@/components/shared/ProDataTable";
-import { ModuleHeader } from "@/components/shared/ModuleHeader";
 import ImportReviewDialog from "@/components/shared/ImportReviewDialog";
 import apiClient from "@/api/api.client";
 import { toast } from "react-toastify";
@@ -238,13 +238,9 @@ export default function CalibrationInstruments() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50">
-      <ModuleHeader
-        title="Calibration Instruments"
-        description="Manage calibration instruments and import bulk data."
-      />
 
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <ProDataTable
+      <PageContainer>
+<ProDataTable
           columns={columns}
           fetchData={fetchData}
           onImport={handleImport}
@@ -252,7 +248,7 @@ export default function CalibrationInstruments() {
           globalSearchPlaceholder="Search by description or SR No..."
           refreshKey={refreshTrigger}
         />
-      </main>
+</PageContainer>
 
       <ImportReviewDialog
         open={importReview.isOpen}

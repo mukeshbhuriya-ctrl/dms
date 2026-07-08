@@ -1,72 +1,27 @@
-/* Enterprise-Grade Light Mode Sidebar Styles */
+/* ═══════════════════════════════════════════════════
+   Shreno Engineering — Enterprise Sidebar Styles
+   Clean, professional navigation with blue accent
+   ═══════════════════════════════════════════════════ */
 
-:root {
-  --sidebar-background: #ffffff; /* Clean White */
-  --sidebar-foreground: #111827; /* Deep Charcoal Text */
-  --sidebar-primary: #2563eb; /* Professional Blue */
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f3f4f6; /* Subtle Gray Hover */
-  --sidebar-accent-foreground: #111827;
-  --sidebar-border: #e5e7eb; /* Light Gray Border */
-  --sidebar-ring: #3b82f6;
-}
-
-/* Sidebar Container - Sharp & Clean */
+/* Sidebar Container */
 [data-sidebar="sidebar"] {
-  background: var(--sidebar-background);
+  background: var(--sidebar);
   border-right: 1px solid var(--sidebar-border);
   box-shadow: none;
   transition: width 0.2s ease-in-out;
 }
 
-/* Minimalist User Profile - Light Mode */
-.sidebar-profile-minimal {
-  background: #f9fafb;
-  border: 1px solid var(--sidebar-border);
-  transition: all 0.2s ease;
-}
-
-.sidebar-profile-minimal:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-}
-
-/* Active State Indicator - Precision Blue Bar */
+/* Active State Indicator — Precision Blue Bar */
 .active-indicator {
   position: absolute;
   left: 0;
   width: 3px;
   height: 100%;
   background: var(--sidebar-primary);
+  border-radius: 0 2px 2px 0;
 }
 
-/* Enterprise Role Badges - Light Mode */
-.role-badge {
-  font-size: 8px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 2px;
-  border: 1px solid currentColor;
-}
-
-.role-badge-admin { color: #dc2626; background: #fef2f2; }
-.role-badge-dcc { color: #2563eb; background: #eff6ff; }
-.role-badge-engineer { color: #059669; background: #ecfdf5; }
-.role-badge-default { color: #4b5563; background: #f9fafb; }
-
-/* Search Bar - Light Mode Minimalist */
-.sidebar-search {
-  background: #f9fafb;
-  border: 1px solid var(--sidebar-border);
-}
-
-.sidebar-search:focus-within {
-  border-color: var(--sidebar-primary);
-  background: #ffffff;
-}
-
-/* Navigation Links - Clean High Contrast */
+/* Navigation Links */
 .nav-link-enterprise {
   transition: all 0.15s ease;
   color: #4b5563 !important;
@@ -78,18 +33,22 @@
 }
 
 .nav-link-enterprise[data-active="true"] {
-  background: #eff6ff !important;
+  background: var(--sidebar-accent) !important;
   color: var(--sidebar-primary) !important;
 }
 
 /* Sidebar Scrollbar */
 [data-sidebar="content"]::-webkit-scrollbar {
-  width: 4px;
+  width: 3px;
 }
 
 [data-sidebar="content"]::-webkit-scrollbar-thumb {
   background: #e5e7eb;
   border-radius: 4px;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+  background: #d1d5db;
 }
 
 .collapsible-content-enterprise {

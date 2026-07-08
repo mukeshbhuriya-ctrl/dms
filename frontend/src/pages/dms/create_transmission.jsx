@@ -1,5 +1,5 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1009,16 +1009,9 @@ function CreateTransmission() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-3">
-          <SidebarTrigger className="-ml-1" />
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">
-            {view === 'list' ? 'Transmissions' : view === 'send' ? 'Send Documents' : 'Create Transmission'}
-          </h1>
-        </div>
-        <div className="flex gap-2">
-          {view !== 'list' && (
-            <Button variant="outline" onClick={() => {
+      {view !== 'list' && (
+        <div className="flex justify-end mb-4 px-4">
+          <Button variant="outline" onClick={() => {
               setView('list');
               setActiveTransmission(null);
               setSendDocuments([]);
@@ -1029,11 +1022,10 @@ function CreateTransmission() {
                 job_number: ""
               });
             }}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
-            </Button>
-          )}
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
+          </Button>
         </div>
-      </header>
+      )}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
         <div className="flex-1 flex flex-col w-full overflow-hidden p-4 pt-4">
 

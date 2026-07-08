@@ -1,11 +1,10 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1629,14 +1628,8 @@ function QualityAssurancePlan() {
 
   return (
     <>
-      <ModuleHeader
-        title={headerProps.title}
-        description={headerProps.description}
-        actions={headerProps.actions}
-      />
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-          {view === "list" && (
+      <PageContainer>
+{view === "list" && (
             <ListView
               onCreateClick={handleCreateClick}
               onEditClick={handleEditClick}
@@ -1653,8 +1646,7 @@ function QualityAssurancePlan() {
               isReadOnly={view === "view"}
             />
           )}
-        </div>
-      </main>
+</PageContainer>
     </>
   )
 }

@@ -1,9 +1,9 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useEffect, useState, useCallback, useMemo } from "react"
 
 import {
     SidebarProvider,
     SidebarInset,
-    SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -488,12 +488,6 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold mb-1">NCR List</h1>
-                    <p className="text-muted-foreground">Manage Non-Conformance Reports</p>
-                </div>
-            </div>
 
             {error && (
                 <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1006,18 +1000,10 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between mb-2">
-                <div>
-                    <h1 className="text-3xl font-bold mb-1">{ncrId ? "NCR Details" : "Create NCR"}</h1>
-                    <p className="text-sm text-muted-foreground">
-                        {ncrId ? `NCR: ${formData.ncrNo}` : "Fill in the NCR details following the automated workflow."}
-                    </p>
-                </div>
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" onClick={onBack} className="h-9">
-                        <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
-                    </Button>
-                </div>
+            <div className="flex items-center justify-end mb-4">
+                <Button variant="outline" onClick={onBack} className="h-9">
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
+                </Button>
             </div>
 
             {/* Next Performer Indicator */}
@@ -1581,12 +1567,8 @@ function CreateNCR() {
 
     return (
         <>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                <SidebarTrigger className="-ml-1" />
-            </header>
-            <main className="flex-1 overflow-auto p-6 flex flex-col">
-                <div className="flex-1 flex flex-col w-full">
-                    {view === "list" ? (
+            <PageContainer>
+{view === "list" ? (
                         <ListView
                             onCreateClick={() => { setViewNcrId(null); setView("create") }}
                             onViewClick={handleViewClick}
@@ -1601,8 +1583,7 @@ function CreateNCR() {
                             isOpenMode={view === "open"}
                         />
                     )}
-                </div>
-            </main>
+</PageContainer>
         </>
     )
 }

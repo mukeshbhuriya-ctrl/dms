@@ -1,6 +1,6 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect } from "react"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import apiClient from "@/api/api.client"
 
@@ -34,12 +34,6 @@ export default function RfqDashboard() {
 
     if (loading) return (
         <>
-                <header className="flex shrink-0 items-center justify-between border-b bg-white h-16 px-4">
-                    <div className="flex items-center gap-2">
-                        <SidebarTrigger className="-ml-1" />
-                        <h1 className="font-semibold text-lg">RFQ Dashboard</h1>
-                    </div>
-                </header>
                 <div className="flex-1 p-6 flex flex-col justify-center items-center">
                     <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                     <p className="mt-4 text-muted-foreground">Loading dashboard data...</p>
@@ -49,12 +43,6 @@ export default function RfqDashboard() {
 
     if (error) return (
         <>
-                <header className="flex shrink-0 items-center justify-between border-b bg-white h-16 px-4">
-                    <div className="flex items-center gap-2">
-                        <SidebarTrigger className="-ml-1" />
-                        <h1 className="font-semibold text-lg">RFQ Dashboard</h1>
-                    </div>
-                </header>
                 <div className="flex-1 p-6 flex flex-col justify-center items-center">
                     <p className="text-red-500 font-medium">{error}</p>
                 </div>
@@ -65,31 +53,9 @@ export default function RfqDashboard() {
 
     return (
         <>
-                <header className="flex shrink-0 items-center justify-between border-b bg-white h-16 px-4">
-                    <div className="flex items-center gap-2">
-                        <SidebarTrigger className="-ml-1" />
-                        <h1 className="font-semibold text-lg">RFQ Dashboard</h1>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Quotation Type:</span>
-                            <Select value={category} onValueChange={setCategory}>
-                                <SelectTrigger className="w-[180px] h-9 text-xs font-semibold">
-                                    <SelectValue placeholder="Select Category" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Core">Core - MKT</SelectItem>
-                                    <SelectItem value="Spare">Spare - SPR</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </header>
 
-                <main className="flex-1 overflow-auto p-6 flex flex-col">
-                    <div className="flex-1 flex flex-col w-full">
-
-                        {/* 1. Shreno Submissions status */}
+                <PageContainer>
+{/* 1. Shreno Submissions status */}
                         <div className="bg-gray-100 border-b border-gray-200 font-bold text-center py-3 text-red-600">
                             Shreno Submittions status
                         </div>
@@ -188,9 +154,7 @@ export default function RfqDashboard() {
                                 <div className="col-span-5 p-3"></div>
                             </div>
                         </div>
-
-                    </div>
-                </main>
+</PageContainer>
         </>
     )
 }

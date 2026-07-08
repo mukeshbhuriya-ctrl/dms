@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
@@ -23,8 +24,6 @@ import {
   XCircle
 } from "lucide-react"
 import apiClient from "@/api/api.client"
-import { ModuleHeader } from "@/components/shared/ModuleHeader"
-
 function UserDashboard() {
   const navigate = useNavigate()
   const [statsData, setStatsData] = useState(null)
@@ -55,10 +54,6 @@ function UserDashboard() {
   if (loading) {
     return (
       <>
-        <ModuleHeader 
-          title="Dashboard" 
-          description="Loading your dashboard..." 
-        />
         <div className="flex flex-1 flex-col gap-4 p-4 items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
           <p className="text-sm text-muted-foreground mt-2">Loading dashboard stats...</p>
@@ -70,10 +65,6 @@ function UserDashboard() {
   if (error) {
     return (
       <>
-        <ModuleHeader 
-          title="Dashboard" 
-          description="Error loading dashboard" 
-        />
         <div className="flex flex-1 flex-col gap-4 p-4 items-center justify-center min-h-[400px]">
           <div className="text-red-500 font-semibold">Error loading dashboard</div>
           <p className="text-sm text-muted-foreground mt-1">{error}</p>
@@ -163,10 +154,6 @@ function UserDashboard() {
 
   return (
     <>
-      <ModuleHeader 
-        title="Dashboard" 
-        description="Here's an overview of your documents and activities" 
-      />
       <div className="flex flex-1 flex-col gap-6 p-6 overflow-auto custom-scrollbar">
 
         {/* Internal Workflow Section */}

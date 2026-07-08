@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -21,7 +22,6 @@ import { toast } from "react-toastify";
 import commonApi from "@/api/common.api";
 import job360Api from "@/api/job360.api";
 import { SearchableSelect } from "@/components/shared/SearchableSelect";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -445,16 +445,6 @@ export default function JobOverview() {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <SidebarTrigger className="-ml-2" />
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">Job Overview</h1>
-            <p className="text-xs text-slate-500">Job-centric snapshot across every linked module.</p>
-          </div>
-        </div>
-      </header>
-
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">
         {selectionBar}
 

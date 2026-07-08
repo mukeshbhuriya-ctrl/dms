@@ -1,8 +1,8 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useCallback, useMemo } from "react"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
-import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1111,13 +1111,8 @@ function TubeSheetInspection() {
 
   return (
     <>
-      <ModuleHeader
-        title="Tube Sheet Inspection"
-        description="Manage and track tube sheet inspections."
-      />
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-          {view === "list" ? (
+      <PageContainer>
+{view === "list" ? (
             <ListView
               onCreateClick={() => {
                 setEditId(null)
@@ -1139,8 +1134,7 @@ function TubeSheetInspection() {
               isViewMode={isViewMode}
             />
           )}
-        </div>
-      </main>
+</PageContainer>
     </>
   )
 }

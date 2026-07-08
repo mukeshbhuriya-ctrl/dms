@@ -1,7 +1,7 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -314,21 +314,10 @@ function CreateCustomer() {
 
   return (
     <>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-        </header>
         <main className="flex-1 flex flex-col overflow-auto p-6">
           <div className="w-full flex-1 flex flex-col">
             {view !== "list" && (
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">
-                  {editingId ? "Update Client" : "Create Client"}
-                </h1>
-                <p className="text-muted-foreground">
-                  {editingId ? "Update the details of the selected client." : "Fill in the details to create a new client profile."}
-                </p>
-              </div>
+            <div className="flex justify-end items-center mb-4">
               <div>
                   <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List

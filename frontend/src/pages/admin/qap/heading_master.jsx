@@ -1,8 +1,8 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import React, { useState, useCallback, useMemo } from "react"
 import { toast } from "react-toastify"
 import apiClient from "@/api/api.client"
 import ProDataTable from "@/components/shared/ProDataTable"
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -192,26 +192,15 @@ const HeadingMaster = () => {
     return (
         <div className="flex flex-col h-screen bg-slate-50/30">
             {/* App Header */}
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 bg-white">
-                <SidebarTrigger className="-ml-1" />
-            </header>
-
             {/* Main Content Area */}
-            <main className="flex-1 overflow-auto p-6 flex flex-col">
-                <div className="flex-1 flex flex-col w-full">
-                    {/* Page Header Section */}
-                    <div className="flex items-center justify-between mb-8">
-                        <div>
-                            <h2 className="text-3xl font-bold tracking-tight text-slate-900">
-                                {view === "list" ? "Activity Heading Master" : (editingHeading ? "Edit Activity Heading" : "Create Activity Heading")}
-                            </h2>
-                        </div>
-                        {view === "form" && (
+            <PageContainer>
+{/* Page Header Section */}{view === "form" && (
+                        <div className="flex justify-end mb-4">
                             <Button variant="outline" onClick={handleBackToList} className="h-9 gap-2">
                                 <ArrowLeft className="h-4 w-4" /> Back to List
                             </Button>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {/* Content Section */}
                     {view === "list" ? (
@@ -270,8 +259,7 @@ const HeadingMaster = () => {
                             </CardContent>
                         </Card>
                     )}
-                </div>
-            </main>
+</PageContainer>
 
             <ConfirmDialog
                 isOpen={confirmData.isOpen}

@@ -1,7 +1,7 @@
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { toast } from 'react-toastify';
 import { Input } from "@/components/ui/input"
@@ -1356,16 +1356,10 @@ function AssignDocument() {
   const isSubmitDisabled = isLoading || assignments.some(a => !a.jobId || !a.documentName || !a.assignUserId)
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-3">
-          <SidebarTrigger className="-ml-1" />
-          <h1 className="text-xl font-bold tracking-tight text-slate-900">
-            {view === "list" ? "Documents Assignment (VDR)" : editingId ? "Update Document Details" : "Assign Documents"}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {view === "list" ? (
+    <PageContainer>
+      <div className="flex-1 flex flex-col w-full">
+        <div className="flex justify-end mb-4 w-full">
+{view === "list" ? (
               <>
               {selectedRowIds.size > 0 && (
                 <Button onClick={handleBulkEdit} size="sm" className="rounded-sm bg-slate-800 text-white hover:bg-slate-700 shadow-none cursor-pointer">
@@ -1379,9 +1373,6 @@ function AssignDocument() {
             </Button>
           )}
         </div>
-      </header>
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
-        <div className="flex-1 flex flex-col w-full overflow-hidden p-6">
 
           {/* List View */}
           {view === 'list' && (
@@ -1820,7 +1811,6 @@ function AssignDocument() {
             activePreviewDoc={activePreviewDoc}
           />
         </div>
-      </main>
 
       <Dialog open={importReview.isOpen} onOpenChange={(val) => setImportReview(prev => ({ ...prev, isOpen: val }))}>
         <DialogContent className="sm:max-w-[1000px] w-full max-h-[90vh] flex flex-col p-0 overflow-hidden">
@@ -1863,7 +1853,7 @@ function AssignDocument() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   )
 }
 

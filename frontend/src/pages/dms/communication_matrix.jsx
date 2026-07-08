@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -311,20 +310,16 @@ function CommunicationMatrix() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-3">
-          <SidebarTrigger className="-ml-1" />
-          <h1 className="text-lg font-bold tracking-tight text-slate-900">Communication Matrix</h1>
-        </div>
-        {view !== "list" && (
+      {view !== "list" && (
+        <div className="flex justify-end mb-4">
           <Button className="cursor-pointer" variant="outline" onClick={() => {
             setView("list")
             setIsCloning(false)
           }}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
           </Button>
-        )}
-      </header>
+        </div>
+      )}
       <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
         <div className={`w-full flex-1 min-h-0 flex flex-col ${view === "list" ? "overflow-hidden" : ""}`}>
           {view === "list" ? (

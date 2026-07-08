@@ -1,12 +1,11 @@
+import { PageContainer } from "@/components/layout/PageContainer"
 import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { toast } from "react-toastify"
 
-import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { ModuleHeader } from "@/components/shared/ModuleHeader"
 import {
   Select,
   SelectContent,
@@ -773,10 +772,6 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div />
-      </div>
-
       <ProDataTable
         columns={columns}
         fetchData={fetchData}
@@ -1511,8 +1506,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div />
+      <div className="flex justify-end mb-4">
         <Button variant="outline" onClick={onBack} disabled={submitting !== null} >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
@@ -2203,21 +2197,10 @@ export default function MaterialHeatChart() {
   }
 
   return (
-    <>
-      <ModuleHeader
-        title="Material Heat Chart"
-        description="Manage inspection records, production data, and quality approvals for heat-treated materials."
-      />
-      <main className="flex-1 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
-
-          {view === "list" ? (
+    <PageContainer>{view === "list" ? (
             <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} onCloneClick={handleCloneClick} />
           ) : (
             <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} />
-          )}
-        </div>
-      </main>
-    </>
+          )}</PageContainer>
   )
 }
