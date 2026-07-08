@@ -611,25 +611,21 @@ function DocumentApprover() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <main className="flex-1 min-h-0 overflow-hidden p-6 flex flex-col">
-        <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
-          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            <ProDataTable
-              columns={columns}
-              fetchData={fetchDocumentsWrapper}
-              onExport={handleExport}
-              columnFilters={columnFilters}
-              onFilterChange={onFilterChange}
-              refreshKey={refreshTrigger}
-              topFilters={proTableTopFilters}
-              globalSearchPlaceholder="Search documents..."
-              initialStickyColumns={["documentNumber"]}
-              lockActiveFilters={true}
-            />
-          </div>
-        </div>
-      </main>
+    <PageContainer className="overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+        <ProDataTable
+          columns={columns}
+          fetchData={fetchDocumentsWrapper}
+          onExport={handleExport}
+          columnFilters={columnFilters}
+          onFilterChange={onFilterChange}
+          refreshKey={refreshTrigger}
+          topFilters={proTableTopFilters}
+          globalSearchPlaceholder="Search documents..."
+          initialStickyColumns={["documentNumber"]}
+          lockActiveFilters={true}
+        />
+      </div>
 
       {/* Shared Document Preview Dialog */}
       <FileListPreviewDialog 
@@ -702,7 +698,7 @@ function DocumentApprover() {
         </SheetContent>
       </Sheet>
 
-    </div>
+    </PageContainer>
   )
 }
 

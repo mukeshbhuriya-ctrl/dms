@@ -234,7 +234,7 @@ function UserSidebar() {
             <SidebarMenuButton 
               tooltip="Logout" 
               onClick={handleLogout}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 transition-colors justify-start"
+              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 transition-colors justify-start cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span className="text-[12px] font-semibold">Logout</span>

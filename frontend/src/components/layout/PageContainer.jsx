@@ -5,8 +5,8 @@
  */
 export function PageContainer({ children, className = "" }) {
   return (
-    <main className={`flex-1 overflow-y-auto bg-slate-50/60 ${className}`}>
-      <div className="mx-auto max-w-[1600px] p-6">
+    <main className={`h-[calc(100vh-3.5rem)] min-h-0 overflow-y-auto w-full bg-slate-50/60 flex flex-col ${className}`}>
+      <div className="mx-auto w-full max-w-[1600px] p-6 flex-1 flex flex-col min-h-0">
         {children}
       </div>
     </main>

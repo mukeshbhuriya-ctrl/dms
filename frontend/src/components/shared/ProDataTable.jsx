@@ -390,7 +390,7 @@ const ProDataTable = ({
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden space-y-2.5">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden space-y-2.5 w-full">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
         <div className="relative flex-1 max-w-xs transition-all focus-within:max-w-sm">
@@ -479,8 +479,8 @@ const ProDataTable = ({
       </div>
 
       {/* Grid */}
-      <div className="rounded border bg-white relative flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar bg-white">
+      <div className="rounded border bg-white relative flex flex-col flex-1 min-h-0 overflow-hidden w-full">
+        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar bg-white w-full">
           <Table className="relative border-separate border-spacing-0 w-max min-w-full">
             <TableHeader className="z-20 bg-slate-100 border-b border-slate-200">
               <TableRow className="hover:bg-transparent h-9 border-none">

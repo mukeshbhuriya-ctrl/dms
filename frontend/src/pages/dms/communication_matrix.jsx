@@ -1,3 +1,4 @@
+import { PageContainer } from "@/components/layout/PageContainer"
 import { useState, useEffect, useMemo, useCallback } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -309,9 +310,11 @@ function CommunicationMatrix() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <PageContainer 
+      className={view === "list" ? "overflow-hidden" : "overflow-y-auto"} 
+    >
       {view !== "list" && (
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end mb-4 shrink-0">
           <Button className="cursor-pointer" variant="outline" onClick={() => {
             setView("list")
             setIsCloning(false)
@@ -320,9 +323,8 @@ function CommunicationMatrix() {
           </Button>
         </div>
       )}
-      <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
-        <div className={`w-full flex-1 min-h-0 flex flex-col ${view === "list" ? "overflow-hidden" : ""}`}>
-          {view === "list" ? (
+      <div className={`w-full flex-1 min-h-0 flex flex-col ${view === "list" ? "overflow-hidden" : ""}`}>
+        {view === "list" ? (
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               <ProDataTable
                 columns={columns}
@@ -487,9 +489,8 @@ function CommunicationMatrix() {
               </div>
             </form>
           )}
-        </div>
-      </main>
-    </div>
+      </div>
+    </PageContainer>
   )
 }
 

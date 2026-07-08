@@ -630,72 +630,68 @@ function UploadDocument() {
     }
 
     return (
-        <div className="flex h-screen flex-col overflow-hidden">
-            <main className="flex-1 min-h-0 overflow-hidden p-6 flex flex-col">
-                <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
-                    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-                        <ProDataTable
-                            columns={columns}
-                            fetchData={fetchDocumentsWrapper}
-                            onExport={handleExport}
-                            columnFilters={columnFilters}
-                            onFilterChange={onFilterChange}
-                            refreshKey={refreshTrigger}
-                            topFilters={proTableTopFilters}
-                            globalSearchPlaceholder="Search documents..."
-                            initialStickyColumns={["documentNumber"]}
-                            lockActiveFilters={true}
-                        />
-                    </div>
-                </div>
-
-                {/* Shared Document Preview Dialog */}
-                <FileListPreviewDialog
-                    isOpen={isFileListOpen}
-                    onClose={() => setIsFileListOpen(false)}
-                    files={activeFileList}
-                    documentName={activeFileListDocName}
-                    onPreviewFile={(previewInfo) => {
-                        setActivePreviewDoc(previewInfo);
-                        setPreviewUrl(previewInfo.previewUrl);
-                        setIsPreviewOpen(true);
-                    }}
-                />
-
-                <DocumentPreviewDialog
-                    isOpen={isPreviewOpen}
-                    onOpenChange={setIsPreviewOpen}
-                    previewUrl={previewUrl}
-                    activePreviewDoc={activePreviewDoc}
-                />
-
-                <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
-                    <SheetContent className="sm:max-w-xl overflow-y-auto">
-                        <SheetHeader>
-                            <SheetTitle>Document Audit Trail</SheetTitle>
-                        </SheetHeader>
-                        <div className="mt-6">
-                            <DocumentTrail
-                                documentId={activeDocId}
-                                onPreview={(previewInfo) => {
-                                    setActivePreviewDoc(previewInfo);
-                                    setPreviewUrl(previewInfo.previewUrl);
-                                    setIsPreviewOpen(true);
-                                }}
-                            />
-                        </div>
-                    </SheetContent>
-                </Sheet>
-
-
-                <MultiFileUploadModal
-                    isOpen={isUploadModalOpen}
-                    onClose={() => setIsUploadModalOpen(false)}
-                    onSubmit={handleSubmitUpload}
-                />
-
-            </main>
+        <PageContainer className="overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+            <ProDataTable
+                columns={columns}
+                fetchData={fetchDocumentsWrapper}
+                onExport={handleExport}
+                columnFilters={columnFilters}
+                onFilterChange={onFilterChange}
+                refreshKey={refreshTrigger}
+                topFilters={proTableTopFilters}
+                globalSearchPlaceholder="Search documents..."
+                initialStickyColumns={["documentNumber"]}
+                lockActiveFilters={true}
+            />
         </div>
+
+        {/* Shared Document Preview Dialog */}
+        <FileListPreviewDialog
+            isOpen={isFileListOpen}
+            onClose={() => setIsFileListOpen(false)}
+            files={activeFileList}
+            documentName={activeFileListDocName}
+            onPreviewFile={(previewInfo) => {
+                setActivePreviewDoc(previewInfo);
+                setPreviewUrl(previewInfo.previewUrl);
+                setIsPreviewOpen(true);
+            }}
+        />
+
+        <DocumentPreviewDialog
+            isOpen={isPreviewOpen}
+            onOpenChange={setIsPreviewOpen}
+            previewUrl={previewUrl}
+            activePreviewDoc={activePreviewDoc}
+        />
+
+        <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+            <SheetContent className="sm:max-w-xl overflow-y-auto">
+                <SheetHeader>
+                    <SheetTitle>Document Audit Trail</SheetTitle>
+                </SheetHeader>
+                <div className="mt-6">
+                    <DocumentTrail
+                        documentId={activeDocId}
+                        onPreview={(previewInfo) => {
+                            setActivePreviewDoc(previewInfo);
+                            setPreviewUrl(previewInfo.previewUrl);
+                            setIsPreviewOpen(true);
+                        }}
+                    />
+                </div>
+            </SheetContent>
+        </Sheet>
+
+
+        <MultiFileUploadModal
+            isOpen={isUploadModalOpen}
+            onClose={() => setIsUploadModalOpen(false)}
+            onSubmit={handleSubmitUpload}
+        />
+
+    </PageContainer>
     )
 }
 

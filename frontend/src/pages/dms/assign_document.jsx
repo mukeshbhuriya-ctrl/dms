@@ -1356,8 +1356,8 @@ function AssignDocument() {
   const isSubmitDisabled = isLoading || assignments.some(a => !a.jobId || !a.documentName || !a.assignUserId)
 
   return (
-    <PageContainer>
-      <div className="flex-1 flex flex-col w-full">
+    <PageContainer className="overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 w-full">
         <div className="flex justify-end mb-4 w-full">
 {view === "list" ? (
               <>
