@@ -992,7 +992,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
   }
 
   return (
-    <>
+    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar w-full space-y-6 pb-6">
       <div className="flex justify-end mb-2">
         <Button variant="outline" onClick={onBack} className="h-9 cursor-pointer">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1547,9 +1547,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
           </>
         )}
       </div>
-
-
-    </>
+    </div>
   )
 }
 // ─── Main Controller ─────────────────────────────────────────────────────────
