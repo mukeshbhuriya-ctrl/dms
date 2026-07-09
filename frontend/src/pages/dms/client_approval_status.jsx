@@ -631,7 +631,14 @@ const ClientApprovalStatus = () => {
                 <div className={`flex-1 min-h-0 flex flex-col w-full max-w-[1700px] mx-auto ${view === "list" ? "overflow-hidden" : ""}`}>
 
                     {view === 'review' && (
-                        <Card className="mb-6 shrink-0">
+                        <>
+                            <div className="flex justify-end items-center mb-4">
+                                <Button variant="outline" onClick={() => setView("list")}>
+                                    <ArrowLeft className="mr-2 h-4 w-4" />
+                                    Back to List
+                                </Button>
+                            </div>
+                            <Card className="mb-6 shrink-0">
                             <CardHeader className="pb-4 border-b">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -665,6 +672,7 @@ const ClientApprovalStatus = () => {
                                 </div>
                             </CardContent>
                         </Card>
+                        </>
                     )}
 
                     <div className={view === "list" ? "flex-1 min-h-0 flex flex-col overflow-hidden" : "w-full"}>
