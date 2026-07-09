@@ -921,7 +921,7 @@ function WeldingJoints() {
   return (
     <>
         <PageContainer>
-<div className="flex-1 flex flex-col w-full overflow-x-hidden">
+<div className={view === "list" ? "flex-1 flex flex-col w-full overflow-x-hidden" : "w-full"}>
 
 
             {error && (
@@ -966,7 +966,7 @@ function WeldingJoints() {
                 />
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
+              <div className="w-full space-y-6 pb-6">
                 <div className="flex justify-end">
                   <Button variant="outline" onClick={() => setView("list")}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
