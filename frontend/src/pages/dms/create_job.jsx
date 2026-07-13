@@ -608,198 +608,245 @@ function CreateJob() {
               onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
             />
           ) : (
-            <form onSubmit={handleSubmit} className="w-full">
-              <div className="grid gap-6 w-full">
-                {/* Selection Card */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Job Details Selection</CardTitle>
-                    <CardDescription>
-                      Select Purchase Order to proceed
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="customerId">
-                        Customer <span className="text-destructive">*</span>
-                        {formData.poId && <span className="text-muted-foreground text-xs ml-2">(auto-filled)</span>}
-                      </Label>
-                      <Select
-                        value={formData.customerId}
-                        onValueChange={handleCustomerChange}
-                        disabled={isLoading || isLoadingCustomers || !!formData.poId || !!editingId}
-                        required
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={String(customer.id)}>
-                              {customer.customer_name || customer.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.customerId && (
+            <div className="space-y-6 w-full pb-10">
+              <form onSubmit={handleSubmit}>
+                <div className="grid gap-6 w-full">
+                  {/* Selection Card */}
+                  <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                      <CardTitle className="text-lg font-bold text-slate-800">Job Details Selection</CardTitle>
+                      <CardDescription className="text-sm font-medium text-slate-500">
+                        Select Purchase Order to proceed
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-6">
                       <div className="space-y-2">
-                        <Label htmlFor="locationId">
-                          Location <span className="text-destructive">*</span>
-                          {formData.poId && <span className="text-muted-foreground text-xs ml-2">(auto-filled)</span>}
+                        <Label htmlFor="customerId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          Customer <span className="text-red-500">*</span>
+                          {formData.poId && <span className="text-muted-foreground ml-2 normal-case font-normal">(auto-filled)</span>}
                         </Label>
                         <Select
-                          value={formData.locationId}
-                          onValueChange={handleLocationChange}
-                          disabled={isLoading || !formData.customerId || !!formData.poId || !!editingId}
+                          value={formData.customerId}
+                          onValueChange={handleCustomerChange}
+                          disabled={isLoading || isLoadingCustomers || !!formData.poId || !!editingId}
                           required
                         >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a location" />
+                          <SelectTrigger className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
+                            <SelectValue placeholder="Select a customer" />
                           </SelectTrigger>
                           <SelectContent>
-                            {locations.length > 0 ? (
-                              locations.map((location) => (
-                                <SelectItem
-                                  key={location.id}
-                                  value={String(location.id)}
-                                  className="items-start"
-                                >
-                                  <div className="flex flex-col text-left">
-                                    <span className="font-medium">{location.location_name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      GST: {location.gst_number || "N/A"}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="no-location" disabled>
-                                {isLoadingLocations ? "Loading..." : "No locations available"}
+                            {customers.map((customer) => (
+                              <SelectItem key={customer.id} value={String(customer.id)}>
+                                {customer.customer_name || customer.name}
                               </SelectItem>
-                            )}
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="poId">
-                        Purchase Order <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.poId}
-                        onValueChange={handlePOChange}
-                        disabled={isLoading || isLoadingCustomers || !!editingId}
-                        required
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a purchase order" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availablePOs.map((po) => (
-                            <SelectItem key={po.id} value={String(po.id)}>
-                              {po.po_number} {po.customer?.customer_name ? `(${po.customer.customer_name})` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Job Details Card */}
-                {formData.poId && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Job Details</CardTitle>
-                      <CardDescription>
-                        Enter the job details for this purchase order
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {jobs.map((job) => (
-                          <div key={job.id}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Job Number <span className="text-destructive">*</span></Label>
-                                <Input
-                                  value={job.job_number}
-                                  onChange={(e) => handleJobChange(job.id, "job_number", e.target.value)}
-                                  required
-                                  disabled={!!editingId}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Project ID</Label>
-                                <Input
-                                  value={job.project_id}
-                                  onChange={(e) => handleJobChange(job.id, "project_id", e.target.value)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Equipment Name <span className="text-destructive">*</span></Label>
-                                <Input
-                                  value={job.equipement_name}
-                                  onChange={(e) => handleJobChange(job.id, "equipement_name", e.target.value)}
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Tag Number <span className="text-destructive">*</span></Label>
-                                <Input
-                                  value={job.tag_number}
-                                  onChange={(e) => handleJobChange(job.id, "tag_number", e.target.value)}
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Code</Label>
-                                <Input
-                                  value={job.code}
-                                  onChange={(e) => handleJobChange(job.id, "code", e.target.value)}
-                                />
-                              </div>
-                            </div>
-                            {(!editingId && jobs.length > 1) && (
-                              <Button type="button" variant="outline" size="icon" onClick={() => removeJob(job.id)} className="mt-4">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <hr className="my-6" />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {formData.customerId && (
+                          <div className="space-y-2">
+                            <Label htmlFor="locationId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              Location <span className="text-red-500">*</span>
+                              {formData.poId && <span className="text-muted-foreground ml-2 normal-case font-normal">(auto-filled)</span>}
+                            </Label>
+                            <Select
+                              value={formData.locationId}
+                              onValueChange={handleLocationChange}
+                              disabled={isLoading || !formData.customerId || !!formData.poId || !!editingId}
+                              required
+                            >
+                              <SelectTrigger className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
+                                <SelectValue placeholder="Select a location" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {locations.length > 0 ? (
+                                  locations.map((location) => (
+                                    <SelectItem
+                                      key={location.id}
+                                      value={String(location.id)}
+                                      className="items-start"
+                                    >
+                                      <div className="flex flex-col text-left">
+                                        <span className="font-medium">{location.location_name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          GST: {location.gst_number || "N/A"}
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))
+                                ) : (
+                                  <SelectItem value="no-location" disabled>
+                                    {isLoadingLocations ? "Loading..." : "No locations available"}
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
                           </div>
-                        ))}
-                        <Button type="button" variant="outline" onClick={addJob} className={`w-full ${editingId ? 'hidden' : ''}`}>
-                          <Plus className="h-4 w-4 mr-2" /> Add Another Job
-                        </Button>
+                        )}
+
+                        <div className="space-y-2">
+                          <Label htmlFor="poId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                            Purchase Order <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={formData.poId}
+                            onValueChange={handlePOChange}
+                            disabled={isLoading || isLoadingCustomers || !!editingId}
+                            required
+                          >
+                            <SelectTrigger className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
+                              <SelectValue placeholder="Select a purchase order" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availablePOs.map((po) => (
+                                <SelectItem key={po.id} value={String(po.id)}>
+                                  {po.po_number} {po.customer?.customer_name ? `(${po.customer.customer_name})` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
-                )}
 
-                {(formData.poId || editingId) && (
-                  <div className="flex justify-end gap-4">
-                    <Button type="button" variant="outline" onClick={() => {
-                      if (!editingId) {
-                        setFormData({ customerId: "", locationId: "", poId: "" })
-                      }
-                      setJobs([{ id: 1, job_number: "", project_id: "", equipement_name: "", tag_number: "", code: "" }])
-                      if (editingId) {
-                        setEditingId(null)
-                        setView("list")
-                      }
-                    }}>
-                      {editingId ? "Cancel" : "Reset"}
-                    </Button>
-                    <Button type="submit" disabled={isLoading}>
-                      {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Job" : "Create Jobs")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </form>
+                  {/* Job Details Card */}
+                  {formData.poId && (
+                    <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                      <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-lg font-bold text-slate-800">Job Details</CardTitle>
+                            <CardDescription className="text-sm font-medium text-slate-500">
+                              Enter the job details for this purchase order
+                            </CardDescription>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addJob}
+                            disabled={isLoading}
+                            className={`h-9 bg-white border-slate-200 text-slate-700 shadow-none ${editingId ? "hidden" : ""}`}
+                          >
+                            <Plus className="h-4 w-4 mr-2 text-slate-500" />
+                            Add Job
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-6 pt-6">
+                        <div className="space-y-4">
+                          {jobs.map((job, index) => (
+                            <div key={job.id} className="p-5 border border-slate-200 rounded-lg space-y-5 bg-slate-50/30">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-bold text-sm text-slate-700 uppercase tracking-wider">
+                                  Job {index + 1}
+                                </h3>
+                                {(!editingId && jobs.length > 1) && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeJob(job.id)}
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                  <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                    Job Number <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    value={job.job_number}
+                                    onChange={(e) => handleJobChange(job.id, "job_number", e.target.value)}
+                                    required
+                                    disabled={!!editingId}
+                                    className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                    Project ID
+                                  </Label>
+                                  <Input
+                                    value={job.project_id}
+                                    onChange={(e) => handleJobChange(job.id, "project_id", e.target.value)}
+                                    className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                    Equipment Name <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    value={job.equipement_name}
+                                    onChange={(e) => handleJobChange(job.id, "equipement_name", e.target.value)}
+                                    required
+                                    className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                    Tag Number <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    value={job.tag_number}
+                                    onChange={(e) => handleJobChange(job.id, "tag_number", e.target.value)}
+                                    required
+                                    className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                    Code
+                                  </Label>
+                                  <Input
+                                    value={job.code}
+                                    onChange={(e) => handleJobChange(job.id, "code", e.target.value)}
+                                    className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+
+                      {/* Footer Actions */}
+                      <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none"
+                          onClick={() => {
+                            if (!editingId) {
+                              setFormData({ customerId: "", locationId: "", poId: "" })
+                            }
+                            setJobs([{ id: 1, job_number: "", project_id: "", equipement_name: "", tag_number: "", code: "" }])
+                            if (editingId) {
+                              setEditingId(null)
+                              setView("list")
+                            }
+                          }}
+                          disabled={isLoading}
+                        >
+                          {editingId ? "Cancel" : "Reset"}
+                        </Button>
+                        <Button type="submit" className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium" disabled={isLoading}>
+                          {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Job" : "Create Jobs")}
+                        </Button>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              </form>
+            </div>
           )}
 
           <ConfirmDialog

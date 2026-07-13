@@ -15,6 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
@@ -367,38 +375,48 @@ function CreateUser() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <div className="flex items-center gap-1.5">
-          <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => handleEdit(row)} title="Edit">
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => handleSettingsClick(row)} title="Settings">
-            <Settings className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer"
-            onClick={() => handleResetClick(row)}
-            title="Reset Password"
-          >
-            <Key className="h-4 w-4" />
-          </Button>
-          <Switch 
-            checked={row.is_active} 
-            onCheckedChange={() => handleToggleClick(row)}
-            title={row.is_active ? "Deactivate" : "Activate"}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive cursor-pointer hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-            onClick={() => handleDeleteClick(row)}
-            title="Archive"
-          >
-           <Archive className="h-4 w-4" />
-              Archive
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-md">
+              <span className="sr-only">Open menu</span>
+              <Settings className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 shadow-lg rounded-xl border border-slate-100">
+            <DropdownMenuLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider">User Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-slate-100" />
+            <DropdownMenuItem onClick={() => handleEdit(row)} className="cursor-pointer text-sm py-2">
+              <Edit className="mr-2 h-4 w-4 text-blue-600" />
+              <span>Edit User</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleSettingsClick(row)} className="cursor-pointer text-sm py-2">
+              <Settings className="mr-2 h-4 w-4 text-slate-500" />
+              <span>System Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleResetClick(row)} className="cursor-pointer text-sm py-2">
+              <Key className="mr-2 h-4 w-4 text-amber-600" />
+              <span>Reset Password</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-100" />
+            <DropdownMenuItem onClick={() => handleToggleClick(row)} className="cursor-pointer text-sm py-2">
+              {row.is_active ? (
+                <>
+                  <EyeOff className="mr-2 h-4 w-4 text-amber-600" />
+                  <span className="text-amber-700 font-medium">Deactivate</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-2 h-4 w-4 text-emerald-600" />
+                  <span className="text-emerald-700 font-medium">Activate</span>
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleDeleteClick(row)} className="cursor-pointer text-sm py-2 group hover:bg-red-50 focus:bg-red-50">
+              <Archive className="mr-2 h-4 w-4 text-red-500 group-hover:text-red-600" />
+              <span className="text-red-600 font-medium group-hover:text-red-700">Archive User</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
       enableSorting: false,
     }
@@ -540,16 +558,16 @@ function CreateUser() {
               </form>
             </div>
           ) : (
-            <div className="space-y-6">
-              <form onSubmit={handleSubmit}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{editingId ? "Edit User" : "User Information"}</CardTitle>
-                    <CardDescription>
+            <div className="space-y-6 w-full pb-10">
+              <form onSubmit={handleSubmit} className="w-full">
+                <Card className="shadow-sm border-slate-200/80 rounded-xl overflow-hidden w-full">
+                  <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                    <CardTitle className="text-lg font-bold text-slate-800">{editingId ? "Edit User" : "User Information"}</CardTitle>
+                    <CardDescription className="text-sm font-medium text-slate-500">
                       {editingId ? "Update user details" : "Enter the details for the new user account"}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6 pt-6">
                     {error && (
                       <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                         {error}
@@ -563,28 +581,28 @@ function CreateUser() {
 
                     {/* Full Name */}
                     <div className="space-y-2">
-                      <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
-                      <Input id="fullName" name="fullName" type="text" placeholder="Enter full name" value={formData.fullName} onChange={handleInputChange} required disabled={isLoading} />
+                      <Label htmlFor="fullName" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Full Name <span className="text-red-500">*</span></Label>
+                      <Input id="fullName" name="fullName" type="text" placeholder="Enter full name" value={formData.fullName} onChange={handleInputChange} required disabled={isLoading} className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" />
                     </div>
 
                     {/* Email & Employee ID */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
-                        <Input id="email" name="email" type="email" placeholder="user@example.com" value={formData.email} onChange={handleInputChange} required disabled={isLoading} />
+                        <Label htmlFor="email" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Email <span className="text-red-500">*</span></Label>
+                        <Input id="email" name="email" type="email" placeholder="user@example.com" value={formData.email} onChange={handleInputChange} required disabled={isLoading} className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="employeeId">Employee ID <span className="text-destructive">*</span></Label>
-                        <Input id="employeeId" name="employeeId" type="text" placeholder="Enter employee ID" value={formData.employeeId} onChange={handleInputChange} required disabled={isLoading} />
+                        <Label htmlFor="employeeId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Employee ID <span className="text-red-500">*</span></Label>
+                        <Input id="employeeId" name="employeeId" type="text" placeholder="Enter employee ID" value={formData.employeeId} onChange={handleInputChange} required disabled={isLoading} className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" />
                       </div>
                     </div>
 
                     {/* Department & Designation */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
+                        <Label htmlFor="department" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Department <span className="text-red-500">*</span></Label>
                         <Select value={formData.department} onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))} disabled={isLoading} required>
-                          <SelectTrigger id="department" className="w-full">
+                          <SelectTrigger id="department" className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
                             <SelectValue placeholder="Select a department" />
                           </SelectTrigger>
                           <SelectContent>
@@ -599,78 +617,82 @@ function CreateUser() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="designation">Designation <span className="text-destructive">*</span></Label>
-                        <Input id="designation" name="designation" type="text" placeholder="e.g., Manager, Developer" value={formData.designation} onChange={handleInputChange} required disabled={isLoading} />
+                        <Label htmlFor="designation" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Designation <span className="text-red-500">*</span></Label>
+                        <Input id="designation" name="designation" type="text" placeholder="e.g., Manager, Developer" value={formData.designation} onChange={handleInputChange} required disabled={isLoading} className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" />
                       </div>
                     </div>
 
                     {/* Mobile & Roles */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="mobileNumber">Mobile Number <span className="text-destructive">*</span></Label>
-                        <Input id="mobileNumber" name="mobileNumber" type="tel" placeholder="+1 (555) 000-0000" value={formData.mobileNumber} onChange={handleInputChange} required disabled={isLoading} />
+                        <Label htmlFor="mobileNumber" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Mobile Number <span className="text-red-500">*</span></Label>
+                        <Input id="mobileNumber" name="mobileNumber" type="tel" placeholder="+1 (555) 000-0000" value={formData.mobileNumber} onChange={handleInputChange} required disabled={isLoading} className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="role">Roles <span className="text-destructive">*</span></Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] px-3 py-2 text-left" disabled={isLoading}>
-                              <div className="flex flex-wrap gap-1 max-w-[280px]">
-                                {formData.roles && formData.roles.length > 0 ? (
-                                  Array.from(new Set(formData.roles)).map(roleId => {
-                                    const roleObj = roles.find(r => r.id === roleId)
-                                    return (
-                                      <Badge key={roleId} variant="secondary" className="font-normal">
-                                        {roleObj?.name || "Unknown"}
-                                      </Badge>
-                                    )
-                                  })
-                                ) : (
-                                  <span className="text-muted-foreground font-normal">Select roles</span>
-                                )}
+                        <Label htmlFor="role" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Roles <span className="text-red-500">*</span></Label>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] bg-slate-50/50 border-slate-200 hover:bg-slate-100 shadow-none px-3 py-2 text-left text-sm" disabled={isLoading}>
+                                      <div className="flex flex-wrap gap-1">
+                                        {formData.roles && formData.roles.length > 0 ? (
+                                          Array.from(new Set(formData.roles)).map(roleId => {
+                                            const roleObj = roles.find(r => r.id === roleId)
+                                            return (
+                                              <Badge key={roleId} variant="secondary" className="font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200/50">
+                                                {roleObj?.name || "Unknown"}
+                                              </Badge>
+                                            )
+                                          })
+                                        ) : (
+                                          <span className="text-slate-400 font-normal">Select roles</span>
+                                        )}
+                                      </div>
+                                      <ChevronDownIcon className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent 
+                                    className="p-0 shadow-lg border-slate-200/80 rounded-xl overflow-hidden" 
+                                    style={{ width: 'var(--radix-popover-trigger-width)' }}
+                                    align="start"
+                                  >
+                                    <div className="p-3 border-b border-slate-100/60 bg-slate-50/80">
+                                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Available Roles</p>
+                                    </div>
+                                    <div className="max-h-[250px] overflow-y-auto p-2 space-y-0.5 custom-scrollbar bg-white">
+                                      {roles.length > 0 ? (
+                                        roles.map(role => (
+                                          <div key={role.id} className="flex items-center space-x-3 space-y-0 rounded-md p-2.5 hover:bg-slate-50 cursor-pointer transition-colors">
+                                            <Checkbox
+                                              id={`role-${role.id}`}
+                                              checked={formData.roles?.includes(role.id)}
+                                              onCheckedChange={(checked) => {
+                                                setFormData(prev => {
+                                                  const currentRoles = prev.roles || []
+                                                  const newRoles = checked
+                                                    ? [...new Set([...currentRoles, role.id])]
+                                                    : currentRoles.filter(id => id !== role.id)
+                                                  return { ...prev, roles: newRoles }
+                                                })
+                                              }}
+                                            />
+                                            <Label htmlFor={`role-${role.id}`} className="text-sm font-medium leading-none cursor-pointer flex-1 text-slate-700">
+                                              {role.name}
+                                            </Label>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <p className="text-sm text-center p-4 text-slate-400">No roles found</p>
+                                      )}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
                               </div>
-                              <ChevronDownIcon className="h-4 w-4 opacity-50 shrink-0 ml-2" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0" align="start">
-                            <div className="p-2 border-b">
-                              <p className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wider">Available Roles</p>
-                            </div>
-                            <div className="max-h-[300px] overflow-y-auto p-2">
-                              {roles.length > 0 ? (
-                                roles.map(role => (
-                                  <div key={role.id} className="flex items-center space-x-3 space-y-0 rounded-md p-2 hover:bg-muted cursor-pointer">
-                                    <Checkbox
-                                      id={`role-${role.id}`}
-                                      checked={formData.roles?.includes(role.id)}
-                                      onCheckedChange={(checked) => {
-                                        setFormData(prev => {
-                                          const currentRoles = prev.roles || []
-                                          const newRoles = checked
-                                            ? [...new Set([...currentRoles, role.id])]
-                                            : currentRoles.filter(id => id !== role.id)
-                                          return { ...prev, roles: newRoles }
-                                        })
-                                      }}
-                                    />
-                                    <Label htmlFor={`role-${role.id}`} className="text-sm font-medium leading-none cursor-pointer flex-1 py-1">
-                                      {role.name}
-                                    </Label>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-sm text-center p-4 text-muted-foreground">No roles found</p>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
                     </div>
 
                     {/* Password */}
                     <div className="space-y-2">
-                      <Label htmlFor="password">
-                        Password {editingId ? "(Leave blank to keep current)" : <span className="text-destructive">*</span>}
+                      <Label htmlFor="password" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                        Password {editingId ? <span className="text-slate-400 normal-case tracking-normal font-normal ml-1">(Leave blank to keep current)</span> : <span className="text-red-500">*</span>}
                       </Label>
                       <div className="relative">
                         <Input
@@ -681,25 +703,26 @@ function CreateUser() {
                           onChange={handleInputChange}
                           required={!editingId}
                           disabled={isLoading}
+                          className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                         />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-4 w-4 text-slate-400 hover:text-slate-600" /> : <Eye className="h-4 w-4 text-slate-400 hover:text-slate-600" />}
                           <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
                         </Button>
                       </div>
                     </div>
                   </CardContent>
-                </Card>
 
-                {/* Submit Buttons */}
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
-                  </Button>
-                </div>
+                  {/* Proper Enterprise Card Footer */}
+                  <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3">
+                    <Button type="button" variant="outline" className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium" disabled={isLoading}>
+                      {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
+                    </Button>
+                  </div>
+                </Card>
               </form>
             </div>
           )}

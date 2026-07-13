@@ -487,7 +487,7 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
     };
 
     return (
-        <div>
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden w-full h-full p-4 pt-4">
 
             {error && (
                 <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -939,7 +939,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
     const renderBasicInfo = (isDisabled, idPrefix) => (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 pb-4 border-b border-muted/50">
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}msmNumber`}>MSN. <span className="text-destructive">*</span></Label>
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}msmNumber`}>MSN. <span className="text-destructive">*</span></Label>
                 <SearchableSelect
                     options={jobs.map(job => ({ label: job.job_number, value: job.id }))}
                     value={formData.msmNumber}
@@ -949,34 +949,34 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                 />
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}ncrNo`}>NCR NO. <span className="text-destructive">*</span></Label>
-                <Input id={`${idPrefix}ncrNo`} name="ncrNo" value={formData.ncrNo} readOnly disabled className="bg-muted" required />
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}ncrNo`}>NCR NO. <span className="text-destructive">*</span></Label>
+                <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all bg-muted" id={`${idPrefix}ncrNo`} name="ncrNo" value={formData.ncrNo} readOnly disabled  required />
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}date`}>DATE <span className="text-destructive">*</span></Label>
-                <Input id={`${idPrefix}date`} name="date" type="date" value={formData.date} onChange={handleInputChange} disabled={isDisabled} required />
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}date`}>DATE <span className="text-destructive">*</span></Label>
+                <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" id={`${idPrefix}date`} name="date" type="date" value={formData.date} onChange={handleInputChange} disabled={isDisabled} required />
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}client`}>CLIENT <span className="text-destructive">*</span></Label>
-                <Input id={`${idPrefix}client`} name="client" placeholder="Enter client name" value={formData.client} onChange={handleInputChange} disabled={isDisabled} required />
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}client`}>CLIENT <span className="text-destructive">*</span></Label>
+                <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" id={`${idPrefix}client`} name="client" placeholder="Enter client name" value={formData.client} onChange={handleInputChange} disabled={isDisabled} required />
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}poNo`}>P.O. NO. <span className="text-destructive">*</span></Label>
-                <Input id={`${idPrefix}poNo`} name="poNo" placeholder="Enter P.O. Number" value={formData.poNo} onChange={handleInputChange} disabled={isDisabled} required />
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}poNo`}>P.O. NO. <span className="text-destructive">*</span></Label>
+                <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" id={`${idPrefix}poNo`} name="poNo" placeholder="Enter P.O. Number" value={formData.poNo} onChange={handleInputChange} disabled={isDisabled} required />
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}tagNo`}>TAG NO. <span className="text-destructive">*</span></Label>
-                <Input id={`${idPrefix}tagNo`} name="tagNo" placeholder="Enter Tag Number" value={formData.tagNo} onChange={handleInputChange} disabled={isDisabled} />
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}tagNo`}>TAG NO. <span className="text-destructive">*</span></Label>
+                <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" id={`${idPrefix}tagNo`} name="tagNo" placeholder="Enter Tag Number" value={formData.tagNo} onChange={handleInputChange} disabled={isDisabled} />
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}drgNo`}>DRG. NO. <span className="text-destructive">*</span></Label>
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}drgNo`}>DRG. NO. <span className="text-destructive">*</span></Label>
                 {isDisabled ? (
-                    <Input
+                    <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all bg-muted"
                         id={`${idPrefix}drgNo`}
                         value={formData.drgNo}
                         readOnly
                         disabled
-                        className="bg-muted"
+                        
                     />
                 ) : (
                     <SearchableSelect
@@ -992,8 +992,8 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                 )}
             </div>
             <div className="space-y-2">
-                <Label htmlFor={`${idPrefix}revNo`}>REV. NO. <span className="text-destructive">*</span></Label>
-                <Input id={`${idPrefix}revNo`} name="revNo" placeholder="Enter Revision Number" value={formData.revNo} onChange={handleInputChange} disabled={isDisabled} required />
+                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor={`${idPrefix}revNo`}>REV. NO. <span className="text-destructive">*</span></Label>
+                <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" id={`${idPrefix}revNo`} name="revNo" placeholder="Enter Revision Number" value={formData.revNo} onChange={handleInputChange} disabled={isDisabled} required />
             </div>
         </div>
     )
@@ -1024,9 +1024,9 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                 <div className="grid gap-6">
                     {/* STAGE 1 */}
                     {shouldShowStage(1) && (
-                        <Card className={isStage1Active ? "shadow-md" : "opacity-80"}>
-                            <CardHeader className="bg-muted/30">
-                                <CardTitle className="flex justify-between items-center text-lg">
+                        <Card className={`rounded-xl border-slate-200/80 shadow-sm overflow-hidden bg-white ${!isStage1Active ? "opacity-80" : ""}`}>
+                            <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 p-5 pb-5">
+                                <CardTitle className="flex justify-between items-center text-lg font-bold text-slate-800">
                                     <span>STAGE 1: DESCRIPTION OF NON-CONFORMANCE</span>
                                     {currentStage > 1 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
                                 </CardTitle>
@@ -1035,11 +1035,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 {renderBasicInfo(!isStage1Active, "stage1-")}
                                 <div className="space-y-4 pt-2">
                                     <div className="space-y-2">
-                                        <Label className="text-md">Description of Non-Conformance:</Label>
-                                        <Textarea name="descriptionNonConformance" rows={4} placeholder="Provide a detailed description of the non-conformance..." value={formData.descriptionNonConformance} onChange={handleInputChange} disabled={!isStage1Active} required />
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Description of Non-Conformance:</Label>
+                                        <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y" name="descriptionNonConformance" rows={4} placeholder="Provide a detailed description of the non-conformance..." value={formData.descriptionNonConformance} onChange={handleInputChange} disabled={!isStage1Active} required />
                                     </div>
                                     <div className="space-y-3 pt-2">
-                                        <Label className="text-md flex items-center gap-2">
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider  flex items-center gap-2">
                                             <Paperclip className="h-4 w-4" />Attachment:
                                         </Label>
 
@@ -1124,7 +1124,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="ncrRaisedAt">NCR Raised At <span className="text-destructive">*</span></Label>
+                                            <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="ncrRaisedAt">NCR Raised At <span className="text-destructive">*</span></Label>
                                             <SearchableSelect
                                                 options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                                 value={formData.ncrRaisedAt}
@@ -1134,7 +1134,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="ncrRaisedBy">NCR Raised By <span className="text-destructive">*</span></Label>
+                                            <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="ncrRaisedBy">NCR Raised By <span className="text-destructive">*</span></Label>
                                             <SearchableSelect
                                                 options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                                 value={formData.ncrRaisedBy}
@@ -1144,14 +1144,14 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                             />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="ncrDate" className="uppercase">Date:</Label>
-                                            <Input id="ncrDate" name="ncrDate" type="date" value={formData.ncrDate} onChange={handleInputChange} disabled={!isStage1Active} />
+                                            <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase" htmlFor="ncrDate" >Date:</Label>
+                                            <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" id="ncrDate" name="ncrDate" type="date" value={formData.ncrDate} onChange={handleInputChange} disabled={!isStage1Active} />
                                         </div>
                                     </div>
                                 </div>
                                 {isStage1Active && (
                                     <div className="pt-4 flex justify-end">
-                                        <Button type="button" onClick={handleSubmitStage1} disabled={isSubmitting} className="bg-black hover:bg-zinc-800 text-white px-8">
+                                        <Button type="button" onClick={handleSubmitStage1} disabled={isSubmitting} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium cursor-pointer">
                                             {isSubmitting ? "Saving…" : "Save & Submit"}
                                         </Button>
                                     </div>
@@ -1162,22 +1162,22 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
                     {/* STAGE 2 */}
                     {(isOpenMode ? shouldShowStage(2) : currentStage >= 2) && (
-                        <Card className={isStage2Active ? "shadow-md" : "opacity-80"}>
-                            <CardHeader className="bg-muted/30">
-                                <CardTitle className="flex justify-between items-center text-lg">
-                                    <span className="uppercase">STAGE 2: Proposed Resolution with Justification</span>
+                        <Card className={`rounded-xl border-slate-200/80 shadow-sm overflow-hidden bg-white ${!isStage2Active ? "opacity-80" : ""}`}>
+                            <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 p-5 pb-5">
+                                <CardTitle className="flex justify-between items-center text-lg font-bold text-slate-800">
+                                    <span className="uppercase text-sm tracking-wide">STAGE 2: Proposed Resolution with Justification</span>
                                     {currentStage > 2 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-6 space-y-4">
+                            <CardContent className="p-5 pt-4 space-y-4">
                                 {!isViewMode && renderBasicInfo(true, "stage2-")}
                                 <div className="space-y-2">
-                                    <Label className="text-md">Proposed Resolution with Justification:</Label>
-                                    <Textarea name="proposedResolution" rows={4} placeholder="Provide the proposed resolution and its justification..." value={formData.proposedResolution} onChange={handleInputChange} disabled={!isStage2Active} required />
+                                    <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Proposed Resolution with Justification:</Label>
+                                    <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y" name="proposedResolution" rows={4} placeholder="Provide the proposed resolution and its justification..." value={formData.proposedResolution} onChange={handleInputChange} disabled={!isStage2Active} required />
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 mt-4 border-t">
                                     <div className="space-y-2">
-                                        <Label htmlFor="targetEngineer">Assign Engineer <span className="text-destructive">*</span></Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="targetEngineer">Assign Engineer <span className="text-destructive">*</span></Label>
                                         <SearchableSelect
                                             options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                             value={formData.targetEngineer}
@@ -1187,7 +1187,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="targetHeadDesign">Head Design <span className="text-destructive">*</span></Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="targetHeadDesign">Head Design <span className="text-destructive">*</span></Label>
                                         <SearchableSelect
                                             options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                             value={formData.targetHeadDesign}
@@ -1197,7 +1197,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="targetHeadWelding">Head Welding <span className="text-destructive">*</span></Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="targetHeadWelding">Head Welding <span className="text-destructive">*</span></Label>
                                         <SearchableSelect
                                             options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                             value={formData.targetHeadWelding}
@@ -1207,7 +1207,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="targetHeadQuality">Head Quality <span className="text-destructive">*</span></Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="targetHeadQuality">Head Quality <span className="text-destructive">*</span></Label>
                                         <SearchableSelect
                                             options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                             value={formData.targetHeadQuality}
@@ -1219,7 +1219,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="resolutionBy">Resolution By <span className="text-destructive">*</span></Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="resolutionBy">Resolution By <span className="text-destructive">*</span></Label>
                                         <SearchableSelect
                                             options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                             value={formData.resolutionBy}
@@ -1229,13 +1229,13 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="uppercase">Date:</Label>
-                                        <Input name="resolutionDate" type="date" value={formData.resolutionDate} onChange={handleInputChange} disabled={!isStage2Active} />
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase">Date:</Label>
+                                        <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" name="resolutionDate" type="date" value={formData.resolutionDate} onChange={handleInputChange} disabled={!isStage2Active} />
                                     </div>
                                 </div>
                                 {isStage2Active && (
                                     <div className="pt-4 flex justify-end">
-                                        <Button type="button" onClick={handleSubmitStage2} disabled={isSubmitting} className="bg-black hover:bg-zinc-800 text-white px-8">
+                                        <Button type="button" onClick={handleSubmitStage2} disabled={isSubmitting} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium cursor-pointer">
                                             {isSubmitting ? "Saving…" : "Save & Submit"}
                                         </Button>
                                     </div>
@@ -1247,24 +1247,24 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                     {/* STAGE 3 */}
                     {(isOpenMode ? shouldShowStage(3) : currentStage >= 3) && (
                         <Card className={isStage3InitActive || isDesignActive || isWeldingActive || isQualityActive ? "shadow-md" : "opacity-80"}>
-                            <CardHeader className="bg-muted/30">
-                                <CardTitle className="flex justify-between items-center text-lg">
-                                    <span className="uppercase">STAGE 3: Acceptance of Proposal for Resolution</span>
+                            <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 p-5 pb-5">
+                                <CardTitle className="flex justify-between items-center text-lg font-bold text-slate-800">
+                                    <span className="uppercase text-sm tracking-wide">STAGE 3: Acceptance of Proposal for Resolution</span>
                                     {currentStage > 3 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="pt-6 space-y-6">
                                 {!isViewMode && renderBasicInfo(true, "stage3-")}
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4">
-                                    <Label className="font-semibold text-base">Customer approval required.</Label>
+                                    <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider  text-base">Customer approval required.</Label>
                                     <div className="w-full md:w-auto flex items-center gap-4 text-right">
-                                        <Label className="uppercase font-bold text-sm">DATE:</Label>
-                                        <Input className="w-[180px] h-9" name="acceptanceDate" type="date" value={formData.acceptanceDate} onChange={handleInputChange} disabled={!isStage3InitActive} />
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold text-sm">DATE:</Label>
+                                        <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all w-[180px] h-9" name="acceptanceDate" type="date" value={formData.acceptanceDate} onChange={handleInputChange} disabled={!isStage3InitActive} />
                                     </div>
                                 </div>
 
                                 <div className="space-y-3 p-4 border rounded-md">
-                                    <Label className="uppercase font-semibold block mb-2 text-sm">RESOLUTION APPROVAL SELECTION</Label>
+                                    <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase  block mb-2 text-sm">RESOLUTION APPROVAL SELECTION</Label>
                                     <div className="flex flex-wrap items-center w-full justify-between pr-4">
                                         {["USE AS IS", "REPAIR", "REWORK", "REJECTED"].map((option) => (
                                             <div key={option} className="flex items-center space-x-2">
@@ -1274,7 +1274,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                                     onCheckedChange={(checked) => handleCheckboxChange("resolutionApproval", option, checked)}
                                                     disabled={!isStage3InitActive}
                                                 />
-                                                <Label htmlFor={`res-${option}`} className="uppercase text-sm font-medium text-muted-foreground">{option}</Label>
+                                                <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase text-sm font-medium text-muted-foreground" htmlFor={`res-${option}`} >{option}</Label>
                                             </div>
                                         ))}
                                     </div>
@@ -1283,28 +1283,28 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 {/* Assignment Overview */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Assign Engineer:</Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold text-xs text-muted-foreground tracking-wider">Assign Engineer:</Label>
                                         <Select value={formData.targetEngineer} disabled={true}>
                                             <SelectTrigger className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Assigned Engineer" /></SelectTrigger>
                                             <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Design:</Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Design:</Label>
                                         <Select value={formData.headDesign} disabled={true}>
                                             <SelectTrigger className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Head of Design" /></SelectTrigger>
                                             <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Welding:</Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Welding:</Label>
                                         <Select value={formData.headWelding} disabled={true}>
                                             <SelectTrigger className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Head of Welding" /></SelectTrigger>
                                             <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Quality:</Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold text-xs text-muted-foreground tracking-wider">Head Quality:</Label>
                                         <Select value={formData.headQuality} disabled={true}>
                                             <SelectTrigger className="w-full bg-background/50 text-muted-foreground"><SelectValue placeholder="Head of Quality" /></SelectTrigger>
                                             <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
@@ -1315,7 +1315,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 {/* Head Design Review */}
                                 {(isDesignActive || !isOpenMode || (formData.designReviewStatus && formData.designReviewStatus !== 'PENDING')) && (
                                     <div className="mt-4 p-4 rounded-md border">
-                                        <Label className="uppercase font-bold flex items-center gap-2 mb-4">
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold flex items-center gap-2 mb-4">
                                             HEAD DESIGN:
                                             {formData.designReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
                                             {formData.designReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
@@ -1326,11 +1326,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                                 <SelectTrigger className="w-full md:w-1/2 bg-background"><SelectValue placeholder="Assigned Head of Design" /></SelectTrigger>
                                                 <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
                                             </Select>
-                                            <Textarea name="headDesignComments" placeholder="Add comments or approval notes..." value={formData.headDesignComments} onChange={handleInputChange} className="w-full min-h-[5rem] bg-background" disabled={!isDesignActive} />
+                                            <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y w-full min-h-[5rem] bg-background" name="headDesignComments" placeholder="Add comments or approval notes..." value={formData.headDesignComments} onChange={handleInputChange}  disabled={!isDesignActive} />
                                             {isDesignActive && (
                                                 <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
                                                     <div className="flex items-center space-x-2 mr-auto sm:mr-4">
-                                                        <Checkbox id="na-design" checked={formData.naDesign} onCheckedChange={(val) => handleSelectChange('naDesign', val)} /><Label htmlFor="na-design" className="text-sm font-medium">NA (if applicable)</Label>
+                                                        <Checkbox id="na-design" checked={formData.naDesign} onCheckedChange={(val) => handleSelectChange('naDesign', val)} /><Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider text-sm font-medium" htmlFor="na-design" >NA (if applicable)</Label>
                                                     </div>
                                                     <div className="flex items-center gap-3 w-full sm:w-auto">
                                                         {formData.naDesign ? (
@@ -1351,7 +1351,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 {/* Head Welding Review */}
                                 {(isWeldingActive || !isOpenMode || (formData.weldingReviewStatus && formData.weldingReviewStatus !== 'PENDING')) && (
                                     <div className="mt-4 p-4 rounded-md border">
-                                        <Label className="uppercase font-bold flex items-center gap-2 mb-4">
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold flex items-center gap-2 mb-4">
                                             HEAD WELDING:
                                             {formData.weldingReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
                                             {formData.weldingReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
@@ -1362,11 +1362,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                                 <SelectTrigger className="w-full md:w-1/2 bg-background"><SelectValue placeholder="Assigned Head of Welding" /></SelectTrigger>
                                                 <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
                                             </Select>
-                                            <Textarea name="headWeldingComments" placeholder="Add comments or approval notes..." value={formData.headWeldingComments} onChange={handleInputChange} className="w-full min-h-[5rem] bg-background" disabled={!isWeldingActive} />
+                                            <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y w-full min-h-[5rem] bg-background" name="headWeldingComments" placeholder="Add comments or approval notes..." value={formData.headWeldingComments} onChange={handleInputChange}  disabled={!isWeldingActive} />
                                             {isWeldingActive && (
                                                 <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
                                                     <div className="flex items-center space-x-2 mr-auto sm:mr-4">
-                                                        <Checkbox id="na-welding" checked={formData.naWelding} onCheckedChange={(val) => handleSelectChange('naWelding', val)} /><Label htmlFor="na-welding" className="text-sm font-medium">NA (if applicable)</Label>
+                                                        <Checkbox id="na-welding" checked={formData.naWelding} onCheckedChange={(val) => handleSelectChange('naWelding', val)} /><Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider text-sm font-medium" htmlFor="na-welding" >NA (if applicable)</Label>
                                                     </div>
                                                     <div className="flex items-center gap-3 w-full sm:w-auto">
                                                         {formData.naWelding ? (
@@ -1387,7 +1387,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 {/* Head Quality Review */}
                                 {(isQualityActive || !isOpenMode || (formData.qualityReviewStatus && formData.qualityReviewStatus !== 'PENDING')) && (
                                     <div className="mt-4 p-4 rounded-md border">
-                                        <Label className="uppercase font-bold flex items-center gap-2 mb-4">
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold flex items-center gap-2 mb-4">
                                             HEAD QUALITY:
                                             {formData.qualityReviewStatus === 'APPROVED' && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded text-xs">APPROVED</span>}
                                             {formData.qualityReviewStatus === 'REJECTED' && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded text-xs">REJECTED</span>}
@@ -1398,11 +1398,11 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                                 <SelectTrigger className="w-full md:w-1/2 bg-background"><SelectValue placeholder="Assigned Head of Quality" /></SelectTrigger>
                                                 <SelectContent>{users.map(u => <SelectItem key={u.id} value={u.id}>{u.displayName}</SelectItem>)}</SelectContent>
                                             </Select>
-                                            <Textarea name="headQualityComments" placeholder="Add comments or approval notes..." value={formData.headQualityComments} onChange={handleInputChange} className="w-full min-h-[5rem] bg-background" disabled={!isQualityActive} />
+                                            <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y w-full min-h-[5rem] bg-background" name="headQualityComments" placeholder="Add comments or approval notes..." value={formData.headQualityComments} onChange={handleInputChange}  disabled={!isQualityActive} />
                                             {isQualityActive && (
                                                 <div className="flex flex-col sm:flex-row justify-end items-center gap-4 pt-2">
                                                     <div className="flex items-center space-x-2 mr-auto sm:mr-4">
-                                                        <Checkbox id="na-quality" checked={formData.naQuality} onCheckedChange={(val) => handleSelectChange('naQuality', val)} /><Label htmlFor="na-quality" className="text-sm font-medium">NA (if applicable)</Label>
+                                                        <Checkbox id="na-quality" checked={formData.naQuality} onCheckedChange={(val) => handleSelectChange('naQuality', val)} /><Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider text-sm font-medium" htmlFor="na-quality" >NA (if applicable)</Label>
                                                     </div>
                                                     <div className="flex items-center gap-3 w-full sm:w-auto">
                                                         {formData.naQuality ? (
@@ -1422,7 +1422,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
                                 {isStage3InitActive && (
                                     <div className="mt-6 pt-4 border-t space-y-4">
-                                        <Textarea name="proposedResolution" rows={3} placeholder="Add comments or approval notes..." value={formData.proposedResolution} onChange={handleInputChange} disabled={!isStage3InitActive} />
+                                        <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y" name="proposedResolution" rows={3} placeholder="Add comments or approval notes..." value={formData.proposedResolution} onChange={handleInputChange} disabled={!isStage3InitActive} />
                                         <div className="flex justify-end pt-2">
                                             <Button type="button" onClick={handleSubmitStage3Init} disabled={isSubmitting} className="w-full md:w-auto bg-black hover:bg-zinc-800 text-white font-medium px-8">
                                                 {isSubmitting ? "Saving…" : "Save & Submit"}
@@ -1437,26 +1437,26 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                     {/* STAGE 4 */}
                     {(isOpenMode ? shouldShowStage(4) : (currentStage >= 4 && ncrStatus !== "rejected")) && (
                         <Card className={isStage4InitActive ? "shadow-md" : "opacity-80"}>
-                            <CardHeader className="bg-muted/30">
+                            <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 p-5 pb-5">
                                 <CardTitle className="uppercase flex justify-between items-center text-lg">
                                     <span>STAGE 4: Corrective Action Verification Carried Out By</span>
                                     {currentStage > 4 && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Completed</span>}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-6 space-y-4">
+                            <CardContent className="p-5 pt-4 space-y-4">
                                 {!isViewMode && renderBasicInfo(true, "stage4-")}
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                                     <div className="flex-1 w-full space-y-2">
-                                        <Textarea name="correctiveActionComments" rows={3} placeholder="Provide details about the corrective action verification process..." value={formData.correctiveActionComments} onChange={handleInputChange} disabled={!isStage4InitActive} />
+                                        <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y" name="correctiveActionComments" rows={3} placeholder="Provide details about the corrective action verification process..." value={formData.correctiveActionComments} onChange={handleInputChange} disabled={!isStage4InitActive} />
                                     </div>
                                     <div className="w-full md:w-1/4 space-y-2 min-w-[200px]">
-                                        <Label className="uppercase">Date:</Label>
-                                        <Input name="correctiveActionDate" type="date" value={formData.correctiveActionDate} onChange={handleInputChange} disabled={!isStage4InitActive} />
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase">Date:</Label>
+                                        <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" name="correctiveActionDate" type="date" value={formData.correctiveActionDate} onChange={handleInputChange} disabled={!isStage4InitActive} />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 border-t pt-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="verifiedByQce">Verified by QCE <span className="text-destructive">*</span></Label>
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider" htmlFor="verifiedByQce">Verified by QCE <span className="text-destructive">*</span></Label>
                                         <SearchableSelect
                                             options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                             value={formData.verifiedByQce}
@@ -1468,7 +1468,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 </div>
                                 {isStage4InitActive && (
                                     <div className="pt-4 flex justify-end">
-                                        <Button type="button" onClick={handleSubmitStage4} disabled={isSubmitting} className="bg-black hover:bg-zinc-800 text-white px-8">
+                                        <Button type="button" onClick={handleSubmitStage4} disabled={isSubmitting} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium cursor-pointer">
                                             {isSubmitting ? "Saving…" : "Save & Submit"}
                                         </Button>
                                     </div>
@@ -1479,26 +1479,26 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
 
                     {/* STAGE 5 */}
                     {(isOpenMode ? shouldShowStage(5) : (currentStage >= 5 && ncrStatus !== "rejected")) && (
-                        <Card className={isStage5QualityActive ? "shadow-md" : "opacity-80"}>
-                            <CardHeader className="bg-muted/30">
+                        <Card className={`rounded-xl border-slate-200/80 shadow-sm overflow-hidden bg-white ${!isStage5QualityActive ? "opacity-80" : ""}`}>
+                            <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 p-5 pb-5">
                                 <CardTitle className="uppercase flex justify-between items-center text-lg">
                                     <span className="text-green-700 dark:text-green-500">STAGE 5: FINAL DISPOSITION</span>
                                     {ncrStatus === "closed" && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Closed</span>}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-6 space-y-4">
+                            <CardContent className="p-5 pt-4 space-y-4">
                                 {!isViewMode && renderBasicInfo(true, "stage5-")}
                                 <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                                     <div className="flex-1 w-full space-y-2">
-                                        <Textarea name="disposition" rows={3} placeholder="Head Quality: Provide final disposition notes..." value={formData.disposition} onChange={handleInputChange} disabled={!isStage5QualityActive} />
+                                        <Textarea className="min-h-[100px] bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all resize-y" name="disposition" rows={3} placeholder="Head Quality: Provide final disposition notes..." value={formData.disposition} onChange={handleInputChange} disabled={!isStage5QualityActive} />
                                     </div>
                                     <div className="w-full md:w-1/4 space-y-2 min-w-[200px]">
-                                        <Label className="uppercase">DATE:</Label>
-                                        <Input name="dispositionDate" type="date" value={formData.dispositionDate} onChange={handleInputChange} disabled={!isStage5QualityActive} />
+                                        <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase">DATE:</Label>
+                                        <Input className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all" name="dispositionDate" type="date" value={formData.dispositionDate} onChange={handleInputChange} disabled={!isStage5QualityActive} />
                                     </div>
                                 </div>
                                 <div className="w-full md:w-1/2 space-y-2 border-t pt-4">
-                                    <Label className="uppercase font-bold">Verified by Head Quality <span className="text-destructive">*</span></Label>
+                                    <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider uppercase font-bold">Verified by Head Quality <span className="text-destructive">*</span></Label>
                                     <SearchableSelect
                                         options={users.map(u => ({ label: u.displayName, value: u.id }))}
                                         value={formData.verifiedByHeadQuality || formData.headQuality}
@@ -1509,7 +1509,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                                 </div>
                                 {isStage5QualityActive && (
                                     <div className="pt-4 flex justify-end">
-                                        <Button type="button" onClick={handleSubmitStage5} disabled={isSubmitting} className="w-full bg-black hover:bg-zinc-800 text-white font-bold tracking-wide">
+                                        <Button type="button" onClick={handleSubmitStage5} disabled={isSubmitting} className="h-10 w-full bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium cursor-pointer">
                                             {isSubmitting ? "Closing…" : "CLOSE NCR"}
                                         </Button>
                                     </div>
@@ -1567,7 +1567,7 @@ function CreateNCR() {
 
     return (
         <>
-            <PageContainer>
+            <PageContainer className="overflow-hidden">
 {view === "list" ? (
                         <ListView
                             onCreateClick={() => { setViewNcrId(null); setView("create") }}

@@ -5,8 +5,16 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X, Eye, Edit, Archive, Users } from "lucide-react"
+import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X, Eye, Edit, Archive, Users, Settings, EyeOff } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
     Card,
     CardContent,
@@ -62,7 +70,8 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder, disabled }) 
                 <Button
                     variant="outline"
                     disabled={disabled}
-                    className="h-10 text-sm font-normal w-full justify-between px-3 bg-white"
+                    role="combobox"
+                    className="h-10 text-sm font-normal w-full justify-between px-3 bg-slate-50/50 border-slate-200 hover:bg-slate-100 shadow-none"
                 >
                     <div className="flex items-center gap-2 truncate mr-1">
                         {selectedValues.length === 0 ? (
@@ -82,7 +91,7 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder, disabled }) 
                     <div className="flex items-center">
                         {selectedValues.length > 0 && (
                             <X
-                                className="h-4 w-4 mr-2 text-slate-400 hover:text-slate-600 pointer-events-auto"
+                                className="h-4 w-4 mr-2 text-slate-400 hover:text-slate-600 pointer-events-auto cursor-pointer"
                                 onClick={clearFilters}
                             />
                         )}
@@ -90,27 +99,31 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder, disabled }) 
                     </div>
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                <div className="flex flex-col h-[300px]">
-                    <div className="p-2 border-b">
+            <PopoverContent 
+                className="p-0 shadow-lg border-slate-200/80 rounded-xl overflow-hidden" 
+                style={{ width: 'var(--radix-popover-trigger-width)' }}
+                align="start"
+            >
+                <div className="flex flex-col bg-white">
+                    <div className="p-2 border-b border-slate-100/60 bg-slate-50/50">
                         <div className="relative">
-                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                             <Input
-                                placeholder="Search..."
-                                className="h-9 pl-8 text-sm shadow-none border-none focus-visible:ring-0"
+                                placeholder="Search members..."
+                                className="h-9 pl-9 text-sm shadow-none border-slate-200 focus-visible:ring-blue-500 bg-white"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
+                    <div className="max-h-[250px] overflow-y-auto p-2 custom-scrollbar space-y-0.5">
                         {filteredOptions.length === 0 ? (
-                            <div className="p-4 text-sm text-center text-slate-500">No results found.</div>
+                            <div className="p-4 text-sm text-center text-slate-400">No results found.</div>
                         ) : (
                             filteredOptions.map((opt) => (
                                 <div
                                     key={opt.value}
-                                    className="flex items-center space-x-2 px-2 py-2 hover:bg-slate-100 rounded-sm cursor-pointer"
+                                    className="flex items-center space-x-3 px-2 py-2 hover:bg-slate-50 rounded-md cursor-pointer transition-colors"
                                     onClick={() => toggleOption(opt.value)}
                                 >
                                     <Checkbox
@@ -118,18 +131,18 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder, disabled }) 
                                         onCheckedChange={() => toggleOption(opt.value)}
                                         className="h-4 w-4"
                                     />
-                                    <span className="text-sm truncate flex-1">{opt.label}</span>
-                                    {selectedValues.includes(opt.value) && <Check className="h-4 w-4 text-primary shrink-0" />}
+                                    <span className="text-sm truncate flex-1 font-medium text-slate-700">{opt.label}</span>
+                                    {selectedValues.includes(opt.value) && <Check className="h-4 w-4 text-blue-600 shrink-0" />}
                                 </div>
                             ))
                         )}
                     </div>
                     {selectedValues.length > 0 && (
-                        <div className="p-2 border-t mt-auto">
+                        <div className="p-2 border-t border-slate-100/60 bg-slate-50/50">
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="w-full h-8 text-xs text-slate-500 hover:text-red-600"
+                                className="w-full h-8 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50"
                                 onClick={clearFilters}
                             >
                                 Clear Selections
@@ -358,41 +371,44 @@ function GroupManagement() {
             id: "actions",
             header: "Actions",
             cell: (row) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewClick(row)}
-                        title="View members"
-                        className="cursor-pointer"
-                    >
-                        <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(row)}
-                        title="Edit"
-                        className="cursor-pointer"
-                    >
-                        <Edit className="h-4 w-4" />
-                    </Button>
-                    <Switch 
-                        checked={row.is_active} 
-                        onCheckedChange={() => handleToggleClick(row)}
-                        title={row.is_active ? "Deactivate" : "Activate"}
-                    />
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive cursor-pointer hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-                        onClick={() => handleDeleteClick(row)}
-                        title="Archive"
-                    >
-                        <Archive className="h-4 w-4" />
-                        Archive
-                    </Button>
-                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-md">
+                            <span className="sr-only">Open menu</span>
+                            <Settings className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 shadow-lg rounded-xl border border-slate-100">
+                        <DropdownMenuLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Group Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator className="bg-slate-100" />
+                        <DropdownMenuItem onClick={() => handleViewClick(row)} className="cursor-pointer text-sm py-2">
+                            <Eye className="mr-2 h-4 w-4 text-slate-500" />
+                            <span>View Members</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEdit(row)} className="cursor-pointer text-sm py-2">
+                            <Edit className="mr-2 h-4 w-4 text-blue-600" />
+                            <span>Edit Group</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-slate-100" />
+                        <DropdownMenuItem onClick={() => handleToggleClick(row)} className="cursor-pointer text-sm py-2">
+                            {row.is_active ? (
+                                <>
+                                    <EyeOff className="mr-2 h-4 w-4 text-amber-600" />
+                                    <span className="text-amber-700 font-medium">Deactivate</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Eye className="mr-2 h-4 w-4 text-emerald-600" />
+                                    <span className="text-emerald-700 font-medium">Activate</span>
+                                </>
+                            )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDeleteClick(row)} className="cursor-pointer text-sm py-2 group hover:bg-red-50 focus:bg-red-50">
+                            <Archive className="mr-2 h-4 w-4 text-red-500 group-hover:text-red-600" />
+                            <span className="text-red-600 font-medium group-hover:text-red-700">Archive Group</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             ),
             enableSorting: false,
         },
@@ -557,94 +573,94 @@ function GroupManagement() {
                             refreshKey={refreshKey}
                         />
                     ) : (
-                        <div className="w-full">
+                        <div className="space-y-6 w-full pb-10">
                             <form onSubmit={handleSubmit}>
-                                <div className="grid gap-6">
-                                    <Card className="w-full border-primary/20 shadow-lg">
-                                        <CardHeader className="bg-primary/5">
-                                            <CardTitle className="flex items-center gap-2 text-primary">
-                                                <Users className="h-5 w-5" />
-                                                Group Configuration
-                                            </CardTitle>
-                                            <CardDescription>
-                                                Configure group name, type, and assigned members
-                                            </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-6 pt-6">
-                                            {error && <FormAlert type="error" message={error} />}
-                                            {success && <FormAlert type="success" message={success} />}
+                                <Card className="shadow-sm border-slate-200/80 rounded-xl overflow-hidden w-full bg-white">
+                                    <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                                        <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
+                                            <Users className="h-5 w-5 text-slate-500" />
+                                            {editingId ? "Edit Group Configuration" : "Group Configuration"}
+                                        </CardTitle>
+                                        <CardDescription className="text-sm font-medium text-slate-500">
+                                            Configure group name, type, and assigned members
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6 pt-6">
+                                        {error && <FormAlert type="error" message={error} />}
+                                        {success && <FormAlert type="success" message={success} />}
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="type">
-                                                        Group Type <span className="text-destructive">*</span>
-                                                    </Label>
-                                                    <Select 
-                                                        value={formData.group_type} 
-                                                        onValueChange={handleTypeChange}
-                                                        disabled={isLoading || !!editingId}
-                                                    >
-                                                        <SelectTrigger className="w-full">
-                                                            <SelectValue placeholder="Select Group Type" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {groupTypes.map(type => (
-                                                                <SelectItem key={type.value} value={type.value}>
-                                                                    {type.label}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="name">
-                                                        Group Name <span className="text-destructive">*</span>
-                                                    </Label>
-                                                    <Input
-                                                        id="name"
-                                                        name="name"
-                                                        type="text"
-                                                        placeholder="e.g. Mechanical QC Team A"
-                                                        value={formData.name}
-                                                        onChange={handleInputChange}
-                                                        required
-                                                        disabled={isLoading}
-                                                    />
-                                                </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="type" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                                    Group Type <span className="text-red-500">*</span>
+                                                </Label>
+                                                <Select 
+                                                    value={formData.group_type} 
+                                                    onValueChange={handleTypeChange}
+                                                    disabled={isLoading || !!editingId}
+                                                >
+                                                    <SelectTrigger className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
+                                                        <SelectValue placeholder="Select Group Type" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {groupTypes.map(type => (
+                                                            <SelectItem key={type.value} value={type.value}>
+                                                                {type.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
 
                                             <div className="space-y-2">
-                                                <Label htmlFor="users">
-                                                    Assigned Members <span className="text-destructive">*</span>
+                                                <Label htmlFor="name" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                                    Group Name <span className="text-red-500">*</span>
                                                 </Label>
-                                                <MultiSelectFilter
-                                                    options={userOptions}
-                                                    value={formData.user_ids}
-                                                    onChange={handleUserChange}
-                                                    placeholder={isLoadingUsers ? "Loading eligible users..." : `Select ${formData.group_type.toLowerCase()} members`}
-                                                    disabled={isLoadingUsers}
+                                                <Input
+                                                    id="name"
+                                                    name="name"
+                                                    type="text"
+                                                    placeholder="e.g. Mechanical QC Team A"
+                                                    value={formData.name}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    disabled={isLoading}
+                                                    className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                                                 />
-                                                <p className="text-[11px] text-muted-foreground mt-1">
-                                                    Only users with the relevant role for this group type are shown.
-                                                </p>
                                             </div>
-                                        </CardContent>
-                                        <div className="flex justify-end gap-4 p-6 pt-0">
-                                            <Button 
-                                                type="button" 
-                                                variant="outline" 
-                                                disabled={isLoading}
-                                                onClick={() => { resetForm(); setView("list"); }}
-                                            >
-                                                Cancel
-                                            </Button>
-                                            <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90">
-                                                {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Group" : "Create Group")}
-                                            </Button>
                                         </div>
-                                    </Card>
-                                </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="users" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                                Assigned Members <span className="text-red-500">*</span>
+                                            </Label>
+                                            <MultiSelectFilter
+                                                options={userOptions}
+                                                value={formData.user_ids}
+                                                onChange={handleUserChange}
+                                                placeholder={isLoadingUsers ? "Loading eligible users..." : `Select ${formData.group_type.toLowerCase()} members`}
+                                                disabled={isLoadingUsers}
+                                            />
+                                            <p className="text-[11px] text-muted-foreground mt-1">
+                                                Only users with the relevant role for this group type are shown.
+                                            </p>
+                                        </div>
+                                    </CardContent>
+                                    <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                                        <Button 
+                                            type="button" 
+                                            variant="outline" 
+                                            disabled={isLoading}
+                                            onClick={() => { resetForm(); setView("list"); }}
+                                            className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none"
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button type="submit" disabled={isLoading} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium">
+                                            {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Group" : "Create Group")}
+                                        </Button>
+                                    </div>
+                                </Card>
                             </form>
                         </div>
                     )}

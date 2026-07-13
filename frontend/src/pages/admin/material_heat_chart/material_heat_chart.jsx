@@ -1506,8 +1506,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   return (
     <div className="w-full space-y-6 pb-6">
       {/* Header */}
-      <div className="flex justify-end mb-4">
-        <Button variant="outline" onClick={onBack} disabled={submitting !== null} >
+      <div className="flex justify-end mb-4 w-full">
+        <Button variant="outline" onClick={onBack} disabled={submitting !== null} className="h-9 bg-white border-slate-200 text-slate-700 shadow-none">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>
@@ -1544,15 +1544,15 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       )}
 
       {/* ── Section 1: Basic Information ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Basic Information</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* MSN / Job Number */}
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground">MSN / JOB NO.:</Label>
+              <Label >MSN / JOB NO. <span className="text-red-500">*</span></Label>
               <SearchableSelect
                 options={jobs.map((j) => ({ value: j.id, label: j.job_number }))}
                 value={selectedJobId}
@@ -1565,35 +1565,35 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
 
             {/* Auto-filled fields */}
             {[
-              { label: "REPORT NO.:", value: autoFill.reportNo },
-              { label: "CLIENT:", value: autoFill.client },
-              { label: "PO. NO.:", value: autoFill.poNo },
-              { label: "EQUIPMENT NAME:", value: autoFill.equipmentName },
-              { label: "TAG NO.:", value: autoFill.tagNo },
+              { label: "REPORT NO.", value: autoFill.reportNo },
+              { label: "CLIENT", value: autoFill.client },
+              { label: "PO. NO.", value: autoFill.poNo },
+              { label: "EQUIPMENT NAME", value: autoFill.equipmentName },
+              { label: "TAG NO.", value: autoFill.tagNo },
             ].map(({ label, value }) => (
               <div key={label} className="space-y-2">
-                <Label className="uppercase text-xs font-semibold text-muted-foreground">{label}</Label>
-                <Input value={value} readOnly className="bg-muted/50 h-9 border-muted" />
+                <Label >{label}</Label>
+                <Input value={value} readOnly  />
               </div>
             ))}
 
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground">PROJECT ID:</Label>
+              <Label >PROJECT ID</Label>
               <Input
                 value={formData.projectId}
                 onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value }))}
-                className="h-9 border-muted-foreground/30"
+                className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                 disabled={isView || (!isAdmin && !isQE)}
                 placeholder="Enter project ID"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground">CONSTRUCTION CODE:</Label>
+              <Label >CONSTRUCTION CODE</Label>
               <Input
                 value={formData.code}
                 onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                className="h-9 border-muted-foreground/30"
+                className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                 disabled={isView || (!isAdmin && !isQE)}
                 placeholder="Enter construction code"
               />
@@ -1603,24 +1603,24 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       </Card>
 
       {/* ── Section 2: Equipment Details ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Equipment Details</CardTitle>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Equipment Details</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { label: "SHRENO DRG NO.:", field: "shrenoDrgNo" },
-              { label: "CUSTOMER DRG NO.:", field: "customerDrgNo" },
-              { label: "INSPECTION BY:", field: "inspectionBy" },
+              { label: "SHRENO DRG NO.", field: "shrenoDrgNo" },
+              { label: "CUSTOMER DRG NO.", field: "customerDrgNo" },
+              { label: "INSPECTION BY", field: "inspectionBy" },
             ].map((f) => (
               <div className="space-y-2" key={f.field}>
-                <Label className="uppercase text-xs font-semibold text-muted-foreground">{f.label} <span className="text-destructive">*</span></Label>
+                <Label >{f.label} <span className="text-red-500">*</span></Label>
                 <Input
                   value={formData[f.field]}
                   onChange={(e) => setFormData({ ...formData, [f.field]: e.target.value })}
                   placeholder={`Enter ${f.label.toLowerCase().replace(':', '')}`}
-                  className="h-10 rounded-xl border-muted-foreground/30"
+                  className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                   disabled={isView}
                   required
                 />
@@ -1631,10 +1631,10 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       </Card>
 
       {/* ── Section 3: Material Heat Chart Details ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 bg-slate-50/50 border-b border-muted-foreground/10">
+      <Card className="mb-6">
+        <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold text-slate-800">Material Heat Chart Details</CardTitle>
+            <CardTitle>Material Heat Chart Details</CardTitle>
             {isView && editId && (
               <div className="flex items-center gap-2">
                 <Button
@@ -2024,16 +2024,16 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       </Card>
 
       {/* ── Section 4: Approval ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Approval</CardTitle>
-          <p className="text-xs text-muted-foreground">Assign groups</p>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Approval</CardTitle>
+          <p className="text-sm font-medium text-slate-500">Assign groups</p>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">QUALITY GROUP <span className="text-destructive">*</span></Label>
+                <Label >QUALITY GROUP <span className="text-red-500">*</span></Label>
                 <SearchableSelect
                   options={qcGroups.map((g) => ({ value: g.id, label: g.name }))}
                   value={qc_group_id}
@@ -2050,7 +2050,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">PRODUCTION GROUP <span className="text-destructive">*</span></Label>
+                <Label >PRODUCTION GROUP <span className="text-red-500">*</span></Label>
                 <SearchableSelect
                   options={productionGroups.map((g) => ({ value: g.id, label: g.name }))}
                   value={production_group_id}

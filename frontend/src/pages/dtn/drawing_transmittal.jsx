@@ -717,22 +717,22 @@ function CreateView({ onBack, editId, defaultRefNo }) {
   }
 
   return (
-    <div className="w-full">
+    <div className="space-y-6 w-full pb-10">
       <div className="flex justify-end mb-4 w-full">
-        <Button variant="outline" onClick={onBack} className="rounded-sm border-slate-200 shadow-none">
+        <Button variant="outline" onClick={onBack} className="h-9 bg-white border-slate-200 text-slate-700 shadow-none">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to List
         </Button>
       </div>
 
-      <Card className="mb-6 shadow-none border border-slate-200 rounded-sm w-full">
-        <CardHeader className="pb-4 border-b bg-slate-50/50 font-semibold text-lg">
-          <CardTitle className="text-base font-bold uppercase tracking-tight text-slate-800">Basic Information</CardTitle>
+      <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white mb-6">
+        <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+          <CardTitle className="text-lg font-bold text-slate-800">Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground italic">MSN / JOB NO.:</Label>
+              <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">MSN / JOB NO. <span className="text-red-500">*</span></Label>
               <SearchableSelect
                 multi={true}
                 options={jobOptions}
@@ -744,26 +744,26 @@ function CreateView({ onBack, editId, defaultRefNo }) {
             </div>
 
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground italic">TRANSMITTAL REF NO.:</Label>
-              <Input value={autoFill.reportNo} readOnly className="bg-muted/40 h-10 border-muted-foreground/20 shadow-none text-sm font-medium" />
+              <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">TRANSMITTAL REF NO.</Label>
+              <Input value={autoFill.reportNo} readOnly className="h-10 bg-slate-50/50 border-slate-200 shadow-none text-sm font-medium text-slate-700" />
             </div>
 
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground italic">CUSTOMER / VENDOR (CLIENT):</Label>
-              <Input value={autoFill.client} readOnly className="bg-muted/40 h-10 border-muted-foreground/20 shadow-none text-sm font-medium" />
+              <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">CUSTOMER / VENDOR (CLIENT)</Label>
+              <Input value={autoFill.client} readOnly className="h-10 bg-slate-50/50 border-slate-200 shadow-none text-sm font-medium text-slate-700" />
             </div>
 
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground italic">PURCHASE ORDER NO (PO. NO.):</Label>
-              <Input value={autoFill.poNo} readOnly className="bg-muted/40 h-10 border-muted-foreground/20 shadow-none text-sm font-medium" />
+              <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">PURCHASE ORDER NO (PO. NO.)</Label>
+              <Input value={autoFill.poNo} readOnly className="h-10 bg-slate-50/50 border-slate-200 shadow-none text-sm font-medium text-slate-700" />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card className="mb-6 shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 border-b bg-muted/5 py-4">
-          <CardTitle className="text-base font-semibold uppercase tracking-wide">Issued To :</CardTitle>
+      <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white mb-6">
+        <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+          <CardTitle className="text-lg font-bold text-slate-800">Issued To</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -779,7 +779,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                   { key: 'ppd', label: 'PREPRATORY DEPARTMENT (PPD)' },
                 ].map((item) => (
                   <tr key={item.key} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                    <td className="p-3 px-6 text-sm font-medium text-muted-foreground border-r w-2/3">
+                    <td className="p-3 px-6 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-r w-2/3">
                       {item.label}
                     </td>
                     <td className="p-3 text-center w-1/3">
@@ -788,23 +788,19 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                           id={`to-${item.key}`}
                           checked={issuedTo[item.key]}
                           onCheckedChange={(val) => updateIssuedTo(item.key, val)}
-                          className="h-5 w-5 border-muted-foreground/40"
+                          className="h-5 w-5 border-slate-300"
                         />
                       </div>
                     </td>
                   </tr>
                 ))}
-                <tr className="h-10 border-b last:border-0">
-                  <td className="border-r"></td>
-                  <td></td>
-                </tr>
               </tbody>
             </table>
           </div>
 
           {Object.values(issuedTo).some(v => v) && (
-            <div className="p-4 bg-slate-50/80 border-t flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider italic">ATTN:</span>
+            <div className="p-4 bg-blue-50/50 border-t flex items-center gap-2">
+              <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">ATTN:</span>
               <span className="text-sm font-bold text-slate-800 uppercase tracking-tight">
                 {Object.entries(issuedTo)
                   .filter(([_, checked]) => checked)
@@ -816,9 +812,9 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         </CardContent>
       </Card>
 
-      <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 border-b bg-muted/5 py-4">
-          <CardTitle className="text-base font-semibold uppercase tracking-wide">Issued For :</CardTitle>
+      <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white mb-6">
+        <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+          <CardTitle className="text-lg font-bold text-slate-800">Issued For</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-1 md:grid-cols-2">
@@ -831,7 +827,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                     { key: 'construction', label: 'Construction' },
                   ].map((item) => (
                     <tr key={item.key} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                      <td className="p-3 px-6 text-sm font-medium text-muted-foreground border-r w-2/3">
+                      <td className="p-3 px-6 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-r w-2/3">
                         {item.label}
                       </td>
                       <td className="p-3 text-center w-1/3">
@@ -840,7 +836,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                             id={`for-${item.key}`}
                             checked={issuedFor[item.key]}
                             onCheckedChange={(val) => setIssuedFor(prev => ({ ...prev, [item.key]: val }))}
-                            className="h-5 w-5 border-muted-foreground/40"
+                            className="h-5 w-5 border-slate-300"
                           />
                         </div>
                       </td>
@@ -860,7 +856,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                     { key: 'procurement', label: 'PROCUREMENT:' },
                   ].map((item) => (
                     <tr key={item.key} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
-                      <td className="p-3 px-6 text-sm font-medium text-muted-foreground border-r w-2/3">
+                      <td className="p-3 px-6 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-r w-2/3">
                         {item.label}
                       </td>
                       <td className="p-3 text-center w-1/3">
@@ -869,7 +865,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                             id={`for-${item.key}`}
                             checked={issuedFor[item.key]}
                             onCheckedChange={(val) => setIssuedFor(prev => ({ ...prev, [item.key]: val }))}
-                            className="h-5 w-5 border-muted-foreground/40"
+                            className="h-5 w-5 border-slate-300"
                           />
                         </div>
                       </td>
@@ -882,14 +878,18 @@ function CreateView({ onBack, editId, defaultRefNo }) {
           </div>
         </CardContent>
       </Card>
-      <Card className="mb-8 shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 border-b bg-muted/5 py-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-semibold uppercase tracking-wide">Distribution :</CardTitle>
+      <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white mb-6">
+        <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5 flex flex-row items-center justify-between">
+          <CardTitle className="text-lg font-bold text-slate-800">Distribution</CardTitle>
           <Button
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={addMatrixRow}
-            className="h-9 px-4 bg-slate-900 hover:bg-black text-white rounded-md shadow-sm transition-all text-xs font-bold tracking-wide gap-2 border-none"
+            disabled={savingStatus !== null}
+            className="h-9 bg-white border-slate-200 text-slate-700 shadow-none mt-0"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 mr-2 text-slate-500" />
             Add Item
           </Button>
         </CardHeader>
@@ -897,24 +897,24 @@ function CreateView({ onBack, editId, defaultRefNo }) {
           <div className="overflow-x-auto custom-scrollbar-x">
             <table className="w-full border-collapse min-w-[1200px]">
               <thead>
-                <tr className="bg-slate-50 border-b">
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 min-w-[64px] text-center">Sr. No</th>
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 text-left min-w-[300px] w-[400px] max-w-[500px]">Document Number / Title</th>
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 min-w-[96px] whitespace-nowrap text-center">Rev No</th>
-                  <th className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-24 min-w-[96px] whitespace-nowrap text-center">No. of Copy</th>
+                <tr className="bg-slate-50/50 border-b border-slate-200/80">
+                  <th className="p-3 border-r border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 w-16 min-w-[64px] text-center">Sr. No</th>
+                  <th className="p-3 border-r border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 text-left min-w-[300px] w-[400px] max-w-[500px]">Document Number / Title</th>
+                  <th className="p-3 border-r border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 w-24 min-w-[96px] whitespace-nowrap text-center">Rev No</th>
+                  <th className="p-3 border-r border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 w-24 min-w-[96px] whitespace-nowrap text-center">No. of Copy</th>
                   {depts.map(d => (
-                    <th key={d} className="p-2 border-r text-[10px] font-bold uppercase text-slate-600 w-16 min-w-[64px] text-center">{d}</th>
+                    <th key={d} className="p-3 border-r border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 w-16 min-w-[64px] text-center">{d}</th>
                   ))}
-                  <th className="p-2 border-l text-[10px] font-bold uppercase text-slate-600 w-32 min-w-[128px] text-center">Action</th>
+                  <th className="p-3 border-slate-200/80 text-[10px] font-bold uppercase tracking-wider text-slate-500 w-32 min-w-[128px] text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {distributionRows.map((row) => (
-                  <tr key={row.id} className="border-b last:border-0 group hover:bg-slate-50/30 transition-colors">
-                    <td className="p-2 border-r text-center text-[11px] font-bold text-slate-500 bg-slate-50/30">
+                  <tr key={row.id} className="border-b border-slate-100 last:border-0 group hover:bg-slate-50/50 transition-colors">
+                    <td className="p-2 border-r border-slate-100 text-center text-[11px] font-bold text-slate-500 bg-slate-50/30">
                       {row.srNo}
                     </td>
-                    <td className="p-1 border-r max-w-[500px]">
+                    <td className="p-1 border-r border-slate-100 max-w-[500px]">
                       <SearchableSelect
                         options={availableDocuments}
                         value={row.document_master_id || ''}
@@ -952,32 +952,32 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                         placeholder="Select Document"
                       />
                     </td>
-                    <td className="p-1 border-r text-center">
+                    <td className="p-1 border-r border-slate-100 text-center">
                       <Input
                         value={row.rev}
                         onChange={(e) => updateMatrixCell(row.id, 'rev', e.target.value)}
-                        className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
+                        className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold bg-transparent"
                       />
                     </td>
-                    <td className="p-1 border-r text-center">
+                    <td className="p-1 border-r border-slate-100 text-center">
                       <Input
                         value={row.copies}
                         onChange={(e) => updateMatrixCell(row.id, 'copies', e.target.value)}
-                        className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold"
+                        className="border-none shadow-none focus-visible:ring-0 text-[11px] h-8 text-center font-bold bg-transparent"
                       />
                     </td>
                     {depts.map(d => (
-                      <td key={d} className="p-2 border-r">
+                      <td key={d} className="p-2 border-r border-slate-100">
                         <div className="flex justify-center">
                           <Checkbox
                             checked={row.deps[d] || false}
                             onCheckedChange={(val) => updateMatrixDep(row.id, d, val)}
-                            className="h-4 w-4 border-muted-foreground/40"
+                            className="h-4 w-4 border-slate-300"
                           />
                         </div>
                       </td>
                     ))}
-                    <td className="p-2 border-l text-center">
+                    <td className="p-2 border-slate-100 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {!row.document_master_id ? (
                           <span className="text-[10px] text-slate-400 font-medium">Select Doc</span>
@@ -1053,46 +1053,45 @@ function CreateView({ onBack, editId, defaultRefNo }) {
                   </tr>
                 ))}
                 {[1, 2, 3].map(i => (
-                  <tr key={i} className="h-10 border-b last:border-0 opacity-40">
-                    <td className="border-r px-2 text-[10px] text-slate-400 text-center font-bold">{(distributionRows.length + i).toString().padStart(2, '0')}</td>
-                    <td className="border-r"></td>
-                    <td className="border-r"></td>
-                    <td className="border-r"></td>
-                    {depts.map(d => <td key={d} className="border-r"></td>)}
-                    <td className="border-l"></td>
+                  <tr key={i} className="h-10 border-b border-slate-100 last:border-0 opacity-40">
+                    <td className="border-r border-slate-100 px-2 text-[10px] text-slate-400 text-center font-bold">{(distributionRows.length + i).toString().padStart(2, '0')}</td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    <td className="border-r border-slate-100"></td>
+                    {depts.map(d => <td key={d} className="border-r border-slate-100"></td>)}
+                    <td className=""></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </CardContent>
+        <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={onBack}
+            disabled={savingStatus !== null}
+            className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => handleSubmit("Draft")}
+            disabled={savingStatus !== null}
+            className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none font-medium"
+          >
+            {savingStatus === "Draft" ? "Saving..." : "Save Draft"}
+          </Button>
+          <Button
+            onClick={() => handleSubmit("Uploaded")}
+            disabled={savingStatus !== null}
+            className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium"
+          >
+            {savingStatus === "Uploaded" ? "Processing..." : "Generate Transmittal"}
+          </Button>
+        </div>
       </Card>
-      <div className="flex gap-4 justify-end items-center mt-6">
-        <Button
-          variant="outline"
-          onClick={onBack}
-          disabled={savingStatus !== null}
-          className="h-10 px-6 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all rounded-lg font-medium shadow-none gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => handleSubmit("Draft")}
-          disabled={savingStatus !== null}
-          className="h-10 px-6 border-slate-200 text-slate-600 hover:bg-slate-50 transition-all rounded-lg font-medium shadow-none"
-        >
-          {savingStatus === "Draft" ? "Saving..." : "Save Draft"}
-        </Button>
-        <Button
-          onClick={() => handleSubmit("Uploaded")}
-          disabled={savingStatus !== null}
-          className="h-10 px-8 bg-slate-900 hover:bg-black text-white transition-all rounded-lg shadow-md font-bold text-[13px] tracking-wide border-none"
-        >
-          {savingStatus === "Uploaded" ? "Processing..." : "Generate Transmittal"}
-        </Button>
-      </div>
 
       <DocumentPreviewDialog
         isOpen={previewDialog.isOpen}

@@ -315,7 +315,7 @@ function CommunicationMatrix() {
     >
       {view !== "list" && (
         <div className="flex justify-end mb-4 shrink-0">
-          <Button className="cursor-pointer" variant="outline" onClick={() => {
+          <Button className="cursor-pointer h-9 bg-white border-slate-200 text-slate-700 shadow-none" variant="outline" onClick={() => {
             setView("list")
             setIsCloning(false)
           }}>
@@ -345,29 +345,29 @@ function CommunicationMatrix() {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <div className="grid gap-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Select Purchase Order</CardTitle>
-                    <CardDescription>
+              <div className="grid gap-6 w-full pb-10">
+                <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                  <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                    <CardTitle className="text-lg font-bold text-slate-800">Select Purchase Order</CardTitle>
+                    <CardDescription className="text-sm font-medium text-slate-500">
                       Choose the PO you want to define the communication matrix for.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-4 pt-6">
                     {error && (
                       <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                         {error}
                       </div>
                     )}
                     {success && (
-                      <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600">
+                      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600">
                         {success}
                       </div>
                     )}
 
                     <div className="space-y-2">
-                      <Label htmlFor="poId">
-                        Purchase Order <span className="text-destructive">*</span>
+                      <Label htmlFor="poId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                        Purchase Order <span className="text-red-500">*</span>
                       </Label>
                       <SearchableSelect
                         options={poOptions}
@@ -382,27 +382,28 @@ function CommunicationMatrix() {
                 </Card>
 
                 {(selectedPoId || isCloning) && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Configuration</CardTitle>
+                  <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                      <CardTitle className="text-lg font-bold text-slate-800">Configuration</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6">
+                    <CardContent className="space-y-6 pt-6">
                       {/* Shreno */}
                       <div className="space-y-4">
                         <div className="flex justify-between items-center">
-                          <h3 className="font-semibold flex items-center gap-2">
-                            <Mail className="h-4 w-4" /> Shreno Communication
+                          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-slate-400" /> Shreno Communication
                           </h3>
-                          <Button className="cursor-pointer" type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
-                            <Plus className="h-4 w-4 mr-2" /> Add
+                          <Button className="h-8 bg-white border-slate-200 text-slate-700 shadow-none cursor-pointer" type="button" variant="outline" size="sm" onClick={addShrenoCommunication}>
+                            <Plus className="h-4 w-4 mr-2 text-slate-400" /> Add
                           </Button>
                         </div>
                         {shrenoCommunication.map((contact, index) => (
-                          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                          <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 p-4 border border-slate-200/60 rounded-xl bg-slate-50/30">
                             <Input
                               placeholder="Name"
                               value={contact.name}
                               onChange={(e) => handleShrenoCommunicationChange(index, "name", e.target.value)}
+                              className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                               required
                             />
                             <Input
@@ -410,12 +411,14 @@ function CommunicationMatrix() {
                               type="email"
                               value={contact.email}
                               onChange={(e) => handleShrenoCommunicationChange(index, "email", e.target.value)}
+                              className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                               required
                             />
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
+                              className="h-10 w-10 text-red-500 hover:text-red-600 hover:bg-red-50"
                               onClick={() => removeShrenoCommunication(index)}
                               disabled={shrenoCommunication.length === 1}
                             >
@@ -426,21 +429,22 @@ function CommunicationMatrix() {
                       </div>
 
                       {/* Client */}
-                      <div className="space-y-4 border-t pt-4">
+                      <div className="space-y-4 border-t border-slate-100/60 pt-6 mt-6">
                         <div className="flex justify-between items-center">
-                          <h3 className="font-semibold flex items-center gap-2">
-                            <Mail className="h-4 w-4" /> Client Communication
+                          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-slate-400" /> Client Communication
                           </h3>
-                          <Button className="cursor-pointer" type="button" variant="outline" size="sm" onClick={addClientCommunication}>
-                            <Plus className="h-4 w-4 mr-2" /> Add
+                          <Button className="h-8 bg-white border-slate-200 text-slate-700 shadow-none cursor-pointer" type="button" variant="outline" size="sm" onClick={addClientCommunication}>
+                            <Plus className="h-4 w-4 mr-2 text-slate-400" /> Add
                           </Button>
                         </div>
                         {clientCommunication.map((contact, index) => (
-                          <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg">
+                          <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 p-4 border border-slate-200/60 rounded-xl bg-slate-50/30">
                             <Input
                               placeholder="Name"
                               value={contact.name}
                               onChange={(e) => handleClientCommunicationChange(index, "name", e.target.value)}
+                              className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                               required
                             />
                             <Input
@@ -448,12 +452,14 @@ function CommunicationMatrix() {
                               type="email"
                               value={contact.email}
                               onChange={(e) => handleClientCommunicationChange(index, "email", e.target.value)}
+                              className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                               required
                             />
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
+                              className="h-10 w-10 text-red-500 hover:text-red-600 hover:bg-red-50"
                               onClick={() => removeClientCommunication(index)}
                               disabled={clientCommunication.length === 1}
                             >
@@ -463,28 +469,26 @@ function CommunicationMatrix() {
                         ))}
                       </div>
                     </CardContent>
+                    
+                    <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                      <Button
+                        className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none cursor-pointer"
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedPoId("")
+                          setShrenoCommunication([{ name: "", email: "" }])
+                          setClientCommunication([{ name: "", email: "" }])
+                          setIsCloning(false)
+                        }}
+                      >
+                        Reset
+                      </Button>
+                      <Button className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium cursor-pointer" type="submit" disabled={!selectedPoId || isLoading}>
+                        {isLoading ? "Saving..." : "Save Communication Matrix"}
+                      </Button>
+                    </div>
                   </Card>
-                )}
-
-                {(selectedPoId || isCloning) && (
-                  <div className="flex justify-end gap-4 py-1">
-                    <Button
-                      className="cursor-pointer"
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedPoId("")
-                        setShrenoCommunication([{ name: "", email: "" }])
-                        setClientCommunication([{ name: "", email: "" }])
-                        setIsCloning(false)
-                      }}
-                    >
-                      Reset
-                    </Button>
-                    <Button className="cursor-pointer" type="submit" disabled={!selectedPoId || isLoading}>
-                      {isLoading ? "Saving..." : "Save Communication Matrix"}
-                    </Button>
-                  </div>
                 )}
               </div>
             </form>

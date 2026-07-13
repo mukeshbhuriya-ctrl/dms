@@ -648,30 +648,34 @@ function DocumentApprover() {
       />
 
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="rounded-[33px]">
-          <DialogHeader>
-            <DialogTitle>{reviewStatus} Document</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-[425px] rounded-xl bg-white border-slate-200/80 shadow-sm p-0 overflow-hidden">
+          <DialogHeader className="bg-slate-50/80 border-b border-slate-100/60 p-5 pb-5">
+            <DialogTitle className="text-lg font-bold text-slate-800">{reviewStatus} Document</DialogTitle>
+            <DialogDescription className="text-sm font-medium text-slate-500">
               {selectedDocForReview && `${selectedDocForReview.document.document_number} - ${selectedDocForReview.document.document_name}`}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 p-5 pt-4">
             <div className="grid gap-2">
-              <Label htmlFor="remarks">Remarks {reviewStatus === 'Rejected' && <span className="text-destructive">*</span>}</Label>
+              <Label htmlFor="remarks" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Remarks {reviewStatus === 'Rejected' && <span className="text-red-500">*</span>}
+              </Label>
               <Input
                 id="remarks"
                 value={reviewRemarks}
                 onChange={(e) => setReviewRemarks(e.target.value)}
                 placeholder="Enter remarks..."
+                className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
+          <DialogFooter className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 sm:justify-end gap-3">
+            <Button className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none cursor-pointer" variant="outline" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
             <Button
               onClick={submitReview}
               disabled={isReviewing || (reviewStatus === 'Rejected' && !reviewRemarks.trim())}
               variant={reviewStatus === 'Rejected' ? "destructive" : "default"}
+              className={`h-10 px-6 shadow-none text-white font-medium cursor-pointer ${reviewStatus === 'Rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
             >
               Confirm {reviewStatus}
             </Button>

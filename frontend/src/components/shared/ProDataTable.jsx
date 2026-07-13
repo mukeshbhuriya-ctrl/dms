@@ -479,13 +479,13 @@ const ProDataTable = ({
       </div>
 
       {/* Grid */}
-      <div className="rounded border bg-white relative flex flex-col flex-1 min-h-0 overflow-hidden w-full">
+      <div className="rounded-xl border border-slate-200/80 bg-white shadow-sm relative flex flex-col flex-1 min-h-0 overflow-hidden w-full">
         <div className="flex-1 min-h-0 overflow-auto custom-scrollbar bg-white w-full">
           <Table className="relative border-separate border-spacing-0 w-max min-w-full">
-            <TableHeader className="z-20 bg-slate-100 border-b border-slate-200">
-              <TableRow className="hover:bg-transparent h-9 border-none">
+            <TableHeader className="z-20 bg-slate-50 border-b border-slate-200/80">
+              <TableRow className="hover:bg-transparent h-10 border-none">
                 {showSelectionColumn && (
-                  <TableHead className="w-[40px] sticky top-0 left-0 z-50 !bg-slate-100 border-r border-slate-200 px-0 text-center h-9">
+                  <TableHead className="w-[40px] sticky top-0 left-0 z-50 !bg-slate-50 border-b border-r border-slate-200/80 px-0 text-center h-10">
                       <Checkbox
                         checked={selectedRows.size === data.length && data.length > 0}
                         onCheckedChange={() => toggleAll()}
@@ -496,7 +496,7 @@ const ProDataTable = ({
                 {processedColumns.map((col, idx) => {
                   const columnId = col.id || col.accessorKey;
                   const isSticky = col.isSticky;
-                  const stickyClass = isSticky ? "sticky z-40 !bg-slate-100 border-r border-slate-200" : "";
+                  const stickyClass = isSticky ? "sticky z-40 !bg-slate-50 border-r border-slate-200/80 shadow-[1px_0_0_0_#e2e8f0]" : "";
                   const hasFilter = Array.isArray(columnFilters[columnId]) 
                     ? columnFilters[columnId].length > 0 
                     : !!(columnFilters[columnId]);
@@ -507,15 +507,15 @@ const ProDataTable = ({
                     <TableHead 
                       key={columnId || idx} 
                       ref={el => headerRefs.current[columnId] = el}
-                      className={`${col.className || ""} ${stickyClass} sticky top-0 h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase text-slate-700 tracking-wider transition-all`}
+                      className={`${col.className || ""} ${stickyClass} sticky top-0 h-10 whitespace-nowrap px-4 text-[10px] font-bold uppercase text-slate-500 tracking-widest transition-all border-b border-slate-200/80`}
                       style={{ 
                         width: col.width || 'auto',
                         left: isSticky ? `${col.stickyOffset}px` : 'auto',
-                        backgroundColor: '#f1f5f9',
+                        backgroundColor: '#f8fafc',
                         zIndex: isSticky ? 50 : 20
                       }}
                     >
-                      <div className="flex items-center justify-between gap-1 h-full py-1">
+                      <div className="flex items-center justify-between gap-1 h-full py-1.5">
                         {!isFilterOpen ? (
                           <>
                             <span className="truncate">{col.header}</span>
@@ -637,13 +637,13 @@ const ProDataTable = ({
                   return (
                     <TableRow 
                       key={rIdx} 
-                      className={`h-8 transition-colors group ${isSelected ? 'bg-[#e0f2fe] hover:bg-[#bae6fd]' : 'hover:bg-slate-50/50'}`}
+                      className={`h-10 transition-colors group border-b border-slate-100/60 last:border-0 ${isSelected ? 'bg-blue-50/80 hover:bg-blue-100/60' : 'hover:bg-slate-50/80'}`}
                     >
                       {showSelectionColumn && (
                         <TableCell 
-                          className={`w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-40 border-r border-slate-100 p-0 h-8 transition-colors`}
+                          className={`w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-40 border-r border-slate-100/60 p-0 h-10 transition-colors`}
                           style={{
-                            backgroundColor: isSelected ? '#bae6fd' : 'white',
+                            backgroundColor: isSelected ? '#eff6ff' : 'white',
                             zIndex: 40
                           }}
                         >
@@ -656,17 +656,17 @@ const ProDataTable = ({
                         const columnId = col.id || col.accessorKey;
                         const isSticky = col.isSticky;
                         const stickyClass = isSticky 
-                          ? `sticky z-30 border-r border-slate-100 ${isSelected ? '!bg-[#bae6fd] group-hover:!bg-[#7dd3fc]' : '!bg-white group-hover:!bg-slate-50'}` 
+                          ? `sticky z-30 border-r border-slate-100/60 ${isSelected ? '!bg-blue-50 group-hover:!bg-blue-100/60' : '!bg-white group-hover:!bg-slate-50/80'}` 
                           : "";
                         
                         return (
                           <TableCell 
                             key={columnId || cIdx} 
-                            className={`${col.className || ""} ${stickyClass} py-0 px-3 h-8 text-[11px] font-medium text-slate-600 truncate border-b border-slate-100/60 transition-colors`}
+                            className={`${col.className || ""} ${stickyClass} py-0 px-4 h-10 text-[12px] font-medium text-slate-700 truncate transition-colors`}
                             style={{
                               width: col.width || 'auto',
                               left: isSticky ? `${col.stickyOffset}px` : 'auto',
-                              backgroundColor: isSelected ? '#bae6fd' : 'white',
+                              backgroundColor: isSelected ? '#eff6ff' : 'white',
                               zIndex: isSticky ? 40 : 1
                             }}
                           >

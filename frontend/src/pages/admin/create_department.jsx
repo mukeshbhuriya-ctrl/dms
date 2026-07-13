@@ -3,8 +3,16 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Pencil, Trash2, Edit, Archive } from "lucide-react"
+import { ArrowLeft, Pencil, Trash2, Edit, Archive, Settings, EyeOff, Eye } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Card,
   CardContent,
@@ -153,19 +161,40 @@ function CreateDepartment() {
       id: "actions",
       header: "Actions",
       cell: (row) => (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => handleEdit(row)} title="Edit">
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Switch 
-            checked={row.is_active} 
-            onCheckedChange={() => handleToggleClick(row)}
-          />
-          <Button variant="outline" size="sm" className="text-destructive cursor-pointer hover:bg-destructive/10" onClick={() => handleDeleteClick(row)} title="Archive">
-            <Archive className="h-4 w-4" />
-              Archive
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0 text-slate-500 hover:bg-slate-100 hover:text-slate-900 rounded-md">
+              <span className="sr-only">Open menu</span>
+              <Settings className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 shadow-lg rounded-xl border border-slate-100">
+            <DropdownMenuLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-slate-100" />
+            <DropdownMenuItem onClick={() => handleEdit(row)} className="cursor-pointer text-sm py-2">
+              <Edit className="mr-2 h-4 w-4 text-blue-600" />
+              <span>Edit Department</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="bg-slate-100" />
+            <DropdownMenuItem onClick={() => handleToggleClick(row)} className="cursor-pointer text-sm py-2">
+              {row.is_active ? (
+                <>
+                  <EyeOff className="mr-2 h-4 w-4 text-amber-600" />
+                  <span className="text-amber-700 font-medium">Deactivate</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="mr-2 h-4 w-4 text-emerald-600" />
+                  <span className="text-emerald-700 font-medium">Activate</span>
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleDeleteClick(row)} className="cursor-pointer text-sm py-2 group hover:bg-red-50 focus:bg-red-50">
+              <Archive className="mr-2 h-4 w-4 text-red-500 group-hover:text-red-600" />
+              <span className="text-red-600 font-medium group-hover:text-red-700">Archive</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ),
     }
   ], [nameOptions])
@@ -228,32 +257,36 @@ function CreateDepartment() {
               />
             </>
           ) : (
-            <Card className="w-full">
-              <CardHeader>
-                <CardTitle>{editingId ? "Edit Department" : "New Department"}</CardTitle>
-                <CardDescription>Enter the department name</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {error && <div className="p-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded">{error}</div>}
-                  {success && <div className="p-2 text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded">{success}</div>}
-                  <div className="space-y-2">
-                    <Label>Department Name</Label>
-                    <Input 
-                      value={formData.name} 
-                      onChange={(e) => setFormData({ name: e.target.value })}
-                      placeholder="e.g. Production, Quality, HR"
-                      required
-                      disabled={isLoading}
-                    />
+            <div className="space-y-6 w-full pb-10">
+              <form onSubmit={handleSubmit}>
+                <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                  <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                    <CardTitle className="text-lg font-bold text-slate-800">{editingId ? "Edit Department" : "New Department"}</CardTitle>
+                    <CardDescription className="text-sm font-medium text-slate-500">Enter the department name</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6 pt-6">
+                    {error && <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">{error}</div>}
+                    {success && <div className="p-3 text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded-md">{success}</div>}
+                    <div className="space-y-2">
+                      <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Department Name <span className="text-red-500">*</span></Label>
+                      <Input 
+                        value={formData.name} 
+                        onChange={(e) => setFormData({ name: e.target.value })}
+                        placeholder="e.g. Production, Quality, HR"
+                        required
+                        disabled={isLoading}
+                        className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                      />
+                    </div>
+                  </CardContent>
+                  {/* Proper Enterprise Card Footer */}
+                  <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                    <Button type="button" variant="outline" className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>Cancel</Button>
+                    <Button type="submit" className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium" disabled={isLoading}>{isLoading ? "Saving..." : (editingId ? "Update Department" : "Save Department")}</Button>
                   </div>
-                  <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>Cancel</Button>
-                    <Button type="submit" disabled={isLoading}>{isLoading ? "Saving..." : (editingId ? "Update Department" : "Save Department")}</Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
+                </Card>
+              </form>
+            </div>
           )}
 
           {/* Dialogs */}

@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { toast } from 'react-toastify';
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1484,38 +1485,38 @@ function AssignDocument() {
           )}
 
           {view === 'assign' && (
-            <div className="flex-1 flex flex-col w-full space-y-6">
-              {/* Document Details Section */}
-
-              <div className="space-y-6">
-                <div className="flex flex-row items-center justify-between">
-                  <div>
-                    <h2 className="text-xl ">Document Details</h2>
-                    <p className="text-sm text-muted-foreground">Enter details for the documents to be assigned</p>
+            <div className="flex-1 flex flex-col w-full space-y-6 pb-10">
+              <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg font-bold text-slate-800">Document Details</CardTitle>
+                      <CardDescription className="text-sm font-medium text-slate-500">Enter details for the documents to be assigned</CardDescription>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={addRow} className="h-9 bg-white border-slate-200 text-slate-700 shadow-none cursor-pointer">
+                      <Plus className="mr-2 h-4 w-4 text-slate-500" /> Add Row
+                    </Button>
                   </div>
-                  <Button type="button" size="sm" onClick={addRow}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Row
-                  </Button>
-                </div>
-                <div>
-                  <div className="rounded-md border overflow-x-auto">
+                </CardHeader>
+                <CardContent className="pt-6 p-0">
+                  <div className="overflow-x-auto">
                     <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50 whitespace-nowrap">
+                      <TableHeader className="bg-slate-50/50">
+                        <TableRow className="whitespace-nowrap">
                           {/* ... existing table headers ... */}
-                          <TableHead className="w-[50px]">S.No</TableHead>
-                          <TableHead className="min-w-[200px]">Customer <span className="text-destructive">*</span></TableHead>
-                          <TableHead className="min-w-[150px]">PO Number <span className="text-destructive">*</span></TableHead>
-                          <TableHead className="min-w-[150px]">Location</TableHead>
-                          <TableHead className="min-w-[200px]">Job Number <span className="text-destructive">*</span></TableHead>
-                          <TableHead className="min-w-[200px]">Document Name <span className="text-destructive">*</span></TableHead>
-                          <TableHead className="min-w-[150px]">Shreno Document No</TableHead>
-                          <TableHead className="min-w-[150px]">Client Document No</TableHead>
-                          <TableHead className="min-w-[100px]">Upload Due Days</TableHead>
-                          <TableHead className="min-w-[100px]">Response Due Days</TableHead>
-                          <TableHead className="min-w-[150px]">Planned Submission Date</TableHead>
-                          <TableHead className="min-w-[180px]">Assign User <span className="text-destructive">*</span></TableHead>
-                          <TableHead className="w-[50px]"></TableHead>
+                          <TableHead className="w-[50px] text-[11px] font-bold text-slate-700 uppercase tracking-wider text-center">S.No</TableHead>
+                          <TableHead className="min-w-[200px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Customer <span className="text-red-500">*</span></TableHead>
+                          <TableHead className="min-w-[150px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">PO Number <span className="text-red-500">*</span></TableHead>
+                          <TableHead className="min-w-[150px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Location</TableHead>
+                          <TableHead className="min-w-[200px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Job Number <span className="text-red-500">*</span></TableHead>
+                          <TableHead className="min-w-[200px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Document Name <span className="text-red-500">*</span></TableHead>
+                          <TableHead className="min-w-[150px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Shreno Document No</TableHead>
+                          <TableHead className="min-w-[150px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Client Document No</TableHead>
+                          <TableHead className="min-w-[100px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Upload Due Days</TableHead>
+                          <TableHead className="min-w-[100px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Response Due Days</TableHead>
+                          <TableHead className="min-w-[150px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Planned Submission Date</TableHead>
+                          <TableHead className="min-w-[180px] text-[11px] font-bold text-slate-700 uppercase tracking-wider">Assign User <span className="text-red-500">*</span></TableHead>
+                          <TableHead className="w-[80px] text-[11px] font-bold text-slate-700 uppercase tracking-wider text-center">Action</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1525,8 +1526,8 @@ function AssignDocument() {
                           const displayLocation = jobDetails?.customer_location?.location_name || poDetails?.customer_location?.location_name || "auto-fill";
 
                           return (
-                            <TableRow key={assignment.tempId}>
-                              <TableCell className="font-medium">{idx + 1}</TableCell>
+                            <TableRow key={assignment.tempId} className="hover:bg-slate-50/30">
+                              <TableCell className="font-bold text-slate-500 text-center text-[11px]">{idx + 1}</TableCell>
 
                               {/* Customer Select */}
                               <TableCell>
@@ -1759,14 +1760,14 @@ function AssignDocument() {
                       </TableBody>
                     </Table>
                   </div>
-                  <div className="flex justify-end gap-3 mt-6">
-                    <Button className="cursor-pointer" variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
-                    <Button className="cursor-pointer" onClick={handleAssign} disabled={isSubmitDisabled}>
+                  <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                    <Button className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none cursor-pointer" variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
+                    <Button className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium cursor-pointer" onClick={handleAssign} disabled={isSubmitDisabled}>
                       {isLoading ? (editingId ? "Updating..." : "Assigning...") : (editingId ? "Update Document" : "Assign Documents")}
                     </Button>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 

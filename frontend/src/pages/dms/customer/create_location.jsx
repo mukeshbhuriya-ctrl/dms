@@ -400,200 +400,206 @@ function CreateLocation() {
                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
               />
             ) : (
-              <form onSubmit={handleSubmit} className="w-full">
-                <div className="grid gap-6 w-full">
-                  {/* Client Selection */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Select Client</CardTitle>
-                      <CardDescription>
-                        Choose the client for which you want to add locations
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {error && !selectedCustomer && (
-                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive mb-4">
-                          {error}
-                        </div>
-                      )}
-                      {success && (
-                        <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400 mb-4">
-                          {success}
-                        </div>
-                      )}
-                      <div className="space-y-2">
-                        <Label htmlFor="customer">
-                          Client <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={selectedCustomer}
-                          onValueChange={setSelectedCustomer}
-                          disabled={isLoading || isLoadingCustomers || !!editingId}
-                          required
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue
-                              placeholder={
-                                isLoadingCustomers
-                                  ? "Loading clients..."
-                                  : "Select a client"
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {customers.length === 0 && !isLoadingCustomers ? (
-                              <SelectItem value="no-customers" disabled>
-                                No clients found
-                              </SelectItem>
-                            ) : (
-                              customers.map((customer) => (
-                                <SelectItem key={customer.id} value={String(customer.id)}>
-                                  {customer.customer_name || customer.name || `Client ${customer.id}`}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Locations Section */}
-                  {selectedCustomer && (
-                    <Card>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle>Locations</CardTitle>
-                            <CardDescription>
-                              Add one or more locations for the selected client
-                            </CardDescription>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={addLocation}
-                            disabled={isLoading}
-                            className={editingId ? "hidden" : ""}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Location
-                          </Button>
-                        </div>
+              <div className="space-y-6 w-full pb-10">
+                <form onSubmit={handleSubmit}>
+                  <div className="grid gap-6 w-full">
+                    {/* Client Selection */}
+                    <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                      <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                        <CardTitle className="text-lg font-bold text-slate-800">Select Client</CardTitle>
+                        <CardDescription className="text-sm font-medium text-slate-500">
+                          Choose the client for which you want to add locations
+                        </CardDescription>
                       </CardHeader>
-                      <CardContent className="space-y-4">
-                        {error && selectedCustomer && (
-                          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      <CardContent className="pt-6">
+                        {error && !selectedCustomer && (
+                          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive mb-4">
                             {error}
                           </div>
                         )}
-                        {locations.map((location, index) => (
-                          <div
-                            key={location.id}
-                            className="p-4 border rounded-lg space-y-4"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="font-semibold">
-                                Location {index + 1}
-                              </h3>
-                              {(!editingId && locations.length > 1) && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeLocation(location.id)}
-                                  disabled={isLoading}
-                                  className="text-destructive hover:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-
-                            <div className="space-y-2">
-                              <Label htmlFor={`location-${location.id}`}>
-                                Location <span className="text-destructive">*</span>
-                              </Label>
-                              <Input
-                                id={`location-${location.id}`}
-                                placeholder="Enter location name"
-                                value={location.location}
-                                onChange={(e) =>
-                                  handleLocationChange(
-                                    location.id,
-                                    "location",
-                                    e.target.value
-                                  )
-                                }
-                                required
-                                disabled={isLoading}
-                              />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label htmlFor={`customerNumber-${location.id}`}>
-                                  Customer Number (as per SAP){" "}
-                                </Label>
-                                <Input
-                                  id={`customerNumber-${location.id}`}
-                                  placeholder="Enter SAP customer number"
-                                  value={location.customerNumber}
-                                  onChange={(e) =>
-                                    handleLocationChange(
-                                      location.id,
-                                      "customerNumber",
-                                      e.target.value
-                                    )
-                                  }
-                                  disabled={isLoading}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`gstNumber-${location.id}`}>
-                                  GST Number <span className="text-destructive">*</span>
-                                </Label>
-                                <Input
-                                  id={`gstNumber-${location.id}`}
-                                  placeholder="Enter GST number"
-                                  value={location.gstNumber}
-                                  onChange={(e) =>
-                                    handleLocationChange(
-                                      location.id,
-                                      "gstNumber",
-                                      e.target.value
-                                    )
-                                  }
-                                  required
-                                  disabled={isLoading}
-                                />
-                              </div>
-                            </div>
+                        {success && (
+                          <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400 mb-4">
+                            {success}
                           </div>
-                        ))}
+                        )}
+                        <div className="space-y-2">
+                          <Label htmlFor="customer" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                            Client <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={selectedCustomer}
+                            onValueChange={setSelectedCustomer}
+                            disabled={isLoading || isLoadingCustomers || !!editingId}
+                            required
+                          >
+                            <SelectTrigger className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
+                              <SelectValue
+                                placeholder={
+                                  isLoadingCustomers
+                                    ? "Loading clients..."
+                                    : "Select a client"
+                                }
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {customers.length === 0 && !isLoadingCustomers ? (
+                                <SelectItem value="no-customers" disabled>
+                                  No clients found
+                                </SelectItem>
+                              ) : (
+                                customers.map((customer) => (
+                                  <SelectItem key={customer.id} value={String(customer.id)}>
+                                    {customer.customer_name || customer.name || `Client ${customer.id}`}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </CardContent>
                     </Card>
-                  )}
 
-                  {/* Submit Buttons */}
-                  {selectedCustomer && (
-                    <div className="flex justify-end gap-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => { resetForm(); setView("list"); }}
-                        disabled={isLoading}
-                      >
-                        {editingId ? "Cancel" : "Reset"}
-                      </Button>
-                      <Button type="submit" disabled={isLoading}>
-                        {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Location" : "Create Locations")}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </form>
+                    {/* Locations Section */}
+                    {selectedCustomer && (
+                      <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                        <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="text-lg font-bold text-slate-800">Locations</CardTitle>
+                              <CardDescription className="text-sm font-medium text-slate-500">
+                                Add one or more locations for the selected client
+                              </CardDescription>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={addLocation}
+                              disabled={isLoading}
+                              className={`h-9 bg-white border-slate-200 text-slate-700 shadow-none ${editingId ? "hidden" : ""}`}
+                            >
+                              <Plus className="h-4 w-4 mr-2 text-slate-500" />
+                              Add Location
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-6 pt-6">
+                          {error && selectedCustomer && (
+                            <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive mb-4">
+                              {error}
+                            </div>
+                          )}
+                          <div className="space-y-4">
+                            {locations.map((location, index) => (
+                              <div
+                                key={location.id}
+                                className="p-5 border border-slate-200 rounded-lg space-y-5 bg-slate-50/30"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <h3 className="font-bold text-sm text-slate-700 uppercase tracking-wider">
+                                    Location {index + 1}
+                                  </h3>
+                                  {(!editingId && locations.length > 1) && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeLocation(location.id)}
+                                      disabled={isLoading}
+                                      className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor={`location-${location.id}`} className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                    Location Name <span className="text-red-500">*</span>
+                                  </Label>
+                                  <Input
+                                    id={`location-${location.id}`}
+                                    placeholder="Enter location name"
+                                    value={location.location}
+                                    onChange={(e) =>
+                                      handleLocationChange(
+                                        location.id,
+                                        "location",
+                                        e.target.value
+                                      )
+                                    }
+                                    required
+                                    disabled={isLoading}
+                                    className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`customerNumber-${location.id}`} className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                      SAP Customer Number
+                                    </Label>
+                                    <Input
+                                      id={`customerNumber-${location.id}`}
+                                      placeholder="Enter SAP number"
+                                      value={location.customerNumber}
+                                      onChange={(e) =>
+                                        handleLocationChange(
+                                          location.id,
+                                          "customerNumber",
+                                          e.target.value
+                                        )
+                                      }
+                                      disabled={isLoading}
+                                      className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`gstNumber-${location.id}`} className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                                      GST Number <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                      id={`gstNumber-${location.id}`}
+                                      placeholder="Enter GST number"
+                                      value={location.gstNumber}
+                                      onChange={(e) =>
+                                        handleLocationChange(
+                                          location.id,
+                                          "gstNumber",
+                                          e.target.value
+                                        )
+                                      }
+                                      required
+                                      disabled={isLoading}
+                                      className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+
+                        {/* Proper Enterprise Card Footer */}
+                        <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none"
+                            onClick={() => { resetForm(); setView("list"); }}
+                            disabled={isLoading}
+                          >
+                            {editingId ? "Cancel" : "Cancel"}
+                          </Button>
+                          <Button type="submit" className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium" disabled={isLoading}>
+                            {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Location" : "Create Locations")}
+                          </Button>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                </form>
+              </div>
             )}
 
             <ConfirmDialog

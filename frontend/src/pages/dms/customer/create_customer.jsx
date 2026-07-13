@@ -350,96 +350,103 @@ function CreateCustomer() {
                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
               />
             ) : (
-              <form onSubmit={handleSubmit} className="w-full">
-                <Card className="w-full shadow-none border-slate-200">
-                  <CardHeader>
-                    <CardTitle>Client Information</CardTitle>
-                    <CardDescription>
-                      Enter the basic details about the client
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="customerName">
-                        Client <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="customerName"
-                        name="customerName"
-                        type="text"
-                        placeholder="Enter customer name"
-                        value={formData.customerName}
-                        onChange={handleInputChange}
-                        required
-                        disabled={isLoading}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-6 w-full pb-10">
+                <form onSubmit={handleSubmit}>
+                  <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                      <CardTitle className="text-lg font-bold text-slate-800">{editingId ? "Edit Client" : "Client Information"}</CardTitle>
+                      <CardDescription className="text-sm font-medium text-slate-500">
+                        Enter the basic details about the client
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-6">
                       <div className="space-y-2">
-                        <Label htmlFor="email">
-                          Email <span className="text-destructive">*</span>
+                        <Label htmlFor="customerName" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          Client Name <span className="text-red-500">*</span>
                         </Label>
                         <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          placeholder="customer@example.com"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          required
-                          disabled={isLoading}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="shortName">
-                          Short Name <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="shortName"
-                          name="shortName"
+                          id="customerName"
+                          name="customerName"
                           type="text"
-                          placeholder="Enter short name"
-                          value={formData.shortName}
+                          placeholder="Enter client name"
+                          value={formData.customerName}
                           onChange={handleInputChange}
                           required
                           disabled={isLoading}
+                          className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                         />
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="mobileNumber">
-                        Mobile Number
-                      </Label>
-                      <Input
-                        id="mobileNumber"
-                        name="mobileNumber"
-                        type="tel"
-                        placeholder="+1 (555) 000-0000"
-                        value={formData.mobileNumber}
-                        onChange={handleInputChange}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="email" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                            Email <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder="client@example.com"
+                            value={formData.email}
+                            onChange={handleInputChange}
+                            required
+                            disabled={isLoading}
+                            className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="shortName" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                            Short Name <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="shortName"
+                            name="shortName"
+                            type="text"
+                            placeholder="Enter short name (e.g. ABC)"
+                            value={formData.shortName}
+                            onChange={handleInputChange}
+                            required
+                            disabled={isLoading}
+                            className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="mobileNumber" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          Mobile Number
+                        </Label>
+                        <Input
+                          id="mobileNumber"
+                          name="mobileNumber"
+                          type="tel"
+                          placeholder="+1 (555) 000-0000"
+                          value={formData.mobileNumber}
+                          onChange={handleInputChange}
+                          disabled={isLoading}
+                          className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all w-full md:w-1/2"
+                        />
+                      </div>
+                    </CardContent>
+
+                    {/* Proper Enterprise Card Footer */}
+                    <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none"
+                        onClick={() => { resetForm(); setView("list"); }}
                         disabled={isLoading}
-                      />
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium" disabled={isLoading}>
+                        {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}
+                      </Button>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Submit Buttons */}
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => { resetForm(); setView("list"); }}
-                    disabled={isLoading}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}
-                  </Button>
-                </div>
-              </form>
+                  </Card>
+                </form>
+              </div>
             )}
 
             <ConfirmDialog

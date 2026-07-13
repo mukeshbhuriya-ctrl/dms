@@ -679,262 +679,277 @@ function CreatePO() {
               searchPlaceholder="Search..."
             />
           ) : (
-            <form onSubmit={handleSubmit} className="w-full">
-              <div className="grid gap-6 w-full">
-                {/* Form Content */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Customer & Location</CardTitle>
-                    <CardDescription>
-                      Select the customer and location for this purchase order
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {error && !formData.customerId && (
-                      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                        {error}
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="customerId">
-                        Customer <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.customerId}
-                        onValueChange={handleCustomerChange}
-                        disabled={isLoading || isLoadingCustomers || !!editingId}
-                        required
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {customers.map((customer) => (
-                            <SelectItem key={customer.id} value={String(customer.id)}>
-                              {customer.customer_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.customerId && (
-                      <div className="space-y-2">
-                        <Label htmlFor="locationId">
-                          Location <span className="text-destructive">*</span>
-                        </Label>
-                        <Select
-                          value={formData.locationId}
-                          onValueChange={handleLocationChange}
-                          disabled={isLoading || isLoadingLocations || !formData.customerId || !!editingId}
-                          required
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select a location" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableLocations.map((location) => (
-                              <SelectItem
-                                key={location.id}
-                                value={String(location.id)}
-                                className="items-start"
-                              >
-                                <div className="flex flex-col text-left">
-                                  <span className="font-medium">{location.location_name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    GST: {location.gst_number || "N/A"}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {formData.locationId && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Purchase Order Details</CardTitle>
+            <div className="space-y-6 w-full pb-10">
+              <form onSubmit={handleSubmit}>
+                <div className="grid gap-6 w-full">
+                  {/* Customer & Location Card */}
+                  <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                      <CardTitle className="text-lg font-bold text-slate-800">Customer & Location</CardTitle>
+                      <CardDescription className="text-sm font-medium text-slate-500">
+                        Select the customer and location for this purchase order
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="poNumber">PO Number *</Label>
-                          <Input
-                            id="poNumber"
-                            name="poNumber"
-                            value={formData.poNumber}
-                            onChange={handleInputChange}
-                            required
-                          />
+                    <CardContent className="space-y-6 pt-6">
+                      {error && !formData.customerId && (
+                        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive mb-4">
+                          {error}
                         </div>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <Label htmlFor="poDate">PO Date *</Label>
-                          <Input
-                            id="poDate"
-                            name="poDate"
-                            type="date"
-                            value={formData.poDate}
-                            onChange={handleInputChange}
+                          <Label htmlFor="customerId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                            Customer <span className="text-red-500">*</span>
+                          </Label>
+                          <Select
+                            value={formData.customerId}
+                            onValueChange={handleCustomerChange}
+                            disabled={isLoading || isLoadingCustomers || !!editingId}
                             required
-                          />
+                          >
+                            <SelectTrigger className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
+                              <SelectValue placeholder="Select a customer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {customers.map((customer) => (
+                                <SelectItem key={customer.id} value={String(customer.id)}>
+                                  {customer.customer_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </div>
 
-                      <div className="space-y-2">
-                        <Label>PO Document *</Label>
+                        {formData.customerId && (
+                          <div className="space-y-2">
+                            <Label htmlFor="locationId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              Location <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                              value={formData.locationId}
+                              onValueChange={handleLocationChange}
+                              disabled={isLoading || isLoadingLocations || !formData.customerId || !!editingId}
+                              required
+                            >
+                              <SelectTrigger className="w-full h-10 bg-slate-50/50 border-slate-200 focus:ring-blue-500 shadow-none text-sm">
+                                <SelectValue placeholder="Select a location" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableLocations.map((location) => (
+                                  <SelectItem
+                                    key={location.id}
+                                    value={String(location.id)}
+                                    className="items-start"
+                                  >
+                                    <div className="flex flex-col text-left">
+                                      <span className="font-medium">{location.location_name}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        GST: {location.gst_number || "N/A"}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Purchase Order Details Card */}
+                  {formData.locationId && (
+                    <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                      <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                        <CardTitle className="text-lg font-bold text-slate-800">Purchase Order Details</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-6 pt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label htmlFor="poNumber" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              PO Number <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="poNumber"
+                              name="poNumber"
+                              value={formData.poNumber}
+                              onChange={handleInputChange}
+                              required
+                              className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="poDate" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              PO Date <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="poDate"
+                              name="poDate"
+                              type="date"
+                              value={formData.poDate}
+                              onChange={handleInputChange}
+                              required
+                              className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
+                            />
+                          </div>
+                        </div>
+
                         <div className="space-y-4">
-                          <Label htmlFor="documentUpload" className="cursor-pointer">
-                            <div className="flex items-center gap-2">
+                          <Label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                            PO Document <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="space-y-4">
+                            <Label htmlFor="documentUpload" className="cursor-pointer inline-block">
                               <Button
                                 type="button"
                                 variant="outline"
+                                className="h-9 bg-white border-slate-200 text-slate-700 shadow-none"
                                 onClick={() => document.getElementById("documentUpload").click()}
                               >
-                                <Upload className="h-4 w-4 mr-2" /> Upload Document
+                                <Upload className="h-4 w-4 mr-2 text-slate-500" /> Upload Document
                               </Button>
-                            </div>
-                          </Label>
-                          <input
-                            id="documentUpload"
-                            type="file"
-                            accept=".pdf,.doc,.docx,.xls,.xlsx"
-                            onChange={handleDocumentUpload}
-                            className="hidden"
-                          />
-                          {editingPo?.po_attachment_history?.length > 0 ? (
-                            <div className="flex flex-col gap-2 mt-4">
-                              <span className="text-sm font-medium">Attachment History</span>
-                              {editingPo.po_attachment_history.map((history, idx) => {
-                                const attachments = history.po_attachments || [];
-                                if (attachments.length === 0) return null;
-                                const doc = attachments[0];
-                                return (
-                                  <div key={idx} className="flex flex-col gap-2 p-3 border rounded mb-2 bg-gray-50/50">
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-medium">Rev {history.revision}: {doc.name || doc.filename || "Attachment"}</span>
-                                        <span className="text-xs text-muted-foreground">{new Date(history.createdAt).toLocaleString()}</span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(doc.url?.split(".").pop()?.toLowerCase());
-                                            setActivePreviewUrl(doc.url)
-                                            setActivePreviewDoc({ documentName: doc.name || doc.filename, isImage })
-                                            setIsPreviewOpen(true)
-                                          }}
-                                        >
-                                          <Eye className="h-4 w-4 mr-2" /> Preview
-                                        </Button>
-                                        {doc.url && (
-                                          <a href={doc.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
-                                            <FileText className="h-3 w-3 mr-1" /> Open
-                                          </a>
-                                        )}
+                            </Label>
+                            <input
+                              id="documentUpload"
+                              type="file"
+                              accept=".pdf,.doc,.docx,.xls,.xlsx"
+                              onChange={handleDocumentUpload}
+                              className="hidden"
+                            />
+
+                            {editingPo?.po_attachment_history?.length > 0 ? (
+                              <div className="flex flex-col gap-2 mt-4">
+                                <span className="text-xs font-bold text-slate-700 uppercase">Attachment History</span>
+                                {editingPo.po_attachment_history.map((history, idx) => {
+                                  const attachments = history.po_attachments || [];
+                                  if (attachments.length === 0) return null;
+                                  const doc = attachments[0];
+                                  return (
+                                    <div key={idx} className="flex flex-col gap-2 p-3 border border-slate-200 rounded-lg mb-2 bg-slate-50/50">
+                                      <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                          <span className="text-sm font-medium text-slate-800">Rev {history.revision}: {doc.name || doc.filename || "Attachment"}</span>
+                                          <span className="text-[11px] text-slate-500 mt-1">{new Date(history.createdAt).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 bg-white border-slate-200"
+                                            onClick={() => {
+                                              const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(doc.url?.split(".").pop()?.toLowerCase());
+                                              setActivePreviewUrl(doc.url)
+                                              setActivePreviewDoc({ documentName: doc.name || doc.filename, isImage })
+                                              setIsPreviewOpen(true)
+                                            }}
+                                          >
+                                            <Eye className="h-4 w-4 mr-2 text-slate-500" /> Preview
+                                          </Button>
+                                          {doc.url && (
+                                            <a href={doc.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs flex items-center px-2 font-medium">
+                                              <FileText className="h-3 w-3 mr-1" /> Open
+                                            </a>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              existingDocUrl && !poDocument && (
+                                <div className="flex flex-col gap-2 p-4 border border-slate-200 rounded-lg mt-4 bg-slate-50/50">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-slate-800">Current Document</span>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 bg-white border-slate-200"
+                                        onClick={() => {
+                                          setActivePreviewUrl(existingDocUrl)
+                                          setActivePreviewDoc({ filePath: existingDocUrl })
+                                          setIsPreviewOpen(true)
+                                        }}
+                                      >
+                                        <Eye className="h-4 w-4 mr-2 text-slate-500" /> Preview
+                                      </Button>
+                                      <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs flex items-center px-2 font-medium">
+                                        <FileText className="h-3 w-3 mr-1" /> Open
+                                      </a>
+                                    </div>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            existingDocUrl && !poDocument && (
-                              <div className="flex flex-col gap-2 p-4 border rounded mt-4">
+                                </div>
+                              )
+                            )}
+
+                            {poDocument && (
+                              <div className="flex flex-col gap-2 p-4 border border-blue-200 rounded-lg bg-blue-50/30">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium">Current Document</span>
+                                  <span className="text-sm font-medium text-slate-800">{poDocument.name}</span>
                                   <div className="flex items-center gap-2">
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
+                                      className="h-8 bg-white border-slate-200"
                                       onClick={() => {
-                                        setActivePreviewUrl(existingDocUrl)
-                                        setActivePreviewDoc({ filePath: existingDocUrl })
+                                        setActivePreviewUrl(previewUrl)
+                                        setActivePreviewDoc({ mimeType: poDocument.type, documentName: poDocument.name })
                                         setIsPreviewOpen(true)
                                       }}
                                     >
-                                      <Eye className="h-4 w-4 mr-2" /> Preview
+                                      <Eye className="h-4 w-4 mr-2 text-slate-500" /> Preview
                                     </Button>
-                                    <a href={existingDocUrl} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm flex items-center">
-                                      <FileText className="h-3 w-3 mr-1" /> Open
-                                    </a>
+                                    <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument} className="h-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                                      <X className="h-4 w-4" />
+                                    </Button>
                                   </div>
                                 </div>
                               </div>
-                            )
-                          )}
-                          {poDocument && (
-                            <div className="flex flex-col gap-2 p-4 border rounded">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium">{poDocument.name}</span>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="cursor-pointer"
-                                    size="sm"
-                                    onClick={() => {
-                                      setActivePreviewUrl(previewUrl)
-                                      setActivePreviewDoc({ mimeType: poDocument.type, documentName: poDocument.name })
-                                      setIsPreviewOpen(true)
-                                    }}
-                                  >
-                                    <Eye className="h-4 w-4 mr-2" /> Preview
-                                  </Button>
-                                  <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDocument}>
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
+                      </CardContent>
+
+                      {/* Footer Actions */}
+                      <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none"
+                          onClick={() => {
+                            if (!editingId) {
+                              setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
+                              setSelectedLocation(null)
+                            }
+                            setPoDocument(null)
+                            if (previewUrl) {
+                              URL.revokeObjectURL(previewUrl)
+                              setPreviewUrl(null)
+                            }
+                            if (editingId) {
+                              setEditingId(null)
+                              setEditingPo(null)
+                              setView("list")
+                            }
+                          }}
+                          disabled={isLoading}
+                        >
+                          {editingId ? "Cancel" : "Reset"}
+                        </Button>
+                        <Button type="submit" className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium" disabled={isLoading}>
+                          {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update PO" : "Create PO")}
+                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-
-
-                {formData.locationId && (
-                  <div className="flex justify-end gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="cursor-pointer"
-                      onClick={() => {
-                        if (!editingId) {
-                          setFormData({ customerId: "", locationId: "", poNumber: "", poDate: "" })
-                          setSelectedLocation(null)
-                        }
-                        setPoDocument(null)
-                        if (previewUrl) {
-                          URL.revokeObjectURL(previewUrl)
-                          setPreviewUrl(null)
-                        }
-                        if (editingId) {
-                          setEditingId(null)
-                          setEditingPo(null)
-                          setView("list")
-                        }
-                      }}
-                    >
-                      {editingId ? "Cancel" : "Reset"}
-                    </Button>
-                    <Button type="submit" disabled={isLoading} className="cursor-pointer">
-                      {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update PO" : "Create PO")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </form>
+                    </Card>
+                  )}
+                </div>
+              </form>
+            </div>
           )}
         </div>
       </main>

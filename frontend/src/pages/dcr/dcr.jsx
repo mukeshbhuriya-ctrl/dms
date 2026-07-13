@@ -830,25 +830,6 @@ function CreateDCR() {
     }
   }
 
-  const handleListPageChange = (page) => {
-    const safePage = Math.min(Math.max(page, 1), Math.max(listPagination.totalPages, 1))
-    setListPagination((prev) => ({
-      ...prev,
-      page: safePage,
-    }))
-  }
-
-  const handleListLimitChange = (value) => {
-    const nextLimit = Number(value)
-    if (!Number.isFinite(nextLimit) || nextLimit <= 0) {
-      return
-    }
-    setListPagination((prev) => ({
-      ...prev,
-      page: 1,
-      limit: nextLimit,
-    }))
-  }
 
 
 
@@ -1000,10 +981,10 @@ function CreateDCR() {
   return (
     <>
       <PageContainer>
-{view !== "list" && (
+          {view !== "list" && (
             <div className="flex justify-end items-center mb-4">
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
+                <Button variant="outline" onClick={() => { resetForm(); setView("list"); }} className="h-9 bg-white border-slate-200 text-slate-700 shadow-none">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to List
                 </Button>
@@ -1023,30 +1004,31 @@ function CreateDCR() {
               onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
             />
           ) : (
-            <form onSubmit={isCreateMode ? handleSubmit : (e) => e.preventDefault()}>
-              <div className="grid gap-6">
-                {formError && (
-                  <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {formError}
-                  </div>
-                )}
+            <div className="space-y-6 w-full pb-10">
+              <form onSubmit={isCreateMode ? handleSubmit : (e) => e.preventDefault()}>
+                <div className="grid gap-6 w-full">
+                  {formError && (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {formError}
+                    </div>
+                  )}
 
-                {formSuccess && (
-                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    {formSuccess}
-                  </div>
-                )}
+                  {formSuccess && (
+                    <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
+                      {formSuccess}
+                    </div>
+                  )}
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Basic Information</CardTitle>
-                    <CardDescription>Enter the basic DCR details</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                    <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                      <CardTitle className="text-lg font-bold text-slate-800">Basic Information</CardTitle>
+                      <CardDescription className="text-sm font-medium text-slate-500">Enter the basic DCR details</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="msmNumber">
-                          MSM Number <span className="text-destructive">*</span>
+                        <Label htmlFor="msmNumber" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          MSM Number <span className="text-red-500">*</span>
                         </Label>
                         {isViewMode ? (
                           <Input
@@ -1055,6 +1037,7 @@ function CreateDCR() {
                             value={viewDetails.jobNumber}
                             readOnly
                             disabled
+                            className="h-10 bg-slate-50/50 border-slate-200 shadow-none text-sm transition-all"
                           />
                         ) : (
                           <Select
@@ -1062,7 +1045,7 @@ function CreateDCR() {
                             onValueChange={handleJobChange}
                             disabled={isSubmitting || isLoadingJobs}
                           >
-                            <SelectTrigger id="msmNumber" className="w-full">
+                            <SelectTrigger id="msmNumber" className="w-full h-10 bg-white border-slate-200 focus:ring-blue-500 shadow-none text-sm transition-all">
                               <SelectValue
                                 placeholder={
                                   isLoadingJobs ? "Loading job numbers..." : "Select job no"
@@ -1086,8 +1069,8 @@ function CreateDCR() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="dcrNo">
-                          DCR NO. <span className="text-destructive">*</span>
+                        <Label htmlFor="dcrNo" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          DCR NO. <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           id="dcrNo"
@@ -1099,12 +1082,13 @@ function CreateDCR() {
                           required
                           readOnly
                           disabled={isFormDisabled}
+                          className="h-10 bg-slate-50/50 border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all text-slate-700 font-medium"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="drawingNo">
-                          DRAWING NO. <span className="text-destructive">*</span>
+                        <Label htmlFor="drawingNo" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          DRAWING NO. <span className="text-red-500">*</span>
                         </Label>
                         {isViewMode ? (
                           <Input
@@ -1113,6 +1097,7 @@ function CreateDCR() {
                             value={formData.drawingNo}
                             readOnly
                             disabled
+                            className="h-10 bg-slate-50/50 border-slate-200 shadow-none text-sm transition-all"
                           />
                         ) : (
                           <Select
@@ -1120,7 +1105,7 @@ function CreateDCR() {
                             onValueChange={(value) => handleSelectChange("drawingNo", value)}
                             disabled={isSubmitting || isLoadingDocs || !formData.msmNumber}
                           >
-                            <SelectTrigger id="drawingNo" className="w-full">
+                            <SelectTrigger id="drawingNo" className="w-full h-10 bg-white border-slate-200 focus:ring-blue-500 shadow-none text-sm transition-all">
                               <SelectValue
                                 placeholder={
                                   !formData.msmNumber
@@ -1154,8 +1139,8 @@ function CreateDCR() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="equipmentNo">
-                          EQUIPMENT NO. <span className="text-destructive">*</span>
+                        <Label htmlFor="equipmentNo" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          EQUIPMENT NO. <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           id="equipmentNo"
@@ -1166,12 +1151,13 @@ function CreateDCR() {
                           onChange={handleInputChange}
                           required
                           disabled={isFormDisabled}
+                          className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="inspBy">
-                          INSP. BY <span className="text-destructive">*</span>
+                        <Label htmlFor="inspBy" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          INSP. BY <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           id="inspBy"
@@ -1182,18 +1168,19 @@ function CreateDCR() {
                           onChange={handleInputChange}
                           required
                           disabled={isFormDisabled}
+                          className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all"
                         />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
+                <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                  <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
                     <div className="flex items-center justify-between">
                       <div>
-                        <CardTitle>Change Details</CardTitle>
-                        <CardDescription>Add items and specify the changes</CardDescription>
+                        <CardTitle className="text-lg font-bold text-slate-800">Change Details</CardTitle>
+                        <CardDescription className="text-sm font-medium text-slate-500">Add items and specify the changes</CardDescription>
                       </div>
                       {!isViewMode && (
                         <Button
@@ -1202,30 +1189,31 @@ function CreateDCR() {
                           size="sm"
                           onClick={addTableRow}
                           disabled={isSubmitting}
+                          className="h-9 bg-white border-slate-200 text-slate-700 shadow-none"
                         >
-                          <Plus className="h-4 w-4 mr-2" />
+                          <Plus className="h-4 w-4 mr-2 text-slate-500" />
                           Add Row
                         </Button>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border overflow-x-auto">
+                  <CardContent className="pt-6 p-0">
+                    <div className="overflow-x-auto">
                       <Table>
-                        <TableHeader>
+                        <TableHeader className="bg-slate-50/50">
                           <TableRow>
-                            <TableHead className="w-[50px]">S.No</TableHead>
-                            <TableHead>ITEM / PART NO.</TableHead>
-                            <TableHead>CHANGE FROM</TableHead>
-                            <TableHead>CHANGE TO</TableHead>
-                            <TableHead>REASON FOR CHANGE</TableHead>
-                            <TableHead className="w-[100px]">Action</TableHead>
+                            <TableHead className="w-[50px] text-[11px] font-bold text-slate-700 uppercase tracking-wider text-center">S.No</TableHead>
+                            <TableHead className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">ITEM / PART NO.</TableHead>
+                            <TableHead className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">CHANGE FROM</TableHead>
+                            <TableHead className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">CHANGE TO</TableHead>
+                            <TableHead className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">REASON FOR CHANGE</TableHead>
+                            <TableHead className="w-[80px] text-[11px] font-bold text-slate-700 uppercase tracking-wider text-center">Action</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {tableRows.map((row, index) => (
-                            <TableRow key={row.id}>
-                              <TableCell className="font-medium">{index + 1}</TableCell>
+                            <TableRow key={row.id} className="hover:bg-slate-50/30">
+                              <TableCell className="font-bold text-slate-500 text-center text-[11px]">{index + 1}</TableCell>
                               <TableCell>
                                 <Input
                                   type="text"
@@ -1235,7 +1223,7 @@ function CreateDCR() {
                                     handleTableRowChange(row.id, "itemPartNo", e.target.value)
                                   }
                                   disabled={isFormDisabled}
-                                  className="min-w-[150px]"
+                                  className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all min-w-[150px]"
                                 />
                               </TableCell>
                               <TableCell>
@@ -1247,7 +1235,7 @@ function CreateDCR() {
                                     handleTableRowChange(row.id, "changeFrom", e.target.value)
                                   }
                                   disabled={isFormDisabled}
-                                  className="min-w-[150px]"
+                                  className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all min-w-[150px]"
                                 />
                               </TableCell>
                               <TableCell>
@@ -1259,7 +1247,7 @@ function CreateDCR() {
                                     handleTableRowChange(row.id, "changeTo", e.target.value)
                                   }
                                   disabled={isFormDisabled}
-                                  className="min-w-[150px]"
+                                  className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all min-w-[150px]"
                                 />
                               </TableCell>
                               <TableCell>
@@ -1271,17 +1259,17 @@ function CreateDCR() {
                                     handleTableRowChange(row.id, "reasonForChange", e.target.value)
                                   }
                                   disabled={isFormDisabled}
-                                  className="min-w-[200px]"
+                                  className="h-10 bg-white border-slate-200 focus-visible:ring-blue-500 shadow-none text-sm transition-all min-w-[200px]"
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="text-center">
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => removeTableRow(row.id)}
                                   disabled={isFormDisabled || tableRows.length === 1}
-                                  className="text-destructive hover:text-destructive"
+                                  className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2"
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
@@ -1294,18 +1282,17 @@ function CreateDCR() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Approval</CardTitle>
-                    <CardDescription>Assign quality and design personnel</CardDescription>
+                <Card className="w-full shadow-sm border-slate-200/80 rounded-xl overflow-hidden bg-white">
+                  <CardHeader className="bg-slate-50/80 border-b border-slate-100/60 pb-5">
+                    <CardTitle className="text-lg font-bold text-slate-800">Approval</CardTitle>
+                    <CardDescription className="text-sm font-medium text-slate-500">Assign quality and design personnel</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                       <div className="space-y-2">
-                        <Label htmlFor="designEngineerId">
-                          DESIGN <span className="text-destructive">*</span>
+                        <Label htmlFor="designEngineerId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          DESIGN <span className="text-red-500">*</span>
                         </Label>
                         {isViewMode ? (
                           <Input
@@ -1314,6 +1301,7 @@ function CreateDCR() {
                             value={viewDetails.designEngineerName}
                             readOnly
                             disabled
+                            className="h-10 bg-slate-50/50 border-slate-200 shadow-none text-sm transition-all"
                           />
                         ) : (
                           <Select
@@ -1321,7 +1309,7 @@ function CreateDCR() {
                             onValueChange={(value) => handleSelectChange("designEngineerId", value)}
                             disabled={isSubmitting || isLoadingUsers}
                           >
-                            <SelectTrigger id="designEngineerId" className="w-full">
+                            <SelectTrigger id="designEngineerId" className="w-full h-10 bg-white border-slate-200 focus:ring-blue-500 shadow-none text-sm transition-all">
                               <SelectValue
                                 placeholder={
                                   isLoadingUsers ? "Loading users..." : "Select design engineer"
@@ -1340,8 +1328,8 @@ function CreateDCR() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="qualityEngineerId">
-                          QUALITY <span className="text-destructive">*</span>
+                        <Label htmlFor="qualityEngineerId" className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          QUALITY <span className="text-red-500">*</span>
                         </Label>
                         {isViewMode ? (
                           <Input
@@ -1350,6 +1338,7 @@ function CreateDCR() {
                             value={viewDetails.qualityEngineerName}
                             readOnly
                             disabled
+                            className="h-10 bg-slate-50/50 border-slate-200 shadow-none text-sm transition-all"
                           />
                         ) : (
                           <Select
@@ -1357,7 +1346,7 @@ function CreateDCR() {
                             onValueChange={(value) => handleSelectChange("qualityEngineerId", value)}
                             disabled={isSubmitting || isLoadingUsers}
                           >
-                            <SelectTrigger id="qualityEngineerId" className="w-full">
+                            <SelectTrigger id="qualityEngineerId" className="w-full h-10 bg-white border-slate-200 focus:ring-blue-500 shadow-none text-sm transition-all">
                               <SelectValue
                                 placeholder={
                                   isLoadingUsers ? "Loading users..." : "Select quality engineer"
@@ -1376,27 +1365,29 @@ function CreateDCR() {
                       </div>
                     </div>
                   </CardContent>
-                </Card>
 
-                {isCreateMode && (
-                  <div className="flex justify-end gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleReset}
-                      disabled={isSubmitting}
-                    >
-                      Reset
-                    </Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? (editId ? "Updating..." : "Creating...") : (editId ? "Update DCR" : "Create DCR")}
-                    </Button>
-                  </div>
-                )}
+                  {isCreateMode && (
+                    <div className="bg-slate-50 border-t border-slate-100/60 p-4 px-6 flex justify-end gap-3 mt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleReset}
+                        disabled={isSubmitting}
+                        className="h-10 px-6 bg-white border-slate-200 text-slate-600 hover:bg-slate-50 shadow-none"
+                      >
+                        Reset
+                      </Button>
+                      <Button type="submit" disabled={isSubmitting} className="h-10 px-6 bg-blue-600 hover:bg-blue-700 shadow-none text-white font-medium">
+                        {isSubmitting ? (editId ? "Updating..." : "Creating...") : (editId ? "Update DCR" : "Create DCR")}
+                      </Button>
+                    </div>
+                  )}
+                </Card>
               </div>
             </form>
+            </div>
           )}
-</PageContainer>
+      </PageContainer>
       <ConfirmDialog
         isOpen={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}
