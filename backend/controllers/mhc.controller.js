@@ -467,9 +467,27 @@ class MhcController {
             let finalItems = mhc.items || [];
             if (itemIds) {
                 const selectedIds = itemIds.split(',');
+                
+                // Track headings that contain at least one selected item
+                const neededHeadingIds = new Set();
+                let currentHeading = null;
+                
+                for (const it of finalItems) {
+                    if (it.is_heading) {
+                        currentHeading = it;
+                    } else if (selectedIds.includes(it.id)) {
+                        if (currentHeading) {
+                            neededHeadingIds.add(currentHeading.id);
+                        }
+                    }
+                }
+
                 finalItems = finalItems.map(it => {
                     const isSelected = selectedIds.includes(it.id);
                     if (it.is_heading) {
+                        const isNeeded = isSelected || neededHeadingIds.has(it.id);
+                        if (!isNeeded) return null; // Skip if neither heading nor its children are selected
+                        
                         if (isSelected) return it;
                         // Heading only: clear item fields to prevent generator from drawing item row
                         return { 

@@ -164,7 +164,7 @@ class MhcPdfGenerator {
             const isHeading = item.is_heading;
             
             if (isHeading) {
-                doc.font(this.fonts.bold).fontSize(8);
+                doc.font(this.fonts.regular).fontSize(8);
                 const headH = doc.heightOfString(`${item.heading_text || 'HEADING'}`, { width: pageWidth - 10 });
                 const headingH = Math.max(18, headH + 10);
 
