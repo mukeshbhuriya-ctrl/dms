@@ -231,27 +231,24 @@ class MhcPdfGenerator {
         });
 
         // ─── 5. FOOTER ──────────────────────────────────────────────────────────
-        const footerH = 60;
-        const footerY = 480; // Fixed absolute bottom position
-
-        if (curY > footerY) {
-            doc.addPage({ margin: 30, size: 'A4', layout: 'landscape' });
-            drawHeader(30);
-        }
-
-        this.drawBox(doc, startX, footerY, pageWidth, footerH, 1);
-        const footerCols = [{ label: 'Q.C ENGINEER', w: pageWidth / 3 }, { label: 'CLIENT', w: pageWidth / 3 }, { label: 'CLIENT / AI / TPI', w: pageWidth / 3 }];
-        let fx = startX;
-        footerCols.forEach((col, i) => {
-            doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black).text(col.label, fx, footerY + 40, { width: col.w, align: 'center' });
-            fx += col.w;
-            if (i < footerCols.length - 1) this.drawLine(doc, fx, footerY, fx, footerY + footerH, 1);
-        });
-
-        // Finalize page numbering and footer
+        // Finalize page numbering and signature row on every page
         const range = doc.bufferedPageRange();
         for (let i = 0; i < range.count; i++) {
             doc.switchToPage(i);
+            
+            // Signature Row
+            const footerH = 60;
+            const footerY = 480; // Fixed absolute bottom position
+            this.drawBox(doc, startX, footerY, pageWidth, footerH, 1);
+            const footerCols = [{ label: 'Q.C ENGINEER', w: pageWidth / 3 }, { label: 'AI', w: pageWidth / 3 }, { label: 'CLIENT / TPI', w: pageWidth / 3 }];
+            let fx = startX;
+            footerCols.forEach((col, idx) => {
+                doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black).text(col.label, fx, footerY + 40, { width: col.w, align: 'center' });
+                fx += col.w;
+                if (idx < footerCols.length - 1) this.drawLine(doc, fx, footerY, fx, footerY + footerH, 1);
+            });
+
+            // Page Information
             const absoluteFooterY = 595.28 - 45; // Safely above the 30px bottom margin
             doc.fontSize(7).font(this.fonts.regular).fillColor(this.colors.black);
             doc.text('EXHIBIT: 9/8 MATERIAL HEAT CHARTS', startX, absoluteFooterY);
