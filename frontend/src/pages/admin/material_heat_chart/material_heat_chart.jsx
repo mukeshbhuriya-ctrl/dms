@@ -1066,6 +1066,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   // Search Filter
   const [itemSearchActive, setItemSearchActive] = useState(false)
   const [itemSearchQuery, setItemSearchQuery] = useState("")
+  
+  // Status Filter for View Mode
+  const [statusFilter, setStatusFilter] = useState("ALL")
 
   // Selection for Selective Download
   const [selectedItemIds, setSelectedItemIds] = useState(new Set())
@@ -1292,29 +1295,51 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const showQcCols = isView || (sStatus !== "DRAFT" && sStatus !== "INITIATED" && sStatus !== "");
 
   const filteredTableRows = useMemo(() => {
-    if (!itemSearchQuery.trim()) return tableRows;
-    const query = itemSearchQuery.toLowerCase();
+    // If no filters are active, return all rows
+    if (!itemSearchQuery.trim() && (!isView || statusFilter === "ALL")) return tableRows;
 
-    const matchingIds = new Set();
-    const parentHeadingIds = new Set();
+    const query = itemSearchQuery.toLowerCase().trim();
+    
+    const matchedItemIds = new Set();
+    const matchedHeadingIds = new Set(); 
+    const neededHeadingIds = new Set(); 
+    
+    let currentHeadingId = null;
 
-    // Pass 1: Identify matching items and their structural dependencies
     tableRows.forEach(row => {
-      const matches = row.itemNo?.toLowerCase().includes(query) ||
-        row.description?.toLowerCase().includes(query) ||
-        (row.isHeading && row.headingText?.toLowerCase().includes(query));
+      if (row.isHeading) {
+        currentHeadingId = row.id;
+        if (query && row.headingText?.toLowerCase().includes(query)) {
+          matchedHeadingIds.add(row.id);
+        }
+      } else {
+        let textMatches = true;
+        if (query) {
+          textMatches = row.itemNo?.toLowerCase().includes(query) || row.description?.toLowerCase().includes(query);
+        }
+        
+        let statusMatches = true;
+        if (isView && statusFilter !== "ALL") {
+           const s = String(row.qcStatus || "Pending").toUpperCase();
+           if (statusFilter === "APPROVED" && s !== "APPROVED") statusMatches = false;
+        }
 
-      if (matches) {
-        matchingIds.add(row.id);
-        if (row.parentHeadingId) parentHeadingIds.add(row.parentHeadingId);
+        if (textMatches && statusMatches) {
+           matchedItemIds.add(row.id);
+           if (currentHeadingId) neededHeadingIds.add(currentHeadingId);
+           if (row.parentHeadingId) neededHeadingIds.add(row.parentHeadingId);
+        }
       }
     });
 
-    // Pass 2: Filter while preserving structure (Heading matches or Item matches)
-    return tableRows.filter(row =>
-      matchingIds.has(row.id) || parentHeadingIds.has(row.id)
-    );
-  }, [tableRows, itemSearchQuery]);
+    return tableRows.filter(row => {
+       if (row.isHeading) {
+          if (!query) return neededHeadingIds.has(row.id);
+          return matchedHeadingIds.has(row.id) || neededHeadingIds.has(row.id);
+       }
+       return matchedItemIds.has(row.id);
+    });
+  }, [tableRows, itemSearchQuery, statusFilter, isView]);
 
   const toggleItemSelection = (id) => {
     setSelectedItemIds(prev => {
@@ -1326,12 +1351,18 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   }
 
   const toggleSelectAll = () => {
-    const selectable = tableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-"))
-    if (selectedItemIds.size === selectable.length && selectable.length > 0) {
-      setSelectedItemIds(new Set())
-    } else {
-      setSelectedItemIds(new Set(selectable.map(r => r.id)))
-    }
+    const selectable = filteredTableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-"));
+    const allSelected = selectable.length > 0 && selectable.every(r => selectedItemIds.has(r.id));
+    
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        selectable.forEach(r => next.delete(r.id));
+      } else {
+        selectable.forEach(r => next.add(r.id));
+      }
+      return next;
+    });
   }
 
   const handleDownloadSelectedPdf = async (mode = 'download') => {
@@ -1636,28 +1667,43 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold text-slate-800">Material Heat Chart Details</CardTitle>
             {isView && editId && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadSelectedPdf('print')}
-                  className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm bg-white"
-                  title="Print Selected Items"
-                >
-                  <Printer className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-[10px] font-bold uppercase">Print</span>
-                </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center bg-white border border-slate-200 rounded-md shadow-sm h-8">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase px-2 bg-slate-50 border-r border-slate-200 h-full flex items-center rounded-l-md">Filter</span>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="h-full border-0 shadow-none text-[11px] font-medium text-slate-700 rounded-none rounded-r-md bg-transparent hover:bg-slate-50 focus:ring-0 focus:ring-offset-0 w-[130px]">
+                      <SelectValue placeholder="All Items" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL" className="text-[11px] font-medium">All Items</SelectItem>
+                      <SelectItem value="APPROVED" className="text-[11px] font-medium">Approved Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadSelectedPdf('print')}
+                    className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm bg-white"
+                    title="Print Selected Items"
+                  >
+                    <Printer className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-[10px] font-bold uppercase">Print</span>
+                  </Button>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDownloadSelectedPdf('download')}
-                  className="h-8 px-2 cursor-pointer bg-slate-900 border-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm rounded-sm"
-                  title="Download Selected PDF"
-                >
-                  <Download className="h-3.5 w-3.5 mr-1" />
-                  <span className="text-[10px] font-bold uppercase">PDF</span>
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadSelectedPdf('download')}
+                    className="h-8 px-2 cursor-pointer bg-slate-900 border-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm rounded-sm"
+                    title="Download Selected PDF"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-[10px] font-bold uppercase">PDF</span>
+                  </Button>
+                </div>
               </div>
             )}
           </div>
@@ -1671,7 +1717,10 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                     {isView && (
                       <th className="p-3 w-12 sticky left-0 bg-slate-100 z-[51] border-b-2 border-slate-200">
                         <Checkbox
-                          checked={selectedItemIds.size > 0 && selectedItemIds.size === tableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-")).length}
+                          checked={
+                            filteredTableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-")).length > 0 &&
+                            filteredTableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-")).every(r => selectedItemIds.has(r.id))
+                          }
                           onCheckedChange={toggleSelectAll}
                           className="border-slate-400 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground"
                         />
