@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive, PlusCircle, Copy } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive, PlusCircle, Copy, UploadCloud, FileText } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Switch } from "@/components/ui/switch"
@@ -198,6 +198,11 @@ function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
 
   const columns = useMemo(() => [
     { header: "Report No.", accessorKey: "report_no" },
+    { 
+      header: "Type", 
+      accessorKey: "qap_type",
+      cell: (row) => row.qap_type === 'CLIENT_APPROVED' ? 'Client Approved' : 'Internal'
+    },
     {
       header: "Client",
       accessorKey: "client",
@@ -219,7 +224,6 @@ function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
       isMulti: true,
       filterOptions: activeMsnOptions
     },
-    { header: "Project ID", accessorKey: "project_id" },
     { header: "Equipment", accessorKey: "equipment_name" },
     {
       header: "Created",
@@ -389,6 +393,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
 
   // User input fields
   const [formData, setFormData] = useState({
+    qapType: "INTERNAL",
     documentNo: "",
     drgNo: "",
     customerDrgNo: "",
@@ -398,6 +403,28 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
     projectId: "",
     remarks: "",
   })
+
+  const [files, setFiles] = useState([])
+  const [previewUrl, setPreviewUrl] = useState(null)
+
+  useEffect(() => {
+    if (files.length > 0) {
+      if (files[0] instanceof File) {
+        const url = URL.createObjectURL(files[0])
+        setPreviewUrl(url)
+        return () => URL.revokeObjectURL(url)
+      } else {
+        setPreviewUrl(files[0].url)
+      }
+    } else {
+      setPreviewUrl(null)
+    }
+  }, [files])
+  
+  const qapTypeOptions = [
+    { label: "Internal", value: "INTERNAL" },
+    { label: "Client Approved", value: "CLIENT_APPROVED" }
+  ];
 
   // Dynamic Headings from Master Table
   const [headingOptions, setHeadingOptions] = useState([])
@@ -576,6 +603,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
             setPoDate(cloneId ? "" : (data.po_date || ""))
 
             setFormData({
+              qapType: data.qap_type || "INTERNAL",
               documentNo: cloneId ? "" : (data.report_no || ""),
               drgNo: cloneId ? "" : (data.shreno_drg_no || ""),
               customerDrgNo: cloneId ? "" : (data.customer_drg_no || ""),
@@ -585,6 +613,10 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
               projectId: cloneId ? "" : (data.project_id || ""),
               remarks: cloneId ? "" : (data.remarks || "")
             })
+
+            if (!cloneId && data.attachments) {
+              setFiles(data.attachments);
+            }
 
             // Dynamic columns map
             if (data.dynamic_columns && data.dynamic_columns.length > 0) {
@@ -690,9 +722,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
 
     // Skip auto-fetch overrides if we're dealing with an existing doc we're strictly editing
     if (!editId) {
-      setFormData((prev) => ({ ...prev, documentNo: "Loading..." }))
-
-      let nextReportNo = "Auto-generated on Submit"
+      let nextReportNo = ""
       try {
         const res = await apiClient.get(`/api/qap/next-report-no/${jobId}`)
         if (res.success && res.data?.next_report_no) {
@@ -936,39 +966,55 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
       return
     }
 
-    const payload = {
-      job_ids: msnIds,
-      msns: msnIds.map(id => msnOptions.find(o => o.id === id)?.job_number || ""),
-      client,
-      po_no: poNo,
-      po_date: poDate,
-      project_id: formData.projectId,
-      equipment_name: formData.equipmentDescription,
-      tag_no: formData.tagNo,
-      code: formData.code,
-      shreno_drg_no: formData.drgNo,
-      customer_drg_no: formData.customerDrgNo,
-      remarks: formData.remarks,
-      report_no: formData.documentNo !== "Loading..." && formData.documentNo !== "Auto-generated on Submit" ? formData.documentNo : undefined,
-      status: status,
-      dynamic_columns: dynamicColumns,
-      items: rowsWithSerialNumbers.map(r => ({
-        is_heading: typeof r.isHeading === 'boolean' ? r.isHeading : false,
-        is_root: typeof r.isRoot === 'boolean' ? r.isRoot : false,
-        heading_text: r.headingText,
-        parent_header_id: r.parentHeaderId ? r.parentHeaderId.toString() : null,
-        activity: r.activity,
-        type_method_check: r.typeMethodCheck,
-        extent: r.extent,
-        acceptance_criteria: r.acceptanceCriteria,
-        reference_documents: r.referenceDocuments,
-        verifying_document: r.verifyingDocument,
-        shreno: r.shreno,
-        client_tpia: r.clientTpia,
-        remark: r.remark,
-        dynamic_values: r.dynamicValues || {}
-      }))
+    const isClientApproved = formData.qapType === 'CLIENT_APPROVED';
+
+    if (isClientApproved && files.length === 0) {
+      toast.error("Please upload the Client Approved QAP PDF");
+      return;
     }
+
+    const payload = new FormData();
+    payload.append('qap_type', formData.qapType);
+    payload.append('job_ids', JSON.stringify(msnIds));
+    payload.append('msns', JSON.stringify(msnIds.map(id => msnOptions.find(o => o.id === id)?.job_number || "")));
+    payload.append('client', client);
+    payload.append('po_no', poNo);
+    payload.append('po_date', poDate);
+    payload.append('project_id', formData.projectId);
+    payload.append('equipment_name', formData.equipmentDescription);
+    payload.append('tag_no', formData.tagNo);
+    payload.append('code', formData.code);
+    payload.append('shreno_drg_no', formData.drgNo);
+    payload.append('customer_drg_no', formData.customerDrgNo);
+    payload.append('remarks', formData.remarks);
+    if (formData.documentNo) {
+      payload.append('report_no', formData.documentNo);
+    }
+    payload.append('status', status);
+
+    payload.append('dynamic_columns', JSON.stringify(dynamicColumns));
+    payload.append('items', JSON.stringify(isClientApproved ? [] : rowsWithSerialNumbers.map(r => ({
+      is_heading: typeof r.isHeading === 'boolean' ? r.isHeading : false,
+      is_root: typeof r.isRoot === 'boolean' ? r.isRoot : false,
+      heading_text: r.headingText,
+      parent_header_id: r.parentHeaderId ? r.parentHeaderId.toString() : null,
+      activity: r.activity,
+      type_method_check: r.typeMethodCheck,
+      extent: r.extent,
+      acceptance_criteria: r.acceptanceCriteria,
+      reference_documents: r.referenceDocuments,
+      verifying_document: r.verifyingDocument,
+      shreno: r.shreno,
+      client_tpia: r.clientTpia,
+      remark: r.remark,
+      dynamic_values: r.dynamicValues || {}
+    }))));
+
+    files.forEach(f => {
+      if (f instanceof File) {
+        payload.append('attachments', f);
+      }
+    });
 
     try {
       setSubmitting(true)
@@ -1007,6 +1053,18 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="qapType">QAP Type <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={qapTypeOptions}
+                value={formData.qapType || "INTERNAL"}
+                onValueChange={(val) => setFormData(prev => ({ ...prev, qapType: val || "INTERNAL" }))}
+                placeholder="Select Type"
+                disabled={isReadOnly}
+                multi={false}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="msn">MSN Number <span className="text-destructive">*</span></Label>
               <SearchableSelect
                 options={filteredMsnOptions.map(m => ({ label: m.job_number, value: m.id }))}
@@ -1038,6 +1096,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
                 name="documentNo"
                 type="text"
                 value={formData.documentNo}
+                placeholder="Auto-generated on Submit"
                 readOnly
                 className="bg-muted"
                 required
@@ -1149,7 +1208,50 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
         </CardContent>
       </Card>
 
-      {/* Third Section - Table */}
+      {/* Third Section - Table / Attachments */}
+      {formData.qapType === 'CLIENT_APPROVED' ? (
+        <Card className="w-full overflow-hidden mb-6">
+          <CardHeader>
+            <CardTitle>Client Approved QAP Attachments</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6 flex flex-col gap-4 w-full">
+            <div className="flex flex-col gap-4">
+              <Label>Upload PDF <span className="text-destructive">*</span></Label>
+              {!isReadOnly && (
+                <div className="flex justify-center items-center w-full">
+                  <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-40 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50/50 hover:bg-slate-100/50 hover:border-primary/50 transition-all">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <UploadCloud className="w-10 h-10 mb-4 text-slate-400" />
+                      <p className="mb-2 text-sm text-slate-600"><span className="font-semibold text-primary">Click to upload</span> or drag and drop</p>
+                      <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">PDF documents only</p>
+                    </div>
+                    <Input 
+                      id="dropzone-file"
+                      type="file" 
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          setFiles(Array.from(e.target.files));
+                        }
+                      }} 
+                    />
+                  </label>
+                </div>
+              )}
+              {previewUrl && (
+                <div className="w-full border rounded-lg overflow-hidden bg-slate-50 mt-4 h-[800px]">
+                  <iframe 
+                    src={previewUrl} 
+                    className="w-full h-full border-0"
+                    title="QAP Preview"
+                  />
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
       <Card className="w-full overflow-hidden">
         <CardHeader>
           <CardTitle>Quality Assurance Plan Details</CardTitle>
@@ -1503,11 +1605,12 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
           )}
         </CardContent>
       </Card>
+      )}
 
-      {/* Fourth Section - Notes / Remarks */}
+      {/* Fourth Section - Remarks */}
       <Card className="mt-6 mb-6">
         <CardHeader>
-          <CardTitle>Notes / Remarks</CardTitle>
+          <CardTitle>Remarks</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea

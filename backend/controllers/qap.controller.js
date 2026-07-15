@@ -4,10 +4,11 @@ const { getCompanyInfo } = require('../utils/companyInfo');
 const Audit = require('#utils/audit.js');
 
 class QapController {
+
     async create(req, res) {
         try {
-            const result = await QapService.create(req.user.company_id, req.body);
-            
+            const result = await QapService.create(req.user.company_id, req.body, req.files);
+
             const isArray = Array.isArray(result);
             const mainRecord = isArray ? result[0] : result;
             const extraCount = isArray ? result.length - 1 : 0;
@@ -35,8 +36,8 @@ class QapController {
 
     async update(req, res) {
         try {
-            const result = await QapService.update(req.user.company_id, req.params.id, req.body);
-            
+            const result = await QapService.update(req.user.company_id, req.params.id, req.body, req.files);
+
             Audit.insert({
                 req,
                 company_id: req.user.company_id,
@@ -121,7 +122,7 @@ class QapController {
     async toggleStatus(req, res) {
         try {
             const result = await QapService.toggleStatus(req.user.company_id, req.params.id);
-            
+
             Audit.insert({
                 req,
                 company_id: req.user.company_id,
@@ -146,7 +147,7 @@ class QapController {
     async archive(req, res) {
         try {
             const result = await QapService.archive(req.user.company_id, req.params.id);
-            
+
             Audit.insert({
                 req,
                 company_id: req.user.company_id,

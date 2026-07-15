@@ -44,11 +44,30 @@ const mapItemsForPrisma = (items) => {
 };
 
 class QapService {
-    async create(company_id, payload) {
+    async create(company_id, payload, files) {
+        // FormData from frontend stringifies arrays/objects unconditionally
+        const parse = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
+        payload.job_ids = parse(payload.job_ids);
+        payload.msns = parse(payload.msns);
+        payload.items = parse(payload.items);
+        payload.dynamic_columns = parse(payload.dynamic_columns);
+
+        if (payload.qap_type === 'CLIENT_APPROVED') {
+            if (files && files.length > 0) {
+                payload.attachments = files.map(f => ({
+                    name: f.originalname,
+                    url: `/api/files/${f.filename}`,
+                    type: f.mimetype,
+                    size: f.size,
+                    filename: f.filename
+                }));
+            }
+        }
+
         const {
             job_ids, msns, job_id, msn, client, po_no, po_date, project_id, equipment_name,
             tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns,
-            items, report_no, status, remarks
+            items, report_no, status, remarks, qap_type, attachments
         } = payload;
 
         const jobsToProcess = Array.isArray(job_ids) && job_ids.length > 0 ? job_ids : [job_id];
@@ -90,11 +109,13 @@ class QapService {
                     tag_no: currentTagNo, 
                     code: currentCode, 
                     shreno_drg_no, customer_drg_no,
+                    qap_type: qap_type || "INTERNAL",
+                    attachments: attachments || [],
                     status: status || "draft",
                     remarks,
                     dynamic_columns: dynamic_columns || [],
                     items: {
-                        create: mapItemsForPrisma(items)
+                        create: (qap_type === "CLIENT_APPROVED") ? [] : mapItemsForPrisma(items)
                     }
                 },
                 include: { items: true }
@@ -105,10 +126,30 @@ class QapService {
         return jobsToProcess.length === 1 ? createdRecords[0] : createdRecords;
     }
 
-    async update(company_id, id, payload) {
+    async update(company_id, id, payload, files) {
+        // FormData from frontend stringifies arrays/objects unconditionally
+        const parse = (v) => (typeof v === 'string' ? JSON.parse(v) : v);
+        payload.job_ids = parse(payload.job_ids);
+        payload.msns = parse(payload.msns);
+        payload.items = parse(payload.items);
+        payload.dynamic_columns = parse(payload.dynamic_columns);
+
+        if (payload.qap_type === 'CLIENT_APPROVED') {
+            if (files && files.length > 0) {
+                payload.attachments = files.map(f => ({
+                    name: f.originalname,
+                    url: `/api/files/${f.filename}`,
+                    type: f.mimetype,
+                    size: f.size,
+                    filename: f.filename
+                }));
+            }
+        }
+
         const {
             job_ids, msns, job_id, msn, client, po_no, po_date, project_id, equipment_name,
-            tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns, items, status, remarks
+            tag_no, code, shreno_drg_no, customer_drg_no, dynamic_columns, items, status, remarks,
+            qap_type, attachments
         } = payload;
 
         const jobsToProcess = Array.isArray(job_ids) && job_ids.length > 0 ? job_ids : [job_id];
@@ -139,11 +180,13 @@ class QapService {
                 tag_no: mainJobDetails?.tag_number || tag_no, 
                 code: code, 
                 shreno_drg_no, customer_drg_no,
+                qap_type: qap_type || "INTERNAL",
+                ...(attachments !== undefined && { attachments }),
                 status: status,
                 remarks,
                 dynamic_columns: dynamic_columns || [],
                 items: {
-                    create: mapItemsForPrisma(items)
+                    create: (qap_type === "CLIENT_APPROVED") ? [] : mapItemsForPrisma(items)
                 }
             },
             include: { items: true }
@@ -172,11 +215,13 @@ class QapService {
                         tag_no: cloneJobDetails?.tag_number || tag_no, 
                         code: cloneJobDetails?.code || code, 
                         shreno_drg_no, customer_drg_no,
+                        qap_type: qap_type || "INTERNAL",
+                        attachments: attachments || [],
                         status: status || "draft",
                         remarks,
                         dynamic_columns: dynamic_columns || [],
                         items: {
-                            create: mapItemsForPrisma(items)
+                            create: (qap_type === "CLIENT_APPROVED") ? [] : mapItemsForPrisma(items)
                         }
                     }
                 });
@@ -310,6 +355,18 @@ class QapService {
             include: { items: { orderBy: { sort_order: 'asc' } } }
         });
         if (!qap) throw new Error("Quality Assurance Plan not found");
+
+        if (qap.attachments && Array.isArray(qap.attachments)) {
+            const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+            qap.attachments = qap.attachments.map(att => {
+                if (att.url && !att.url.startsWith('http')) {
+                    const safeUrl = att.url.startsWith('/') ? att.url : `/${att.url}`;
+                    return { ...att, url: `${backendUrl}${safeUrl}` };
+                }
+                return att;
+            });
+        }
+
         return qap;
     }
 

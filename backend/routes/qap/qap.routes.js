@@ -5,20 +5,16 @@ const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user
 
 router.use(authenticateUserOnly);
 
-router.post('/create', qapController.create);
-router.put('/update/:id', qapController.update);
+const { upload } = require('#utils/upload');
+
+router.post('/create', upload.array('attachments', 10), qapController.create);
+router.put('/update/:id', upload.array('attachments', 10), qapController.update);
 router.get('/list', qapController.list);
 router.get('/get-filters', qapController.getFilters);
 router.get('/next-report-no/:jobId', qapController.getNextReportNo);
 router.get('/download-pdf/:id', qapController.downloadPdf);
-router.patch('/toggle-status/:id', (req, res, next) => {
-    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
-    next();
-}, qapController.toggleStatus);
-router.delete('/archive/:id', (req, res, next) => {
-    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
-    next();
-}, qapController.archive);
+router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), qapController.toggleStatus);
+router.delete('/archive/:id', authenticateUser(['ADMIN']), qapController.archive);
 router.get('/:id', qapController.getById);
 
 // Master Headings Management

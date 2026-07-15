@@ -1452,6 +1452,9 @@ model quality_assurance_plan {
   shreno_drg_no    String?
   customer_drg_no  String?
   
+  qap_type         String   @default("INTERNAL")
+  attachments      Json?
+  
   status           String   @default("draft")
 
   company  company  @relation(fields: [company_id], references: [id])
