@@ -13,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Calendar as CalendarIcon } from "lucide-react"
+import { format, startOfDay, endOfDay } from "date-fns"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Card,
   CardContent,
@@ -1067,8 +1075,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const [itemSearchActive, setItemSearchActive] = useState(false)
   const [itemSearchQuery, setItemSearchQuery] = useState("")
   
-  // Status Filter for View Mode
-  const [statusFilter, setStatusFilter] = useState("ALL")
+  // Date Range Filter for QC Date
+  const [qcDateRange, setQcDateRange] = useState({ from: undefined, to: undefined })
 
   // Selection for Selective Download
   const [selectedItemIds, setSelectedItemIds] = useState(new Set())
@@ -1296,7 +1304,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
 
   const filteredTableRows = useMemo(() => {
     // If no filters are active, return all rows
-    if (!itemSearchQuery.trim() && (!isView || statusFilter === "ALL")) return tableRows;
+    if (!itemSearchQuery.trim() && (!isView || !qcDateRange?.from)) return tableRows;
 
     const query = itemSearchQuery.toLowerCase().trim();
     
@@ -1318,13 +1326,19 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           textMatches = row.itemNo?.toLowerCase().includes(query) || row.description?.toLowerCase().includes(query);
         }
         
-        let statusMatches = true;
-        if (isView && statusFilter !== "ALL") {
-           const s = String(row.qcStatus || "Pending").toUpperCase();
-           if (statusFilter === "APPROVED" && s !== "APPROVED") statusMatches = false;
+        let dateMatches = true;
+        if (isView && qcDateRange?.from) {
+           if (!row.qcDate) {
+             dateMatches = false;
+           } else {
+             const rowDate = new Date(row.qcDate);
+             const start = startOfDay(qcDateRange.from);
+             const end = qcDateRange.to ? endOfDay(qcDateRange.to) : endOfDay(qcDateRange.from);
+             if (rowDate < start || rowDate > end) dateMatches = false;
+           }
         }
 
-        if (textMatches && statusMatches) {
+        if (textMatches && dateMatches) {
            matchedItemIds.add(row.id);
            if (currentHeadingId) neededHeadingIds.add(currentHeadingId);
            if (row.parentHeadingId) neededHeadingIds.add(row.parentHeadingId);
@@ -1339,7 +1353,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
        }
        return matchedItemIds.has(row.id);
     });
-  }, [tableRows, itemSearchQuery, statusFilter, isView]);
+  }, [tableRows, itemSearchQuery, qcDateRange, isView]);
 
   const toggleItemSelection = (id) => {
     setSelectedItemIds(prev => {
@@ -1668,17 +1682,51 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             <CardTitle className="text-base font-semibold text-slate-800">Material Heat Chart Details</CardTitle>
             {isView && editId && (
               <div className="flex items-center gap-3">
-                <div className="flex items-center bg-white border border-slate-200 rounded-md shadow-sm h-8">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase px-2 bg-slate-50 border-r border-slate-200 h-full flex items-center rounded-l-md">Filter</span>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="h-full border-0 shadow-none text-[11px] font-medium text-slate-700 rounded-none rounded-r-md bg-transparent hover:bg-slate-50 focus:ring-0 focus:ring-offset-0 w-[130px]">
-                      <SelectValue placeholder="All Items" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL" className="text-[11px] font-medium">All Items</SelectItem>
-                      <SelectItem value="APPROVED" className="text-[11px] font-medium">Approved Only</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex items-center gap-1.5">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        id="date"
+                        variant={"outline"}
+                        className={`h-8 w-fit min-w-[200px] justify-start text-left font-normal px-3 border-slate-200 text-[11px] shadow-sm bg-white hover:bg-slate-50 ${!qcDateRange?.from && "text-muted-foreground"}`}
+                      >
+                        <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                        {qcDateRange?.from ? (
+                          qcDateRange.to ? (
+                            <>
+                              {format(qcDateRange.from, "MMM d, yyyy")} - {format(qcDateRange.to, "MMM d, yyyy")}
+                            </>
+                          ) : (
+                            format(qcDateRange.from, "MMM d, yyyy")
+                          )
+                        ) : (
+                          <span>Filter by QC Date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={qcDateRange?.from}
+                        selected={qcDateRange}
+                        onSelect={setQcDateRange}
+                        numberOfMonths={2}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {qcDateRange?.from && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setQcDateRange({ from: undefined, to: undefined })}
+                      className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded"
+                      title="Clear Filter"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2">
