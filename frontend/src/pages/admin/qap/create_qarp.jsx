@@ -201,7 +201,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
     { 
       header: "Type", 
       accessorKey: "qap_type",
-      cell: (row) => row.qap_type === 'CLIENT_APPROVED' ? 'Client Approved' : 'Internal'
+      cell: (row) => row.qap_type === 'CLIENT_APPROVED' ? 'Client QAP' : 'Internal QAP'
     },
     {
       header: "Client",
@@ -415,8 +415,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
   // Removed buggy cleanup that revoked URLs prematurely
 
   const qapTypeOptions = [
-    { label: "Internal", value: "INTERNAL" },
-    { label: "Client Approved", value: "CLIENT_APPROVED" }
+    { label: "Internal QAP", value: "INTERNAL" },
+    { label: "Client QAP", value: "CLIENT_APPROVED" }
   ];
 
   // Dynamic Headings from Master Table
@@ -1208,7 +1208,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
       {formData.qapType === 'CLIENT_APPROVED' ? (
         <Card className="w-full overflow-hidden mb-6">
           <CardHeader>
-            <CardTitle>Client Approved QAP Attachments</CardTitle>
+            <CardTitle>Client QAP Attachments</CardTitle>
           </CardHeader>
           <CardContent className="p-6 flex flex-col gap-4 w-full">
             <div className="flex flex-col gap-4">

@@ -3387,28 +3387,7 @@ class DccService {
                 const customer_location_id = targetJob.customer_location_id;
                 const po_id = targetJob.po_id;
 
-                // 1. Check if this document name is already assigned to ANY of the selected jobs
-                const existingAssignments = await tx.group_document.findMany({
-                    where: {
-                        company_id,
-                        document: { document_name: cleanDocName },
-                        group: {
-                            job_group: {
-                                some: { job_id: { in: jobIdsToProcess } }
-                            }
-                        }
-                    }
-                });
 
-                if (existingAssignments.length > 0) {
-                    results.push({
-                        status: 'skipped',
-                        message: `Document "${cleanDocName}" is already assigned to one or more of the selected jobs.`,
-                        document_name: cleanDocName,
-                        job_id: jobIdsToProcess
-                    });
-                    continue;
-                }
 
                 // 2. ALWAYS Create a New Document Master for this assignment (Ensures Unique System Doc ID)
                 batchSerialCounter++;

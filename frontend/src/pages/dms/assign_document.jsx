@@ -572,14 +572,13 @@ function AssignDocument() {
       id: "actions",
       header: "Actions",
       cell: (row) => {
-        const isEditable = row.status === 'Pending' || row.status === 'Upload Due';
         return (
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => handleEditAssign(row)}
-              disabled={!(isEditable || isPowerUser)}
+              disabled={!isPowerUser}
               className="h-8 rounded-sm cursor-pointer"
             >
               <Edit className="h-4 w-4 mr-2" />
