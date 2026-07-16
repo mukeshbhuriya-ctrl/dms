@@ -1434,6 +1434,18 @@ model hydrostatic_test_remark {
 // Quality Assurance Plan (QARP) Models
 // -------------------------------------------------------------
 
+model quality_assurance_plan_attachment {
+  id          String   @id @default(uuid())
+  qap_id      String
+  file_name   String
+  file_url    String
+  file_type   String
+  file_size   Int
+  created_at  DateTime @default(now())
+
+  qap         quality_assurance_plan @relation(fields: [qap_id], references: [id], onDelete: Cascade)
+}
+
 model quality_assurance_plan {
   id               String   @id @default(uuid())
   company_id       String
@@ -1453,7 +1465,7 @@ model quality_assurance_plan {
   customer_drg_no  String?
   
   qap_type         String   @default("INTERNAL")
-  attachments      Json?
+  attachments      quality_assurance_plan_attachment[]
   
   status           String   @default("draft")
 

@@ -405,22 +405,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
   })
 
   const [files, setFiles] = useState([])
-  const [previewUrl, setPreviewUrl] = useState(null)
-
-  useEffect(() => {
-    if (files.length > 0) {
-      if (files[0] instanceof File) {
-        const url = URL.createObjectURL(files[0])
-        setPreviewUrl(url)
-        return () => URL.revokeObjectURL(url)
-      } else {
-        setPreviewUrl(files[0].url)
-      }
-    } else {
-      setPreviewUrl(null)
-    }
-  }, [files])
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState([])
+  const [selectedPreviewFile, setSelectedPreviewFile] = useState(null)
   
+  // Removed buggy cleanup that revoked URLs prematurely
+
   const qapTypeOptions = [
     { label: "Internal", value: "INTERNAL" },
     { label: "Client Approved", value: "CLIENT_APPROVED" }
@@ -1009,12 +998,15 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
       remark: r.remark,
       dynamic_values: r.dynamicValues || {}
     }))));
-
     files.forEach(f => {
       if (f instanceof File) {
         payload.append('attachments', f);
       }
     });
+
+    if (deletedAttachmentIds.length > 0) {
+      payload.append('deleted_attachment_ids', JSON.stringify(deletedAttachmentIds));
+    }
 
     try {
       setSubmitting(true)
@@ -1096,7 +1088,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
                 name="documentNo"
                 type="text"
                 value={formData.documentNo}
-                placeholder="Auto-generated on Submit"
+                placeholder="Auto-generated"
                 readOnly
                 className="bg-muted"
                 required
@@ -1229,23 +1221,85 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
                       id="dropzone-file"
                       type="file" 
                       accept="application/pdf"
+                      multiple
                       className="hidden"
                       onChange={(e) => {
                         if (e.target.files && e.target.files.length > 0) {
-                          setFiles(Array.from(e.target.files));
+                          const newFiles = Array.from(e.target.files).map(f => {
+                            f.previewUrl = URL.createObjectURL(f);
+                            return f;
+                          });
+                          setFiles(prev => [...prev, ...newFiles]);
                         }
                       }} 
                     />
                   </label>
                 </div>
               )}
-              {previewUrl && (
-                <div className="w-full border rounded-lg overflow-hidden bg-slate-50 mt-4 h-[800px]">
-                  <iframe 
-                    src={previewUrl} 
-                    className="w-full h-full border-0"
-                    title="QAP Preview"
-                  />
+
+              {files.length > 0 && (
+                <div className="flex flex-col gap-2 mt-4">
+                  <Label>Attached Documents</Label>
+                  <div className="flex flex-col gap-3 w-full">
+                    {files.map((file, idx) => (
+                      <div key={idx} className="flex flex-col border rounded-lg overflow-hidden bg-slate-50 transition-all duration-300">
+                        {/* Header Row */}
+                        <div 
+                          className={`flex items-center justify-between p-3 hover:bg-slate-100 transition-colors cursor-pointer ${selectedPreviewFile === file ? 'bg-primary/5 border-b' : ''}`}
+                          onClick={() => {
+                              if (selectedPreviewFile === file) {
+                                  setSelectedPreviewFile(null);
+                              } else {
+                                  setSelectedPreviewFile(file);
+                              }
+                          }}
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden flex-1">
+                            <FileText className="h-5 w-5 text-blue-500 shrink-0" />
+                            <span className="text-sm font-medium truncate">
+                              {file instanceof File ? file.name : (file.file_name || "Attachment")}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {selectedPreviewFile === file ? (
+                              <span className="text-xs text-primary font-medium mr-2">Close Preview</span>
+                            ) : (
+                              <span className="text-xs text-slate-500 font-medium mr-2">Click to Preview</span>
+                            )}
+                            {!isReadOnly && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!(file instanceof File) && file.id) {
+                                        setDeletedAttachmentIds(prev => [...prev, file.id]);
+                                    }
+                                    setFiles(prev => prev.filter((_, i) => i !== idx));
+                                    if (selectedPreviewFile === file) setSelectedPreviewFile(null);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Collapsible Preview Body */}
+                        {selectedPreviewFile === file && (
+                          <div className="w-full h-[600px] animate-in slide-in-from-top-2 fade-in duration-300">
+                            <iframe 
+                              src={file instanceof File ? file.previewUrl : file.url} 
+                              className="w-full h-full border-0 bg-white"
+                              title="QAP Preview"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

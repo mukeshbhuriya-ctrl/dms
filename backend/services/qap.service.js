@@ -1,4 +1,7 @@
 const prisma = require('#prisma');
+const fs = require('fs');
+const path = require('path');
+const { UPLOAD_DIR } = require('#utils/upload');
 
 const computeSerialNumbers = (items) => {
     if (!items || items.length === 0) return items;
@@ -52,14 +55,14 @@ class QapService {
         payload.items = parse(payload.items);
         payload.dynamic_columns = parse(payload.dynamic_columns);
 
+        let attachmentCreateData = [];
         if (payload.qap_type === 'CLIENT_APPROVED') {
             if (files && files.length > 0) {
-                payload.attachments = files.map(f => ({
-                    name: f.originalname,
-                    url: `/api/files/${f.filename}`,
-                    type: f.mimetype,
-                    size: f.size,
-                    filename: f.filename
+                attachmentCreateData = files.map(f => ({
+                    file_name: f.originalname,
+                    file_url: f.filename,
+                    file_type: f.mimetype,
+                    file_size: f.size
                 }));
             }
         }
@@ -110,15 +113,17 @@ class QapService {
                     code: currentCode, 
                     shreno_drg_no, customer_drg_no,
                     qap_type: qap_type || "INTERNAL",
-                    attachments: attachments || [],
                     status: status || "draft",
                     remarks,
                     dynamic_columns: dynamic_columns || [],
                     items: {
                         create: (qap_type === "CLIENT_APPROVED") ? [] : mapItemsForPrisma(items)
+                    },
+                    attachments: {
+                        create: attachmentCreateData
                     }
                 },
-                include: { items: true }
+                include: { items: true, attachments: true }
             });
             createdRecords.push(record);
         }
@@ -134,14 +139,24 @@ class QapService {
         payload.items = parse(payload.items);
         payload.dynamic_columns = parse(payload.dynamic_columns);
 
+        let attachmentCreateData = [];
+        let deletedAttachmentIds = [];
+        
+        if (payload.deleted_attachment_ids) {
+            try {
+                deletedAttachmentIds = JSON.parse(payload.deleted_attachment_ids);
+            } catch (e) {
+                // Ignore parse errors
+            }
+        }
+
         if (payload.qap_type === 'CLIENT_APPROVED') {
             if (files && files.length > 0) {
-                payload.attachments = files.map(f => ({
-                    name: f.originalname,
-                    url: `/api/files/${f.filename}`,
-                    type: f.mimetype,
-                    size: f.size,
-                    filename: f.filename
+                attachmentCreateData = files.map(f => ({
+                    file_name: f.originalname,
+                    file_url: f.filename,
+                    file_type: f.mimetype,
+                    file_size: f.size
                 }));
             }
         }
@@ -181,16 +196,47 @@ class QapService {
                 code: code, 
                 shreno_drg_no, customer_drg_no,
                 qap_type: qap_type || "INTERNAL",
-                ...(attachments !== undefined && { attachments }),
                 status: status,
                 remarks,
                 dynamic_columns: dynamic_columns || [],
                 items: {
                     create: (qap_type === "CLIENT_APPROVED") ? [] : mapItemsForPrisma(items)
+                },
+                attachments: {
+                    create: attachmentCreateData
                 }
             },
-            include: { items: true }
+            include: { items: true, attachments: true }
         });
+
+        if (deletedAttachmentIds.length > 0) {
+            const attachmentsToDelete = await prisma.quality_assurance_plan_attachment.findMany({
+                where: {
+                    id: { in: deletedAttachmentIds },
+                    qap_id: id
+                }
+            });
+
+            for (const att of attachmentsToDelete) {
+                if (att.file_url) {
+                    const filePath = path.join(UPLOAD_DIR, path.basename(att.file_url));
+                    try {
+                        if (fs.existsSync(filePath)) {
+                            fs.unlinkSync(filePath);
+                        }
+                    } catch (e) {
+                        console.error('Failed to delete file from filesystem:', e);
+                    }
+                }
+            }
+
+            await prisma.quality_assurance_plan_attachment.deleteMany({
+                where: {
+                    id: { in: deletedAttachmentIds },
+                    qap_id: id
+                }
+            });
+        }
 
         // Clone to other jobs if multi-select edit
         if (jobsToProcess.length > 1) {
@@ -352,18 +398,21 @@ class QapService {
     async getById(company_id, id) {
         const qap = await prisma.quality_assurance_plan.findFirst({
             where: { id, company_id },
-            include: { items: { orderBy: { sort_order: 'asc' } } }
+            include: { 
+                items: { orderBy: { sort_order: 'asc' } },
+                attachments: true 
+            }
         });
         if (!qap) throw new Error("Quality Assurance Plan not found");
 
         if (qap.attachments && Array.isArray(qap.attachments)) {
             const backendUrl = (process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '');
             qap.attachments = qap.attachments.map(att => {
-                if (att.url && !att.url.startsWith('http')) {
-                    const safeUrl = att.url.startsWith('/') ? att.url : `/${att.url}`;
-                    return { ...att, url: `${backendUrl}${safeUrl}` };
+                if (att.file_url && !att.file_url.startsWith('http')) {
+                    const safeUrl = att.file_url.startsWith('/') ? att.file_url : `/${att.file_url}`;
+                    return { ...att, url: `${backendUrl}/api/files${safeUrl}` };
                 }
-                return att;
+                return { ...att, url: att.file_url };
             });
         }
 
