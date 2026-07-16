@@ -283,22 +283,26 @@ function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
             title="Edit">
             <Edit className="h-4 w-4 mr-2" /> Edit
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-            onClick={() => onCloneClick(row.id)}
-            title="Clone">
-            <Copy className="h-4 w-4 mr-2" /> Clone
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
-            onClick={() => handleDownloadPdf(row.id)}
-            title="Download PDF">
-            <Download className="h-4 w-4 mr-2" /> Download
-          </Button>
+          {row.qap_type !== 'CLIENT_APPROVED' && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                onClick={() => onCloneClick(row.id)}
+                title="Clone">
+                <Copy className="h-4 w-4 mr-2" /> Clone
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
+                onClick={() => handleDownloadPdf(row.id)}
+                title="Download PDF">
+                <Download className="h-4 w-4 mr-2" /> Download
+              </Button>
+            </>
+          )}
           {isAdmin && (
             <Button
               variant="outline"
@@ -1239,7 +1243,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
 
               {files.length > 0 && (
                 <div className="flex flex-col gap-2 mt-4">
-                  <Label>Attached Documents</Label>
+                  <Label>Attached QAP</Label>
                   <div className="flex flex-col gap-3 w-full">
                     {files.map((file, idx) => (
                       <div key={idx} className="flex flex-col border rounded-lg overflow-hidden bg-slate-50 transition-all duration-300">
