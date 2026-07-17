@@ -137,7 +137,13 @@ class EmailService {
 
     async sendDocumentAssignmentNotification(to, user_name, documents) {
         const { getDocumentAssignedTemplate } = require('../utils/email-templates/document-workflow.template');
-        const subject = `[Action Required] New Documents Assigned - DMS`;
+        let subject = 'New Documents Assigned';
+        if (documents && documents.length > 0) {
+            subject = `New Document Assigned: ${documents[0].document_name}`;
+            if (documents.length > 1) {
+                subject += ` + ${documents.length - 1} more`;
+            }
+        }
         const html = getDocumentAssignedTemplate(user_name, documents);
         return this.sendEmail({ to, subject, html });
     }
@@ -151,7 +157,7 @@ class EmailService {
 
     async sendDocumentOverdueNotification(to, user_name, type, documents) {
         const { getDocumentOverdueTemplate } = require('../utils/email-templates/document-workflow.template');
-        const subject = `[URGENT] Portfolio Deadline Exceeded - DMS`;
+        const subject = `Portfolio Deadline Exceeded - DMS`;
         const html = getDocumentOverdueTemplate(user_name, type, documents);
         return this.sendEmail({ to, subject, html });
     }
@@ -185,35 +191,35 @@ class EmailService {
 
     async sendClientReviewNotification(to, user_name, details) {
         const { getClientReviewTemplate } = require('../utils/email-templates/document-workflow.template');
-        const subject = `[Client Feedback] ${details.documentNumber}: ${details.status}`;
+        const subject = `Client feedback ${details.documentNumber}: ${details.status}`;
         const html = getClientReviewTemplate(user_name, details);
         return this.sendEmail({ to, subject, html });
     }
 
     async sendDocumentUploadedNotification(to, user_name, details) {
         const { getDocumentUploadedTemplate } = require('../utils/email-templates/document-workflow.template');
-        const subject = `[New Upload] ${details.documentNumber} - Rev ${details.versionNo} for Review`;
+        const subject = `New upload ${details.documentNumber} - Revision ${details.versionNo} for Review`;
         const html = getDocumentUploadedTemplate(user_name, details);
         return this.sendEmail({ to, subject, html });
     }
 
     async sendRevisionRequestedNotification(to, admin_name, details) {
         const { getRevisionRequestedTemplate } = require('../utils/email-templates/document-workflow.template');
-        const subject = `[Action Required] Revision Request for ${details.shrenoDocNo}`;
+        const subject = `Revision Request for ${details.shrenoDocNo}`;
         const html = getRevisionRequestedTemplate(admin_name, details);
         return this.sendEmail({ to, subject, html });
     }
 
     async sendRevisionApprovedNotification(to, uploader_name, details) {
         const { getRevisionApprovedTemplate } = require('../utils/email-templates/document-workflow.template');
-        const subject = `[Approved] Revision Request for ${details.shrenoDocNo}`;
+        const subject = `Revision Approved for ${details.shrenoDocNo}`;
         const html = getRevisionApprovedTemplate(uploader_name, details);
         return this.sendEmail({ to, subject, html });
     }
 
     async sendRevisionRejectedNotification(to, requester_name, details) {
         const { getRevisionRejectedTemplate } = require('../utils/email-templates/document-workflow.template');
-        const subject = `[Rejected] Revision Request for ${details.shrenoDocNo}`;
+        const subject = `Revision Rejected for ${details.shrenoDocNo}`;
         const html = getRevisionRejectedTemplate(requester_name, details);
         return this.sendEmail({ to, subject, html });
     }

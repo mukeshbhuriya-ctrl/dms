@@ -2313,8 +2313,8 @@ class DccService {
                         nextGroupStatus = 'Approved';
                     } else if (['Rejected', 'Commented', 'Re-approval', 'As Built'].includes(status)) {
                         nextGroupStatus = status === 'As Built' ? 'As Built' : 'Pending';
-                        // Keep original SLA intact. The deadline automatically extends 
-                        // by using the new revision's createdAt date as the baseline.
+                        // Hardcode SLA to 10 days for any new revision request.
+                        nextUploadDueDays = 10;
                     }
 
                     await tx.group_document.update({
@@ -2461,11 +2461,12 @@ class DccService {
                 nextGroupStatus = 'Approved';
             } else if (['Rejected', 'Commented', 'Re-approval'].includes(status)) {
                 nextGroupStatus = 'Pending';
-                // We do NOT change upload_due_days. The deadline will automatically extend 
-                // because the baseline date shifts to the new revision's createdAt.
+                // Hardcode SLA to 10 days for any new revision request.
+                nextUploadDueDays = 10;
             } else if (status === 'As Built') {
                 nextGroupStatus = 'As Built';
-                // Keep original SLA intact.
+                // Hardcode SLA to 10 days for any new revision request.
+                nextUploadDueDays = 10;
             }
 
             // Update database
@@ -2713,10 +2714,13 @@ class DccService {
                 }
             });
 
-            // Update group document to Pending
+            // Update group document to Pending and extend SLA
             const updated = await tx.group_document.update({
                 where: { id: document_id },
-                data: { status: 'Pending' }
+                data: { 
+                    status: 'Pending',
+                    upload_due_days: 10
+                }
             });
 
             const ActivityService = require('./activity.service');
