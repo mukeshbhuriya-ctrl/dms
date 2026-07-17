@@ -37,6 +37,8 @@ import {
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { MODULES, MENU_CONFIG } from "@/config/roles"
 
 
 function CreateUser() {
@@ -51,6 +53,8 @@ function CreateUser() {
     roles: [],
     password: "",
     emailNotifications: true,
+    customModules: [],
+    restrictedModules: [],
   })
   const [showPassword, setShowPassword] = useState(false)
   const [roles, setRoles] = useState([])
@@ -193,6 +197,8 @@ function CreateUser() {
       roles: [],
       password: "",
       emailNotifications: true,
+      customModules: [],
+      restrictedModules: [],
     })
     setEditingId(null)
     setError("")
@@ -211,6 +217,8 @@ function CreateUser() {
       roles: user.user_roles?.map(ur => ur.role_id) || [],
       password: "",
       emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
+      customModules: user.user_settings ? (user.user_settings.custom_modules || []) : [],
+      restrictedModules: user.user_settings ? (user.user_settings.restricted_modules || []) : [],
     })
     setView("create")
     setError("")
@@ -229,6 +237,8 @@ function CreateUser() {
       roles: user.user_roles?.map(ur => ur.role_id) || [],
       password: "",
       emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
+      customModules: user.user_settings ? (user.user_settings.custom_modules || []) : [],
+      restrictedModules: user.user_settings ? (user.user_settings.restricted_modules || []) : [],
     })
     setView("settings")
     setError("")
@@ -355,7 +365,7 @@ function CreateUser() {
       filterType: "select",
       isMulti: true,
       filterOptions: [
-        { label: "Active",   value: "true" },
+        { label: "Active", value: "true" },
         { label: "Inactive", value: "false" },
       ],
       cell: (row) => row.is_active
@@ -383,8 +393,8 @@ function CreateUser() {
           >
             <Key className="h-4 w-4" />
           </Button>
-          <Switch 
-            checked={row.is_active} 
+          <Switch
+            checked={row.is_active}
             onCheckedChange={() => handleToggleClick(row)}
             title={row.is_active ? "Deactivate" : "Activate"}
           />
@@ -395,8 +405,8 @@ function CreateUser() {
             onClick={() => handleDeleteClick(row)}
             title="Archive"
           >
-           <Archive className="h-4 w-4" />
-              Archive
+            <Archive className="h-4 w-4" />
+            Archive
           </Button>
         </div>
       ),
@@ -427,6 +437,8 @@ function CreateUser() {
         department: formData.department,
         designation: formData.designation,
         email_notifications: formData.emailNotifications,
+        custom_modules: formData.customModules,
+        restricted_modules: formData.restrictedModules,
       }
 
       if (editingId) {
@@ -458,6 +470,43 @@ function CreateUser() {
     }
   }
 
+  const availableModules = useMemo(() => {
+    const titleMap = {}
+    const walkMenu = (items) => {
+      items.forEach(item => {
+        if (item.moduleKey) {
+          titleMap[item.moduleKey] = item.title
+        }
+        if (item.items) {
+          walkMenu(item.items)
+        }
+      })
+    }
+    walkMenu(MENU_CONFIG)
+
+    const extractKeys = (obj) => {
+      let keys = []
+      for (let key in obj) {
+        if (typeof obj[key] === 'string') {
+          if (!obj[key].startsWith('ADMIN') && obj[key] !== 'ALL') {
+            keys.push(obj[key])
+          }
+        } else if (typeof obj[key] === 'object') {
+          keys = keys.concat(extractKeys(obj[key]))
+        }
+      }
+      return keys
+    }
+    
+    return Array.from(new Set(extractKeys(MODULES))).sort().map(mod => {
+      const fallbackTitle = mod.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+      return { 
+        label: titleMap[mod] || fallbackTitle, 
+        value: mod 
+      }
+    })
+  }, [])
+
   return (
     <>
       <main className="flex-1 flex flex-col overflow-auto p-6">
@@ -479,15 +528,15 @@ function CreateUser() {
                 </div>
               )}
               <ProDataTable
-              columns={columns}
-              fetchData={fetchUsers}
-              onExport={handleExport}
-              onAdd={() => { resetForm(); setView("create"); }}
-              onAddTooltip="Create User"
-              refreshKey={refreshKey}
-              columnFilters={columnFilters}
-              onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
-            />
+                columns={columns}
+                fetchData={fetchUsers}
+                onExport={handleExport}
+                onAdd={() => { resetForm(); setView("create"); }}
+                onAddTooltip="Create User"
+                refreshKey={refreshKey}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+              />
             </>
           ) : view === "settings" ? (
             <div className="space-y-6">
@@ -510,7 +559,6 @@ function CreateUser() {
                         {success}
                       </div>
                     )}
-
                     <div className="flex items-center justify-between border rounded-lg p-4 bg-muted/20">
                       <div className="space-y-0.5">
                         <Label htmlFor="emailNotifications" className="text-base font-semibold">Email Notifications</Label>
@@ -524,6 +572,48 @@ function CreateUser() {
                         onCheckedChange={(checked) => setFormData(prev => ({ ...prev, emailNotifications: checked }))}
                         disabled={isLoading}
                       />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Direct Module Access */}
+                      <div className="border rounded-lg p-4 bg-muted/10 space-y-4">
+                        <div className="space-y-0.5">
+                          <Label className="text-base font-semibold text-slate-800">Direct Module Access</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Grant this user explicit access to specific modules, bypassing standard roles.
+                          </p>
+                        </div>
+                        <SearchableSelect
+                          options={availableModules}
+                          value={formData.customModules}
+                          onValueChange={(val) => setFormData(prev => ({ ...prev, customModules: val }))}
+                          placeholder="Select modules to grant..."
+                          searchPlaceholder="Search modules..."
+                          emptyMessage="No modules found."
+                          multi={true}
+                          disabled={isLoading}
+                        />
+                      </div>
+
+                      {/* Revoke Module Access */}
+                      <div className="border border-red-200 rounded-lg p-4 bg-red-50/30 space-y-4">
+                        <div className="space-y-0.5">
+                          <Label className="text-base font-semibold text-red-700">Revoke Module Access</Label>
+                          <p className="text-sm text-red-600/80">
+                            Block this user from accessing modules they would otherwise have via roles.
+                          </p>
+                        </div>
+                        <SearchableSelect
+                          options={availableModules}
+                          value={formData.restrictedModules}
+                          onValueChange={(val) => setFormData(prev => ({ ...prev, restrictedModules: val }))}
+                          placeholder="Select modules to revoke..."
+                          searchPlaceholder="Search modules..."
+                          emptyMessage="No modules found."
+                          multi={true}
+                          disabled={isLoading}
+                        />
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -560,7 +650,6 @@ function CreateUser() {
                         {success}
                       </div>
                     )}
-
                     {/* Full Name */}
                     <div className="space-y-2">
                       <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
@@ -612,58 +701,18 @@ function CreateUser() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="role">Roles <span className="text-destructive">*</span></Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between h-auto min-h-[40px] px-3 py-2 text-left" disabled={isLoading}>
-                              <div className="flex flex-wrap gap-1 max-w-[280px]">
-                                {formData.roles && formData.roles.length > 0 ? (
-                                  Array.from(new Set(formData.roles)).map(roleId => {
-                                    const roleObj = roles.find(r => r.id === roleId)
-                                    return (
-                                      <Badge key={roleId} variant="secondary" className="font-normal">
-                                        {roleObj?.name || "Unknown"}
-                                      </Badge>
-                                    )
-                                  })
-                                ) : (
-                                  <span className="text-muted-foreground font-normal">Select roles</span>
-                                )}
-                              </div>
-                              <ChevronDownIcon className="h-4 w-4 opacity-50 shrink-0 ml-2" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0" align="start">
-                            <div className="p-2 border-b">
-                              <p className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase tracking-wider">Available Roles</p>
-                            </div>
-                            <div className="max-h-[300px] overflow-y-auto p-2">
-                              {roles.length > 0 ? (
-                                roles.map(role => (
-                                  <div key={role.id} className="flex items-center space-x-3 space-y-0 rounded-md p-2 hover:bg-muted cursor-pointer">
-                                    <Checkbox
-                                      id={`role-${role.id}`}
-                                      checked={formData.roles?.includes(role.id)}
-                                      onCheckedChange={(checked) => {
-                                        setFormData(prev => {
-                                          const currentRoles = prev.roles || []
-                                          const newRoles = checked
-                                            ? [...new Set([...currentRoles, role.id])]
-                                            : currentRoles.filter(id => id !== role.id)
-                                          return { ...prev, roles: newRoles }
-                                        })
-                                      }}
-                                    />
-                                    <Label htmlFor={`role-${role.id}`} className="text-sm font-medium leading-none cursor-pointer flex-1 py-1">
-                                      {role.name}
-                                    </Label>
-                                  </div>
-                                ))
-                              ) : (
-                                <p className="text-sm text-center p-4 text-muted-foreground">No roles found</p>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                        <div className="grid grid-cols-1">
+                          <SearchableSelect
+                            options={roles.map(role => ({ label: role.name, value: role.id }))}
+                            value={formData.roles}
+                            onValueChange={(val) => setFormData(prev => ({ ...prev, roles: val }))}
+                            placeholder="Select roles"
+                            searchPlaceholder="Search roles..."
+                            emptyMessage="No roles found."
+                            multi={true}
+                            disabled={isLoading}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -704,7 +753,7 @@ function CreateUser() {
             </div>
           )}
 
-          <ConfirmDialog 
+          <ConfirmDialog
             isOpen={deleteDialogOpen}
             onClose={() => setDeleteDialogOpen(false)}
             onConfirm={confirmDelete}
@@ -715,7 +764,7 @@ function CreateUser() {
             isLoading={isDeleting}
           />
 
-          <ConfirmDialog 
+          <ConfirmDialog
             isOpen={toggleDialogOpen}
             onClose={() => setToggleDialogOpen(false)}
             onConfirm={confirmToggle}
@@ -726,7 +775,7 @@ function CreateUser() {
             isLoading={isToggling}
           />
 
-          <ConfirmDialog 
+          <ConfirmDialog
             isOpen={resetDialogOpen}
             onClose={() => setResetDialogOpen(false)}
             onConfirm={confirmReset}

@@ -95,7 +95,7 @@ class UserService {
      * Create a new user
      */
     async createUser(userData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications } = userData;        
+        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, custom_modules, restricted_modules } = userData;        
         const trimmedName = name?.trim();
         const trimmedEmail = email?.trim().toLowerCase();
         const trimmedEmpid = empid?.trim();
@@ -136,7 +136,9 @@ class UserService {
                     company_id,
                     user_settings: {
                         create: {
-                            email_notifications: email_notifications !== undefined ? email_notifications : true
+                            email_notifications: email_notifications !== undefined ? email_notifications : true,
+                            custom_modules: custom_modules || [],
+                            restricted_modules: restricted_modules || [],
                         }
                     }
                 },
@@ -208,7 +210,7 @@ class UserService {
      * Update user details
      */
     async updateUser(id, updateData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications } = updateData;
+        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, custom_modules, restricted_modules } = updateData;
 
         // Verify user exists and belongs to company
         const existingUser = await prisma.user.findFirst({
@@ -251,10 +253,18 @@ class UserService {
                     department_id: trimmedDepartmentId,
                     designation,
                     ...(hashedPassword && { password: hashedPassword }),
-                    user_settings: email_notifications !== undefined ? {
+                    user_settings: (email_notifications !== undefined || custom_modules !== undefined || restricted_modules !== undefined) ? {
                         upsert: {
-                            create: { email_notifications },
-                            update: { email_notifications }
+                            create: { 
+                                email_notifications: email_notifications !== undefined ? email_notifications : true,
+                                custom_modules: custom_modules || [],
+                                restricted_modules: restricted_modules || [],
+                            },
+                            update: { 
+                                ...(email_notifications !== undefined && { email_notifications }),
+                                ...(custom_modules !== undefined && { custom_modules }),
+                                ...(restricted_modules !== undefined && { restricted_modules }),
+                            }
                         }
                     } : undefined
                 },

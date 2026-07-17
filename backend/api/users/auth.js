@@ -64,6 +64,7 @@ async function login(req, res) {
             },
           },
         },
+        user_settings: true,
       },
     });
 
@@ -137,7 +138,19 @@ async function login(req, res) {
     // Return success response (token is in cookie, but also return it in response for flexibility)
     // Resolve permissions based on roles
     const permissionService = require('../../services/permission.service.js');
-    const userPermissions = permissionService.resolveUserPermissions(roles.map(r => r.name));
+    let userPermissions = permissionService.resolveUserPermissions(roles.map(r => r.name));
+    
+    // Inject custom modules
+    if (user.user_settings?.custom_modules && user.user_settings.custom_modules.length > 0) {
+      userPermissions = Array.from(new Set([...userPermissions, ...user.user_settings.custom_modules]));
+    }
+
+    // Remove restricted modules
+    if (user.user_settings?.restricted_modules && user.user_settings.restricted_modules.length > 0) {
+      userPermissions = userPermissions.filter(
+        (module) => !user.user_settings.restricted_modules.includes(module)
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -181,6 +194,7 @@ async function me(req, res) {
       where: { id: currentUser.userid },
       include: {
         company: true,
+        user_settings: true,
         user_roles: {
           include: {
             role: true
@@ -198,7 +212,19 @@ async function me(req, res) {
 
     // Resolve permissions
     const permissionService = require('../../services/permission.service.js');
-    const userPermissions = permissionService.resolveUserPermissions(user.user_roles.map(ur => ur.role.name));
+    let userPermissions = permissionService.resolveUserPermissions(user.user_roles.map(ur => ur.role.name));
+
+    // Inject custom modules
+    if (user.user_settings?.custom_modules && user.user_settings.custom_modules.length > 0) {
+      userPermissions = Array.from(new Set([...userPermissions, ...user.user_settings.custom_modules]));
+    }
+
+    // Remove restricted modules
+    if (user.user_settings?.restricted_modules && user.user_settings.restricted_modules.length > 0) {
+      userPermissions = userPermissions.filter(
+        (module) => !user.user_settings.restricted_modules.includes(module)
+      );
+    }
 
     // Return more user details
     res.status(200).json({

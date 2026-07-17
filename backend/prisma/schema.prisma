@@ -226,6 +226,8 @@ model user_settings {
   id                  String   @id @default(uuid())
   user_id             String   @unique
   email_notifications Boolean  @default(true)
+  custom_modules      String[] @default([])
+  restricted_modules  String[] @default([])
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
