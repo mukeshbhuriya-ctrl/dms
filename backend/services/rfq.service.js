@@ -138,7 +138,10 @@ class RfqService {
     /**
      * Create a new RFQ record with items
      */
-    async create(company_id, userId, body) {
+    async create(company_id, userId, body, files = []) {
+        if (body.items && typeof body.items === 'string') {
+            body.items = JSON.parse(body.items);
+        }
         const {
             client_ref,
             rfq_type,
@@ -250,6 +253,10 @@ class RfqService {
             });
         });
 
+        if (files && files.length > 0) {
+            await this.addAttachments(rfq.id, files);
+        }
+
         return rfq;
     }
 
@@ -345,7 +352,10 @@ class RfqService {
         });
     }
 
-    async update(company_id, id, body) {
+    async update(company_id, id, body, files = []) {
+        if (body.items && typeof body.items === 'string') {
+            body.items = JSON.parse(body.items);
+        }
         const existing = await prisma.rfq_register.findFirst({
             where: { id, company_id },
         });
@@ -432,6 +442,27 @@ class RfqService {
             });
         });
 
+        if (files && files.length > 0) {
+            await this.addAttachments(rfq.id, files);
+        }
+
+        // Process deferred deletions
+        if (body.deletedAttachmentIds) {
+            let deletedIds = body.deletedAttachmentIds;
+            if (typeof deletedIds === 'string') {
+                try { deletedIds = JSON.parse(deletedIds); } catch(e) {}
+            }
+            if (Array.isArray(deletedIds) && deletedIds.length > 0) {
+                for (const attId of deletedIds) {
+                    try {
+                        await this.deleteAttachment(attId);
+                    } catch (e) {
+                        console.warn(`Could not delete deferred attachment ${attId}:`, e.message);
+                    }
+                }
+            }
+        }
+
         return rfq;
     }
 
@@ -449,6 +480,15 @@ class RfqService {
         });
 
         if (!rfq) throw new Error('RFQ record not found');
+
+        if (rfq.attachments && rfq.attachments.length > 0) {
+            const backendUrl = (process.env.BACKEND_URL || 'http://localhost:5000').replace(/\/$/, '');
+            rfq.attachments = rfq.attachments.map(file => ({
+                ...file,
+                file_url: file.file_url?.startsWith('http') ? file.file_url : `${backendUrl}/api/rfq/files/${path.basename(file.file_url)}`
+            }));
+        }
+
         return rfq;
     }
 
@@ -475,7 +515,7 @@ class RfqService {
                 file_size: file.file_size,
                 file_mime_type: file.mime_type,
                 uploaded_at: file.uploaded_at,
-                file_url: file.file_url?.startsWith('http') ? file.file_url : `${backendUrl}/api/rfq/${rfq_id}/files/${path.basename(file.file_url)}`,
+                file_url: file.file_url?.startsWith('http') ? file.file_url : `${backendUrl}/api/rfq/files/${path.basename(file.file_url)}`,
                 file_path: file.file_path
             }))
         };
@@ -523,7 +563,7 @@ class RfqService {
             attachmentData.push({
                 rfq_id,
                 file_name: file.originalname,
-                file_url: `uploads/RFQ/${rfq_id}/${file.filename}`, 
+                file_url: file.filename, 
                 file_path: StorageUtils.getRelativePath(destinationPath),
                 file_size: file.size,
                 mime_type: file.mimetype,

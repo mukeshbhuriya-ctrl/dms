@@ -45,6 +45,12 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/context/AuthContext"
 
+const QUOTATION_CATEGORIES = [
+    { value: "MKT", label: "Core - MKT" },
+    { value: "SPR", label: "Spare - SPR" },
+    { value: "ES", label: "Core - ES" },
+];
+
 // ─── Status Options ────────────────────────────────────────────────────────────
 const SHRENO_STATUS_OPTIONS = [
     "Quoted",
@@ -90,10 +96,7 @@ function StatusBadge({ status }) {
 }
 
 // ─── List View ───────────────────────────────────────────────────────────────
-function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
-    const [isViewOpen, setIsViewOpen] = useState(false)
-    const [selectedRecord, setSelectedRecord] = useState(null)
-    const [viewLoading, setViewLoading] = useState(false)
+function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick }) {
     const [refreshKey, setRefreshKey] = useState(0)
 
     // Advanced Cascading Filters State (Used for Quotation No. text filter)
@@ -107,21 +110,6 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
     const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
     const [excelData, setExcelData] = useState([]);
     const [isImporting, setIsImporting] = useState(false);
-
-    const handleViewClick = async (id) => {
-        try {
-            setViewLoading(true)
-            const res = await apiClient.get(`/api/rfq/${id}`)
-            if (res.success) {
-                setSelectedRecord(res.data)
-                setIsViewOpen(true)
-            }
-        } catch (error) {
-            toast.error(error.message || "Failed to fetch record")
-        } finally {
-            setViewLoading(false)
-        }
-    }
 
     const handleToggleStatus = async (row) => {
         setConfirmData({
@@ -177,7 +165,15 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
     ];
 
     const columns = [
-        { header: "Quotation No.",  accessorKey: "quotation_no", filterType: "text",},
+        { header: "Quotation No.", accessorKey: "quotation_no", filterType: "text", },
+        {
+            header: "Quotation Category",
+            accessorKey: "quotation_category",
+            cell: (row) => {
+                const cat = QUOTATION_CATEGORIES.find(c => c.value === row.quotation_category);
+                return cat ? cat.label : row.quotation_category;
+            }
+        },
         { header: "Client Name", accessorKey: "client_name" },
         { header: "RFQ Type", accessorKey: "rfq_type" },
         { header: "Consultancy", accessorKey: "consultancy" },
@@ -226,7 +222,7 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleViewClick(row.id)}
+                        onClick={() => onViewClick(row.id)}
                         className="cursor-pointer"
                         title="View">
                         <Eye className="h-4 w-4 mr-2" /> View
@@ -284,25 +280,25 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
     const handleDownloadTemplate = () => {
         const headers = [
             [
-                "Quotation Category (Core / Spare)*", 
-                "Client Name*", 
-                "Client Ref.", 
-                "RFQ Type (Material / Service / etc.)", 
-                "Consultancy", 
-                "Contact Person", 
-                "Mode of Enquiry (Email / Phone / etc.)", 
-                "Enquiry Date (DD/MM/YYYY)", 
-                "Client Target Date (DD/MM/YYYY)", 
-                "Actual Submission Date (DD/MM/YYYY)", 
-                "Mediator", 
-                "Estimator", 
-                "Shreno Status (Quoted / Tech. Submitted / Under Review / Hold / Cancel / Duplicate / Regret)", 
-                "Status at Client End (Regret / Lost / Ongoing / Order Received / Under Review / Cancel)", 
-                "PO No.", 
-                "PO Date (DD/MM/YYYY)", 
-                "PO Value", 
-                "PO Remark", 
-                "Made By", 
+                "Quotation Category (MKT / ES / SPR)*",
+                "Client Name*",
+                "Client Ref.",
+                "RFQ Type (Material / Service / etc.)",
+                "Consultancy",
+                "Contact Person",
+                "Mode of Enquiry (Email / Phone / etc.)",
+                "Enquiry Date (DD/MM/YYYY)",
+                "Client Target Date (DD/MM/YYYY)",
+                "Actual Submission Date (DD/MM/YYYY)",
+                "Mediator",
+                "Estimator",
+                "Shreno Status (Quoted / Tech. Submitted / Under Review / Hold / Cancel / Duplicate / Regret)",
+                "Status at Client End (Regret / Lost / Ongoing / Order Received / Under Review / Cancel)",
+                "PO No.",
+                "PO Date (DD/MM/YYYY)",
+                "PO Value",
+                "PO Remark",
+                "Made By",
                 "Remark",
                 "Enquiry Description",
                 "Equipment Qty",
@@ -310,25 +306,25 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                 "Item Total Value"
             ],
             [
-                "Core", 
-                "Sample Client Ltd", 
-                "REF-101", 
-                "Material", 
-                "ABC Consultants", 
-                "Mr. Robert", 
-                "Email", 
-                "24/04/2026", 
-                "30/04/2026", 
-                "28/04/2026", 
-                "Mediator A", 
-                "Estimator B", 
-                "Quoted", 
-                "Under Review", 
-                "PO-999", 
-                "01/05/2026", 
-                "50000", 
-                "Standard PO", 
-                "Admin", 
+                "Core",
+                "Sample Client Ltd",
+                "REF-101",
+                "Material",
+                "ABC Consultants",
+                "Mr. Robert",
+                "Email",
+                "24/04/2026",
+                "30/04/2026",
+                "28/04/2026",
+                "Mediator A",
+                "Estimator B",
+                "Quoted",
+                "Under Review",
+                "PO-999",
+                "01/05/2026",
+                "50000",
+                "Standard PO",
+                "Admin",
                 "General Remark",
                 "Detailed Enquiry for pressure vessel",
                 "5",
@@ -344,8 +340,8 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
         try {
             // Using a broader header identification to match the hybrid headers
             const { rows, warning } = await parseExcelFile(file, [
-                "quotation category (core / spare)*", 
-                "quotation category (core/spare)*",
+                "quotation category*",
+                "quotation category",
                 "client name*",
                 "category"
             ]);
@@ -381,8 +377,8 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                 const errors = [];
                 if (!client_name) errors.push("Client Name is required");
                 if (!quotation_category) errors.push("Category is required");
-                if (quotation_category && !["Core", "Spare"].includes(quotation_category)) {
-                    errors.push("Category must be 'Core' or 'Spare'");
+                if (quotation_category && !QUOTATION_CATEGORIES.some(c => c.value === quotation_category)) {
+                    errors.push(`Category must be one of: ${QUOTATION_CATEGORIES.map(c => c.value).join(', ')}`);
                 }
 
                 const warnings = [];
@@ -401,7 +397,7 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                     if (parts.length === 3) {
                         return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
                     }
-                    const d = new Date(dStr); 
+                    const d = new Date(dStr);
                     return isNaN(d.getTime()) ? null : d;
                 };
 
@@ -495,9 +491,9 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
 
     return (
         <div className="flex-1 flex flex-col min-h-0">
-            <ProDataTable 
-                columns={columns} 
-                fetchData={fetchData} 
+            <ProDataTable
+                columns={columns}
+                fetchData={fetchData}
                 onAdd={onCreateClick}
                 onExport={handleExport}
                 onImport={handleImportExcel}
@@ -548,129 +544,7 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
                 description="Please review the RFQ records from Excel. Only valid rows will be imported."
             />
 
-            {/* View Dialog */}
-            <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-                <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold text-center">RFQ Register Details</DialogTitle>
-                        <DialogDescription className="text-center">
-                            Complete details of the selected RFQ record.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {selectedRecord && (
-                        <div className="space-y-6 mt-4">
-                            {/* Section 1: Enquiry Information */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold text-sm">Enquiry Information</h3>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-y-5 gap-x-4 p-6 text-sm">
-                                    {[
-                                        ["QUOTATION NO.", selectedRecord.quotation_no],
-                                        ["CLIENT REF.", selectedRecord.client_ref],
-                                        ["RFQ TYPE", selectedRecord.rfq_type],
-                                        ["CLIENT NAME", selectedRecord.client_name],
-                                        ["CONSULTANCY", selectedRecord.consultancy],
-                                        ["CONTACT PERSON", selectedRecord.contact_person],
-                                        ["MODE OF ENQUIRY", selectedRecord.mode_of_enquiry],
-                                        ["ENQ. DATE", selectedRecord.enq_date ? new Date(selectedRecord.enq_date).toLocaleDateString("en-GB") : "-"],
-                                        ["DATE", new Date(selectedRecord.createdAt).toLocaleDateString("en-GB")],
-                                    ].map(([label, value], idx) => (
-                                        <div key={idx} className="flex flex-col space-y-1">
-                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
-                                            <span className="font-medium">{value || "-"}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Section 2: Submission Details */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold text-sm">Submission Details</h3>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-y-5 gap-x-4 p-6 text-sm">
-                                    {[
-                                        ["CLIENT TARGET DATE", selectedRecord.target_date ? new Date(selectedRecord.target_date).toLocaleDateString("en-GB") : "-"],
-                                        ["ACTUAL SUBMISSION DATE", selectedRecord.actual_submission_date ? new Date(selectedRecord.actual_submission_date).toLocaleDateString("en-GB") : "-"],
-                                        ["TIME TAKEN FOR SUBMISSION", selectedRecord.time_taken],
-                                    ].map(([label, value], idx) => (
-                                        <div key={idx} className="flex flex-col space-y-1">
-                                            <span className="font-semibold text-muted-foreground text-[11px] uppercase tracking-wider">{label}</span>
-                                            <span className="font-medium">{value || "-"}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Section 3: Assignment & Status */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold">Assignment & Status</h3>
-                                </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-6 gap-x-4 p-6">
-                                    {[
-                                        ["MEDIATOR", selectedRecord.mediator],
-                                        ["ESTIMATOR", selectedRecord.estimator],
-                                        ["SHRENO STATUS", selectedRecord.shreno_status],
-                                        ["CLIENT STATUS", selectedRecord.client_status],
-                                        ["PO NO.", selectedRecord.po_no],
-                                        ["PO DATE", selectedRecord.po_date ? new Date(selectedRecord.po_date).toLocaleDateString("en-GB") : "-"],
-                                        ["PO VALUE", selectedRecord.po_value ? `₹${selectedRecord.po_value.toLocaleString("en-IN")}` : "-"],
-                                        ["PO REMARKS", selectedRecord.po_remark],
-                                        ["MADE BY", selectedRecord.made_by],
-                                        ["REMARK", selectedRecord.remark],
-                                    ].map(([label, value], idx) => (
-                                        <div key={idx} className={`flex flex-col space-y-1 ${label === "REMARK" || label === "PO REMARKS" ? "md:col-span-2" : ""}`}>
-                                            <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">{label}</span>
-                                            <span className="font-medium">{(label === "SHRENO STATUS" || label === "CLIENT STATUS") ? <StatusBadge status={value} /> : (value || "-")}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Section 4: Enquiry Details */}
-                            <div className="border border-border rounded-xl shadow-sm bg-white text-sm">
-                                <div className="px-6 py-3 border-b border-border bg-muted/40 rounded-t-xl">
-                                    <h3 className="font-bold">Enquiry Details</h3>
-                                </div>
-                                <div className="p-6 space-y-6">
-                                    {selectedRecord.items?.length > 0 ? (
-                                        <div className="space-y-6">
-                                            <div className="flex flex-col space-y-2">
-                                                <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">ENQ. DESCRIPTION</span>
-                                                <p className="font-medium text-sm whitespace-pre-wrap bg-muted/20 p-4 rounded-lg border border-border/50">
-                                                    {selectedRecord.items[0].enq_description || "No description provided."}
-                                                </p>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                <div className="flex flex-col space-y-1">
-                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">EQUIP. QTY</span>
-                                                    <span className="font-medium text-base">{selectedRecord.items[0].equip_qty || "-"}</span>
-                                                </div>
-                                                <div className="flex flex-col space-y-1">
-                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">REV.</span>
-                                                    <span className="font-medium text-base">{selectedRecord.items[0].rev || "-"}</span>
-                                                </div>
-                                                <div className="flex flex-col space-y-1">
-                                                    <span className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">TOTAL VALUE</span>
-                                                    <span className="font-medium text-base">
-                                                        {selectedRecord.items[0].total_value ? `₹${selectedRecord.items[0].total_value.toLocaleString("en-IN")}` : "-"}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <p className="text-center text-muted-foreground py-4">No enquiry items found.</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-            <ConfirmDialog 
+            <ConfirmDialog
                 isOpen={confirmData.isOpen}
                 onClose={() => setConfirmData(prev => ({ ...prev, isOpen: false }))}
                 onConfirm={confirmData.onConfirm}
@@ -685,7 +559,7 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick }) {
 }
 
 // ─── Create / Edit View ──────────────────────────────────────────────────────
-function CreateView({ onBack, editId = null }) {
+function CreateView({ onBack, editId = null, isViewMode = false }) {
     const today = new Date().toLocaleDateString("en-GB", {
         day: "2-digit", month: "2-digit", year: "numeric",
     })
@@ -731,10 +605,10 @@ function CreateView({ onBack, editId = null }) {
         const parsedAuth = authData ? JSON.parse(authData) : null
         const loggedInUser = parsedAuth?.user?.name || parsedAuth?.payload?.user?.name || ""
         const today = new Date().toISOString().split("T")[0]
-        
+
         return {
             quotationNo: "",
-            quotationCategory: "Core",
+            quotationCategory: "MKT",
             clientRef: "",
             rfqType: "",
             clientName: "",
@@ -764,6 +638,8 @@ function CreateView({ onBack, editId = null }) {
 
     // State for wireframe attachments
     const [attachments, setAttachments] = useState([])
+    const [deletedAttachmentIds, setDeletedAttachmentIds] = useState([])
+    const [selectedPreviewFile, setSelectedPreviewFile] = useState(null)
 
     const handleFileChange = (e) => {
         const files = Array.from(e.target.files)
@@ -779,28 +655,11 @@ function CreateView({ onBack, editId = null }) {
         setAttachments(prev => [...prev, ...newAttachments])
     }
 
-    const [confirmState, setConfirmState] = useState({ isOpen: false, id: null, isNew: false })
-
     const removeAttachment = (id, isNew) => {
-        if (isNew) {
-            setAttachments(prev => prev.filter(a => a.id !== id))
-            return
+        if (!isNew) {
+            setDeletedAttachmentIds(prev => [...prev, id])
         }
-        setConfirmState({ isOpen: true, id, isNew })
-    }
-
-    const onConfirmDeleteAttachment = async () => {
-        try {
-            setConfirmState(prev => ({ ...prev, isLoading: true }))
-            const res = await apiClient.delete(`/api/rfq/attachments/${confirmState.id}`);
-            if (!res.success) throw new Error(res.message);
-            setAttachments(prev => prev.filter(a => a.id !== confirmState.id))
-            toast.success("Attachment deleted successfully");
-        } catch (error) {
-            toast.error(error.message || "Failed to delete attachment");
-        } finally {
-            setConfirmState({ isOpen: false, id: null, isNew: false, isLoading: false })
-        }
+        setAttachments(prev => prev.filter(a => a.id !== id))
     }
 
     // Fetch next quotation number when creating (not editing)
@@ -832,7 +691,7 @@ function CreateView({ onBack, editId = null }) {
                     const r = res.data
                     const updatedFormData = {
                         quotationNo: r.quotation_no ?? "",
-                        quotationCategory: r.quotation_category ?? "Core",
+                        quotationCategory: r.quotation_category ?? "MKT",
                         clientRef: r.client_ref ?? "",
                         rfqType: r.rfq_type ?? "",
                         clientName: r.client_name ?? "",
@@ -860,9 +719,10 @@ function CreateView({ onBack, editId = null }) {
                             id: att.id,
                             name: att.file_name,
                             size: (att.file_size / 1024).toFixed(2) + " KB",
-                            type: att.mime_type,
+                            type: att.file_mime_type || att.mime_type,
                             uploadedAt: new Date(att.uploaded_at).toLocaleString(),
                             url: att.file_url,
+                            path: att.file_path,
                             isNew: false
                         })))
                     } else {
@@ -959,34 +819,38 @@ function CreateView({ onBack, editId = null }) {
                 po_date: formData.poDate || null,
                 po_value: formData.poValue,
                 po_remark: formData.poRemark,
-                items: tableRows.map((row) => ({
+                items: JSON.stringify(tableRows.map((row) => ({
                     sr_no: row.srNo,
                     enq_description: row.enqDescription,
                     equip_qty: row.equipQty,
                     rev: row.rev,
                     total_value: row.totalValue,
                     remarks: row.remarks,
-                })),
+                }))),
             }
+
+            const formDataObj = new FormData()
+            Object.entries(payload).forEach(([key, value]) => {
+                if (value !== null && value !== undefined) {
+                    formDataObj.append(key, value)
+                }
+            })
+
+            if (deletedAttachmentIds.length > 0) {
+                formDataObj.append("deletedAttachmentIds", JSON.stringify(deletedAttachmentIds))
+            }
+
+            const newFiles = attachments.filter(a => a.isNew).map(a => a.file)
+            newFiles.forEach(file => formDataObj.append("files", file))
 
             let res
             if (editId) {
-                res = await apiClient.put(`/api/rfq/update/${editId}`, payload)
+                res = await apiClient.put(`/api/rfq/update/${editId}`, formDataObj)
             } else {
-                res = await apiClient.post("/api/rfq/create", payload)
+                res = await apiClient.post("/api/rfq/create", formDataObj)
             }
 
             if (res.success) {
-                const rfqId = editId || res.data.id;
-                
-                // Handle new attachments upload
-                const newFiles = attachments.filter(a => a.isNew).map(a => a.file);
-                if (newFiles.length > 0) {
-                    const formDataObj = new FormData();
-                    newFiles.forEach(file => formDataObj.append("files", file));
-                    await apiClient.post(`/api/rfq/${rfqId}/attachments`, formDataObj);
-                }
-
                 toast.success(editId ? "RFQ entry updated successfully!" : "RFQ entry created successfully!")
                 onBack()
             }
@@ -999,503 +863,541 @@ function CreateView({ onBack, editId = null }) {
 
     return (
         <div><div className="flex justify-end mb-4"><Button variant="outline" onClick={onBack} className="h-9">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Back to List
-                </Button>
-            </div>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to List
+        </Button>
+        </div>
 
-            {/* Card 1: Enquiry Information */}
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Enquiry Information</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="quotationCategory">Quotation Type</Label>
-                            <Select 
-                                value={formData.quotationCategory} 
-                                onValueChange={(v) => handleSelectChange("quotationCategory", v)}
-                                disabled={!!editId}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Core">Core - MKT</SelectItem>
-                                    <SelectItem value="Spare">Spare - SPR</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="quotationNo">Quotation No.</Label>
-                            <Input
-                                id="quotationNo"
-                                name="quotationNo"
-                                type="text"
-                                value={formData.quotationNo}
-                                disabled={true}
-                                placeholder="Auto-generated"
-                                className="bg-muted"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="clientRef">Client Ref.</Label>
-                            <Input
-                                id="clientRef"
-                                name="clientRef"
-                                type="text"
-                                value={formData.clientRef}
-                                onChange={handleInputChange}
-                                placeholder="Enter Client Reference"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="rfqType">RFQ Type</Label>
-                            <Select 
-                                key={`rfqType-${dropdownOptions.rfqTypes.length}-${formData.rfqType}`}
-                                value={formData.rfqType} 
-                                onValueChange={(v) => handleSelectChange("rfqType", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select RFQ Type" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dropdownOptions.rfqTypes.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="clientName">Client Name</Label>
-                            <Input
-                                id="clientName"
-                                name="clientName"
-                                type="text"
-                                value={formData.clientName}
-                                onChange={handleInputChange}
-                                placeholder="Enter Client Name"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="consultancy">Consultancy</Label>
-                            <Input
-                                id="consultancy"
-                                name="consultancy"
-                                type="text"
-                                value={formData.consultancy}
-                                onChange={handleInputChange}
-                                placeholder="Enter Consultancy"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="contactPerson">Contact Person</Label>
-                            <Input
-                                id="contactPerson"
-                                name="contactPerson"
-                                type="text"
-                                value={formData.contactPerson}
-                                onChange={handleInputChange}
-                                placeholder="Enter Contact Person"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="modeOfEnquiry">Mode of Enquiry</Label>
-                            <Select 
-                                key={`moe-${dropdownOptions.modesOfEnquiry.length}-${formData.modeOfEnquiry}`}
-                                value={formData.modeOfEnquiry} 
-                                onValueChange={(v) => handleSelectChange("modeOfEnquiry", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Mode" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {dropdownOptions.modesOfEnquiry.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="enqDate">Enq. Date</Label>
-                            <Input
-                                id="enqDate"
-                                name="enqDate"
-                                type="date"
-                                value={formData.enqDate}
-                                onChange={handleInputChange}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="date">Date</Label>
-                            <Input
-                                id="date"
-                                type="text"
-                                value={today}
-                                disabled
-                                className="bg-muted"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Card 2: Submission Details */}
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Submission Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="targetDate">Client Target Date</Label>
-                            <Input
-                                id="targetDate"
-                                name="targetDate"
-                                type="date"
-                                value={formData.targetDate}
-                                onChange={handleInputChange}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="actualSubmissionDate">Actual Submission Date</Label>
-                            <Input
-                                id="actualSubmissionDate"
-                                name="actualSubmissionDate"
-                                type="date"
-                                value={formData.actualSubmissionDate}
-                                onChange={handleInputChange}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="timeTaken">Time Taken for Submission</Label>
-                            <Input
-                                id="timeTaken"
-                                name="timeTaken"
-                                type="text"
-                                value={formData.timeTaken}
-                                readOnly
-                                className="bg-muted"
-                                placeholder="Auto-calculated"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Card 3: Assignment & Status */}
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Assignment & Status</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="mediator">Mediator</Label>
-                            <Select 
-                                key={`mediator-${dropdownOptions.mediators.length}-${formData.mediator}`}
-                                value={formData.mediator} 
-                                onValueChange={(v) => handleSelectChange("mediator", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Mediator" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formData.mediator && !dropdownOptions.mediators.includes(formData.mediator) && (
-                                        <SelectItem value={formData.mediator}>{formData.mediator}</SelectItem>
-                                    )}
-                                    {dropdownOptions.mediators.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="estimator">Estimator</Label>
-                            <Select 
-                                key={`estimator-${dropdownOptions.estimators.length}-${formData.estimator}`}
-                                value={formData.estimator} 
-                                onValueChange={(v) => handleSelectChange("estimator", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Estimator" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {formData.estimator && !dropdownOptions.estimators.includes(formData.estimator) && (
-                                        <SelectItem value={formData.estimator}>{formData.estimator}</SelectItem>
-                                    )}
-                                    {dropdownOptions.estimators.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="shrenoStatus">Shreno Status</Label>
-                            <Select 
-                                key={`shrenoStatus-${formData.shrenoStatus}`}
-                                value={formData.shrenoStatus} 
-                                onValueChange={(v) => handleSelectChange("shrenoStatus", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SHRENO_STATUS_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="clientStatus">Status at Client End</Label>
-                            <Select 
-                                key={`clientStatus-${formData.clientStatus}`}
-                                value={formData.clientStatus} 
-                                onValueChange={(v) => handleSelectChange("clientStatus", v)}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Select Client Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {CLIENT_STATUS_OPTIONS.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="poNo">PO No.</Label>
-                            <Input
-                                id="poNo"
-                                name="poNo"
-                                type="text"
-                                value={formData.poNo}
-                                onChange={handleInputChange}
-                                placeholder="Enter PO No."
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="poDate">PO Date</Label>
-                            <Input
-                                id="poDate"
-                                name="poDate"
-                                type="date"
-                                value={formData.poDate}
-                                onChange={handleInputChange}
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="poValue">PO Value</Label>
-                            <Input
-                                id="poValue"
-                                name="poValue"
-                                type="number"
-                                value={formData.poValue}
-                                onChange={handleInputChange}
-                                placeholder="Enter PO Value"
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="poRemark">PO Remarks</Label>
-                            <Input
-                                id="poRemark"
-                                name="poRemark"
-                                type="text"
-                                value={formData.poRemark}
-                                onChange={handleInputChange}
-                                placeholder="Enter PO Remarks"
-                                disabled={formData.clientStatus !== "Order Received"}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="madeBy">Made By</Label>
-                            <Input
-                                id="madeBy"
-                                name="madeBy"
-                                type="text"
-                                value={formData.madeBy}
-                                onChange={handleInputChange}
-                                placeholder="Enter Made By"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="mt-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="remark">Remark</Label>
-                            <Textarea
-                                id="remark"
-                                name="remark"
-                                value={formData.remark}
-                                onChange={handleInputChange}
-                                placeholder="Enter Remark"
-                                className="min-h-[100px]"
-                            />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Enquiry Details</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    {tableRows.length > 0 && (
-                        <div className="space-y-4">
+            <fieldset disabled={isViewMode} className={isViewMode ? "opacity-80 pointer-events-none" : ""}>
+                {/* Card 1: Enquiry Information */}
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Enquiry Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-sm font-semibold">Enq. Description</Label>
-                                <Textarea 
-                                    value={tableRows[0].enqDescription} 
-                                    onChange={(e) => handleRowChange(tableRows[0].id, "enqDescription", e.target.value)}
-                                    placeholder="Enter Enquiry Description"
+                                <Label htmlFor="quotationCategory">Quotation Type</Label>
+                                <Select
+                                    value={formData.quotationCategory}
+                                    onValueChange={(v) => handleSelectChange("quotationCategory", v)}
+                                    disabled={!!editId}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {QUOTATION_CATEGORIES.map(cat => (
+                                            <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="quotationNo">Quotation No.</Label>
+                                <Input
+                                    id="quotationNo"
+                                    name="quotationNo"
+                                    type="text"
+                                    value={formData.quotationNo}
+                                    disabled={true}
+                                    placeholder="Auto-generated"
+                                    className="bg-muted"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="clientRef">Client Ref.</Label>
+                                <Input
+                                    id="clientRef"
+                                    name="clientRef"
+                                    type="text"
+                                    value={formData.clientRef}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter Client Reference"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="rfqType">RFQ Type</Label>
+                                <Select
+                                    key={`rfqType-${dropdownOptions.rfqTypes.length}-${formData.rfqType}`}
+                                    value={formData.rfqType}
+                                    onValueChange={(v) => handleSelectChange("rfqType", v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select RFQ Type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {dropdownOptions.rfqTypes.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="clientName">Client Name</Label>
+                                <Input
+                                    id="clientName"
+                                    name="clientName"
+                                    type="text"
+                                    value={formData.clientName}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter Client Name"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="consultancy">Consultancy</Label>
+                                <Input
+                                    id="consultancy"
+                                    name="consultancy"
+                                    type="text"
+                                    value={formData.consultancy}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter Consultancy"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="contactPerson">Contact Person</Label>
+                                <Input
+                                    id="contactPerson"
+                                    name="contactPerson"
+                                    type="text"
+                                    value={formData.contactPerson}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter Contact Person"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="modeOfEnquiry">Mode of Enquiry</Label>
+                                <Select
+                                    key={`moe-${dropdownOptions.modesOfEnquiry.length}-${formData.modeOfEnquiry}`}
+                                    value={formData.modeOfEnquiry}
+                                    onValueChange={(v) => handleSelectChange("modeOfEnquiry", v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Mode" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {dropdownOptions.modesOfEnquiry.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="enqDate">Enq. Date</Label>
+                                <Input
+                                    id="enqDate"
+                                    name="enqDate"
+                                    type="date"
+                                    value={formData.enqDate}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="date">Date</Label>
+                                <Input
+                                    id="date"
+                                    type="text"
+                                    value={today}
+                                    disabled
+                                    className="bg-muted"
+                                />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Card 2: Submission Details */}
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Submission Details</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="targetDate">Client Target Date</Label>
+                                <Input
+                                    id="targetDate"
+                                    name="targetDate"
+                                    type="date"
+                                    value={formData.targetDate}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="actualSubmissionDate">Actual Submission Date</Label>
+                                <Input
+                                    id="actualSubmissionDate"
+                                    name="actualSubmissionDate"
+                                    type="date"
+                                    value={formData.actualSubmissionDate}
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="timeTaken">Time Taken for Submission</Label>
+                                <Input
+                                    id="timeTaken"
+                                    name="timeTaken"
+                                    type="text"
+                                    value={formData.timeTaken}
+                                    readOnly
+                                    className="bg-muted"
+                                    placeholder="Auto-calculated"
+                                />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Card 3: Assignment & Status */}
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Assignment & Status</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="mediator">Mediator</Label>
+                                <Select
+                                    key={`mediator-${dropdownOptions.mediators.length}-${formData.mediator}`}
+                                    value={formData.mediator}
+                                    onValueChange={(v) => handleSelectChange("mediator", v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Mediator" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {formData.mediator && !dropdownOptions.mediators.includes(formData.mediator) && (
+                                            <SelectItem value={formData.mediator}>{formData.mediator}</SelectItem>
+                                        )}
+                                        {dropdownOptions.mediators.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="estimator">Estimator</Label>
+                                <Select
+                                    key={`estimator-${dropdownOptions.estimators.length}-${formData.estimator}`}
+                                    value={formData.estimator}
+                                    onValueChange={(v) => handleSelectChange("estimator", v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Estimator" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {formData.estimator && !dropdownOptions.estimators.includes(formData.estimator) && (
+                                            <SelectItem value={formData.estimator}>{formData.estimator}</SelectItem>
+                                        )}
+                                        {dropdownOptions.estimators.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="shrenoStatus">Shreno Status</Label>
+                                <Select
+                                    key={`shrenoStatus-${formData.shrenoStatus}`}
+                                    value={formData.shrenoStatus}
+                                    onValueChange={(v) => handleSelectChange("shrenoStatus", v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {SHRENO_STATUS_OPTIONS.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="clientStatus">Status at Client End</Label>
+                                <Select
+                                    key={`clientStatus-${formData.clientStatus}`}
+                                    value={formData.clientStatus}
+                                    onValueChange={(v) => handleSelectChange("clientStatus", v)}
+                                >
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Select Client Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CLIENT_STATUS_OPTIONS.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="poNo">PO No.</Label>
+                                <Input
+                                    id="poNo"
+                                    name="poNo"
+                                    type="text"
+                                    value={formData.poNo}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter PO No."
+                                    disabled={formData.clientStatus !== "Order Received"}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="poDate">PO Date</Label>
+                                <Input
+                                    id="poDate"
+                                    name="poDate"
+                                    type="date"
+                                    value={formData.poDate}
+                                    onChange={handleInputChange}
+                                    disabled={formData.clientStatus !== "Order Received"}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="poValue">PO Value</Label>
+                                <Input
+                                    id="poValue"
+                                    name="poValue"
+                                    type="number"
+                                    value={formData.poValue}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter PO Value"
+                                    disabled={formData.clientStatus !== "Order Received"}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="poRemark">PO Remarks</Label>
+                                <Input
+                                    id="poRemark"
+                                    name="poRemark"
+                                    type="text"
+                                    value={formData.poRemark}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter PO Remarks"
+                                    disabled={formData.clientStatus !== "Order Received"}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="madeBy">Made By</Label>
+                                <Input
+                                    id="madeBy"
+                                    name="madeBy"
+                                    type="text"
+                                    value={formData.madeBy}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter Made By"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="remark">Remark</Label>
+                                <Textarea
+                                    id="remark"
+                                    name="remark"
+                                    value={formData.remark}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter Remark"
                                     className="min-h-[100px]"
                                 />
                             </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Equip. Qty</Label>
-                                    <Input 
-                                        type="number"
-                                        value={tableRows[0].equipQty} 
-                                        onChange={(e) => handleRowChange(tableRows[0].id, "equipQty", e.target.value)}
-                                        placeholder="Qty"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Rev.</Label>
-                                    <Input 
-                                        value={tableRows[0].rev} 
-                                        onChange={(e) => handleRowChange(tableRows[0].id, "rev", e.target.value)}
-                                        placeholder="Rev"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-sm font-semibold">Total Value</Label>
-                                    <Input 
-                                        type="number"
-                                        value={tableRows[0].totalValue} 
-                                        onChange={(e) => handleRowChange(tableRows[0].id, "totalValue", e.target.value)}
-                                        placeholder="Value"
-                                    />
-                                </div>
-                            </div>
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            <Card className="mb-6">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                        <Paperclip className="h-4 w-4" />
-                        Attachments (Quotation / Specification)
-                    </CardTitle>
-                    <div className="relative">
-                        <input
-                            type="file"
-                            id="rfq-attachments"
-                            className="hidden"
-                            multiple
-                            onChange={handleFileChange}
-                        />
-                        <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
-                            onClick={() => document.getElementById('rfq-attachments').click()}
-                        >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add Files
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    {attachments.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {attachments.map((file) => (
-                                <div key={file.id} className="flex items-center justify-between p-2.5 border rounded-lg bg-slate-50 group hover:border-blue-200 hover:bg-white transition-all">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                        <div className="h-9 w-9 rounded-md bg-white border flex items-center justify-center shrink-0">
-                                            <FileText className="h-5 w-5 text-blue-500" />
-                                        </div>
-                                        <div className="flex flex-col min-w-0">
-                                            <span className="text-xs font-semibold truncate text-slate-700">{file.name}</span>
-                                            <span className="text-[10px] text-slate-400 font-medium">{file.size} • {file.uploadedAt}</span>
-                                        </div>
-                                    </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-7 w-7 text-slate-300 hover:text-red-500 hover:bg-red-50 shrink-0"
-                                        onClick={() => removeAttachment(file.id, file.isNew)}
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </Button>
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Enquiry Details</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {tableRows.length > 0 && (
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">Enq. Description</Label>
+                                    <Textarea
+                                        value={tableRows[0].enqDescription}
+                                        onChange={(e) => handleRowChange(tableRows[0].id, "enqDescription", e.target.value)}
+                                        placeholder="Enter Enquiry Description"
+                                        className="min-h-[100px]"
+                                    />
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div 
-                            className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors"
-                            onClick={() => document.getElementById('rfq-attachments').click()}
-                        >
-                            <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
-                                <Upload className="h-6 w-6 text-slate-400" />
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold">Equip. Qty</Label>
+                                        <Input
+                                            type="number"
+                                            value={tableRows[0].equipQty}
+                                            onChange={(e) => handleRowChange(tableRows[0].id, "equipQty", e.target.value)}
+                                            placeholder="Qty"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold">Rev.</Label>
+                                        <Input
+                                            value={tableRows[0].rev}
+                                            onChange={(e) => handleRowChange(tableRows[0].id, "rev", e.target.value)}
+                                            placeholder="Rev"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-semibold">Total Value</Label>
+                                        <Input
+                                            type="number"
+                                            value={tableRows[0].totalValue}
+                                            onChange={(e) => handleRowChange(tableRows[0].id, "totalValue", e.target.value)}
+                                            placeholder="Value"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">Click to upload or drag files here</p>
-                            <p className="text-[10px] text-slate-400 mt-1">Quotation, Drawings, or Specification PDFs</p>
+                        )}
+                    </CardContent>
+                </Card>
+
+            </fieldset>
+
+                <Card className="mb-6">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                            <Paperclip className="h-4 w-4" />
+                            Attachments (Quotation / Specification)
+                        </CardTitle>
+                        <div className="relative">
+                            <input
+                                type="file"
+                                id="rfq-attachments"
+                                className="hidden"
+                                multiple
+                                onChange={handleFileChange}
+                            />
+                            {!isViewMode && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
+                                    onClick={() => document.getElementById('rfq-attachments').click()}
+                                >
+                                    <Plus className="h-3.5 w-3.5 mr-1" />
+                                    Add Files
+                                </Button>
+                            )}
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                    </CardHeader>
+                    <CardContent>
+                        {attachments.length > 0 ? (
+                            <div className="border rounded-md divide-y overflow-hidden">
+                                {attachments.map((file) => (
+                                    <div key={file.id} className="flex flex-col">
+                                        <div
+                                            className={`flex items-center justify-between p-3 transition-colors cursor-pointer ${
+                                                selectedPreviewFile === file 
+                                                ? "bg-primary/5 border-b" 
+                                                : "bg-slate-50 hover:bg-slate-100"
+                                            }`}
+                                            onClick={() => {
+                                                if (file.isNew) return;
+                                                if (selectedPreviewFile === file) {
+                                                    setSelectedPreviewFile(null);
+                                                } else {
+                                                    setSelectedPreviewFile(file);
+                                                }
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                                <FileText className="h-5 w-5 text-blue-500 shrink-0" />
+                                                <div className="flex flex-col min-w-0">
+                                                    <span className="text-sm font-medium truncate text-slate-700">{file.name}</span>
+                                                    <span className="text-[10px] text-slate-400">{file.size} • {file.uploadedAt}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {!file.isNew && (
+                                                    selectedPreviewFile === file ? (
+                                                        <span className="text-xs text-primary font-medium mr-2">Close Preview</span>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-500 font-medium mr-2">Click to Preview</span>
+                                                    )
+                                                )}
+                                                {!isViewMode && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 z-10"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (selectedPreviewFile === file) setSelectedPreviewFile(null);
+                                                            removeAttachment(file.id, file.isNew)
+                                                        }}
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Inline Preview Body */}
+                                        {selectedPreviewFile === file && !file.isNew && file.url && (
+                                            <div className="w-full h-[600px] animate-in slide-in-from-top-2 fade-in duration-300">
+                                                <iframe 
+                                                    src={file.url} 
+                                                    className="w-full h-full border-0 bg-white"
+                                                    title="Document Preview"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div
+                                className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl bg-slate-50/50 transition-colors ${!isViewMode ? "cursor-pointer hover:bg-slate-50" : ""}`}
+                                onClick={() => !isViewMode && document.getElementById('rfq-attachments').click()}
+                            >
+                                <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+                                    <Upload className="h-6 w-6 text-slate-400" />
+                                </div>
+                                <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">{isViewMode ? "No attachments found" : "Click to upload or drag files here"}</p>
+                                <p className="text-[10px] text-slate-400 mt-1">Quotation, Drawings, or Specification PDFs</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
             {/* Submit / Cancel */}
             <div className="flex justify-end gap-4 mt-6">
-                <Button onClick={onBack} variant="outline">Cancel</Button>
-                <Button onClick={handleSubmit} disabled={submitting}>
-                    {submitting ? "Saving..." : editId ? "Update Entry" : "Submit Entry"}
-                </Button>
+                <Button onClick={onBack} variant="outline">{isViewMode ? "Back" : "Cancel"}</Button>
+                {!isViewMode && (
+                    <Button onClick={handleSubmit} disabled={submitting} className="cursor-pointer">
+                        {submitting ? "Saving..." : editId ? "Update RFQ" : "Submit RFQ"}
+                    </Button>
+                )}
             </div>
-            <ConfirmDialog 
-                isOpen={confirmState.isOpen}
-                onClose={() => setConfirmState({ isOpen: false, id: null })}
-                onConfirm={onConfirmDeleteAttachment}
-                title="Delete Attachment"
-                description="Are you sure you want to permanently delete this attachment? This document will be removed from the record."
-                confirmText="Delete"
-                variant="danger"
-                isLoading={confirmState.isLoading}
-            />
         </div>
     )
 }
 
 function AttachmentsView({ rfqId, onBack }) {
     const [quotationNo, setQuotationNo] = useState("")
-    
+
     // Preview state
     const [isPreviewOpen, setIsPreviewOpen] = useState(false)
     const [previewUrl, setPreviewUrl] = useState("")
@@ -1536,14 +1438,14 @@ function AttachmentsView({ rfqId, onBack }) {
     }
 
     const columns = [
-        { 
-            header: "SR NO.", 
+        {
+            header: "SR NO.",
             accessorKey: "serialNo",
             width: "80px",
             className: "pl-6"
         },
-        { 
-            header: "FILE NAME", 
+        {
+            header: "FILE NAME",
             accessorKey: "file_name",
             cell: (row) => (
                 <div className="flex items-center gap-2 py-1">
@@ -1552,13 +1454,13 @@ function AttachmentsView({ rfqId, onBack }) {
                 </div>
             )
         },
-        { 
-            header: "SIZE", 
+        {
+            header: "SIZE",
             accessorKey: "file_size",
             cell: (row) => `${(row.file_size / 1024).toFixed(1)} KB`
         },
-        { 
-            header: "UPLOAD DATE", 
+        {
+            header: "UPLOAD DATE",
             accessorKey: "uploaded_at",
             cell: (row) => new Date(row.uploaded_at).toLocaleDateString()
         },
@@ -1581,21 +1483,16 @@ function AttachmentsView({ rfqId, onBack }) {
     ]
 
     return (
-        <div className="flex flex-col h-full space-y-4 px-1">
-            <div className="flex items-center justify-between py-1">
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={onBack} className="h-9 w-9 rounded-full shadow-sm hover:bg-slate-50 border-slate-200 transition-all">
-                        <ArrowLeft className="h-4 w-4 text-slate-600" />
-                    </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Attachments</h1>
-                        <p className="text-sm text-muted-foreground font-medium">Documents for RFQ: <span className="text-slate-900 uppercase font-bold">{quotationNo || "Loading..."}</span></p>
-                    </div>
-                </div>
+        <div className="flex flex-col h-full space-y-2">
+            <div className="flex items-center justify-end mb-2">
+                <Button onClick={onBack} variant="outline">
+                    <ArrowLeft className="h-4 w-4 mr-2 text-slate-600" />
+                    Back
+                </Button>
             </div>
 
             <div className="flex-1 flex flex-col overflow-hidden">
-                <ProDataTable 
+                <ProDataTable
                     fetchData={fetchAttachments}
                     columns={columns}
                     globalSearchPlaceholder="Search in documents..."
@@ -1603,7 +1500,7 @@ function AttachmentsView({ rfqId, onBack }) {
             </div>
 
             {/* Premium Preview Dialog */}
-            <DocumentPreviewDialog 
+            <DocumentPreviewDialog
                 isOpen={isPreviewOpen}
                 onOpenChange={setIsPreviewOpen}
                 previewUrl={previewUrl}
@@ -1615,12 +1512,17 @@ function AttachmentsView({ rfqId, onBack }) {
 
 // ─── Main Page ───────────────────────────────────────────────────────────────
 function RfqRegister() {
-    const [view, setView] = useState("list") // "list" | "create" | "edit" | "attachments"
+    const [view, setView] = useState("list") // "list" | "create" | "edit" | "attachments" | "view"
     const [editId, setEditId] = useState(null)
 
     const handleEdit = (id) => {
         setEditId(id)
         setView("edit")
+    }
+
+    const handleView = (id) => {
+        setEditId(id)
+        setView("view")
     }
 
     const handleAttachments = (id) => {
@@ -1630,34 +1532,36 @@ function RfqRegister() {
 
     return (
         <>
-                <PageContainer>
-{view === "list" ? (
-                            <ListView
-                                onCreateClick={() => {
-                                    setEditId(null)
-                                    setView("create")
-                                }}
-                                onEditClick={handleEdit}
-                                onAttachmentsClick={handleAttachments}
-                            />
-                        ) : view === "attachments" ? (
-                            <AttachmentsView
-                                rfqId={editId}
-                                onBack={() => {
-                                    setView("list")
-                                    setEditId(null)
-                                }}
-                            />
-                        ) : (
-                            <CreateView
-                                onBack={() => {
-                                    setView("list")
-                                    setEditId(null)
-                                }}
-                                editId={editId}
-                            />
-                        )}
-</PageContainer>
+            <PageContainer>
+                {view === "list" ? (
+                    <ListView
+                        onCreateClick={() => {
+                            setEditId(null)
+                            setView("create")
+                        }}
+                        onEditClick={handleEdit}
+                        onViewClick={handleView}
+                        onAttachmentsClick={handleAttachments}
+                    />
+                ) : view === "attachments" ? (
+                    <AttachmentsView
+                        rfqId={editId}
+                        onBack={() => {
+                            setView("list")
+                            setEditId(null)
+                        }}
+                    />
+                ) : (
+                    <CreateView
+                        onBack={() => {
+                            setView("list")
+                            setEditId(null)
+                        }}
+                        editId={editId}
+                        isViewMode={view === "view"}
+                    />
+                )}
+            </PageContainer>
         </>
     )
 }

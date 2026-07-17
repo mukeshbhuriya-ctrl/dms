@@ -11,9 +11,9 @@ router.use(authenticateUser(['ADMIN', 'MARKETING']));
 router.get('/list', RfqController.list);
 router.get('/dashboard', RfqController.getDashboardStats);
 router.get('/next-quotation-no', RfqController.getNextQuotationNo);
-router.post('/create', RfqController.create);
+router.post('/create', upload.array('files', 10), RfqController.create);
 router.post('/bulk-create', RfqController.bulkCreate);
-router.put('/update/:id', RfqController.update);
+router.put('/update/:id', upload.array('files', 10), RfqController.update);
 router.get('/users', RfqController.getUsers);
 router.get('/lookups/:type', RfqController.getLookups);
 router.get('/lookups/:type/filters', RfqController.getLookupFilters);
@@ -34,22 +34,16 @@ router.post('/mediators', RfqController.createMediator);
 router.put('/mediators/:id', RfqController.updateMediator);
 router.delete('/mediators/:id', RfqController.deleteMediator);
 
-// ─── Generic ID Routes (Must be last) ──────────────────────────────────────
-router.get('/:id', RfqController.getById);
-router.patch('/toggle-status/:id', (req, res, next) => {
-    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
-    next();
-}, RfqController.toggleStatus);
-router.delete('/archive/:id', (req, res, next) => {
-    if (!req.user.role.includes('ADMIN')) return res.status(403).json({ success: false, message: 'Unauthorized' });
-    next();
-}, RfqController.archive);
-router.delete('/:id', RfqController.deleteById);
-
-// ─── Attachments ────────────────────────────────────────────────────────────
+// ============================== Attachments & Files ==============================
+router.get('/files/:filename', RfqController.downloadAttachment);
 router.get('/:id/attachments', RfqController.getAttachments);
 router.post('/:id/attachments', upload.array('files', 10), RfqController.uploadAttachments);
-router.get('/:id/files/:filename', RfqController.downloadAttachment);
 router.delete('/attachments/:attachmentId', RfqController.deleteAttachment);
+
+// ============================== Generic ID Routes (Must be last) ==============================
+router.get('/:id', RfqController.getById);
+router.patch('/toggle-status/:id', RfqController.toggleStatus);
+router.delete('/archive/:id', RfqController.archive);
+router.delete('/:id', RfqController.deleteById);
 
 module.exports = router;

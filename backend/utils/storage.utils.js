@@ -84,13 +84,12 @@ class StorageUtils {
 
     /**
      * Get the directory for RFQ attachments
-     * Pattern: uploads/RFQ/{rfq_id}/
+     * Pattern: uploads/RFQ/
      */
-    getRfqDir(rfq_id) {
+    getRfqDir() {
         const dir = path.join(
             UPLOAD_BASE,
-            'RFQ',
-            this._sanitize(rfq_id)
+            'RFQ'
         );
         this._ensureDir(dir);
         return dir;

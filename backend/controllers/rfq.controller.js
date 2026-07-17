@@ -45,7 +45,7 @@ class RfqController {
 
     async create(req, res) {
         try {
-            const result = await RfqService.create(req.user.company_id, req.user.id, req.body);
+            const result = await RfqService.create(req.user.company_id, req.user.userid, req.body, req.files);
             
             Audit.insert({
                 req,
@@ -71,7 +71,7 @@ class RfqController {
 
     async update(req, res) {
         try {
-            const result = await RfqService.update(req.user.company_id, req.params.id, req.body);
+            const result = await RfqService.update(req.user.company_id, req.params.id, req.body, req.files);
             
             Audit.insert({
                 req,
@@ -471,8 +471,8 @@ class RfqController {
 
     async downloadAttachment(req, res) {
         try {
-            const { id, filename } = req.params;
-            const rfqDir = StorageUtils.getRfqDir(id);
+            const { filename } = req.params;
+            const rfqDir = StorageUtils.getRfqDir();
             const filePath = path.join(rfqDir, path.basename(filename));
 
             if (!fs.existsSync(filePath)) {
