@@ -7,6 +7,24 @@ class RfqService {
     /**
      * List RFQ records with pagination and search
      */
+
+    async getUniqueFilters(company_id) {
+        const result = await prisma.rfq_register.findMany({
+            where: { company_id, is_deleted: false },
+            select: { quotation_no: true, consultancy: true, client_name: true }
+        });
+
+        const quotationNos = [...new Set(result.map(r => r.quotation_no).filter(Boolean))].sort();
+        const consultancies = [...new Set(result.map(r => r.consultancy).filter(Boolean))].sort();
+        const clientNames = [...new Set(result.map(r => r.client_name).filter(Boolean))].sort();
+
+        return {
+            quotationNos,
+            consultancies,
+            clientNames
+        };
+    }
+
     async list(company_id, params = {}) {
         const {
             page = 1,
@@ -18,29 +36,35 @@ class RfqService {
 
         const skip = (Number(page) - 1) * Number(limit);
         const take = Number(limit);
-        const { 
-            quotation_no_filter, 
+        const {
+            quotation_no_filter,
+            quotation_category_filter,
             is_active_filter,
             client_name_filter,
             rfq_type_filter,
             shreno_status_filter,
             client_status_filter,
             estimator_filter,
-            mediator_filter
+            mediator_filter,
+            consultancy_filter,
+            mode_of_enquiry_filter
         } = params;
 
-        const where = { 
+        const where = {
             company_id,
             is_deleted: false
         };
 
         if (quotation_no_filter) where.quotation_no = this._processFilter(quotation_no_filter);
+        if (quotation_category_filter) where.quotation_category = this._processFilter(quotation_category_filter);
         if (client_name_filter) where.client_name = this._processFilter(client_name_filter);
         if (rfq_type_filter) where.rfq_type = this._processFilter(rfq_type_filter);
         if (shreno_status_filter) where.shreno_status = this._processFilter(shreno_status_filter);
         if (client_status_filter) where.client_status = this._processFilter(client_status_filter);
         if (estimator_filter) where.estimator = this._processFilter(estimator_filter);
         if (mediator_filter) where.mediator = this._processFilter(mediator_filter);
+        if (consultancy_filter) where.consultancy = this._processFilter(consultancy_filter);
+        if (mode_of_enquiry_filter) where.mode_of_enquiry = this._processFilter(mode_of_enquiry_filter);
 
         if (is_active_filter) {
             const activeStatus = Array.isArray(is_active_filter) ? is_active_filter : is_active_filter.split(',').map(v => v.trim());
@@ -266,7 +290,7 @@ class RfqService {
     async bulkCreate(company_id, user_id, rfqDataList) {
         return await prisma.$transaction(async (tx) => {
             const results = [];
-            
+
             // Get current global last serial
             const lastGlobalRfq = await tx.rfq_register.findFirst({
                 where: { company_id },
@@ -450,7 +474,7 @@ class RfqService {
         if (body.deletedAttachmentIds) {
             let deletedIds = body.deletedAttachmentIds;
             if (typeof deletedIds === 'string') {
-                try { deletedIds = JSON.parse(deletedIds); } catch(e) {}
+                try { deletedIds = JSON.parse(deletedIds); } catch (e) { }
             }
             if (Array.isArray(deletedIds) && deletedIds.length > 0) {
                 for (const attId of deletedIds) {
@@ -554,7 +578,7 @@ class RfqService {
 
         for (const file of files) {
             const destinationPath = path.join(rfqDir, file.filename);
-            
+
             // Move file from temp upload dir to RFQ subdir
             if (fs.existsSync(file.path)) {
                 fs.renameSync(file.path, destinationPath);
@@ -563,7 +587,7 @@ class RfqService {
             attachmentData.push({
                 rfq_id,
                 file_name: file.originalname,
-                file_url: file.filename, 
+                file_url: file.filename,
                 file_path: StorageUtils.getRelativePath(destinationPath),
                 file_size: file.size,
                 mime_type: file.mimetype,
@@ -809,11 +833,34 @@ class RfqService {
     /**
      * Get RFQ Dashboard Statistics
      */
-    async getDashboardStats(company_id, quotation_category) {
+    async getDashboardStats(company_id, filters = {}) {
+        const { type, client_name, financial_year, rfq_type } = filters;
+
         // Fetch RFQs filtered by company and optionally by category
         const where = { company_id };
-        if (quotation_category) {
-            where.quotation_category = quotation_category;
+        
+        if (type && type !== 'Overall') {
+            where.quotation_category = type;
+        }
+        
+        if (client_name) {
+            where.client_name = client_name;
+        }
+        
+        if (rfq_type) {
+            where.rfq_type = rfq_type;
+        }
+        
+        if (financial_year && financial_year !== 'all') {
+            // financial_year usually comes as "2026-2027"
+            // meaning April 1, 2026 to March 31, 2027
+            const [startYear, endYear] = financial_year.split('-');
+            if (startYear && endYear) {
+                where.enq_date = {
+                    gte: new Date(`${startYear}-04-01T00:00:00.000Z`),
+                    lt: new Date(`${endYear}-04-01T00:00:00.000Z`)
+                };
+            }
         }
 
         const rfqs = await prisma.rfq_register.findMany({

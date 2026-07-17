@@ -106,6 +106,49 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
 
     const [confirmData, setConfirmData] = useState({ isOpen: false, title: "", description: "", confirmText: "", variant: "danger", onConfirm: null, isLoading: false });
 
+    // Dynamic Filter Options State
+    const [dropdownOptions, setDropdownOptions] = useState({
+        rfqTypes: [],
+        clientNames: [],
+        modesOfEnquiry: [],
+        estimators: [],
+        consultancies: [],
+        quotationNos: []
+    })
+
+    useEffect(() => {
+        const fetchOptions = async () => {
+            try {
+                const [rfqTypesRes, moeRes, estimatorsRes, customersRes, uniqueFiltersRes] = await Promise.all([
+                    apiClient.get("/api/rfq/lookups/rfq_type"),
+                    apiClient.get("/api/rfq/lookups/mode_of_enquiry"),
+                    apiClient.get("/api/rfq/estimators"),
+                    apiClient.get("/api/common/customers"),
+                    apiClient.get("/api/rfq/list/unique-filters"),
+                ])
+                
+                // Use client names mapped directly from rfq_register for accurate filtering
+                // Fallback to customer master list if rfq_register is empty
+                const actualClients = uniqueFiltersRes.data?.clientNames || [];
+                const clientOptions = actualClients.length > 0 
+                    ? actualClients.map(c => ({ label: c, value: c }))
+                    : (customersRes.data || []).map(c => ({ label: c.customer_name, value: c.customer_name }));
+
+                setDropdownOptions({
+                    rfqTypes: (rfqTypesRes.data || []).map((d) => ({ label: d.name, value: d.name })),
+                    clientNames: clientOptions,
+                    modesOfEnquiry: (moeRes.data || []).map((d) => ({ label: d.name, value: d.name })),
+                    estimators: (estimatorsRes.data || []).map((u) => ({ label: u.name, value: u.name })),
+                    consultancies: (uniqueFiltersRes.data?.consultancies || []).map((c) => ({ label: c, value: c })),
+                    quotationNos: (uniqueFiltersRes.data?.quotationNos || []).map((q) => ({ label: q, value: q })),
+                })
+            } catch (error) {
+                console.error("Failed to load list filters:", error)
+            }
+        }
+        fetchOptions()
+    }, [])
+
     // Bulk Import State
     const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
     const [excelData, setExcelData] = useState([]);
@@ -165,25 +208,64 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
     ];
 
     const columns = [
-        { header: "Quotation No.", accessorKey: "quotation_no", filterType: "text", },
+        { 
+            header: "Quotation No.", 
+            accessorKey: "quotation_no", 
+            filterType: "select",
+            isMulti: true,
+            filterOptions: dropdownOptions.quotationNos 
+        },
         {
             header: "Quotation Category",
             accessorKey: "quotation_category",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: QUOTATION_CATEGORIES,
             cell: (row) => {
                 const cat = QUOTATION_CATEGORIES.find(c => c.value === row.quotation_category);
                 return cat ? cat.label : row.quotation_category;
             }
         },
-        { header: "Client Name", accessorKey: "client_name" },
-        { header: "RFQ Type", accessorKey: "rfq_type" },
-        { header: "Consultancy", accessorKey: "consultancy" },
-        { header: "Mode", accessorKey: "mode_of_enquiry" },
+        { 
+            header: "Client Name", 
+            accessorKey: "client_name", 
+            filterType: "select",
+            isMulti: true,
+            filterOptions: dropdownOptions.clientNames 
+        },
+        { 
+            header: "RFQ Type", 
+            accessorKey: "rfq_type", 
+            filterType: "select",
+            isMulti: true,
+            filterOptions: dropdownOptions.rfqTypes
+        },
+        { 
+            header: "Consultancy", 
+            accessorKey: "consultancy", 
+            filterType: "select",
+            isMulti: true,
+            filterOptions: dropdownOptions.consultancies 
+        },
+        { 
+            header: "Mode", 
+            accessorKey: "mode_of_enquiry", 
+            filterType: "select",
+            isMulti: true,
+            filterOptions: dropdownOptions.modesOfEnquiry
+        },
         {
             header: "Enq. Date",
             accessorKey: "enq_date",
             cell: (row) => row.enq_date ? new Date(row.enq_date).toLocaleDateString("en-GB") : "-",
         },
-        { header: "Estimator", accessorKey: "estimator" },
+        { 
+            header: "Estimator", 
+            accessorKey: "estimator", 
+            filterType: "select",
+            isMulti: true,
+            filterOptions: dropdownOptions.estimators
+        },
         {
             header: "Shreno Status",
             accessorKey: "shreno_status",

@@ -21,6 +21,19 @@ class RfqController {
         }
     }
 
+    async getUniqueFilters(req, res) {
+        try {
+            const result = await RfqService.getUniqueFilters(req.user.company_id);
+            res.status(200).json({
+                success: true,
+                data: result
+            });
+        } catch (error) {
+            console.error('RFQ getUniqueFilters error:', error);
+            res.status(500).json({ success: false, message: 'Internal server error' });
+        }
+    }
+
     async getNextQuotationNo(req, res) {
         try {
             const { type = 'Core' } = req.query;
@@ -34,8 +47,7 @@ class RfqController {
 
     async getDashboardStats(req, res) {
         try {
-            const { type } = req.query;
-            const data = await RfqService.getDashboardStats(req.user.company_id, type);
+            const data = await RfqService.getDashboardStats(req.user.company_id, req.query);
             res.status(200).json({ success: true, data });
         } catch (error) {
             console.error('RFQ getDashboardStats error:', error);

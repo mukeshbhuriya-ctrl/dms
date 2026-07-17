@@ -9,6 +9,7 @@ router.use(authenticateUser(['ADMIN', 'MARKETING']));
 
 // ─── RFQ Register CRUD ──────────────────────────────────────────────────────
 router.get('/list', RfqController.list);
+router.get('/list/unique-filters', RfqController.getUniqueFilters);
 router.get('/dashboard', RfqController.getDashboardStats);
 router.get('/next-quotation-no', RfqController.getNextQuotationNo);
 router.post('/create', upload.array('files', 10), RfqController.create);
