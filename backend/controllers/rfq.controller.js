@@ -36,7 +36,7 @@ class RfqController {
 
     async getNextQuotationNo(req, res) {
         try {
-            const { type = 'Core' } = req.query;
+            const { type = 'MKT' } = req.query;
             const result = await RfqService.getNextQuotationNo(req.user.company_id, type);
             res.status(200).json({ success: true, data: result });
         } catch (error) {
@@ -439,6 +439,28 @@ class RfqController {
             res.status(201).json({ success: true, message: `${data.length} RFQ records imported successfully`, data });
         } catch (error) {
             console.error('RFQ bulkCreate error:', error);
+            res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
+    async bulkUpdatePriority(req, res) {
+        try {
+            const { rfqIds, priority } = req.body;
+            const result = await RfqService.bulkUpdatePriority(req.user.company_id, rfqIds, priority);
+            
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: req.user.id || req.user.userid,
+                action: 'updated',
+                module: 'RFQ',
+                description: `Bulk updated priority to ${priority} for ${result.count} RFQ records`,
+                metadata: { count: result.count, priority },
+            });
+
+            res.status(200).json({ success: true, message: `Priority set to ${priority} for ${result.count} records`, data: result });
+        } catch (error) {
+            console.error('RFQ bulkUpdatePriority error:', error);
             res.status(500).json({ success: false, message: error.message || 'Internal server error' });
         }
     }

@@ -43,6 +43,7 @@ router.delete('/attachments/:attachmentId', RfqController.deleteAttachment);
 
 // ============================== Generic ID Routes (Must be last) ==============================
 router.get('/:id', RfqController.getById);
+router.patch('/bulk-priority', RfqController.bulkUpdatePriority);
 router.patch('/toggle-status/:id', RfqController.toggleStatus);
 router.delete('/archive/:id', RfqController.archive);
 router.delete('/:id', RfqController.deleteById);

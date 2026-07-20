@@ -47,7 +47,8 @@ class RfqService {
             estimator_filter,
             mediator_filter,
             consultancy_filter,
-            mode_of_enquiry_filter
+            mode_of_enquiry_filter,
+            priority_filter
         } = params;
 
         const where = {
@@ -65,6 +66,7 @@ class RfqService {
         if (mediator_filter) where.mediator = this._processFilter(mediator_filter);
         if (consultancy_filter) where.consultancy = this._processFilter(consultancy_filter);
         if (mode_of_enquiry_filter) where.mode_of_enquiry = this._processFilter(mode_of_enquiry_filter);
+        if (priority_filter) where.priority = this._processFilter(priority_filter);
 
         if (is_active_filter) {
             const activeStatus = Array.isArray(is_active_filter) ? is_active_filter : is_active_filter.split(',').map(v => v.trim());
@@ -128,7 +130,7 @@ class RfqService {
     }
 
     /**
-     * Get category prefix (MKT for Core, SPR for Spare)
+     * Get category prefix (MKT for Marketing, SPR for Spare)
      */
     getCategoryPrefix(category) {
         return category === 'Spare' ? 'SPR' : 'MKT';
@@ -137,7 +139,7 @@ class RfqService {
     /**
      * Get the next quotation number (preview before creating)
      */
-    async getNextQuotationNo(company_id, category = 'Core') {
+    async getNextQuotationNo(company_id, category = 'MKT') {
         const fySuffix = this.getFinancialYearSuffix();
         const prefix = this.getCategoryPrefix(category);
 
@@ -204,7 +206,7 @@ class RfqService {
             const nextGlobalSerialNo = lastGlobalRfq ? lastGlobalRfq.serial_no + 1 : 1;
 
             // 2. Calculate next type-specific serial_no and quotation_no
-            const quotation_category = body.quotation_category || 'Core';
+            const quotation_category = body.quotation_category || 'MKT';
             const fySuffix = this.getFinancialYearSuffix();
             const prefix = this.getCategoryPrefix(quotation_category);
 
@@ -304,7 +306,7 @@ class RfqService {
             const fySuffix = this.getFinancialYearSuffix();
 
             for (const body of rfqDataList) {
-                const quotation_category = body.quotation_category || 'Core';
+                const quotation_category = body.quotation_category || 'MKT';
                 const prefix = this.getCategoryPrefix(quotation_category);
 
                 // Enforce system-side rules
@@ -997,6 +999,20 @@ class RfqService {
         return await prisma.rfq_register.update({
             where: { id },
             data: { is_deleted: true }
+        });
+    }
+
+    async bulkUpdatePriority(company_id, rfqIds, priority) {
+        if (!rfqIds || !Array.isArray(rfqIds) || rfqIds.length === 0) {
+            throw new Error('No RFQ IDs provided');
+        }
+        
+        return await prisma.rfq_register.updateMany({
+            where: { 
+                id: { in: rfqIds },
+                company_id 
+            },
+            data: { priority }
         });
     }
 }

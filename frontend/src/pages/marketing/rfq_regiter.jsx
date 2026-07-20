@@ -154,6 +154,41 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
     const [excelData, setExcelData] = useState([]);
     const [isImporting, setIsImporting] = useState(false);
 
+    // Bulk Priority State
+    const [selectedRows, setSelectedRows] = useState(new Set());
+    const [bulkPriorityDialogOpen, setBulkPriorityDialogOpen] = useState(false);
+    const [selectedPriority, setSelectedPriority] = useState("");
+    const [isUpdatingPriority, setIsUpdatingPriority] = useState(false);
+
+    const handleBulkPriorityUpdate = async () => {
+        if (!selectedPriority) {
+            toast.error("Please select a priority");
+            return;
+        }
+
+        const rfqIds = Array.from(selectedRows);
+        setIsUpdatingPriority(true);
+        try {
+            const res = await apiClient.patch("/api/rfq/bulk-priority", {
+                rfqIds,
+                priority: selectedPriority
+            });
+            if (res.success) {
+                toast.success(res.message);
+                setBulkPriorityDialogOpen(false);
+                setSelectedRows(new Set());
+                setSelectedPriority("");
+                setRefreshKey(prev => prev + 1);
+            } else {
+                toast.error(res.message);
+            }
+        } catch (error) {
+            toast.error(error.message || "Failed to update priorities");
+        } finally {
+            setIsUpdatingPriority(false);
+        }
+    };
+
     const handleToggleStatus = async (row) => {
         setConfirmData({
             isOpen: true,
@@ -208,6 +243,24 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
     ];
 
     const columns = [
+        {
+            header: "Priority",
+            accessorKey: "priority",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: [
+                { label: "High", value: "High" },
+                { label: "Low", value: "Low" }
+            ],
+            cell: (row) => (
+                <div className="flex items-center gap-1.5">
+                    <div className={`h-2 w-2 rounded-full ${row.priority === 'High' ? 'bg-red-500' : 'bg-slate-300'}`} />
+                    <span className={`text-[10px] font-semibold ${row.priority === 'High' ? 'text-red-600' : 'text-slate-500'}`}>
+                        {row.priority || "Low"}
+                    </span>
+                </div>
+            )
+        },
         { 
             header: "Quotation No.", 
             accessorKey: "quotation_no", 
@@ -577,6 +630,20 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
         }
     };
 
+    const renderCustomToolbarActions = () => {
+        if (selectedRows.size === 0) return null;
+        return (
+            <Button
+                variant="default"
+                size="sm"
+                onClick={() => setBulkPriorityDialogOpen(true)}
+                className="h-9 text-white font-medium shadow-none rounded-md cursor-pointer"
+            >
+                Set Priority ({selectedRows.size})
+            </Button>
+        );
+    };
+
     return (
         <div className="flex-1 flex flex-col min-h-0">
             <ProDataTable
@@ -589,6 +656,9 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
                 columnFilters={columnFilters}
                 onAddTooltip="Create New"
                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+                selectedRows={selectedRows}
+                onSelectionChange={setSelectedRows}
+                customToolbarActions={renderCustomToolbarActions()}
             />
 
             <ImportReviewDialog
@@ -631,6 +701,62 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
                 title="Review RFQ Import"
                 description="Please review the RFQ records from Excel. Only valid rows will be imported."
             />
+
+            {/* Bulk Priority Dialog */}
+            <Dialog open={bulkPriorityDialogOpen} onOpenChange={setBulkPriorityDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-slate-800">Set Priority</DialogTitle>
+                        <DialogDescription className="text-sm text-slate-500">
+                            You are about to update the priority for <span className="font-bold text-slate-700">{selectedRows.size}</span> selected quotation{selectedRows.size > 1 ? 's' : ''}.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-6">
+                        <div className="space-y-3">
+                            <Label className="text-xs font-semibold text-slate-700 uppercase tracking-wider">Select Priority</Label>
+                            <Select value={selectedPriority} onValueChange={setSelectedPriority}>
+                                <SelectTrigger className="w-full h-11 border-slate-200">
+                                    <SelectValue placeholder="Select High or Low" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="High">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                                            <span className="font-medium text-slate-700">High Priority</span>
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value="Low">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                                            <span className="font-medium text-slate-700">Low Priority</span>
+                                        </div>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setBulkPriorityDialogOpen(false)}
+                            className="w-24 h-10 shadow-none"
+                            disabled={isUpdatingPriority}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="default"
+                            onClick={handleBulkPriorityUpdate}
+                            disabled={!selectedPriority || isUpdatingPriority}
+                            className="w-32 h-10 bg-blue-600 hover:bg-blue-700 shadow-none text-white"
+                        >
+                            {isUpdatingPriority ? 'Updating...' : 'Confirm Update'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <ConfirmDialog
                 isOpen={confirmData.isOpen}

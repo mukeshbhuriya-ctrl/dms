@@ -223,7 +223,8 @@ const ProDataTable = ({
   selectedRows: controlledSelectedRows,
   onSelectionChange,
   showSelectionColumn = true,
-  lockActiveFilters = false
+  lockActiveFilters = false,
+  customToolbarActions
 }) => {
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({});
@@ -404,6 +405,11 @@ const ProDataTable = ({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {customToolbarActions && (
+            <div className="flex items-center mr-2">
+              {customToolbarActions}
+            </div>
+          )}
           <TooltipProvider>
             {/* Top-Right Dropdown Filters */}
             {topFilters.map((tf, i) => (
