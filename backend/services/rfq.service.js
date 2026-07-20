@@ -133,7 +133,12 @@ class RfqService {
      * Get category prefix (MKT for Marketing, SPR for Spare)
      */
     getCategoryPrefix(category) {
-        return category === 'Spare' ? 'SPR' : 'MKT';
+        const prefixMap = {
+            'MKT': 'MKT',
+            'SPR': 'SPR',
+            'ES': 'ES',
+        };
+        return prefixMap[category] || 'MKT';
     }
 
     /**
