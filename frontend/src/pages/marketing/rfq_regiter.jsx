@@ -269,11 +269,17 @@ function ListView({ onCreateClick, onEditClick, onAttachmentsClick, onViewClick 
         {
             header: "Shreno Status",
             accessorKey: "shreno_status",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: SHRENO_STATUS_OPTIONS.map(s => ({ label: s, value: s })),
             cell: (row) => <StatusBadge status={row.shreno_status} />,
         },
         {
             header: "Client Status",
             accessorKey: "client_status",
+            filterType: "select",
+            isMulti: true,
+            filterOptions: CLIENT_STATUS_OPTIONS.map(s => ({ label: s, value: s })),
             cell: (row) => <StatusBadge status={row.client_status} />,
         },
         {
