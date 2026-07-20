@@ -82,8 +82,8 @@ function UserSidebar() {
       <Sidebar className="border-r border-sidebar-border">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-3 py-4">
-            <div className="h-8 w-8 rounded bg-slate-100 animate-pulse" />
-            <div className="h-4 w-24 rounded bg-slate-100 animate-pulse" />
+            <div className="h-8 w-8 rounded bg-white/10 animate-pulse" />
+            <div className="h-4 w-24 rounded bg-white/10 animate-pulse" />
           </div>
         </SidebarHeader>
       </Sidebar>
@@ -95,25 +95,25 @@ function UserSidebar() {
       {/* ── Company Header ── */}
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="sidebar-logo-area flex items-center gap-2.5 px-3 py-3 min-h-[56px] overflow-hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-white overflow-hidden shadow-sm">
+          <div className="sidebar-logo-box flex h-8 w-8 shrink-0 items-center justify-center rounded-md overflow-hidden">
             {companyLogo && !imageError ? (
               <img
                 src={companyLogo}
                 alt={companyName || "Company Logo"}
-                className="h-full w-full object-contain p-0.5"
+                className="h-full w-full object-contain p-0.5 bg-white rounded"
                 onError={() => setImageError(true)}
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-primary/5 text-primary font-bold text-xs">
+              <div className="flex h-full w-full items-center justify-center bg-white/10 text-sidebar-primary font-bold text-xs">
                 {getInitials(companyName)}
               </div>
             )}
           </div>
           <div className="flex flex-col min-w-0 overflow-hidden transition-all duration-200 group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-semibold text-xs text-sidebar-foreground leading-tight">
+            <span className="truncate font-semibold text-xs text-white leading-tight">
               {companyName || "Shreno Engineering"}
             </span>
-            <span className="truncate text-[9px] font-medium text-muted-foreground tracking-wider uppercase">
+            <span className="truncate text-[9px] font-medium text-sidebar-foreground/50 tracking-wider uppercase">
               DMS System
             </span>
           </div>
@@ -123,7 +123,7 @@ function UserSidebar() {
       {/* ── Navigation ── */}
       <SidebarContent className="py-1">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[9px] font-bold uppercase text-muted-foreground/60 px-4 mb-1 group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel className="text-[9px] font-bold uppercase tracking-widest px-4 mb-1 group-data-[collapsible=icon]:hidden" style={{ color: 'var(--sidebar-muted)' }}>
             Modules
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -192,7 +192,7 @@ function UserSidebar() {
                             isActive={isActive}
                             className={`nav-link-enterprise py-4.5 h-10 ${isActive ? 'bg-sidebar-accent' : ''}`}
                           >
-                            {item.icon && <item.icon className={`h-4 w-4 ${isActive ? 'text-sidebar-primary' : 'text-muted-foreground'}`} />}
+                            {item.icon && <item.icon className={`h-4 w-4 ${isActive ? 'text-sidebar-primary' : 'text-sidebar-foreground/60'}`} />}
                             <span className="text-[13px]">{item.title}</span>
                             <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-100 group-data-[state=open]/collapsible:rotate-90" />
                           </SidebarMenuButton>
@@ -216,7 +216,7 @@ function UserSidebar() {
                       >
                         <Link to={item.path || "#"}>
                           {location.pathname === item.path && <div className="active-indicator" />}
-                          {item.icon && <item.icon className={`h-4 w-4 ${location.pathname === item.path ? 'text-sidebar-primary' : 'text-muted-foreground'}`} />}
+                          {item.icon && <item.icon className={`h-4 w-4 ${location.pathname === item.path ? 'text-sidebar-primary' : 'text-sidebar-foreground/60'}`} />}
                           <span className="text-[13px]">{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
@@ -234,7 +234,7 @@ function UserSidebar() {
             <SidebarMenuButton 
               tooltip="Logout" 
               onClick={handleLogout}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 transition-colors justify-start cursor-pointer"
+              className="sidebar-logout-btn h-8 transition-colors justify-start cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span className="text-[12px] font-semibold">Logout</span>

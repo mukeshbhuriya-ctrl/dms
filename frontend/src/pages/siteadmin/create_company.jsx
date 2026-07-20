@@ -159,7 +159,7 @@ function CreateCompany() {
             <h1 className="text-lg font-semibold">Create Company</h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex-1 overflow-y-auto p-4">
           <Card className="mx-auto w-full max-w-2xl">
             <CardHeader>
               <CardTitle>Create New Company</CardTitle>

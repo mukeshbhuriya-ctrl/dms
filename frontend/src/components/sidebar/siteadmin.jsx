@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom"
 import { LayoutDashboard, Building2, LogOut } from "lucide-react"
+import "./sidebar.css"
 import {
   Sidebar,
   SidebarContent,
@@ -38,15 +39,17 @@ function SiteAdminSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-4">
-          <Building2 className="h-6 w-6" />
-          <span className="font-semibold">Site Admin</span>
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className="flex items-center gap-2.5 px-3 py-3 min-h-[56px]">
+          <div className="sidebar-logo-box flex h-8 w-8 shrink-0 items-center justify-center rounded-md">
+            <Building2 className="h-5 w-5 text-sidebar-primary" />
+          </div>
+          <span className="font-semibold text-xs text-white">Site Admin</span>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[9px] font-bold uppercase tracking-widest" style={{ color: 'var(--sidebar-muted)' }}>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -73,13 +76,13 @@ function SiteAdminSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-sidebar-border p-2">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild onClick={handleLogout}>
-              <button className="w-full">
+              <button className="sidebar-logout-btn w-full">
                 <LogOut />
-                <span>Logout</span>
+                <span className="text-[12px] font-semibold">Logout</span>
               </button>
             </SidebarMenuButton>
           </SidebarMenuItem>

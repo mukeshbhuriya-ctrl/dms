@@ -14,7 +14,7 @@ function SiteAdminDashboard() {
             <h1 className="text-lg font-semibold">Dashboard</h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex-1 overflow-y-auto p-4">
           <div className="flex-1 flex flex-col w-full">
             <div className="mb-6">
               <h2 className="text-2xl font-bold">Site Admin Dashboard</h2>

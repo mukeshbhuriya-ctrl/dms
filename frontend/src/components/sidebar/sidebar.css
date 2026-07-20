@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════════════════
-   Shreno Engineering — Enterprise Sidebar Styles
-   Clean, professional navigation with blue accent
+   Shreno Engineering — Enterprise Navy Sidebar
+   High-Contrast App Shell: Dark Frame + Light Workspace
    ═══════════════════════════════════════════════════ */
 
-/* Sidebar Container */
+/* ── Sidebar Container ── */
 [data-sidebar="sidebar"] {
   background: var(--sidebar);
   border-right: 1px solid var(--sidebar-border);
@@ -11,7 +11,7 @@
   transition: width 0.2s ease-in-out;
 }
 
-/* Active State Indicator — Precision Blue Bar */
+/* ── Active State Indicator — Precision Blue Bar ── */
 .active-indicator {
   position: absolute;
   left: 0;
@@ -19,38 +19,77 @@
   height: 100%;
   background: var(--sidebar-primary);
   border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.4);
 }
 
-/* Navigation Links */
+/* ── Navigation Links (Dark Navy Context) ── */
 .nav-link-enterprise {
   transition: all 0.15s ease;
-  color: #4b5563 !important;
+  color: var(--sidebar-foreground) !important;
 }
 
 .nav-link-enterprise:hover {
-  background: #f3f4f6;
-  color: var(--sidebar-foreground) !important;
+  background: var(--sidebar-accent) !important;
+  color: var(--sidebar-accent-foreground) !important;
 }
 
 .nav-link-enterprise[data-active="true"] {
   background: var(--sidebar-accent) !important;
   color: var(--sidebar-primary) !important;
+  font-weight: 500;
 }
 
-/* Sidebar Scrollbar */
+/* ── Sidebar Scrollbar (Matches dark theme) ── */
 [data-sidebar="content"]::-webkit-scrollbar {
   width: 3px;
 }
 
+[data-sidebar="content"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 [data-sidebar="content"]::-webkit-scrollbar-thumb {
-  background: #e5e7eb;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
 }
 
 [data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
-  background: #d1d5db;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Firefox sidebar scrollbar */
+[data-sidebar="content"] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .collapsible-content-enterprise {
   overflow: hidden;
+}
+
+/* ── Company Logo Box in Dark Context ── */
+.sidebar-logo-box {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Sidebar Header/Footer — Visible separators on dark context ── */
+[data-sidebar="header"] {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ── Sidebar Footer — Stronger separator for dark context ── */
+[data-sidebar="footer"] {
+  border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.sidebar-logout-btn {
+  color: #f87171 !important;
+  transition: all 0.15s ease;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(248, 113, 113, 0.1) !important;
+  color: #fca5a5 !important;
 }
