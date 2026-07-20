@@ -752,13 +752,14 @@ class MhcService {
                         report.qc_group_id = qcGroup.employee_group_id;
                     }
 
-                    // Deduplication: Check if a report with same Job and Shreno Drawing Number already exists
+                    // Deduplication: Check if an active report with same Job and Shreno Drawing Number already exists
                     if (report.shreno_drg_no) {
                         const existing = await prisma.material_heat_chart.findFirst({
                             where: {
                                 job_id: report.job_id,
                                 shreno_drg_no: String(report.shreno_drg_no).trim(),
-                                company_id
+                                company_id,
+                                is_deleted: false
                             },
                             select: { id: true }
                         });
