@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X, Eye, Edit, Archive, Users } from "lucide-react"
+import { Plus, ArrowLeft, Pencil, Trash2, ChevronDown, Check, Search, X, Eye, Edit, Archive, Users, CheckCircle, XCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import {
     Card,
@@ -15,6 +15,7 @@ import {
     CardTitle,
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import {
     Popover,
     PopoverContent,
@@ -357,43 +358,27 @@ function GroupManagement() {
         {
             id: "actions",
             header: "Actions",
-            cell: (row) => (
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewClick(row)}
-                        title="View members"
-                        className="cursor-pointer"
-                    >
-                        <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(row)}
-                        title="Edit"
-                        className="cursor-pointer"
-                    >
-                        <Edit className="h-4 w-4" />
-                    </Button>
-                    <Switch 
-                        checked={row.is_active} 
-                        onCheckedChange={() => handleToggleClick(row)}
-                        title={row.is_active ? "Deactivate" : "Activate"}
-                    />
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-destructive cursor-pointer hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-                        onClick={() => handleDeleteClick(row)}
-                        title="Archive"
-                    >
-                        <Archive className="h-4 w-4" />
-                        Archive
-                    </Button>
-                </div>
-            ),
+            width: "60px",
+            cell: (row) => {
+                const actions = [
+                    { label: "View Members", icon: Eye, onClick: () => handleViewClick(row) },
+                    { label: "Edit Group", icon: Edit, onClick: () => handleEdit(row) },
+                    { type: "separator" },
+                    { 
+                        label: row.is_active ? "Deactivate Group" : "Activate Group", 
+                        icon: row.is_active ? XCircle : CheckCircle, 
+                        onClick: () => handleToggleClick(row),
+                        color: row.is_active ? "danger" : "default"
+                    },
+                    { type: "separator" },
+                    { label: "Archive Group", icon: Archive, color: "danger", onClick: () => handleDeleteClick(row) }
+                ];
+                return (
+                    <div className="flex items-center justify-center">
+                        <DataTableRowActions actions={actions} />
+                    </div>
+                );
+            },
             enableSorting: false,
         },
     ], [handleViewClick, handleEdit, handleDeleteClick, handleToggleClick, activeGroupNameOptions, activeTypeOptions])

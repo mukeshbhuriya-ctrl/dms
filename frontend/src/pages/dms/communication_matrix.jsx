@@ -15,6 +15,7 @@ import {
 import ProDataTable from "@/components/shared/ProDataTable"
 import { Plus, Mail, ArrowLeft, Edit, X, Copy } from "lucide-react"
 import { poApi } from "@/api/po.api"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CommunicationMatrix() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -190,30 +191,22 @@ function CommunicationMatrix() {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none cursor-pointer"
-            onClick={() => handleEdit(row)}
-          >
-            <Edit className="h-3.5 w-3.5 mr-2" />
-            <span className="text-[11px] font-medium text-nowrap">Edit Matrix</span>
-          </Button>
-          {row.po_communication_matrix && Array.isArray(row.po_communication_matrix) && row.po_communication_matrix.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 border-slate-200 text-slate-600 hover:text-green-600 hover:border-green-200 transition-colors shadow-none cursor-pointer"
-              onClick={() => handleClone(row)}
-            >
-              <Copy className="h-3.5 w-3.5 mr-2" />
-              <span className="text-[11px] font-medium text-nowrap">Clone</span>
-            </Button>
-          )}
-        </div>
-      ),
+      width: "60px",
+      cell: (row) => {
+        const actions = [
+          { label: "Edit Matrix", icon: Edit, onClick: () => handleEdit(row) },
+        ];
+        
+        if (row.po_communication_matrix && Array.isArray(row.po_communication_matrix) && row.po_communication_matrix.length > 0) {
+          actions.push({ label: "Clone", icon: Copy, onClick: () => handleClone(row) });
+        }
+        
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
     },
   ], [handleEdit, handleClone, filterOptions])
 

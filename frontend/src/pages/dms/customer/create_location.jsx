@@ -19,13 +19,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
-import { Plus, Trash2, ArrowLeft, Edit, Archive } from "lucide-react"
+import { Plus, Trash2, ArrowLeft, Edit, Archive, CheckCircle, XCircle } from "lucide-react"
 import { commonApi } from "@/api/common.api"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+import { Badge } from "@/components/ui/badge"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CreateLocation() {
   const isAdmin = useCheckAdmin()
@@ -214,48 +216,38 @@ function CreateLocation() {
         { label: "Active", value: "true" },
         { label: "Inactive", value: "false" }
       ],
-      cell: (row) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <Switch
-            checked={row.is_active}
-            disabled={!isAdmin}
-            onCheckedChange={() => handleToggleStatus(row)}
-            className={`cursor-pointer ${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-          />
-          <span className={`text-xs font-medium ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-            {row.is_active ? "Active" : "Inactive"}
-          </span>
-        </div>
-      ),
+      cell: (row) => row.is_active
+        ? <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-medium">Active</Badge>
+        : <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 text-xs font-medium">Inactive</Badge>,
     },
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="cursor-pointer"
-            size="sm"
-            title="Edit"
-            onClick={() => handleEdit(row)}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive cursor-pointer hover:text-destructive"
-              title="Archive"
-              onClick={() => handleDelete(row)}
-            >
-              <Archive className="h-4 w-4" />
-              Archive
-            </Button>
-          )}
-        </div>
-      ),
+      width: "60px",
+      cell: (row) => {
+        const actions = [
+          { label: "Edit Location", icon: Edit, onClick: () => handleEdit(row) },
+        ];
+        
+        if (isAdmin) {
+          actions.push({ type: "separator" });
+          actions.push({ 
+            label: row.is_active ? "Deactivate Location" : "Activate Location", 
+            icon: row.is_active ? XCircle : CheckCircle, 
+            onClick: () => handleToggleStatus(row),
+            color: row.is_active ? "danger" : "default"
+          });
+          actions.push({ type: "separator" });
+          actions.push({ label: "Archive Location", icon: Archive, color: "danger", onClick: () => handleDelete(row) });
+        }
+
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
+      enableSorting: false,
     },
   ], [handleEdit, activeClientOptions, activeLocationOptions])
 

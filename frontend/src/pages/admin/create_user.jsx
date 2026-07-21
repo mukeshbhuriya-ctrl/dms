@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive, Key, Settings } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive, Key, Settings, CheckCircle, XCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { ChevronDownIcon, RefreshCcw } from "lucide-react"
 import {
@@ -26,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import {
   Dialog,
   DialogContent,
@@ -376,40 +377,28 @@ function CreateUser() {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex items-center gap-1.5">
-          <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => handleEdit(row)} title="Edit">
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => handleSettingsClick(row)} title="Settings">
-            <Settings className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer"
-            onClick={() => handleResetClick(row)}
-            title="Reset Password"
-          >
-            <Key className="h-4 w-4" />
-          </Button>
-          <Switch
-            checked={row.is_active}
-            onCheckedChange={() => handleToggleClick(row)}
-            title={row.is_active ? "Deactivate" : "Activate"}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive cursor-pointer hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-            onClick={() => handleDeleteClick(row)}
-            title="Archive"
-          >
-            <Archive className="h-4 w-4" />
-            Archive
-          </Button>
-        </div>
-      ),
+      width: "60px",
+      cell: (row) => {
+        const actions = [
+          { label: "Edit User", icon: Edit, onClick: () => handleEdit(row) },
+          { label: "System Settings", icon: Settings, onClick: () => handleSettingsClick(row) },
+          { label: "Reset Password", icon: Key, onClick: () => handleResetClick(row) },
+          { type: "separator" },
+          { 
+            label: row.is_active ? "Deactivate User" : "Activate User", 
+            icon: row.is_active ? XCircle : CheckCircle, 
+            onClick: () => handleToggleClick(row),
+            color: row.is_active ? "danger" : "default"
+          },
+          { type: "separator" },
+          { label: "Archive User", icon: Archive, color: "danger", onClick: () => handleDeleteClick(row) }
+        ];
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
       enableSorting: false,
     }
   ], [handleEdit, activeEmpIdOptions, activeNameOptions, activeEmailOptions, activeDeptOptions])

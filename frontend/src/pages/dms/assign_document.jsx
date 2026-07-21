@@ -71,10 +71,13 @@ import {
   AlertCircle,
   Archive,
   CheckCircle2,
-  XCircle
+  XCircle,
+  RefreshCw
 } from "lucide-react"
 import { useCheckAdmin } from "@/hooks/useCheckAdmin"
 import { useAuth } from "@/context/AuthContext"
+import { Badge } from "@/components/ui/badge"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function AssignDocument() {
   const isAdmin = useCheckAdmin()
@@ -554,62 +557,59 @@ function AssignDocument() {
         { label: "Active", value: "true" },
         { label: "Inactive", value: "false" }
       ],
-      cell: (row) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <Switch
-            checked={row.is_active}
-            onCheckedChange={() => handleToggleStatus(row)}
-            disabled={!isAdmin}
-            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'} scale-75`}
-          />
-          <span className={`text-[11px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-            {row.is_active ? "Active" : "Inactive"}
-          </span>
-        </div>
-      ),
+      cell: (row) => row.is_active
+        ? <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-medium">Active</Badge>
+        : <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 text-xs font-medium">Inactive</Badge>,
     },
     {
       id: "actions",
       header: "Actions",
+      width: "60px",
       cell: (row) => {
+        const actions = [];
+        
+        if (isPowerUser) {
+           actions.push({ label: "Edit Assignment", icon: Edit, onClick: () => handleEditAssign(row) });
+        }
+        
+        actions.push({ label: "View Trail", icon: History, onClick: () => {
+           setActiveDocId(row.id);
+           setIsTrailOpen(true);
+        }});
+        
+        const latestVersion = row.versions && row.versions.length > 0 ? row.versions[0] : null;
+        const clientStatus = (latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0) ? latestVersion.transmission_items[0].client_status : null;
+        const isClientApproved = clientStatus === 'Approved' || clientStatus === 'Final Approved' || clientStatus === 'As Built';
+        
+        if (isClientApproved && row.status !== 'Revision Requested') {
+           actions.push({ label: "Request Revision", icon: RefreshCw, onClick: () => handleRequestRevision(row) });
+        }
+        
+        if (row.status === 'Revision Requested' && isAdmin) {
+           actions.push({ type: "separator" });
+           actions.push({ label: "Approve Revision", icon: CheckCircle2, onClick: () => handleApproveRevision(row) });
+           actions.push({ label: "Reject Revision", icon: XCircle, onClick: () => handleRejectRevision(row), color: "danger" });
+        }
+        
+        if (isAdmin) {
+           actions.push({ type: "separator" });
+           actions.push({ 
+             label: row.is_active ? "Deactivate" : "Activate", 
+             icon: row.is_active ? XCircle : CheckCircle2, 
+             onClick: () => handleToggleStatus(row),
+             color: row.is_active ? "danger" : "default"
+           });
+           actions.push({ type: "separator" });
+           actions.push({ label: "Archive Document", icon: Archive, color: "danger", onClick: () => handleDelete(row) });
+        }
+        
         return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleEditAssign(row)}
-              disabled={!isPowerUser}
-              className="h-8 rounded-sm cursor-pointer"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 border-slate-200 text-slate-600 rounded-sm cursor-pointer"
-              onClick={() => {
-                setActiveDocId(row.id);
-                setIsTrailOpen(true);
-              }}
-            >
-              <History className="h-4 w-4 mr-2" />
-              Trail
-            </Button>
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-destructive hover:text-destructive border-slate-200 rounded-sm cursor-pointer"
-                onClick={() => handleDelete(row)}
-              >
-                <Archive className="h-4 w-4" />
-                Archive
-                </Button>
-            )}
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
           </div>
         );
       },
+      enableSorting: false,
     },
     {
       id: "customer_name",
@@ -659,55 +659,7 @@ function AssignDocument() {
       header: "Last Updated",
       cell: (row) => new Date(row.updatedAt).toLocaleDateString("en-GB"),
     },
-     {
-      id: "revision_request",
-      header: "Revision Request",
-      cell: (row) => {
-        return (
-          <div className="flex gap-2">
-            {(() => {
-                const latestVersion = row.versions && row.versions.length > 0 ? row.versions[0] : null;
-                const clientStatus = (latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0) ? latestVersion.transmission_items[0].client_status : null;
-                const isClientApproved = clientStatus === 'Approved' || clientStatus === 'Final Approved' || clientStatus === 'As Built';
-                
-                return isClientApproved && row.status !== 'Revision Requested' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-orange-600 hover:text-orange-700 border-orange-200 rounded-sm cursor-pointer bg-orange-50"
-                    onClick={() => handleRequestRevision(row)}
-                  >
-                    <History className="h-4 w-4 mr-2" />
-                    Request Revision
-                  </Button>
-                );
-            })()}
-            {row.status === 'Revision Requested' && isAdmin && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-emerald-600 hover:text-emerald-700 border-emerald-200 rounded-sm cursor-pointer bg-emerald-50"
-                  onClick={() => handleApproveRevision(row)}
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-1" />
-                  Approve
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 text-rose-600 hover:text-rose-700 border-rose-200 rounded-sm cursor-pointer bg-rose-50"
-                  onClick={() => handleRejectRevision(row)}
-                >
-                  <XCircle className="h-4 w-4 mr-1" />
-                  Reject
-                </Button>
-              </>
-            )}
-          </div>
-        );
-      },
-    },
+
   ], [activeClientOptions, activePoOptions, activeJobOptions, isAdmin])
 
   const proTableTopFilters = useMemo(() => [

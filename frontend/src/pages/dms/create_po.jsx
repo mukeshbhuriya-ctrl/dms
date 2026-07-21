@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
-import { Upload, Plus, ArrowLeft, FileText, Edit, X, Eye, History, Archive } from "lucide-react"
+import { Upload, Plus, ArrowLeft, FileText, Edit, X, Eye, History, Archive, CheckCircle, XCircle } from "lucide-react"
 import { poApi } from "@/api/po.api"
 import { exportApi } from "@/api/export.api"
 import { commonApi } from "@/api/common.api"
@@ -30,6 +30,8 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Trash2 } from "lucide-react"
 import { useCheckAdmin } from "@/hooks/useCheckAdmin"
 import { useAuth } from "@/context/AuthContext"
+import { Badge } from "@/components/ui/badge"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CreatePO() {
   const isAdmin = useCheckAdmin()
@@ -355,60 +357,51 @@ function CreatePO() {
         { label: "Active", value: "true" },
         { label: "Inactive", value: "false" }
       ],
-      cell: (row) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <Switch
-            checked={row.is_active}
-            disabled={!isAdmin}
-            onCheckedChange={() => handleToggleStatus(row)}
-            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-          />
-          <span className={`text-xs font-medium ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-            {row.is_active ? "Active" : "Inactive"}
-          </span>
-        </div>
-      ),
+      cell: (row) => row.is_active
+        ? <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-medium">Active</Badge>
+        : <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 text-xs font-medium">Inactive</Badge>,
     },
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            title="Edit"
-            onClick={() => handleEdit(row)}
-            className="cursor-pointer"
-          >
-            <Edit className="h-4 w-4" /> Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer"
-            title="Attachments"
-            onClick={() => {
+      width: "60px",
+      cell: (row) => {
+        const actions = [
+          { label: "Edit PO", icon: Edit, onClick: () => handleEdit(row) },
+          { 
+            label: "Attachments", 
+            icon: History, 
+            onClick: () => {
               setSelectedHistoryPo(row);
               setView("attachments");
-            }}
-          >
-            <History className="h-4 w-4" /> Attachments
-          </Button>
-          {canArchive && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive cursor-pointer hover:text-destructive"
-              title="Archive"
-              onClick={() => handleDelete(row)}
-            >
-              <Archive className="h-4 w-4 mr-2" />
-              Archive
-            </Button>
-          )}
-        </div>
-      ),
+            }
+          },
+        ];
+        
+        if (isAdmin || canArchive) {
+          actions.push({ type: "separator" });
+        }
+        
+        if (isAdmin) {
+          actions.push({ 
+            label: row.is_active ? "Deactivate PO" : "Activate PO", 
+            icon: row.is_active ? XCircle : CheckCircle, 
+            onClick: () => handleToggleStatus(row),
+            color: row.is_active ? "danger" : "default"
+          });
+        }
+        
+        if (canArchive) {
+          if (!isAdmin) actions.push({ type: "separator" });
+          actions.push({ label: "Archive PO", icon: Archive, color: "danger", onClick: () => handleDelete(row) });
+        }
+
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
     },
   ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions, isAdmin, canArchive])
 

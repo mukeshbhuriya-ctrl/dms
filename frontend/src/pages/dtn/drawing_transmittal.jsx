@@ -26,7 +26,9 @@ import {
   Loader2,
   Printer,
   Download,
-  Archive
+  Archive,
+  CheckCircle,
+  XCircle
 } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Switch } from "@/components/ui/switch"
@@ -41,6 +43,8 @@ import {
 } from "@/components/ui/table"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { Badge } from "@/components/ui/badge"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
@@ -268,69 +272,40 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
         { label: "Active", value: "true" },
         { label: "Inactive", value: "false" }
       ],
-      cell: (row) => (
-        <Switch
-          checked={row.is_active}
-          disabled={!isAdmin}
-          onCheckedChange={() => setConfirmDialog({ 
-            isOpen: true, 
-            id: row.id, 
-            type: 'toggle',
-            currentStatus: row.is_active 
-          })}
-        />
-      )
+      cell: (row) => row.is_active
+        ? <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 text-xs font-medium">Active</Badge>
+        : <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 text-xs font-medium">Inactive</Badge>,
     },
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm"
-            onClick={() => onEditClick(row.id)}
-            title="Edit Transmittal"
-          >
-            <Edit className="h-3.5 w-3.5 mr-1" />
-            <span className="text-[10px] font-bold uppercase">Edit</span>
-          </Button>
+      width: "60px",
+      cell: (row) => {
+        const actions = [
+          { label: "Edit Transmittal", icon: Edit, onClick: () => onEditClick(row.id) },
+          { label: "Print Report", icon: Printer, onClick: () => handleExport(row.id, row.ref_no, 'print') },
+          { label: "Download PDF", icon: Download, onClick: () => handleExport(row.id, row.ref_no, 'download') },
+        ];
+        
+        if (isAdmin) {
+          actions.push({ type: "separator" });
+          actions.push({ 
+            label: row.is_active ? "Deactivate" : "Activate", 
+            icon: row.is_active ? XCircle : CheckCircle, 
+            onClick: () => setConfirmDialog({ isOpen: true, id: row.id, type: 'toggle', currentStatus: row.is_active }),
+            color: row.is_active ? "danger" : "default"
+          });
+          actions.push({ type: "separator" });
+          actions.push({ label: "Archive Transmittal", icon: Archive, color: "danger", onClick: () => setConfirmDialog({ isOpen: true, id: row.id, type: 'delete' }) });
+        }
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm"
-            onClick={() => handleExport(row.id, row.ref_no, 'print')}
-            title="Print Report"
-          >
-            <Printer className="h-3.5 w-3.5 mr-1" />
-            <span className="text-[10px] font-bold uppercase">Print</span>
-          </Button>
-
-          <Button
-            size="sm"
-            className="h-8 px-2 cursor-pointer border-slate-200 bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-none rounded-sm"
-            onClick={() => handleExport(row.id, row.ref_no, 'download')}
-            title="Download PDF"
-          >
-            <Download className="h-3.5 w-3.5 mr-1" />
-            <span className="text-[10px] font-bold uppercase">PDF</span>
-          </Button>
-           {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2 cursor-pointer border-slate-200 text-destructive cursor-pointer hover:text-destructive transition-colors shadow-none rounded-sm"
-              onClick={() => setConfirmDialog({ isOpen: true, id: row.id, type: 'delete' })}
-              title="Archive Transmittal"
-            >
-              <Archive className="h-4 w-4" />
-              Archive
-            </Button>
-          )}
-        </div>
-      )
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
+      enableSorting: false,
     }
   ], [onEditClick, handleExport, activeCustomerOptions, activePoOptions, activeJobOptions])
 

@@ -27,6 +27,7 @@ import {
    SheetTitle,
 } from "@/components/ui/sheet"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 // ─── Master List Table Row ──────────────────────────────────────────────────
 const MasterRow = ({ item, index, onShowTrail }) => {
@@ -297,17 +298,18 @@ export default function DrawingMaster() {
       {
          header: "Action",
          id: "action",
-         cell: (row) => (
-            <Button
-               variant="outline"
-               size="sm"
-               className="flex items-center gap-2 cursor-pointer shadow-none border-slate-200 hover:border-blue-300 hover:text-blue-600 transition-all font-medium py-0 h-8 rounded-lg"
-               onClick={() => handleViewDetails(row)}
-            >
-               <Eye className="h-3 w-3" />
-               View
-            </Button>
-         )
+         width: "60px",
+         cell: (row) => {
+            const actions = [
+               { label: "View Details", icon: Eye, onClick: () => handleViewDetails(row) }
+            ];
+            return (
+               <div className="flex items-center justify-center">
+                 <DataTableRowActions actions={actions} />
+               </div>
+            );
+         },
+         enableSorting: false,
       }
    ]
 

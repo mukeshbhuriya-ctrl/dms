@@ -19,6 +19,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -526,6 +527,7 @@ function ViewWeldingJoints() {
     },
     {
       header: "Action",
+      width: "60px",
       cell: (row) => {
         const joint = row.fullItem;
         const mergedJoint = { ...row.fullItem, ...row };
@@ -534,84 +536,91 @@ function ViewWeldingJoints() {
         const shortLabel = row.status === 'completed' ? 'Report' : row.status.replace('stage', 'Stage ');
         const stageName = shortLabel;
 
-        const actionButton = (() => {
+        const getDynamicAction = () => {
           if (row.status === 'completed') {
-            return (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleDownloadReport(mergedJoint, 'all')}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
-            )
+            return {
+              label: "Download Report",
+              icon: Download,
+              onClick: () => handleDownloadReport(mergedJoint, 'all')
+            };
           }
 
           if (isQCOrNDT) {
             if (isPending) {
               if (isAssignedToMe) {
-                return <Button size="sm" onClick={() => handleOpenStage(mergedJoint)} className="bg-black text-white">Review & Approve {stageName}</Button>
+                return {
+                  label: `Review & Approve ${stageName}`,
+                  icon: Check,
+                  onClick: () => handleOpenStage(mergedJoint),
+                  className: "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                };
               }
               if (hasAssignment) {
-                return <Button size="sm" variant="outline" disabled>Assigned to Other {stageName}</Button>
+                return {
+                  label: `Assigned to Other ${stageName}`,
+                  disabled: true
+                };
               }
-              return <Button size="sm" variant="outline" disabled>Approval Pending {stageName}</Button>
+              return {
+                label: `Approval Pending ${stageName}`,
+                disabled: true
+              };
             }
             const currentStageKey = row.status.replace('stage', 's') + '_status';
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
-            if (isRejected) return <Button size="sm" variant="destructive" disabled>Rejected - {stageName}</Button>
-
-            return <span className="text-muted-foreground">-</span>
+            if (isRejected) {
+                return {
+                  label: `Rejected - ${stageName}`,
+                  disabled: true,
+                  className: "text-red-500"
+                };
+            }
+            return null;
           } else {
             const showPending = isPending && isSubmitted;
             const currentStageKey = row.status.replace('stage', 's') + '_status';
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
 
-            return (
-              <Button
-                size="sm"
-                onClick={() => handleOpenStage(mergedJoint)}
-                variant={isRejected ? "destructive" : "outline"}
-                disabled={showPending}
-              >
-                {showPending ? `Approval Pending ${stageName}` :
-                  (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`)}
-              </Button>
-            )
+            return {
+              label: showPending ? `Approval Pending ${stageName}` : (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`),
+              onClick: showPending ? undefined : () => handleOpenStage(mergedJoint),
+              disabled: showPending,
+              className: isRejected ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            };
           }
-        })();
+        };
 
-        // Show preview button if at least one stage is approved (i.e. status is NOT stage1)
+        const actions = [];
+        
         const hasApprovedStages = row.status !== 'stage1';
-
-        return (
-          <div className="flex items-center gap-2">
-            {hasApprovedStages && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => { setPreviewJointId(row.id); setIsPreviewOpen(true); }}
-                title="Preview approved stages"
-              >
-                <Eye className="h-4 w-4" /> Preview
-              </Button>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
+        if (hasApprovedStages) {
+            actions.push({
+                label: "Preview",
+                icon: Eye,
+                onClick: () => { setPreviewJointId(row.id); setIsPreviewOpen(true); }
+            });
+        }
+        
+        actions.push({
+            label: "Trail",
+            icon: History,
+            onClick: () => {
                 setTrailJointId(row.id);
                 setTrailJointCategory(row.jointCategory);
                 setTrailJointNo(row.jointNo);
                 setIsTrailOpen(true);
-              }}
-              title="View activity trail"
-            >
-              <History className="h-4 w-4" /> Trail
-            </Button>
-            {actionButton}
+            }
+        });
+        
+        const dynamicAction = getDynamicAction();
+        if (dynamicAction) {
+            actions.push({ type: "separator" });
+            actions.push(dynamicAction);
+        }
+
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
           </div>
         );
       }

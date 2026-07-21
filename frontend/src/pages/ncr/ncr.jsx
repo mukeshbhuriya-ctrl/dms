@@ -34,6 +34,7 @@ import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { toast } from "react-toastify"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 const ncrStatusConfig = {
     stage1: { label: "Stage 1", className: "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20" },
@@ -408,58 +409,63 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
             isMulti: true,
             filterOptions: activeStatusOptions,
             cell: (row) => (
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Switch
-                        checked={row.is_active}
-                        onCheckedChange={() => handleToggleStatus(row)}
-                        className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-                        disabled={!user?.roles?.includes("ADMIN")}
-                    />
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-                        {row.is_active ? "Active" : "Inactive"}
-                    </span>
-                </div>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                    {row.is_active ? "Active" : "Inactive"}
+                </span>
             )
         },
         {
             id: "actions",
             header: "Action",
-            cell: (row) => (
-                <div className="flex items-center gap-1">
-                    {canUserAct(row) && (
-                        <Button variant="outlined" size="sm" onClick={() => onOpenClick(row.id)} title="Open & take action" className="border cursor-pointer">
-                            <Pencil className="h-3.5 w-3.5 mr-1" /> Open
-                        </Button>
-                    )}
-                    <Button className="cursor-pointer" variant="outline" size="sm" onClick={() => onViewClick(row.id)} title="View full NCR">
-                        <Eye className="h-3.5 w-3.5 mr-1" /> View
-                    </Button>
-                    {row.status === "CLOSED" && row.ncr_status === "closed" && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDownload(row.id, row.ncr_no)}
-                            title="Download NCR PDF"
-                            disabled={isDownloading}
-                            className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
-                        >
-                            <Download className="h-3.5 w-3.5 mr-1" /> {isDownloading ? "..." : "Download"}
-                        </Button>
-                    )}
-                    {user?.roles?.includes("ADMIN") && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDelete(row)}
-                            title="Archive NCR"
-                            className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
-                        >
-                            <Archive className="h-3.5 w-3.5" />
-                            Archive
-                        </Button>
-                    )}
-                </div>
-            ),
+            width: "60px",
+            cell: (row) => {
+                const actions = [];
+                
+                if (canUserAct(row)) {
+                    actions.push({
+                        label: "Open",
+                        icon: Pencil,
+                        onClick: () => onOpenClick(row.id)
+                    });
+                }
+                
+                actions.push({
+                    label: "View",
+                    icon: Eye,
+                    onClick: () => onViewClick(row.id)
+                });
+                
+                if (row.status === "CLOSED" && row.ncr_status === "closed") {
+                    actions.push({
+                        label: isDownloading ? "Downloading..." : "Download PDF",
+                        icon: Download,
+                        onClick: () => handleDownload(row.id, row.ncr_no),
+                        disabled: isDownloading
+                    });
+                }
+                
+                if (user?.roles?.includes("ADMIN")) {
+                    actions.push({ type: "separator" });
+                    actions.push({
+                        label: row.is_active ? "Deactivate" : "Activate",
+                        icon: row.is_active ? XCircle : CheckCircle,
+                        onClick: () => handleToggleStatus(row),
+                        className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                    });
+                    actions.push({
+                        label: "Archive",
+                        icon: Archive,
+                        onClick: () => handleDelete(row),
+                        className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+                    });
+                }
+                
+                return (
+                    <div className="flex items-center justify-center">
+                        <DataTableRowActions actions={actions} />
+                    </div>
+                );
+            }
         },
     ], [activeClientOptions, activePoOptions, activeMsnOptions, isDownloading, currentUserId]);
 

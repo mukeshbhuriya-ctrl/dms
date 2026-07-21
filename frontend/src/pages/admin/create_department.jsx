@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Pencil, Trash2, Edit, Archive } from "lucide-react"
+import { ArrowLeft, Pencil, Trash2, Edit, Archive, CheckCircle, XCircle } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import {
   Card,
@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import {
   Dialog,
   DialogContent,
@@ -152,21 +153,27 @@ function CreateDepartment() {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="cursor-pointer" onClick={() => handleEdit(row)} title="Edit">
-            <Edit className="h-4 w-4" />
-          </Button>
-          <Switch 
-            checked={row.is_active} 
-            onCheckedChange={() => handleToggleClick(row)}
-          />
-          <Button variant="outline" size="sm" className="text-destructive cursor-pointer hover:bg-destructive/10" onClick={() => handleDeleteClick(row)} title="Archive">
-            <Archive className="h-4 w-4" />
-              Archive
-          </Button>
-        </div>
-      ),
+      width: "60px",
+      cell: (row) => {
+        const actions = [
+          { label: "Edit Department", icon: Edit, onClick: () => handleEdit(row) },
+          { type: "separator" },
+          { 
+            label: row.is_active ? "Deactivate" : "Activate", 
+            icon: row.is_active ? XCircle : CheckCircle, 
+            onClick: () => handleToggleClick(row),
+            color: row.is_active ? "danger" : "default"
+          },
+          { type: "separator" },
+          { label: "Archive", icon: Archive, color: "danger", onClick: () => handleDeleteClick(row) }
+        ];
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
+      enableSorting: false,
     }
   ], [nameOptions])
 

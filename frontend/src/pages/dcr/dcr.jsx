@@ -38,6 +38,7 @@ import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download, Search, 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { useRef } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
@@ -491,118 +492,84 @@ function CreateDCR() {
         { label: "Inactive", value: "false" }
       ],
       cell: (row) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <Switch
-            checked={row.is_active}
-            onCheckedChange={() => handleToggleStatus(row)}
-            disabled={!isAdmin}
-            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'} scale-75`}
-          />
-          <span className={`text-[11px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-            {row.is_active ? "Active" : "Inactive"}
-          </span>
-        </div>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+          {row.is_active ? "Active" : "Inactive"}
+        </span>
       ),
     },
     {
       id: "actions",
       header: "Action",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewDcr(row.id)}
-            title="View"
-            className="h-8 rounded-sm cursor-pointer"
-          >
-            <Eye className="h-4 w-4 mr-2" /> View
-          </Button>
-          {row.status === 'pending' && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleEditDcr(row.id)}
-              title="Edit"
-              className="h-8 rounded-sm cursor-pointer"
-            >
-              <Edit className="h-4 w-4 mr-2" /> Edit
-            </Button>
-          )}
-
-          {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-destructive hover:text-destructive border-slate-200 rounded-sm cursor-pointer"
-              onClick={() => handleDelete(row)}
-            >
-              <Archive className="h-4 w-4" />
-              Archive
-            </Button>
-          )}
-
-          {(roles?.includes("QC_ENGINEER") && row.quality_engineer_id === user?.id &&
-            row.design_engineer_status === "approved" && row.quality_engineer_status === "pending") && (
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleReviewClick(row, "approved")}
-                  className="h-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-sm"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleReviewClick(row, "rejected")}
-                  className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-sm"
-                >
-                  <XCircle className="h-4 w-4 mr-2" /> Reject
-                </Button>
-              </div>
-            )}
-          {(roles?.includes("DESIGN_ENGINEER") && row.design_engineer_id === user?.id &&
-            row.design_engineer_status === "pending") && (
-              <div className="flex gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleReviewClick(row, "approved")}
-                  className="h-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50 rounded-sm"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleReviewClick(row, "rejected")}
-                  className="h-8 border-red-200 text-red-600 hover:bg-red-50 rounded-sm"
-                >
-                  <XCircle className="h-4 w-4 mr-2" /> Reject
-                </Button>
-              </div>
-            )}
-          {row.status === "approved" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleDownloadPdf(row.id, row.dcr_no)}
-              className="h-8 border-blue-200 text-blue-600 hover:bg-blue-50 rounded-sm"
-            >
-              <Download className="h-4 w-4 mr-2" /> PDF
-            </Button>
-          )}
-        </div>
-      )
+      width: "60px",
+      cell: (row) => {
+        const actions = [];
+        
+        actions.push({
+            label: "View",
+            icon: Eye,
+            onClick: () => handleViewDcr(row.id)
+        });
+        
+        if (row.status === 'pending') {
+            actions.push({
+                label: "Edit",
+                icon: Edit,
+                onClick: () => handleEditDcr(row.id)
+            });
+        }
+        
+        if (isAdmin) {
+            actions.push({
+                label: row.is_active ? "Deactivate" : "Activate",
+                icon: row.is_active ? XCircle : CheckCircle,
+                onClick: () => handleToggleStatus(row),
+                className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            });
+            actions.push({
+                label: "Archive",
+                icon: Archive,
+                onClick: () => handleDelete(row),
+                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+            });
+        }
+        
+        actions.push({ type: "separator" });
+        
+        const isQcPending = (roles?.includes("QC_ENGINEER") && row.quality_engineer_id === user?.id &&
+            row.design_engineer_status === "approved" && row.quality_engineer_status === "pending");
+            
+        const isDesignPending = (roles?.includes("DESIGN_ENGINEER") && row.design_engineer_id === user?.id &&
+            row.design_engineer_status === "pending");
+            
+        if (isQcPending || isDesignPending) {
+            actions.push({
+                label: "Approve",
+                icon: CheckCircle,
+                onClick: () => handleReviewClick(row, "approved"),
+                className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            });
+            actions.push({
+                label: "Reject",
+                icon: XCircle,
+                onClick: () => handleReviewClick(row, "rejected"),
+                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+            });
+        }
+        
+        if (row.status === "approved") {
+            actions.push({
+                label: "Download PDF",
+                icon: Download,
+                onClick: () => handleDownloadPdf(row.id, row.dcr_no)
+            });
+        }
+        
+        return (
+            <div className="flex items-center justify-center">
+                <DataTableRowActions actions={actions} />
+            </div>
+        );
+      }
     }
 ], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles, isAdmin])
 

@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, Check, Layout, Save, Trash2, Loader2 } from "lucide-react"
+import { Search, Plus, ArrowLeft, Mail, Download, Send, Eye, FileText, AlertCircle, ChevronLeft, ChevronRight, X, ChevronDown, Check, Layout, Save, Trash2, Loader2, Copy, Link } from "lucide-react"
 import { toast } from 'react-toastify';
 import { dccService } from "../../services/dcc.service";
 import { useNavigate } from "react-router-dom";
@@ -54,6 +54,7 @@ import {
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
 import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 function CreateTransmission() {
   const navigate = useNavigate();
   const [view, setView] = useState("list") // 'list' | 'create'
@@ -796,72 +797,57 @@ function CreateTransmission() {
     {
       header: "Actions",
       id: "actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => {
-            if (row.password) {
+      width: "60px",
+      cell: (row) => {
+        const actions = [];
+        
+        if (row.password) {
+           actions.push({ label: "Copy Password", icon: Copy, onClick: () => {
               navigator.clipboard.writeText(row.password);
               toast.success("Password copied to clipboard");
-            }
-          }}>
-            Copy Pass
-          </Button>
-          {row.zip_url && (
-            <Button variant="outline" size="sm" onClick={() => {
+           }});
+        }
+        
+        if (row.zip_url) {
+           actions.push({ label: "Copy Zip URL", icon: Link, onClick: () => {
               navigator.clipboard.writeText(row.zip_url);
               toast.success("Zip URL copied to clipboard");
-            }}>
-              Copy URL
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 cursor-pointer"
-            onClick={async () => {
-              try {
-                const blob = await dccService.downloadTransmittalPDF(row.id);
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Transmittal_${row.transmission_number}.pdf`;
-                a.click();
-              } catch (error) { toast.error("Failed to download PDF"); }
-            }}
-          >
-            <Download className="h-4 w-4" /> PDF
-          </Button>
-          {row.client_status === 'Approved' || row.client_status === 'Rejected' || row.client_status === 'Partially Approved' ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => {
+           }});
+        }
+        
+        actions.push({ label: "Download PDF", icon: Download, onClick: async () => {
+            try {
+              const blob = await dccService.downloadTransmittalPDF(row.id);
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `Transmittal_${row.transmission_number}.pdf`;
+              a.click();
+            } catch (error) { toast.error("Failed to download PDF"); }
+        }});
+        
+        actions.push({ type: "separator" });
+        
+        if (row.client_status === 'Approved' || row.client_status === 'Rejected' || row.client_status === 'Partially Approved') {
+           actions.push({ label: "View Status", icon: Eye, onClick: () => {
                 setActiveTransmission(row);
                 fetchTransmissionDetailsForSend(row);
                 setView("send");
-              }}
-            >
-              <Eye className="h-4 w-4" />
-              View
-            </Button>
-          ) : (
-            <Button
-              variant={row.status === 'Sent' ? "secondary" : "default"}
-              size="sm"
-              className="flex items-center gap-2 cursor-pointer"
-              onClick={() => {
+           }});
+        } else {
+           actions.push({ label: row.status === 'Sent' ? "Resend Mail" : "Send Mail", icon: Mail, onClick: () => {
                 setActiveTransmission(row);
                 fetchTransmissionDetailsForSend(row);
                 setView("send");
-              }}
-            >
-              <Mail className="h-4 w-4" />
-              {row.status === 'Sent' ? "Resend" : "Send"}
-            </Button>
-          )}
-        </div>
-      )
+           }});
+        }
+        
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      }
     }
   ], [activeListFilters, listCustomerOptions, listPoOptions]);
 

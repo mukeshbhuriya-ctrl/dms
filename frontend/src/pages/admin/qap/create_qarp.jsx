@@ -23,8 +23,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive, PlusCircle, Copy, UploadCloud, FileText } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, Eye, Edit, Download, Archive, PlusCircle, Copy, UploadCloud, FileText, CheckCircle, XCircle } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/context/AuthContext"
@@ -249,73 +250,66 @@ function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
       isMulti: true,
       filterOptions: activeIsActiveOptions,
       cell: (row) => (
-        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          <Switch
-            checked={row.is_active}
-            onCheckedChange={() => handleToggleStatus(row)}
-            className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-            disabled={!isAdmin}
-          />
-          <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-            {row.is_active ? "Active" : "Inactive"}
-          </span>
-        </div>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+          {row.is_active ? "Active" : "Inactive"}
+        </span>
       )
     },
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewClick(row.id)}
-            className="cursor-pointer"
-            title="View">
-            <Eye className="h-4 w-4 mr-2" /> View
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onEditClick(row.id)}
-            className="cursor-pointer"
-            title="Edit">
-            <Edit className="h-4 w-4 mr-2" /> Edit
-          </Button>
-          {row.qap_type !== 'CLIENT_APPROVED' && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                onClick={() => onCloneClick(row.id)}
-                title="Clone">
-                <Copy className="h-4 w-4 mr-2" /> Clone
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer"
-                onClick={() => handleDownloadPdf(row.id)}
-                title="Download PDF">
-                <Download className="h-4 w-4 mr-2" /> Download
-              </Button>
-            </>
-          )}
-          {isAdmin && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
-              onClick={() => handleArchive(row)}
-              title="Archive Record"
-            >
-              <Archive className="h-4 w-4" /> Archive
-            </Button>
-          )}
-        </div>
-      ),
+      width: "60px",
+      cell: (row) => {
+        const actions = [];
+        
+        actions.push({
+            label: "View",
+            icon: Eye,
+            onClick: () => handleViewClick(row.id)
+        });
+        
+        actions.push({
+            label: "Edit",
+            icon: Edit,
+            onClick: () => onEditClick(row.id)
+        });
+        
+        if (row.qap_type !== 'CLIENT_APPROVED') {
+            actions.push({
+                label: "Clone",
+                icon: Copy,
+                onClick: () => onCloneClick(row.id)
+            });
+            actions.push({ type: "separator" });
+            actions.push({
+                label: "Download PDF",
+                icon: Download,
+                onClick: () => handleDownloadPdf(row.id)
+            });
+        }
+        
+        if (isAdmin) {
+            actions.push({ type: "separator" });
+            actions.push({
+                label: row.is_active ? "Deactivate" : "Activate",
+                icon: row.is_active ? XCircle : CheckCircle,
+                onClick: () => handleToggleStatus(row),
+                className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            });
+            actions.push({
+                label: "Archive",
+                icon: Archive,
+                onClick: () => handleArchive(row),
+                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+            });
+        }
+        
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
     },
   ], [onEditClick, activeClientOptions, activePoOptions, activeMsnOptions, isAdmin])
 

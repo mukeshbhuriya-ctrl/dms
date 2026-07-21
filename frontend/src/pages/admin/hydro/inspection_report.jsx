@@ -38,6 +38,7 @@ import {
 import { Plus, Trash2, ArrowLeft, FileText, Eye, Edit, CheckCircle, XCircle, Download, Archive, Copy } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { toast } from 'react-toastify'
 import { useAuth } from "@/context/AuthContext"
 import { Switch } from "@/components/ui/switch"
@@ -328,114 +329,97 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
         isMulti: true,
         filterOptions: activeIsActiveOptions,
         cell: (row) => (
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                <Switch
-                    checked={row.is_active}
-                    onCheckedChange={() => handleToggleStatus(row)}
-                    className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-                    disabled={!isAdmin}
-                />
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-                    {row.is_active ? "Active" : "Inactive"}
-                </span>
-            </div>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                {row.is_active ? "Active" : "Inactive"}
+            </span>
         )
     },
     {
       id: "actions",
       header: "Actions",
+      width: "60px",
       cell: (row) => {
         const isAssignedPE = row.production_engineer_id === user?.id
         const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC")
         const status = row.status?.trim()?.toLowerCase()
         // Only non-QC users who are assigned can review, or Admin
         const canReview = !isQE && (isAssignedPE || isAdmin) && status !== "approved" && status !== "rejected"
-
+        const isApproved = status === "approved"
+        
+        const actions = [];
+        
+        actions.push({
+            label: "View",
+            icon: Eye,
+            onClick: () => handleViewClick(row.id)
+        });
+        
+        if (isAdmin || isQE) {
+            actions.push({
+                label: "Edit",
+                icon: Edit,
+                onClick: () => onEditClick(row.id),
+                disabled: isApproved
+            });
+            actions.push({
+                label: "Clone",
+                icon: Copy,
+                onClick: () => onCloneClick(row.id)
+            });
+        } else if (!isApproved) {
+            actions.push({
+                label: "Review",
+                icon: CheckCircle,
+                onClick: () => onEditClick(row.id)
+            });
+        }
+        
+        if (canReview) {
+            actions.push({ type: "separator" });
+            actions.push({
+                label: "Approve",
+                icon: CheckCircle,
+                onClick: () => handleReviewClick(row, "Approved"),
+                className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            });
+            actions.push({
+                label: "Reject",
+                icon: XCircle,
+                onClick: () => handleReviewClick(row, "Rejected"),
+                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+            });
+        }
+        
+        if (status === "approved" || isAdmin || isAssignedPE) {
+            actions.push({ type: "separator" });
+            actions.push({
+                label: "Download PDF",
+                icon: Download,
+                onClick: () => handleDownload(row.id, row.report_no)
+            });
+        }
+        
+        if (isAdmin) {
+            actions.push({ type: "separator" });
+            actions.push({
+                label: row.is_active ? "Deactivate" : "Activate",
+                icon: row.is_active ? XCircle : CheckCircle,
+                onClick: () => handleToggleStatus(row),
+                className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            });
+            actions.push({
+                label: "Archive",
+                icon: Archive,
+                onClick: () => handleDelete(row),
+                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+            });
+        }
+        
         return (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleViewClick(row.id)}
-              className="cursor-pointer"
-              title="View">
-              <Eye className="h-4 w-4 mr-2" /> View
-            </Button>
-            {isAdmin || isQE ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onEditClick(row.id)}
-                  disabled={row.status?.trim()?.toLowerCase() === "approved"}
-                  className={row.status?.trim()?.toLowerCase() === "approved" ? "cursor-not-allowed opacity-50" : "cursor-pointer"}
-                  title={row.status?.trim()?.toLowerCase() === "approved" ? "Cannot edit approved report" : "Edit"}>
-                  <Edit className="h-4 w-4 mr-2" /> Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onCloneClick(row.id)}
-                  className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                  title="Clone Dish">
-                  <Copy className="h-4 w-4 mr-2" /> Clone
-                </Button>
-              </>
-            ) : (
-              row.status?.trim()?.toLowerCase() !== "approved" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onEditClick(row.id)}
-                  className="cursor-pointer"
-                  title="Review">
-                  <CheckCircle className="h-4 w-4 mr-2" /> Review
-                </Button>
-              )
-            )}
-            {canReview && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-green-50 text-green-600 hover:bg-green-100 hover:text-green-700 border-green-200 cursor-pointer"
-                  onClick={() => handleReviewClick(row, "Approved")}
-                  title="Approve">
-                  <CheckCircle className="h-4 w-4 mr-2" /> Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-red-200 cursor-pointer"
-                  onClick={() => handleReviewClick(row, "Rejected")}
-                  title="Reject">
-                  <XCircle className="h-4 w-4 mr-2" /> Reject
-                </Button>
-              </>
-            )}
-            {(status === "approved" || isAdmin || isAssignedPE) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-200 cursor-pointer"
-                onClick={() => handleDownload(row.id, row.report_no)}
-                title="Download PDF">
-                <Download className="h-4 w-4 mr-2" /> Download
-              </Button>
-            )}
-            {isAdmin && (
-                <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
-                    onClick={() => handleDelete(row)}
-                    title="Archive Report"
-                >
-                    <Archive className="h-4 w-4" /> Archive
-                </Button>
-            )}
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
           </div>
-        )
+        );
       },
     },
   ], [activeClientOptions, activePoOptions, activeMsnOptions, isAdmin, roles, user])

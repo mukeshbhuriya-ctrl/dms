@@ -3,6 +3,7 @@ import React, { useState, useCallback, useMemo } from "react"
 import { toast } from "react-toastify"
 import apiClient from "@/api/api.client"
 import ProDataTable from "@/components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,7 +22,9 @@ import {
     Plus,
     SquarePen,
     Eye,
-    ArrowLeft
+    ArrowLeft,
+    CheckCircle,
+    XCircle
 } from "lucide-react"
 
 const HeadingMaster = () => {
@@ -150,42 +153,44 @@ const HeadingMaster = () => {
             accessorKey: "is_active",
             width: "140px",
             cell: (row) => (
-                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <Switch 
-                        checked={row.is_active} 
-                        onCheckedChange={() => handleToggleStatus(row)}
-                        className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-                    />
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-                        {row.is_active ? "Active" : "Inactive"}
-                    </span>
-                </div>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                    {row.is_active ? "Active" : "Inactive"}
+                </span>
             )
         },
         {
             header: "ACTIONS",
             id: "actions",
-            width: "350px",
-            cell: (row) => (
-                <div className="flex items-center gap-2">
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleEdit(row)} 
-                        className="h-8 gap-1.5 border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-100 hover:bg-blue-50 shadow-none font-semibold px-3"
-                    >
-                        <SquarePen className="h-4 w-4" /> Edit
-                    </Button>
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleDelete(row)} 
-                        className="h-8 gap-1.5 border-slate-200 text-red-600 hover:border-red-100 hover:bg-red-50 shadow-none font-semibold px-3"
-                    >
-                        <Trash2 className="h-4 w-4" /> Archive
-                    </Button>
-                </div>
-            )
+            width: "60px",
+            cell: (row) => {
+                const actions = [];
+                actions.push({
+                    label: "Edit",
+                    icon: SquarePen,
+                    onClick: () => handleEdit(row)
+                });
+                
+                actions.push({ type: "separator" });
+                actions.push({
+                    label: row.is_active ? "Deactivate" : "Activate",
+                    icon: row.is_active ? XCircle : CheckCircle,
+                    onClick: () => handleToggleStatus(row),
+                    className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                });
+                
+                actions.push({
+                    label: "Archive",
+                    icon: Trash2,
+                    onClick: () => handleDelete(row),
+                    className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+                });
+                
+                return (
+                    <div className="flex items-center justify-center">
+                        <DataTableRowActions actions={actions} />
+                    </div>
+                );
+            }
         }
     ], [])
 

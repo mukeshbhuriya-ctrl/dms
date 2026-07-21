@@ -45,6 +45,7 @@ import { Eye, Plus, X, Copy, Pencil, FileText, AlertCircle, CheckCircle2, XCircl
 import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 function WeldingJoints() {
   const [formData, setFormData] = useState({
     weldPlanNo: "",
@@ -570,61 +571,58 @@ function WeldingJoints() {
       isMulti: true,
       filterOptions: activeIsActiveOptions,
       cell: (row) => (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <Switch
-                  checked={row.is_active}
-                  onCheckedChange={() => handleToggleStatus(row)}
-                  className={`${row.is_active ? 'data-[state=checked]:bg-emerald-500' : 'data-[state=unchecked]:bg-amber-500'}`}
-                  disabled={!isAdmin}
-              />
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "text-emerald-600" : "text-amber-600"}`}>
-                  {row.is_active ? "Active" : "Inactive"}
-              </span>
-          </div>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${row.is_active ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+          {row.is_active ? "Active" : "Inactive"}
+        </span>
       )
     },
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer"
-            onClick={() => handleViewClick(row.id)}
-            title="View">
-            <Eye className="h-4 w-4" /> View
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer"
-            onClick={() => handleEditClick(row.id)}
-            title="Edit">
-            <Pencil className="h-4 w-4" /> Edit
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="cursor-pointer border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-            onClick={() => handleCloneClick(row.id)}
-            title="Clone">
-            <Copy className="h-4 w-4" /> Clone
-          </Button>
-          {isAdmin && (
-              <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(row)}
-                  title="Archive Plan"
-                  className="text-destructive border-destructive/20 hover:bg-destructive/5 cursor-pointer"
-              >
-                  <Archive className="h-4 w-4" /> Archive
-              </Button>
-          )}
-        </div>
-      ),
+      width: "60px",
+      cell: (row) => {
+        const actions = [];
+        
+        actions.push({
+            label: "View",
+            icon: Eye,
+            onClick: () => handleViewClick(row.id)
+        });
+        
+        actions.push({
+            label: "Edit",
+            icon: Pencil,
+            onClick: () => handleEditClick(row.id)
+        });
+        
+        actions.push({
+            label: "Clone",
+            icon: Copy,
+            onClick: () => handleCloneClick(row.id)
+        });
+        
+        if (isAdmin) {
+            actions.push({ type: "separator" });
+            actions.push({
+                label: row.is_active ? "Deactivate" : "Activate",
+                icon: row.is_active ? XCircle : CheckCircle2,
+                onClick: () => handleToggleStatus(row),
+                className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            });
+            actions.push({
+                label: "Archive",
+                icon: Archive,
+                onClick: () => handleDelete(row),
+                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+            });
+        }
+        
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
     },
   ], [handleEditClick, handleCloneClick])
 

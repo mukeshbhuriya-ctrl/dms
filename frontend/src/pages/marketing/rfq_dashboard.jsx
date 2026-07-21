@@ -84,7 +84,7 @@ export default function RfqDashboard() {
     if (loading) return (
         <div className="flex-1 p-6 flex flex-col justify-center items-center">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-            <p className="mt-4 text-muted-foreground">Loading dashboard data...</p>
+            <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
     )
 

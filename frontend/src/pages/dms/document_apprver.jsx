@@ -41,6 +41,7 @@ import { Search, ArrowRight, Plus, ArrowLeft, Edit, Copy, History, ChevronLeft, 
 import { Checkbox } from "@/components/ui/checkbox"
 import { exportApi } from "@/api/export.api"
 import ProDataTable from "../../components/shared/ProDataTable"
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function DocumentApprover() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -325,14 +326,17 @@ function DocumentApprover() {
       id: "actions",
       header: "Action",
       accessorKey: "id",
-      cell: (row) => (
-        <div className="flex gap-2">
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-slate-200 text-slate-600 cursor-pointer"
-            onClick={() => {
+      width: "60px",
+      cell: (row) => {
+        const actions = [];
+        const hasPreview = (row.files?.length > 0 || row.previewUrl) && row.originalDoc?.status !== 'Pending' && row.originalDoc?.status !== 'Upload Due';
+        const isPendingApproval = (row.originalDoc?.status || row.status) === 'Pending for Approval';
+        
+        if (hasPreview) {
+          actions.push({
+            label: "Preview",
+            icon: Eye,
+            onClick: () => {
               if (row.files && row.files.length > 0) {
                 setActiveFileList(row.files);
                 setActiveFileListDocName(`${row.documentNumber} - ${row.documentName}`);
@@ -347,44 +351,41 @@ function DocumentApprover() {
                 setPreviewUrl(row.previewUrl);
                 setIsPreviewOpen(true);
               }
-            }}
-            disabled={!(row.files?.length > 0 || row.previewUrl) || row.originalDoc?.status === 'Pending' || row.originalDoc?.status === 'Upload Due'}
-          >
-            <Eye className="w-4 h-4 mr-2" /> Preview
-          </Button>
-
-          <Button
-            size="sm"
-            className="bg-green-600 hover:bg-green-700"
-            onClick={() => handleReviewClick(row.originalDoc, 'Approved')}
-            disabled={(row.originalDoc?.status || row.status) !== 'Pending for Approval'}
-          >
-            <CheckCircle className="w-4 h-4 mr-1" /> Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => handleReviewClick(row.originalDoc, 'Rejected')}
-            disabled={(row.originalDoc?.status || row.status) !== 'Pending for Approval'}
-          >
-            <XCircle className="w-4 h-4 mr-1" /> Reject
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-slate-200 text-slate-600"
-            onClick={() => {
-              setActiveDocId(row.id);
-              setIsTrailOpen(true);
-            }}
-          >
-            <History className="h-4 w-4 mr-1" />
-            Trail
-          </Button>
-        </div>
-      ),
-      className: "w-[250px]"
+            }
+          });
+        }
+        
+        actions.push({
+          label: "View Trail",
+          icon: History,
+          onClick: () => {
+            setActiveDocId(row.id);
+            setIsTrailOpen(true);
+          }
+        });
+        
+        if (isPendingApproval) {
+          actions.push({ type: "separator" });
+          actions.push({
+            label: "Approve Document",
+            icon: CheckCircle,
+            onClick: () => handleReviewClick(row.originalDoc, 'Approved')
+          });
+          actions.push({
+            label: "Reject Document",
+            icon: XCircle,
+            color: "danger",
+            onClick: () => handleReviewClick(row.originalDoc, 'Rejected')
+          });
+        }
+        
+        return (
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
+        );
+      },
+      enableSorting: false,
     },
     {
       header: "Remarks",
