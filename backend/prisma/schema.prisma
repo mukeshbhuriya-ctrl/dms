@@ -1190,6 +1190,20 @@ model dcr{
   quality_engineer user @relation("DcrQualityEngineer", fields: [quality_engineer_id], references: [id])
   dcr_change_request dcr_change_request[]
   dcr_status dcr_status[]
+  attachments dcr_attachment[]
+}
+
+model dcr_attachment {
+  id          String   @id @default(uuid())
+  dcr_id      String
+  file_name   String
+  file_url    String
+  file_path   String?
+  file_size   Int?
+  mime_type   String?
+  uploaded_at DateTime @default(now())
+
+  dcr         dcr      @relation(fields: [dcr_id], references: [id], onDelete: Cascade)
 }
 
 model dcr_change_request{

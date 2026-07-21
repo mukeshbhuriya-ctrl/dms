@@ -96,6 +96,19 @@ class StorageUtils {
     }
 
     /**
+     * Get the directory for DCR attachments
+     * Pattern: uploads/DCR/
+     */
+    getDcrDir() {
+        const dir = path.join(
+            UPLOAD_BASE,
+            'DCR'
+        );
+        this._ensureDir(dir);
+        return dir;
+    }
+
+    /**
      * Get the directory for outgoing transmission packages
      */
     getTransmissionOutgoingDir(company_id, transmission_number) {

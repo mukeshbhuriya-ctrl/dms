@@ -2,6 +2,7 @@ const prisma = require('#prisma');
 const dcrPdfGenerator = require('../utils/dcrPdfGenerator');
 const Audit = require('#utils/audit.js');
 const { getCompanyInfo } = require('../utils/companyInfo');
+const storageUtils = require('../utils/storage.utils');
 
 const ALLOWED_SORT_FIELDS = new Set([
     'createdAt',
@@ -172,7 +173,8 @@ class DcrController {
                 });
             }
 
-            const changeRequestsInput = body.change_requests ?? [];
+            const changeRequestsInputRaw = body.change_requests;
+            const changeRequestsInput = typeof changeRequestsInputRaw === 'string' ? JSON.parse(changeRequestsInputRaw) : (changeRequestsInputRaw ?? []);
             if (!Array.isArray(changeRequestsInput)) {
                 return res.status(400).json({
                     success: false,
@@ -231,6 +233,18 @@ class DcrController {
                             dcr_id: dcr.id,
                         })),
                     });
+                }
+
+                if (req.files && req.files.length > 0) {
+                    const preparedAttachments = req.files.map(file => ({
+                        dcr_id: dcr.id,
+                        file_name: file.originalname,
+                        file_url: file.filename,
+                        file_path: storageUtils.getRelativePath(file.path),
+                        file_size: file.size,
+                        mime_type: file.mimetype,
+                    }));
+                    await tx.dcr_attachment.createMany({ data: preparedAttachments });
                 }
 
                 await tx.dcr_status.create({
@@ -495,6 +509,18 @@ class DcrController {
                         },
                         orderBy: { createdAt: 'desc' },
                     },
+                    attachments: {
+                        select: {
+                            id: true,
+                            file_name: true,
+                            file_url: true,
+                            file_path: true,
+                            file_size: true,
+                            mime_type: true,
+                            uploaded_at: true,
+                        },
+                        orderBy: { uploaded_at: 'desc' },
+                    },
                 },
             });
 
@@ -520,6 +546,10 @@ class DcrController {
                     quality_engineer: dcr.quality_engineer,
                     change_request: dcr.dcr_change_request,
                     dcr_status: dcr.dcr_status,
+                    attachments: dcr.attachments.map(att => ({
+                        ...att,
+                        file_url: `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/files/${att.file_url}`
+                    })),
                 },
             });
         } catch (error) {
@@ -770,7 +800,8 @@ class DcrController {
             const design_engineer_id = toTrimmedString(body.design_engineer_id);
             const quality_engineer_id = toTrimmedString(body.quality_engineer_id);
 
-            const changeRequestsInput = body.change_requests ?? [];
+            const changeRequestsInputRaw = body.change_requests;
+            const changeRequestsInput = typeof changeRequestsInputRaw === 'string' ? JSON.parse(changeRequestsInputRaw) : (changeRequestsInputRaw ?? []);
             const preparedChangeRequests = [];
             for (let i = 0; i < changeRequestsInput.length; i++) {
                 const item = changeRequestsInput[i] || {};
@@ -808,6 +839,29 @@ class DcrController {
                 await tx.dcr_change_request.deleteMany({ where: { dcr_id: id } });
                 if (preparedChangeRequests.length > 0) {
                     await tx.dcr_change_request.createMany({ data: preparedChangeRequests });
+                }
+
+                const deletedAttachmentIdsRaw = body.deletedAttachmentIds;
+                const deletedAttachmentIds = typeof deletedAttachmentIdsRaw === 'string' ? JSON.parse(deletedAttachmentIdsRaw) : (deletedAttachmentIdsRaw || []);
+                if (deletedAttachmentIds.length > 0) {
+                    await tx.dcr_attachment.deleteMany({
+                        where: {
+                            id: { in: deletedAttachmentIds },
+                            dcr_id: id,
+                        },
+                    });
+                }
+
+                if (req.files && req.files.length > 0) {
+                    const preparedAttachments = req.files.map(file => ({
+                        dcr_id: id,
+                        file_name: file.originalname,
+                        file_url: file.filename,
+                        file_path: storageUtils.getRelativePath(file.path),
+                        file_size: file.size,
+                        mime_type: file.mimetype,
+                    }));
+                    await tx.dcr_attachment.createMany({ data: preparedAttachments });
                 }
             });
 

@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 
-import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download, Search, ChevronDown, ChevronLeft, ChevronRight, Check, Archive, History } from "lucide-react"
+import { ArrowLeft, Plus, X, CheckCircle, XCircle, Eye, Edit, Download, Search, ChevronDown, ChevronLeft, ChevronRight, Check, Archive, History, FileText, Paperclip, Upload } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import ProDataTable from "@/components/shared/ProDataTable"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
@@ -166,6 +166,16 @@ const normalizeDetail = (item) => {
     status: statuses.status,
     designStatus: statuses.designStatus,
     qualityStatus: statuses.qualityStatus,
+    attachments: Array.isArray(item?.attachments) ? item.attachments.map(att => ({
+      id: att.id,
+      name: att.file_name,
+      size: (att.file_size / 1024).toFixed(2) + " KB",
+      type: att.mime_type,
+      uploadedAt: new Date(att.uploaded_at).toLocaleString(),
+      url: att.file_url,
+      path: att.file_path,
+      isNew: false
+    })) : []
   }
 }
 
@@ -241,6 +251,38 @@ function CreateDCR() {
   const [view, setView] = useState("list")
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null })
+
+  const [attachments, setAttachments] = useState([])
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState([])
+  const [selectedPreviewFile, setSelectedPreviewFile] = useState(null)
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files)
+    const newAttachments = files.map(file => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: file.name,
+      size: (file.size / 1024).toFixed(2) + " KB",
+      type: file.type,
+      uploadedAt: new Date().toLocaleString(),
+      file: file,
+      url: URL.createObjectURL(file),
+      isNew: true
+    }))
+    setAttachments(prev => [...prev, ...newAttachments])
+  }
+
+  const removeAttachment = (id, isNew) => {
+    if (!isNew) {
+      setDeletedAttachmentIds(prev => [...prev, id])
+    }
+    setAttachments(prev => {
+      const fileToRemove = prev.find(a => a.id === id);
+      if (fileToRemove && fileToRemove.isNew && fileToRemove.url) {
+        URL.revokeObjectURL(fileToRemove.url);
+      }
+      return prev.filter(a => a.id !== id);
+    })
+  }
 
   // Review Dialog State
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
@@ -503,75 +545,75 @@ function CreateDCR() {
       width: "60px",
       cell: (row) => {
         const actions = [];
-        
+
         actions.push({
-            label: "View",
-            icon: Eye,
-            onClick: () => handleViewDcr(row.id)
+          label: "View",
+          icon: Eye,
+          onClick: () => handleViewDcr(row.id)
         });
-        
+
         if (row.status === 'pending') {
-            actions.push({
-                label: "Edit",
-                icon: Edit,
-                onClick: () => handleEditDcr(row.id)
-            });
+          actions.push({
+            label: "Edit",
+            icon: Edit,
+            onClick: () => handleEditDcr(row.id)
+          });
         }
-        
+
         if (isAdmin) {
-            actions.push({
-                label: row.is_active ? "Deactivate" : "Activate",
-                icon: row.is_active ? XCircle : CheckCircle,
-                onClick: () => handleToggleStatus(row),
-                className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-            });
-            actions.push({
-                label: "Archive",
-                icon: Archive,
-                onClick: () => handleDelete(row),
-                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
-            });
+          actions.push({
+            label: row.is_active ? "Deactivate" : "Activate",
+            icon: row.is_active ? XCircle : CheckCircle,
+            onClick: () => handleToggleStatus(row),
+            className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+          });
+          actions.push({
+            label: "Archive",
+            icon: Archive,
+            onClick: () => handleDelete(row),
+            className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+          });
         }
-        
+
         actions.push({ type: "separator" });
-        
+
         const isQcPending = (roles?.includes("QC_ENGINEER") && row.quality_engineer_id === user?.id &&
-            row.design_engineer_status === "approved" && row.quality_engineer_status === "pending");
-            
+          row.design_engineer_status === "approved" && row.quality_engineer_status === "pending");
+
         const isDesignPending = (roles?.includes("DESIGN_ENGINEER") && row.design_engineer_id === user?.id &&
-            row.design_engineer_status === "pending");
-            
+          row.design_engineer_status === "pending");
+
         if (isQcPending || isDesignPending) {
-            actions.push({
-                label: "Approve",
-                icon: CheckCircle,
-                onClick: () => handleReviewClick(row, "approved"),
-                className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-            });
-            actions.push({
-                label: "Reject",
-                icon: XCircle,
-                onClick: () => handleReviewClick(row, "rejected"),
-                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
-            });
+          actions.push({
+            label: "Approve",
+            icon: CheckCircle,
+            onClick: () => handleReviewClick(row, "approved"),
+            className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+          });
+          actions.push({
+            label: "Reject",
+            icon: XCircle,
+            onClick: () => handleReviewClick(row, "rejected"),
+            className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+          });
         }
-        
+
         if (row.status === "approved") {
-            actions.push({
-                label: "Download PDF",
-                icon: Download,
-                onClick: () => handleDownloadPdf(row.id, row.dcr_no)
-            });
+          actions.push({
+            label: "Download PDF",
+            icon: Download,
+            onClick: () => handleDownloadPdf(row.id, row.dcr_no)
+          });
         }
-        
+
         return (
-            <div className="flex items-center justify-center">
-                <DataTableRowActions actions={actions} />
-            </div>
+          <div className="flex items-center justify-center">
+            <DataTableRowActions actions={actions} />
+          </div>
         );
       }
     }
-], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles, isAdmin])
+  ], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles, isAdmin])
 
   const fetchDcrList = useCallback(async (params) => {
     try {
@@ -666,6 +708,7 @@ function CreateDCR() {
         designStatus: detail.designStatus,
         qualityStatus: detail.qualityStatus,
       })
+      setAttachments(detail.attachments)
       setSelectedDcrId(id)
       setView("view")
     } catch (err) {
@@ -686,9 +729,10 @@ function CreateDCR() {
 
       setFormData(detail.formData)
       setTableRows(detail.tableRows)
+      setAttachments(detail.attachments)
       setEditId(id)
       setView("create")
-      
+
       // Fetch drawings for the loaded job
       if (detail.formData.msmNumber) {
         fetchAssignedDocs(detail.formData.msmNumber)
@@ -743,7 +787,7 @@ function CreateDCR() {
       setAssignedDocs([])
       return
     }
-    
+
     setIsLoadingDocs(true)
     try {
       const payload = await apiClient.get(`/api/dcr/get-assigned-drawings/${jobId}`)
@@ -833,6 +877,9 @@ function CreateDCR() {
       designStatus: "pending",
       qualityStatus: "pending",
     })
+    setAttachments([])
+    setDeletedAttachmentIds([])
+    setSelectedPreviewFile(null)
   }, [])
 
   const handleReset = resetForm;
@@ -936,17 +983,30 @@ function CreateDCR() {
         status: "pending",
         design_engineer_status: "pending",
         quality_engineer_status: "pending",
-        change_requests: preparedRows.map((row) => ({
+        change_requests: JSON.stringify(preparedRows.map((row) => ({
           item_part_no: row.itemPartNo,
           chnage_from: row.changeFrom,
           chnage_to: row.changeTo,
           reason: row.reasonForChange,
-        })),
+        }))),
       }
 
-      const payload = editId 
-        ? await apiClient.put(`/api/dcr/update-dcr/${editId}`, requestBody)
-        : await apiClient.post('/api/dcr/create-dcr', requestBody)
+      const formDataObj = new FormData();
+      Object.entries(requestBody).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          formDataObj.append(key, value)
+        }
+      })
+
+      if (deletedAttachmentIds.length > 0) {
+        formDataObj.append("deletedAttachmentIds", JSON.stringify(deletedAttachmentIds))
+      }
+
+      attachments.filter(a => a.isNew).forEach(a => formDataObj.append("files", a.file))
+
+      const payload = editId
+        ? await apiClient.put(`/api/dcr/update-dcr/${editId}`, formDataObj)
+        : await apiClient.post('/api/dcr/create-dcr', formDataObj)
 
       setFormSuccess(payload?.message || (editId ? "DCR updated successfully" : "DCR created successfully"))
       resetForm()
@@ -967,403 +1027,507 @@ function CreateDCR() {
   return (
     <>
       <PageContainer>
-{view !== "list" && (
-            <div className="flex justify-end items-center mb-4">
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to List
-                </Button>
-              </div>
+        {view !== "list" && (
+          <div className="flex justify-end items-center mb-4">
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to List
+              </Button>
             </div>
-          )}
+          </div>
+        )}
 
-          {view === "list" ? (
-            <ProDataTable
-              columns={columns}
-              fetchData={fetchDcrList}
-              onExport={handleExport}
-              onAdd={() => setView("create")}
-              onAddTooltip="Create DCR"
-              refreshKey={refreshKey}
-              columnFilters={columnFilters}
-              onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
-            />
-          ) : (
-            <form onSubmit={isCreateMode ? handleSubmit : (e) => e.preventDefault()}>
-              <div className="grid gap-6">
-                {formError && (
-                  <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {formError}
-                  </div>
-                )}
+        {view === "list" ? (
+          <ProDataTable
+            columns={columns}
+            fetchData={fetchDcrList}
+            onExport={handleExport}
+            onAdd={() => setView("create")}
+            onAddTooltip="Create DCR"
+            refreshKey={refreshKey}
+            columnFilters={columnFilters}
+            onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+          />
+        ) : (
+          <form onSubmit={isCreateMode ? handleSubmit : (e) => e.preventDefault()} className="pb-24">
+            <div className="grid gap-6">
+              {formError && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {formError}
+                </div>
+              )}
 
-                {formSuccess && (
-                  <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
-                    {formSuccess}
-                  </div>
-                )}
+              {formSuccess && (
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
+                  {formSuccess}
+                </div>
+              )}
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Basic Information</CardTitle>
-                    <CardDescription>Enter the basic DCR details</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="msmNumber">
-                          MSM Number <span className="text-destructive">*</span>
-                        </Label>
-                        {isViewMode ? (
-                          <Input
-                            id="msmNumber"
-                            type="text"
-                            value={viewDetails.jobNumber}
-                            readOnly
-                            disabled
-                          />
-                        ) : (
-                          <Select
-                            value={formData.msmNumber}
-                            onValueChange={handleJobChange}
-                            disabled={isSubmitting || isLoadingJobs}
-                          >
-                            <SelectTrigger id="msmNumber" className="w-full">
-                              <SelectValue
-                                placeholder={
-                                  isLoadingJobs ? "Loading job numbers..." : "Select job no"
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {jobs.map((job) => (
-                                <SelectItem key={job.id} value={job.id}>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Basic Information</CardTitle>
+                  <CardDescription>Enter the basic DCR details</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="msmNumber">
+                        MSM Number <span className="text-destructive">*</span>
+                      </Label>
+                      {isViewMode ? (
+                        <Input
+                          id="msmNumber"
+                          type="text"
+                          value={viewDetails.jobNumber}
+                          readOnly
+                          disabled
+                        />
+                      ) : (
+                        <Select
+                          value={formData.msmNumber}
+                          onValueChange={handleJobChange}
+                          disabled={isSubmitting || isLoadingJobs}
+                        >
+                          <SelectTrigger id="msmNumber" className="w-full">
+                            <SelectValue
+                              placeholder={
+                                isLoadingJobs ? "Loading job numbers..." : "Select job no"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {jobs.map((job) => (
+                              <SelectItem key={job.id} value={job.id}>
+                                <div className="flex flex-col text-left">
+                                  <span className="font-medium">{job.job_number}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    Next DCR: {job.next_dcr_no || "-"}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="dcrNo">
+                        DCR NO. <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="dcrNo"
+                        name="dcrNo"
+                        type="text"
+                        placeholder="Auto-filled from selected job"
+                        value={formData.dcrNo}
+                        onChange={handleInputChange}
+                        required
+                        readOnly
+                        disabled={isFormDisabled}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="drawingNo">
+                        DRAWING NO. <span className="text-destructive">*</span>
+                      </Label>
+                      {isViewMode ? (
+                        <Input
+                          id="drawingNo"
+                          type="text"
+                          value={formData.drawingNo}
+                          readOnly
+                          disabled
+                        />
+                      ) : (
+                        <Select
+                          value={formData.drawingNo}
+                          onValueChange={(value) => handleSelectChange("drawingNo", value)}
+                          disabled={isSubmitting || isLoadingDocs || !formData.msmNumber}
+                        >
+                          <SelectTrigger id="drawingNo" className="w-full">
+                            <SelectValue
+                              placeholder={
+                                !formData.msmNumber
+                                  ? "Select job no first"
+                                  : isLoadingDocs
+                                    ? "Loading drawings..."
+                                    : "Select drawing no"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {assignedDocs.length === 0 && !isLoadingDocs ? (
+                              <div className="p-2 text-sm text-muted-foreground text-center">
+                                No drawings assigned to this job
+                              </div>
+                            ) : (
+                              assignedDocs.map((doc) => (
+                                <SelectItem key={doc.id} value={doc.shreno_doc_no}>
                                   <div className="flex flex-col text-left">
-                                    <span className="font-medium">{job.job_number}</span>
+                                    <span className="font-medium">{doc.shreno_doc_no}</span>
                                     <span className="text-xs text-muted-foreground">
-                                      Next DCR: {job.next_dcr_no || "-"}
+                                      {doc.document_name}
                                     </span>
                                   </div>
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="dcrNo">
-                          DCR NO. <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="dcrNo"
-                          name="dcrNo"
-                          type="text"
-                          placeholder="Auto-filled from selected job"
-                          value={formData.dcrNo}
-                          onChange={handleInputChange}
-                          required
-                          readOnly
-                          disabled={isFormDisabled}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="drawingNo">
-                          DRAWING NO. <span className="text-destructive">*</span>
-                        </Label>
-                        {isViewMode ? (
-                          <Input
-                            id="drawingNo"
-                            type="text"
-                            value={formData.drawingNo}
-                            readOnly
-                            disabled
-                          />
-                        ) : (
-                          <Select
-                            value={formData.drawingNo}
-                            onValueChange={(value) => handleSelectChange("drawingNo", value)}
-                            disabled={isSubmitting || isLoadingDocs || !formData.msmNumber}
-                          >
-                            <SelectTrigger id="drawingNo" className="w-full">
-                              <SelectValue
-                                placeholder={
-                                  !formData.msmNumber
-                                    ? "Select job no first"
-                                    : isLoadingDocs
-                                      ? "Loading drawings..."
-                                      : "Select drawing no"
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {assignedDocs.length === 0 && !isLoadingDocs ? (
-                                <div className="p-2 text-sm text-muted-foreground text-center">
-                                  No drawings assigned to this job
-                                </div>
-                              ) : (
-                                assignedDocs.map((doc) => (
-                                  <SelectItem key={doc.id} value={doc.shreno_doc_no}>
-                                    <div className="flex flex-col text-left">
-                                      <span className="font-medium">{doc.shreno_doc_no}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {doc.document_name}
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="equipmentNo">
-                          EQUIPMENT NO. <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="equipmentNo"
-                          name="equipmentNo"
-                          type="text"
-                          placeholder="Enter equipment number"
-                          value={formData.equipmentNo}
-                          onChange={handleInputChange}
-                          required
-                          disabled={isFormDisabled}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="inspBy">
-                          INSP. BY <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          id="inspBy"
-                          name="inspBy"
-                          type="text"
-                          placeholder="Enter inspector name"
-                          value={formData.inspBy}
-                          onChange={handleInputChange}
-                          required
-                          disabled={isFormDisabled}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>Change Details</CardTitle>
-                        <CardDescription>Add items and specify the changes</CardDescription>
-                      </div>
-                      {!isViewMode && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={addTableRow}
-                          disabled={isSubmitting}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Row
-                        </Button>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
                       )}
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[50px]">S.No</TableHead>
-                            <TableHead>ITEM / PART NO.</TableHead>
-                            <TableHead>CHANGE FROM</TableHead>
-                            <TableHead>CHANGE TO</TableHead>
-                            <TableHead>REASON FOR CHANGE</TableHead>
-                            <TableHead className="w-[100px]">Action</TableHead>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="equipmentNo">
+                        EQUIPMENT NO. <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="equipmentNo"
+                        name="equipmentNo"
+                        type="text"
+                        placeholder="Enter equipment number"
+                        value={formData.equipmentNo}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isFormDisabled}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="inspBy">
+                        INSP. BY <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="inspBy"
+                        name="inspBy"
+                        type="text"
+                        placeholder="Enter inspector name"
+                        value={formData.inspBy}
+                        onChange={handleInputChange}
+                        required
+                        disabled={isFormDisabled}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Change Details</CardTitle>
+                      <CardDescription>Add items and specify the changes</CardDescription>
+                    </div>
+                    {!isViewMode && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addTableRow}
+                        disabled={isSubmitting}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Row
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[50px]">S.No</TableHead>
+                          <TableHead>ITEM / PART NO.</TableHead>
+                          <TableHead>CHANGE FROM</TableHead>
+                          <TableHead>CHANGE TO</TableHead>
+                          <TableHead>REASON FOR CHANGE</TableHead>
+                          <TableHead className="w-[100px]">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {tableRows.map((row, index) => (
+                          <TableRow key={row.id}>
+                            <TableCell className="font-medium">{index + 1}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                placeholder="Enter item/part no."
+                                value={row.itemPartNo}
+                                onChange={(e) =>
+                                  handleTableRowChange(row.id, "itemPartNo", e.target.value)
+                                }
+                                disabled={isFormDisabled}
+                                className="min-w-[150px]"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                placeholder="Enter change from"
+                                value={row.changeFrom}
+                                onChange={(e) =>
+                                  handleTableRowChange(row.id, "changeFrom", e.target.value)
+                                }
+                                disabled={isFormDisabled}
+                                className="min-w-[150px]"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                placeholder="Enter change to"
+                                value={row.changeTo}
+                                onChange={(e) =>
+                                  handleTableRowChange(row.id, "changeTo", e.target.value)
+                                }
+                                disabled={isFormDisabled}
+                                className="min-w-[150px]"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                placeholder="Enter reason"
+                                value={row.reasonForChange}
+                                onChange={(e) =>
+                                  handleTableRowChange(row.id, "reasonForChange", e.target.value)
+                                }
+                                disabled={isFormDisabled}
+                                className="min-w-[200px]"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeTableRow(row.id)}
+                                disabled={isFormDisabled || tableRows.length === 1}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {tableRows.map((row, index) => (
-                            <TableRow key={row.id}>
-                              <TableCell className="font-medium">{index + 1}</TableCell>
-                              <TableCell>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter item/part no."
-                                  value={row.itemPartNo}
-                                  onChange={(e) =>
-                                    handleTableRowChange(row.id, "itemPartNo", e.target.value)
-                                  }
-                                  disabled={isFormDisabled}
-                                  className="min-w-[150px]"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter change from"
-                                  value={row.changeFrom}
-                                  onChange={(e) =>
-                                    handleTableRowChange(row.id, "changeFrom", e.target.value)
-                                  }
-                                  disabled={isFormDisabled}
-                                  className="min-w-[150px]"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter change to"
-                                  value={row.changeTo}
-                                  onChange={(e) =>
-                                    handleTableRowChange(row.id, "changeTo", e.target.value)
-                                  }
-                                  disabled={isFormDisabled}
-                                  className="min-w-[150px]"
-                                />
-                              </TableCell>
-                              <TableCell>
-                                <Input
-                                  type="text"
-                                  placeholder="Enter reason"
-                                  value={row.reasonForChange}
-                                  onChange={(e) =>
-                                    handleTableRowChange(row.id, "reasonForChange", e.target.value)
-                                  }
-                                  disabled={isFormDisabled}
-                                  className="min-w-[200px]"
-                                />
-                              </TableCell>
-                              <TableCell>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Approval</CardTitle>
+                  <CardDescription>Assign quality and design personnel</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+                    <div className="space-y-2">
+                      <Label htmlFor="designEngineerId">
+                        DESIGN <span className="text-destructive">*</span>
+                      </Label>
+                      {isViewMode ? (
+                        <Input
+                          id="designEngineerId"
+                          type="text"
+                          value={viewDetails.designEngineerName}
+                          readOnly
+                          disabled
+                        />
+                      ) : (
+                        <Select
+                          value={formData.designEngineerId}
+                          onValueChange={(value) => handleSelectChange("designEngineerId", value)}
+                          disabled={isSubmitting || isLoadingUsers}
+                        >
+                          <SelectTrigger id="designEngineerId" className="w-full">
+                            <SelectValue
+                              placeholder={
+                                isLoadingUsers ? "Loading users..." : "Select design engineer"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {designEngineers.map((user) => (
+                              <SelectItem key={`design-${user.id}`} value={user.id}>
+                                {user.displayName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="qualityEngineerId">
+                        QUALITY <span className="text-destructive">*</span>
+                      </Label>
+                      {isViewMode ? (
+                        <Input
+                          id="qualityEngineerId"
+                          type="text"
+                          value={viewDetails.qualityEngineerName}
+                          readOnly
+                          disabled
+                        />
+                      ) : (
+                        <Select
+                          value={formData.qualityEngineerId}
+                          onValueChange={(value) => handleSelectChange("qualityEngineerId", value)}
+                          disabled={isSubmitting || isLoadingUsers}
+                        >
+                          <SelectTrigger id="qualityEngineerId" className="w-full">
+                            <SelectValue
+                              placeholder={
+                                isLoadingUsers ? "Loading users..." : "Select quality engineer"
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {qualityEngineers.map((user) => (
+                              <SelectItem key={`quality-${user.id}`} value={user.id}>
+                                {user.displayName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    Attachments
+                  </CardTitle>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="dcr-attachments"
+                      className="hidden"
+                      multiple
+                      onChange={handleFileChange}
+                    />
+                    {!isViewMode && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
+                        onClick={() => document.getElementById('dcr-attachments').click()}
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add Files
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {attachments.length > 0 ? (
+                    <div className="border rounded-md divide-y overflow-hidden">
+                      {attachments.map((file) => (
+                        <div key={file.id} className="flex flex-col">
+                          <div
+                            className={`flex items-center justify-between p-3 transition-colors cursor-pointer ${selectedPreviewFile === file
+                                ? "bg-primary/5 border-b"
+                                : "bg-slate-50 hover:bg-slate-100"
+                              }`}
+                            onClick={() => {
+                              if (selectedPreviewFile === file) {
+                                setSelectedPreviewFile(null);
+                              } else {
+                                setSelectedPreviewFile(file);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-3 overflow-hidden flex-1">
+                              <FileText className="h-5 w-5 text-blue-500 shrink-0" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-medium truncate text-slate-700">{file.name}</span>
+                                <span className="text-[10px] text-slate-400">{file.size} • {file.uploadedAt}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {selectedPreviewFile === file ? (
+                                <span className="text-xs text-primary font-medium mr-2">Close Preview</span>
+                              ) : (
+                                <span className="text-xs text-slate-500 font-medium mr-2">Click to Preview</span>
+                              )}
+                              {!isViewMode && (
                                 <Button
                                   type="button"
                                   variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeTableRow(row.id)}
-                                  disabled={isFormDisabled || tableRows.length === 1}
-                                  className="text-destructive hover:text-destructive"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 z-10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (selectedPreviewFile === file) setSelectedPreviewFile(null);
+                                    removeAttachment(file.id, file.isNew)
+                                  }}
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
+                              )}
+                            </div>
+                          </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Approval</CardTitle>
-                    <CardDescription>Assign quality and design personnel</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-
-                      <div className="space-y-2">
-                        <Label htmlFor="designEngineerId">
-                          DESIGN <span className="text-destructive">*</span>
-                        </Label>
-                        {isViewMode ? (
-                          <Input
-                            id="designEngineerId"
-                            type="text"
-                            value={viewDetails.designEngineerName}
-                            readOnly
-                            disabled
-                          />
-                        ) : (
-                          <Select
-                            value={formData.designEngineerId}
-                            onValueChange={(value) => handleSelectChange("designEngineerId", value)}
-                            disabled={isSubmitting || isLoadingUsers}
-                          >
-                            <SelectTrigger id="designEngineerId" className="w-full">
-                              <SelectValue
-                                placeholder={
-                                  isLoadingUsers ? "Loading users..." : "Select design engineer"
-                                }
+                          {/* Inline Preview Body */}
+                          {selectedPreviewFile === file && file.url && (
+                            <div className="w-full h-[600px] animate-in slide-in-from-top-2 fade-in duration-300">
+                              <iframe
+                                src={file.url}
+                                className="w-full h-full border-0 bg-white"
+                                title="Document Preview"
                               />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {designEngineers.map((user) => (
-                                <SelectItem key={`design-${user.id}`} value={user.id}>
-                                  {user.displayName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="qualityEngineerId">
-                          QUALITY <span className="text-destructive">*</span>
-                        </Label>
-                        {isViewMode ? (
-                          <Input
-                            id="qualityEngineerId"
-                            type="text"
-                            value={viewDetails.qualityEngineerName}
-                            readOnly
-                            disabled
-                          />
-                        ) : (
-                          <Select
-                            value={formData.qualityEngineerId}
-                            onValueChange={(value) => handleSelectChange("qualityEngineerId", value)}
-                            disabled={isSubmitting || isLoadingUsers}
-                          >
-                            <SelectTrigger id="qualityEngineerId" className="w-full">
-                              <SelectValue
-                                placeholder={
-                                  isLoadingUsers ? "Loading users..." : "Select quality engineer"
-                                }
-                              />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {qualityEngineers.map((user) => (
-                                <SelectItem key={`quality-${user.id}`} value={user.id}>
-                                  {user.displayName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  </CardContent>
-                </Card>
-
-                {isCreateMode && (
-                  <div className="flex justify-end gap-4">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleReset}
-                      disabled={isSubmitting}
+                  ) : (
+                    <div
+                      className={`flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl bg-slate-50/50 transition-colors ${!isViewMode ? "cursor-pointer hover:bg-slate-50" : ""}`}
+                      onClick={() => !isViewMode && document.getElementById('dcr-attachments').click()}
                     >
-                      Reset
-                    </Button>
-                    <Button type="submit" disabled={isSubmitting}>
-                      {isSubmitting ? (editId ? "Updating..." : "Creating...") : (editId ? "Update DCR" : "Create DCR")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </form>
-          )}
-</PageContainer>
+                      <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+                        <Upload className="h-6 w-6 text-slate-400" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-tight">{isViewMode ? "No attachments found" : "Click to upload or drag files here"}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {isCreateMode && (
+                <div className="flex justify-end gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleReset}
+                    disabled={isSubmitting}
+                  >
+                    Reset
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting} className="cursor-pointer">
+                    {isSubmitting ? (editId ? "Updating..." : "Creating...") : (editId ? "Update DCR" : "Create DCR")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </form>
+        )}
+      </PageContainer>
       <ConfirmDialog
         isOpen={confirmDialogOpen}
         onClose={() => setConfirmDialogOpen(false)}
