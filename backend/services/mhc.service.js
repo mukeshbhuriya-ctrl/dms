@@ -259,8 +259,8 @@ class MhcService {
                         version: 1,
                         is_current: true,
                         action_by_id: creator_id,
-                        production_engineer_id: production_engineer_id || null,
-                        qc_engineer_id: null
+                        production_engineer_id: null, // STRICT RULE 1: Never insert on initiate
+                        qc_engineer_id: null          // STRICT RULE 1: Never insert on initiate
                     });
                 });
 
@@ -333,8 +333,10 @@ class MhcService {
                 const oldMtrNo = currentItem.mtr_no || null;
                 const oldManufacturer = currentItem.manufacturer || null;
 
-                const prodChanged = newHeatNo !== oldHeatNo || newGrnAppApNo !== oldGrn;
-                const anyChanged = prodChanged || newRemarks !== oldRemarks || newMtrNo !== oldMtrNo || newManufacturer !== oldManufacturer;
+                const prodChanged = newHeatNo !== oldHeatNo || 
+                                    newGrnAppApNo !== oldGrn ||
+                                    ((newHeatNo || newGrnAppApNo) && !currentItem.production_engineer_id);
+                const anyChanged = prodChanged || newRemarks !== oldRemarks || newMtrNo !== oldMtrNo || newManufacturer !== oldManufacturer || !currentItem.production_engineer_id;
 
                 // CRITICAL FIX: If no fields were changed by the user, DO NOT touch this item.
                 // This ensures rejected items keep their original QC names and remarks if untouched.
@@ -387,6 +389,8 @@ class MhcService {
                             grn_app_ap_no: newGrnAppApNo,
                             qc_status: 'Pending',
                             qc_remarks: null, // CLEAR REMARKS: Ensure no stale data
+                            qc_engineer_id: null, // CLEAR QC ENGINEER: Fresh start
+                            qc_date: null,
                             remarks: newRemarks,
                             mtr_no: newMtrNo,
                             manufacturer: newManufacturer,
@@ -437,7 +441,7 @@ class MhcService {
                     where: { id: item.id }
                 });
 
-                if (currentItem && currentItem.qc_status === 'Approved') continue;
+                if (currentItem && currentItem.qc_status === 'Approved' && currentItem.qc_engineer_id) continue;
 
                 const newMtrNo = item.mtr_no || null;
                 const newManufacturer = item.manufacturer || null;
@@ -461,7 +465,8 @@ class MhcService {
                                    newQcStatus !== oldQcStatus || 
                                    newQcRemarks !== oldQcRemarks ||
                                    newHeatNo !== oldHeatNo ||
-                                   newGrnAppApNo !== oldGrn;
+                                   newGrnAppApNo !== oldGrn ||
+                                   (newQcStatus !== 'Pending' && !currentItem.qc_engineer_id);
 
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
@@ -531,7 +536,7 @@ class MhcService {
                     where: { id: item.id }
                 });
 
-                if (currentItem && currentItem.qc_status === 'Approved') continue;
+                if (currentItem && currentItem.qc_status === 'Approved' && currentItem.qc_engineer_id) continue;
 
                 const status = item.qc_status || 'Pending';
                 if (status === 'Rejected') hasRejections = true;
@@ -556,7 +561,11 @@ class MhcService {
                                    status !== oldQcStatus || 
                                    newQcRemarks !== oldQcRemarks ||
                                    newHeatNo !== oldHeatNo ||
-                                   newGrnAppApNo !== oldGrn;
+                                   newGrnAppApNo !== oldGrn ||
+                                   (status !== 'Pending' && !currentItem.qc_engineer_id);
+
+                // Business Rule: A Pending item should NEVER have a QC stamp, even if draft remarks were entered.
+                const shouldClearQcStamp = status === 'Pending';
 
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
@@ -568,8 +577,8 @@ class MhcService {
                         remarks: newRemarks,
                         heat_no: newHeatNo,
                         grn_app_ap_no: newGrnAppApNo,
-                        qc_engineer_id: qcChanged ? user_id : currentItem.qc_engineer_id,
-                        qc_date: qcChanged ? new Date() : currentItem.qc_date,
+                        qc_engineer_id: shouldClearQcStamp ? null : (qcChanged ? user_id : currentItem.qc_engineer_id),
+                        qc_date: shouldClearQcStamp ? null : (qcChanged ? new Date() : currentItem.qc_date),
                         action_by_id: qcChanged ? user_id : currentItem.action_by_id
                     }
                 });
@@ -876,10 +885,10 @@ class MhcService {
                         if (current.qc_status !== 'Approved') {
                             const oldHeatNo = current.heat_no || null;
                             const oldGrn = current.grn_app_ap_no || null;
-                            const prodChanged = (data.heat_no || null) !== oldHeatNo || (data.grn_app_ap_no || null) !== oldGrn;
+                            const prodChanged = (data.heat_no || null) !== oldHeatNo || 
+                                                (data.grn_app_ap_no || null) !== oldGrn ||
+                                                ((data.heat_no || data.grn_app_ap_no) && !current.production_engineer_id);
                             if (prodChanged && user_id) {
-                                data.production_engineer_id = user_id;
-                                data.production_date = new Date();
                                 data.action_by_id = user_id;
                             }
                             
@@ -895,8 +904,6 @@ class MhcService {
                                               (data.qc_status || 'Pending') !== oldQcStatus || 
                                               (data.qc_remarks || null) !== oldQcRemarks;
                             if (qcChanged && user_id) {
-                                data.qc_engineer_id = user_id;
-                                data.qc_date = new Date();
                                 data.action_by_id = user_id;
                             }
 
@@ -909,8 +916,8 @@ class MhcService {
                         // Create new
                         if (user_id) {
                             data.action_by_id = user_id;
-                            data.production_engineer_id = user_id;
-                            data.production_date = new Date();
+                            data.production_engineer_id = null;
+                            data.qc_engineer_id = null;
                         }
                         await tx.material_heat_chart_item.create({
                             data: {

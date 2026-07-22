@@ -1960,8 +1960,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                 { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
                                 { field: "size", placeholder: "Size", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
                                 { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
-                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked, req: false },
-                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked, req: false },
+                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false },
+                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false },
                                 { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked, req: false },
                                 { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked, req: false },
                                 { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked, req: false },
@@ -2253,11 +2253,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                     <Button
                       type="submit"
                       variant="secondary"
-                      onClick={() => { actionRef.current = "UPDATE_FULL"; }}
+                      onClick={() => { actionRef.current = "SAVE_REVIEW"; }}
                       disabled={submitting !== null || !tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
                       className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
                     >
-                      {submitting === "UPDATE_FULL" ? "Saving..." : "Review & Continue"}
+                      {submitting === "SAVE_REVIEW" ? "Saving..." : "Review & Continue"}
                       <Save className="h-4 w-4" />
                     </Button>
                     <Button
