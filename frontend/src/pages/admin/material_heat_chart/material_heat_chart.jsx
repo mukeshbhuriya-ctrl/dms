@@ -2242,10 +2242,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                 {editContext === "INITIATION" ? (
                   <Button
                     type="submit"
-                    variant="outline"
                     onClick={() => { actionRef.current = "UPDATE_FULL_DRAFT"; }}
                     disabled={submitting !== null}
-                    className="border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    className="cursor-pointer"
                   >
                     {submitting === "UPDATE_FULL_DRAFT" ? "Updating..." : "Update MHC"}
                   </Button>

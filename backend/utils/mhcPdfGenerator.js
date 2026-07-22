@@ -157,7 +157,7 @@ class MhcPdfGenerator {
         const cols = drawHeader(30);
 
         // ─── 4. TABLE BODY ─────────────────────────────────────────────────────
-        const bodyMaxY = 480; 
+        const bodyMaxY = 440; 
 
         const items = data.items || [];
         items.forEach((item, idx) => {
@@ -237,19 +237,19 @@ class MhcPdfGenerator {
             doc.switchToPage(i);
             
             // Signature Row
-            const footerH = 60;
-            const footerY = 480; // Fixed absolute bottom position
+            const footerH = 100;
+            const footerY = 440; // Fixed absolute bottom position
             this.drawBox(doc, startX, footerY, pageWidth, footerH, 1);
             const footerCols = [{ label: 'Q.C ENGINEER', w: pageWidth / 3 }, { label: 'AI', w: pageWidth / 3 }, { label: 'CLIENT / TPI', w: pageWidth / 3 }];
             let fx = startX;
             footerCols.forEach((col, idx) => {
-                doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black).text(col.label, fx, footerY + 40, { width: col.w, align: 'center' });
+                doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black).text(col.label, fx, footerY + footerH - 25, { width: col.w, align: 'center' });
                 fx += col.w;
                 if (idx < footerCols.length - 1) this.drawLine(doc, fx, footerY, fx, footerY + footerH, 1);
             });
 
             // Page Information
-            const absoluteFooterY = 595.28 - 45; // Safely above the 30px bottom margin
+            const absoluteFooterY = 595.28 - 40; // Safely below the signature box
             doc.fontSize(7).font(this.fonts.regular).fillColor(this.colors.black);
             doc.text('EXHIBIT: 9/8 MATERIAL HEAT CHARTS', startX, absoluteFooterY);
             doc.text(`Page ${i + 1} of ${range.count}`, startX, absoluteFooterY, { align: 'right', width: pageWidth });
