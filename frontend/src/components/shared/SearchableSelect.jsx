@@ -22,6 +22,7 @@ export function SearchableSelect({
   isFilter = false,
   className,
   disabled = false,
+  required = false,
 }) {
   const [open, setOpen] = React.useState(false)
   const [searchTerm, setSearchTerm] = React.useState("")
@@ -67,36 +68,37 @@ export function SearchableSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between font-normal bg-background",
-            !value && "text-muted-foreground",
-            className
-          )}
-        >
-          <span className="truncate mr-2 capitalize">{getDisplayLabel()?.toString()}</span>
-          <div className="flex items-center gap-1 shrink-0 opacity-50">
-            {selectedValues.length > 0 && !disabled && (
-              <X
-                className="h-3 w-3 hover:text-destructive transition-colors pointer-events-auto"
-                onClick={clearSelection}
-              />
+    <div className="relative w-full">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            disabled={disabled}
+            className={cn(
+              "w-full justify-between font-normal bg-background",
+              !value && "text-muted-foreground",
+              className
             )}
-            <ChevronDown className="h-4 w-4" />
-          </div>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent 
-        className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[200px] z-[100]" 
-        align="start"
-        sideOffset={4}
-      >
+          >
+            <span className="truncate mr-2 capitalize">{getDisplayLabel()?.toString()}</span>
+            <div className="flex items-center gap-1 shrink-0 opacity-50">
+              {selectedValues.length > 0 && !disabled && (
+                <X
+                  className="h-3 w-3 hover:text-destructive transition-colors pointer-events-auto"
+                  onClick={clearSelection}
+                />
+              )}
+              <ChevronDown className="h-4 w-4" />
+            </div>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent 
+          className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[200px] z-[100]" 
+          align="start"
+          sideOffset={4}
+        >
         <div className="flex flex-col flex-1 max-h-[300px]">
           <div className="flex items-center border-b px-3 py-2">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
@@ -173,5 +175,17 @@ export function SearchableSelect({
         </div>
       </PopoverContent>
     </Popover>
+    {required && (
+      <input
+        type="text"
+        required={required}
+        value={multi ? (selectedValues.length > 0 ? "selected" : "") : (value || "")}
+        onChange={() => {}}
+        className="absolute inset-0 w-full h-full opacity-0 pointer-events-none -z-10"
+        tabIndex={-1}
+        aria-hidden="true"
+      />
+    )}
+    </div>
   )
 }

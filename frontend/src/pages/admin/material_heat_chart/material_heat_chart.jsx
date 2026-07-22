@@ -1,5 +1,5 @@
 import { PageContainer } from "@/components/layout/PageContainer"
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { toast } from "react-toastify"
 
 import { Button } from "@/components/ui/button"
@@ -677,9 +677,9 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
                 onClick: () => onCloneClick(row.id)
             });
             actions.push({
-                label: "Edit Initiation",
+                label: "Edit MHC",
                 icon: Edit,
-                onClick: () => onEditClick(row.id)
+                onClick: () => onEditClick(row.id, false, "INITIATION")
             });
         }
         
@@ -687,7 +687,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Edit & Continue",
                 icon: ArrowRight,
-                onClick: () => onEditClick(row.id)
+                onClick: () => onEditClick(row.id, false, "OFFER")
             });
         }
         
@@ -695,7 +695,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Review & Continue",
                 icon: CheckCircle,
-                onClick: () => onEditClick(row.id)
+                onClick: () => onEditClick(row.id, false, "REVIEW")
             });
         }
         
@@ -1012,7 +1012,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
 }
 
 // ─── Create View ─────────────────────────────────────────────────────────────
-function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView = false }) {
+function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView = false, editContext = "" }) {
   const { user } = useAuth()
   // Jobs list for MSN dropdown
   const [jobs, setJobs] = useState([])
@@ -1040,6 +1040,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     equipmentName: "",
     tagNo: "",
   })
+  
+  const actionRef = useRef(null)
 
   // Equipment Details
   const [formData, setFormData] = useState({
@@ -1451,7 +1453,46 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     }
   };
 
-  const handleSubmit = async (action = "SUBMIT") => {
+  const handleApproveToggle = (row) => {
+    const s = String(row.qcStatus || "Pending").toUpperCase();
+    if (s === 'APPROVED') {
+      handleRowChange(row.id, "qcStatus", "Pending");
+      return;
+    }
+    
+    // Check for empty fields before allowing Approval
+    const fieldsToCheck = ["itemNo", "description", "materialSpecification", "size", "quantityUnit", "heatNo", "grnAppApNo", "mtrNo", "manufacturerName", "remarks"];
+    for (const field of fieldsToCheck) {
+      if (!row[field]?.toString().trim()) {
+        const el = document.getElementById(`${row.id}-${field}`);
+        if (el) {
+          el.setCustomValidity("Please fill out this field.");
+          el.reportValidity();
+          // Remove the custom validity so it doesn't permanently block the form
+          el.addEventListener('input', function onInput() {
+            el.setCustomValidity("");
+            el.removeEventListener('input', onInput);
+          }, { once: true });
+          
+          // Also clear it if they focus out or later
+          setTimeout(() => el.setCustomValidity(""), 3000);
+        }
+        return; // Block the approval state change
+      }
+    }
+    
+    handleRowChange(row.id, "qcStatus", "Approved");
+  };
+
+  const handleSubmit = async (eOrAction) => {
+    let action = "SUBMIT";
+    if (eOrAction?.preventDefault) {
+      eOrAction.preventDefault();
+      action = actionRef.current || "SUBMIT";
+    } else if (typeof eOrAction === "string") {
+      action = eOrAction;
+    }
+
     if (!selectedJobId) {
       toast.warn("Please select a Job / MSN.")
       return
@@ -1531,7 +1572,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   }
 
   return (
-    <div className="w-full space-y-6 pb-6">
+    <form onSubmit={handleSubmit} className="w-full space-y-6 pb-6">
       {/* Header */}
       <div className="flex justify-end mb-4">
         <Button variant="outline" onClick={onBack} disabled={submitting !== null} >
@@ -1713,6 +1754,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                 
                 <div className="flex items-center gap-2">
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => handleDownloadSelectedPdf('print')}
@@ -1724,6 +1766,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                   </Button>
 
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => handleDownloadSelectedPdf('download')}
@@ -1912,27 +1955,29 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                 </td>
                               )}
                               {[
-                                { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked },
-                                { field: "description", placeholder: "Description", locked: isQcInitiationLocked },
-                                { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked },
-                                { field: "size", placeholder: "Size", locked: isQcInitiationLocked },
-                                { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked },
-                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked },
-                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked },
-                                { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked },
-                                { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked },
-                                { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked },
-                              ].map(({ field, placeholder, locked }, i) => (
+                                { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
+                                { field: "description", placeholder: "Description", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
+                                { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
+                                { field: "size", placeholder: "Size", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
+                                { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
+                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked, req: false },
+                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked, req: false },
+                                { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked, req: false },
+                                { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked, req: false },
+                                { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked, req: false },
+                              ].map(({ field, placeholder, locked, req }, i) => (
                                 <td
                                   key={field}
                                   className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-slate-100/40 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : "bg-white"}` : ""}`}
                                 >
                                   <Textarea
+                                    id={`${row.id}-${field}`}
                                     value={row[field]}
                                     onChange={(e) => handleRowChange(row.id, field, e.target.value)}
                                     placeholder={placeholder}
-                                    className={`text-[13px] min-w-[240px] w-full min-h-[40px] max-h-[120px] py-2.5 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white/80" : "border-muted-foreground/30"} rounded-lg ${String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : ''}`}
-                                    disabled={locked || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED'}
+                                    required={req}
+                                    className={`text-[13px] min-w-[240px] w-full min-h-[40px] max-h-[120px] py-2.5 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white/80" : "border-muted-foreground/30"} rounded-md`}
+                                    disabled={locked}
                                   />
                                 </td>
                               ))}
@@ -1954,7 +1999,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                                     size="icon"
                                                     variant="outline"
                                                     className={`h-8 w-8 rounded-lg transition-all ${s === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'hover:bg-emerald-50 text-emerald-600 border-emerald-200'}`}
-                                                    onClick={() => handleRowChange(row.id, "qcStatus", s === 'APPROVED' ? 'Pending' : 'Approved')}
+                                                    onClick={() => handleApproveToggle(row)}
                                                     disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
                                                   >
                                                     <Check className="h-4 w-4" />
@@ -2018,8 +2063,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     value={row.qcRemarks || ""}
                                     onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
                                     placeholder="QC remarks..."
-                                    className={`text-[13px] min-h-[40px] max-h-[120px] py-2.5 resize-y rounded-lg transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : (String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200 text-emerald-900 font-medium' : 'border-muted-foreground/30')}`}
-                                    disabled={isView || String(row.qcStatus || "Pending").toUpperCase() === 'APPROVED' || (!isAdmin && !isQE)}
+                                    className={`text-[13px] min-h-[40px] max-h-[120px] py-2.5 resize-y rounded-md transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : "border-muted-foreground/30"}`}
+                                    disabled={isView || (!isAdmin && !isQE)}
                                   />
                                 </td>
                               )}
@@ -2119,12 +2164,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                   onValueChange={setQcGroupId}
                   placeholder="Select quality group"
                   disabled={isQcInitiationLocked}
+                  required={!isQcInitiationLocked}
                 />
-                {!qc_group_id && !isQcInitiationLocked && (
-                  <p className="text-[11px] text-rose-500 font-medium tracking-tight flex items-center gap-1 mt-1">
-                    <AlertCircle className="h-3 w-3" /> Required for initiation
-                  </p>
-                )}
               </div>
             </div>
             <div className="space-y-4">
@@ -2136,12 +2177,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                   onValueChange={setProductionGroupId}
                   placeholder="Select production group"
                   disabled={isQcInitiationLocked}
+                  required={!isQcInitiationLocked}
                 />
-                {!production_group_id && !isQcInitiationLocked && (
-                  <p className="text-[11px] text-rose-500 font-medium tracking-tight flex items-center gap-1 mt-1">
-                    <AlertCircle className="h-3 w-3" /> Required for initiation
-                  </p>
-                )}
               </div>
             </div>
           </div>
@@ -2157,8 +2194,10 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           <>
             {(isAdmin || isQE) && (!editId || mhcStatus?.toUpperCase() === "DRAFT") && (
               <Button
+                type="submit"
+                formNoValidate
                 variant="outline"
-                onClick={() => handleSubmit("DRAFT")}
+                onClick={() => { actionRef.current = "DRAFT"; }}
                 disabled={submitting !== null}
                 className="border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
@@ -2167,17 +2206,19 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             )}
             {(!editId || ["INITIATED", "PENDING", "DRAFT"].includes(mhcStatus?.toUpperCase())) && (isAdmin || isQE) && (
               <Button
-                onClick={() => handleSubmit("INITIATE")}
-                disabled={submitting !== null || !qc_group_id || !production_group_id}
-                className={`cursor-pointer ${(!qc_group_id || !production_group_id) ? "opacity-50 cursor-not-allowed" : ""}`}
+                type="submit"
+                onClick={() => { actionRef.current = "INITIATE"; }}
+                disabled={submitting !== null}
+                className="cursor-pointer"
               >
-                {submitting === "INITIATE" ? "Initiating..." : (editId && mhcStatus?.toUpperCase() !== "DRAFT" ? "Update Initiation" : "Initiate MHC")}
+                {submitting === "INITIATE" ? "Updating..." : (editId && mhcStatus?.toUpperCase() !== "DRAFT" ? "Update MHC" : "Initiate MHC")}
               </Button>
             )}
             {editId && (mhcStatus?.toUpperCase() === "INITIATED" || mhcStatus?.toUpperCase() === "PENDING" || mhcStatus?.toUpperCase() === "REJECTED") && (isAdmin || isPE) && (
               <Button
+                type="submit"
                 variant="secondary"
-                onClick={() => handleSubmit("OFFER")}
+                onClick={() => { actionRef.current = "OFFER"; }}
                 disabled={submitting !== null}
                 className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 cursor-pointer gap-2"
               >
@@ -2187,7 +2228,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             )}
             {(mhcStatus?.toUpperCase() === "OFFERED") && (isPE || isAdmin) && (
               <Button
-                onClick={() => handleSubmit("UPDATE_OFFERED")}
+                type="submit"
+                onClick={() => { actionRef.current = "UPDATE_OFFERED"; }}
                 disabled={submitting !== null}
                 className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
               >
@@ -2197,23 +2239,39 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             )}
             {mhcStatus?.toUpperCase() === "OFFERED" && (isAdmin || isQE) && (
               <>
-                <Button
-                  variant="secondary"
-                  onClick={() => handleSubmit("UPDATE_FULL")}
-                  disabled={submitting !== null || !tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
-                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
-                >
-                  {submitting === "UPDATE_FULL" ? "Saving..." : "Review & Continue"}
-                  <Save className="h-4 w-4" />
-                </Button>
-                <Button
-                  onClick={() => handleSubmit("FINALIZE")}
-                  disabled={submitting !== null || tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2"
-                >
-                  {submitting === "FINALIZE" ? "Finalizing..." : "Finalize & Approve MHC"}
-                  <CheckCircle className="h-4 w-4" />
-                </Button>
+                {editContext === "INITIATION" ? (
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    onClick={() => { actionRef.current = "UPDATE_FULL_DRAFT"; }}
+                    disabled={submitting !== null}
+                    className="border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    {submitting === "UPDATE_FULL_DRAFT" ? "Updating..." : "Update MHC"}
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="submit"
+                      variant="secondary"
+                      onClick={() => { actionRef.current = "UPDATE_FULL"; }}
+                      disabled={submitting !== null || !tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
+                      className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer gap-2"
+                    >
+                      {submitting === "UPDATE_FULL" ? "Saving..." : "Review & Continue"}
+                      <Save className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="submit"
+                      onClick={() => { actionRef.current = "FINALIZE"; }}
+                      disabled={submitting !== null || tableRows.some(r => !r.isHeading && r.qcStatus !== 'Approved')}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer gap-2"
+                    >
+                      {submitting === "FINALIZE" ? "Finalizing..." : "Finalize & Approve MHC"}
+                      <CheckCircle className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </>
             )}
             {mhcStatus?.toUpperCase() === "OFFERED" && isAdmin && (
@@ -2229,7 +2287,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           </>
         )}
       </div>
-    </div>
+    </form>
   )
 }
 
@@ -2240,12 +2298,13 @@ export default function MaterialHeatChart() {
   const [cloneId, setCloneId] = useState(null)
   const [isReadOnly, setIsReadOnly] = useState(false)
   const [searchParams] = useSearchParams()
+  const [editContext, setEditContext] = useState("")
 
   useEffect(() => {
     const action = searchParams.get('action')
     const id = searchParams.get('id')
     if (action === 'edit' && id) {
-      handleEditClick(id)
+      handleEditClick(id, false, "INITIATION")
     }
   }, [searchParams])
 
@@ -2253,13 +2312,15 @@ export default function MaterialHeatChart() {
     setEditId(null)
     setCloneId(null)
     setIsReadOnly(false)
+    setEditContext("")
     setView("create")
   }
 
-  const handleEditClick = (id, isView = false) => {
+  const handleEditClick = (id, isView = false, context = "") => {
     setEditId(id)
     setCloneId(null)
     setIsReadOnly(isView)
+    setEditContext(context)
     setView("create")
   }
 
@@ -2267,6 +2328,7 @@ export default function MaterialHeatChart() {
     setCloneId(id)
     setEditId(null)
     setIsReadOnly(false)
+    setEditContext("")
     setView("create")
   }
 
@@ -2279,7 +2341,7 @@ export default function MaterialHeatChart() {
     <PageContainer>{view === "list" ? (
             <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} onCloneClick={handleCloneClick} />
           ) : (
-            <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} />
+            <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} editContext={editContext} />
           )}</PageContainer>
   )
 }
