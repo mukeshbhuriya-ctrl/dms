@@ -123,11 +123,12 @@ class MhcPdfGenerator {
             const cols = [
                 { id: 'item_no', label: 'ITEM NO. / \nPART NO.', w: 40 },
                 { id: 'description', label: 'DESCRIPTION', w: 80 },
-                { id: 'size', label: 'SIZE', w: 120 },
+                { id: 'size', label: 'SIZE', w: 80 }, // reduced from 120
                 { id: 'material_spec', label: 'MATERIAL SPECIFICATION', w: 90 },
                 { id: 'qty', label: 'QUANTITY / \nUNIT', w: 40 },
                 { id: 'heat_no', label: 'HEAT NO. / CAST NO.\n/PLATE NO.', w: 90 },
-                { id: 'mtr_no', label: 'MTR NO.', w: 130 },
+                { id: 'grn_no', label: 'GRN/APP/AP NO.', w: 70 }, // new column
+                { id: 'mtr_no', label: 'MTR NO.', w: 100 }, // reduced from 130
                 { id: 'manufacturer', label: 'MANUFACTURER NAME', w: 90 },
                 { id: 'remarks', label: 'REMARKS\nNCR/DCR', w: pageWidth - 680 } 
             ];
@@ -187,11 +188,12 @@ class MhcPdfGenerator {
                 const h3 = getH(item.material_spec, cols[3].w);
                 const h4 = getH(item.quantity_unit, cols[4].w);
                 const h5 = getH(item.heat_no, cols[5].w);
-                const h6 = getH(item.mtr_no, cols[6].w);
-                const h7 = getH(item.manufacturer, cols[7].w);
-                const h8 = getH(item.remarks, cols[8].w);
+                const hGrn = getH(item.grn_app_ap_no, cols[6].w);
+                const h6 = getH(item.mtr_no, cols[7].w);
+                const h7 = getH(item.manufacturer, cols[8].w);
+                const h8 = getH(item.remarks, cols[9].w);
                 
-                let rowH = Math.max(22, h0+10, h1+10, h2+10, h3+10, h4+10, h5+10, h6+10, h7+10, h8+10);
+                let rowH = Math.max(22, h0+10, h1+10, h2+10, h3+10, h4+10, h5+10, hGrn+10, h6+10, h7+10, h8+10);
                 if (rowH > 320) rowH = 320; // Bound max height to safely fit within a single page layout
                 
                 if (curY + rowH > bodyMaxY) {
@@ -218,13 +220,14 @@ class MhcPdfGenerator {
                 drawCell(item.material_spec, cols[3].w);
                 drawCell(item.quantity_unit, cols[4].w);
                 drawCell(item.heat_no, cols[5].w);
-                drawCell(item.mtr_no, cols[6].w);
-                drawCell(item.manufacturer, cols[7].w);
+                drawCell(item.grn_app_ap_no, cols[6].w);
+                drawCell(item.mtr_no, cols[7].w);
+                drawCell(item.manufacturer, cols[8].w);
                 
                 const val8 = this.formatText(item.remarks);
-                const textH8 = doc.heightOfString(val8, { width: cols[8].w - 12, lineBreak: true });
+                const textH8 = doc.heightOfString(val8, { width: cols[9].w - 12, lineBreak: true });
                 const renderH8 = Math.min(textH8, rowH - 4);
-                doc.text(val8, tx + 6, curY + (rowH/2) - (renderH8/2) + 1, { width: cols[8].w - 12, height: renderH8 + 2, align: 'center', lineBreak: true, ellipsis: true });
+                doc.text(val8, tx + 6, curY + (rowH/2) - (renderH8/2) + 1, { width: cols[9].w - 12, height: renderH8 + 2, align: 'center', lineBreak: true, ellipsis: true });
                 
                 curY += rowH;
             }
