@@ -147,3 +147,40 @@ npm run dev # Uses nodemon
 cd frontend
 npm run dev # Uses vite
 ```
+
+
+
+
+#Backup
+mkdir D:\DMS\backup
+docker exec -t postgres pg_dump -U postgres -d dms > D:\DMS\backup\dms_backup.sql
+docker exec -t postgres pg_dump -U postgres -d dms > "D:\DMS\backup\dms_backup_$(Get-Date -Format yyyyMMdd_HHmmss).sql"
+
+#Reuse(Restore)
+docker exec postgres createdb -U postgres dms_new
+type D:\DMS\backup\dms_backup.sql | docker exec -i postgres psql -U postgres -d dms_new
+
+
+:: List databases
+docker exec -it postgres psql -U postgres -c "\l"
+
+:: Create backup folder
+mkdir D:\DMS\backup
+
+:: Backup database
+docker exec -t postgres pg_dump -U postgres -d dms > D:\DMS\backup\dms.sql
+
+:: Verify backup
+dir D:\DMS\backup
+
+:: Create new database
+docker exec postgres createdb -U postgres dms_restore
+
+:: Restore backup
+type D:\DMS\backup\dms.sql | docker exec -i postgres psql -U postgres -d dms_restore
+
+:: List tables
+docker exec -it postgres psql -U postgres -d dms_restore -c "\dt"
+
+:: Verify data
+docker exec -it postgres psql -U postgres -d dms_restore -c "SELECT COUNT(*) FROM users;"
