@@ -352,15 +352,13 @@ function App() {
 
       <div className="login-card-container">
         <div className="glass-card">
-          <div className="login-header-section">
-            <div className="logo-container">
-              <img 
-                src="/shreno_logo.jpg" 
-                alt="Shreno Engineering" 
-                className="shreno-logo" 
-              />
-            </div>
-            <h1 className="portal-title">DMS Portal</h1>
+          <div className="login-header-section flex flex-col items-center">
+            <img 
+              src="/shreno_logo.png?v=5" 
+              alt="Shreno Engineering" 
+              className="h-14 w-auto object-contain mb-3" 
+            />
+            <h1 className="text-[18px] font-bold text-slate-600 tracking-wide uppercase">Shreno DMS</h1>
           </div>
 
           <div className="login-form-content">
