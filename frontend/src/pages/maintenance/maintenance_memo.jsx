@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react"
 import { PageContainer } from "@/components/layout/PageContainer"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
-import { Plus, Eye, Paperclip, MessageSquare, ArrowLeft, UploadCloud, Clock, CheckCircle } from "lucide-react"
+import { Plus, Eye, Paperclip, MessageSquare, ArrowLeft, UploadCloud, Clock, CheckCircle, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -163,7 +163,7 @@ function ListView({ onInitiateClick, onViewClick, data }) {
   ], [onViewClick]);
 
   return (
-    <div className="flex flex-col pt-4">
+    <div className="h-full flex flex-col pt-4">
       <ProDataTable
         columns={columns}
         fetchData={fetchData}
@@ -268,7 +268,7 @@ function InitiateMemoView({ onBack, onSuccess, data, setData }) {
                 placeholder="Describe the issue in detail..." 
                 value={formData.fault}
                 onChange={(e) => handleInputChange("fault", e.target.value)}
-                className="bg-slate-50/50 shadow-none min-h-[100px] resize-none"
+                className="bg-slate-50/50 shadow-none min-h-[100px] resize-y [field-sizing:fixed]"
               />
             </div>
 
@@ -336,7 +336,7 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
     actionTaken: memo.actionTaken || "",
     attendedBy: memo.attendedBy || "",
     activityType: memo.activityType || "",
-    materialRequired: memo.materialRequired || false,
+    materialConsumed: memo.materialConsumed || false,
     receivedTime: memo.receivedTime || "",
     attendedTime: memo.attendedTime || "",
     compTime: memo.compTime || "",
@@ -345,7 +345,8 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
     manHrsMgt: memo.manHrsMgt || "",
     totalManHrs: memo.totalManHrs || "",
     breakdownHrs: memo.breakdownHrs || "",
-    status: memo.status === "Open" ? "In Progress" : memo.status,
+    status: memo.status === "Open" ? "UNDER BREAKDOWN" : memo.status,
+    remarks: memo.remarks || "",
   });
 
   const handleResChange = (field, value) => {
@@ -381,56 +382,82 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
         </div>
         <Button variant="outline" onClick={onBack} className="shadow-none h-9 text-slate-700 border-slate-200 bg-white">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Memos
+          Back to List
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex flex-col gap-6 w-full">
         
-        {/* Left Column: Problem Statement (Read-Only) */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="shadow-sm border-slate-200 bg-white">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-3">
-              <CardTitle className="text-xs font-bold text-slate-700 uppercase tracking-wide">Problem Statement</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Machine</div>
-                <div className="text-sm font-semibold text-slate-900">{memo.machineName}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date</div>
-                  <div className="text-sm text-slate-700">{memo.date}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Shift</div>
-                  <div className="text-sm text-slate-700">{memo.shift}</div>
+        {/* Top Section: Problem Statement (Read-Only) */}
+        <Card className="shadow-none border-slate-200 bg-white rounded-none">
+          <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
+            <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Initiate Maintenance Memo</CardTitle>
+            <CardDescription className="text-xs">Production department will fill out the fault statement to notify maintenance.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Machine Name <span className="text-red-500">*</span></label>
+                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
+                  {memo.machineName}
                 </div>
               </div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Initiated By</div>
-                <div className="text-sm text-slate-700">{memo.informBy} &rarr; {memo.informTo || "Maintenance"}</div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Shift <span className="text-red-500">*</span></label>
+                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
+                  {memo.shift}
+                </div>
               </div>
-              <div>
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Fault Description</div>
-                <div className="text-sm text-slate-700 bg-red-50/50 border border-red-100 p-3 rounded-md min-h-[80px]">
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
+                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
+                  {memo.date}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Fault / Problem Statement <span className="text-red-500">*</span></label>
+                <div className="px-3 py-3 border border-slate-200 bg-slate-50/50 text-sm text-slate-800 min-h-[100px] whitespace-pre-wrap">
                   {memo.fault}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Right Column: Maintenance Resolution Form */}
-        <div className="lg:col-span-2">
-          <Card className="shadow-sm border-slate-200 bg-white h-full flex flex-col">
-            <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
-              <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Maintenance Resolution</CardTitle>
-              <CardDescription className="text-xs">Fill out the action taken, hours, and resolve the memo.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-6 flex-1">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-6">
+              <div className="flex flex-col gap-2 md:col-span-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Attachments (Optional)</label>
+                <div className="border border-dashed border-slate-200 p-6 flex flex-col items-center justify-center text-slate-500 bg-slate-50/50">
+                  <span className="text-sm font-medium text-slate-400">No attachments provided</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Inform By (Auto) <span className="text-red-500">*</span></label>
+                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
+                  {memo.informBy}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Inform To <span className="text-red-500">*</span></label>
+                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
+                  {memo.informTo || "Maintenance"}
+                </div>
+              </div>
+
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bottom Section: Maintenance Resolution Form */}
+        <Card className="shadow-none border-slate-200 bg-white rounded-none">
+          <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
+            <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Maintenance Resolution Form</CardTitle>
+            <CardDescription className="text-xs">Fill out the action taken, hours, and resolve the memo.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-6">
                 
                 {/* Timeline */}
                 <div className="flex flex-col gap-2">
@@ -442,7 +469,7 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                   <Input type="time" value={resolution.attendedTime} onChange={e => handleResChange("attendedTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Comp Time</label>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Completion Time</label>
                   <Input type="time" value={resolution.compTime} onChange={e => handleResChange("compTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
                 </div>
 
@@ -453,7 +480,7 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                     value={resolution.actionTaken} 
                     onChange={e => handleResChange("actionTaken", e.target.value)} 
                     placeholder="Describe what was fixed..."
-                    className="bg-slate-50/50 shadow-none min-h-[80px] resize-none" 
+                    className="bg-slate-50/50 shadow-none min-h-[80px] resize-y [field-sizing:fixed]" 
                   />
                 </div>
 
@@ -479,15 +506,18 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                   />
                 </div>
 
-                <div className="flex flex-col gap-2 pt-6 pl-2">
-                  <div className="flex items-center space-x-2">
-                    <Switch 
-                      id="material-req" 
-                      checked={resolution.materialRequired} 
-                      onCheckedChange={(c) => handleResChange("materialRequired", c)}
-                    />
-                    <Label htmlFor="material-req" className="text-xs font-bold text-slate-700 uppercase tracking-wider cursor-pointer">Material Req?</Label>
-                  </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Material Consumed?</label>
+                  <SearchableSelect
+                    options={[
+                      { label: "YES", value: "yes" },
+                      { label: "NO", value: "no" }
+                    ]}
+                    value={resolution.materialConsumed ? "yes" : "no"}
+                    onValueChange={(val) => handleResChange("materialConsumed", val === "yes")}
+                    placeholder="Select Yes/No"
+                    className="bg-slate-50/50 shadow-none border-slate-200"
+                  />
                 </div>
 
                 {/* Hours Tracker */}
@@ -523,13 +553,22 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Memo Status</label>
                     <SearchableSelect
                       options={[
-                        { label: "In Progress (Pending)", value: "In Progress" },
-                        { label: "Resolved (OK)", value: "Resolved" },
+                        { label: "OK", value: "OK" },
+                        { label: "UNDER BREAKDOWN", value: "UNDER BREAKDOWN" },
                       ]}
                       value={resolution.status}
                       onValueChange={(val) => handleResChange("status", val)}
                       placeholder="Status"
                       className="bg-slate-50/50 shadow-none border-slate-200 font-semibold"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 md:col-span-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Remarks</label>
+                    <Textarea 
+                      value={resolution.remarks} 
+                      onChange={e => handleResChange("remarks", e.target.value)} 
+                      placeholder="Any additional remarks..."
+                      className="bg-slate-50/50 shadow-none min-h-[60px] resize-y [field-sizing:fixed]" 
                     />
                   </div>
                 </div>
@@ -546,8 +585,6 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
               </Button>
             </CardFooter>
           </Card>
-        </div>
-
       </div>
     </div>
   );
