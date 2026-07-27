@@ -547,7 +547,7 @@ function ViewWeldingJoints() {
 
           if (isQCOrNDT) {
             if (isPending) {
-              if (isAssignedToMe) {
+              if (isAssignedToMe || userRoles.includes('ADMIN')) {
                 return {
                   label: `Review & Approve ${stageName}`,
                   icon: Check,
@@ -581,10 +581,19 @@ function ViewWeldingJoints() {
             const currentStageKey = row.status.replace('stage', 's') + '_status';
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
 
+            const isProdOrAdmin = userRoles.includes('PRODUCTION_ENGINEER') || userRoles.includes('ADMIN');
+
+            if (showPending) {
+                if (isProdOrAdmin) return null; // Edit action is pushed globally below
+                return {
+                    label: `Approval Pending ${stageName}`,
+                    disabled: true
+                };
+            }
+
             return {
-              label: showPending ? `Approval Pending ${stageName}` : (isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`),
-              onClick: showPending ? undefined : () => handleOpenStage(mergedJoint),
-              disabled: showPending,
+              label: isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`,
+              onClick: () => handleOpenStage(mergedJoint),
               className: isRejected ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-blue-600 hover:text-blue-700 hover:bg-blue-50"
             };
           }
@@ -611,6 +620,18 @@ function ViewWeldingJoints() {
                 setIsTrailOpen(true);
             }
         });
+        
+        const showPending = isPending && isSubmitted;
+        const isProdOrAdmin = userRoles.includes('PRODUCTION_ENGINEER') || userRoles.includes('ADMIN');
+        
+        if (showPending && isProdOrAdmin && row.status !== 'completed') {
+            actions.push({ type: "separator" });
+            actions.push({
+                label: `Edit ${stageName}`,
+                onClick: () => handleOpenStage(mergedJoint),
+                className: "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+            });
+        }
         
         const dynamicAction = getDynamicAction();
         if (dynamicAction) {
