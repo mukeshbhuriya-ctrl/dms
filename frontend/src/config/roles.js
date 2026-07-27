@@ -60,6 +60,12 @@ export const MODULES = {
         INSTRUMENTS: "MASTERS_INSTRUMENTS",
     },
 
+    // ── Maintenance Block ──
+    MAINTENANCE: {
+        MACHINE: "MAINTENANCE_MACHINE",
+        MEMO: "MAINTENANCE_MEMO",
+    },
+
     // ── Marketing Block ──
     MARKETING: {
         RFQ: "MARKETING_RFQ",
@@ -100,6 +106,7 @@ export const ROLES = {
     QAP: "QAP",
     DMS: "DMS",
     NCR: "NCR",
+    MAINTENANCE: "MAINTENANCE",
 }
 
 // ─── Menu Configuration ────────────────────────────────────────────
@@ -252,6 +259,16 @@ export const MENU_CONFIG = [
         items: [
             { title: "Calibration Instruments", path: "/masters/calibration-instruments", moduleKey: MODULES.MASTERS.INSTRUMENTS },
             { title: "Pressure Gauges", path: "/masters/pressure-gauges", moduleKey: MODULES.MASTERS.INSTRUMENTS },
+        ],
+    },
+    
+    // ── Maintenance ──
+    {
+        title: "Maintenance",
+        icon: Wrench,
+        items: [
+            { title: "Machine Master", path: "/maintenance/machines", moduleKey: MODULES.MAINTENANCE.MACHINE },
+            { title: "Maintenance Memo", path: "/maintenance/memo", moduleKey: MODULES.MAINTENANCE.MEMO },
         ],
     },
     

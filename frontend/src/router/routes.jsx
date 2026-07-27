@@ -47,6 +47,8 @@ import { RfqRegister, RfqLookupManager, RfqDashboard } from "@/pages/marketing"
 import { CreateNCR } from "@/pages/ncr"
 import { DrawingMaster, DrawingTransmittal } from "@/pages/dtn"
 import { CalibrationInstruments, PressureGauges } from "@/pages/admin/masters"
+import { MachineMaster } from "@/pages/maintenance/machine_master"
+import { MaintenanceMemo } from "@/pages/maintenance/maintenance_memo"
 
 // ─── Helper: wrap element with ProtectedRoute + Permission guard ─────
 const protect = (element, moduleKey = null, allowedRoles = null) => (
@@ -312,6 +314,18 @@ const ncrRoutes = [
   },
 ]
 
+// ─── Maintenance Routes ────────────────────────────────────
+const maintenanceRoutes = [
+  {
+    path: "/maintenance/machines",
+    element: protect(<MachineMaster />, MODULES.MAINTENANCE.MACHINE, [ROLES.ADMIN, ROLES.MAINTENANCE, ROLES.PRODUCTION_ENGINEER]),
+  },
+  {
+    path: "/maintenance/memo",
+    element: protect(<MaintenanceMemo />, MODULES.MAINTENANCE.MEMO, [ROLES.ADMIN, ROLES.MAINTENANCE, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]),
+  },
+]
+
 // ─── All Routes ────────────────────────────────────────────────
 const protectedRoutes = [
   ...userRoutes,
@@ -321,6 +335,7 @@ const protectedRoutes = [
   ...dcrRoutes,
   ...marketingRoutes,
   ...ncrRoutes,
+  ...maintenanceRoutes,
 ]
 
 const appRoutes = [
