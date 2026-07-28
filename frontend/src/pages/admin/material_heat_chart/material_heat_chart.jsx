@@ -674,7 +674,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Clone MHC",
                 icon: Copy,
-                onClick: () => onCloneClick(row.id)
+                onClick: () => onCloneClick(row.id),
             });
             actions.push({
                 label: "Edit MHC",
@@ -687,7 +687,8 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Edit & Continue",
                 icon: ArrowRight,
-                onClick: () => onEditClick(row.id, false, "OFFER")
+                onClick: () => onEditClick(row.id, false, "OFFER"),
+                className: "text-amber-600 hover:text-amber-700 hover:bg-amber-50"
             });
         }
         
@@ -695,7 +696,8 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Review & Continue",
                 icon: CheckCircle,
-                onClick: () => onEditClick(row.id, false, "REVIEW")
+                onClick: () => onEditClick(row.id, false, "REVIEW"),
+                className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
             });
         }
         
@@ -712,7 +714,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             });
         }
         
-        if (isAdmin) {
+        if (isAdmin || isQE) {
             actions.push({ type: "separator" });
             actions.push({
                 label: row.is_active ? "Deactivate" : "Activate",
