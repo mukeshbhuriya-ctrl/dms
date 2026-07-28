@@ -191,13 +191,13 @@ function CreateEditView({ plan, onBack, onSuccess }) {
             value={planValue} 
             onChange={(e) => onPlanChange(e.target.value)}
             disabled={disabled}
-            className="h-8 text-xs bg-slate-50 border-slate-200" 
+            className="h-8 text-xs bg-slate-50 border-slate-200 rounded-none" 
             title="Plan Date"
           />
         </div>
         <div className="flex-1 space-y-1 relative group">
           {isNA ? (
-            <div className="h-8 flex items-center justify-center bg-amber-50 border border-amber-200 rounded-md cursor-pointer" onClick={() => !disabled && onDoneChange("")}>
+            <div className="h-8 flex items-center justify-center bg-amber-50 border border-amber-200 rounded-none cursor-pointer" onClick={() => !disabled && onDoneChange("")}>
               <span className="text-[10px] font-bold text-amber-600">NOT AV</span>
             </div>
           ) : (
@@ -206,14 +206,14 @@ function CreateEditView({ plan, onBack, onSuccess }) {
               value={doneValue} 
               onChange={(e) => onDoneChange(e.target.value)}
               disabled={disabled}
-              className="h-8 text-xs font-semibold text-emerald-700 bg-white" 
+              className="h-8 text-xs font-semibold text-emerald-700 bg-white rounded-none" 
               title="Done Date"
             />
           )}
           
           {/* Quick toggle for NA */}
           {!disabled && !isNA && (
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-50 cursor-pointer" onClick={() => onDoneChange("N/A")}>
+            <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-none shadow-none whitespace-nowrap z-50 cursor-pointer" onClick={() => onDoneChange("N/A")}>
               Mark N/A
             </div>
           )}
@@ -225,13 +225,13 @@ function CreateEditView({ plan, onBack, onSuccess }) {
   return (
     <div className="flex flex-col gap-4 pt-2 pb-6 w-full">
       <div className="flex items-center justify-end shrink-0">
-        <Button variant="outline" onClick={onBack} className="shadow-none h-9 text-slate-700 border-slate-200 bg-white">
+        <Button variant="outline" onClick={onBack} className="shadow-none h-9 text-slate-700 border-slate-200 bg-white rounded-md">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to List
         </Button>
       </div>
 
-      <Card className="shadow-sm border-slate-200 shrink-0 bg-white">
+      <Card className="shadow-none border-slate-200 shrink-0 bg-white rounded-none">
         <CardHeader className="bg-white border-b border-slate-100 pb-4">
           <CardTitle className="text-lg font-bold text-slate-800">
             {plan ? `Edit PM Schedule ${plan.year}` : "Create New PM Schedule"}
@@ -247,7 +247,7 @@ function CreateEditView({ plan, onBack, onSuccess }) {
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-600 uppercase">Plan Year</Label>
               <Select value={formData.year} onValueChange={(val) => setFormData({...formData, year: val})} disabled={isReadOnly}>
-                <SelectTrigger className="h-9 text-sm bg-white"><SelectValue placeholder="Select Year" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-sm bg-white rounded-none"><SelectValue placeholder="Select Year" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="2026-2027">2026-2027</SelectItem>
                   <SelectItem value="2027-2028">2027-2028</SelectItem>
@@ -256,19 +256,19 @@ function CreateEditView({ plan, onBack, onSuccess }) {
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-600 uppercase">Document No</Label>
-              <Input name="docNo" value={formData.docNo} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white" />
+              <Input name="docNo" value={formData.docNo} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white rounded-none" />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-600 uppercase">Revision No</Label>
-              <Input type="number" name="revNo" value={formData.revNo} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white" />
+              <Input type="number" name="revNo" value={formData.revNo} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white rounded-none" />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-600 uppercase">Revision Date</Label>
-              <Input type="date" name="revDate" value={formData.revDate} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white" />
+              <Input type="date" name="revDate" value={formData.revDate} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white rounded-none" />
             </div>
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-600 uppercase">Prepared By</Label>
-              <Input name="preparedBy" value={formData.preparedBy} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white" />
+              <Input name="preparedBy" value={formData.preparedBy} onChange={handleInputChange} disabled={isReadOnly} className="h-9 text-sm bg-white rounded-none" />
             </div>
           </div>
 
@@ -310,7 +310,7 @@ function CreateEditView({ plan, onBack, onSuccess }) {
                         onValueChange={(val) => handleRowChange(row.id, "machineId", val)}
                         disabled={isReadOnly}
                       >
-                        <SelectTrigger className="h-8 text-xs bg-white font-semibold text-slate-800 shadow-none border-slate-200">
+                        <SelectTrigger className="h-8 text-xs bg-white font-semibold text-slate-800 shadow-none border-slate-200 rounded-none">
                           <SelectValue placeholder="Select Machine..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -364,10 +364,10 @@ function CreateEditView({ plan, onBack, onSuccess }) {
                     {!isReadOnly && (
                       <TableCell className="p-2 align-middle">
                         <div className="flex items-center justify-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50" onClick={() => addTableRow(index)}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md" onClick={() => addTableRow(index)}>
                             <Plus className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50" onClick={() => removeTableRow(row.id)} disabled={tableRows.length === 1}>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md" onClick={() => removeTableRow(row.id)} disabled={tableRows.length === 1}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
@@ -383,7 +383,7 @@ function CreateEditView({ plan, onBack, onSuccess }) {
               <Button 
                 type="button" 
                 variant="outline" 
-                className="w-full mt-2 cursor-pointer"
+                className="w-full mt-2 cursor-pointer rounded-md"
                 onClick={() => addTableRow(tableRows.length - 1)}
               >
                 <Plus className="h-4 w-4 mr-2" /> Add Machine Row
@@ -397,9 +397,9 @@ function CreateEditView({ plan, onBack, onSuccess }) {
              <CheckCircle className="w-4 h-4 text-emerald-500" /> Auto-saving enabled
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={onBack} className="shadow-none border-slate-200">Cancel</Button>
+            <Button variant="outline" onClick={onBack} className="shadow-none border-slate-200 rounded-md">Cancel</Button>
             {!isReadOnly && (
-              <Button onClick={onSuccess} className="shadow-none bg-blue-700 hover:bg-blue-800 text-white">
+              <Button onClick={onSuccess} className="shadow-none bg-blue-700 hover:bg-blue-800 text-white rounded-md">
                 Save PM Schedule
               </Button>
             )}
