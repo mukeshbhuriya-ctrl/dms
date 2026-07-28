@@ -49,6 +49,7 @@ import { DrawingMaster, DrawingTransmittal } from "@/pages/dtn"
 import { CalibrationInstruments, PressureGauges } from "@/pages/admin/masters"
 import { MachineMaster } from "@/pages/maintenance/machine_master"
 import { MaintenanceMemo } from "@/pages/maintenance/maintenance_memo"
+import { PreventiveMaintenance } from "@/pages/maintenance/preventive_maintenance"
 
 // ─── Helper: wrap element with ProtectedRoute + Permission guard ─────
 const protect = (element, moduleKey = null, allowedRoles = null) => (
@@ -323,6 +324,10 @@ const maintenanceRoutes = [
   {
     path: "/maintenance/memo",
     element: protect(<MaintenanceMemo />, MODULES.MAINTENANCE.MEMO, [ROLES.ADMIN, ROLES.MAINTENANCE, ROLES.PRODUCTION_ENGINEER, ROLES.QC_ENGINEER]),
+  },
+  {
+    path: "/maintenance/pm-schedule",
+    element: protect(<PreventiveMaintenance />, MODULES.MAINTENANCE.PM_SCHEDULE, [ROLES.ADMIN, ROLES.MAINTENANCE, ROLES.PRODUCTION_ENGINEER]),
   },
 ]
 
