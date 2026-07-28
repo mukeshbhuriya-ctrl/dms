@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react"
 import { PageContainer } from "@/components/layout/PageContainer"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
-import { Plus, Eye, Paperclip, MessageSquare, ArrowLeft, UploadCloud, Clock, CheckCircle, AlertCircle } from "lucide-react"
+import { Plus, Eye, Paperclip, MessageSquare, ArrowLeft, UploadCloud, Clock, CheckCircle, AlertCircle, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -29,7 +29,7 @@ import {
 // ----------------------------------------------------------------------
 // 1. LIST VIEW
 // ----------------------------------------------------------------------
-function ListView({ onInitiateClick, onViewClick, data }) {
+function ListView({ onInitiateClick, onViewClick, onEditClick, data }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedRows, setSelectedRows] = useState(new Set());
 
@@ -60,10 +60,10 @@ function ListView({ onInitiateClick, onViewClick, data }) {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "Open": return "bg-red-100 text-red-700 border-red-200";
-      case "In Progress": return "bg-amber-100 text-amber-700 border-amber-200";
-      case "Resolved": return "bg-green-100 text-green-700 border-green-200";
-      case "Closed": return "bg-slate-100 text-slate-700 border-slate-200";
+      case "DRAFT": return "bg-slate-100 text-slate-500 border-slate-200";
+      case "OPEN": return "bg-purple-100 text-purple-700 border-purple-200";
+      case "UNDER BREAKDOWN": return "bg-amber-100 text-amber-700 border-amber-200";
+      case "OK": return "bg-emerald-100 text-emerald-700 border-emerald-200";
       default: return "bg-slate-100 text-slate-700";
     }
   }
@@ -116,8 +116,10 @@ function ListView({ onInitiateClick, onViewClick, data }) {
       filterType: "text",
       width: "300px",
       cell: (row) => (
-        <div className="flex items-center gap-2">
-          <span className="truncate text-slate-600" title={row.fault}>{row.fault}</span>
+        <div className="flex items-center gap-2 max-w-[260px]">
+          <span className="truncate text-slate-600 font-medium flex-1">
+            {row.fault}
+          </span>
           {row.attachments && <Paperclip className="h-3 w-3 text-blue-500 shrink-0" />}
         </div>
       )
@@ -128,10 +130,10 @@ function ListView({ onInitiateClick, onViewClick, data }) {
       header: "Status",
       filterType: "select",
       filterOptions: [
-        { label: "Open", value: "Open" },
-        { label: "In Progress", value: "In Progress" },
-        { label: "Resolved", value: "Resolved" },
-        { label: "Closed", value: "Closed" },
+        { label: "Draft", value: "DRAFT" },
+        { label: "Open", value: "OPEN" },
+        { label: "Under Breakdown", value: "UNDER BREAKDOWN" },
+        { label: "OK", value: "OK" },
       ],
       width: "120px",
       cell: (row) => (
@@ -146,17 +148,28 @@ function ListView({ onInitiateClick, onViewClick, data }) {
       width: "80px",
       cell: (row) => {
         // Different label based on status
-        const isMaintenanceAction = row.status === "Open" || row.status === "In Progress";
+        const isMaintenanceAction = row.status === "OPEN" || row.status === "UNDER BREAKDOWN";
+        const canEdit = row.status === "DRAFT" || row.status === "OPEN";
+        const canVerify = row.status === "OK";
+        
+        const rowActions = [];
+        
+        if (canEdit) {
+          rowActions.push({
+            label: "Edit Memo",
+            icon: Pencil,
+            onClick: () => onEditClick(row)
+          });
+        }
+        
+        rowActions.push({ 
+          label: isMaintenanceAction ? "Resolve Memo" : (canVerify ? "Add Remarks" : "View Details"), 
+          icon: isMaintenanceAction ? Clock : Eye, 
+          onClick: () => onViewClick(row) 
+        });
+
         return (
-          <DataTableRowActions 
-            actions={[
-              { 
-                label: isMaintenanceAction ? "Resolve Memo" : "View Details", 
-                icon: isMaintenanceAction ? Clock : Eye, 
-                onClick: () => onViewClick(row) 
-              }
-            ]}
-          />
+          <DataTableRowActions actions={rowActions} />
         )
       }
     }
@@ -182,8 +195,8 @@ function ListView({ onInitiateClick, onViewClick, data }) {
 // ----------------------------------------------------------------------
 // 2. STAGE 1: INITIATE MEMO VIEW (PRODUCTION)
 // ----------------------------------------------------------------------
-function InitiateMemoView({ onBack, onSuccess, data, setData }) {
-  const [formData, setFormData] = useState({
+function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
+  const [formData, setFormData] = useState(initialData || {
     date: new Date().toISOString().split('T')[0],
     shift: "",
     informBy: "Current User", // Normally from Auth Context
@@ -197,14 +210,28 @@ function InitiateMemoView({ onBack, onSuccess, data, setData }) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = () => {
-    const newMemo = {
-      ...formData,
-      id: `MEM-00${data.length + 1}`,
-      status: "Open",
-      actionTaken: "",
-    };
-    setData([newMemo, ...data]);
+  const handleSave = (status) => {
+    const now = new Date();
+    // Format to YYYY-MM-DDThh:mm exactly for datetime-local
+    const localTimestamp = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    const isSubmitting = status === "OPEN";
+
+    if (initialData) {
+      // Edit existing
+      const submittedAt = (isSubmitting && !initialData.submittedAt) ? localTimestamp : initialData.submittedAt;
+      const updatedData = data.map(m => m.id === initialData.id ? { ...m, ...formData, status, submittedAt } : m);
+      setData(updatedData);
+    } else {
+      // Create new
+      const newMemo = {
+        ...formData,
+        id: `MEM-00${data.length + 1}`,
+        status: status,
+        actionTaken: "",
+        submittedAt: isSubmitting ? localTimestamp : null,
+      };
+      setData([newMemo, ...data]);
+    }
     onSuccess();
   };
 
@@ -219,7 +246,7 @@ function InitiateMemoView({ onBack, onSuccess, data, setData }) {
 
       <Card className="shadow-sm border-slate-200 shrink-0 bg-white">
         <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
-          <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Initiate Maintenance Memo</CardTitle>
+          <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide">{initialData ? "Edit Maintenance Memo" : "Initiate Maintenance Memo"}</CardTitle>
           <CardDescription className="text-xs">Production department will fill out the fault statement to notify maintenance.</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
@@ -315,11 +342,14 @@ function InitiateMemoView({ onBack, onSuccess, data, setData }) {
           </div>
         </CardContent>
         <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4">
-          <Button variant="outline" onClick={onBack} className="shadow-none bg-white">
+          <Button variant="outline" onClick={onBack} className="shadow-none bg-white cursor-pointer">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="bg-blue-600 text-white hover:bg-blue-700 shadow-none cursor-pointer">
-            Submit
+          <Button variant="outline" onClick={() => handleSave("DRAFT")} className="shadow-none bg-white border-slate-200 cursor-pointer">
+            Save as Draft
+          </Button>
+          <Button onClick={() => handleSave("OPEN")} className="bg-blue-600 text-white hover:bg-blue-700 shadow-none cursor-pointer">
+            {initialData && initialData.status !== "DRAFT" ? "Save Changes" : "Submit Request"}
           </Button>
         </CardFooter>
       </Card>
@@ -337,7 +367,7 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
     attendedBy: memo.attendedBy || "",
     activityType: memo.activityType || "",
     materialConsumed: memo.materialConsumed || false,
-    receivedTime: memo.receivedTime || "",
+    receivedTime: memo.receivedTime || memo.submittedAt || "",
     attendedTime: memo.attendedTime || "",
     compTime: memo.compTime || "",
     compDate: memo.compDate || new Date().toISOString().split('T')[0],
@@ -345,9 +375,11 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
     manHrsMgt: memo.manHrsMgt || "",
     totalManHrs: memo.totalManHrs || "",
     breakdownHrs: memo.breakdownHrs || "",
-    status: memo.status === "Open" ? "UNDER BREAKDOWN" : memo.status,
+    status: memo.status === "OPEN" ? "UNDER BREAKDOWN" : memo.status,
     remarks: memo.remarks || "",
   });
+
+  const [prodRemarks, setProdRemarks] = useState(memo.prodRemarks || "");
 
   const handleResChange = (field, value) => {
     setResolution(prev => {
@@ -375,11 +407,7 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
 
   return (
     <div className="flex flex-col gap-4 pt-2 pb-6 w-full">
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-slate-800 tracking-tight">{memo.id}</h2>
-          <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-200 uppercase text-[10px] tracking-wide font-bold">{resolution.status}</Badge>
-        </div>
+      <div className="flex items-center justify-end shrink-0">
         <Button variant="outline" onClick={onBack} className="shadow-none h-9 text-slate-700 border-slate-200 bg-white">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to List
@@ -388,67 +416,68 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
 
       <div className="flex flex-col gap-6 w-full">
         
-        {/* Top Section: Problem Statement (Read-Only) */}
-        <Card className="shadow-none border-slate-200 bg-white rounded-none">
-          <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
-            <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Initiate Maintenance Memo</CardTitle>
-            <CardDescription className="text-xs">Production department will fill out the fault statement to notify maintenance.</CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-              
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Machine Name <span className="text-red-500">*</span></label>
-                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
-                  {memo.machineName}
-                </div>
+        {/* Top Section: High-Density Ticket Header (Context) */}
+        <div className="bg-white border border-slate-200 shadow-none rounded-none flex flex-col">
+          {/* Context Header Strip */}
+          <div className="bg-slate-800 text-white px-5 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Production Request Reference</span>
+                <span className="text-sm font-bold tracking-wide">{memo.id}</span>
               </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Shift <span className="text-red-500">*</span></label>
-                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
-                  {memo.shift}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
-                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
-                  {memo.date}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 md:col-span-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Fault / Problem Statement <span className="text-red-500">*</span></label>
-                <div className="px-3 py-3 border border-slate-200 bg-slate-50/50 text-sm text-slate-800 min-h-[100px] whitespace-pre-wrap">
-                  {memo.fault}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 md:col-span-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Attachments (Optional)</label>
-                <div className="border border-dashed border-slate-200 p-6 flex flex-col items-center justify-center text-slate-500 bg-slate-50/50">
-                  <span className="text-sm font-medium text-slate-400">No attachments provided</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Inform By (Auto) <span className="text-red-500">*</span></label>
-                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
-                  {memo.informBy}
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Inform To <span className="text-red-500">*</span></label>
-                <div className="px-3 py-2 border border-slate-200 bg-slate-50/50 text-sm font-semibold text-slate-800 flex items-center min-h-[36px]">
-                  {memo.informTo || "Maintenance"}
-                </div>
-              </div>
-
+              <Badge variant="outline" className="bg-amber-400/10 text-amber-400 border-amber-400/30 uppercase text-[10px] tracking-wide font-bold">
+                {resolution.status}
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex items-center gap-3 text-xs font-medium">
+              <span className="text-slate-300">Date: {memo.date}</span>
+              <Badge variant="secondary" className="bg-slate-700 hover:bg-slate-700 text-slate-100 border-none uppercase tracking-widest text-[10px]">
+                Shift {memo.shift}
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-3 divide-y lg:divide-y-0 lg:divide-x divide-slate-200">
+            {/* Metadata (Left) */}
+            <div className="p-6 lg:col-span-1 flex flex-col gap-6">
+              <div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Affected Machine</div>
+                <div className="text-sm font-bold text-slate-900 break-words">{memo.machineName}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Inform By</div>
+                  <div className="text-sm font-semibold text-slate-800 break-words">{memo.informBy}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Inform To</div>
+                  <div className="text-sm font-semibold text-slate-800 break-words">{memo.informTo || "Maintenance"}</div>
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <Paperclip className="h-3 w-3" /> Attachments
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-slate-500 bg-slate-50 font-normal shadow-none border-dashed pointer-events-none">
+                    No attachments provided
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Critical Fault Area (Right) */}
+            <div className="p-6 lg:col-span-2 bg-white flex flex-col h-full">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-red-600 uppercase tracking-widest mb-4">
+                <AlertCircle className="h-3.5 w-3.5" />
+                Reported Fault / Problem Statement
+              </div>
+              <div className="text-sm text-slate-900 font-medium leading-relaxed whitespace-pre-wrap break-words max-h-[160px] overflow-y-auto pr-2">
+                {memo.fault}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Bottom Section: Maintenance Resolution Form */}
         <Card className="shadow-none border-slate-200 bg-white rounded-none">
@@ -462,15 +491,15 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                 {/* Timeline */}
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Received Time</label>
-                  <Input type="time" value={resolution.receivedTime} onChange={e => handleResChange("receivedTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                  <Input type="datetime-local" value={resolution.receivedTime} disabled className="bg-slate-100 border-dashed text-slate-600 shadow-none pointer-events-none" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Attended Time</label>
-                  <Input type="time" value={resolution.attendedTime} onChange={e => handleResChange("attendedTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                  <Input type="datetime-local" value={resolution.attendedTime} onChange={e => handleResChange("attendedTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Completion Time</label>
-                  <Input type="time" value={resolution.compTime} onChange={e => handleResChange("compTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                  <Input type="datetime-local" value={resolution.compTime} onChange={e => handleResChange("compTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
                 </div>
 
                 {/* Details */}
@@ -495,6 +524,8 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                     options={[
                       { label: "M - Mechanical", value: "M" },
                       { label: "E - Electrical", value: "E" },
+                      { label: "M/E - Mechanical/Electrical", value: "M/E" },
+                      { label: "E/M - Electrical/Mechanical", value: "E/M" },
                       { label: "PM - Preventive", value: "PM" },
                       { label: "MIS - Miscellaneous", value: "MIS" },
                       { label: "IMP - Improvement", value: "IMP" },
@@ -508,16 +539,15 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Material Consumed?</label>
-                  <SearchableSelect
-                    options={[
-                      { label: "YES", value: "yes" },
-                      { label: "NO", value: "no" }
-                    ]}
-                    value={resolution.materialConsumed ? "yes" : "no"}
-                    onValueChange={(val) => handleResChange("materialConsumed", val === "yes")}
-                    placeholder="Select Yes/No"
-                    className="bg-slate-50/50 shadow-none border-slate-200"
-                  />
+                  <Select value={resolution.materialConsumed ? "yes" : "no"} onValueChange={(val) => handleResChange("materialConsumed", val === "yes")}>
+                    <SelectTrigger className="bg-slate-50/50 shadow-none border-slate-200 w-full">
+                      <SelectValue placeholder="Select Yes/No" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yes">YES</SelectItem>
+                      <SelectItem value="no">NO</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Hours Tracker */}
@@ -534,7 +564,7 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total Man Hrs</label>
-                      <Input type="number" disabled value={resolution.totalManHrs} className="bg-slate-100 border-dashed text-slate-600 shadow-none" />
+                      <Input type="number" value={resolution.totalManHrs} onChange={e => handleResChange("totalManHrs", e.target.value)} className="bg-slate-50/50 shadow-none" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Breakdown Hrs</label>
@@ -546,21 +576,16 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                 {/* Completion Status */}
                 <div className="md:col-span-3 border-t border-slate-100 pt-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Completion Date</label>
-                    <Input type="date" value={resolution.compDate} onChange={e => handleResChange("compDate", e.target.value)} className="bg-slate-50/50 shadow-none" />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Memo Status</label>
-                    <SearchableSelect
-                      options={[
-                        { label: "OK", value: "OK" },
-                        { label: "UNDER BREAKDOWN", value: "UNDER BREAKDOWN" },
-                      ]}
-                      value={resolution.status}
-                      onValueChange={(val) => handleResChange("status", val)}
-                      placeholder="Status"
-                      className="bg-slate-50/50 shadow-none border-slate-200 font-semibold"
-                    />
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Status</label>
+                    <Select value={resolution.status} onValueChange={(val) => handleResChange("status", val)}>
+                      <SelectTrigger className="bg-slate-50/50 shadow-none border-slate-200 font-semibold w-full">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OK">OK</SelectItem>
+                        <SelectItem value="UNDER BREAKDOWN">Under Breakdown</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-col gap-2 md:col-span-2">
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Remarks</label>
@@ -581,10 +606,49 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
               </Button>
               <Button onClick={handleUpdate} className="bg-slate-900 text-white hover:bg-slate-800 shadow-none">
                 <CheckCircle className="h-4 w-4 mr-2" />
-                Update & Save
+                {resolution.status === "OK" ? "Submit Resolution" : "Save Progress"}
               </Button>
             </CardFooter>
           </Card>
+
+          {/* Production Remarks Section */}
+          {memo.status === "OK" && (
+            <Card className="shadow-none border-slate-200 bg-white rounded-none mt-6">
+              <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
+                <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Production Remarks</CardTitle>
+                <CardDescription className="text-xs text-slate-500">Add any final remarks regarding the machine's operation after maintenance.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Final Production Remarks</label>
+                  <Textarea 
+                    value={prodRemarks} 
+                    onChange={e => setProdRemarks(e.target.value)} 
+                    placeholder="Confirm if the machine is running okay..."
+                    className="bg-slate-50/50 shadow-none min-h-[80px] resize-y [field-sizing:fixed]" 
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4 shrink-0">
+                <Button 
+                  onClick={() => {
+                    const updatedData = data.map(m => {
+                      if (m.id === memo.id) {
+                        return { ...m, prodRemarks };
+                      }
+                      return m;
+                    });
+                    setData(updatedData);
+                    onSuccess();
+                  }} 
+                  className="bg-slate-900 text-white hover:bg-slate-800 shadow-none"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Save Remarks
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
       </div>
     </div>
   );
@@ -618,7 +682,7 @@ export function MaintenanceMemo() {
       manHrsMgt: 10,
       totalManHrs: 34,
       breakdownHrs: 80,
-      status: "Closed",
+      status: "OK",
       attachments: true
     },
     {
@@ -641,7 +705,7 @@ export function MaintenanceMemo() {
       manHrsMgt: 1,
       totalManHrs: 2,
       breakdownHrs: 1,
-      status: "Resolved",
+      status: "OK",
       attachments: false
     },
     {
@@ -653,7 +717,7 @@ export function MaintenanceMemo() {
       machineName: "A/PROARC CNC",
       fault: "No axis movement",
       actionTaken: "",
-      status: "Open",
+      status: "OPEN",
       attachments: false
     }
   ]);
@@ -669,10 +733,17 @@ export function MaintenanceMemo() {
     >
       {view === "list" && (
         <ListView 
-          onInitiateClick={() => setView("initiate")} 
+          onInitiateClick={() => {
+            setActiveMemo(null);
+            setView("initiate");
+          }} 
           onViewClick={(memo) => {
             setActiveMemo(memo);
             setView("resolve");
+          }}
+          onEditClick={(memo) => {
+            setActiveMemo(memo);
+            setView("initiate");
           }}
           data={data}
         />
@@ -684,6 +755,7 @@ export function MaintenanceMemo() {
           onSuccess={() => setView("list")}
           data={data}
           setData={setData}
+          initialData={activeMemo}
         />
       )}
 
