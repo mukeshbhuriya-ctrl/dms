@@ -674,7 +674,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Clone MHC",
                 icon: Copy,
-                onClick: () => onCloneClick(row.id)
+                onClick: () => onCloneClick(row.id),
             });
             actions.push({
                 label: "Edit MHC",
@@ -687,7 +687,8 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Edit & Continue",
                 icon: ArrowRight,
-                onClick: () => onEditClick(row.id, false, "OFFER")
+                onClick: () => onEditClick(row.id, false, "OFFER"),
+                className: "text-amber-600 hover:text-amber-700 hover:bg-amber-50"
             });
         }
         
@@ -695,7 +696,8 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             actions.push({
                 label: "Review & Continue",
                 icon: CheckCircle,
-                onClick: () => onEditClick(row.id, false, "REVIEW")
+                onClick: () => onEditClick(row.id, false, "REVIEW"),
+                className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
             });
         }
         
@@ -712,7 +714,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             });
         }
         
-        if (isAdmin) {
+        if (isAdmin || isQE) {
             actions.push({ type: "separator" });
             actions.push({
                 label: row.is_active ? "Deactivate" : "Activate",
@@ -1022,6 +1024,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const [productionGroups, setProductionGroups] = useState([])
   const [production_group_id, setProductionGroupId] = useState("")
 
+  const [myQualityGroupId, setMyQualityGroupId] = useState(null)
+  const [myProductionGroupId, setMyProductionGroupId] = useState(null)
+
   const [mhcStatus, setMhcStatus] = useState("Initiated")
   const [approverRemarks, setApproverRemarks] = useState("")
   const [submittedAt, setSubmittedAt] = useState(null)
@@ -1075,12 +1080,21 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       .finally(() => setJobsLoading(false))
 
     // Fetch My Groups to auto-select
-    if (!editId && (isAdmin || isQE)) {
+    if (isAdmin || isQE || isPE) {
       apiClient.get("/api/employee-groups/my-groups")
         .then((res) => {
           if (res.success && res.data) {
-            const myQualityGroup = res.data.find(g => g.group_type === "QUALITY" || g.type === "QUALITY")
-            if (myQualityGroup) setQcGroupId(myQualityGroup.id)
+            const myQcGroup = res.data.find(g => g.group_type === "QUALITY" || g.type === "QUALITY")
+            const myProdGroup = res.data.find(g => g.group_type === "PRODUCTION" || g.type === "PRODUCTION")
+            
+            if (myQcGroup) {
+              setMyQualityGroupId(myQcGroup.id)
+              if (!editId) setQcGroupId(myQcGroup.id)
+            }
+            if (myProdGroup) {
+              setMyProductionGroupId(myProdGroup.id)
+              if (!editId) setProductionGroupId(myProdGroup.id)
+            }
           }
         })
         .catch((err) => console.error("Failed to fetch my groups:", err))
@@ -1151,10 +1165,22 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                 parentHeadingId: cloneId ? undefined : item.parent_heading_id,
               })))
             }
-          }
+      }
         })
     }
   }, [editId, cloneId, isQE])
+
+  // Auto-heal missing groups if opening an existing record
+  useEffect(() => {
+    if (editId) {
+      if (!qc_group_id && myQualityGroupId) {
+        setQcGroupId(myQualityGroupId)
+      }
+      if (!production_group_id && myProductionGroupId) {
+        setProductionGroupId(myProductionGroupId)
+      }
+    }
+  }, [qc_group_id, myQualityGroupId, production_group_id, myProductionGroupId, editId])
 
   // Handle MSN selection → auto-fill from job details API
   const handleJobSelect = async (jobId) => {
@@ -1498,9 +1524,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       return
     }
 
-    if (action === "INITIATE") {
+    if (action !== "DRAFT") {
       if (!qc_group_id || !production_group_id) {
-        toast.error("Please assign both a QUALITY GROUP and a PRODUCTION GROUP before initiating.", { theme: "colored" })
+        toast.error("Please assign both a QUALITY GROUP and a PRODUCTION GROUP before proceeding.", { theme: "colored" })
         return;
       }
     }
