@@ -123,6 +123,9 @@ app.use('/api/tube-sheet-inspection', tubeSheetInspectionRoutes);
 const tubeBundleInspectionRoutes = require('#routes/tube_bundle_inspection.routes.js');
 app.use('/api/tube-bundle-inspection', tubeBundleInspectionRoutes);
 
+const maintenanceRoutes = require('#routes/maintenance/maintenance.routes.js');
+app.use('/api/maintenance', maintenanceRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

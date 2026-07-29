@@ -60,6 +60,7 @@ model company{
   email_templates email_template[]
   notifications notification[]
   audit_logs audit_log[]
+  machine_masters machine_master[]
 }
 
 model department {
@@ -1913,3 +1914,28 @@ model tube_bundle_inspection_remark {
 
   @@index([report_id])
 }
+
+model machine_master {
+  id                String   @id @default(uuid())
+  company_id        String
+  
+  machine_number    String
+  machine_name      String
+  type              String
+  model_no          String?
+  serial_number     String?
+  make              String?
+  mfg_year          String?
+  specifications    String?
+  
+  is_active         Boolean  @default(true)
+  is_deleted        Boolean  @default(false)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company           company  @relation(fields: [company_id], references: [id])
+  
+  @@unique([company_id, machine_number]) // Ensure no duplicate machine numbers per company
+}
+

@@ -13,36 +13,40 @@ import {
   CardFooter
 } from "@/components/ui/card"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import apiClient from "@/api/api.client"
+import { toast } from "sonner"
+import * as XLSX from "xlsx"
+import { CheckCircle2, XCircle } from "lucide-react"
+import { ImportReviewDialog } from "@/components/shared/ImportReviewDialog"
 
-function ListView({ onCreateClick, data, setData }) {
+function ListView({ onCreateClick }) {
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedRows, setSelectedRows] = useState(new Set());
+  const [importReview, setImportReview] = useState({ isOpen: false, data: [], summary: {} });
+  const [isImporting, setIsImporting] = useState(false);
 
-  // Dummy fetch function for ProDataTable
   const fetchData = async ({ page, limit, search, columnFilters }) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        let filteredData = [...data];
-        
-        if (search) {
-          const lowerSearch = search.toLowerCase();
-          filteredData = filteredData.filter(item => 
-            item.machineName.toLowerCase().includes(lowerSearch) || 
-            item.machineNumber.toLowerCase().includes(lowerSearch)
-          );
-        }
-
-        resolve({
-          data: filteredData.slice((page - 1) * limit, page * limit),
-          meta: {
-            total: filteredData.length,
-            page,
-            totalPages: Math.ceil(filteredData.length / limit),
-          }
-        });
-      }, 500);
-    });
+    try {
+      const response = await apiClient.get('/api/maintenance/machines', {
+        page,
+        limit,
+        search
+      });
+      // Map the snake_case data to camelCase for the frontend table
+      const mappedData = response.data.map(m => ({
+        ...m,
+        machineNumber: m.machine_number,
+        machineName: m.machine_name,
+        modelNo: m.model_no,
+        serialNumber: m.serial_number,
+        mfgYear: m.mfg_year,
+      }));
+      return { data: mappedData, meta: response.meta };
+    } catch (error) {
+      toast.error(error.message || "Failed to fetch machines");
+      return { data: [], meta: { total: 0, page: 1, totalPages: 1 } };
+    }
   };
 
   const columns = useMemo(() => [
@@ -112,27 +116,140 @@ function ListView({ onCreateClick, data, setData }) {
       header: "Actions",
       width: "80px",
       cell: (row) => (
-        <DataTableRowActions 
+        <DataTableRowActions
           actions={[
             { label: "Edit Machine", icon: Edit2, onClick: () => console.log("Edit", row.id) },
             { type: "separator" },
-            { label: "Delete Machine", icon: Trash2, onClick: () => {
-                const newData = data.filter(d => d.id !== row.id);
-                setData(newData);
-                setRefreshKey(prev => prev + 1);
-            }, color: "danger" },
+            {
+              label: "Delete Machine", icon: Trash2, onClick: async () => {
+                if (window.confirm("Are you sure you want to delete this machine?")) {
+                  try {
+                    await apiClient.delete(`/api/maintenance/machines/${row.id}`);
+                    toast.success("Machine deleted successfully");
+                    setRefreshKey(prev => prev + 1);
+                  } catch (error) {
+                    toast.error(error.message || "Failed to delete machine");
+                  }
+                }
+              }, color: "danger"
+            },
           ]}
         />
       )
     }
-  ], [data, setData]);
+  ], []);
 
-  const handleImport = (file) => {
-    console.log("Importing file:", file.name);
+  const handleImport = async (file) => {
+    if (!file) return;
+
+    const REQUIRED_HEADERS = [
+      "Machine Number",
+      "Machine Name",
+      "Type",
+      "Model No",
+      "Serial Number",
+      "Make",
+      "Mfg Year",
+      "Specifications"
+    ];
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const bstr = e.target.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      const wsname = wb.SheetNames[0];
+      const ws = wb.Sheets[wsname];
+      const rawData = XLSX.utils.sheet_to_json(ws);
+
+      if (rawData.length > 0) {
+        const fileHeaders = Object.keys(rawData[0]);
+        const missingHeaders = REQUIRED_HEADERS.filter(h => !fileHeaders.includes(h));
+        if (missingHeaders.length > 0) {
+          console.warn(`Excel missing columns: ${missingHeaders.join(", ")}`);
+        }
+      }
+
+      const seenMachineNumbers = new Set();
+
+      const validatedRows = rawData.map((row, index) => {
+        const machineNumber = String(row["Machine Number"] || "").trim();
+        const machineName = String(row["Machine Name"] || "").trim();
+        const type = String(row["Type"] || "").trim() || "Other";
+        
+        const errors = [];
+        if (!machineNumber) errors.push("Machine Number is required");
+        else {
+          if (seenMachineNumbers.has(machineNumber.toLowerCase())) {
+            errors.push("Duplicate Machine Number in file");
+          } else {
+            seenMachineNumbers.add(machineNumber.toLowerCase());
+          }
+        }
+        if (!machineName) errors.push("Machine Name is required");
+
+        return {
+          rowNo: index + 1,
+          machineNumber,
+          machineName,
+          type,
+          modelNo: String(row["Model No"] || "").trim(),
+          serialNumber: String(row["Serial Number"] || "").trim(),
+          make: String(row["Make"] || "").trim(),
+          mfgYear: String(row["Mfg Year"] || "").trim(),
+          specifications: String(row["Specifications"] || "").trim(),
+          status: errors.length === 0 ? "valid" : "error",
+          message: errors.length === 0 ? "Ready to import" : errors.join(" | ")
+        };
+      });
+
+      setImportReview({
+        isOpen: true,
+        data: validatedRows,
+        summary: {
+          total: validatedRows.length,
+          valid: validatedRows.filter(r => r.status === 'valid').length,
+          error: validatedRows.filter(r => r.status === 'error').length
+        }
+      });
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const finalizeImport = async () => {
+    const validRows = importReview.data.filter(r => r.status === 'valid');
+    if (validRows.length === 0) return;
+
+    setIsImporting(true);
+
+    try {
+      const response = await apiClient.post("/api/maintenance/machines/bulk", { machines: validRows });
+      toast.success(`Successfully imported ${response.count || validRows.length} machines`);
+      setImportReview({ isOpen: false, data: [], summary: {} });
+      setRefreshKey(prev => prev + 1);
+    } catch (err) {
+      console.error("Error importing machines:", err);
+      toast.error(err.message || "Failed to import machines");
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleDownloadTemplate = () => {
-    console.log("Download template");
+    const headers = [
+      "Machine Number", "Machine Name", "Type", "Model No", 
+      "Serial Number", "Make", "Mfg Year", "Specifications"
+    ];
+    
+    const sampleData = [
+      headers,
+      ["M-1234", "EXAMPLE LATHE", "Lathe", "EX-99", "SN-0001", "SHRENO", "2023", "Swing=500mm"]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(sampleData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Machines");
+    XLSX.writeFile(wb, "Machine_Master_Template.xlsx");
+    toast.info("Downloading template...");
   };
 
   return (
@@ -150,11 +267,32 @@ function ListView({ onCreateClick, data, setData }) {
         onSelectionChange={setSelectedRows}
         initialStickyColumns={["machineNumber"]}
       />
+
+      <ImportReviewDialog
+        open={importReview.isOpen}
+        onOpenChange={(val) => setImportReview(prev => ({ ...prev, isOpen: val }))}
+        title="Review Import"
+        description="Valid rows will be directly imported into the system."
+        data={importReview.data}
+        columns={[
+          { header: "Row", key: "rowNo", minWidth: "60px" },
+          { header: "Machine No", key: "machineNumber", minWidth: "120px" },
+          { header: "Machine Name", key: "machineName", minWidth: "150px" },
+          { header: "Type", key: "type", minWidth: "100px" },
+        ]}
+        onConfirm={finalizeImport}
+        isImporting={isImporting}
+        totalCount={importReview.summary.total}
+        validCount={importReview.summary.valid}
+        errorCount={importReview.summary.error}
+        confirmLabel={`Import ${importReview.summary.valid} Machines`}
+      />
     </div>
   );
 }
 
-function CreateView({ onBack, onSuccess, data, setData }) {
+function CreateView({ onBack, onSuccess }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [machines, setMachines] = useState([
     {
       id: 1,
@@ -201,14 +339,24 @@ function CreateView({ onBack, onSuccess, data, setData }) {
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Submitting new machines:", machines);
-    const newMachinesData = machines.map((m, index) => ({
-      ...m,
-      id: `M${Date.now()}_${index}` // Using dummy id generation
-    }));
-    setData([...data, ...newMachinesData]);
-    onSuccess();
+  const handleSubmit = async () => {
+    // Basic validation
+    const invalid = machines.some(m => !m.machineNumber || !m.machineName || !m.type);
+    if (invalid) {
+      toast.error("Please fill all mandatory fields (Number, Name, Type) for all rows");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await apiClient.post("/api/maintenance/machines/bulk", { machines });
+      toast.success("Machines created successfully");
+      onSuccess();
+    } catch (error) {
+      toast.error(error.message || "Failed to create machines");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -245,14 +393,14 @@ function CreateView({ onBack, onSuccess, data, setData }) {
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                
+
                 {/* Machine Number */}
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Machine Number <span className="text-red-500">*</span>
                   </label>
-                  <Input 
-                    placeholder="e.g. M-001" 
+                  <Input
+                    placeholder="e.g. M-001"
                     value={machine.machineNumber}
                     onChange={(e) => handleMachineChange(machine.id, "machineNumber", e.target.value)}
                     className="bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none"
@@ -264,8 +412,8 @@ function CreateView({ onBack, onSuccess, data, setData }) {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Machine Name <span className="text-red-500">*</span>
                   </label>
-                  <Input 
-                    placeholder="e.g. SORAMILL FR 8000" 
+                  <Input
+                    placeholder="e.g. SORAMILL FR 8000"
                     value={machine.machineName}
                     onChange={(e) => handleMachineChange(machine.id, "machineName", e.target.value)}
                     className="bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none"
@@ -297,8 +445,8 @@ function CreateView({ onBack, onSuccess, data, setData }) {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Model No
                   </label>
-                  <Input 
-                    placeholder="e.g. FR-8000" 
+                  <Input
+                    placeholder="e.g. FR-8000"
                     value={machine.modelNo}
                     onChange={(e) => handleMachineChange(machine.id, "modelNo", e.target.value)}
                     className="bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none"
@@ -310,8 +458,8 @@ function CreateView({ onBack, onSuccess, data, setData }) {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Serial Number
                   </label>
-                  <Input 
-                    placeholder="e.g. SN-12345" 
+                  <Input
+                    placeholder="e.g. SN-12345"
                     value={machine.serialNumber}
                     onChange={(e) => handleMachineChange(machine.id, "serialNumber", e.target.value)}
                     className="bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none"
@@ -323,8 +471,8 @@ function CreateView({ onBack, onSuccess, data, setData }) {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Make
                   </label>
-                  <Input 
-                    placeholder="e.g. SORAMILL" 
+                  <Input
+                    placeholder="e.g. SORAMILL"
                     value={machine.make}
                     onChange={(e) => handleMachineChange(machine.id, "make", e.target.value)}
                     className="bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none"
@@ -336,9 +484,9 @@ function CreateView({ onBack, onSuccess, data, setData }) {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Mfg. Year
                   </label>
-                  <Input 
+                  <Input
                     type="number"
-                    placeholder="e.g. 2015" 
+                    placeholder="e.g. 2015"
                     value={machine.mfgYear}
                     onChange={(e) => handleMachineChange(machine.id, "mfgYear", e.target.value)}
                     className="bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none"
@@ -350,8 +498,8 @@ function CreateView({ onBack, onSuccess, data, setData }) {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Specifications
                   </label>
-                  <Input 
-                    placeholder="e.g. X=8000, Y=3000, Z=1500" 
+                  <Input
+                    placeholder="e.g. X=8000, Y=3000, Z=1500"
                     value={machine.specifications}
                     onChange={(e) => handleMachineChange(machine.id, "specifications", e.target.value)}
                     className="bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none"
@@ -372,8 +520,8 @@ function CreateView({ onBack, onSuccess, data, setData }) {
           <Button variant="outline" onClick={onBack} className="shadow-none">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} className="bg-slate-900 text-white hover:bg-slate-800 shadow-none">
-            Create Machine{machines.length > 1 ? "s" : ""}
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-slate-900 text-white hover:bg-slate-800 shadow-none">
+            {isSubmitting ? "Saving..." : `Create Machine${machines.length > 1 ? "s" : ""}`}
           </Button>
         </CardFooter>
       </Card>
@@ -383,43 +531,6 @@ function CreateView({ onBack, onSuccess, data, setData }) {
 
 export function MachineMaster() {
   const [view, setView] = useState("list"); // "list" | "create"
-  
-  // Lifted state so newly created items persist across views
-  const [data, setData] = useState([
-    {
-      id: "M001",
-      machineNumber: "M-001",
-      machineName: "SORAMILL FR 8000 CNC-9",
-      type: "CNC",
-      modelNo: "FR-8000",
-      serialNumber: "SN-12345",
-      make: "SORAMILL",
-      mfgYear: "2015",
-      specifications: "X=8000, Y=3000, Z=1500",
-    },
-    {
-      id: "M002",
-      machineNumber: "M-002",
-      machineName: "MARUTI LATHE",
-      type: "Lathe",
-      modelNo: "ML-500",
-      serialNumber: "SN-67890",
-      make: "MARUTI",
-      mfgYear: "2018",
-      specifications: "Swing=500mm, Length=1500mm",
-    },
-    {
-      id: "M003",
-      machineNumber: "M-003",
-      machineName: "TANK ROTATOR",
-      type: "Rotator",
-      modelNo: "TR-27",
-      serialNumber: "SN-11223",
-      make: "LOCAL",
-      mfgYear: "2010",
-      specifications: "Capacity=20T",
-    },
-  ]);
 
   return (
     <PageContainer
@@ -431,17 +542,13 @@ export function MachineMaster() {
       ]}
     >
       {view === "list" ? (
-        <ListView 
-          onCreateClick={() => setView("create")} 
-          data={data}
-          setData={setData}
+        <ListView
+          onCreateClick={() => setView("create")}
         />
       ) : (
-        <CreateView 
-          onBack={() => setView("list")} 
+        <CreateView
+          onBack={() => setView("list")}
           onSuccess={() => setView("list")}
-          data={data}
-          setData={setData}
         />
       )}
     </PageContainer>
