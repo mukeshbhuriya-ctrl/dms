@@ -3,9 +3,9 @@ require('module-alias/register');
 require('tsx/cjs');
 const prisma = require('#prisma');
 
-const COMPANY_ID = '272b81b4-11c4-4316-9b67-ddf6687286d3';
-const USER_ID = 'b760b4fe-d9cd-4a8e-bae0-6414f849e35e';
-const ROLE_NAME = 'QAP';
+const COMPANY_ID = 'fa1d9734-c2ed-4039-aa74-1ef90d37275a';
+const USER_ID = 'dc83df39-9ab7-459e-bb28-8398ac6f9ce2';
+const ROLE_NAME = 'MAINTENANCE';
 
 async function createRoleAndAssign() {
   try {

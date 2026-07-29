@@ -22,8 +22,8 @@ async function getUsers(req, res) {
 
     const columnFilters = typeof columnFiltersRaw === 'string' ? JSON.parse(columnFiltersRaw) : (columnFiltersRaw || {});
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
+    const skip = limit === 'all' ? undefined : (parseInt(page) - 1) * parseInt(limit);
+    const take = limit === 'all' ? undefined : parseInt(limit);
 
     const where = {
       company_id: company_id,

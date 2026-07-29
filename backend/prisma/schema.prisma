@@ -61,6 +61,7 @@ model company{
   notifications notification[]
   audit_logs audit_log[]
   machine_masters machine_master[]
+  maintenance_memos maintenance_memo[]
 }
 
 model department {
@@ -105,6 +106,9 @@ model employee_group {
 
   tube_bundle_production_inspections tube_bundle_inspection_report[] @relation("TbiProductionGroup")
   tube_bundle_qc_inspections         tube_bundle_inspection_report[] @relation("TbiQcGroup")
+
+  memo_production_groups maintenance_memo[] @relation("MemoProductionGroup")
+  memo_maintenance_groups maintenance_memo[] @relation("MemoMaintenanceGroup")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -210,6 +214,10 @@ model user{
 
   is_active  Boolean  @default(true)
   is_deleted Boolean  @default(false)
+
+  memos_created maintenance_memo[] @relation("MemoCreator")
+  memos_assigned maintenance_memo[] @relation("MemoAssignee")
+  memos_attended maintenance_memo[] @relation("MemoAttendedBy")
 }
 
 model user_roles{
@@ -1936,6 +1944,85 @@ model machine_master {
 
   company           company  @relation(fields: [company_id], references: [id])
   
+  maintenance_memos maintenance_memo[]
+
   @@unique([company_id, machine_number]) // Ensure no duplicate machine numbers per company
+}
+
+// -------------------------------------------------------------
+// Maintenance Memo Models
+// -------------------------------------------------------------
+
+model maintenance_memo {
+  id                    String   @id @default(uuid())
+  company_id            String
+  memo_no               String   
+  
+  date                  DateTime
+  shift                 String
+  
+  inform_by_id          String?  
+  inform_to_id          String?  
+  
+  production_group_id   String?
+  maintenance_group_id  String?  
+  
+  machine_id            String?  
+  machine_name          String?  
+  fault                 String?  @db.Text
+  
+  status                String   @default("DRAFT") 
+  submitted_at          DateTime? 
+  
+  action_taken          String?  @db.Text
+  attended_by_id        String?  
+  activity_type         String?
+  material_consumed     Boolean  @default(false)
+  received_time         DateTime? 
+  attended_time         DateTime? 
+  completion_time       DateTime?
+  completion_date       DateTime? 
+  man_hrs_technician    Float?    
+  man_hrs_management    Float?    
+  total_man_hrs         Float?
+  breakdown_hrs         Float?
+  maintenance_remarks   String?  @db.Text
+  
+  production_remarks    String?  @db.Text
+  
+  is_active             Boolean  @default(true)
+  is_deleted            Boolean  @default(false)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  company               company         @relation(fields: [company_id], references: [id])
+  machine               machine_master? @relation(fields: [machine_id], references: [id])
+  
+  creator               user?           @relation("MemoCreator", fields: [inform_by_id], references: [id])
+  assigned_to           user?           @relation("MemoAssignee", fields: [inform_to_id], references: [id])
+  attended_by_user      user?           @relation("MemoAttendedBy", fields: [attended_by_id], references: [id])
+  
+  production_group      employee_group? @relation("MemoProductionGroup", fields: [production_group_id], references: [id])
+  maintenance_group     employee_group? @relation("MemoMaintenanceGroup", fields: [maintenance_group_id], references: [id])
+
+  attachments           maintenance_memo_attachment[]
+
+  @@index([company_id, memo_no])
+}
+
+model maintenance_memo_attachment {
+  id                    String   @id @default(uuid())
+  memo_id               String
+  file_url              String
+  file_path             String
+  original_filename     String
+  mime_type             String?
+  file_size             Int?
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  memo                  maintenance_memo @relation(fields: [memo_id], references: [id], onDelete: Cascade)
 }
 

@@ -1,13 +1,17 @@
 const prisma = require('#prisma');
 
 class MaintenanceService {
-  async getMachines({ company_id, page = 1, limit = 10, search }) {
+  async getMachines({ company_id, page = 1, limit = 10, search, fetchAll = false }) {
     const skip = (page - 1) * limit;
     
     const where = {
       company_id,
       is_deleted: false,
     };
+
+    if (fetchAll) {
+      where.is_active = true;
+    }
 
     if (search) {
       where.OR = [
@@ -16,13 +20,18 @@ class MaintenanceService {
       ];
     }
 
+    const queryOptions = {
+      where,
+      orderBy: { machine_number: 'asc' }
+    };
+
+    if (!fetchAll) {
+      queryOptions.skip = Number(skip);
+      queryOptions.take = Number(limit);
+    }
+
     const [machines, total] = await Promise.all([
-      prisma.machine_master.findMany({
-        where,
-        skip: Number(skip),
-        take: Number(limit),
-        orderBy: { machine_number: 'asc' }
-      }),
+      prisma.machine_master.findMany(queryOptions),
       prisma.machine_master.count({ where })
     ]);
 
@@ -30,8 +39,8 @@ class MaintenanceService {
       data: machines,
       meta: {
         total,
-        page: Number(page),
-        totalPages: Math.ceil(total / limit)
+        page: fetchAll ? 1 : Number(page),
+        totalPages: fetchAll ? 1 : Math.ceil(total / limit)
       }
     };
   }

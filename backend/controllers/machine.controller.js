@@ -1,15 +1,16 @@
-const maintenanceService = require('../services/maintenance.service');
+const machineService = require('../services/machine.service');
 
 exports.getMachines = async (req, res) => {
   try {
     const { company_id } = req.user;
-    const { page, limit, search } = req.query;
+    const { page, limit, search, fetchAll } = req.query;
     
-    const result = await maintenanceService.getMachines({
+    const result = await machineService.getMachines({
       company_id,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
-      search
+      search,
+      fetchAll: fetchAll === 'true' || fetchAll === true
     });
 
     res.status(200).json(result);
@@ -24,7 +25,7 @@ exports.bulkCreateMachines = async (req, res) => {
     const { company_id } = req.user;
     const machinesData = req.body.machines;
     
-    const result = await maintenanceService.bulkCreateMachines(company_id, machinesData);
+    const result = await machineService.bulkCreateMachines(company_id, machinesData);
     res.status(201).json({ message: `Successfully created ${result.count} machines`, count: result.count });
   } catch (error) {
     console.error('Error bulk creating machines:', error);
@@ -38,7 +39,7 @@ exports.updateMachine = async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     
-    await maintenanceService.updateMachine(id, company_id, data);
+    await machineService.updateMachine(id, company_id, data);
     res.status(200).json({ message: 'Machine updated successfully' });
   } catch (error) {
     console.error('Error updating machine:', error);
@@ -51,7 +52,7 @@ exports.deleteMachine = async (req, res) => {
     const { company_id } = req.user;
     const { id } = req.params;
     
-    await maintenanceService.deleteMachine(id, company_id);
+    await machineService.deleteMachine(id, company_id);
     res.status(200).json({ message: 'Machine deleted successfully' });
   } catch (error) {
     console.error('Error deleting machine:', error);

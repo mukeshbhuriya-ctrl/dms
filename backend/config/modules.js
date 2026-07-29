@@ -62,9 +62,15 @@ const MODULES = {
         CREATE: "QAP_CREATE",
     },
 
-    // ── Masters ─────────────────────────────────────────────────────
     MASTERS: {
         INSTRUMENTS: "MASTERS_INSTRUMENTS",
+    },
+
+    // ── Maintenance ──────────────────────────────────────────────────
+    MAINTENANCE: {
+        MACHINE: "MAINTENANCE_MACHINE",
+        MEMO: "MAINTENANCE_MEMO",
+        PM_SCHEDULE: "MAINTENANCE_PM_SCHEDULE",
     },
 
     // ── Marketing ───────────────────────────────────────────────────

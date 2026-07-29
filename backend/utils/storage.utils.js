@@ -109,6 +109,19 @@ class StorageUtils {
     }
 
     /**
+     * Get the directory for Maintenance Memo attachments
+     * Pattern: uploads/MAINTENANCE_MEMO/
+     */
+    getMaintenanceMemoDir() {
+        const dir = path.join(
+            UPLOAD_BASE,
+            'MAINTENANCE_MEMO'
+        );
+        this._ensureDir(dir);
+        return dir;
+    }
+
+    /**
      * Get the directory for outgoing transmission packages
      */
     getTransmissionOutgoingDir(company_id, transmission_number) {

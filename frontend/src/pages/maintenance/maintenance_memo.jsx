@@ -1,4 +1,8 @@
-import React, { useState, useMemo } from "react"
+import React, { useState, useMemo, useEffect } from "react"
+import { format } from "date-fns"
+import apiClient from "@/api/api.client"
+import { toast } from "react-toastify"
+import { useAuth } from "@/context/AuthContext"
 import { PageContainer } from "@/components/layout/PageContainer"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
@@ -9,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
+import { X, FileText } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -29,33 +34,18 @@ import {
 // ----------------------------------------------------------------------
 // 1. LIST VIEW
 // ----------------------------------------------------------------------
-function ListView({ onInitiateClick, onViewClick, onEditClick, data }) {
-  const [refreshKey, setRefreshKey] = useState(0);
+function ListView({ onInitiateClick, onViewClick, onEditClick, refreshListKey }) {
+  const { user, roles } = useAuth();
   const [selectedRows, setSelectedRows] = useState(new Set());
 
-  // Dummy fetch function for ProDataTable
   const fetchData = async ({ page, limit, search }) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        let filteredData = [...data];
-        if (search) {
-          const lowerSearch = search.toLowerCase();
-          filteredData = filteredData.filter(item => 
-            item.machineName.toLowerCase().includes(lowerSearch) || 
-            item.fault.toLowerCase().includes(lowerSearch) ||
-            item.id.toLowerCase().includes(lowerSearch)
-          );
-        }
-        resolve({
-          data: filteredData.slice((page - 1) * limit, page * limit),
-          meta: {
-            total: filteredData.length,
-            page,
-            totalPages: Math.ceil(filteredData.length / limit),
-          }
-        });
-      }, 500);
-    });
+    try {
+      const response = await apiClient.get('/api/maintenance/memos/list', { page, limit, search });
+      return response;
+    } catch (error) {
+      toast.error(error.message || "Failed to fetch memos");
+      return { data: [], meta: { total: 0, page: 1, totalPages: 1 } };
+    }
   };
 
   const getStatusColor = (status) => {
@@ -71,17 +61,18 @@ function ListView({ onInitiateClick, onViewClick, onEditClick, data }) {
   const columns = useMemo(() => [
     {
       id: "id",
-      accessorKey: "id",
+      accessorKey: "memo_no",
       header: "Memo No",
       width: "120px",
-      cell: (row) => <span className="font-bold text-slate-700">{row.id}</span>
+      cell: (row) => <span className="font-bold text-slate-700">{row.memo_no}</span>
     },
     {
       id: "date",
       accessorKey: "date",
       header: "Date",
       filterType: "date",
-      width: "110px"
+      width: "140px",
+      cell: (row) => row.date ? new Date(row.date).toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' }) : "-"
     },
     {
       id: "shift",
@@ -97,14 +88,14 @@ function ListView({ onInitiateClick, onViewClick, onEditClick, data }) {
     },
     {
       id: "informBy",
-      accessorKey: "informBy",
+      accessorKey: "creator.name",
       header: "Inform By",
       filterType: "text",
       width: "100px"
     },
     {
       id: "machineName",
-      accessorKey: "machineName",
+      accessorKey: "machine_name",
       header: "Machine Name",
       filterType: "text",
       width: "250px"
@@ -147,14 +138,35 @@ function ListView({ onInitiateClick, onViewClick, onEditClick, data }) {
       header: "Actions",
       width: "80px",
       cell: (row) => {
-        // Different label based on status
-        const isMaintenanceAction = row.status === "OPEN" || row.status === "UNDER BREAKDOWN";
-        const canEdit = row.status === "DRAFT" || row.status === "OPEN";
-        const canVerify = row.status === "OK";
+        const isAdmin = roles?.includes('ADMIN');
+        const isProduction = isAdmin || row.creator?.id === user?.id || roles?.includes('PRODUCTION_ENGINEER') || user?.employee_group?.group_type === 'PRODUCTION' || String(user?.department).toUpperCase().includes('PRODUCTION');
+        const isMaintenance = isAdmin || roles?.includes('MAINTENANCE') || user?.employee_group?.group_type === 'MAINTENANCE' || String(user?.department).toUpperCase().includes('MAINTENANCE');
+
+        // Different label based on status and user role
+        const isMaintenanceAction = (row.status === "OPEN" || row.status === "UNDER BREAKDOWN") && isMaintenance;
+        const canEdit = (row.status === "DRAFT" || row.status === "OPEN") && isProduction;
+        const canVerify = row.status === "OK" && isProduction;
         
         const rowActions = [];
         
+        // Unconditionally add View Memo for everyone to see the base issue
+        rowActions.push({
+          label: "View Memo",
+          icon: Eye,
+          onClick: () => onViewClick(row, "VIEW_INITIATE_READONLY")
+        });
+
+        // If resolution exists or is in progress, allow viewing it
+        if (row.status === "UNDER BREAKDOWN" || row.status === "OK") {
+          rowActions.push({
+            label: "View Resolution",
+            icon: Eye,
+            onClick: () => onViewClick(row, "VIEW_RESOLUTION_READONLY")
+          });
+        }
+        
         if (canEdit) {
+          rowActions.push({ type: "separator" });
           rowActions.push({
             label: "Edit Memo",
             icon: Pencil,
@@ -162,25 +174,35 @@ function ListView({ onInitiateClick, onViewClick, onEditClick, data }) {
           });
         }
         
-        rowActions.push({ 
-          label: isMaintenanceAction ? "Resolve Memo" : (canVerify ? "Add Remarks" : "View Details"), 
-          icon: isMaintenanceAction ? Clock : Eye, 
-          onClick: () => onViewClick(row) 
-        });
+        if (isMaintenanceAction) {
+          rowActions.push({ type: "separator" });
+          rowActions.push({
+            label: "Resolve Memo",
+            icon: Clock,
+            onClick: () => onViewClick(row, "RESOLVE")
+          });
+        } else if (canVerify) {
+          rowActions.push({ type: "separator" });
+          rowActions.push({
+            label: row.production_remarks ? "Update Remarks" : "Add Remarks",
+            icon: MessageSquare,
+            onClick: () => onViewClick(row, "VERIFY")
+          });
+        }
 
         return (
           <DataTableRowActions actions={rowActions} />
         )
       }
     }
-  ], [onViewClick]);
+  ], [onViewClick, user]);
 
   return (
     <div className="h-full flex flex-col pt-4">
       <ProDataTable
         columns={columns}
         fetchData={fetchData}
-        refreshKey={refreshKey}
+        refreshKey={refreshListKey}
         onAdd={onInitiateClick}
         onAddTooltip="Initiate Memo"
         globalSearchPlaceholder="Search memos by machine or fault..."
@@ -195,44 +217,130 @@ function ListView({ onInitiateClick, onViewClick, onEditClick, data }) {
 // ----------------------------------------------------------------------
 // 2. STAGE 1: INITIATE MEMO VIEW (PRODUCTION)
 // ----------------------------------------------------------------------
-function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
-  const [formData, setFormData] = useState(initialData || {
-    date: new Date().toISOString().split('T')[0],
-    shift: "",
-    informBy: "Current User", // Normally from Auth Context
-    informTo: "",
-    machineName: "",
-    fault: "",
-    attachments: false
+function InitiateMemoView({ onBack, onSuccess, initialData, isReadOnly = false }) {
+  const { user } = useAuth();
+  const [machines, setMachines] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [formData, setFormData] = useState(() => {
+    if (initialData) {
+      return {
+        ...initialData,
+        date: initialData.date ? (typeof initialData.date === 'string' ? initialData.date.split('T')[0] : new Date(initialData.date).toISOString().split('T')[0]) : ''
+      };
+    }
+    return {
+      date: new Date().toISOString().split('T')[0],
+      shift: "",
+      production_group_id: "",
+      maintenance_group_id: "",
+      machine_id: "",
+      machine_name: "",
+      fault: ""
+    };
   });
+  
+  const [attachments, setAttachments] = useState(() => {
+    if (initialData?.attachments) {
+      return initialData.attachments.map(att => ({
+        id: att.id,
+        name: att.original_filename,
+        size: att.file_size ? (att.file_size / 1024).toFixed(2) + " KB" : "-",
+        type: att.mime_type,
+        uploadedAt: new Date(att.createdAt).toLocaleString(),
+        url: att.file_url,
+        isNew: false
+      }));
+    }
+    return [];
+  });
+  const [deletedAttachmentIds, setDeletedAttachmentIds] = useState([]);
+  const [selectedPreviewFile, setSelectedPreviewFile] = useState(null);
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const mRes = await apiClient.get('/api/maintenance/machines', { fetchAll: true });
+        if (mRes.data) setMachines(mRes.data);
+
+        const gRes = await apiClient.get('/api/employee-groups', { limit: 1000 });
+        if (gRes.data) {
+          setGroups(gRes.data);
+          if (!initialData) {
+            const myProdGroup = gRes.data.find(g => g.group_type === 'PRODUCTION' && g.users?.some(u => u.user.id === user?.id));
+            if (myProdGroup) {
+              setFormData(prev => ({ ...prev, production_group_id: myProdGroup.id }));
+            }
+          }
+        }
+      } catch (err) {
+        toast.error("Failed to load dropdowns");
+      }
+    };
+    fetchDropdowns();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = (status) => {
-    const now = new Date();
-    // Format to YYYY-MM-DDThh:mm exactly for datetime-local
-    const localTimestamp = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    const isSubmitting = status === "OPEN";
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files)
+    const newAttachments = files.map(file => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: file.name,
+      size: (file.size / 1024).toFixed(2) + " KB",
+      type: file.type,
+      uploadedAt: new Date().toLocaleString(),
+      file: file,
+      url: URL.createObjectURL(file),
+      isNew: true
+    }))
+    setAttachments(prev => [...prev, ...newAttachments])
+  }
 
-    if (initialData) {
-      // Edit existing
-      const submittedAt = (isSubmitting && !initialData.submittedAt) ? localTimestamp : initialData.submittedAt;
-      const updatedData = data.map(m => m.id === initialData.id ? { ...m, ...formData, status, submittedAt } : m);
-      setData(updatedData);
-    } else {
-      // Create new
-      const newMemo = {
-        ...formData,
-        id: `MEM-00${data.length + 1}`,
-        status: status,
-        actionTaken: "",
-        submittedAt: isSubmitting ? localTimestamp : null,
-      };
-      setData([newMemo, ...data]);
+  const removeAttachment = (id, isNew) => {
+    if (!isNew) {
+      setDeletedAttachmentIds(prev => [...prev, id]);
     }
-    onSuccess();
+    setAttachments(prev => {
+      const fileToRemove = prev.find(a => a.id === id);
+      if (fileToRemove && fileToRemove.isNew && fileToRemove.url) {
+        URL.revokeObjectURL(fileToRemove.url);
+      }
+      return prev.filter(a => a.id !== id);
+    })
+  }
+
+  const handleSave = async (status) => {
+    const formDataToSend = new FormData();
+    Object.keys(formData).forEach(key => {
+      if (formData[key] !== undefined && formData[key] !== null) {
+          formDataToSend.append(key, formData[key]);
+      }
+    });
+    formDataToSend.set('status', status);
+
+    if (deletedAttachmentIds.length > 0) {
+        formDataToSend.append('deletedAttachmentIds', JSON.stringify(deletedAttachmentIds));
+    }
+
+    const newFiles = attachments.filter(a => a.isNew);
+    newFiles.forEach(fileObj => {
+        formDataToSend.append('files', fileObj.file);
+    });
+    
+    const savePromise = initialData 
+        ? apiClient.put(`/api/maintenance/memos/update/${initialData.id}`, formDataToSend)
+        : apiClient.post('/api/maintenance/memos/initiate', formDataToSend);
+
+    savePromise
+        .then((res) => {
+            toast.success(res?.message || `Memo ${initialData ? 'updated' : 'created'} successfully!`);
+            onSuccess();
+        })
+        .catch((err) => {
+            toast.error(err?.message || 'Failed to process request.');
+        });
   };
 
   return (
@@ -255,16 +363,12 @@ function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Machine Name <span className="text-red-500">*</span></label>
               <SearchableSelect
-                options={[
-                  { label: "A/SORAMILL FR 8000 CNC-9", value: "A/SORAMILL FR 8000 CNC-9" },
-                  { label: "B/KUMLA ROLLING( BP-05)", value: "B/KUMLA ROLLING( BP-05)" },
-                  { label: "B/HASS VF-5", value: "B/HASS VF-5" },
-                  { label: "A/PROARC CNC", value: "A/PROARC CNC" },
-                ]}
-                value={formData.machineName}
-                onValueChange={(val) => handleInputChange("machineName", val)}
+                options={machines.map(m => ({ label: m.machine_name, value: m.id }))}
+                value={formData.machine_id}
+                onValueChange={(val) => { const m = machines.find(x => x.id === val); handleInputChange("machine_id", val); if(m) handleInputChange("machine_name", m.machine_name); }}
                 placeholder="Select machine..."
                 className="bg-slate-50/50 shadow-none"
+                disabled={isReadOnly}
               />
             </div>
 
@@ -281,12 +385,13 @@ function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
                 onValueChange={(val) => handleInputChange("shift", val)}
                 placeholder="Select Shift"
                 className="bg-slate-50/50 shadow-none border-slate-200"
+                disabled={isReadOnly}
               />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
-              <Input type="date" value={formData.date} onChange={(e) => handleInputChange("date", e.target.value)} className="bg-slate-50/50 shadow-none" />
+              <Input type="date" value={formData.date} onChange={(e) => handleInputChange("date", e.target.value)} disabled={isReadOnly} className="bg-slate-50/50 shadow-none" />
             </div>
 
             <div className="flex flex-col gap-2 md:col-span-2">
@@ -295,29 +400,124 @@ function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
                 placeholder="Describe the issue in detail..." 
                 value={formData.fault}
                 onChange={(e) => handleInputChange("fault", e.target.value)}
+                disabled={isReadOnly}
                 className="bg-slate-50/50 shadow-none min-h-[100px] resize-y [field-sizing:fixed]"
               />
             </div>
 
             <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Attachments (Optional)</label>
-              <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center text-slate-500 bg-slate-50/50 hover:bg-slate-100 transition-colors cursor-pointer">
-                <UploadCloud className="h-8 w-8 mb-2 text-slate-400" />
-                <span className="text-sm font-medium">Click to upload or drag and drop</span>
-                <span className="text-xs text-slate-400 mt-1">PNG, JPG, PDF up to 10MB</span>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Attachments (Optional)
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  id="memo-attachments"
+                  className="hidden"
+                  multiple
+                  onChange={handleFileChange}
+                />
+                
+                {attachments.length > 0 ? (
+                  <div className="border rounded-md divide-y overflow-hidden">
+                    {attachments.map((file) => (
+                      <div key={file.id} className="flex flex-col">
+                        <div
+                          className={`flex items-center justify-between p-3 transition-colors cursor-pointer ${selectedPreviewFile === file
+                              ? "bg-primary/5 border-b"
+                              : "bg-slate-50 hover:bg-slate-100"
+                            }`}
+                          onClick={() => setSelectedPreviewFile(selectedPreviewFile === file ? null : file)}
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden flex-1">
+                            <FileText className="h-5 w-5 text-blue-500 shrink-0" />
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-sm font-medium truncate text-slate-700">{file.name}</span>
+                              <span className="text-[10px] text-slate-400">{file.size} • {file.uploadedAt}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {selectedPreviewFile === file ? (
+                              <span className="text-xs text-primary font-medium mr-2">Close Preview</span>
+                            ) : (
+                              <span className="text-xs text-slate-500 font-medium mr-2">Click to Preview</span>
+                            )}
+                            {!isReadOnly && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 z-10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (selectedPreviewFile === file) setSelectedPreviewFile(null);
+                                  removeAttachment(file.id, file.isNew)
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedPreviewFile === file && file.url && (
+                          <div className="w-full h-[600px] animate-in slide-in-from-top-2 fade-in duration-300">
+                            <iframe
+                              src={file.url}
+                              className="w-full h-full border-0 bg-white"
+                              title="Document Preview"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {!isReadOnly && (
+                      <div className="p-3 bg-slate-50 border-t flex justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 border-dashed border-blue-300 text-blue-600 hover:bg-blue-50"
+                          onClick={() => document.getElementById('memo-attachments').click()}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" />
+                          Add More Files
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  !isReadOnly ? (
+                    <div
+                      className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer"
+                      onClick={() => document.getElementById('memo-attachments').click()}
+                    >
+                      <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+                        <UploadCloud className="h-6 w-6 text-slate-400" />
+                      </div>
+                      <span className="text-sm font-medium text-slate-600">Click to upload or drag files here</span>
+                      <span className="text-xs text-slate-400 mt-1">PDF, JPG, PNG up to 10MB each</span>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-sm text-slate-500 border border-dashed rounded-md bg-slate-50/50">
+                      No attachments provided.
+                    </div>
+                  )
+                )}
               </div>
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Inform By (Auto) <span className="text-red-500">*</span></label>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Inform By <span className="text-red-500">*</span></label>
               <SearchableSelect
                 options={[
-                  { label: "Current User", value: "Current User" }
+                  { label: user?.name || "", value: "" }
                 ]}
-                value={formData.informBy}
+                value=""
                 onValueChange={() => {}}
                 disabled={true}
-                placeholder="Current User"
+                placeholder={user?.name || ""}
                 className="bg-slate-100 text-slate-500 shadow-none border-dashed opacity-70 cursor-not-allowed"
                 required
               />
@@ -326,14 +526,11 @@ function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Inform To <span className="text-red-500">*</span></label>
               <SearchableSelect
-                options={[
-                  { label: "Mechanical Dept", value: "Mechanical Dept" },
-                  { label: "Electrical Dept", value: "Electrical Dept" },
-                  { label: "Utilities", value: "Utilities" },
-                ]}
-                value={formData.informTo}
-                onValueChange={(val) => handleInputChange("informTo", val)}
+                options={groups.filter(g => g.group_type === 'MAINTENANCE').map(g => ({ label: g.name, value: g.id }))}
+                value={formData.maintenance_group_id}
+                onValueChange={(val) => handleInputChange("maintenance_group_id", val)}
                 placeholder="Select Maintenance Group"
+                disabled={isReadOnly}
                 className="bg-slate-50/50 shadow-none border-slate-200"
                 required
               />
@@ -341,17 +538,19 @@ function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
 
           </div>
         </CardContent>
-        <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4">
-          <Button variant="outline" onClick={onBack} className="shadow-none bg-white cursor-pointer">
-            Cancel
-          </Button>
-          <Button variant="outline" onClick={() => handleSave("DRAFT")} className="shadow-none bg-white border-slate-200 cursor-pointer">
-            Save as Draft
-          </Button>
-          <Button onClick={() => handleSave("OPEN")} className="bg-blue-600 text-white hover:bg-blue-700 shadow-none cursor-pointer">
-            {initialData && initialData.status !== "DRAFT" ? "Save Changes" : "Submit Request"}
-          </Button>
-        </CardFooter>
+        {!isReadOnly && (
+          <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4">
+            <Button variant="outline" onClick={onBack} className="shadow-none bg-white cursor-pointer">
+              Cancel
+            </Button>
+            <Button variant="outline" onClick={() => handleSave("DRAFT")} className="shadow-none bg-white border-slate-200 cursor-pointer">
+              Save as Draft
+            </Button>
+            <Button onClick={() => handleSave("OPEN")} className="bg-blue-600 text-white hover:bg-blue-700 shadow-none cursor-pointer">
+              {initialData && initialData.status !== "DRAFT" ? "Save Changes" : "Submit Request"}
+            </Button>
+          </CardFooter>
+        )}
       </Card>
     </div>
   );
@@ -360,49 +559,71 @@ function InitiateMemoView({ onBack, onSuccess, data, setData, initialData }) {
 // ----------------------------------------------------------------------
 // 3. STAGE 2: RESOLVE MEMO VIEW (MAINTENANCE)
 // ----------------------------------------------------------------------
-function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
-  // Maintenance resolution form state
+const toLocalDatetimeStr = (isoString) => {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  return isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd'T'HH:mm");
+};
+
+const toLocalDateStr = (isoString) => {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  return isNaN(d.getTime()) ? "" : format(d, "yyyy-MM-dd");
+};
+
+function ResolveMemoView({ onBack, onSuccess, memo, isReadOnly = false, isVerifyMode = false }) {
+  const [users, setUsers] = useState([]);
   const [resolution, setResolution] = useState({
-    actionTaken: memo.actionTaken || "",
-    attendedBy: memo.attendedBy || "",
-    activityType: memo.activityType || "",
-    materialConsumed: memo.materialConsumed || false,
-    receivedTime: memo.receivedTime || memo.submittedAt || "",
-    attendedTime: memo.attendedTime || "",
-    compTime: memo.compTime || "",
-    compDate: memo.compDate || new Date().toISOString().split('T')[0],
-    manHrsTech: memo.manHrsTech || "",
-    manHrsMgt: memo.manHrsMgt || "",
-    totalManHrs: memo.totalManHrs || "",
-    breakdownHrs: memo.breakdownHrs || "",
+    action_taken: memo.action_taken || "",
+    attended_by_id: memo.attended_by_id || "",
+    activity_type: memo.activity_type || "",
+    material_consumed: memo.material_consumed || false,
+    received_time: memo.received_time ? toLocalDatetimeStr(memo.received_time) : (memo.createdAt ? toLocalDatetimeStr(memo.createdAt) : ""),
+    attended_time: memo.attended_time ? toLocalDatetimeStr(memo.attended_time) : "",
+    completion_time: memo.completion_time ? toLocalDatetimeStr(memo.completion_time) : "",
+    completion_date: memo.completion_date ? toLocalDateStr(memo.completion_date) : toLocalDateStr(new Date().toISOString()),
+    man_hrs_technician: memo.man_hrs_technician || "",
+    man_hrs_management: memo.man_hrs_management || "",
+    total_man_hrs: memo.total_man_hrs || "",
+    breakdown_hrs: memo.breakdown_hrs || "",
     status: memo.status === "OPEN" ? "UNDER BREAKDOWN" : memo.status,
-    remarks: memo.remarks || "",
+    maintenance_remarks: memo.maintenance_remarks || "",
   });
 
-  const [prodRemarks, setProdRemarks] = useState(memo.prodRemarks || "");
+  const [production_remarks, setProdRemarks] = useState(memo.production_remarks || "");
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await apiClient.get('/api/users/by-role/MAINTENANCE');
+        if (res.data) setUsers(res.data);
+      } catch (err) {
+        toast.error("Failed to load users");
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleResChange = (field, value) => {
     setResolution(prev => {
       const next = { ...prev, [field]: value };
-      // Auto calc total man hours if tech/mgt changes
-      if (field === "manHrsTech" || field === "manHrsMgt") {
-        const tech = parseFloat(next.manHrsTech) || 0;
-        const mgt = parseFloat(next.manHrsMgt) || 0;
-        next.totalManHrs = tech + mgt;
+      if (field === "man_hrs_technician" || field === "man_hrs_management") {
+        const tech = parseFloat(next.man_hrs_technician) || 0;
+        const mgt = parseFloat(next.man_hrs_management) || 0;
+        next.total_man_hrs = tech + mgt;
       }
       return next;
     });
   };
 
-  const handleUpdate = () => {
-    const updatedData = data.map(m => {
-      if (m.id === memo.id) {
-        return { ...m, ...resolution };
-      }
-      return m;
-    });
-    setData(updatedData);
-    onSuccess();
+  const handleUpdate = async () => {
+    try {
+      await apiClient.put(`/api/maintenance/memos/resolve/${memo.id}`, resolution);
+      toast.success("Resolution submitted successfully");
+      onSuccess();
+    } catch (err) {
+      toast.error(err.message || "Failed to submit resolution");
+    }
   };
 
   return (
@@ -423,14 +644,14 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
             <div className="flex items-center gap-4">
               <div className="flex flex-col">
                 <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Production Request Reference</span>
-                <span className="text-sm font-bold tracking-wide">{memo.id}</span>
+                <span className="text-sm font-bold tracking-wide">{memo.memo_no}</span>
               </div>
-              <Badge variant="outline" className="bg-amber-400/10 text-amber-400 border-amber-400/30 uppercase text-[10px] tracking-wide font-bold">
-                {resolution.status}
+              <Badge variant="outline" className={`uppercase text-[10px] tracking-wide font-bold ${memo.status === 'OPEN' ? 'bg-purple-100 text-purple-700 border-purple-200' : memo.status === 'OK' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200'}`}>
+                {memo.status}
               </Badge>
             </div>
             <div className="flex items-center gap-3 text-xs font-medium">
-              <span className="text-slate-300">Date: {memo.date}</span>
+              <span className="text-slate-300">Date: {memo.date?.split('T')[0]}</span>
               <Badge variant="secondary" className="bg-slate-700 hover:bg-slate-700 text-slate-100 border-none uppercase tracking-widest text-[10px]">
                 Shift {memo.shift}
               </Badge>
@@ -442,26 +663,37 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
             <div className="p-6 lg:col-span-1 flex flex-col gap-6">
               <div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Affected Machine</div>
-                <div className="text-sm font-bold text-slate-900 break-words">{memo.machineName}</div>
+                <div className="text-sm font-bold text-slate-900 break-words">{memo.machine_name}</div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Inform By</div>
-                  <div className="text-sm font-semibold text-slate-800 break-words">{memo.informBy}</div>
+                  <div className="text-sm font-semibold text-slate-800 break-words">{memo.creator?.name}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Inform To</div>
-                  <div className="text-sm font-semibold text-slate-800 break-words">{memo.informTo || "Maintenance"}</div>
+                  <div className="text-sm font-semibold text-slate-800 break-words">{memo.maintenance_group?.name || "Maintenance"}</div>
                 </div>
               </div>
               <div>
                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
                   <Paperclip className="h-3 w-3" /> Attachments
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-slate-500 bg-slate-50 font-normal shadow-none border-dashed pointer-events-none">
-                    No attachments provided
-                  </Badge>
+                <div className="flex flex-col gap-2">
+                  {memo.attachments && memo.attachments.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      {memo.attachments.map(att => (
+                        <a key={att.id} href={att.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline p-1.5 rounded-md hover:bg-blue-50 transition-colors w-max">
+                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{att.original_filename}</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <Badge variant="outline" className="text-slate-500 bg-slate-50 font-normal shadow-none border-dashed pointer-events-none w-max">
+                      No attachments provided
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -491,31 +723,39 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                 {/* Timeline */}
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Received Time</label>
-                  <Input type="datetime-local" value={resolution.receivedTime} disabled className="bg-slate-100 border-dashed text-slate-600 shadow-none pointer-events-none" />
+                  <Input type="datetime-local" value={resolution.received_time} disabled className="bg-slate-100 border-dashed text-slate-600 shadow-none pointer-events-none" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Attended Time</label>
-                  <Input type="datetime-local" value={resolution.attendedTime} onChange={e => handleResChange("attendedTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                  <Input type="datetime-local" value={resolution.attended_time} onChange={e => handleResChange("attended_time", e.target.value)} disabled={isReadOnly || isVerifyMode} className="bg-slate-50/50 shadow-none" />
                 </div>
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Completion Time</label>
-                  <Input type="datetime-local" value={resolution.compTime} onChange={e => handleResChange("compTime", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                  <Input type="datetime-local" value={resolution.completion_time} onChange={e => handleResChange("completion_time", e.target.value)} disabled={isReadOnly || isVerifyMode} className="bg-slate-50/50 shadow-none" />
                 </div>
 
                 {/* Details */}
                 <div className="flex flex-col gap-2 md:col-span-3">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Action Taken <span className="text-red-500">*</span></label>
                   <Textarea 
-                    value={resolution.actionTaken} 
-                    onChange={e => handleResChange("actionTaken", e.target.value)} 
+                    value={resolution.action_taken} 
+                    onChange={e => handleResChange("action_taken", e.target.value)} 
                     placeholder="Describe what was fixed..."
+                    disabled={isReadOnly || isVerifyMode}
                     className="bg-slate-50/50 shadow-none min-h-[80px] resize-y [field-sizing:fixed]" 
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Attended By</label>
-                  <Input placeholder="e.g. PP/VP/JR" value={resolution.attendedBy} onChange={e => handleResChange("attendedBy", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                  <SearchableSelect
+                    options={users.map(u => ({ label: u.name, value: u.id }))}
+                    value={resolution.attended_by_id}
+                    onValueChange={(val) => handleResChange("attended_by_id", val)}
+                    placeholder="Select Engineer"
+                    className="bg-slate-50/50 shadow-none border-slate-200"
+                    disabled={isReadOnly || isVerifyMode}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -530,16 +770,17 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                       { label: "MIS - Miscellaneous", value: "MIS" },
                       { label: "IMP - Improvement", value: "IMP" },
                     ]}
-                    value={resolution.activityType}
-                    onValueChange={(val) => handleResChange("activityType", val)}
+                    value={resolution.activity_type}
+                    onValueChange={(val) => handleResChange("activity_type", val)}
                     placeholder="Select Type"
                     className="bg-slate-50/50 shadow-none border-slate-200"
+                    disabled={isReadOnly || isVerifyMode}
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Material Consumed?</label>
-                  <Select value={resolution.materialConsumed ? "yes" : "no"} onValueChange={(val) => handleResChange("materialConsumed", val === "yes")}>
+                  <Select disabled={isReadOnly || isVerifyMode} value={resolution.material_consumed ? "yes" : "no"} onValueChange={(val) => handleResChange("material_consumed", val === "yes")}>
                     <SelectTrigger className="bg-slate-50/50 shadow-none border-slate-200 w-full">
                       <SelectValue placeholder="Select Yes/No" />
                     </SelectTrigger>
@@ -556,19 +797,19 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="flex flex-col gap-2">
                       <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Man Hrs (Tech)</label>
-                      <Input type="number" value={resolution.manHrsTech} onChange={e => handleResChange("manHrsTech", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                      <Input type="number" value={resolution.man_hrs_technician} onChange={e => handleResChange("man_hrs_technician", e.target.value)} disabled={isReadOnly || isVerifyMode} className="bg-slate-50/50 shadow-none" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Man Hrs (Mgt)</label>
-                      <Input type="number" value={resolution.manHrsMgt} onChange={e => handleResChange("manHrsMgt", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                      <Input type="number" value={resolution.man_hrs_management} onChange={e => handleResChange("man_hrs_management", e.target.value)} disabled={isReadOnly || isVerifyMode} className="bg-slate-50/50 shadow-none" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total Man Hrs</label>
-                      <Input type="number" value={resolution.totalManHrs} onChange={e => handleResChange("totalManHrs", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                      <Input type="number" value={resolution.total_man_hrs} onChange={e => handleResChange("total_man_hrs", e.target.value)} disabled={isReadOnly || isVerifyMode} className="bg-slate-50/50 shadow-none" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Breakdown Hrs</label>
-                      <Input type="number" value={resolution.breakdownHrs} onChange={e => handleResChange("breakdownHrs", e.target.value)} className="bg-slate-50/50 shadow-none" />
+                      <Input type="number" value={resolution.breakdown_hrs} onChange={e => handleResChange("breakdown_hrs", e.target.value)} disabled={isReadOnly || isVerifyMode} className="bg-slate-50/50 shadow-none" />
                     </div>
                   </div>
                 </div>
@@ -577,7 +818,7 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                 <div className="md:col-span-3 border-t border-slate-100 pt-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Status</label>
-                    <Select value={resolution.status} onValueChange={(val) => handleResChange("status", val)}>
+                    <Select disabled={isReadOnly || isVerifyMode} value={resolution.status} onValueChange={(val) => handleResChange("status", val)}>
                       <SelectTrigger className="bg-slate-50/50 shadow-none border-slate-200 font-semibold w-full">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
@@ -590,9 +831,10 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                   <div className="flex flex-col gap-2 md:col-span-2">
                     <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Remarks</label>
                     <Textarea 
-                      value={resolution.remarks} 
-                      onChange={e => handleResChange("remarks", e.target.value)} 
+                      value={resolution.maintenance_remarks} 
+                      onChange={e => handleResChange("maintenance_remarks", e.target.value)} 
                       placeholder="Any additional remarks..."
+                      disabled={isReadOnly || isVerifyMode}
                       className="bg-slate-50/50 shadow-none min-h-[60px] resize-y [field-sizing:fixed]" 
                     />
                   </div>
@@ -600,15 +842,17 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
 
               </div>
             </CardContent>
-            <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4 shrink-0">
-              <Button variant="outline" onClick={onBack} className="shadow-none bg-white">
-                Cancel
-              </Button>
-              <Button onClick={handleUpdate} className="bg-slate-900 text-white hover:bg-slate-800 shadow-none">
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {resolution.status === "OK" ? "Submit Resolution" : "Save Progress"}
-              </Button>
-            </CardFooter>
+            {!(isReadOnly || isVerifyMode) && (
+              <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4 shrink-0">
+                <Button variant="outline" onClick={onBack} className="shadow-none bg-white cursor-pointer">
+                  Cancel
+                </Button>
+                <Button onClick={handleUpdate} className="bg-blue-600 text-white hover:bg-blue-700 shadow-none cursor-pointer">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {resolution.status === "OK" ? "Submit Resolution" : "Save Progress"}
+                </Button>
+              </CardFooter>
+            )}
           </Card>
 
           {/* Production Remarks Section */}
@@ -622,31 +866,33 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Final Production Remarks</label>
                   <Textarea 
-                    value={prodRemarks} 
+                    value={production_remarks} 
                     onChange={e => setProdRemarks(e.target.value)} 
                     placeholder="Confirm if the machine is running okay..."
+                    disabled={isReadOnly}
                     className="bg-slate-50/50 shadow-none min-h-[80px] resize-y [field-sizing:fixed]" 
                   />
                 </div>
               </CardContent>
-              <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4 shrink-0">
-                <Button 
-                  onClick={() => {
-                    const updatedData = data.map(m => {
-                      if (m.id === memo.id) {
-                        return { ...m, prodRemarks };
+              {!isReadOnly && (
+                <CardFooter className="bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3 py-4 shrink-0">
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        await apiClient.put(`/api/maintenance/memos/verify/${memo.id}`, { production_remarks });
+                        toast.success("Remark saved successfully");
+                        onSuccess();
+                      } catch (err) {
+                        toast.error("Failed to save remark");
                       }
-                      return m;
-                    });
-                    setData(updatedData);
-                    onSuccess();
-                  }} 
-                  className="bg-slate-900 text-white hover:bg-slate-800 shadow-none"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Save Remarks
-                </Button>
-              </CardFooter>
+                    }} 
+                    className="bg-blue-600 text-white hover:bg-blue-700 shadow-none cursor-pointer"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Save Remark
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           )}
       </div>
@@ -658,69 +904,11 @@ function ResolveMemoView({ onBack, onSuccess, memo, data, setData }) {
 // MAIN EXPORT
 // ----------------------------------------------------------------------
 export function MaintenanceMemo() {
-  const [view, setView] = useState("list"); // 'list', 'initiate', 'resolve'
+  const [view, setView] = useState("list"); 
   const [activeMemo, setActiveMemo] = useState(null);
-
-  const [data, setData] = useState([
-    {
-      id: "MEM-001",
-      date: "2026-06-01",
-      shift: "1",
-      informBy: "YP",
-      informTo: "Mechanical Dept",
-      machineName: "B/KUMLA ROLLING( BP-05)",
-      fault: "Bottom roller moves downward",
-      actionTaken: "Bottom roller cylinder ram seal change",
-      attendedBy: "PP/VP/JR",
-      activityType: "M",
-      materialRequired: true,
-      receivedTime: "09:10",
-      attendedTime: "09:10",
-      compTime: "15:15",
-      compDate: "2026-06-06",
-      manHrsTech: 24,
-      manHrsMgt: 10,
-      totalManHrs: 34,
-      breakdownHrs: 80,
-      status: "OK",
-      attachments: true
-    },
-    {
-      id: "MEM-002",
-      date: "2026-06-01",
-      shift: "1",
-      informBy: "MBJ",
-      informTo: "Electrical Dept",
-      machineName: "A/SORAMILL FR 8000 CNC-9",
-      fault: "HHU not working",
-      actionTaken: "cable disconnected, connection done",
-      attendedBy: "NP/MR",
-      activityType: "E",
-      materialRequired: false,
-      receivedTime: "10:00",
-      attendedTime: "10:00",
-      compTime: "12:00",
-      compDate: "2026-06-01",
-      manHrsTech: 1,
-      manHrsMgt: 1,
-      totalManHrs: 2,
-      breakdownHrs: 1,
-      status: "OK",
-      attachments: false
-    },
-    {
-      id: "MEM-003",
-      date: "2026-06-03",
-      shift: "1",
-      informBy: "MBJ",
-      informTo: "Mechanical Dept",
-      machineName: "A/PROARC CNC",
-      fault: "No axis movement",
-      actionTaken: "",
-      status: "OPEN",
-      attachments: false
-    }
-  ]);
+  const [refreshListKey, setRefreshListKey] = useState(0);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isVerifyMode, setIsVerifyMode] = useState(false);
 
   return (
     <PageContainer
@@ -735,27 +923,55 @@ export function MaintenanceMemo() {
         <ListView 
           onInitiateClick={() => {
             setActiveMemo(null);
+            setIsReadOnly(false);
+            setIsVerifyMode(false);
             setView("initiate");
           }} 
-          onViewClick={(memo) => {
-            setActiveMemo(memo);
-            setView("resolve");
+          onViewClick={async (memo, actionType) => {
+            try {
+              const response = await apiClient.get(`/api/maintenance/memos/${memo.id}`);
+              setActiveMemo(response.data || response);
+              
+              setIsReadOnly(false);
+              setIsVerifyMode(false);
+              
+              if (actionType === "VIEW_INITIATE_READONLY") {
+                setIsReadOnly(true);
+                setView("initiate");
+              } else if (actionType === "VIEW_RESOLUTION_READONLY") {
+                setIsReadOnly(true);
+                setView("resolve");
+              } else if (actionType === "VERIFY") {
+                setIsVerifyMode(true);
+                setView("resolve");
+              } else {
+                setView("resolve");
+              }
+            } catch (error) {
+              toast.error("Failed to load memo details");
+            }
           }}
-          onEditClick={(memo) => {
-            setActiveMemo(memo);
-            setView("initiate");
+          onEditClick={async (memo) => {
+            try {
+              const response = await apiClient.get(`/api/maintenance/memos/${memo.id}`);
+              setActiveMemo(response.data || response);
+              setIsReadOnly(false);
+              setIsVerifyMode(false);
+              setView("initiate");
+            } catch (error) {
+              toast.error("Failed to load memo details");
+            }
           }}
-          data={data}
+          refreshListKey={refreshListKey}
         />
       )}
       
       {view === "initiate" && (
         <InitiateMemoView 
           onBack={() => setView("list")}
-          onSuccess={() => setView("list")}
-          data={data}
-          setData={setData}
+          onSuccess={() => { setRefreshListKey(k => k+1); setView("list"); }}
           initialData={activeMemo}
+          isReadOnly={isReadOnly}
         />
       )}
 
@@ -766,12 +982,13 @@ export function MaintenanceMemo() {
             setView("list");
           }}
           onSuccess={() => {
+            setRefreshListKey(k => k+1);
             setActiveMemo(null);
             setView("list");
           }}
           memo={activeMemo}
-          data={data}
-          setData={setData}
+          isReadOnly={isReadOnly}
+          isVerifyMode={isVerifyMode}
         />
       )}
     </PageContainer>
