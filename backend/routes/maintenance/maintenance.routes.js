@@ -31,6 +31,8 @@ router.post('/pm-plans', pmScheduleController.savePlan);
 router.post('/pm-plans/clone', pmScheduleController.clonePlan);
 router.delete('/pm-plans/:id', pmScheduleController.archivePlan);
 router.patch('/pm-plans/toggle-status/:id', pmScheduleController.togglePlanStatus);
+router.patch('/pm-plans/:id/approve', pmScheduleController.approvePlan);
+router.patch('/pm-plans/:id/reject', pmScheduleController.rejectPlan);
 
 
 

@@ -167,6 +167,36 @@ class PreventiveMaintenanceService {
     });
   }
 
+  
+  
+  async rejectPlan(plan_id, company_id, user_id) {
+    const plan = await prisma.preventive_maintenance_plan.findFirst({
+      where: { id: plan_id, company_id }
+    });
+    if (!plan) throw new Error("Plan not found");
+    if (plan.status !== 'PENDING') throw new Error("Only PENDING plans can be rejected");
+    if (plan.approved_by_id !== user_id) throw new Error("Unauthorized: Only the designated approver can reject this plan");
+    
+    return await prisma.preventive_maintenance_plan.update({
+      where: { id: plan_id },
+      data: { status: 'DRAFT' }
+    });
+  }
+
+  async approvePlan(plan_id, company_id, user_id) {
+    const plan = await prisma.preventive_maintenance_plan.findFirst({
+      where: { id: plan_id, company_id }
+    });
+    if (!plan) throw new Error("Plan not found");
+    if (plan.status !== 'PENDING') throw new Error("Only PENDING plans can be approved");
+    if (plan.approved_by_id !== user_id) throw new Error("Unauthorized: Only the designated approver can approve this plan");
+    
+    return await prisma.preventive_maintenance_plan.update({
+      where: { id: plan_id },
+      data: { status: 'APPROVED', approved_at: new Date() }
+    });
+  }
+
   async togglePlanStatus(plan_id, company_id) {
     const plan = await prisma.preventive_maintenance_plan.findFirst({
       where: { id: plan_id, company_id }

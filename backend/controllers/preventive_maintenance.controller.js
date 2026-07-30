@@ -49,6 +49,28 @@ class PreventiveMaintenanceController {
     }
   };
 
+  
+  
+  rejectPlan = async (req, res) => {
+    try {
+      const plan = await pmService.rejectPlan(req.params.id, req.user.company_id, req.user.userid);
+      res.status(200).json({ success: true, data: plan, message: 'Plan rejected successfully' });
+    } catch (error) {
+      console.error('rejectPlan error:', error);
+      res.status(error.message.includes('Unauthorized') ? 403 : 500).json({ success: false, message: error.message });
+    }
+  };
+
+  approvePlan = async (req, res) => {
+    try {
+      const plan = await pmService.approvePlan(req.params.id, req.user.company_id, req.user.userid);
+      res.status(200).json({ success: true, data: plan, message: 'Plan approved successfully' });
+    } catch (error) {
+      console.error('approvePlan error:', error);
+      res.status(error.message.includes('Unauthorized') ? 403 : 500).json({ success: false, message: error.message });
+    }
+  };
+
   togglePlanStatus = async (req, res) => {
     try {
       const plan = await pmService.togglePlanStatus(req.params.id, req.user.company_id);

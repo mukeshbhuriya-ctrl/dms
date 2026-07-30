@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { useAuth } from "@/context/AuthContext";
 import ProDataTable from "@/components/shared/ProDataTable";
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions";
 import { SearchableSelect } from "@/components/shared/SearchableSelect";
@@ -39,6 +40,7 @@ import { format } from "date-fns";
 // 1. MASTER LIST VIEW
 // ----------------------------------------------------------------------
 function ListView({ onCreateClick, onEditClick, onViewClick }) {
+  const { user } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
   const [cloneDialog, setCloneDialog] = useState({ isOpen: false, plan: null, nextYear: "" });
   const [actionDialog, setActionDialog] = useState({ isOpen: false, type: "", plan: null });
@@ -140,29 +142,41 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
     {
       id: "actions",
       header: "Actions",
-      cell: (row) => (
-        <DataTableRowActions 
-          actions={[
-            { label: "Edit Schedule", icon: Edit, onClick: () => onEditClick(row) },
-            { label: "Clone Next Year", icon: Copy, onClick: () => handleCloneClick(row) },
-            { type: "separator" },
-            { 
-              label: row.is_active ? "Deactivate" : "Activate", 
-              icon: row.is_active ? XCircle : CheckCircle2, 
-              onClick: () => handleActionClick("toggle", row),
-              className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-            },
-            { 
-              label: "Archive", 
-              icon: Archive, 
-              onClick: () => handleActionClick("archive", row),
-              className: "text-red-600 hover:text-red-700 hover:bg-red-50"
-            },
-          ]} 
-        />
-      )
+      cell: (row) => {
+        const canApprove = row.status === "PENDING" && row.approved_by_id === user?.id;
+        
+        const actions = [
+          { label: "Edit Schedule", icon: Edit, onClick: () => onEditClick(row) },
+          { label: "Clone Next Year", icon: Copy, onClick: () => handleCloneClick(row) }
+        ];
+
+        if (canApprove) {
+          actions.push({
+            label: "Review & Approve",
+            icon: CheckCircle,
+            onClick: () => onEditClick(row),
+            className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 font-semibold"
+          });
+        }
+
+        actions.push({ type: "separator" });
+        actions.push({ 
+          label: row.is_active ? "Deactivate" : "Activate", 
+          icon: row.is_active ? XCircle : CheckCircle2, 
+          onClick: () => handleActionClick("toggle", row),
+          className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+        });
+        actions.push({ 
+          label: "Archive", 
+          icon: Archive, 
+          onClick: () => handleActionClick("archive", row),
+          className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+        });
+
+        return <DataTableRowActions actions={actions} />;
+      }
     }
-  ], [onEditClick]);
+  ], [onEditClick, user]);
 
   return (
     <div className="h-full flex flex-col pt-4">
@@ -190,13 +204,19 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
         isOpen={actionDialog.isOpen}
         onClose={() => setActionDialog({ isOpen: false, type: "", plan: null })}
         onConfirm={confirmAction}
-        title={actionDialog.type === "archive" ? "Archive PM Schedule" : (actionDialog.plan?.is_active ? "Deactivate PM Schedule" : "Activate PM Schedule")}
+        title={
+          actionDialog.type === "archive" ? "Archive PM Schedule" : 
+          (actionDialog.plan?.is_active ? "Deactivate PM Schedule" : "Activate PM Schedule")
+        }
         description={
           actionDialog.type === "archive" 
             ? `Are you sure you want to archive the PM Schedule for ${actionDialog.plan?.year}? This will hide it from the active list.`
             : `Are you sure you want to ${actionDialog.plan?.is_active ? "deactivate" : "activate"} the PM Schedule for ${actionDialog.plan?.year}?`
         }
-        confirmText={actionDialog.type === "archive" ? "Archive" : (actionDialog.plan?.is_active ? "Deactivate" : "Activate")}
+        confirmText={
+          actionDialog.type === "archive" ? "Archive" : 
+          (actionDialog.plan?.is_active ? "Deactivate" : "Activate")
+        }
         cancelText="Cancel"
         variant={actionDialog.type === "archive" ? "danger" : "warning"}
       />
@@ -208,6 +228,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
 // 2. CREATE / EDIT PLAN VIEW (TABULAR FORM)
 // ----------------------------------------------------------------------
 function CreateEditView({ plan, onBack, onSuccess }) {
+  const { user } = useAuth();
   const [machinesList, setMachinesList] = useState([]);
   const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -390,7 +411,7 @@ function CreateEditView({ plan, onBack, onSuccess }) {
     }
   };
 
-  const isReadOnly = plan?.status === "LOCKED";
+  const isReadOnly = plan?.status === "LOCKED" || plan?.status === "APPROVED" || plan?.status === "PENDING";
 
   const DateCell = ({ planValue, doneValue, onPlanChange, onDoneChange, disabled }) => {
     const isNA = doneValue === "N/A";
@@ -434,6 +455,36 @@ function CreateEditView({ plan, onBack, onSuccess }) {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     handleSubmit(intendedStatus);
+  };
+
+  const isDesignatedApprover = user?.id === formData.approved_by_id;
+  const isPending = plan?.status === "PENDING";
+  const canApprove = isPending && isDesignatedApprover;
+
+  const handleApprove = async () => {
+    try {
+      setLoading(true);
+      await apiClient.patch(`/api/maintenance/pm-plans/${plan.id}/approve`);
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to approve plan", error);
+      alert("Failed to approve plan: " + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      setLoading(true);
+      await apiClient.patch(`/api/maintenance/pm-plans/${plan.id}/reject`);
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to reject plan", error);
+      alert("Failed to reject plan: " + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -615,8 +666,18 @@ function CreateEditView({ plan, onBack, onSuccess }) {
              <CheckCircle className="w-4 h-4 text-emerald-500" /> Auto-saving enabled
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={onBack} disabled={loading} className="shadow-none border-slate-200 rounded-md">Cancel</Button>
-            {!isReadOnly && (
+            <Button variant="outline" type="button" onClick={onBack} disabled={loading} className="shadow-none border-slate-200 rounded-md">Cancel</Button>
+            {canApprove && (
+              <>
+                <Button type="button" variant="outline" onClick={handleReject} disabled={loading} className="shadow-none border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-md">
+                  {loading ? "Rejecting..." : "Reject Schedule"}
+                </Button>
+                <Button type="button" onClick={handleApprove} disabled={loading} className="shadow-none bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
+                  {loading ? "Approving..." : "Approve Schedule"}
+                </Button>
+              </>
+            )}
+            {!isReadOnly && !canApprove && (
               <>
                 <Button type="submit" variant="outline" onClick={() => setIntendedStatus('DRAFT')} disabled={loading} className="shadow-none border-slate-200 rounded-md bg-white">
                   {loading ? "Saving..." : "Save as Draft"}
