@@ -6,7 +6,7 @@ const { upload } = require('../../utils/upload');
 // Controllers
 const machineController = require('../../controllers/machine.controller');
 const maintenanceMemoController = require('../../controllers/maintenance_memo.controller');
-// const pmScheduleController = require('../../controllers/maintenance_preventive.controller');
+const pmScheduleController = require('../../controllers/preventive_maintenance.controller');
 
 // All routes require authentication
 router.use(authenticateUserOnly);
@@ -17,10 +17,21 @@ router.use(authenticateUserOnly);
 // ==========================================
 router.get('/machines', machineController.getMachines);
 router.post('/machines/bulk', machineController.bulkCreateMachines);
-// router.get('/machines/template', machineController.downloadMachineTemplate);
-// router.post('/machines/import', upload.single('file'), machineController.importMachines);
 router.put('/machines/:id', machineController.updateMachine);
 router.delete('/machines/:id', machineController.deleteMachine);
+// router.post('/machines/import', upload.single('file'), machineController.importMachines);
+// router.get('/machines/template', machineController.downloadMachineTemplate);
+
+// ==========================================
+// 2. PREVENTIVE MAINTENANCE ROUTES
+// ==========================================
+router.get('/pm-plans', pmScheduleController.getPlans);
+router.get('/pm-plans/:id', pmScheduleController.getPlanById);
+router.post('/pm-plans', pmScheduleController.savePlan);
+router.post('/pm-plans/clone', pmScheduleController.clonePlan);
+router.delete('/pm-plans/:id', pmScheduleController.archivePlan);
+router.patch('/pm-plans/toggle-status/:id', pmScheduleController.togglePlanStatus);
+
 
 
 // ==========================================
