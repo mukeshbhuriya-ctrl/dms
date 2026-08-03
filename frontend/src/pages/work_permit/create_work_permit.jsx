@@ -414,37 +414,55 @@ export default function CreateWorkPermit() {
               <CardContent className="p-6">
                 
                 <div className="flex flex-col gap-2 mb-6">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Measures Taken By Acceptor</label>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border border-slate-200 p-4 bg-slate-50/50">
+                    {[
+                      "Lighting", "Earthing", "Hand gloves", "Overall suits/apron",
+                      "Ventilation", "Safety Helmet", "Full Body Harness/ Safety Belt", "Fall Arrestor",
+                      "Area cordoned", "Face shield/Goggles", "Safety shoes/Gum Boot", "Safety Talk",
+                      "Caution board", "Ear Plug/ Muff", "Respirators", "Others"
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-center space-x-3">
+                        <Checkbox id={`acceptor-${idx}`} className="shadow-none border-slate-300 bg-white" />
+                        <label htmlFor={`acceptor-${idx}`} className="text-xs font-medium text-slate-700 cursor-pointer">{item}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 mb-6">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Gas Testing Details</label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/50 p-5 rounded-none border border-slate-200">
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Testing Person Name</label>
-                      <Input placeholder="Enter full name" className="h-8 text-xs bg-white shadow-none border-slate-200" />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6 pt-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Person Name</label>
+                      <Input placeholder="Enter full name" className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none" />
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex justify-between items-end">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-end mb-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">% O2 Level</label>
-                        <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded-none border border-emerald-200">Safe: 19.5 - 23.5%</span>
+                        <span className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">Range: (19.5% to 23.5%)</span>
                       </div>
                       <div className="relative">
-                        <Input type="number" step="0.1" placeholder="e.g. 20.9" className="h-8 text-xs bg-white shadow-none border-slate-200 pr-8" />
+                        <Input type="number" step="0.1" placeholder="e.g. 20.9" className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none pr-8" />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">%</span>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Entry Time</label>
-                      <Input type="time" className="h-8 text-xs bg-white shadow-none border-slate-200" />
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Time</label>
+                      <Input type="datetime-local" disabled value={new Date().toISOString().slice(0, 16)} className="h-8 text-xs bg-slate-50 border-slate-200 rounded-none text-slate-500 shadow-none cursor-not-allowed" />
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-6 mt-6 border-t border-slate-100">
-                  <div className="bg-teal-50/50 p-4 rounded-none border border-teal-100 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-800">Permit Acceptor</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">Signature is auto-captured on submission</p>
+                <div className="pt-6 mt-8 border-t border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Permit Acceptor <span className="text-red-500">*</span></label>
+                      <SearchableSelect options={[]} placeholder="Select Acceptor..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
                     </div>
-                    <div className="text-right">
-                      <Badge variant="secondary" className="bg-teal-100 text-teal-700 hover:bg-teal-100 font-mono shadow-none border-none">Waiting for signature...</Badge>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Permit Approver <span className="text-red-500">*</span></label>
+                      <SearchableSelect options={[]} placeholder="Select Approver..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
                     </div>
                   </div>
                 </div>
