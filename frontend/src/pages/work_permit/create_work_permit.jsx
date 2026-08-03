@@ -80,8 +80,9 @@ export default function CreateWorkPermit() {
         <div className="space-y-6">
 
           {/* STAGE 1: INITIATION */}
-          {activeStage === 1 && (
-            <Card className={`border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+          {activeStage >= 1 && (
+            <Card className={`relative border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+              {activeStage !== 1 && <div className="absolute inset-0 z-50 bg-slate-50/40 cursor-not-allowed" title="Not Editable" />}
               <div className={`${STAGES[0].color} h-1 w-full`}></div>
               <CardHeader className="bg-white border-b border-slate-100 py-4">
                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
@@ -319,8 +320,9 @@ export default function CreateWorkPermit() {
           )}
 
           {/* STAGE 2: ELECTRICAL DEPT */}
-          {activeStage === 2 && (
-            <Card className={`border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+          {activeStage >= 2 && (
+            <Card className={`relative mt-6 border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+              {activeStage !== 2 && <div className="absolute inset-0 z-50 bg-slate-50/40 cursor-not-allowed" title="This stage is locked and read-only" />}
               <div className={`${STAGES[1].color} h-1 w-full`}></div>
               <CardHeader className="bg-white border-b border-slate-100 py-4">
                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
@@ -401,8 +403,9 @@ export default function CreateWorkPermit() {
           )}
 
           {/* STAGE 3: ACCEPTOR */}
-          {activeStage === 3 && (
-            <Card className={`border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+          {activeStage >= 3 && (
+            <Card className={`relative mt-6 border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+              {activeStage !== 3 && <div className="absolute inset-0 z-50 bg-slate-50/40 cursor-not-allowed" title="This stage is locked and read-only" />}
               <div className={`${STAGES[2].color} h-1 w-full`}></div>
               <CardHeader className="bg-white border-b border-slate-100 py-4">
                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
@@ -471,8 +474,9 @@ export default function CreateWorkPermit() {
           )}
 
           {/* STAGE 4: APPROVAL */}
-          {activeStage === 4 && (
-            <Card className={`border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+          {activeStage >= 4 && (
+            <Card className={`relative mt-6 border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+              {activeStage !== 4 && <div className="absolute inset-0 z-50 bg-slate-50/40 cursor-not-allowed" title="This stage is locked and read-only" />}
               <div className={`${STAGES[3].color} h-1 w-full`}></div>
               <CardHeader className="bg-white border-b border-slate-100 py-4">
                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
@@ -490,17 +494,31 @@ export default function CreateWorkPermit() {
                   </p>
                 </div>
                 
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Approver Comments (Optional)</label>
-                  <Textarea placeholder="Add any specific conditions or remarks..." className="bg-slate-50/50 shadow-none border-slate-200 min-h-[80px] resize-y [field-sizing:fixed]" />
+                <div className="flex flex-col gap-2 mb-6">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Approver Comments (Optional)</label>
+                  <Textarea placeholder="Add any specific conditions or remarks..." className="bg-white shadow-none border-slate-200 rounded-none min-h-[80px] resize-y text-xs" />
+                </div>
+
+                <div className="pt-6 mt-8 border-t border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Name of Permit Approver <span className="text-red-500">*</span></label>
+                      <SearchableSelect options={[]} placeholder="Select Approver..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Name of the Safety Officer (Safety Officer Group) <span className="text-red-500">*</span></label>
+                      <SearchableSelect options={[]} placeholder="Select Safety Officer..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           )}
 
           {/* STAGE 5: SAFETY */}
-          {activeStage === 5 && (
-            <Card className={`border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+          {activeStage >= 5 && (
+            <Card className={`relative mt-6 border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white`}>
+              {activeStage !== 5 && <div className="absolute inset-0 z-50 bg-slate-50/40 cursor-not-allowed" title="This stage is locked and read-only" />}
               <div className={`${STAGES[4].color} h-1 w-full`}></div>
               <CardHeader className="bg-white border-b border-slate-100 py-4">
                 <CardTitle className="text-sm font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-2">
