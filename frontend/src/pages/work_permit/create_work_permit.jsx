@@ -12,6 +12,14 @@ import { Switch } from "@/components/ui/switch"
 import { Flame, Info, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, ShieldCheck, Wrench, FileSignature, CheckSquare, Plus, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
+/* =======================================================================================
+   BUSINESS LOGIC REQUIREMENT (CLIENT SPECIFIED WORKFLOW): 
+   The Permit issuer, acceptor, approver & HOD must take the sign of the safety Department 
+   only after approval.
+   Ensure backend constraints strictly enforce that Stage 5 (Safety) can ONLY be executed 
+   AFTER Stage 4 (Approval) is fully complete. 
+======================================================================================= */
+
 const STAGES = [
   { id: 1, title: "Initiation", desc: "Production/Maintenance", icon: Wrench, color: "bg-blue-500", text: "text-blue-600", bgLight: "bg-blue-500/10", border: "border-blue-500/30" },
   { id: 2, title: "Electrical", desc: "Electrical Supervisor", icon: AlertTriangle, color: "bg-blue-500", text: "text-blue-600", bgLight: "bg-blue-500/10", border: "border-blue-500/30" },
@@ -32,6 +40,8 @@ const ELECTRICAL_QUESTIONS = [
 export default function CreateWorkPermit() {
   const [activeStage, setActiveStage] = useState(1)
   const [keyPersons, setKeyPersons] = useState(Array.from({ length: 4 }, () => ({ name: "", designation: "" })))
+  const [isApproverDeclared, setIsApproverDeclared] = useState(false)
+  const [isSafetyDeclared, setIsSafetyDeclared] = useState(false)
 
   const addKeyPerson = () => setKeyPersons([...keyPersons, { name: "", designation: "" }])
   const removeKeyPerson = (index) => setKeyPersons(keyPersons.filter((_, i) => i !== index))
@@ -486,12 +496,21 @@ export default function CreateWorkPermit() {
                 <CardDescription className="text-xs">Final authorization by the designated Permit Approver.</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="bg-slate-50/50 p-6 rounded-none border border-slate-200 shadow-none text-center py-12 mb-6">
-                  <FileSignature className="h-10 w-10 text-indigo-300 mx-auto mb-3" />
-                  <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Review Data & Approve</h3>
-                  <p className="text-xs text-slate-500 max-w-md mx-auto mt-2 leading-relaxed">
-                    Please review all details submitted in Stages 1-3. You may approve the permit or forward it to another authorized approver if required.
-                  </p>
+                <div className="flex items-start gap-3 p-4 border border-slate-200 bg-slate-50/50 mb-6">
+                  <Checkbox 
+                    id="approver-declaration" 
+                    checked={isApproverDeclared}
+                    onCheckedChange={setIsApproverDeclared}
+                    className="mt-0.5 shadow-none border-slate-300 bg-white" 
+                  />
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="approver-declaration" className="text-[10px] font-bold text-slate-700 uppercase tracking-wider cursor-pointer">
+                      Authorization Declaration
+                    </label>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      I confirm that I have reviewed the hazard assessments, safety measures, and LOTO isolations documented in the preceding stages. I am satisfied that the work can proceed safely under the stated conditions.
+                    </p>
+                  </div>
                 </div>
                 
                 <div className="flex flex-col gap-2 mb-6">
@@ -533,15 +552,20 @@ export default function CreateWorkPermit() {
                   <Textarea placeholder="Type manual recommendations here..." className="bg-slate-50/50 shadow-none border-slate-200 min-h-[100px] resize-y [field-sizing:fixed]" />
                 </div>
                 
-                <div className="bg-emerald-50 p-4 rounded-none border border-emerald-200/60">
-                  <div className="flex items-start gap-3">
-                    <ShieldCheck className="h-5 w-5 text-emerald-600 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold text-emerald-900 uppercase tracking-wide">Safety Declaration</p>
-                      <p className="text-[10px] text-emerald-700 mt-1 uppercase tracking-wider font-semibold leading-relaxed">
-                        By signing off, I confirm that all necessary safety measures have been verified. The Permit issuer, acceptor, approver & HOD have authorized this operation.
-                      </p>
-                    </div>
+                <div className="flex items-start gap-3 p-4 border border-slate-200 bg-slate-50/50 mb-6">
+                  <Checkbox 
+                    id="safety-declaration" 
+                    checked={isSafetyDeclared}
+                    onCheckedChange={setIsSafetyDeclared}
+                    className="mt-0.5 shadow-none border-slate-300 bg-white" 
+                  />
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="safety-declaration" className="text-[10px] font-bold text-slate-700 uppercase tracking-wider cursor-pointer">
+                      Safety Declaration
+                    </label>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      Inspected & checked all necessary precautions, Isolation and compliance of condition stipulated in work permit & found to my satisfaction.
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -559,7 +583,10 @@ export default function CreateWorkPermit() {
               </Button>
             )}
             
-            <Button className={`${STAGES[activeStage-1].color} hover:brightness-110 text-white font-semibold px-6 shadow-none transition-all`}>
+            <Button 
+              disabled={(activeStage === 4 && !isApproverDeclared) || (activeStage === 5 && !isSafetyDeclared)}
+              className={`${STAGES[activeStage-1].color} hover:brightness-110 text-white font-semibold px-6 shadow-none transition-all disabled:opacity-50 disabled:pointer-events-none`}
+            >
               {activeStage === 5 ? "Issue Final Permit ✓" : activeStage === 4 ? "Approve Permit ✓" : "Submit & Continue"}
               {activeStage < 4 && <ArrowRight className="h-4 w-4 ml-2" />}
             </Button>
