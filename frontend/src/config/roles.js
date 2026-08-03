@@ -59,13 +59,15 @@ export const MODULES = {
     MASTERS: {
         INSTRUMENTS: "MASTERS_INSTRUMENTS",
     },
-
     // ── Maintenance Block ──
     MAINTENANCE: {
         MACHINE: "MAINTENANCE_MACHINE",
         MEMO: "MAINTENANCE_MEMO",
         PM_SCHEDULE: "MAINTENANCE_PM_SCHEDULE",
     },
+
+    // ── Work Permit Block ──
+    WORK_PERMIT: "WORK_PERMIT",
 
     // ── Marketing Block ──
     MARKETING: {
@@ -271,6 +273,17 @@ export const MENU_CONFIG = [
             { title: "Machine Master", path: "/maintenance/machines", moduleKey: MODULES.MAINTENANCE.MACHINE },
             { title: "Maintenance Memo", path: "/maintenance/memo", moduleKey: MODULES.MAINTENANCE.MEMO },
             { title: "PM Schedule", path: "/maintenance/pm-schedule", moduleKey: MODULES.MAINTENANCE.PM_SCHEDULE },
+        ],
+    },
+    
+    // ── Work Permits ──
+    {
+        title: "Work Permits",
+        icon: ShieldCheck,
+        moduleKey: MODULES.WORK_PERMIT,
+        items: [
+            { title: "Create Permit", path: "/work-permit/create", moduleKey: MODULES.WORK_PERMIT },
+            { title: "Permit Register", path: "/work-permit/register", moduleKey: MODULES.WORK_PERMIT },
         ],
     },
     
