@@ -14,10 +14,10 @@ import { Badge } from "@/components/ui/badge"
 
 const STAGES = [
   { id: 1, title: "Initiation", desc: "Production/Maintenance", icon: Wrench, color: "bg-blue-500", text: "text-blue-600", bgLight: "bg-blue-500/10", border: "border-blue-500/30" },
-  { id: 2, title: "Electrical", desc: "Electrical Supervisor", icon: AlertTriangle, color: "bg-amber-500", text: "text-amber-600", bgLight: "bg-amber-500/10", border: "border-amber-500/30" },
-  { id: 3, title: "Acceptance", desc: "Gas Testing & Acceptor", icon: CheckSquare, color: "bg-teal-500", text: "text-teal-600", bgLight: "bg-teal-500/10", border: "border-teal-500/30" },
-  { id: 4, title: "Approval", desc: "Permit Approver", icon: FileSignature, color: "bg-indigo-500", text: "text-indigo-600", bgLight: "bg-indigo-500/10", border: "border-indigo-500/30" },
-  { id: 5, title: "Safety", desc: "Safety Officer", icon: ShieldCheck, color: "bg-emerald-500", text: "text-emerald-600", bgLight: "bg-emerald-500/10", border: "border-emerald-500/30" }
+  { id: 2, title: "Electrical", desc: "Electrical Supervisor", icon: AlertTriangle, color: "bg-blue-500", text: "text-blue-600", bgLight: "bg-blue-500/10", border: "border-blue-500/30" },
+  { id: 3, title: "Acceptance", desc: "Gas Testing & Acceptor", icon: CheckSquare, color: "bg-blue-500", text: "text-blue-600", bgLight: "bg-blue-500/10", border: "border-blue-500/30" },
+  { id: 4, title: "Approval", desc: "Permit Approver", icon: FileSignature, color: "bg-blue-500", text: "text-blue-600", bgLight: "bg-blue-500/10", border: "border-blue-500/30" },
+  { id: 5, title: "Safety", desc: "Safety Officer", icon: ShieldCheck, color: "bg-blue-500", text: "text-blue-600", bgLight: "bg-blue-500/10", border: "border-blue-500/30" }
 ]
 
 const JOBS = ["Confined Space entry", "Working at Height", "Hot work"]
@@ -357,24 +357,42 @@ export default function CreateWorkPermit() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 pt-6 border-t border-slate-100">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">LOTO Ref. Equipment I</label>
-                    <SearchableSelect options={[{label: "Main Panel Board A", value: "A"}, {label: "Transformer TX-01", value: "B"}]} placeholder="Search machine/equipment..." className="bg-slate-50/50 shadow-none border-slate-200" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">LOTO Ref. Equipment I</label>
+                    <Select>
+                      <SelectTrigger className="w-full bg-white shadow-none border-slate-200 rounded-none h-8 text-xs"><SelectValue placeholder="Select machine/equipment..." /></SelectTrigger>
+                      <SelectContent rounded-none>
+                        <SelectItem value="a">Main Panel Board A</SelectItem>
+                        <SelectItem value="b">Transformer TX-01</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">LOTO Ref. Equipment II (Optional)</label>
-                    <SearchableSelect options={[{label: "Main Panel Board A", value: "A"}, {label: "Transformer TX-01", value: "B"}]} placeholder="Search machine/equipment..." className="bg-slate-50/50 shadow-none border-slate-200" />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">LOTO Ref. Equipment II (Optional)</label>
+                    <Select>
+                      <SelectTrigger className="w-full bg-white shadow-none border-slate-200 rounded-none h-8 text-xs"><SelectValue placeholder="Select machine/equipment..." /></SelectTrigger>
+                      <SelectContent rounded-none>
+                        <SelectItem value="a">Main Panel Board A</SelectItem>
+                        <SelectItem value="b">Transformer TX-01</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div className="pt-6 mt-6 border-t border-slate-100">
-                  <div className="bg-amber-50/50 p-4 rounded-none border border-amber-100 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-800">Electrical Dept. Supervisor</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wide">Signature is auto-captured on submission</p>
+                <div className="pt-6 mt-8 border-t border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Electrical Supervisor <span className="text-red-500">*</span></label>
+                      <SearchableSelect options={[]} placeholder="Select Supervisor..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
                     </div>
-                    <div className="text-right">
-                      <Badge variant="secondary" className="bg-amber-100 text-amber-700 hover:bg-amber-100 font-mono shadow-none border-none">Waiting for signature...</Badge>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Production Group/Maintenance Group <span className="text-red-500">*</span></label>
+                      <Select defaultValue="initiator">
+                        <SelectTrigger className="w-full bg-slate-50/50 shadow-none border-slate-200 rounded-none h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent rounded-none>
+                          <SelectItem value="initiator">Back to Initiator</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
