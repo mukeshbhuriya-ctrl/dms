@@ -71,6 +71,7 @@ async function getUsers(req, res) {
             }
           },
           designation: true,
+          functional_tags: true,
           user_roles: {
             include: {
               role: true,
@@ -137,7 +138,7 @@ async function getUserFilters(req, res) {
  */
 async function createUser(req, res) {
   try {
-    const { name, email, empid, password, mobile, role_ids, department, designation } = req.body;
+    const { name, email, empid, password, mobile, role_ids, department, designation, functional_tags } = req.body;
     const company_id = req.user.company_id; // Get company_id from authenticated user
 
     // Validate required fields
@@ -253,6 +254,7 @@ async function createUser(req, res) {
           company_id: company_id,
           department_id: department ? department.trim() : null,
           designation: designation ? designation.trim() : null,
+          functional_tags: functional_tags && Array.isArray(functional_tags) ? functional_tags : [],
         },
       });
 

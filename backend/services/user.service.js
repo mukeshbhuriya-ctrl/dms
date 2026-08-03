@@ -67,6 +67,7 @@ class UserService {
                     select: { name: true }
                 },
                 designation: true,
+                functional_tags: true,
                 is_active: true,
                 is_deleted: true,
                 user_roles: {
@@ -210,7 +211,7 @@ class UserService {
      * Update user details
      */
     async updateUser(id, updateData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, custom_modules, restricted_modules } = updateData;
+        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, custom_modules, restricted_modules, functional_tags } = updateData;
 
         // Verify user exists and belongs to company
         const existingUser = await prisma.user.findFirst({
@@ -252,6 +253,7 @@ class UserService {
                     mobile,
                     department_id: trimmedDepartmentId,
                     designation,
+                    ...(functional_tags && Array.isArray(functional_tags) && { functional_tags }),
                     ...(hashedPassword && { password: hashedPassword }),
                     user_settings: (email_notifications !== undefined || custom_modules !== undefined || restricted_modules !== undefined) ? {
                         upsert: {

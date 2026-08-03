@@ -10,6 +10,7 @@ router.use(authenticateUserOnly);
 // Public routes (access controlled by router-level middleware)
 router.get('/get-users', (req, res) => userController.getUsers(req, res));
 router.get('/get-user-filters', (req, res) => userController.getUserFilters(req, res));
+router.get('/get-functional-tags', (req, res) => userController.getFunctionalTags(req, res));
 const { createUser } = require('#api/users/user.js');
 
 // ...

@@ -52,6 +52,7 @@ function CreateUser() {
     designation: "",
     mobileNumber: "",
     roles: [],
+    functionalTags: [],
     password: "",
     emailNotifications: true,
     customModules: [],
@@ -59,6 +60,7 @@ function CreateUser() {
   })
   const [showPassword, setShowPassword] = useState(false)
   const [roles, setRoles] = useState([])
+  const [availableTags, setAvailableTags] = useState([])
   const [departments, setDepartments] = useState([])
   const [departmentMap, setDepartmentMap] = useState({})
   const [view, setView] = useState("list")
@@ -170,6 +172,9 @@ function CreateUser() {
         const rolesPayload = await apiClient.get('/api/users/get-roles')
         setRoles(rolesPayload?.data || [])
 
+        const tagsPayload = await apiClient.get('/api/users/get-functional-tags')
+        setAvailableTags(tagsPayload?.data || [])
+
         const deptsPayload = await apiClient.get('/api/departments')
         const fetchedDepts = deptsPayload?.data || []
         setDepartments(fetchedDepts)
@@ -196,6 +201,7 @@ function CreateUser() {
       designation: "",
       mobileNumber: "",
       roles: [],
+      functionalTags: [],
       password: "",
       emailNotifications: true,
       customModules: [],
@@ -216,6 +222,7 @@ function CreateUser() {
       designation: user.designation || "",
       mobileNumber: user.mobile || "",
       roles: user.user_roles?.map(ur => ur.role_id) || [],
+      functionalTags: user.functional_tags || [],
       password: "",
       emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
       customModules: user.user_settings ? (user.user_settings.custom_modules || []) : [],
@@ -236,6 +243,7 @@ function CreateUser() {
       designation: user.designation || "",
       mobileNumber: user.mobile || "",
       roles: user.user_roles?.map(ur => ur.role_id) || [],
+      functionalTags: user.functional_tags || [],
       password: "",
       emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
       customModules: user.user_settings ? (user.user_settings.custom_modules || []) : [],
@@ -423,6 +431,7 @@ function CreateUser() {
         mobile: formData.mobileNumber,
         password: formData.password,
         role_ids: formData.roles || [],
+        functional_tags: formData.functionalTags || [],
         department: formData.department,
         designation: formData.designation,
         email_notifications: formData.emailNotifications,
@@ -705,25 +714,41 @@ function CreateUser() {
                       </div>
                     </div>
 
-                    {/* Password */}
-                    <div className="space-y-2">
-                      <Label htmlFor="password">
-                        Password {editingId ? "(Leave blank to keep current)" : <span className="text-destructive">*</span>}
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="password" name="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="........"
-                          value={formData.password}
-                          onChange={handleInputChange}
-                          required={!editingId}
+                    {/* Functional Tags & Password */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="functionalTags">Functional Tags</Label>
+                        <SearchableSelect
+                          options={availableTags.map(tag => ({ label: tag.name, value: tag.id }))}
+                          value={formData.functionalTags}
+                          onValueChange={(val) => setFormData(prev => ({ ...prev, functionalTags: val }))}
+                          placeholder="Select functional tags"
+                          searchPlaceholder="Search tags..."
+                          emptyMessage="No tags found."
+                          multi={true}
                           disabled={isLoading}
                         />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                          <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
-                        </Button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="password">
+                          Password {editingId ? "(Leave blank to keep current)" : <span className="text-destructive">*</span>}
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="password" name="password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="........"
+                            value={formData.password}
+                            onChange={handleInputChange}
+                            required={!editingId}
+                            disabled={isLoading}
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
+                            {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                            <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

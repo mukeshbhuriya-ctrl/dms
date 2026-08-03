@@ -216,6 +216,9 @@ model user{
   is_active  Boolean  @default(true)
   is_deleted Boolean  @default(false)
 
+  // Functional tags for workflow routing
+  functional_tags String[] @default([])
+
   memos_created maintenance_memo[] @relation("MemoCreator")
   memos_assigned maintenance_memo[] @relation("MemoAssignee")
   memos_attended maintenance_memo[] @relation("MemoAttendedBy")

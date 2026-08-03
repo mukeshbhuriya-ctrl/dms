@@ -99,6 +99,23 @@ class UserController {
             });
         }
     }
+
+    async getFunctionalTags(req, res) {
+        try {
+            const { getAvailableTags } = require('../config/constants.js');
+            res.status(200).json({
+                success: true,
+                data: getAvailableTags(),
+            });
+        } catch (error) {
+            console.error('Get functional tags error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+            });
+        }
+    }
+
     async updateUser(req, res) {
         try {
             const { id } = req.params;
