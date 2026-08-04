@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect  } from "react"
 import { PageContainer } from "@/components/layout/PageContainer"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -44,6 +44,13 @@ export default function CreateWorkPermit() {
   const [keyPersons, setKeyPersons] = useState(Array.from({ length: 3 }, () => ({ name: "", designation: "" })))
   const [isApproverDeclared, setIsApproverDeclared] = useState(false)
   const [isSafetyDeclared, setIsSafetyDeclared] = useState(false)
+
+  // Auto-expand permit extension when in read-only/approval stages
+  useEffect(() => {
+    if (activeStage > 1) {
+      setIsExtensionExpanded(true)
+    }
+  }, [activeStage])
 
   const addKeyPerson = () => setKeyPersons([...keyPersons, { name: "", designation: "" }])
   const removeKeyPerson = (index) => setKeyPersons(keyPersons.filter((_, i) => i !== index))
@@ -328,6 +335,27 @@ export default function CreateWorkPermit() {
                   </div>
                 </div>
 
+                {/* PERMIT EXTENSION (Inside Stage 1) */}
+                <div className="mt-6 border border-slate-200 overflow-hidden bg-white">
+                  <button 
+                    type="button"
+                    onClick={() => setIsExtensionExpanded(!isExtensionExpanded)}
+                    className="w-full flex items-center justify-between text-left group p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest group-hover:text-blue-600 transition-colors">
+                      PERMIT EXTENSION
+                    </h3>
+                    <div className="flex items-center justify-center w-6 h-6 rounded-full border border-slate-300 text-slate-500 group-hover:text-blue-600 group-hover:border-blue-300 transition-colors bg-white">
+                      {isExtensionExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </div>
+                  </button>
+                  
+                  {isExtensionExpanded && (
+                    <div className="p-6 border-t border-slate-200 bg-slate-50/50 animate-in fade-in slide-in-from-top-2 duration-300 relative z-10">
+                      <PermitExtension />
+                    </div>
+                  )}
+                </div>
 
               </CardContent>
             </Card>
@@ -567,30 +595,6 @@ export default function CreateWorkPermit() {
           )}
 
         </div>
-
-        {/* PERMIT EXTENSION SEPARATE CARD */}
-        <Card className="border border-slate-200 shadow-none rounded-none overflow-hidden bg-white">
-          <CardContent className="p-0">
-            <button 
-              type="button"
-              onClick={() => setIsExtensionExpanded(!isExtensionExpanded)}
-              className="w-full flex items-center justify-between text-left group p-4 hover:bg-slate-50 transition-colors cursor-pointer"
-            >
-              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest group-hover:text-blue-600 transition-colors">
-                PERMIT EXTENSION
-              </h3>
-              <div className="flex items-center justify-center w-6 h-6 rounded-full border border-slate-300 text-slate-500 group-hover:text-blue-600 group-hover:border-blue-300 transition-colors bg-white">
-                {isExtensionExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </div>
-            </button>
-            
-            {isExtensionExpanded && (
-              <div className="p-6 border-t border-slate-200 bg-slate-50/50 animate-in fade-in slide-in-from-top-2 duration-300">
-                <PermitExtension />
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Action Footer (Non-Sticky) */}
         <div className="flex items-center justify-end p-4 bg-white border border-slate-200 rounded-none shadow-none">
