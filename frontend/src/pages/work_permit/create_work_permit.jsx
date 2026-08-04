@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Flame, Info, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, ShieldCheck, Wrench, FileSignature, CheckSquare, Plus, Trash2 } from "lucide-react"
+import { Flame, Info, CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, ShieldCheck, Wrench, FileSignature, CheckSquare, ChevronDown, ChevronUp, Trash2, CalendarClock, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { PermitExtension } from "./permit_extension"
 
 /* =======================================================================================
    BUSINESS LOGIC REQUIREMENT (CLIENT SPECIFIED WORKFLOW): 
@@ -39,6 +40,7 @@ const ELECTRICAL_QUESTIONS = [
 
 export default function CreateWorkPermit() {
   const [activeStage, setActiveStage] = useState(1)
+  const [isExtensionExpanded, setIsExtensionExpanded] = useState(false)
   const [keyPersons, setKeyPersons] = useState(Array.from({ length: 3 }, () => ({ name: "", designation: "" })))
   const [isApproverDeclared, setIsApproverDeclared] = useState(false)
   const [isSafetyDeclared, setIsSafetyDeclared] = useState(false)
@@ -325,6 +327,8 @@ export default function CreateWorkPermit() {
                     </div>
                   </div>
                 </div>
+
+
               </CardContent>
             </Card>
           )}
@@ -564,6 +568,30 @@ export default function CreateWorkPermit() {
 
         </div>
 
+        {/* PERMIT EXTENSION SEPARATE CARD */}
+        <Card className="border border-slate-200 shadow-none rounded-none overflow-hidden bg-white">
+          <CardContent className="p-0">
+            <button 
+              type="button"
+              onClick={() => setIsExtensionExpanded(!isExtensionExpanded)}
+              className="w-full flex items-center justify-between text-left group p-4 hover:bg-slate-50 transition-colors cursor-pointer"
+            >
+              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest group-hover:text-blue-600 transition-colors">
+                PERMIT EXTENSION
+              </h3>
+              <div className="flex items-center justify-center w-6 h-6 rounded-full border border-slate-300 text-slate-500 group-hover:text-blue-600 group-hover:border-blue-300 transition-colors bg-white">
+                {isExtensionExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </button>
+            
+            {isExtensionExpanded && (
+              <div className="p-6 border-t border-slate-200 bg-slate-50/50 animate-in fade-in slide-in-from-top-2 duration-300">
+                <PermitExtension />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Action Footer (Non-Sticky) */}
         <div className="flex items-center justify-end p-4 bg-white border border-slate-200 rounded-none shadow-none">
           <div className="flex gap-3">
@@ -581,7 +609,6 @@ export default function CreateWorkPermit() {
               {activeStage < 4 && <ArrowRight className="h-4 w-4 ml-2" />}
             </Button>
           </div>
-          
         </div>
       </div>
     </PageContainer>
