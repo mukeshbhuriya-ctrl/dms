@@ -138,16 +138,6 @@ export default function WorkPermitRegister() {
 
   return (
     <PageContainer>
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Flame className="h-6 w-6 text-amber-500" />
-            Work Permit Register
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">Manage and track all work permits across different approval stages.</p>
-        </div>
-      </div>
-      
       <div className="h-[calc(100vh-160px)]">
         <ProDataTable
           columns={columns}

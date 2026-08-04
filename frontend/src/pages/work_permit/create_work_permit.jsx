@@ -118,7 +118,7 @@ export default function CreateWorkPermit() {
                     
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Accepter <span className="text-red-500">*</span></label>
-                      <SearchableSelect options={[]} placeholder="Select Accepter..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
+                      <Input placeholder="Enter location" className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none" />
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Job No. <span className="text-red-500">*</span></label>
@@ -565,7 +565,7 @@ export default function CreateWorkPermit() {
         </div>
 
         {/* Action Footer (Non-Sticky) */}
-        <div className="flex items-center justify-end p-4 bg-white border border-slate-200 rounded-none shadow-none mt-2">
+        <div className="flex items-center justify-end p-4 bg-white border border-slate-200 rounded-none shadow-none">
           <div className="flex gap-3">
             {activeStage === 4 && (
               <Button variant="outline" className="bg-white hover:bg-slate-50">
