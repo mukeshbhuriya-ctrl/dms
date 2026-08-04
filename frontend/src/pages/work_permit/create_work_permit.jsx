@@ -39,7 +39,7 @@ const ELECTRICAL_QUESTIONS = [
 
 export default function CreateWorkPermit() {
   const [activeStage, setActiveStage] = useState(1)
-  const [keyPersons, setKeyPersons] = useState(Array.from({ length: 4 }, () => ({ name: "", designation: "" })))
+  const [keyPersons, setKeyPersons] = useState(Array.from({ length: 3 }, () => ({ name: "", designation: "" })))
   const [isApproverDeclared, setIsApproverDeclared] = useState(false)
   const [isSafetyDeclared, setIsSafetyDeclared] = useState(false)
 
@@ -496,21 +496,16 @@ export default function CreateWorkPermit() {
                 <CardDescription className="text-xs">Final authorization by the designated Permit Approver.</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <div className="flex items-start gap-3 p-4 border border-slate-200 bg-slate-50/50 mb-6">
+                <div className="flex items-start gap-3 p-4 border border-slate-200 bg-white mb-6">
                   <Checkbox 
                     id="approver-declaration" 
                     checked={isApproverDeclared}
                     onCheckedChange={setIsApproverDeclared}
-                    className="mt-0.5 shadow-none border-slate-300 bg-white" 
+                    className="mt-0.5 shadow-none border-slate-300 bg-white shrink-0" 
                   />
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="approver-declaration" className="text-[10px] font-bold text-slate-700 uppercase tracking-wider cursor-pointer">
-                      Authorization Declaration
-                    </label>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
-                      I confirm that I have reviewed the hazard assessments, safety measures, and LOTO isolations documented in the preceding stages. I am satisfied that the work can proceed safely under the stated conditions.
-                    </p>
-                  </div>
+                  <label htmlFor="approver-declaration" className="text-[10px] text-slate-500 leading-relaxed cursor-pointer font-medium">
+                    <span className="text-red-500 font-bold mr-1">*</span>I confirm that I have reviewed the hazard assessments, safety measures, and LOTO isolations documented in the preceding stages. I am satisfied that the work can proceed safely under the stated conditions.
+                  </label>
                 </div>
                 
                 <div className="flex flex-col gap-2 mb-6">
@@ -521,11 +516,11 @@ export default function CreateWorkPermit() {
                 <div className="pt-6 mt-8 border-t border-slate-100">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Name of Permit Approver <span className="text-red-500">*</span></label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Permit Approver <span className="text-red-500">*</span></label>
                       <SearchableSelect options={[]} placeholder="Select Approver..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Name of the Safety Officer (Safety Officer Group) <span className="text-red-500">*</span></label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Safety Officer <span className="text-red-500">*</span></label>
                       <SearchableSelect options={[]} placeholder="Select Safety Officer..." className="bg-white shadow-none border-slate-200 rounded-none h-8 text-xs" />
                     </div>
                   </div>
@@ -549,24 +544,19 @@ export default function CreateWorkPermit() {
               <CardContent className="p-6">
                 <div className="flex flex-col gap-2 mb-6">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Any other safety precautions recommended?</label>
-                  <Textarea placeholder="Type manual recommendations here..." className="bg-slate-50/50 shadow-none border-slate-200 min-h-[100px] resize-y [field-sizing:fixed]" />
+                  <Textarea placeholder="Type manual recommendations here..." className="bg-slate-50/50 shadow-none border-slate-200 rounded-none min-h-[100px] resize-y [field-sizing:fixed]" />
                 </div>
                 
-                <div className="flex items-start gap-3 p-4 border border-slate-200 bg-slate-50/50 mb-6">
+                <div className="flex items-start gap-3 p-4 border border-slate-200 bg-white mb-6">
                   <Checkbox 
                     id="safety-declaration" 
                     checked={isSafetyDeclared}
                     onCheckedChange={setIsSafetyDeclared}
-                    className="mt-0.5 shadow-none border-slate-300 bg-white" 
+                    className="mt-0.5 shadow-none border-slate-300 bg-white shrink-0" 
                   />
-                  <div className="flex flex-col gap-1">
-                    <label htmlFor="safety-declaration" className="text-[10px] font-bold text-slate-700 uppercase tracking-wider cursor-pointer">
-                      Safety Declaration
-                    </label>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
-                      Inspected & checked all necessary precautions, Isolation and compliance of condition stipulated in work permit & found to my satisfaction.
-                    </p>
-                  </div>
+                  <label htmlFor="safety-declaration" className="text-[10px] text-slate-500 leading-relaxed cursor-pointer font-medium">
+                    <span className="text-red-500 font-bold mr-1">*</span>Inspected & checked all necessary precautions, Isolation and compliance of condition stipulated in work permit & found to my satisfaction.
+                  </label>
                 </div>
               </CardContent>
             </Card>
