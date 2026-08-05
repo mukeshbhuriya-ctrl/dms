@@ -119,7 +119,16 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder, disabled }) 
                                         onCheckedChange={() => toggleOption(opt.value)}
                                         className="h-4 w-4"
                                     />
-                                    <span className="text-sm truncate flex-1">{opt.label}</span>
+                                    <div className="flex flex-col flex-1 min-w-0">
+                                        <span className="text-sm truncate text-slate-700">{opt.label}</span>
+                                        {opt.tags && opt.tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {opt.tags.map((tag, idx) => (
+                                                    <Badge key={idx} variant="outline" className="text-[10px] py-0 px-1.5 h-4 font-normal text-slate-500 border-slate-200 rounded-none">{tag}</Badge>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                     {selectedValues.includes(opt.value) && <Check className="h-4 w-4 text-primary shrink-0" />}
                                 </div>
                             ))
@@ -147,7 +156,7 @@ function GroupManagement() {
     const navigate = useNavigate()
     const [formData, setFormData] = useState({
         name: "",
-        group_type: "QUALITY",
+        group_type: "",
         user_ids: []
     })
     const [view, setView] = useState("list")
@@ -195,7 +204,7 @@ function GroupManagement() {
     }, [])
 
     const resetForm = useCallback(() => {
-        setFormData({ name: "", group_type: "QUALITY", user_ids: [] })
+        setFormData({ name: "", group_type: "", user_ids: [] })
         setEditingId(null)
         setSelectedGroup(null)
         setError("")
@@ -270,10 +279,13 @@ function GroupManagement() {
     }, [view, formData.group_type])
 
     const userOptions = useMemo(() => {
-        return eligibleUsers.map(user => ({
-            value: user.id.toString(),
-            label: `${user.name} (${user.empid})`
-        }))
+        return eligibleUsers.map(user => {
+            return {
+                value: user.id.toString(),
+                label: `${user.name} (${user.empid})`,
+                tags: user.functional_tags || []
+            };
+        })
     }, [eligibleUsers])
 
     const handleInputChange = (e) => {
@@ -529,7 +541,6 @@ function GroupManagement() {
                                 fetchData={fetchGroups}
                                 onAdd={() => { resetForm(); setView("create"); }}
                                 onAddTooltip="Create New Group"
-                                onExport={handleExport}
                                 refreshKey={refreshKey}
                                 columnFilters={columnFilters}
                                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
@@ -597,22 +608,22 @@ function GroupManagement() {
                                                         disabled={isLoading}
                                                     />
                                                 </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <Label htmlFor="users">
-                                                    Assigned Members <span className="text-destructive">*</span>
-                                                </Label>
-                                                <MultiSelectFilter
-                                                    options={userOptions}
-                                                    value={formData.user_ids}
-                                                    onChange={handleUserChange}
-                                                    placeholder={isLoadingUsers ? "Loading eligible users..." : `Select ${formData.group_type.toLowerCase()} members`}
-                                                    disabled={isLoadingUsers}
-                                                />
-                                                <p className="text-[11px] text-muted-foreground mt-1">
-                                                    Only users with the relevant role for this group type are shown.
-                                                </p>
+                                                
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="users">
+                                                        Assign Members <span className="text-destructive">*</span>
+                                                    </Label>
+                                                    <MultiSelectFilter
+                                                        options={userOptions}
+                                                        value={formData.user_ids}
+                                                        onChange={handleUserChange}
+                                                        placeholder={isLoadingUsers ? "Loading eligible users..." : (formData.group_type ? `Select ${formData.group_type.toLowerCase()} members` : "Select members")}
+                                                        disabled={isLoadingUsers}
+                                                    />
+                                                    <p className="text-[11px] text-muted-foreground mt-1">
+                                                        Only users with the relevant role for this group type are shown.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </CardContent>
                                         <div className="flex justify-end gap-4 p-6 pt-0">

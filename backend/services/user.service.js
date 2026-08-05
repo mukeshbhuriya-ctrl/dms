@@ -204,6 +204,7 @@ class UserService {
                 name: true,
                 email: true,
                 empid: true,
+                functional_tags: true,
             },
         });
     }

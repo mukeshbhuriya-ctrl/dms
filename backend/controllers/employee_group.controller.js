@@ -1,6 +1,7 @@
 const prisma = require('#prisma');
 const Audit = require('#utils/audit.js');
-const GROUP_TYPES = require('../config/group_types');
+const { SYSTEM_CONSTANTS } = require('../config/constants');
+const GROUP_TYPES = SYSTEM_CONSTANTS.GROUP_TYPES;
 
 class EmployeeGroupController {
     // Create Employee Group
