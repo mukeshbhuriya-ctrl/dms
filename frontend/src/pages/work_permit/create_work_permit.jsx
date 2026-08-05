@@ -30,13 +30,6 @@ const STAGES = [
 ]
 
 const JOBS = ["Confined Space entry", "Working at Height", "Hot work"]
-const ELECTRICAL_QUESTIONS = [
-  "Are all electrical sources isolated?",
-  "Is the area free from flammable gases/vapors?",
-  "Are appropriate fire extinguishers available?",
-  "Is ventilation adequate?",
-  "Are all workers wearing proper PPE?"
-]
 
 export default function CreateWorkPermit() {
   const [activeStage, setActiveStage] = useState(1)
@@ -44,6 +37,12 @@ export default function CreateWorkPermit() {
   const [keyPersons, setKeyPersons] = useState(Array.from({ length: 3 }, () => ({ name: "", designation: "" })))
   const [isApproverDeclared, setIsApproverDeclared] = useState(false)
   const [isSafetyDeclared, setIsSafetyDeclared] = useState(false)
+  const [electricalChecklist, setElectricalChecklist] = useState([
+    { question: "Has the equipment checked & proper connection given ( RCCB or ELCB of 30mA provided)", answer: null },
+    { question: "Has the equipment earthen properly?", answer: null },
+    { question: "24Volt lamp light is provided with proper extension ?", answer: null },
+    { question: "Main Fuse & Control Fuse removed", answer: null }
+  ])
 
   // Auto-expand permit extension when in read-only/approval stages
   useEffect(() => {
@@ -58,6 +57,19 @@ export default function CreateWorkPermit() {
     const updated = [...keyPersons];
     updated[index][field] = value;
     setKeyPersons(updated);
+  }
+
+  const addElectricalQuestion = () => setElectricalChecklist([...electricalChecklist, { question: "", answer: null }])
+  const removeElectricalQuestion = (index) => setElectricalChecklist(electricalChecklist.filter((_, i) => i !== index))
+  const handleElectricalQuestionUpdate = (index, value) => {
+    const updated = [...electricalChecklist]
+    updated[index].question = value
+    setElectricalChecklist(updated)
+  }
+  const handleElectricalAnswerUpdate = (index, value) => {
+    const updated = [...electricalChecklist]
+    updated[index].answer = value
+    setElectricalChecklist(updated)
   }
 
   return (
@@ -376,27 +388,79 @@ export default function CreateWorkPermit() {
               <CardContent className="p-6">
                 
                 <div className="flex flex-col gap-2 mb-6">
-                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Safety Checklist</label>
-                  <div className="border border-slate-200 rounded-none overflow-hidden bg-white shadow-none divide-y divide-slate-100">
-                    {ELECTRICAL_QUESTIONS.map((q, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 hover:bg-slate-50/50 transition-colors">
-                        <span className="text-xs font-semibold text-slate-700 tracking-wide">{idx + 1}. {q}</span>
-                        <div className="flex space-x-4">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox id={`q${idx}-yes`} className="shadow-none data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 border-slate-300" />
-                            <label htmlFor={`q${idx}-yes`} className="text-[10px] uppercase font-bold tracking-wider cursor-pointer text-slate-600">Yes</label>
+                  <div className="flex justify-between items-end mb-2">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Safety Checklist</label>
+                  </div>
+                  
+                  <div className="border border-slate-200 rounded-none bg-white shadow-none">
+                    <div className="bg-slate-50/80 p-3 border-b border-slate-200">
+                      <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Measures Taken By Electrical Department</h3>
+                    </div>
+                    <div className="flex flex-col divide-y divide-slate-200">
+                      {electricalChecklist.map((item, idx) => (
+                        <div key={idx} className="flex items-stretch hover:bg-slate-50/30 transition-colors group">
+                          {/* Index */}
+                          <div className="w-14 shrink-0 flex items-center justify-center border-r border-slate-200">
+                            <span className="text-[11px] font-semibold text-slate-400">{idx + 1}</span>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox id={`q${idx}-no`} className="shadow-none data-[state=checked]:bg-red-500 data-[state=checked]:border-red-500 border-slate-300" />
-                            <label htmlFor={`q${idx}-no`} className="text-[10px] uppercase font-bold tracking-wider cursor-pointer text-slate-600">No</label>
+                          
+                          {/* Question Input */}
+                          <div className="flex-1 flex items-center">
+                            <Input 
+                              value={item.question} 
+                              onChange={(e) => handleElectricalQuestionUpdate(idx, e.target.value)}
+                              placeholder="Enter question..." 
+                              className="h-10 text-[11px] text-slate-600 font-medium bg-transparent shadow-none border-transparent focus-visible:ring-0 focus-visible:border-transparent rounded-none px-4" 
+                            />
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Checkbox id={`q${idx}-na`} className="shadow-none data-[state=checked]:bg-slate-500 data-[state=checked]:border-slate-500 border-slate-300" />
-                            <label htmlFor={`q${idx}-na`} className="text-[10px] uppercase font-bold tracking-wider cursor-pointer text-slate-400">N/A</label>
+                          
+                          {/* Checkboxes Area */}
+                          <div className="shrink-0 flex items-center px-4 border-l border-slate-200">
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-1.5">
+                                <Checkbox 
+                                  id={`q${idx}-yes`} 
+                                  checked={item.answer === 'yes'}
+                                  onCheckedChange={() => handleElectricalAnswerUpdate(idx, 'yes')}
+                                  className="shadow-none h-3.5 w-3.5 border-slate-300 data-[state=checked]:bg-slate-700 data-[state=checked]:border-slate-700 rounded-[2px]" 
+                                />
+                                <label htmlFor={`q${idx}-yes`} className="text-[10px] font-bold text-slate-400 cursor-pointer">Y</label>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <Checkbox 
+                                  id={`q${idx}-no`} 
+                                  checked={item.answer === 'no'}
+                                  onCheckedChange={() => handleElectricalAnswerUpdate(idx, 'no')}
+                                  className="shadow-none h-3.5 w-3.5 border-slate-300 data-[state=checked]:bg-slate-700 data-[state=checked]:border-slate-700 rounded-[2px]" 
+                                />
+                                <label htmlFor={`q${idx}-no`} className="text-[10px] font-bold text-slate-400 cursor-pointer">N</label>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <Checkbox 
+                                  id={`q${idx}-na`} 
+                                  checked={item.answer === 'na'}
+                                  onCheckedChange={() => handleElectricalAnswerUpdate(idx, 'na')}
+                                  className="shadow-none h-3.5 w-3.5 border-slate-300 data-[state=checked]:bg-slate-700 data-[state=checked]:border-slate-700 rounded-[2px]" 
+                                />
+                                <label htmlFor={`q${idx}-na`} className="text-[10px] font-bold text-slate-400 cursor-pointer">NA</label>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Delete Action */}
+                          <div className="w-12 shrink-0 flex items-center justify-center border-l border-slate-200">
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeElectricalQuestion(idx)} className="text-slate-300 hover:text-red-500 hover:bg-transparent h-8 w-8 shadow-none rounded-none">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-1">
+                    <Button type="button" variant="outline" size="sm" onClick={addElectricalQuestion} className="h-7 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50 shadow-none uppercase font-bold tracking-wider">
+                      <Plus className="h-3 w-3 mr-1" /> Add Row
+                    </Button>
                   </div>
                 </div>
 
