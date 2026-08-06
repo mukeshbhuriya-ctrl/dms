@@ -73,6 +73,8 @@ const MODULES = {
         PM_SCHEDULE: "MAINTENANCE_PM_SCHEDULE",
     },
 
+    WORK_PERMIT: "WORK_PERMIT",
+
     // ── Marketing ───────────────────────────────────────────────────
     MARKETING: {
         RFQ: "MARKETING_RFQ",

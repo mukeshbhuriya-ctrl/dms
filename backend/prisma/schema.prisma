@@ -63,6 +63,7 @@ model company{
   machine_masters machine_master[]
   maintenance_memos maintenance_memo[]
   preventive_maintenance_plans preventive_maintenance_plan[]
+  work_permits work_permit[]
 }
 
 model department {
@@ -79,6 +80,7 @@ model department {
   updatedAt DateTime @updatedAt
 
   users     user[]
+  work_permits work_permit[]
   
   @@unique([company_id, name]) // Ensure department names are unique per company
 }
@@ -110,6 +112,12 @@ model employee_group {
 
   memo_production_groups maintenance_memo[] @relation("MemoProductionGroup")
   memo_maintenance_groups maintenance_memo[] @relation("MemoMaintenanceGroup")
+
+  wp_issuer_groups     work_permit[] @relation("WpIssuerGroup")
+  wp_electrical_groups work_permit[] @relation("WpElecGroup")
+  wp_acceptor_groups   work_permit[] @relation("WpAcceptorGroup")
+  wp_approver_groups   work_permit[] @relation("WpApproverGroup")
+  wp_safety_groups     work_permit[] @relation("WpSafetyGroup")
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -224,6 +232,13 @@ model user{
   memos_attended maintenance_memo[] @relation("MemoAttendedBy")
   pm_plans_approved preventive_maintenance_plan[] @relation("pm_approved_by")
   pm_plans_signed preventive_maintenance_plan_signer[]
+
+  wp_issuers             work_permit[] @relation("WpIssuer")
+  wp_electrical_sups     work_permit[] @relation("WpElecSup")
+  wp_acceptors           work_permit[] @relation("WpAcceptor")
+  wp_approvers           work_permit[] @relation("WpApprover")
+  wp_safety_officers     work_permit[] @relation("WpSafety")
+  wp_history_actions     work_permit_history[]
 }
 
 model user_roles{
@@ -2100,4 +2115,161 @@ model preventive_maintenance_event {
   status          String         @default("PENDING")
   
   schedule        preventive_maintenance_schedule @relation(fields: [schedule_id], references: [id], onDelete: Cascade)
+}
+
+// -------------------------------------------------------------
+// Work Permit Models (Data-Centric Design)
+// -------------------------------------------------------------
+
+model work_permit {
+  id                   String   @id @default(uuid())
+  company_id           String
+  permit_no            String   @unique
+  status               String   @default("DRAFT") // DRAFT, PENDING_ELECTRICAL, PENDING_ACCEPTANCE, PENDING_APPROVAL, PENDING_SAFETY, APPROVED, SUSPENDED, EXPIRED, CANCELLED
+  active_stage         Int      @default(1)
+  
+  // Basic Information (Stage 1)
+  issuer_department_id String?  
+  issuer_department    department? @relation(fields: [issuer_department_id], references: [id])
+  
+  location             String
+  job_no               String
+  description          String   @db.Text
+  contractor_name      String?
+  contractor_supervisor String?
+  early_acceptor_name  String?  
+  nature_of_jobs       String[] 
+  
+  valid_from           DateTime?
+  valid_to             DateTime?
+
+  // Initiator Measures
+  surrounding_checked  String?
+  cleaned              String?
+  change_control       String?
+  mechanical_isolation String?
+  electrical_isolation String?
+
+  // LOTO Tracking (Electrical Dept)
+  loto_equipment_1_id  String?  
+  loto_equipment_2_id  String?
+  
+  // Approver / Safety Declarations
+  approver_comments       String? @db.Text
+  is_approver_declared    Boolean @default(false)
+  safety_recommendations  String? @db.Text
+  is_safety_declared      Boolean @default(false)
+
+  // ==========================================
+  // DOMAIN-DRIVEN WORKFLOW (Scalable & Non-Rigid)
+  // ==========================================
+  
+  // Current routing target (who is it waiting on?)
+  pending_with_user_id     String?
+  pending_with_group_id    String?
+
+  // 1. Issuance
+  issuer_id                String
+  issuer                   user     @relation("WpIssuer", fields: [issuer_id], references: [id])
+  issuer_group_id          String?
+  issuer_group             employee_group? @relation("WpIssuerGroup", fields: [issuer_group_id], references: [id])
+  issued_at                DateTime?
+
+  // 2. Electrical Verification
+  electrical_supervisor_id String?
+  electrical_supervisor    user?    @relation("WpElecSup", fields: [electrical_supervisor_id], references: [id])
+  electrical_group_id      String?
+  electrical_group         employee_group? @relation("WpElecGroup", fields: [electrical_group_id], references: [id])
+  electrical_verified_at   DateTime?
+
+  // 3. Acceptance
+  acceptor_id              String?  
+  acceptor                 user?    @relation("WpAcceptor", fields: [acceptor_id], references: [id])
+  acceptor_group_id        String?
+  acceptor_group           employee_group? @relation("WpAcceptorGroup", fields: [acceptor_group_id], references: [id])
+  accepted_at              DateTime?
+  
+  // 4. Approval
+  approver_id              String?  
+  approver                 user?    @relation("WpApprover", fields: [approver_id], references: [id])
+  approver_group_id        String?
+  approver_group           employee_group? @relation("WpApproverGroup", fields: [approver_group_id], references: [id])
+  approved_at              DateTime?
+
+  // 5. Safety Verification
+  safety_officer_id        String?  
+  safety_officer           user?    @relation("WpSafety", fields: [safety_officer_id], references: [id])
+  safety_officer_group_id  String?
+  safety_officer_group     employee_group? @relation("WpSafetyGroup", fields: [safety_officer_group_id], references: [id])
+  safety_verified_at       DateTime?
+  
+  // Permit Lifecycle
+  activated_at             DateTime?
+  closed_at                DateTime?
+  
+  // ==========================================
+
+  // One-to-Many Relationships
+  key_persons          work_permit_key_person[]
+  safety_measures      work_permit_safety_measure[]
+  gas_tests            work_permit_gas_test[]
+  history              work_permit_history[]
+
+  is_active            Boolean  @default(true)
+  is_deleted           Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  company              company  @relation(fields: [company_id], references: [id])
+}
+
+// Enterprise Audit Trail for infinite workflow scalability
+model work_permit_history {
+  id                   String   @id @default(uuid())
+  work_permit_id       String
+  work_permit          work_permit @relation(fields: [work_permit_id], references: [id], onDelete: Cascade)
+  
+  action               String   // e.g. "ISSUED", "ELECTRICAL_VERIFIED", "ACCEPTED", "APPROVED", "FORWARDED", "REJECTED"
+  
+  acted_by_id          String
+  acted_by             user     @relation(fields: [acted_by_id], references: [id])
+  acted_by_group_id    String?
+  
+  target_user_id       String?
+  target_group_id      String?
+  
+  comments             String?  @db.Text
+  
+  createdAt            DateTime @default(now())
+}
+
+model work_permit_key_person {
+  id                String   @id @default(uuid())
+  work_permit_id    String
+  work_permit       work_permit @relation(fields: [work_permit_id], references: [id], onDelete: Cascade)
+  
+  name              String
+  designation       String?
+}
+
+// Consolidates all checklists (Issuer, Electrical, Acceptor) into one scalable table
+model work_permit_safety_measure {
+  id                String   @id @default(uuid())
+  work_permit_id    String
+  work_permit       work_permit @relation(fields: [work_permit_id], references: [id], onDelete: Cascade)
+  
+  category          String   // "Issuer", "Electrical", "Acceptor"
+  measure_name      String   
+  is_checked        Boolean? 
+  value             String?  
+}
+
+model work_permit_gas_test {
+  id                String   @id @default(uuid())
+  work_permit_id    String
+  work_permit       work_permit @relation(fields: [work_permit_id], references: [id], onDelete: Cascade)
+  
+  tester_name       String
+  o2_level          Float
+  test_time         DateTime
 }

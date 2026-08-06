@@ -37,6 +37,7 @@ export function AuthProvider({ children }) {
                 name: data?.name || data?.user?.name || "User",
                 roles,
                 permissions: data?.permissions || data?.user?.permissions || [],
+                functional_tags: data?.user?.functional_tags || [],
                 company: data?.company || data?.user?.company || null
             })
             setIsAuthenticated(true)
@@ -75,6 +76,7 @@ export function AuthProvider({ children }) {
         user,
         roles: user?.roles || [],
         permissions: user?.permissions || [],
+        functionalTags: user?.functional_tags || [],
         userName: user?.name || "User",
         companyName: user?.company?.name || "Tech Fab",
         companyLogo: user?.company?.logo_url || null,

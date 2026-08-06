@@ -236,6 +236,7 @@ async function me(req, res) {
         empid: user.empid,
         role: user.user_roles.map(ur => ur.role.name), // Array of role names
         permissions: userPermissions,
+        functional_tags: user.functional_tags || [],
         company: user.company ? {
           id: user.company.id,
           name: user.company.name,

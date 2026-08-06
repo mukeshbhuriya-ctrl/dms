@@ -126,6 +126,9 @@ app.use('/api/tube-bundle-inspection', tubeBundleInspectionRoutes);
 const maintenanceRoutes = require('#routes/maintenance/maintenance.routes.js');
 app.use('/api/maintenance', maintenanceRoutes);
 
+const workPermitRoutes = require('#routes/work_permit.routes.js');
+app.use('/api/work-permit', workPermitRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });

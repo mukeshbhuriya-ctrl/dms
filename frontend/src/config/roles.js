@@ -280,11 +280,8 @@ export const MENU_CONFIG = [
     {
         title: "Work Permits",
         icon: ShieldCheck,
+        path: "/work-permit",
         moduleKey: MODULES.WORK_PERMIT,
-        items: [
-            { title: "Create Permit", path: "/work-permit/create", moduleKey: MODULES.WORK_PERMIT },
-            { title: "Permit Register", path: "/work-permit/register", moduleKey: MODULES.WORK_PERMIT },
-        ],
     },
     
     // ── Inspection ──

@@ -50,7 +50,7 @@ import { CalibrationInstruments, PressureGauges } from "@/pages/admin/masters"
 import { MachineMaster } from "@/pages/maintenance/machine_master"
 import { MaintenanceMemo } from "@/pages/maintenance/maintenance_memo"
 import { PreventiveMaintenance } from "@/pages/maintenance/preventive_maintenance"
-import { CreateWorkPermit, WorkPermitRegister } from "@/pages/work_permit"
+import { CreateWorkPermit } from "@/pages/work_permit"
 
 // ─── Helper: wrap element with ProtectedRoute + Permission guard ─────
 const protect = (element, moduleKey = null, allowedRoles = null) => (
@@ -335,21 +335,13 @@ const maintenanceRoutes = [
 // ─── Work Permit Routes ────────────────────────────────────
 const workPermitRoutes = [
   {
-    path: "/work-permit/create",
+    path: "/work-permit",
     element: protect(
       <CreateWorkPermit />, 
       MODULES.WORK_PERMIT, 
       [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.MAINTENANCE, ROLES.QC_ENGINEER]
     ),
-  },
-  {
-    path: "/work-permit/register",
-    element: protect(
-      <WorkPermitRegister />, 
-      MODULES.WORK_PERMIT, 
-      [ROLES.ADMIN, ROLES.PRODUCTION_ENGINEER, ROLES.MAINTENANCE, ROLES.QC_ENGINEER]
-    ),
-  },
+  }
 ]
 
 // ─── All Routes ────────────────────────────────────────────────
