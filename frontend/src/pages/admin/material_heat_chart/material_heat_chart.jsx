@@ -621,7 +621,12 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
     {
       header: "Created At",
       accessorKey: "createdAt",
-      cell: (row) => formatDateTimeSQL(row.createdAt),
+      cell: (row) => row.createdAt ? new Date(row.createdAt).toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' }) : "-",
+    },
+    {
+      header: "Updated At",
+      accessorKey: "updatedAt",
+      cell: (row) => row.updatedAt ? new Date(row.updatedAt).toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' }) : "-",
     },
     {
       header: "Status",

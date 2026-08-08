@@ -9,7 +9,7 @@ class MhcService {
             page = 1,
             limit = 10,
             search = '',
-            sortBy = 'createdAt',
+            sortBy = 'updatedAt',
             sortOrder = 'desc'
         } = params;
 
@@ -773,7 +773,59 @@ class MhcService {
                             select: { id: true }
                         });
                         if (existing) {
-                            console.log(`[MhcService] Skipping duplicate report for Job ${report.msn} and Drawing ${report.shreno_drg_no}`);
+                            console.log(`[MhcService] MHC already exists for Job ${report.msn} and Drawing ${report.shreno_drg_no}. Checking for new items to append.`);
+                            
+                            // 1. Fetch existing items for this MHC
+                            const existingItems = await prisma.material_heat_chart_item.findMany({
+                                where: { mhc_id: existing.id, is_current: true },
+                                select: { item_no: true, description: true, size: true, is_heading: true, heading_text: true, sort_order: true }
+                            });
+
+                            // 2. Filter out items from report.items that are already in existingItems
+                            const newItemsToInsert = (report.items || []).filter(incomingItem => {
+                                const isDuplicate = existingItems.some(exItem => {
+                                    if (exItem.is_heading && incomingItem.is_heading) {
+                                        return String(exItem.heading_text || "").trim().toLowerCase() === String(incomingItem.heading_text || "").trim().toLowerCase();
+                                    } else if (!exItem.is_heading && !incomingItem.is_heading) {
+                                        return String(exItem.item_no || "").trim().toLowerCase() === String(incomingItem.item_no || "").trim().toLowerCase() &&
+                                               String(exItem.description || "").trim().toLowerCase() === String(incomingItem.description || "").trim().toLowerCase() &&
+                                               String(exItem.size || "").trim().toLowerCase() === String(incomingItem.size || "").trim().toLowerCase();
+                                    }
+                                    return false;
+                                });
+                                return !isDuplicate;
+                            });
+
+                            // 3. Insert new items if any
+                            if (newItemsToInsert.length > 0) {
+                                const maxSortOrder = existingItems.length > 0 ? Math.max(...existingItems.map(i => i.sort_order || 0)) : 0;
+                                await prisma.material_heat_chart_item.createMany({
+                                    data: newItemsToInsert.map((item, index) => ({
+                                        mhc_id: existing.id,
+                                        is_heading: item.is_heading || false,
+                                        heading_text: item.heading_text || null,
+                                        item_no: item.item_no || null,
+                                        description: item.description || null,
+                                        material_spec: item.materialSpecification || null,
+                                        size: item.size || null,
+                                        quantity_unit: item.quantityUnit || null,
+                                        qc_status: "Pending",
+                                        version: 1,
+                                        is_current: true,
+                                        sort_order: maxSortOrder + index + 1
+                                    }))
+                                });
+
+                                await prisma.material_heat_chart.update({
+                                    where: { id: existing.id },
+                                    data: { updatedAt: new Date() }
+                                });
+
+                                console.log(`[MhcService] Appended ${newItemsToInsert.length} new items to existing MHC ${existing.id}`);
+                                results.push({ id: existing.id, appended: newItemsToInsert.length, action: "appended" });
+                            } else {
+                                console.log(`[MhcService] No new items found to append.`);
+                            }
                             continue;
                         }
                     }
