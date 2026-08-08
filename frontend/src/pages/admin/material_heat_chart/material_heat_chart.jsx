@@ -1061,8 +1061,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const [tableRows, setTableRows] = useState([emptyRow("row-1")])
 
   // Search Filter
-  const [itemSearchActive, setItemSearchActive] = useState(false)
-  const [itemSearchQuery, setItemSearchQuery] = useState("")
+  const [activeSearchColumn, setActiveSearchColumn] = useState(null)
+  const [columnSearchQueries, setColumnSearchQueries] = useState({})
   
   // Date Range Filter for QC Date
   const [qcDateRange, setQcDateRange] = useState({ from: undefined, to: undefined })
@@ -1313,10 +1313,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const showQcCols = isView || (sStatus !== "DRAFT" && sStatus !== "INITIATED" && sStatus !== "");
 
   const filteredTableRows = useMemo(() => {
-    // If no filters are active, return all rows
-    if (!itemSearchQuery.trim() && (!isView || !qcDateRange?.from)) return tableRows;
-
-    const query = itemSearchQuery.toLowerCase().trim();
+    const hasActiveQueries = Object.values(columnSearchQueries).some(q => q && q.trim());
+    if (!hasActiveQueries && (!isView || !qcDateRange?.from)) return tableRows;
     
     const matchedItemIds = new Set();
     const matchedHeadingIds = new Set(); 
@@ -1327,13 +1325,36 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     tableRows.forEach(row => {
       if (row.isHeading) {
         currentHeadingId = row.id;
-        if (query && row.headingText?.toLowerCase().includes(query)) {
-          matchedHeadingIds.add(row.id);
+        if (hasActiveQueries) {
+          let headingMatches = false;
+          for (const q of Object.values(columnSearchQueries)) {
+             if (q && q.trim() && row.headingText?.toLowerCase().includes(q.toLowerCase().trim())) {
+                 headingMatches = true;
+                 break;
+             }
+          }
+          if (headingMatches) {
+            matchedHeadingIds.add(row.id);
+          }
         }
       } else {
+        const isUnsavedEmptyRow = (String(row.id).startsWith("new-") || String(row.id).startsWith("row-")) && 
+                                  !row.itemNo && !row.description && !row.materialSpecification && 
+                                  !row.size && !row.quantityUnit && !row.heatNo && !row.grnAppApNo && 
+                                  !row.mtrNo && !row.manufacturerName && !row.remarks;
+                                  
         let textMatches = true;
-        if (query) {
-          textMatches = row.itemNo?.toLowerCase().includes(query) || row.description?.toLowerCase().includes(query);
+        if (hasActiveQueries && !isUnsavedEmptyRow) {
+          for (const [colId, q] of Object.entries(columnSearchQueries)) {
+             if (q && q.trim()) {
+                 const queryStr = q.toLowerCase().trim();
+                 const cellValue = row[colId]?.toString().toLowerCase() || "";
+                 if (!cellValue.includes(queryStr)) {
+                     textMatches = false;
+                     break;
+                 }
+             }
+          }
         }
         
         let dateMatches = true;
@@ -1358,12 +1379,12 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
 
     return tableRows.filter(row => {
        if (row.isHeading) {
-          if (!query) return neededHeadingIds.has(row.id);
+          if (!hasActiveQueries) return neededHeadingIds.has(row.id);
           return matchedHeadingIds.has(row.id) || neededHeadingIds.has(row.id);
        }
        return matchedItemIds.has(row.id);
     });
-  }, [tableRows, itemSearchQuery, qcDateRange, isView]);
+  }, [tableRows, columnSearchQueries, qcDateRange, isView]);
 
   const toggleItemSelection = (id) => {
     setSelectedItemIds(prev => {
@@ -1608,7 +1629,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       </div>
 
       {mhcStatus === "Revision_Requested" && isAdmin && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="bg-orange-50 border border-orange-200 rounded-sm shadow-none p-4 mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h3 className="text-orange-800 font-semibold text-lg flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
@@ -1638,15 +1659,15 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       )}
 
       {/* ── Section 1: Basic Information ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Basic Information</CardTitle>
+      <Card className="mb-6 rounded-none shadow-none border border-slate-200 bg-white">
+        <CardHeader className="pb-3 bg-white border-b border-slate-100 rounded-none">
+          <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Basic Information</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* MSN / Job Number */}
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground">MSN / JOB NO.:</Label>
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">MSN / JOB NO.:</Label>
               <SearchableSelect
                 options={jobs.map((j) => ({ value: j.id, label: j.job_number }))}
                 value={selectedJobId}
@@ -1666,28 +1687,28 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               { label: "TAG NO.:", value: autoFill.tagNo },
             ].map(({ label, value }) => (
               <div key={label} className="space-y-2">
-                <Label className="uppercase text-xs font-semibold text-muted-foreground">{label}</Label>
-                <Input value={value} readOnly className="bg-muted/50 h-9 border-muted" />
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</Label>
+                <Input value={value} readOnly className="h-8 text-xs bg-slate-50 shadow-none border-slate-200 rounded-none text-slate-500" />
               </div>
             ))}
 
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground">PROJECT ID:</Label>
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">PROJECT ID:</Label>
               <Input
                 value={formData.projectId}
                 onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value }))}
-                className="h-9 border-muted-foreground/30"
+                className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none"
                 disabled={isView || (!isAdmin && !isQE)}
                 placeholder="Enter project ID"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="uppercase text-xs font-semibold text-muted-foreground">CONSTRUCTION CODE:</Label>
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">CONSTRUCTION CODE:</Label>
               <Input
                 value={formData.code}
                 onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                className="h-9 border-muted-foreground/30"
+                className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none"
                 disabled={isView || (!isAdmin && !isQE)}
                 placeholder="Enter construction code"
               />
@@ -1697,9 +1718,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       </Card>
 
       {/* ── Section 2: Equipment Details ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Equipment Details</CardTitle>
+      <Card className="mb-6 rounded-none shadow-none border border-slate-200 bg-white">
+        <CardHeader className="pb-3 bg-white border-b border-slate-100 rounded-none">
+          <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Equipment Details</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1709,12 +1730,12 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               { label: "INSPECTION BY:", field: "inspectionBy" },
             ].map((f) => (
               <div className="space-y-2" key={f.field}>
-                <Label className="uppercase text-xs font-semibold text-muted-foreground">{f.label} <span className="text-destructive">*</span></Label>
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{f.label} <span className="text-destructive">*</span></Label>
                 <Input
                   value={formData[f.field]}
                   onChange={(e) => setFormData({ ...formData, [f.field]: e.target.value })}
                   placeholder={`Enter ${f.label.toLowerCase().replace(':', '')}`}
-                  className="h-10 rounded-xl border-muted-foreground/30"
+                  className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none"
                   disabled={isView}
                   required
                 />
@@ -1725,10 +1746,10 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       </Card>
 
       {/* ── Section 3: Material Heat Chart Details ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20 overflow-hidden">
-        <CardHeader className="pb-4 bg-slate-50/50 border-b border-muted-foreground/10">
+      <Card className="mb-6 rounded-none shadow-none border border-slate-200 bg-white overflow-hidden">
+        <CardHeader className="pb-3 bg-white border-b border-slate-100 rounded-none">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold text-slate-800">Material Heat Chart Details</CardTitle>
+            <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Material Heat Chart Details</CardTitle>
             {isView && editId && (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5">
@@ -1796,7 +1817,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                     variant="outline"
                     size="sm"
                     onClick={() => handleDownloadSelectedPdf('download')}
-                    className="h-8 px-2 cursor-pointer bg-slate-900 border-slate-900 text-white hover:bg-slate-800 transition-colors shadow-sm rounded-sm"
+                    className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm bg-white"
                     title="Download Selected PDF"
                   >
                     <Download className="h-3.5 w-3.5 mr-1" />
@@ -1809,7 +1830,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         </CardHeader>
         <CardContent className="p-0">
           <div className="space-y-4">
-            <div className="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar border rounded-xl shadow-inner bg-slate-50/20 relative">
+            <div className="overflow-x-auto overflow-y-auto max-h-[500px] custom-scrollbar border border-slate-200 rounded-none shadow-none bg-white relative">
               <table className="w-full border-collapse">
                 <thead className="sticky top-0 z-40 shadow-sm">
                   <tr className="border-b bg-slate-100 text-slate-700">
@@ -1826,26 +1847,22 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                       </th>
                     )}
                     {[
-                      {
-                        label: "ITEM NO./PART NO.",
-                        id: "itemNo",
-                        searchable: true
-                      },
-                      "DESCRIPTION",
-                      "MATERIAL SPECIFICATION",
-                      "SIZE",
-                      "QUANTITY / UNIT",
-                      "HEAT NO. / CAST NO. / PLATE NO.",
-                      "GRN/APP/AP NO.",
-                      "MTR NO.",
-                      "MANUFACTURER NAME",
-                      "REMARKS NCR/DCR",
-                      "QC REVIEW",
-                      "QC REMARKS",
-                      "PROD. PERSON",
-                      "QC REVIEWER",
-                      "Action",
-                    ].filter(h => showQcCols || (h !== "QC REVIEW" && h !== "QC REMARKS" && h !== "PROD. PERSON" && h !== "QC REVIEWER"))
+                      { label: "ITEM NO./PART NO.", id: "itemNo", searchable: true },
+                      { label: "DESCRIPTION", id: "description", searchable: true },
+                      { label: "MATERIAL SPECIFICATION", id: "materialSpecification", searchable: true },
+                      { label: "SIZE", id: "size", searchable: true },
+                      { label: "QUANTITY / UNIT", id: "quantityUnit", searchable: true },
+                      { label: "HEAT NO. / CAST NO. / PLATE NO.", id: "heatNo", searchable: true },
+                      { label: "GRN/APP/AP NO.", id: "grnAppApNo", searchable: true },
+                      { label: "MTR NO.", id: "mtrNo", searchable: true },
+                      { label: "MANUFACTURER NAME", id: "manufacturerName", searchable: true },
+                      { label: "REMARKS NCR/DCR", id: "remarks", searchable: true },
+                      { label: "QC REVIEW", id: "qcStatus", searchable: false },
+                      { label: "QC REMARKS", id: "qcRemarks", searchable: true },
+                      { label: "PROD. PERSON", id: "prodEngineerName", searchable: true },
+                      { label: "QC REVIEWER", id: "qcReviewerName", searchable: true },
+                      { label: "Action", id: "action", searchable: false },
+                    ].filter(h => showQcCols || (h.label !== "QC REVIEW" && h.label !== "QC REMARKS" && h.label !== "PROD. PERSON" && h.label !== "QC REVIEWER"))
                       .map((h, i) => {
                         const isObj = typeof h === "object";
                         const label = isObj ? h.label : h;
@@ -1856,24 +1873,37 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                             className={`p-3 text-left font-bold uppercase text-slate-800 text-[10px] tracking-wider whitespace-nowrap border-b-2 border-slate-200 sticky top-0 z-40 bg-slate-100 ${i === 0 ? "sticky left-0 z-[52] min-w-[150px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
                               }`}
                           >
-                            <div className="flex items-center justify-between gap-2 group">
-                              {isObj && h.id === "itemNo" && itemSearchActive ? (
-                                <div className="flex items-center gap-1 w-full bg-white border border-primary/30 rounded px-1.5 py-0.5 shadow-sm animate-in fade-in slide-in-from-left-1 duration-200">
-                                  <Search className="h-3 w-3 text-primary/60" />
+                            <div className="flex items-center justify-between gap-2 group relative">
+                              {isObj && h.searchable && (activeSearchColumn === h.id || Boolean(columnSearchQueries[h.id]?.trim())) ? (
+                                <div className="flex items-center gap-1 w-full bg-white border border-slate-300 rounded-none px-1.5 py-0.5 shadow-none animate-in fade-in slide-in-from-left-1 duration-200">
+                                  <Search className="h-3 w-3 text-slate-400" />
                                   <input
-                                    autoFocus
+                                    autoFocus={activeSearchColumn === h.id}
                                     className="bg-transparent border-none outline-none text-[11px] w-full font-medium placeholder:font-normal placeholder:text-slate-400"
                                     placeholder="Search..."
-                                    value={itemSearchQuery}
-                                    onChange={(e) => setItemSearchQuery(e.target.value)}
+                                    value={columnSearchQueries[h.id] || ""}
+                                    onChange={(e) => setColumnSearchQueries(prev => ({ ...prev, [h.id]: e.target.value }))}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Escape') {
-                                        setItemSearchActive(false);
-                                        setItemSearchQuery("");
+                                        setActiveSearchColumn(null);
+                                        if (!(columnSearchQueries[h.id]?.trim())) {
+                                          setColumnSearchQueries(prev => {
+                                            const next = { ...prev };
+                                            delete next[h.id];
+                                            return next;
+                                          });
+                                        }
                                       }
                                     }}
                                   />
-                                  <button onClick={() => { setItemSearchActive(false); setItemSearchQuery(""); }}>
+                                  <button onClick={() => { 
+                                      setActiveSearchColumn(null); 
+                                      setColumnSearchQueries(prev => {
+                                        const next = { ...prev };
+                                        delete next[h.id];
+                                        return next;
+                                      }); 
+                                  }}>
                                     <X className="h-3 w-3 text-slate-400 hover:text-rose-500 transition-colors" />
                                   </button>
                                 </div>
@@ -1882,8 +1912,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                   <span className="truncate">{label}</span>
                                   {isObj && h.searchable && (
                                     <button
-                                      onClick={() => setItemSearchActive(true)}
-                                      className="p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-primary transition-all focus:opacity-100"
+                                      onClick={() => setActiveSearchColumn(h.id)}
+                                      className={`p-1 rounded hover:bg-slate-200 transition-all ${columnSearchQueries[h.id]?.trim() ? "text-blue-600 bg-blue-50" : "text-slate-400 hover:text-slate-600"}`}
                                     >
                                       <Search className="h-3.5 w-3.5" />
                                     </button>
@@ -1905,12 +1935,12 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                       return (
                         <React.Fragment key={row.id}>
                           {row.isHeading && (
-                            <tr className="group/heading border-b-0 bg-slate-50/60">
+                            <tr className="group/heading border-b-0 bg-slate-50">
                               {isView && <td className="bg-slate-100/60 border-t border-t-slate-200" />}
                               <td colSpan={11} className="p-0 border-t border-t-slate-200">
                                 <div className="flex items-center justify-between my-1.5 mx-2 w-full pr-4">
                                   <div className="flex items-center gap-0 sticky left-2 w-fit z-20">
-                                    <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-md p-1 pl-3 w-full shadow-sm">
+                                    <div className="flex items-center gap-2 border border-slate-200 bg-white rounded-none p-1 pl-3 w-full shadow-none">
                                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 shrink-0">Heading:</span>
                                       <Input
                                         type="text"
@@ -1930,12 +1960,12 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     </div>
                                   </div>
                                   {!isView && (
-                                    <div className="flex items-center gap-1.5 h-10 sticky right-2 bg-slate-50/60 px-2 rounded z-20">
+                                    <div className="flex items-center gap-1.5 h-10 sticky right-2 bg-slate-50 px-2 rounded z-20">
                                       <Button
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8 rounded-lg border transition-all text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
+                                        className="h-8 w-8 rounded-sm shadow-none border transition-all text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100"
                                         onClick={() => toggleHeading(row.id)}
                                         disabled={isQcInitiationLocked}
                                       >
@@ -1945,7 +1975,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8 rounded-lg border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all"
+                                        className="h-8 w-8 rounded-sm shadow-none border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all"
                                         onClick={() => addRowAfter(row.id)}
                                         disabled={isQcInitiationLocked}
                                       >
@@ -1955,7 +1985,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                         type="button"
                                         variant="outline"
                                         size="icon"
-                                        className="h-8 w-8 rounded-lg border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all"
+                                        className="h-8 w-8 rounded-sm shadow-none border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all"
                                         onClick={() => removeRow(row.id)}
                                         disabled={isQcInitiationLocked}
                                       >
@@ -1968,7 +1998,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                             </tr>
                           )}
                           {!row.isHeading && (
-                            <tr className={`${isInGroup ? "bg-slate-50/40 border-l-2 border-l-indigo-400" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
+                            <tr className={`${isInGroup ? "bg-slate-50 border-l-2 border-l-indigo-400" : "hover:bg-muted/10"} border-b border-muted-foreground/10 transition-colors`}>
                               {isView && (
                                 <td className={`p-3 align-middle sticky left-0 z-20 ${isInGroup ? "bg-slate-50" : "bg-white"} border-r border-slate-100`}>
                                   {row.id && !String(row.id).startsWith("new-") && (
@@ -2002,7 +2032,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     onChange={(e) => handleRowChange(row.id, field, e.target.value)}
                                     placeholder={placeholder}
                                     required={req}
-                                    className={`text-[13px] min-w-[240px] w-full min-h-[40px] max-h-[120px] py-2.5 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white/80" : "border-muted-foreground/30"} rounded-md`}
+                                    className={`text-xs min-w-[240px] w-full min-h-[40px] max-h-[120px] py-2 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white" : "border-slate-200 bg-white"} rounded-none`}
                                     disabled={locked}
                                   />
                                 </td>
@@ -2024,7 +2054,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                                     type="button"
                                                     size="icon"
                                                     variant="outline"
-                                                    className={`h-8 w-8 rounded-lg transition-all ${s === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'hover:bg-emerald-50 text-emerald-600 border-emerald-200'}`}
+                                                    className={`h-8 w-8 rounded-sm shadow-none transition-all ${s === 'APPROVED' ? 'bg-emerald-500 text-white border-emerald-600' : 'hover:bg-emerald-50 text-emerald-600 border-emerald-200'}`}
                                                     onClick={() => handleApproveToggle(row)}
                                                     disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
                                                   >
@@ -2040,7 +2070,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                                     type="button"
                                                     size="icon"
                                                     variant="outline"
-                                                    className={`h-8 w-8 rounded-lg transition-all ${s === 'REJECTED' ? 'bg-rose-500 text-white border-rose-600' : 'hover:bg-rose-50 text-rose-600 border-rose-200'}`}
+                                                    className={`h-8 w-8 rounded-sm shadow-none transition-all ${s === 'REJECTED' ? 'bg-rose-500 text-white border-rose-600' : 'hover:bg-rose-50 text-rose-600 border-rose-200'}`}
                                                     onClick={() => handleRowChange(row.id, "qcStatus", s === 'REJECTED' ? 'Pending' : 'Rejected')}
                                                     disabled={isView || (mhcStatus?.toUpperCase() !== "OFFERED" && !isAdmin)}
                                                   >
@@ -2089,14 +2119,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     value={row.qcRemarks || ""}
                                     onChange={(e) => handleRowChange(row.id, "qcRemarks", e.target.value)}
                                     placeholder="QC remarks..."
-                                    className={`text-[13px] min-h-[40px] max-h-[120px] py-2.5 resize-y rounded-md transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : "border-muted-foreground/30"}`}
+                                    className={`text-xs min-h-[40px] max-h-[120px] py-2 resize-y rounded-none shadow-none transition-all ${String(row.qcStatus || "Pending").toUpperCase() === "REJECTED" ? "border-rose-400 bg-rose-50/30 focus-visible:ring-rose-500" : "border-slate-200 bg-white"}`}
                                     disabled={isView || (!isAdmin && !isQE)}
                                   />
                                 </td>
                               )}
                               {showQcCols && (
                                 <td className="p-2 align-top min-w-[150px]">
-                                  <div className="flex flex-col justify-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50">
+                                  <div className="flex flex-col justify-center h-10 px-3 rounded-sm shadow-none border border-muted-foreground/10 bg-slate-50/50">
                                     <span className="text-xs font-bold text-slate-700 leading-tight">{row.prodEngineerName || "-"}</span>
                                     {row.prodEngineerName && row.productionDate && (
                                       <span className="text-[9px] font-medium text-slate-500 leading-tight">
@@ -2108,7 +2138,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                               )}
                               {showQcCols && (
                                 <td className="p-2 align-top min-w-[150px]">
-                                  <div className="flex flex-col justify-center h-10 px-3 rounded-lg border border-muted-foreground/10 bg-slate-50/50">
+                                  <div className="flex flex-col justify-center h-10 px-3 rounded-sm shadow-none border border-muted-foreground/10 bg-slate-50/50">
                                     <span className="text-xs font-bold text-slate-700 leading-tight">{row.qcReviewerName || "-"}</span>
                                     {row.qcReviewerName && row.qcDate && (
                                       <span className="text-[9px] font-medium text-slate-500 leading-tight">
@@ -2125,7 +2155,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     type="button"
                                     variant="outline"
                                     size="icon"
-                                    className={`h-8 w-8 rounded-lg border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
+                                    className={`h-8 w-8 rounded-sm shadow-none border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
                                     onClick={() => toggleHeading(row.id)}
                                     disabled={isQcInitiationLocked}
                                   >
@@ -2135,7 +2165,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     type="button"
                                     variant="outline"
                                     size="icon"
-                                    className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
+                                    className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
                                     onClick={() => addRowAfter(row.id)}
                                     disabled={isQcInitiationLocked}
                                   >
@@ -2145,7 +2175,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     type="button"
                                     variant="outline"
                                     size="icon"
-                                    className="h-8 w-8 rounded-lg border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
+                                    className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
                                     onClick={() => removeRow(row.id)}
                                     disabled={isQcInitiationLocked}
                                   >
@@ -2174,16 +2204,16 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       </Card>
 
       {/* ── Section 4: Approval ── */}
-      <Card className="mb-6 rounded-xl shadow-sm border border-muted-foreground/20">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-base font-semibold">Approval</CardTitle>
+      <Card className="mb-6 rounded-none shadow-none border border-slate-200 bg-white">
+        <CardHeader className="pb-3 bg-white border-b border-slate-100 rounded-none">
+          <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Approval</CardTitle>
           <p className="text-xs text-muted-foreground">Assign groups</p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">QUALITY GROUP <span className="text-destructive">*</span></Label>
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">QUALITY GROUP <span className="text-destructive">*</span></Label>
                 <SearchableSelect
                   options={qcGroups.map((g) => ({ value: g.id, label: g.name }))}
                   value={qc_group_id}
@@ -2196,7 +2226,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             </div>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="uppercase text-[11px] font-bold text-muted-foreground tracking-wider">PRODUCTION GROUP <span className="text-destructive">*</span></Label>
+                <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">PRODUCTION GROUP <span className="text-destructive">*</span></Label>
                 <SearchableSelect
                   options={productionGroups.map((g) => ({ value: g.id, label: g.name }))}
                   value={production_group_id}
