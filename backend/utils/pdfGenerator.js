@@ -283,7 +283,7 @@ class PDFGenerator {
         const rows = [
             { l1: 'MSN:', v1: data.msn, l2: 'TAG NO.:', v2: data.tagNo },
             { l1: 'CLIENT:', v1: data.client, l2: 'EQUIPMENT:', v2: data.equipment },
-            { l1: 'Projects ID', v1: data.projectsId, l2: 'Linde DRG No:', v2: data.lindeDrgNo },
+            { l1: 'Projects ID', v1: data.projectsId, l2: 'DRG No:', v2: data.lindeDrgNo },
             { l1: 'P.O. NO.:', v1: data.poNo, l2: 'DRG. NO.:', v2: data.drgNo },
             { l1: 'CODE:', v1: data.code, l2: 'INSP. AGENCY:', v2: data.inspAgency },
         ];

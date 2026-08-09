@@ -370,7 +370,7 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
           <tr>
             <td className="label-cell" style={{ color: "#FF0000" }}>Projects ID</td>
             <td>{job.project_id || "-"}</td>
-            <td className="label-cell" style={{ color: "#FF0000" }}>Linde DRG No:</td>
+            <td className="label-cell" style={{ color: "#FF0000" }}>DRG No:</td>
             <td>{plan.shreno_drg_no || "-"}</td>
           </tr>
           <tr>
