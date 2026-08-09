@@ -63,7 +63,11 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = fal
         lSeamRt: "",
         nozzleSize: "",
         totalLength: "",
-        date: new Date().toLocaleDateString()
+        date: new Date().toLocaleDateString(),
+        openingSize: "",
+        orientation: "",
+        elevation: "",
+        edgePreparation: ""
     })
 
     useEffect(() => {
@@ -183,7 +187,11 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = fal
                         lSeamRt: sData.lSeamRt || "",
                         nozzleSize: sData.nozzleSize || "",
                         totalLength: sData.totalLength || "",
-                        date: sData.date || prev.date
+                        date: sData.date || prev.date,
+                        openingSize: sData.openingSize || "",
+                        orientation: sData.orientation || "",
+                        elevation: sData.elevation || "",
+                        edgePreparation: sData.edgePreparation || ""
                     }));
                 } catch (e) { console.error(`Error parsing ${sPrefix}_data`, e) }
             }
@@ -394,9 +402,9 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = fal
 
                         {/* MHC Part Selection - Hidden for QC */}
                         {userRole !== 'QC' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <Label className="text-primary">Part 1 Selection (ITEM NO./PART NO.)</Label>
+                                    <Label>Part 1 Selection (ITEM NO./PART NO.)</Label>
                                     <Select 
                                         key={`part1-${mhcItems.length}-${selectedPart1}`}
                                         value={selectedPart1} 
@@ -416,7 +424,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = fal
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-primary">Part 2 Selection (ITEM NO./PART NO.)</Label>
+                                    <Label>Part 2 Selection (ITEM NO./PART NO.)</Label>
                                     <Select 
                                         key={`part2-${mhcItems.length}-${selectedPart2}`}
                                         value={selectedPart2} 
@@ -471,9 +479,52 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = fal
                         </div>
                     </div>
 
-                    {/* II. Set Up Section */}
+                    {/* II. Inspection of nozzle opening Section */}
                     <div className="space-y-4 border-t pt-4">
-                        <h3 className="font-semibold text-lg">II. Set Up</h3>
+                        <h3 className="font-semibold text-lg">II. Inspection of nozzle opening</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <Label>Opening Size</Label>
+                                <Input
+                                    value={formData.openingSize}
+                                    placeholder='Enter Opening Size'
+                                    onChange={(e) => handleFormChange('openingSize', e.target.value)}
+                                    disabled={isReadOnly}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Orientation (°)</Label>
+                                <Input
+                                    value={formData.orientation}
+                                    placeholder='Enter Orientation'
+                                    onChange={(e) => handleFormChange('orientation', e.target.value)}
+                                    disabled={isReadOnly}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Elevation</Label>
+                                <Input
+                                    value={formData.elevation}
+                                    placeholder='Enter Elevation'
+                                    onChange={(e) => handleFormChange('elevation', e.target.value)}
+                                    disabled={isReadOnly}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Edge Preparation</Label>
+                                <Input
+                                    value={formData.edgePreparation}
+                                    placeholder='Enter Edge Preparation'
+                                    onChange={(e) => handleFormChange('edgePreparation', e.target.value)}
+                                    disabled={isReadOnly}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* III. Set Up Section */}
+                    <div className="space-y-4 border-t pt-4">
+                        <h3 className="font-semibold text-lg">III. Set Up</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
                                 <Label>Tack Welder</Label>
