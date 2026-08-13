@@ -452,11 +452,11 @@ function Stage2({ initialData, isReview = false, readOnly = false, stage = "stag
             </div>
             <div className="space-y-2">
               <Label htmlFor="tagNo">TAG NO.:</Label>
-              <Input id="tagNo" name="tagNo" type="text" value={inputFields?.tagNo || ""} readOnly className="bg-muted" />
+              <Input id="tagNo" name="tagNo" type="text" value={inputFields?.tagNo || ""} onChange={handleInputChange} placeholder="Enter TAG NO." readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="equipment">EQUIPMENT:</Label>
-              <Input id="equipment" name="equipment" type="text" value={inputFields?.equipment || ""} readOnly className="bg-muted" />
+              <Input id="equipment" name="equipment" type="text" value={inputFields?.equipment || ""} onChange={handleInputChange} placeholder="Enter EQUIPMENT" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="projectsId">Projects ID:</Label>

@@ -69,16 +69,16 @@ const extractStageData = async (insp, plan, job, joint, stageKey, categoryKey) =
         try {
             const rawBasic = typeof insp.data_json === 'string' ? JSON.parse(insp.data_json) : insp.data_json;
             const savedBasic = rawBasic?.[categoryKey] || {};
-            if (savedBasic.msn || savedBasic.msnNumber) basicInfo.msn = savedBasic.msn || savedBasic.msnNumber;
-            if (savedBasic.client) basicInfo.client = savedBasic.client;
-            if (savedBasic.poNo) basicInfo.poNo = savedBasic.poNo;
-            if (savedBasic.tagNo) basicInfo.tagNo = savedBasic.tagNo;
-            if (savedBasic.equipment) basicInfo.equipment = savedBasic.equipment;
-            if (savedBasic.projectsId) basicInfo.projectsId = savedBasic.projectsId;
-            if (savedBasic.lindeDrgNo) basicInfo.lindeDrgNo = savedBasic.lindeDrgNo;
-            if (savedBasic.drgNo) basicInfo.drgNo = savedBasic.drgNo;
-            if (savedBasic.code) basicInfo.code = savedBasic.code;
-            if (savedBasic.inspAgency) basicInfo.inspAgency = savedBasic.inspAgency;
+            if (savedBasic.msn !== undefined || savedBasic.msnNumber !== undefined) basicInfo.msn = savedBasic.msn || savedBasic.msnNumber || '-';
+            if (savedBasic.client !== undefined) basicInfo.client = savedBasic.client || '-';
+            if (savedBasic.poNo !== undefined) basicInfo.poNo = savedBasic.poNo || '-';
+            if (savedBasic.tagNo !== undefined) basicInfo.tagNo = savedBasic.tagNo || '-';
+            if (savedBasic.equipment !== undefined) basicInfo.equipment = savedBasic.equipment || '-';
+            if (savedBasic.projectsId !== undefined) basicInfo.projectsId = savedBasic.projectsId || '-';
+            if (savedBasic.lindeDrgNo !== undefined) basicInfo.lindeDrgNo = savedBasic.lindeDrgNo || '-';
+            if (savedBasic.drgNo !== undefined) basicInfo.drgNo = savedBasic.drgNo || '-';
+            if (savedBasic.code !== undefined) basicInfo.code = savedBasic.code || '-';
+            if (savedBasic.inspAgency !== undefined) basicInfo.inspAgency = savedBasic.inspAgency || '-';
         } catch (e) {
             console.error("Error parsing data_json:", e);
         }

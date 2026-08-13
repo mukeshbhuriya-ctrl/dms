@@ -319,6 +319,27 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
   const ir1 = getS1RowsForJoint(j1, s1[1]);
   const ir2 = getS1RowsForJoint(j2, s1[2]);
 
+  let savedBasic = {}
+  const inspToUse = j0.weld_joint_inspection || insp || {};
+  if (inspToUse?.data_json) {
+    try {
+      const rawBasic = typeof inspToUse.data_json === "string" ? JSON.parse(inspToUse.data_json) : inspToUse.data_json
+      const catKey = (jointData?.joint_type || "A").toLowerCase()
+      savedBasic = rawBasic?.[catKey] || {}
+    } catch (e) {}
+  }
+
+  const d = {
+    tagNo: savedBasic.tagNo !== undefined && savedBasic.tagNo !== null ? savedBasic.tagNo : job.tag_number,
+    equipment: savedBasic.equipment !== undefined && savedBasic.equipment !== null ? savedBasic.equipment : job.equipement_name,
+    projectsId: savedBasic.projectsId !== undefined && savedBasic.projectsId !== null ? savedBasic.projectsId : job.project_id,
+    lindeDrgNo: savedBasic.lindeDrgNo !== undefined && savedBasic.lindeDrgNo !== null ? savedBasic.lindeDrgNo : plan.shreno_drg_no,
+    drgNo: savedBasic.drgNo !== undefined && savedBasic.drgNo !== null ? savedBasic.drgNo : plan.customer_drg_no,
+    code: savedBasic.code !== undefined && savedBasic.code !== null ? savedBasic.code : job.code,
+    inspAgency: savedBasic.inspAgency !== undefined && savedBasic.inspAgency !== null ? savedBasic.inspAgency : "TPIA",
+    reportNo: savedBasic.reportNo || `SHR/${job.job_number || "000"}/${plan.serial_no || "000"}`
+  }
+
   const defaultChars = [
     "Material Identification", "Weld joint configuration", "Root Gap",
     "Root Face", 'Degree for "V"', "Offset", "Alignment",
@@ -345,7 +366,7 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
                 SET UP & WELD VISUAL INSPECTION REPORT
               </div>
               <div style={{ fontWeight: 700, fontSize: 11, color: "#FF0000", textAlign: "center", borderTop: "1px solid #333", paddingTop: 4 }}>
-                Report No : <span style={{ color: "#000", fontWeight: 400 }}>{jointData.weld_joint_report_info?.report_no || `SHR/${job.job_number || "000"}/${plan.serial_no || "000"}`}</span>
+                Report No : <span style={{ color: "#000", fontWeight: 400 }}>{d.reportNo}</span>
               </div>
             </td>
           </tr>
@@ -359,31 +380,31 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
             <td className="label-cell" style={{ width: "15%", color: "#FF0000" }}>MSN:</td>
             <td style={{ width: "35%" }}>{job.job_number || "-"}</td>
             <td className="label-cell" style={{ width: "15%", color: "#FF0000" }}>TAG NO.:</td>
-            <td style={{ width: "35%" }}>{job.tag_number || "-"}</td>
+            <td style={{ width: "35%" }}>{d.tagNo || "-"}</td>
           </tr>
           <tr>
             <td className="label-cell" style={{ color: "#FF0000" }}>CLIENT:</td>
             <td>{job.customer?.customer_name || "-"}</td>
             <td className="label-cell" style={{ color: "#FF0000" }}>EQUIPMENT:</td>
-            <td>{job.equipement_name || "-"}</td>
+            <td>{d.equipment || "-"}</td>
           </tr>
           <tr>
             <td className="label-cell" style={{ color: "#FF0000" }}>Projects ID</td>
-            <td>{job.project_id || "-"}</td>
+            <td>{d.projectsId || "-"}</td>
             <td className="label-cell" style={{ color: "#FF0000" }}>DRG No:</td>
-            <td>{plan.shreno_drg_no || "-"}</td>
+            <td>{d.lindeDrgNo || "-"}</td>
           </tr>
           <tr>
             <td className="label-cell" style={{ color: "#FF0000" }}>P.O. NO.:</td>
             <td>{job.po?.po_number || "-"}</td>
             <td className="label-cell" style={{ color: "#FF0000" }}>DRG. NO.:</td>
-            <td>{plan.customer_drg_no || "-"}</td>
+            <td>{d.drgNo || "-"}</td>
           </tr>
           <tr>
             <td className="label-cell" style={{ color: "#FF0000" }}>CODE:</td>
-            <td>{job.code || "-"}</td>
+            <td>{d.code || "-"}</td>
             <td className="label-cell" style={{ color: "#FF0000" }}>INSP. AGENCY:</td>
-            <td>TPIA</td>
+            <td>{d.inspAgency || "TPIA"}</td>
           </tr>
         </tbody>
       </table>
@@ -499,6 +520,19 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
   const s1Sig = getSignature("stage1")
   const s2 = getStageData("stage2")
   const s2Sig = getSignature("stage2")
+
+  let savedBasic = {}
+  if (insp?.data_json) {
+    try {
+      const rawBasic = typeof insp.data_json === "string" ? JSON.parse(insp.data_json) : insp.data_json
+      const catKey = (jt || "C").toLowerCase()
+      savedBasic = rawBasic?.[catKey] || {}
+    } catch (e) {}
+  }
+
+  const equipment = savedBasic.equipment !== undefined && savedBasic.equipment !== null ? savedBasic.equipment : (job.equipement_name || "")
+  const tagNo = savedBasic.tagNo !== undefined && savedBasic.tagNo !== null ? savedBasic.tagNo : (job.tag_number || "")
+  const drgNo = savedBasic.drgNo !== undefined && savedBasic.drgNo !== null ? savedBasic.drgNo : (plan.customer_drg_no || "")
 
   const hasStage = (key) => approvedStages.some(s => s.id === key)
 
@@ -660,11 +694,11 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
           </tr>
           <tr>
             <td className="label-cell" style={{ color: "#FF0000" }}>Equipment Name & Tag Number:</td>
-            <td>{`${job.equipement_name || ""} ${job.tag_number || ""}`.trim() || "-"}</td>
+            <td>{`${equipment || ""} ${tagNo || ""}`.trim() || "-"}</td>
           </tr>
           <tr>
             <td className="label-cell" style={{ color: "#FF0000" }}>Drawing no. :</td>
-            <td>{plan.customer_drg_no || "-"}</td>
+            <td>{drgNo || "-"}</td>
           </tr>
         </tbody>
       </table>
