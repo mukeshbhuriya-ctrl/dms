@@ -212,6 +212,7 @@ function WeldingJoints() {
           if (!codeOfConstruction) errors.push("Code of Construction is required");
           if (!jointNo) errors.push("Joint No is required");
           if (!description) errors.push("Description is required");
+          if (!['A', 'B', 'C', 'D', 'F'].includes(jointType)) errors.push(`Invalid Category '${jointType}' (Must be A, B, C, D, or F)`);
           
           let backChip = String(row[15] || "").trim().toLowerCase();
           if (jointType === 'F') {
@@ -822,6 +823,16 @@ function WeldingJoints() {
     setIsLoading(true)
     setError("")
     setSuccess("")
+
+    // Validate Joint Types
+    const validCategories = ['A', 'B', 'C', 'D', 'F'];
+    for (let i = 0; i < tableRows.length; i++) {
+        if (!validCategories.includes(tableRows[i].jointType)) {
+            toast.error(`Invalid Category/Joint Type '${tableRows[i].jointType}' at row ${i + 1}. Must be A, B, C, D, or F.`);
+            setIsLoading(false);
+            return;
+        }
+    }
 
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000"
