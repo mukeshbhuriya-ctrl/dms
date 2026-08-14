@@ -10,6 +10,51 @@ import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
 const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "stage3", onSuccess  }) => {
+
+
+    const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
+
+    const handleBasicFieldChange = (e) => {
+        const { name, value } = e.target;
+        setBasicFields(prev => ({ ...prev, [name]: value }));
+    };
+
+    useEffect(() => {
+        let info = null;
+        
+        if (initialData?.weld_joint_report_info) {
+            info = initialData.weld_joint_report_info;
+        } else if ((initialData?.inspectionData?.data_json || initialData?.weld_joint_inspection?.data_json)) {
+            try {
+                const rawData = typeof (initialData?.inspectionData?.data_json || initialData?.weld_joint_inspection?.data_json) === 'string' ? JSON.parse((initialData?.inspectionData?.data_json || initialData?.weld_joint_inspection?.data_json)) : (initialData?.inspectionData?.data_json || initialData?.weld_joint_inspection?.data_json);
+                const catKey = initialData?.joint_type?.toLowerCase() || 'c';
+                const parsedInfo = rawData?.[catKey];
+                if (parsedInfo) {
+                    info = {
+                        equipment: parsedInfo.equipment,
+                        tag_no: parsedInfo.tagNo,
+                        drg_no: parsedInfo.drgNo
+                    };
+                }
+            } catch(e) { console.error("Error parsing data_json", e); }
+        }
+
+        if (info) {
+            setBasicFields({
+                equipment: info.equipment !== null && info.equipment !== undefined ? info.equipment : (initialData?.equipment || ""),
+                tagNo: info.tag_no !== null && info.tag_no !== undefined ? info.tag_no : (initialData?.tagNo || ""),
+                drgNo: info.drg_no !== null && info.drg_no !== undefined ? info.drg_no : (initialData?.drgNo || "")
+            });
+        } else if (initialData) {
+            setBasicFields({
+                equipment: initialData?.equipment || "",
+                tagNo: initialData?.tagNo || "",
+                drgNo: initialData?.drgNo || ""
+            });
+        }
+    }, [initialData]);
+
+
     const sPrefix = stage.replace('stage', 's');
     
     const [qcGroups, setQcGroups] = useState([]);
@@ -52,6 +97,8 @@ const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "sta
     const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
     const [selectedQcGroupId, setSelectedQcGroupId] = useState("")
     const [selectedProdGroupId, setSelectedProdGroupId] = useState("");
+
+
     const [qcRemarks, setQcRemarks] = useState("")
         const [isSubmitting, setIsSubmitting] = useState(false)
     const [userRole, setUserRole] = useState("")
@@ -194,23 +241,20 @@ const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "sta
                     [sPrefix]: currentStageInnerData
                 }
             };
-
-            const basicInfo = {
-                [categoryKey]: {
-                    msnNumber: initialData?.msnNumber,
-                    equipment: initialData?.equipment,
-                    drgNo: initialData?.drgNo,
-                }
-            };
-
-            const payload = {
+const payload = {
                 jointId: initialData?.id,
                 stage: stage,
                 status: "pending",
                 engineerId: userId,
                 role: "PROD",
                 data: stageData,
-                basicInfo: basicInfo
+                basicInfo: {
+                    [initialData?.joint_type?.toLowerCase() || 'c']: {
+                        equipment: basicFields.equipment,
+                        tagNo: basicFields.tagNo,
+                        drgNo: basicFields.drgNo
+                    }
+                }
             }
 
             const res = await api.post("/api/wpj/update-stage-status", payload);
@@ -271,23 +315,20 @@ const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "sta
                         [sPrefix]: currentStageInnerData
                     }
                 };
-
-                const basicInfo = {
-                    [categoryKey]: {
-                        msnNumber: initialData?.msnNumber,
-                        equipment: initialData?.equipment,
-                        drgNo: initialData?.drgNo,
-                    }
-                };
-
-                await api.post("/api/wpj/update-stage-status", {
+await api.post("/api/wpj/update-stage-status", {
                     jointId: initialData?.id,
                     stage: stage,
                     status: status,
                     engineerId: userId,
                     role: 'QC',
                     data: stageData,
-                    basicInfo: basicInfo
+                    basicInfo: {
+                    [initialData?.joint_type?.toLowerCase() || 'c']: {
+                        equipment: basicFields.equipment,
+                        tagNo: basicFields.tagNo,
+                        drgNo: basicFields.drgNo
+                    }
+                }
                 });
             }
 
@@ -297,7 +338,14 @@ const Stage3C = ({ initialData, isReview = false, readOnly = false, stage = "sta
                 status: status,
                 engineerId: userId,
                 role: 'QC',
-                remarks: qcRemarks
+                remarks: qcRemarks,
+                basicInfo: {
+                    [initialData?.joint_type?.toLowerCase() || 'c']: {
+                        equipment: basicFields.equipment,
+                        tagNo: basicFields.tagNo,
+                        drgNo: basicFields.drgNo
+                    }
+                }
             });
 
             if (res.success) {
@@ -328,21 +376,25 @@ return (
 
                     <div className="border rounded-lg p-4 space-y-4">
                         <h3 className="font-semibold text-lg">Basic Information</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="space-y-2">
-                                <Label>Shreno Manufacturer sr. no.:</Label>
-                                <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Equipment Name & Tag Number:</Label>
-                                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Drawing no. :</Label>
-                                <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="space-y-2">
+                            <Label>Shreno Manufacturer sr. no.:</Label>
+                            <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Equipment Name:</Label>
+                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Tag Number:</Label>
+                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Drawing No. :</Label>
+                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
                         </div>
                     </div>
+                </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">

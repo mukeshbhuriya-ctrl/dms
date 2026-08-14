@@ -16,14 +16,17 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { FormAlert } from "@/components/ui/form-alert"
+import api from "@/api/api.client"
 
-function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess }) {
+function Stage2({ initialData, isReview = false, stage = "stage2", onSuccess }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [userRole, setUserRole] = useState("")
   const [qcEngineers, setQcEngineers] = useState([])
+  const [productionGroups, setProductionGroups] = useState([])
+  const [selectedProdGroupId, setSelectedProdGroupId] = useState("")
 
   const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
 
@@ -50,6 +53,18 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
       }
     }
   }, [isReview])
+
+  useEffect(() => {
+    const fetchProductionGroups = async () => {
+      try {
+        const response = await api.get('/api/employee-groups/type/PRODUCTION');
+        if (response.success) setProductionGroups(response.data || []);
+      } catch (error) {
+        console.error("Error fetching production groups:", error);
+      }
+    }
+    fetchProductionGroups();
+  }, [])
 
   useEffect(() => {
     const fetchQcEngineers = async () => {
@@ -323,20 +338,20 @@ function Stage2({ initialData, isReview = false, stage = "stage2" , onSuccess })
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-              <Label htmlFor="productionGroup">Production Group:</Label>
-              <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
-                <SelectTrigger id="productionGroup" className="w-full">
-                  <SelectValue placeholder="Select Production Group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {productionGroups.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name?.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <Label htmlFor="productionGroup">Production Group:</Label>
+                <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
+                  <SelectTrigger id="productionGroup" className="w-full">
+                    <SelectValue placeholder="Select Production Group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {productionGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name?.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               <div className="space-y-2">
                 <Label>Date:</Label>

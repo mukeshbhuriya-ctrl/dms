@@ -42,7 +42,7 @@ class WeldJointService {
         await prisma.weld_joint_report_info.upsert({
             where: { weld_joint_id: jointId },
             update: { report_no: calculatedReportNo },
-            create: { 
+            create: {
                 weld_joint_id: jointId,
                 report_no: calculatedReportNo
             }
@@ -156,7 +156,7 @@ class WeldJointService {
             stages.forEach(stage => {
                 const sKey = stage.stage_name.replace('stage', 's'); // "stage1" -> "s1"
                 const sPrefix = sKey;
-                
+
                 // Prioritize active stage status or overwrite if not set
                 if (stage.is_active || !insp[`${sKey}_status`] || insp[`${sKey}_status`] === 'pending') {
                     insp[`${sKey}_status`] = stage.status;
@@ -178,14 +178,14 @@ class WeldJointService {
 
                 // Reconstruct sX_data
                 let innerData = this._mapDbStageDataToCamelCase(stage.stage_data);
-                
+
                 // Also reconstruct inspectionRows (stage_rows) if they exist
                 if (stage.stage_rows && stage.stage_rows.length > 0) {
                     innerData.inspectionRows = stage.stage_rows.map(row => ({
                         id: row.sr_no,         // Critical for frontend row matching
                         name: row.row_name,    // Critical for frontend bindings
                         value: row.row_value || ""
-                    })).sort((a,b) => a.id - b.id);
+                    })).sort((a, b) => a.id - b.id);
                 }
 
                 // Only the ACTIVE stage overwrites the canonical sX_data for the form
@@ -254,15 +254,15 @@ class WeldJointService {
             }
 
             const monolithicInsp = this._reconstructMonolithicInspection(
-                joint.id, 
-                joint.joint_type, 
-                joint.weld_joint_report_info, 
-                joint.weld_joint_stages, 
+                joint.id,
+                joint.joint_type,
+                joint.weld_joint_report_info,
+                joint.weld_joint_stages,
                 userMap
             );
-            
+
             const { weld_joint_report_info, weld_joint_stages, ...jointRest } = joint;
-            
+
             jointsWithInsp.push({
                 ...jointRest,
                 weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null
@@ -275,10 +275,10 @@ class WeldJointService {
     async getJointGroupWithInspection(jointId) {
         const targetJoint = await prisma.weld_joint.findUnique({
             where: { id: jointId },
-            select: { 
-                id: true, 
-                joint_type: true, 
-                weld_joint_plan: { select: { job_id: true } } 
+            select: {
+                id: true,
+                joint_type: true,
+                weld_joint_plan: { select: { job_id: true } }
             }
         });
 
@@ -351,15 +351,15 @@ class WeldJointService {
             }
 
             const monolithicInsp = this._reconstructMonolithicInspection(
-                joint.id, 
-                joint.joint_type, 
-                joint.weld_joint_report_info, 
-                joint.weld_joint_stages, 
+                joint.id,
+                joint.joint_type,
+                joint.weld_joint_report_info,
+                joint.weld_joint_stages,
                 userMap
             );
-            
+
             const { weld_joint_report_info, weld_joint_stages, ...jointRest } = joint;
-            
+
             jointsWithInsp.push({
                 ...jointRest,
                 weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null
@@ -416,15 +416,15 @@ class WeldJointService {
         }
 
         const monolithicInsp = this._reconstructMonolithicInspection(
-            joint.id, 
-            joint.joint_type, 
-            joint.weld_joint_report_info, 
-            joint.weld_joint_stages, 
+            joint.id,
+            joint.joint_type,
+            joint.weld_joint_report_info,
+            joint.weld_joint_stages,
             userMap
         );
 
         const { weld_joint_report_info, weld_joint_stages, ...jointRest } = joint;
-        
+
         return {
             ...jointRest,
             weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null
@@ -465,7 +465,7 @@ class WeldJointService {
 
             // Base criteria for QC: MUST be involved in at least one stage (historically or currently)
             // Or specifically filter based on the requested status.
-            
+
             if (!status || status === 'all' || status === 'pending' || status === 'rejected') {
                 where.weld_joint_stages = {
                     some: {
@@ -474,7 +474,7 @@ class WeldJointService {
                             { qc_group_id: { in: groupIds } }
                         ],
                         // For Pending/Rejected we only look at active stages
-                        ...( (status === 'pending' || status === 'rejected') && { is_active: true } )
+                        ...((status === 'pending' || status === 'rejected') && { is_active: true })
                     }
                 };
             } else if (status === 'completed') {
@@ -527,15 +527,15 @@ class WeldJointService {
                 where.weld_joint_stages = {
                     ...(where.weld_joint_stages || {}),
                     none: { is_active: true },
-                    some: { 
+                    some: {
                         ...(where.weld_joint_stages?.some || {}),
-                        status: 'approved' 
+                        status: 'approved'
                     }
                 };
             } else if (status === 'pending') {
                 where.weld_joint_stages = {
                     ...(where.weld_joint_stages || {}),
-                    some: { 
+                    some: {
                         ...(where.weld_joint_stages?.some || {}),
                         status: 'pending',
                         is_active: true
@@ -544,7 +544,7 @@ class WeldJointService {
             } else if (status === 'rejected') {
                 where.weld_joint_stages = {
                     ...(where.weld_joint_stages || {}),
-                    some: { 
+                    some: {
                         ...(where.weld_joint_stages?.some || {}),
                         status: 'rejected',
                         is_active: true
@@ -575,15 +575,15 @@ class WeldJointService {
         if (params.columnFilters) {
             const cFilters = typeof params.columnFilters === 'string' ? JSON.parse(params.columnFilters) : params.columnFilters;
             if (cFilters.client) {
-                where.weld_joint_plan = { 
-                    ...where.weld_joint_plan, 
-                    job: { ...where.weld_joint_plan?.job, customer: { customer_name: handleMultiFilter(cFilters.client) } } 
+                where.weld_joint_plan = {
+                    ...where.weld_joint_plan,
+                    job: { ...where.weld_joint_plan?.job, customer: { customer_name: handleMultiFilter(cFilters.client) } }
                 };
             }
             if (cFilters.po || cFilters.poNo) {
-                where.weld_joint_plan = { 
-                    ...where.weld_joint_plan, 
-                    job: { ...where.weld_joint_plan?.job, po: { po_number: handleMultiFilter(cFilters.po || cFilters.poNo) } } 
+                where.weld_joint_plan = {
+                    ...where.weld_joint_plan,
+                    job: { ...where.weld_joint_plan?.job, po: { po_number: handleMultiFilter(cFilters.po || cFilters.poNo) } }
                 };
             }
             if (cFilters.job || cFilters.jointNo) {
@@ -593,9 +593,9 @@ class WeldJointService {
                 where.joint_type = handleMultiFilter(cFilters.cat || cFilters.jointCategory);
             }
             if (cFilters.msn || cFilters.msnNumber) {
-                where.weld_joint_plan = { 
-                    ...where.weld_joint_plan, 
-                    job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(cFilters.msn || cFilters.msnNumber) } 
+                where.weld_joint_plan = {
+                    ...where.weld_joint_plan,
+                    job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(cFilters.msn || cFilters.msnNumber) }
                 };
             }
             if (cFilters.weldPlanNo) {
@@ -617,15 +617,15 @@ class WeldJointService {
         }
 
         if (client) {
-            where.weld_joint_plan = { 
-                ...where.weld_joint_plan, 
-                job: { ...where.weld_joint_plan?.job, customer: { customer_name: handleMultiFilter(client) } } 
+            where.weld_joint_plan = {
+                ...where.weld_joint_plan,
+                job: { ...where.weld_joint_plan?.job, customer: { customer_name: handleMultiFilter(client) } }
             };
         }
         if (po) {
-            where.weld_joint_plan = { 
-                ...where.weld_joint_plan, 
-                job: { ...where.weld_joint_plan?.job, po: { po_number: handleMultiFilter(po) } } 
+            where.weld_joint_plan = {
+                ...where.weld_joint_plan,
+                job: { ...where.weld_joint_plan?.job, po: { po_number: handleMultiFilter(po) } }
             };
         }
         if (job) {
@@ -635,9 +635,9 @@ class WeldJointService {
             where.joint_type = handleMultiFilter(cat);
         }
         if (msn) {
-            where.weld_joint_plan = { 
-                ...where.weld_joint_plan, 
-                job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(msn) } 
+            where.weld_joint_plan = {
+                ...where.weld_joint_plan,
+                job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(msn) }
             };
         }
 
@@ -694,16 +694,16 @@ class WeldJointService {
         const enrichedJoints = joints.map(joint => {
             // Remove the relational arrays and inject the synthetic weld_joint_inspection object
             const monolithicInsp = this._reconstructMonolithicInspection(
-                joint.id, 
-                joint.joint_type, 
-                joint.weld_joint_report_info, 
-                joint.weld_joint_stages, 
+                joint.id,
+                joint.joint_type,
+                joint.weld_joint_report_info,
+                joint.weld_joint_stages,
                 userMap
             );
 
             // Clean up DB output to match exactly old output
             const { weld_joint_report_info, weld_joint_stages, ...jointRest } = joint;
-            
+
             return {
                 ...jointRest,
                 weld_joint_inspection: Object.keys(monolithicInsp).length > 2 ? monolithicInsp : null
@@ -721,7 +721,7 @@ class WeldJointService {
         if (!jointId || !stage || !status) throw new Error('Missing required fields');
 
         // First find the joint to get category
-        const joint = await prisma.weld_joint.findUnique({ 
+        const joint = await prisma.weld_joint.findUnique({
             where: { id: jointId },
             include: { weld_joint_plan: true }
         });
@@ -826,7 +826,7 @@ class WeldJointService {
             if (stagePayload.inspectionRows && Array.isArray(stagePayload.inspectionRows)) {
                 // Delete existing first for pure replacement
                 await prisma.weld_joint_stage_row.deleteMany({ where: { weld_joint_stage_id: stageRecord.id } });
-                
+
                 const rowsToInsert = stagePayload.inspectionRows.map((r, idx) => ({
                     weld_joint_stage_id: stageRecord.id,
                     sr_no: r.id || r.srNo || (idx + 1),
@@ -961,7 +961,7 @@ class WeldJointService {
                     employee_group_id: stageRecord.qc_group_id
                 }
             });
-            
+
             if (!isMember) {
                 // Admin bypass
                 const user = await prisma.user.findUnique({
@@ -990,8 +990,8 @@ class WeldJointService {
                 include: { weld_joint: { include: { weld_joint_plan: true } } }
             });
         } else {
-            const updateData = { 
-                status, 
+            const updateData = {
+                status,
                 remarks,
                 qc_engineer_id: role === 'QC' || role === 'NDT' ? engineerId : undefined
             };
@@ -1048,14 +1048,14 @@ class WeldJointService {
     }
 
     async getWeldJointPlans(company_id, params = {}) {
-        const { 
+        const {
             page = 1, limit = 50, search = '', sortBy = 'createdAt', sortOrder = 'desc',
-            columnFilters 
+            columnFilters
         } = params;
         const skip = (page - 1) * limit;
         const take = parseInt(limit);
 
-        const where = { 
+        const where = {
             company_id: company_id,
             is_deleted: false
         };
@@ -1130,12 +1130,12 @@ class WeldJointService {
                 }
             });
 
-            
+
             const joints = await prisma.weld_joint.findMany({
                 where: { weld_joint_plan: { company_id } },
-                select: { 
+                select: {
                     id: true,
-                    joint_type: true, 
+                    joint_type: true,
                     joint_no: true,
 
                     weld_joint_plan: {
@@ -1153,7 +1153,7 @@ class WeldJointService {
                 }
             });
 
-            
+
             const records = joints.map(j => ({
                 id: j.id,
                 client: j.weld_joint_plan?.job?.customer?.customer_name,
@@ -1213,8 +1213,8 @@ class WeldJointService {
     }
     async getTravelerSummary(company_id, query) {
         try {
-            const result = await this.findAll(company_id, { 
-                ...query, 
+            const result = await this.findAll(company_id, {
+                ...query,
                 limit: query.limit || 50,
                 page: query.page || 1
             });
@@ -1224,7 +1224,7 @@ class WeldJointService {
                 result.data = result.data.map(joint => {
                     let tackWelder = "";
                     let finalWelder = "";
-                    
+
                     // The full 35-column row data array as self-describing objects
                     const row_data = Array(35).fill({ value: "", type: "stage" });
 
@@ -1239,19 +1239,19 @@ class WeldJointService {
                     const inspectionData = joint.weld_joint_inspection;
                     if (inspectionData) {
                         const catKey = (joint.joint_type || "A").toLowerCase();
-                        
+
                         const parseStage = (sKey) => {
                             const raw = inspectionData[`${sKey}_data`];
                             if (!raw) return {};
                             try {
                                 const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
                                 return parsed?.[catKey]?.[sKey] || parsed?.[catKey] || parsed || {};
-                            } catch(e) { return {}; }
+                            } catch (e) { return {}; }
                         };
 
                         const s1Data = parseStage("s1");
                         const s3Data = parseStage("s3");
-                        
+
                         const getRowValue = (rows, searchName) => {
                             if (!Array.isArray(rows)) return null;
                             const row = rows.find(r => r.name === searchName);
@@ -1261,7 +1261,7 @@ class WeldJointService {
                         let tackFromRows = getRowValue(s1Data?.inspectionRows, "Tack Welder Number");
                         tackWelder = tackFromRows || s1Data?.tackWelder || s1Data?.welderNumber || s1Data?.welderNo || "";
                         finalWelder = s3Data?.welderNumber || s3Data?.welderNo || s1Data?.welderNumber || s1Data?.welderNo || tackWelder;
-                        
+
                         row_data[3] = { value: tackWelder, type: "welder" };
                         row_data[4] = { value: finalWelder, type: "welder" };
 
@@ -1285,7 +1285,7 @@ class WeldJointService {
                         const s1Sig = getSig("s1"); // Fit Up
                         const s2Sig = getSig("s2"); // Back Chip
                         const s3Sig = getSig("s3"); // Visual
-                        
+
                         // Check PWHT logic for NDE stages
                         const isPwht = joint.pwht;
                         const s5Pt = getSig("s5");
@@ -1327,7 +1327,7 @@ class WeldJointService {
                         row_data[23] = { value: joint.rt ? rtStage.qcCheck : "", type: "stage" };
                         row_data[24] = { value: joint.rt ? rtStage.qcSignDate : "", type: "stage" };
                         // 25, 26 AI (empty)
-                        
+
                         // Final NDE - UT
                         const utStage = getSig("s8");
                         row_data[27] = { value: utStage.qcCheck, type: "stage" };
