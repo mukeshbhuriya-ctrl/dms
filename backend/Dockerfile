@@ -14,12 +14,10 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy Prisma schema and generate client
-COPY prisma ./prisma/
-RUN npx prisma generate
-
 # Copy the rest of the application code
 COPY . .
+
+RUN npx prisma generate
 
 # Expose the backend port
 EXPOSE 3001

@@ -12,12 +12,6 @@ RUN npm install
 # Copy application code
 COPY . .
 
-# Build the application
-# Note: VITE_BACKEND_URL should be provided at build time if you want it baked in, 
-# or use a runtime env solution. For simplicity, we'll use build-args.
-ARG VITE_BACKEND_URL
-ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
-
 RUN npm run build
 
 # Stage 2: Serve
