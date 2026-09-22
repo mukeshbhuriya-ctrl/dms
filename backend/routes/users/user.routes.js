@@ -22,6 +22,9 @@ router.delete('/delete-user/:id', authenticateUser(['ADMIN']), (req, res) => use
 router.patch('/toggle-status/:id', authenticateUser(['ADMIN']), (req, res) => userController.toggleUserStatus(req, res));
 router.post('/reset-password/:id', authenticateUser(['ADMIN']), (req, res) => userController.adminResetPassword(req, res));
 router.get('/get-roles', (req, res) => userController.getRoles(req, res));
+router.post('/create-role', authenticateUser(['ADMIN']), (req, res) => userController.createRole(req, res));
+router.put('/update-role/:id', authenticateUser(['ADMIN']), (req, res) => userController.updateRole(req, res));
+router.delete('/delete-role/:id', authenticateUser(['ADMIN']), (req, res) => userController.deleteRole(req, res));
 router.get('/by-role/:roleName', (req, res) => userController.getUsersByRole(req, res));
 
 module.exports = router;

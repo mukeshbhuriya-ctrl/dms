@@ -28,13 +28,13 @@ import apiClient from "@/api/api.client"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Trash2 } from "lucide-react"
-import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+
 import { useAuth } from "@/context/AuthContext"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CreatePO() {
-  const isAdmin = useCheckAdmin()
+  const isAdmin = true;
   const { roles } = useAuth()
   const canArchive = roles?.some(role => ["ADMIN", "MARKETING", "DCC", "TAXATION"].includes(role))
 

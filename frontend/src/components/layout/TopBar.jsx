@@ -1,6 +1,6 @@
 import { useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { Bell, Search, LogOut, User as UserIcon, ChevronDown } from "lucide-react"
+import { Bell, Search, LogOut, User as UserIcon, ChevronDown, Settings } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +24,7 @@ import { NotificationDrawer } from "@/components/shared/NotificationDrawer"
 export function TopBar() {
   const navigate = useNavigate()
   const { userName, roles: userRoles, logout } = useAuth()
+  const displayName = userName.replace(/\s*\(.*?\)\s*/g, '').trim()
   const {
     notifications,
     unreadCount,
@@ -33,8 +34,8 @@ export function TopBar() {
     markAllRead,
   } = useNotifications()
 
-  const handleLogout = useCallback(() => {
-    logout()
+  const handleLogout = useCallback(async () => {
+    await logout()
     navigate("/")
   }, [logout, navigate])
 
@@ -108,23 +109,25 @@ export function TopBar() {
                 <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
                   <UserIcon className="h-3.5 w-3.5 text-slate-500" />
                 </div>
-                <span className="hidden lg:inline font-semibold max-w-[120px] truncate">{userName}</span>
+                <span className="hidden lg:inline font-semibold max-w-[120px] truncate">{displayName}</span>
                 <ChevronDown className="h-3 w-3 text-slate-400" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-2">
-                  <p className="text-sm font-semibold text-slate-900">{userName}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {userRoles.map(role => (
-                      <span key={role} className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${roleClass(role)}`}>
-                        {role}
-                      </span>
-                    ))}
-                  </div>
+                  <p className="text-sm font-semibold text-slate-900">{displayName}</p>
                 </div>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="cursor-pointer">
+                <UserIcon className="mr-2 h-3.5 w-3.5" />
+                <span className="text-xs font-semibold">Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer">
+                <Settings className="mr-2 h-3.5 w-3.5" />
+                <span className="text-xs font-semibold">Settings</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-700 focus:bg-red-50 cursor-pointer">
                 <LogOut className="mr-2 h-3.5 w-3.5" />

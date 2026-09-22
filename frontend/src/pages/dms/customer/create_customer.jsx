@@ -19,13 +19,13 @@ import { exportApi } from "@/api/export.api"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Trash2 } from "lucide-react"
-import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CreateCustomer() {
   const navigate = useNavigate()
-  const isAdmin = useCheckAdmin()
+  const isAdmin = true;
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({

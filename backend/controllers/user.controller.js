@@ -69,7 +69,7 @@ class UserController {
 
     async getRoles(req, res) {
         try {
-            const roles = await userService.getRoles();
+            const roles = await userService.getRoles(req.user.company_id);
             res.status(200).json({
                 success: true,
                 data: roles,
@@ -80,6 +80,36 @@ class UserController {
                 success: false,
                 message: 'Internal server error',
             });
+        }
+    }
+
+    async createRole(req, res) {
+        try {
+            const role = await userService.createRole({
+                ...req.body,
+                company_id: req.user.company_id
+            });
+            res.status(201).json({ success: true, data: role, message: 'Role created successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async updateRole(req, res) {
+        try {
+            const role = await userService.updateRole(req.params.id, req.body, req.user.company_id);
+            res.status(200).json({ success: true, data: role, message: 'Role updated successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async deleteRole(req, res) {
+        try {
+            await userService.deleteRole(req.params.id, req.user.company_id);
+            res.status(200).json({ success: true, message: 'Role deleted successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
         }
     }
 

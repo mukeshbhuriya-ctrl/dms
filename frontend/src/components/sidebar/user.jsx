@@ -26,10 +26,10 @@ import "./sidebar.css"
 function UserSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { roles: userRoles, permissions: userPermissions, companyName, companyLogo, isLoading, logout } = useAuth()
+  const { roles: userRoles, iamPolicies, companyName, companyLogo, isLoading, logout } = useAuth()
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate("/")
   }
 
@@ -47,7 +47,7 @@ function UserSidebar() {
       .toUpperCase()
   }
 
-  const menuItems = useMemo(() => getFilteredMenu(userPermissions, userRoles), [userPermissions, userRoles])
+  const menuItems = useMemo(() => getFilteredMenu(iamPolicies, userRoles), [iamPolicies, userRoles])
 
   useEffect(() => {
     const newOpenItems = {}

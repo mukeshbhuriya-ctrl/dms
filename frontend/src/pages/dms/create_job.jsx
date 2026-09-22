@@ -24,13 +24,13 @@ import { exportApi } from "@/api/export.api"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
-import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+
 import { commonApi } from "@/api/common.api"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CreateJob() {
-  const isAdmin = useCheckAdmin()
+  const isAdmin = true;
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({

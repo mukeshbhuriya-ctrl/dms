@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import apiClient from "@/api/api.client"
 import { Button } from "@/components/ui/button"
+import { getFilteredMenu } from "./config/roles"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Eye, EyeOff, User, Lock, Info, ArrowRight, ArrowLeft, ShieldCheck, Mail } from "lucide-react"
@@ -10,7 +11,7 @@ import "./login.css"
 
 function App() {
   const navigate = useNavigate()
-  const { refetch } = useAuth()
+  const { refetch, isAuthenticated, isLoading: authLoading, iamPolicies, roles } = useAuth()
   
   // Login States
   const [employeeId, setEmployeeId] = useState("")
@@ -38,6 +39,38 @@ function App() {
       setRememberMe(true)
     }
   }, [])
+
+  // Helper to find the first accessible path based on user permissions
+  const calculateDefaultPath = (policies, userRoles) => {
+    const accessibleMenu = getFilteredMenu(policies || [], userRoles || [])
+    let defaultPath = "/user/dashboard"
+    
+    const getFirstPath = (items) => {
+      for (const item of items) {
+        if (item.path) return item.path
+        if (item.items && item.items.length > 0) {
+          const nestedPath = getFirstPath(item.items)
+          if (nestedPath) return nestedPath
+        }
+      }
+      return null
+    }
+    
+    if (accessibleMenu.length > 0) {
+      const firstAvailablePath = getFirstPath(accessibleMenu)
+      if (firstAvailablePath) {
+        defaultPath = firstAvailablePath
+      }
+    }
+    return defaultPath
+  }
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate(calculateDefaultPath(iamPolicies, roles), { replace: true })
+    }
+  }, [isAuthenticated, authLoading, navigate, iamPolicies, roles])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -70,12 +103,14 @@ function App() {
       }
 
       await refetch()
-      const role = payload?.roles?.[0]?.name
+      
+      // Dynamic Enterprise-grade Routing:
+      const iamPoliciesList = payload?.iamPolicies || []
+      const userRolesList = payload?.role || []
+      
+      const defaultPath = calculateDefaultPath(iamPoliciesList, userRolesList)
 
-      if (role === "ADMIN") navigate("/admin/dashboard")
-      else if (role === "DCC") navigate("/user/dashboard")
-      else if (role === "MARKETING") navigate("/marketing/dashboard")
-      else navigate("/user/dashboard")
+      navigate(defaultPath)
       
     } catch (err) {
       setError(err?.message || "Invalid Employee Code or Password.")

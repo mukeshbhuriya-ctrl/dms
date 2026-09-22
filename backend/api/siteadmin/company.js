@@ -1,6 +1,7 @@
 const prisma = require('#prisma');
 const path = require('path');
 const { hashPassword } = require('#utils/hashpassword');
+const { seedSystemRolesForCompany } = require('#utils/roleSeeder');
 
 /**
  * Create Company API - Create a new company with default roles, user, and assign all roles to user
@@ -124,11 +125,6 @@ async function createCompany(req, res) {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
-    // Default roles to create for the company (from environment variable or fallback)
-    // Format: "OC,Production" or "OC,Production,Manager" (comma-separated)
-    const defaultRolesEnv = process.env.DEFAULT_COMPANY_ROLES || 'ADMIN,DCC';
-    const defaultRoles = defaultRolesEnv.split(',').map((role) => role.trim()).filter((role) => role.length > 0);
-
     // Use transaction to ensure all operations succeed or fail together
     const result = await prisma.$transaction(async (tx) => {
       // 1. Create the company
@@ -139,17 +135,19 @@ async function createCompany(req, res) {
         },
       });
 
-      // 2. Create multiple roles for the company
-      const roles = await Promise.all(
-        defaultRoles.map((roleName) =>
-          tx.role.create({
-            data: {
-              company_id: company.id,
-              name: roleName,
-            },
-          })
-        )
-      );
+      // 2. Seed all system roles for the company
+      await seedSystemRolesForCompany(company.id, tx);
+
+      // Assign the primary ADMIN role to the initial company user
+      const rolesToQuery = ['ADMIN'];
+
+      // Fetch the specific default roles to assign to the initial user
+      const rolesToAssign = await tx.role.findMany({
+        where: {
+          company_id: company.id,
+          identifier: { in: rolesToQuery }
+        }
+      });
 
       // 3. Create user with hashed password
       const user = await tx.user.create({
@@ -160,12 +158,13 @@ async function createCompany(req, res) {
           mobile: req.body.mobile ? req.body.mobile.trim() : null,
           password: hashedPassword,
           company_id: company.id,
+          is_primary_admin: true,
         },
       });
 
-      // 4. Assign all roles to the user
+      // 4. Assign the default roles to the user
       const userRoles = await Promise.all(
-        roles.map((role) =>
+        rolesToAssign.map((role) =>
           tx.user_roles.create({
             data: {
               user_id: user.id,
@@ -177,7 +176,7 @@ async function createCompany(req, res) {
 
       return {
         company,
-        roles,
+        roles: rolesToAssign,
         user: {
           id: user.id,
           name: user.name,

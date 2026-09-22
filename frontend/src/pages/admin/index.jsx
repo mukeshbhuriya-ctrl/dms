@@ -1,4 +1,5 @@
 export { default as CreateUser } from "./create_user"
+export { default as RoleManagement } from "./roles/role_management"
 export { default as AdminDashboard } from "./dashboard"
 export { default as DepartmentManagement } from "./create_department"
 export { default as GroupManagement } from "./group_management"

@@ -1,11 +1,10 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive, Key, Settings, CheckCircle, XCircle } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, Pencil, Trash2, Edit, Archive, Key, Settings, CheckCircle, XCircle, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { ChevronDownIcon, RefreshCcw } from "lucide-react"
 import {
@@ -27,23 +26,15 @@ import {
 } from "@/components/ui/card"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
-import { MODULES, MENU_CONFIG } from "@/config/roles"
-
-
+import PermissionMatrix from "@/components/iam/permission_matrix"
+import { policiesToMatrix, matrixToPolicies } from "@/config/permissions"
+import { MENU_CONFIG } from "@/config/roles"
 function CreateUser() {
-  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState("details")
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -55,14 +46,12 @@ function CreateUser() {
     functionalTags: [],
     password: "",
     emailNotifications: true,
-    customModules: [],
-    restrictedModules: [],
+    customPolicies: [],
   })
   const [showPassword, setShowPassword] = useState(false)
   const [roles, setRoles] = useState([])
   const [availableTags, setAvailableTags] = useState([])
   const [departments, setDepartments] = useState([])
-  const [departmentMap, setDepartmentMap] = useState({})
   const [view, setView] = useState("list")
   const [editingId, setEditingId] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -176,15 +165,7 @@ function CreateUser() {
         setAvailableTags(tagsPayload?.data || [])
 
         const deptsPayload = await apiClient.get('/api/departments')
-        const fetchedDepts = deptsPayload?.data || []
-        setDepartments(fetchedDepts)
-
-        const map = {}
-        fetchedDepts.forEach(d => {
-          map[d.id] = d.name
-          map[d.name] = d.name
-        })
-        setDepartmentMap(map)
+        setDepartments(deptsPayload?.data || [])
       } catch (err) {
         console.error("Error fetching data:", err)
       }
@@ -225,10 +206,10 @@ function CreateUser() {
       functionalTags: user.functional_tags || [],
       password: "",
       emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
-      customModules: user.user_settings ? (user.user_settings.custom_modules || []) : [],
-      restrictedModules: user.user_settings ? (user.user_settings.restricted_modules || []) : [],
+      customPolicies: user.user_roles?.length > 0 ? (user.user_roles[0].custom_policies || []) : [],
     })
-    setView("create")
+    setActiveTab("details")
+    setView("edit")
     setError("")
     setSuccess("")
   }
@@ -246,8 +227,7 @@ function CreateUser() {
       functionalTags: user.functional_tags || [],
       password: "",
       emailNotifications: user.user_settings ? user.user_settings.email_notifications : true,
-      customModules: user.user_settings ? (user.user_settings.custom_modules || []) : [],
-      restrictedModules: user.user_settings ? (user.user_settings.restricted_modules || []) : [],
+      customPolicies: user.user_roles?.length > 0 ? (user.user_roles[0].custom_policies || []) : [],
     })
     setView("settings")
     setError("")
@@ -392,9 +372,9 @@ function CreateUser() {
           { label: "System Settings", icon: Settings, onClick: () => handleSettingsClick(row) },
           { label: "Reset Password", icon: Key, onClick: () => handleResetClick(row) },
           { type: "separator" },
-          { 
-            label: row.is_active ? "Deactivate User" : "Activate User", 
-            icon: row.is_active ? XCircle : CheckCircle, 
+          {
+            label: row.is_active ? "Deactivate User" : "Activate User",
+            icon: row.is_active ? XCircle : CheckCircle,
             onClick: () => handleToggleClick(row),
             color: row.is_active ? "danger" : "default"
           },
@@ -435,8 +415,7 @@ function CreateUser() {
         department: formData.department,
         designation: formData.designation,
         email_notifications: formData.emailNotifications,
-        custom_modules: formData.customModules,
-        restricted_modules: formData.restrictedModules,
+        custom_policies: formData.customPolicies,
       }
 
       if (editingId) {
@@ -468,42 +447,15 @@ function CreateUser() {
     }
   }
 
-  const availableModules = useMemo(() => {
-    const titleMap = {}
-    const walkMenu = (items) => {
-      items.forEach(item => {
-        if (item.moduleKey) {
-          titleMap[item.moduleKey] = item.title
-        }
-        if (item.items) {
-          walkMenu(item.items)
-        }
-      })
-    }
-    walkMenu(MENU_CONFIG)
-
-    const extractKeys = (obj) => {
-      let keys = []
-      for (let key in obj) {
-        if (typeof obj[key] === 'string') {
-          if (!obj[key].startsWith('ADMIN') && obj[key] !== 'ALL') {
-            keys.push(obj[key])
-          }
-        } else if (typeof obj[key] === 'object') {
-          keys = keys.concat(extractKeys(obj[key]))
-        }
-      }
-      return keys
-    }
-    
-    return Array.from(new Set(extractKeys(MODULES))).sort().map(mod => {
-      const fallbackTitle = mod.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
-      return { 
-        label: titleMap[mod] || fallbackTitle, 
-        value: mod 
-      }
-    })
-  }, [])
+  const handleMatrixChange = (moduleId, action, state) => {
+    setFormData(prev => {
+      const currentMatrix = policiesToMatrix(prev.customPolicies || [], []);
+      if (!currentMatrix[moduleId]) currentMatrix[moduleId] = {};
+      currentMatrix[moduleId][action] = state;
+      const newPolicies = matrixToPolicies(currentMatrix, true);
+      return { ...prev, customPolicies: newPolicies };
+    });
+  };
 
   return (
     <>
@@ -518,7 +470,7 @@ function CreateUser() {
             </div>
           )}
 
-          {view === "list" ? (
+          {view === "list" && (
             <>
               {error && (
                 <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -529,108 +481,36 @@ function CreateUser() {
                 columns={columns}
                 fetchData={fetchUsers}
                 onExport={handleExport}
-                onAdd={() => { resetForm(); setView("create"); }}
+                onAdd={() => { resetForm(); setActiveTab("details"); setView("create"); }}
                 onAddTooltip="Create User"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
               />
             </>
-          ) : view === "settings" ? (
+          )}
+
+          {(view === "create" || view === "edit") && (
             <div className="space-y-6">
+              <div className="flex border-b border-slate-200">
+                <button
+                  type="button"
+                  className={`px-4 py-2 font-medium text-sm border-b-2 cursor-pointer ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  onClick={() => setActiveTab('details')}
+                >
+                  User Details
+                </button>
+                <button
+                  type="button"
+                  className={`px-4 py-2 font-medium text-sm border-b-2 cursor-pointer ${activeTab === 'permissions' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                  onClick={() => setActiveTab('permissions')}
+                >
+                  Custom Permissions
+                </button>
+              </div>
+
               <form onSubmit={handleSubmit}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>System Settings</CardTitle>
-                    <CardDescription>
-                      Configure system notifications and preferences for {formData.fullName}.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {error && (
-                      <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                        {error}
-                      </div>
-                    )}
-                    {success && (
-                      <div className="rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-600 dark:text-green-400">
-                        {success}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between border rounded-lg p-4 bg-muted/20">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="emailNotifications" className="text-base font-semibold">Email Notifications</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive system alerts and updates via email.
-                        </p>
-                      </div>
-                      <Switch
-                        id="emailNotifications"
-                        checked={formData.emailNotifications}
-                        onCheckedChange={(checked) => setFormData(prev => ({ ...prev, emailNotifications: checked }))}
-                        disabled={isLoading}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Direct Module Access */}
-                      <div className="border rounded-lg p-4 bg-muted/10 space-y-4">
-                        <div className="space-y-0.5">
-                          <Label className="text-base font-semibold text-slate-800">Direct Module Access</Label>
-                          <p className="text-sm text-muted-foreground">
-                            Grant this user explicit access to specific modules, bypassing standard roles.
-                          </p>
-                        </div>
-                        <SearchableSelect
-                          options={availableModules}
-                          value={formData.customModules}
-                          onValueChange={(val) => setFormData(prev => ({ ...prev, customModules: val }))}
-                          placeholder="Select modules to grant..."
-                          searchPlaceholder="Search modules..."
-                          emptyMessage="No modules found."
-                          multi={true}
-                          disabled={isLoading}
-                        />
-                      </div>
-
-                      {/* Revoke Module Access */}
-                      <div className="border border-red-200 rounded-lg p-4 bg-red-50/30 space-y-4">
-                        <div className="space-y-0.5">
-                          <Label className="text-base font-semibold text-red-700">Revoke Module Access</Label>
-                          <p className="text-sm text-red-600/80">
-                            Block this user from accessing modules they would otherwise have via roles.
-                          </p>
-                        </div>
-                        <SearchableSelect
-                          options={availableModules}
-                          value={formData.restrictedModules}
-                          onValueChange={(val) => setFormData(prev => ({ ...prev, restrictedModules: val }))}
-                          placeholder="Select modules to revoke..."
-                          searchPlaceholder="Search modules..."
-                          emptyMessage="No modules found."
-                          multi={true}
-                          disabled={isLoading}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Submit Buttons */}
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading} className="cursor-pointer">
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={isLoading} className="cursor-pointer">
-                    {isLoading ? "Saving..." : "Save Settings"}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <form onSubmit={handleSubmit}>
-                <Card>
+                <Card className={activeTab === 'details' ? 'block' : 'hidden'}>
                   <CardHeader>
                     <CardTitle>{editingId ? "Edit User" : "User Information"}</CardTitle>
                     <CardDescription>
@@ -651,18 +531,18 @@ function CreateUser() {
                     {/* Full Name */}
                     <div className="space-y-2">
                       <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
-                      <Input id="fullName" name="fullName" type="text" placeholder="Enter full name" value={formData.fullName} onChange={handleInputChange} required disabled={isLoading} />
+                      <Input id="fullName" name="fullName" type="text" placeholder="Enter full name" value={formData.fullName} onChange={handleInputChange} required={activeTab === 'details'} disabled={isLoading} />
                     </div>
 
                     {/* Email & Employee ID */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="email">Email <span className="text-destructive">*</span></Label>
-                        <Input id="email" name="email" type="email" placeholder="user@example.com" value={formData.email} onChange={handleInputChange} required disabled={isLoading} />
+                        <Input id="email" name="email" type="email" placeholder="user@example.com" value={formData.email} onChange={handleInputChange} required={activeTab === 'details'} disabled={isLoading} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="employeeId">Employee ID <span className="text-destructive">*</span></Label>
-                        <Input id="employeeId" name="employeeId" type="text" placeholder="Enter employee ID" value={formData.employeeId} onChange={handleInputChange} required disabled={isLoading} />
+                        <Input id="employeeId" name="employeeId" type="text" placeholder="Enter employee ID" value={formData.employeeId} onChange={handleInputChange} required={activeTab === 'details'} disabled={isLoading} />
                       </div>
                     </div>
 
@@ -670,7 +550,7 @@ function CreateUser() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
-                        <Select value={formData.department} onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))} disabled={isLoading} required>
+                        <Select value={formData.department} onValueChange={(value) => setFormData(prev => ({ ...prev, department: value }))} disabled={isLoading} required={activeTab === 'details'}>
                           <SelectTrigger id="department" className="w-full">
                             <SelectValue placeholder="Select a department" />
                           </SelectTrigger>
@@ -687,7 +567,7 @@ function CreateUser() {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="designation">Designation <span className="text-destructive">*</span></Label>
-                        <Input id="designation" name="designation" type="text" placeholder="e.g., Manager, Developer" value={formData.designation} onChange={handleInputChange} required disabled={isLoading} />
+                        <Input id="designation" name="designation" type="text" placeholder="e.g., Manager, Developer" value={formData.designation} onChange={handleInputChange} required={activeTab === 'details'} disabled={isLoading} />
                       </div>
                     </div>
 
@@ -695,7 +575,7 @@ function CreateUser() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="mobileNumber">Mobile Number <span className="text-destructive">*</span></Label>
-                        <Input id="mobileNumber" name="mobileNumber" type="tel" placeholder="+1 (555) 000-0000" value={formData.mobileNumber} onChange={handleInputChange} required disabled={isLoading} />
+                        <Input id="mobileNumber" name="mobileNumber" type="tel" placeholder="+1 (555) 000-0000" value={formData.mobileNumber} onChange={handleInputChange} required={activeTab === 'details'} disabled={isLoading} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="role">Roles <span className="text-destructive">*</span></Label>
@@ -741,7 +621,7 @@ function CreateUser() {
                             placeholder="........"
                             value={formData.password}
                             onChange={handleInputChange}
-                            required={!editingId}
+                            required={activeTab === 'details' && !editingId}
                             disabled={isLoading}
                           />
                           <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent" onClick={() => setShowPassword(!showPassword)}>
@@ -751,16 +631,93 @@ function CreateUser() {
                         </div>
                       </div>
                     </div>
+
+
                   </CardContent>
                 </Card>
 
-                {/* Submit Buttons */}
-                <div className="flex justify-end gap-4 mt-6">
-                  <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
+                <div className={activeTab === 'permissions' ? 'block' : 'hidden'}>
+                  {/* Permission Matrix */}
+                  <div className="pt-2">
+                    <PermissionMatrix
+                      matrixState={policiesToMatrix(
+                        formData.customPolicies,
+                        formData.roles.reduce((acc, roleId) => {
+                          const roleDef = roles.find(r => r.id === roleId);
+                          if (roleDef && roleDef.policies) {
+                            return acc.concat(roleDef.policies);
+                          }
+                          return acc;
+                        }, [])
+                      )}
+                      onChange={handleMatrixChange}
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-4 mt-6 pt-4 border-t border-slate-100">
+                  <Button type="button" className="cursor-pointer" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Saving..." : (editingId ? "Update User" : "Create User")}
+                  <Button type="submit" className="cursor-pointer" disabled={isLoading}>
+                    {isLoading ? "Saving..." : "Save Details"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {view === "settings" && (
+            <div className="flex flex-col flex-1 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-800 tracking-tight">System Settings</h2>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Configure system notifications and behaviors for <span className="font-medium text-slate-700">{formData.fullName}</span>.
+                  </p>
+                </div>
+                <Button type="button" variant="ghost" size="icon" onClick={() => { resetForm(); setView("list"); }} className="text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="flex-1 flex flex-col">
+                <div className="flex-1 space-y-6">
+                  {error && (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                      {error}
+                    </div>
+                  )}
+                  {success && (
+                    <div className="rounded-md border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-600 dark:text-green-400">
+                      {success}
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between p-6 bg-white border border-slate-200 rounded-xl shadow-sm transition-all hover:shadow-md">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="emailNotifications" className="text-base font-semibold text-slate-800">Email Notifications</Label>
+                      <p className="text-sm text-slate-500">
+                        Receive critical system alerts, workflow updates, and reports via email.
+                      </p>
+                    </div>
+                    <Switch
+                      id="emailNotifications"
+                      checked={formData.emailNotifications}
+                      onCheckedChange={(checked) => setFormData(prev => ({ ...prev, emailNotifications: checked }))}
+                      disabled={isLoading}
+                      className="data-[state=checked]:bg-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-8 pt-5 border-t border-slate-200">
+                  <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading} className="w-24">
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading} className="w-36">
+                    {isLoading ? "Saving..." : "Save Settings"}
                   </Button>
                 </div>
               </form>

@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react"
 import apiClient from "@/api/api.client"
-import { ROLE_KEY_MAP } from "@/config/roles"
-import { NotificationProvider } from "@/context/NotificationContext"
+import { validateAccess } from "@/config/permissions"
 
 const AuthContext = createContext(null)
 
@@ -10,7 +9,7 @@ function normalizeRole(role) {
     if (!role || typeof role !== "string") return null
     const trimmed = role.trim()
     if (!trimmed) return null
-    return ROLE_KEY_MAP[trimmed.toLowerCase()] || trimmed
+    return trimmed.toUpperCase()
 }
 
 // ─── Auth Provider ───────────────────────────────────────────────
@@ -37,6 +36,7 @@ export function AuthProvider({ children }) {
                 name: data?.name || data?.user?.name || "User",
                 roles,
                 permissions: data?.permissions || data?.user?.permissions || [],
+                iamPolicies: data?.iamPolicies || data?.user?.iamPolicies || [],
                 functional_tags: data?.user?.functional_tags || [],
                 company: data?.company || data?.user?.company || null
             })
@@ -66,16 +66,16 @@ export function AuthProvider({ children }) {
         }
     }, [])
 
-    const hasPermission = (moduleKey) => {
-        if (!user?.permissions) return false
-        if (user.permissions.includes("ALL")) return true
-        return user.permissions.includes(moduleKey)
+    const hasPermission = (moduleKey, action = 'View') => {
+        const policies = user?.iamPolicies || [];
+        return validateAccess(policies, moduleKey, action) || validateAccess(policies, 'ALL', action);
     }
 
     const value = {
         user,
         roles: user?.roles || [],
         permissions: user?.permissions || [],
+        iamPolicies: user?.iamPolicies || [],
         functionalTags: user?.functional_tags || [],
         userName: user?.name || "User",
         companyName: user?.company?.name || "Tech Fab",
@@ -89,7 +89,7 @@ export function AuthProvider({ children }) {
 
     return (
         <AuthContext.Provider value={value}>
-            <NotificationProvider>{children}</NotificationProvider>
+            {children}
         </AuthContext.Provider>
     )
 }

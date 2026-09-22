@@ -96,7 +96,7 @@ class UserService {
      * Create a new user
      */
     async createUser(userData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, custom_modules, restricted_modules } = userData;        
+        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, custom_policies } = userData;        
         const trimmedName = name?.trim();
         const trimmedEmail = email?.trim().toLowerCase();
         const trimmedEmpid = empid?.trim();
@@ -138,8 +138,6 @@ class UserService {
                     user_settings: {
                         create: {
                             email_notifications: email_notifications !== undefined ? email_notifications : true,
-                            custom_modules: custom_modules || [],
-                            restricted_modules: restricted_modules || [],
                         }
                     }
                 },
@@ -162,6 +160,7 @@ class UserService {
                     data: role_ids.map((roleId) => ({
                         user_id: newUser.id,
                         role_id: roleId,
+                        custom_policies: custom_policies || [],
                     })),
                 });
             }
@@ -180,8 +179,70 @@ class UserService {
     /**
      * Get all roles
      */
-    async getRoles() {
-        return await prisma.role.findMany();
+    async getRoles(company_id) {
+        if (!company_id) throw new Error("Company ID is required to fetch roles");
+        return prisma.role.findMany({
+            where: { company_id },
+            orderBy: { name: 'asc' },
+            include: {
+                _count: {
+                    select: { user_roles: true }
+                }
+            }
+        });
+    }
+
+    async createRole(data) {
+        const { name, identifier, description, policies, company_id } = data;
+        if (!company_id) throw new Error("Company ID is required to create a role");
+        
+        return prisma.role.create({
+            data: {
+                company_id,
+                name,
+                identifier: identifier || name.toUpperCase().replace(/\s+/g, '_'),
+                description: description || null,
+                policies: policies || [],
+                is_system_role: false,
+            }
+        });
+    }
+
+    async updateRole(id, data, company_id) {
+        const { name, identifier, description, policies } = data;
+        const role = await prisma.role.findUnique({ where: { id } });
+        if (!role) throw new Error('Role not found');
+        if (role.company_id !== company_id) throw new Error('Unauthorized');
+        
+        if (role.is_system_role) {
+            // Only policies can be updated for system roles, or maybe not at all?
+            // Usually system roles can't be renamed, but their policies can be updated.
+            return prisma.role.update({
+                where: { id },
+                data: { policies: policies || role.policies }
+            });
+        }
+        return prisma.role.update({
+            where: { id },
+            data: {
+                name,
+                identifier,
+                description,
+                policies: policies || [],
+            }
+        });
+    }
+
+    async deleteRole(id, company_id) {
+        const role = await prisma.role.findUnique({ where: { id } });
+        if (!role) throw new Error('Role not found');
+        if (role.company_id !== company_id) throw new Error('Unauthorized');
+        if (role.is_system_role) throw new Error('Cannot delete system role');
+        
+        const usersCount = await prisma.user_roles.count({ where: { role_id: id } });
+        if (usersCount > 0) throw new Error('Cannot delete role assigned to users');
+        
+        return prisma.role.delete({ where: { id } });
     }
 
     /**
@@ -212,7 +273,7 @@ class UserService {
      * Update user details
      */
     async updateUser(id, updateData, company_id) {
-        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, custom_modules, restricted_modules, functional_tags } = updateData;
+        const { name, email, empid, password, mobile, role_ids, department, designation, email_notifications, functional_tags, custom_policies } = updateData;
 
         // Verify user exists and belongs to company
         const existingUser = await prisma.user.findFirst({
@@ -221,6 +282,10 @@ class UserService {
 
         if (!existingUser) {
             throw new Error('User not found');
+        }
+
+        if (existingUser.is_primary_admin) {
+            throw new Error('The primary company administrator cannot be modified');
         }
 
         // Check for unique constraints if email/empid changed
@@ -256,17 +321,13 @@ class UserService {
                     designation,
                     ...(functional_tags && Array.isArray(functional_tags) && { functional_tags }),
                     ...(hashedPassword && { password: hashedPassword }),
-                    user_settings: (email_notifications !== undefined || custom_modules !== undefined || restricted_modules !== undefined) ? {
+                    user_settings: email_notifications !== undefined ? {
                         upsert: {
                             create: { 
                                 email_notifications: email_notifications !== undefined ? email_notifications : true,
-                                custom_modules: custom_modules || [],
-                                restricted_modules: restricted_modules || [],
                             },
                             update: { 
                                 ...(email_notifications !== undefined && { email_notifications }),
-                                ...(custom_modules !== undefined && { custom_modules }),
-                                ...(restricted_modules !== undefined && { restricted_modules }),
                             }
                         }
                     } : undefined
@@ -284,6 +345,7 @@ class UserService {
                         data: role_ids.map((roleId) => ({
                             user_id: id,
                             role_id: roleId,
+                            custom_policies: custom_policies || [],
                         })),
                     });
                 }
@@ -305,6 +367,10 @@ class UserService {
             throw new Error('User not found');
         }
 
+        if (existingUser.is_primary_admin) {
+            throw new Error('The primary company administrator cannot be deleted');
+        }
+
         return await prisma.user.update({
             where: { id },
             data: { is_deleted: true, is_active: false },
@@ -321,6 +387,10 @@ class UserService {
 
         if (!existingUser) {
             throw new Error('User not found');
+        }
+
+        if (existingUser.is_primary_admin) {
+            throw new Error('The status of the primary company administrator cannot be toggled');
         }
 
         return await prisma.user.update({
@@ -362,6 +432,10 @@ class UserService {
 
         if (!user) {
             throw new Error('User not found');
+        }
+
+        if (user.is_primary_admin) {
+            throw new Error('The primary company administrator cannot be deleted');
         }
 
         if (!user.email) {

@@ -13,7 +13,7 @@ import {
 import {
   DocumentPreviewDialog
 } from "@/components/shared/DocumentPreviewDialog"
-import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+
 import {
   Trash2,
   Plus,
@@ -50,7 +50,7 @@ import { exportApi } from "@/api/export.api"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick, refreshKey }) {
-  const isAdmin = useCheckAdmin()
+  const isAdmin = true;
   const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, id: null, type: 'delete' })

@@ -143,6 +143,10 @@ model role{
   id String @id @default(uuid())
   company_id String
   name String
+  identifier String?
+  description String?
+  is_system_role Boolean @default(false)
+  policies Json @default("[]")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -160,6 +164,7 @@ model user{
   mobile String? @unique
   password String
   company_id String
+  is_primary_admin Boolean @default(false)
   department_id String? @map("department")
   department department? @relation(fields: [department_id], references: [id])
   designation String?
@@ -245,6 +250,7 @@ model user_roles{
   id String @id @default(uuid())
   user_id String
   role_id String
+  custom_policies Json @default("[]")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -256,8 +262,6 @@ model user_settings {
   id                  String   @id @default(uuid())
   user_id             String   @unique
   email_notifications Boolean  @default(true)
-  custom_modules      String[] @default([])
-  restricted_modules  String[] @default([])
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

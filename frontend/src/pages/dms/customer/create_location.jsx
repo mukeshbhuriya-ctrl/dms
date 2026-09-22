@@ -25,12 +25,12 @@ import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
-import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CreateLocation() {
-  const isAdmin = useCheckAdmin()
+  const isAdmin = true;
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [selectedCustomer, setSelectedCustomer] = useState("")

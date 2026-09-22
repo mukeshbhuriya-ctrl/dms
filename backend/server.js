@@ -11,6 +11,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('./utils/cors');
 const { setupAdmin } = require('./utils/startup/steup_admin');
 const { initScheduler } = require('./utils/scheduler');
+const { seedSystemRoles } = require('./utils/roleSeeder');
 const NotificationSocketService = require('#services/notification.socket.js');
 const { activityLogMiddleware } = require('./utils/activityLogger');
 
@@ -162,6 +163,9 @@ async function startServer() {
   try {
     // Setup admin on startup
     await setupAdmin();
+
+    // Seed/Sync system roles for all companies
+    await seedSystemRoles();
 
     // Initialize daily overdue checks
     initScheduler();

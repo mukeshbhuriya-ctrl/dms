@@ -74,14 +74,14 @@ import {
   XCircle,
   RefreshCw
 } from "lucide-react"
-import { useCheckAdmin } from "@/hooks/useCheckAdmin"
+
 import { useAuth } from "@/context/AuthContext"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function AssignDocument() {
-  const isAdmin = useCheckAdmin()
-  const { roles } = useAuth()
+  const isAdmin = true;
+  const { roles, hasPermission } = useAuth()
   const isPowerUser = isAdmin || (roles && roles.includes("DCC"));
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
@@ -568,7 +568,7 @@ function AssignDocument() {
       cell: (row) => {
         const actions = [];
         
-        if (isPowerUser) {
+        if (hasPermission("dms:vdr", "Update")) {
            actions.push({ label: "Edit Assignment", icon: Edit, onClick: () => handleEditAssign(row) });
         }
         
@@ -1331,10 +1331,7 @@ function AssignDocument() {
               columns={columns}
               fetchData={fetchAssignedDocuments}
               onExport={handleExport}
-              onAdd={() => {
-                handleBack();
-                setView("assign");
-              }}
+              onAdd={hasPermission("dms:vdr", "Create") ? () => { handleBack(); setView("assign"); } : undefined}
               onImport={handleImportExcel}
               onDownloadTemplate={handleDownloadTemplate}
               selectedRows={selectedRowIds}

@@ -3,6 +3,7 @@ const { comparePassword, hashPassword } = require('#utils/hashpassword');
 const { encryptToken } = require('#utils/jwt-encrypt');
 const emailService = require('#services/email.service.js');
 const crypto = require('crypto');
+const { IAM_POLICIES, mergePolicies } = require('#utils/iam_policies.js');
 
 /**
  * Parse expiration time string (e.g., '7d', '1h', '30m') to milliseconds
@@ -60,6 +61,7 @@ async function login(req, res) {
               select: {
                 id: true,
                 name: true,
+                policies: true,
               },
             },
           },
@@ -136,27 +138,29 @@ async function login(req, res) {
     });
 
     // Return success response (token is in cookie, but also return it in response for flexibility)
-    // Resolve permissions based on roles
-    const permissionService = require('../../services/permission.service.js');
-    let userPermissions = permissionService.resolveUserPermissions(roles.map(r => r.name));
-    
-    // Inject custom modules
-    if (user.user_settings?.custom_modules && user.user_settings.custom_modules.length > 0) {
-      userPermissions = Array.from(new Set([...userPermissions, ...user.user_settings.custom_modules]));
+    // Resolve IAM Policies based on roles and custom_policies
+    let basePolicies = [];
+    if (roles.some(r => r.name.toUpperCase() === 'ADMIN')) {
+      basePolicies = IAM_POLICIES.ADMIN;
+    } else {
+      basePolicies = user.user_roles.flatMap(ur => {
+        const p = ur.role.policies;
+        return Array.isArray(p) ? p : (typeof p === 'string' ? JSON.parse(p) : []);
+      });
     }
 
-    // Remove restricted modules
-    if (user.user_settings?.restricted_modules && user.user_settings.restricted_modules.length > 0) {
-      userPermissions = userPermissions.filter(
-        (module) => !user.user_settings.restricted_modules.includes(module)
-      );
-    }
+    const allCustomPolicies = user.user_roles.flatMap(ur => {
+      const cp = ur.custom_policies;
+      return Array.isArray(cp) ? cp : (typeof cp === 'string' ? JSON.parse(cp) : []);
+    });
+
+    const iamPolicies = mergePolicies(basePolicies, allCustomPolicies);
 
     res.status(200).json({
       success: true,
       message: 'Login successful',
-      roles: roles,
-      permissions: userPermissions,
+      role: roles.map(r => r.name),
+      iamPolicies: iamPolicies,
       user: {
         id: user.id,
         name: user.name,
@@ -210,21 +214,24 @@ async function me(req, res) {
       });
     }
 
-    // Resolve permissions
-    const permissionService = require('../../services/permission.service.js');
-    let userPermissions = permissionService.resolveUserPermissions(user.user_roles.map(ur => ur.role.name));
-
-    // Inject custom modules
-    if (user.user_settings?.custom_modules && user.user_settings.custom_modules.length > 0) {
-      userPermissions = Array.from(new Set([...userPermissions, ...user.user_settings.custom_modules]));
+    // Resolve IAM Policies
+    let basePolicies = [];
+    const roleNames = user.user_roles.map(ur => ur.role?.name).filter(Boolean);
+    if (roleNames.some(name => name.toUpperCase() === 'ADMIN')) {
+      basePolicies = IAM_POLICIES.ADMIN;
+    } else {
+      basePolicies = user.user_roles.flatMap(ur => {
+        const p = ur.role?.policies;
+        return Array.isArray(p) ? p : (typeof p === 'string' ? JSON.parse(p) : []);
+      });
     }
 
-    // Remove restricted modules
-    if (user.user_settings?.restricted_modules && user.user_settings.restricted_modules.length > 0) {
-      userPermissions = userPermissions.filter(
-        (module) => !user.user_settings.restricted_modules.includes(module)
-      );
-    }
+    const allCustomPolicies = user.user_roles.flatMap(ur => {
+      const cp = ur.custom_policies;
+      return Array.isArray(cp) ? cp : (typeof cp === 'string' ? JSON.parse(cp) : []);
+    });
+
+    const iamPolicies = mergePolicies(basePolicies, allCustomPolicies);
 
     // Return more user details
     res.status(200).json({
@@ -234,8 +241,8 @@ async function me(req, res) {
         name: user.name,
         email: user.email,
         empid: user.empid,
-        role: user.user_roles.map(ur => ur.role.name), // Array of role names
-        permissions: userPermissions,
+        role: roleNames, // Array of role names
+        iamPolicies: iamPolicies,
         functional_tags: user.functional_tags || [],
         company: user.company ? {
           id: user.company.id,
@@ -248,7 +255,7 @@ async function me(req, res) {
           })() : null
         } : null
       },
-      role: user.user_roles.map(ur => ur.role.name), // Keep for backward compatibility
+      role: roleNames, // Keep for backward compatibility
       name: user.name,
       company: user.company ? {
         name: user.company.name,
