@@ -77,8 +77,14 @@ import {
 
 import { useAuth } from "@/context/AuthContext"
 import { Badge } from "@/components/ui/badge"
-import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { AccessControl } from "@/components/iam/access_control";
+import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function AssignDocument() {
   const { roles, hasPermission } = useAuth()
@@ -91,6 +97,7 @@ function AssignDocument() {
   const [searchParams] = useSearchParams()
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "all")
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+  const globalSearchRef = useRef("");
 
   useEffect(() => {
     const status = searchParams.get("status")
@@ -713,6 +720,7 @@ function AssignDocument() {
       }
 
       console.log("Fetching assigned documents with params:", params);
+      globalSearchRef.current = search || "";
       const response = await apiClient.get("/api/dcc/get-assigned-documents", params);
 
       if (response && response.success) {
@@ -1168,20 +1176,26 @@ function AssignDocument() {
     });
   };
 
-  const handleExport = async () => {
+  const handleExport = async (type) => {
     try {
       const params = {};
-      if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
-      
-      if (columnFilters) {
-        if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
-        if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
-        if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
-        if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
-        if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
-        if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
-        if (columnFilters.documentName) params.search = columnFilters.documentName;
-        if (columnFilters.assignee) params.user_id_filter = columnFilters.assignee;
+      if (type !== "all") {
+        if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
+        
+        if (columnFilters) {
+          if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+          if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+          if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+          if (columnFilters.status) params.uploader_status_filter = columnFilters.status;
+          if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+          if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
+          if (columnFilters.documentName) params.search = columnFilters.documentName;
+          if (columnFilters.assignee) params.user_id_filter = columnFilters.assignee;
+        }
+        
+        if (globalSearchRef.current) {
+          params.search = globalSearchRef.current;
+        }
       }
 
       await exportApi.exportModule("group_document", "Assigned documents export.xlsx", params)
@@ -1329,10 +1343,30 @@ function AssignDocument() {
             <ProDataTable
               columns={columns}
               fetchData={fetchAssignedDocuments}
-              onExport={hasPermission("dms:vdr", "Export") ? handleExport : undefined}
+              customToolbarActions={
+                hasPermission("dms:vdr", "Export") && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200 bg-white text-slate-600 data-[state=open]:bg-slate-50 hover:bg-slate-50 shadow-none ml-1">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 shadow-lg p-1.5">
+                      <DropdownMenuItem onClick={() => handleExport("filtered")} className="text-xs font-medium cursor-pointer flex items-center">
+                        <Download className="mr-2 h-4 w-4" />
+                        Export Filtered Data
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleExport("all")} className="text-xs font-medium cursor-pointer flex items-center">
+                        <Download className="mr-2 h-4 w-4" />
+                        Export All Data
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )
+              }
               onAdd={hasPermission("dms:vdr", "Create") ? () => { handleBack(); setView("assign"); } : undefined}
-              onImport={handleImportExcel}
-              onDownloadTemplate={handleDownloadTemplate}
+              onImport={hasPermission("dms:vdr", "Create") ? handleImportExcel : undefined}
+              onDownloadTemplate={hasPermission("dms:vdr", "Create") ? handleDownloadTemplate : undefined}
               selectedRows={selectedRowIds}
               onSelectionChange={handleSelectionChange}
               columnFilters={columnFilters}

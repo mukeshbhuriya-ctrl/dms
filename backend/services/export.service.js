@@ -1619,6 +1619,8 @@ class ExportService {
         const where = {
             company_id,
             is_deleted: false,
+            is_active: true,
+            document: { is_active: true, is_deleted: false },
             ...this._getDateFilter(startDate, endDate)
         };
 

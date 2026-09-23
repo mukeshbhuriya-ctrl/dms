@@ -781,7 +781,7 @@ class DccService {
         const { page = 1, limit, search = '', exclude_transmitted, exclude_assigned, include_id } = params;
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
-        const where = { company_id };
+        const where = { company_id, is_active: true, is_deleted: false };
 
         if (search) {
             where.OR = [
@@ -802,7 +802,7 @@ class DccService {
 
             if (transmittedGroupDocIds.length > 0) {
                 const docs = await prisma.group_document.findMany({
-                    where: { id: { in: transmittedGroupDocIds.map(t => t.group_document_id) } },
+                    where: { id: { in: transmittedGroupDocIds.map(t => t.group_document_id) }, is_active: true, is_deleted: false },
                     select: { document_id: true },
                     distinct: ['document_id']
                 });
@@ -811,7 +811,7 @@ class DccService {
 
             // 2. Exclude documents already approved by the Document Approver
             const approvedDocs = await prisma.group_document.findMany({
-                where: { company_id, status: 'Approved' },
+                where: { company_id, status: 'Approved', is_active: true, is_deleted: false },
                 select: { document_id: true },
                 distinct: ['document_id']
             });
@@ -825,7 +825,7 @@ class DccService {
         if (exclude_assigned === 'true' || exclude_assigned === true) {
             // Find all unique document_id from group_document which represents assigned documents
             const assignedDocs = await prisma.group_document.findMany({
-                where: { company_id },
+                where: { company_id, is_active: true, is_deleted: false },
                 select: { document_id: true },
                 distinct: ['document_id']
             });
@@ -878,7 +878,7 @@ class DccService {
             document_number_filter
         } = params;
 
-        const where = { company_id, user_id, is_deleted: false };
+        const where = { company_id, user_id, is_deleted: false, is_active: true, document: { is_active: true, is_deleted: false } };
 
         // Standardize status filtering
         const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null);
@@ -1006,7 +1006,7 @@ class DccService {
             user_id_filter
         } = params;
 
-        const where = { company_id, is_deleted: false };
+        const where = { company_id, is_deleted: false, is_active: true, document: { is_active: true, is_deleted: false } };
 
         // Standardize status filtering across global and column-based filters
         const activeStatusFilter = uploader_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
@@ -1081,14 +1081,14 @@ class DccService {
                 if (wantsActive && !wantsInactive) where.is_active = true;
                 if (wantsInactive && !wantsActive) where.is_active = false;
             }
-            
+
             if (cFilters.client_status && cFilters.client_status !== 'all') {
                 const clientStatusVals = Array.isArray(cFilters.client_status) ? cFilters.client_status : [cFilters.client_status];
 
                 // We must filter by the LATEST transmission item's client_status, not any historical one.
                 // Fetch all transmissions for this company to determine the latest state per document
                 const allTransmissions = await prisma.transmission_document.findMany({
-                    where: { 
+                    where: {
                         group_document_id: { not: null },
                         transmission: { company_id: company_id }
                     },
@@ -1183,8 +1183,8 @@ class DccService {
             versions: {
                 orderBy: { version_no: 'desc' },
                 take: 1,
-                include: { 
-                    uploader: true, 
+                include: {
+                    uploader: true,
                     files: { where: { is_active: true } },
                     transmission_items: {
                         orderBy: { transmission: { createdAt: 'desc' } },
@@ -1418,7 +1418,7 @@ class DccService {
         const skip = (limit === undefined || limit === null) ? undefined : (page - 1) * parseInt(limit);
         const take = (limit === undefined || limit === null) ? undefined : parseInt(limit);
 
-        const where = { company_id };
+        const where = { company_id, is_active: true, is_deleted: false, document: { is_active: true, is_deleted: false } };
         // Standardize status filtering
         const activeStatusFilter = uploader_status_filter || approver_status_filter || (status_filter && status_filter !== 'all' ? status_filter : null) || status;
 
@@ -2624,12 +2624,12 @@ class DccService {
         });
 
         if (!groupDoc) throw new Error('Document not found');
-        
+
         const latestVersion = groupDoc.versions && groupDoc.versions.length > 0 ? groupDoc.versions[0] : null;
-        const latestTransmission = latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0 
-            ? latestVersion.transmission_items[0] 
+        const latestTransmission = latestVersion && latestVersion.transmission_items && latestVersion.transmission_items.length > 0
+            ? latestVersion.transmission_items[0]
             : null;
-            
+
         const clientStatus = latestTransmission ? latestTransmission.client_status : null;
 
         if (clientStatus !== 'Approved' && clientStatus !== 'Final Approved' && clientStatus !== 'As Built') {
@@ -2705,7 +2705,7 @@ class DccService {
                 data: {
                     group_document_id: groupDoc.id,
                     version_no: nextVersionNo,
-                    file_url: '', 
+                    file_url: '',
                     file_path: '',
                     status: 'Pending',
                     remarks: `Admin approved Revision Request`,
@@ -2717,7 +2717,7 @@ class DccService {
             // Update group document to Pending and extend SLA
             const updated = await tx.group_document.update({
                 where: { id: document_id },
-                data: { 
+                data: {
                     status: 'Pending',
                     upload_due_days: 10
                 }
@@ -3101,26 +3101,26 @@ class DccService {
      */
     async bulkUpdateAssignedDocuments(company_id, data, performer_id) {
         const { updates } = data;
-        
+
         if (!updates || !Array.isArray(updates)) {
             throw new Error('Invalid update data');
         }
 
         return await prisma.$transaction(async (tx) => {
             const results = [];
-            
+
             for (const update of updates) {
                 const { id, document_id, document_name, job_ids, assign_user_id, upload_due_days, response_due_days, shreno_document_no, shreno_reference_no, client_document_no, client_reference_no, planned_submission_date } = update;
-                
+
                 if (!id) continue;
-                
+
                 const groupDoc = await tx.group_document.findFirst({
                     where: { id, company_id },
                     include: { group: true, document: true }
                 });
 
                 if (!groupDoc) continue;
-                
+
                 let finalUploadDueDays = upload_due_days === undefined ? undefined : (upload_due_days !== null && upload_due_days !== '' ? parseInt(upload_due_days) : null);
                 let dateWasEdited = false;
 
@@ -3206,7 +3206,7 @@ class DccService {
                         metadata: { old_due_days: groupDoc.upload_due_days, new_due_days: finalUploadDueDays }
                     }, tx);
                 }
-                
+
                 results.push(updatedGroupDoc);
             }
             return results;
@@ -3217,9 +3217,23 @@ class DccService {
      * Delete an assigned document (soft delete)
      */
     async deleteAssignedDocument(company_id, id) {
-        return await prisma.group_document.update({
-            where: { id, company_id },
-            data: { is_deleted: true, is_active: false }
+        return await prisma.$transaction(async (tx) => {
+            const existing = await tx.group_document.findFirst({ where: { id, company_id } });
+            if (!existing) throw new Error('Assignment not found');
+
+            const updated = await tx.group_document.update({
+                where: { id, company_id },
+                data: { is_deleted: true, is_active: false }
+            });
+
+            if (existing.document_id) {
+                await tx.document_master.update({
+                    where: { id: existing.document_id },
+                    data: { is_deleted: true, is_active: false }
+                });
+            }
+
+            return updated;
         });
     }
 
@@ -3227,11 +3241,25 @@ class DccService {
      * Toggle status of an assigned document
      */
     async toggleAssignedDocumentStatus(company_id, id) {
-        const existing = await prisma.group_document.findFirst({ where: { id, company_id } });
-        if (!existing) throw new Error('Assignment not found');
-        return await prisma.group_document.update({
-            where: { id },
-            data: { is_active: !existing.is_active }
+        return await prisma.$transaction(async (tx) => {
+            const existing = await tx.group_document.findFirst({ where: { id, company_id } });
+            if (!existing) throw new Error('Assignment not found');
+            
+            const newActiveStatus = !existing.is_active;
+
+            const updated = await tx.group_document.update({
+                where: { id },
+                data: { is_active: newActiveStatus }
+            });
+
+            if (existing.document_id) {
+                await tx.document_master.update({
+                    where: { id: existing.document_id },
+                    data: { is_active: newActiveStatus }
+                });
+            }
+
+            return updated;
         });
     }
 
@@ -3259,7 +3287,7 @@ class DccService {
                 // Use the latest version's createdAt if it exists, otherwise use the assignment's createdAt
                 const latestPendingVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
                 const baseDate = latestPendingVersion ? new Date(latestPendingVersion.createdAt) : new Date(doc.createdAt);
-                
+
                 const uploadDeadline = new Date(baseDate.getTime() + (doc.upload_due_days * 24 * 60 * 60 * 1000));
                 if (now > uploadDeadline) {
                     doc.status = 'Upload Due';
@@ -3519,8 +3547,8 @@ class DccService {
                 const emailDocs = fullDocs.map(fd => {
                     const latestVersion = fd.versions && fd.versions.length > 0 ? fd.versions[0] : null;
                     const baseDate = latestVersion ? new Date(latestVersion.createdAt) : new Date(fd.createdAt);
-                    const deadline = fd.upload_due_days !== null && fd.upload_due_days !== undefined 
-                        ? new Date(baseDate.getTime() + (fd.upload_due_days * 24 * 60 * 60 * 1000)) 
+                    const deadline = fd.upload_due_days !== null && fd.upload_due_days !== undefined
+                        ? new Date(baseDate.getTime() + (fd.upload_due_days * 24 * 60 * 60 * 1000))
                         : null;
 
                     return {
@@ -3552,13 +3580,15 @@ class DccService {
             const pendingDocs = await prisma.group_document.findMany({
                 where: {
                     status: 'Pending',
-                    upload_due_days: { not: null }
+                    upload_due_days: { not: null },
+                    is_active: true,
+                    is_deleted: false
                 },
-                include: { 
-                    user: true, 
-                    document: true, 
+                include: {
+                    user: true,
+                    document: true,
                     group: { include: { job_group: { include: { job: true } } } },
-                    versions: { orderBy: { version_no: 'desc' }, take: 1 } 
+                    versions: { orderBy: { version_no: 'desc' }, take: 1 }
                 }
             });
 
@@ -3630,7 +3660,9 @@ class DccService {
             const submittedDocs = await prisma.group_document.findMany({
                 where: {
                     status: 'Pending for Approval',
-                    response_due_days: { not: null }
+                    response_due_days: { not: null },
+                    is_active: true,
+                    is_deleted: false
                 },
                 include: {
                     user: true,
@@ -3906,7 +3938,7 @@ class DccService {
         try {
             // Find the user who requested the revision from activities
             const requestedActivity = await prisma.document_activity.findFirst({
-                where: { 
+                where: {
                     group_document_id: groupDoc.id,
                     action: 'Revision Requested'
                 },

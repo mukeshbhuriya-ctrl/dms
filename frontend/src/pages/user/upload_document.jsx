@@ -47,6 +47,12 @@ import { MultiFileUploadModal } from "@/components/shared/MultiFileUploadModal"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 import { AccessControl } from "@/components/iam/access_control";
 import { useAuth } from "@/context/AuthContext";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 function UploadDocument() {
     const { roles, hasPermission } = useAuth()
@@ -56,6 +62,7 @@ function UploadDocument() {
     const [approverStatusFilter, setApproverStatusFilter] = useState("all")
     const [refreshTrigger, setRefreshTrigger] = useState(0)
     const [columnFilters, setColumnFilters] = useState({});
+    const globalSearchRef = useRef("");
 
     // Master Data for Cascading Filters
     const [customers, setCustomers] = useState([]);
@@ -308,15 +315,15 @@ function UploadDocument() {
             },
         },
         {
-        id: "plant_submission_date",
-        accessorKey: "upload_due_days",
-        header: "Planned Submission Date",
-        cell: (row) => {
-            if (!row.upload_due_days) return "-";
-            const created = new Date(row.versionCreatedAt || row.createdAt);
-            const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
-            return deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
-        },
+            id: "plant_submission_date",
+            accessorKey: "upload_due_days",
+            header: "Planned Submission Date",
+            cell: (row) => {
+                if (!row.upload_due_days) return "-";
+                const created = new Date(row.versionCreatedAt || row.createdAt);
+                const deadline = new Date(created.getTime() + (row.upload_due_days * 24 * 60 * 60 * 1000));
+                return deadline.toLocaleDateString("en-GB", { day: '2-digit', month: 'long', year: 'numeric' });
+            },
         },
         {
             header: "Uploader Status",
@@ -388,36 +395,36 @@ function UploadDocument() {
             cell: (row) => {
                 const isUploading = uploadingIds[row.id]
                 const progress = uploadProgress[row.id]
-                const isDisabled = row.approverStatus === "approved" || row.approverStatus === "pending for approval"
+                const isDisabled = row.approverStatus === "approved"
 
                 return (
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
                             <AccessControl required="dms:upload:Upload">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="border-slate-200 text-slate-600 hover:bg-primary/5 hover:text-primary hover:border-primary/20 cursor-pointer disabled:cursor-not-allowed disabled:bg-transparent disabled:text-slate-400 disabled:border-slate-200"
-                                onClick={() => handleOpenUploadModal(row.id)}
-                                disabled={isDisabled || isUploading}
-                            >
-                                {isUploading ? (
-                                    <div className="relative inline-flex items-center justify-center mr-2">
-                                        <svg className="w-4 h-4 transform -rotate-90">
-                                            <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-slate-200" />
-                                            <circle
-                                                cx="8" cy="8" r="6"
-                                                stroke="currentColor" strokeWidth="2" fill="transparent"
-                                                strokeDasharray={37.7} strokeDashoffset={typeof progress === 'number' ? 37.7 - (progress / 100) * 37.7 : 0}
-                                                className="text-primary transition-all duration-300 ease-out" strokeLinecap="round"
-                                            />
-                                        </svg>
-                                    </div>
-                                ) : (
-                                    <Upload className="h-4 w-4 mr-2" />
-                                )}
-                                {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : 'Upload'}
-                            </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-slate-200 text-slate-600 hover:bg-primary/5 hover:text-primary hover:border-primary/20 cursor-pointer disabled:cursor-not-allowed disabled:bg-transparent disabled:text-slate-400 disabled:border-slate-200"
+                                    onClick={() => handleOpenUploadModal(row.id)}
+                                    disabled={isDisabled || isUploading}
+                                >
+                                    {isUploading ? (
+                                        <div className="relative inline-flex items-center justify-center mr-2">
+                                            <svg className="w-4 h-4 transform -rotate-90">
+                                                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" fill="transparent" className="text-slate-200" />
+                                                <circle
+                                                    cx="8" cy="8" r="6"
+                                                    stroke="currentColor" strokeWidth="2" fill="transparent"
+                                                    strokeDasharray={37.7} strokeDashoffset={typeof progress === 'number' ? 37.7 - (progress / 100) * 37.7 : 0}
+                                                    className="text-primary transition-all duration-300 ease-out" strokeLinecap="round"
+                                                />
+                                            </svg>
+                                        </div>
+                                    ) : (
+                                        <Upload className="h-4 w-4 mr-2" />
+                                    )}
+                                    {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : 'Upload'}
+                                </Button>
                             </AccessControl>
 
                             <Button
@@ -546,6 +553,7 @@ function UploadDocument() {
                 if (columnFilters.status) params.approver_status_filter = columnFilters.status;
             }
 
+            globalSearchRef.current = search || "";
             const response = await dccService.getMyAssignedDocuments(params)
 
             if (response.data) {
@@ -611,21 +619,27 @@ function UploadDocument() {
         return fetchDocuments(params)
     }, [fetchDocuments, refreshTrigger])
 
-    const handleExport = async () => {
+    const handleExport = async (type) => {
         try {
             const params = {};
-            if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
-            
-            if (columnFilters) {
-                if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
-                if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
-                if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
-                if (columnFilters.documentName) params.search = columnFilters.documentName;
-                if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
-                if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
-                if (columnFilters.documentNumber) params.document_number_filter = columnFilters.documentNumber;
-                if (columnFilters.uploader_status) params.uploader_status_filter = columnFilters.uploader_status;
-                if (columnFilters.status) params.approver_status_filter = columnFilters.status;
+            if (type !== "all") {
+                if (statusFilter && statusFilter !== 'all') params.status_filter = statusFilter;
+
+                if (columnFilters) {
+                    if (columnFilters.customer_name) params.customer_name_filter = columnFilters.customer_name;
+                    if (columnFilters.po_number) params.po_number_filter = columnFilters.po_number;
+                    if (columnFilters.job_number) params.job_number_filter = columnFilters.job_number;
+                    if (columnFilters.documentName) params.search = columnFilters.documentName;
+                    if (columnFilters.shreno_doc_no) params.shreno_doc_no_filter = columnFilters.shreno_doc_no;
+                    if (columnFilters.client_doc_no) params.client_doc_no_filter = columnFilters.client_doc_no;
+                    if (columnFilters.documentNumber) params.document_number_filter = columnFilters.documentNumber;
+                    if (columnFilters.uploader_status) params.uploader_status_filter = columnFilters.uploader_status;
+                    if (columnFilters.status) params.approver_status_filter = columnFilters.status;
+                }
+
+                if (globalSearchRef.current) {
+                    params.search = globalSearchRef.current;
+                }
             }
 
             await exportApi.exportModule("group_document", "My Uploads Export.xlsx", params);
@@ -636,67 +650,87 @@ function UploadDocument() {
 
     return (
         <PageContainer className="overflow-hidden">
-        <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
-            <ProDataTable
-                columns={columns}
-                fetchData={fetchDocumentsWrapper}
-                onExport={hasPermission("dms:upload", "Export") ? handleExport : undefined}
-                columnFilters={columnFilters}
-                onFilterChange={onFilterChange}
-                refreshKey={refreshTrigger}
-                topFilters={proTableTopFilters}
-                globalSearchPlaceholder="Search documents..."
-                initialStickyColumns={["documentNumber"]}
-                lockActiveFilters={true}
+            <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+                <ProDataTable
+                    columns={columns}
+                    fetchData={fetchDocumentsWrapper}
+                    customToolbarActions={
+                        hasPermission("dms:upload", "Export") && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200 bg-white text-slate-600 data-[state=open]:bg-slate-50 hover:bg-slate-50 shadow-none ml-1">
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 shadow-lg p-1.5">
+                                    <DropdownMenuItem onClick={() => handleExport("filtered")} className="text-xs font-medium cursor-pointer flex items-center">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export Filtered Data
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExport("all")} className="text-xs font-medium cursor-pointer flex items-center">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        Export All Data
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )
+                    }
+                    columnFilters={columnFilters}
+                    onFilterChange={onFilterChange}
+                    refreshKey={refreshTrigger}
+                    topFilters={proTableTopFilters}
+                    globalSearchPlaceholder="Search documents..."
+                    initialStickyColumns={["documentNumber"]}
+                    lockActiveFilters={true}
+                />
+            </div>
+
+            {/* Shared Document Preview Dialog */}
+            <FileListPreviewDialog
+                isOpen={isFileListOpen}
+                onClose={() => setIsFileListOpen(false)}
+                files={activeFileList}
+                documentName={activeFileListDocName}
+                onPreviewFile={(previewInfo) => {
+                    setActivePreviewDoc(previewInfo);
+                    setPreviewUrl(previewInfo.previewUrl);
+                    setIsPreviewOpen(true);
+                }}
             />
-        </div>
 
-        {/* Shared Document Preview Dialog */}
-        <FileListPreviewDialog
-            isOpen={isFileListOpen}
-            onClose={() => setIsFileListOpen(false)}
-            files={activeFileList}
-            documentName={activeFileListDocName}
-            onPreviewFile={(previewInfo) => {
-                setActivePreviewDoc(previewInfo);
-                setPreviewUrl(previewInfo.previewUrl);
-                setIsPreviewOpen(true);
-            }}
-        />
+            <DocumentPreviewDialog
+                isOpen={isPreviewOpen}
+                onOpenChange={setIsPreviewOpen}
+                previewUrl={previewUrl}
+                activePreviewDoc={activePreviewDoc}
+            />
 
-        <DocumentPreviewDialog
-            isOpen={isPreviewOpen}
-            onOpenChange={setIsPreviewOpen}
-            previewUrl={previewUrl}
-            activePreviewDoc={activePreviewDoc}
-        />
-
-        <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
-            <SheetContent className="sm:max-w-xl overflow-y-auto">
-                <SheetHeader>
-                    <SheetTitle>Document Audit Trail</SheetTitle>
-                </SheetHeader>
-                <div className="mt-6">
-                    <DocumentTrail
-                        documentId={activeDocId}
-                        onPreview={(previewInfo) => {
-                            setActivePreviewDoc(previewInfo);
-                            setPreviewUrl(previewInfo.previewUrl);
-                            setIsPreviewOpen(true);
-                        }}
-                    />
-                </div>
-            </SheetContent>
-        </Sheet>
+            <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
+                <SheetContent className="sm:max-w-xl overflow-y-auto">
+                    <SheetHeader>
+                        <SheetTitle>Document Audit Trail</SheetTitle>
+                    </SheetHeader>
+                    <div className="mt-6">
+                        <DocumentTrail
+                            documentId={activeDocId}
+                            onPreview={(previewInfo) => {
+                                setActivePreviewDoc(previewInfo);
+                                setPreviewUrl(previewInfo.previewUrl);
+                                setIsPreviewOpen(true);
+                            }}
+                        />
+                    </div>
+                </SheetContent>
+            </Sheet>
 
 
-        <MultiFileUploadModal
-            isOpen={isUploadModalOpen}
-            onClose={() => setIsUploadModalOpen(false)}
-            onSubmit={handleSubmitUpload}
-        />
+            <MultiFileUploadModal
+                isOpen={isUploadModalOpen}
+                onClose={() => setIsUploadModalOpen(false)}
+                onSubmit={handleSubmitUpload}
+            />
 
-    </PageContainer>
+        </PageContainer>
     )
 }
 
