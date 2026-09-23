@@ -22,10 +22,11 @@ import { Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { useAuth } from "@/context/AuthContext";
 
 function CreateCustomer() {
   const navigate = useNavigate()
-  const isAdmin = true;
+  const { hasPermission } = useAuth()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({
@@ -211,7 +212,7 @@ function CreateCustomer() {
           { label: "Edit Client", icon: Edit, onClick: () => handleEdit(row) },
         ];
         
-        if (isAdmin) {
+        if (hasPermission("customer:customer", "Delete")) {
           actions.push({ type: "separator" });
           actions.push({ 
             label: row.is_active ? "Deactivate Client" : "Activate Client", 

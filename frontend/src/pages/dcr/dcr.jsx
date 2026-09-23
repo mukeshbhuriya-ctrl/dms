@@ -246,8 +246,7 @@ const getAuthHeaders = () => {
 }
 
 function CreateDCR() {
-  const { user, roles } = useAuth()
-  const isAdmin = roles?.includes('ADMIN')
+  const { user, roles, hasPermission } = useAuth()
   const [view, setView] = useState("list")
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null })
@@ -552,7 +551,7 @@ function CreateDCR() {
           onClick: () => handleViewDcr(row.id)
         });
 
-        if (row.status === 'pending') {
+        if (hasPermission("dcr:request", "Update") && row.status === 'pending') {
           actions.push({
             label: "Edit",
             icon: Edit,
@@ -560,7 +559,7 @@ function CreateDCR() {
           });
         }
 
-        if (isAdmin) {
+        if (hasPermission("dcr:request", "Delete")) {
           actions.push({
             label: row.is_active ? "Deactivate" : "Activate",
             icon: row.is_active ? XCircle : CheckCircle,
@@ -613,7 +612,7 @@ function CreateDCR() {
         );
       }
     }
-  ], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles, isAdmin])
+  ], [activeClientOptions, activePoOptions, activeMsnOptions, user, roles, hasPermission]);
 
   const fetchDcrList = useCallback(async (params) => {
     try {
@@ -1043,7 +1042,7 @@ function CreateDCR() {
             columns={columns}
             fetchData={fetchDcrList}
             onExport={handleExport}
-            onAdd={() => setView("create")}
+            onAdd={hasPermission("dcr:request", "Create") ? () => setView("create") : undefined}
             onAddTooltip="Create DCR"
             refreshKey={refreshKey}
             columnFilters={columnFilters}

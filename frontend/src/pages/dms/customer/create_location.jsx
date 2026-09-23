@@ -28,9 +28,10 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { useAuth } from "@/context/AuthContext";
 
 function CreateLocation() {
-  const isAdmin = true;
+  const { hasPermission } = useAuth()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [selectedCustomer, setSelectedCustomer] = useState("")
@@ -229,7 +230,7 @@ function CreateLocation() {
           { label: "Edit Location", icon: Edit, onClick: () => handleEdit(row) },
         ];
         
-        if (isAdmin) {
+        if (hasPermission("customer:location", "Delete")) {
           actions.push({ type: "separator" });
           actions.push({ 
             label: row.is_active ? "Deactivate Location" : "Activate Location", 

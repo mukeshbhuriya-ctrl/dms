@@ -78,11 +78,10 @@ import {
 import { useAuth } from "@/context/AuthContext"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { AccessControl } from "@/components/iam/access_control";
 
 function AssignDocument() {
-  const isAdmin = true;
   const { roles, hasPermission } = useAuth()
-  const isPowerUser = isAdmin || (roles && roles.includes("DCC"));
   const [view, setView] = useState("list") // 'list' or 'assign'
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingId, setEditingId] = useState(null)
@@ -585,13 +584,13 @@ function AssignDocument() {
            actions.push({ label: "Request Revision", icon: RefreshCw, onClick: () => handleRequestRevision(row) });
         }
         
-        if (row.status === 'Revision Requested' && isAdmin) {
+        if (row.status === 'Revision Requested' && hasPermission("dms:vdr", "Update")) {
            actions.push({ type: "separator" });
            actions.push({ label: "Approve Revision", icon: CheckCircle2, onClick: () => handleApproveRevision(row) });
            actions.push({ label: "Reject Revision", icon: XCircle, onClick: () => handleRejectRevision(row), color: "danger" });
         }
         
-        if (isAdmin) {
+        if (hasPermission("dms:vdr", "Delete")) {
            actions.push({ type: "separator" });
            actions.push({ 
              label: row.is_active ? "Deactivate" : "Activate", 
@@ -660,7 +659,7 @@ function AssignDocument() {
       cell: (row) => new Date(row.updatedAt).toLocaleDateString("en-GB"),
     },
 
-  ], [activeClientOptions, activePoOptions, activeJobOptions, isAdmin])
+  ], [activeClientOptions, activePoOptions, activeJobOptions, users, hasPermission]);
 
   const proTableTopFilters = useMemo(() => [
     {
@@ -1330,7 +1329,7 @@ function AssignDocument() {
             <ProDataTable
               columns={columns}
               fetchData={fetchAssignedDocuments}
-              onExport={handleExport}
+              onExport={hasPermission("dms:vdr", "Export") ? handleExport : undefined}
               onAdd={hasPermission("dms:vdr", "Create") ? () => { handleBack(); setView("assign"); } : undefined}
               onImport={handleImportExcel}
               onDownloadTemplate={handleDownloadTemplate}
@@ -1636,7 +1635,7 @@ function AssignDocument() {
                               </TableCell>
 
                               <TableCell>
-                                {isPowerUser ? (
+                                {hasPermission("dms:vdr", "Update") ? (
                                   <Input
                                     type="date"
                                     value={assignment.planned_submission_date || (() => {
@@ -1709,9 +1708,11 @@ function AssignDocument() {
                   </div>
                   <div className="flex justify-end gap-3 mt-6">
                     <Button className="cursor-pointer" variant="outline" onClick={handleBack} disabled={isLoading}>Cancel</Button>
+                    <AccessControl required="dms:vdr:Create">
                     <Button className="cursor-pointer" onClick={handleAssign} disabled={isSubmitDisabled}>
                       {isLoading ? (editingId ? "Updating..." : "Assigning...") : (editingId ? "Update Document" : "Assign Documents")}
                     </Button>
+                    </AccessControl>
                   </div>
                 </div>
               </div>

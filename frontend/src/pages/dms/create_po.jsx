@@ -34,9 +34,7 @@ import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
 function CreatePO() {
-  const isAdmin = true;
-  const { roles } = useAuth()
-  const canArchive = roles?.some(role => ["ADMIN", "MARKETING", "DCC", "TAXATION"].includes(role))
+  const { roles, hasPermission } = useAuth()
 
   const [view, setView] = useState("list") // 'list', 'create', or 'attachments'
   const [selectedHistoryPo, setSelectedHistoryPo] = useState(null)
@@ -378,11 +376,11 @@ function CreatePO() {
           },
         ];
         
-        if (isAdmin || canArchive) {
+        if (hasPermission("po:management", "Delete")) {
           actions.push({ type: "separator" });
         }
         
-        if (isAdmin) {
+        if (hasPermission("po:management", "Delete")) {
           actions.push({ 
             label: row.is_active ? "Deactivate PO" : "Activate PO", 
             icon: row.is_active ? XCircle : CheckCircle, 
@@ -391,8 +389,8 @@ function CreatePO() {
           });
         }
         
-        if (canArchive) {
-          if (!isAdmin) actions.push({ type: "separator" });
+        if (hasPermission("po:management", "Delete")) {
+          if (!hasPermission("po:management", "Delete")) actions.push({ type: "separator" });
           actions.push({ label: "Archive PO", icon: Archive, color: "danger", onClick: () => handleDelete(row) });
         }
 
@@ -403,7 +401,7 @@ function CreatePO() {
         );
       },
     },
-  ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions, isAdmin, canArchive])
+  ], [handleEdit, activeCustomerOptions, activeLocationOptions, activePoOptions, hasPermission])
 
   const fetchPos = useCallback(async (params) => {
     try {

@@ -131,7 +131,7 @@ const defaultFormData = {
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onViewClick, onOpenClick }) {
-    const { user } = useAuth()
+    const { user, hasPermission } = useAuth()
     const currentUserId = user?.id || ""
     const [error, setError] = useState("")
     const [isDownloading, setIsDownloading] = useState(false)
@@ -161,7 +161,6 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
         const stage = row.current_stage
         const ncrSt = row.ncr_status
 
-        const isAdmin = user?.roles?.includes("ADMIN")
         const creatorId = row.ncr_raised_by || row.initiator?.id
 
         // Admins can potentially bypass or view, but strictly adhering to IDs for workflow:
@@ -444,7 +443,7 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                     });
                 }
                 
-                if (user?.roles?.includes("ADMIN")) {
+                if (hasPermission("ncr:request", "Delete")) {
                     actions.push({ type: "separator" });
                     actions.push({
                         label: row.is_active ? "Deactivate" : "Activate",
@@ -508,7 +507,7 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
                 columnFilters={columnFilters}
                 onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
                 refreshKey={refreshKey}
-                onAdd={onCreateClick}
+                onAdd={hasPermission("ncr:request", "Create") ? onCreateClick : undefined}
                 onAddTooltip="Create NCR"
             />
 

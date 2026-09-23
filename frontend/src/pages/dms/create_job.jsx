@@ -28,9 +28,10 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { commonApi } from "@/api/common.api"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { useAuth } from "@/context/AuthContext";
 
 function CreateJob() {
-  const isAdmin = true;
+  const { hasPermission } = useAuth()
   const [view, setView] = useState("list") // 'list' or 'create'
 
   const [formData, setFormData] = useState({
@@ -318,7 +319,7 @@ function CreateJob() {
           { label: "Edit Job", icon: Edit, onClick: () => handleEdit(row) },
         ];
         
-        if (isAdmin) {
+        if (hasPermission("job:management", "Delete")) {
           actions.push({ type: "separator" });
           actions.push({ 
             label: row.is_active ? "Deactivate Job" : "Activate Job", 

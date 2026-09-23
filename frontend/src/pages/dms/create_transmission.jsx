@@ -55,7 +55,9 @@ import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog
 import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { useAuth } from "@/context/AuthContext";
 function CreateTransmission() {
+  const { hasPermission } = useAuth();
   const navigate = useNavigate();
   const [view, setView] = useState("list") // 'list' | 'create'
 
@@ -1025,7 +1027,7 @@ function CreateTransmission() {
               columnFilters={listFilters}
               onFilterChange={onListFiltersChange}
               showSelectionColumn={false}
-              onAdd={() => { setView('create'); setSelectedDocuments([]); }}
+              onAdd={hasPermission("dms:transmission", "Create") ? () => { setView("create"); setSelectedDocuments([]); } : undefined}
               onAddTooltip="Create Transmission"
             />
           ) : view === 'send' ? (

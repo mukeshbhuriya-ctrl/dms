@@ -47,10 +47,11 @@ import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+import { useAuth } from "@/context/AuthContext"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick, refreshKey }) {
-  const isAdmin = true;
+  const { hasPermission } = useAuth()
   const [columnFilters, setColumnFilters] = useState({ is_active: ["true"] })
   const [activeFilters, setActiveFilters] = useState({ records: [] })
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, id: null, type: 'delete' })
@@ -287,7 +288,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
           { label: "Download PDF", icon: Download, onClick: () => handleExport(row.id, row.ref_no, 'download') },
         ];
         
-        if (isAdmin) {
+        if (hasPermission("dtn:drawing_transmittal", "Delete")) {
           actions.push({ type: "separator" });
           actions.push({ 
             label: row.is_active ? "Deactivate" : "Activate", 

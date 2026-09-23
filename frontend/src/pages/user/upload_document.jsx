@@ -45,8 +45,11 @@ import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog
 import { FileListPreviewDialog } from "@/components/shared/FileListPreviewDialog"
 import { MultiFileUploadModal } from "@/components/shared/MultiFileUploadModal"
 import DocumentTrail from "../../components/dms/DocumentTrail"
+import { AccessControl } from "@/components/iam/access_control";
+import { useAuth } from "@/context/AuthContext";
 
 function UploadDocument() {
+    const { roles, hasPermission } = useAuth()
     const [uploadingIds, setUploadingIds] = useState({})
     const [uploadProgress, setUploadProgress] = useState({})
     const [statusFilter, setStatusFilter] = useState("all")
@@ -390,6 +393,7 @@ function UploadDocument() {
                 return (
                     <div className="flex flex-col gap-2">
                         <div className="flex items-center gap-2">
+                            <AccessControl required="dms:upload:Upload">
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -414,6 +418,7 @@ function UploadDocument() {
                                 )}
                                 {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : 'Upload'}
                             </Button>
+                            </AccessControl>
 
                             <Button
                                 variant="outline"
@@ -635,7 +640,7 @@ function UploadDocument() {
             <ProDataTable
                 columns={columns}
                 fetchData={fetchDocumentsWrapper}
-                onExport={handleExport}
+                onExport={hasPermission("dms:upload", "Export") ? handleExport : undefined}
                 columnFilters={columnFilters}
                 onFilterChange={onFilterChange}
                 refreshKey={refreshTrigger}
