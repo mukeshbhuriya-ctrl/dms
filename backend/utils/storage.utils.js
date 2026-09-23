@@ -180,8 +180,7 @@ class StorageUtils {
         const archiveDir = path.join(dir, '_rejected');
         this._ensureDir(archiveDir);
 
-        const timestamp = Date.now();
-        const archivedPath = path.join(archiveDir, `${timestamp}_${filename}`);
+        const archivedPath = path.join(archiveDir, filename);
         fs.renameSync(fullPath, archivedPath);
 
         return this.getRelativePath(archivedPath);

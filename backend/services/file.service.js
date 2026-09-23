@@ -83,11 +83,12 @@ class FileService {
       orderBy: { version_no: 'asc' }
     });
 
-    // Case 2: Last version was internally rejected — overwrite same slot
+    // Case 2: Last version was internally rejected or uploaded but not approved — overwrite same slot
     const rejectedVersion = !pendingPlaceholder
       ? await tx.document_version.findFirst({
-          where: { group_document_id: documentId, status: 'Rejected' },
-          orderBy: { version_no: 'desc' }
+          where: { group_document_id: documentId, status: { in: ['Rejected', 'Uploaded'] } },
+          orderBy: { version_no: 'desc' },
+          include: { files: { where: { is_active: true } } }
         })
       : null;
 
@@ -152,11 +153,40 @@ class FileService {
         data: { is_active: false }
       });
 
-      // Mark old files from this rejected version as inactive in DB (preserving history)
-      await tx.document_file.updateMany({
-        where: { version_id: rejectedVersion.id },
-        data: { is_active: false }
-      });
+      // If it's a replacement of an unapproved upload, delete the old physical files and DB records
+      if (rejectedVersion.status === 'Uploaded') {
+        const StorageUtils = require('../utils/storage.utils');
+        
+        // Archive all associated document_file records and their physical files
+        if (rejectedVersion.files && rejectedVersion.files.length > 0) {
+          for (const file of rejectedVersion.files) {
+            if (file.file_path) {
+              const archivedPath = StorageUtils.archiveRejectedFile(file.file_path);
+              if (archivedPath) {
+                await tx.document_file.update({
+                  where: { id: file.id },
+                  data: { file_path: archivedPath, is_active: false }
+                });
+              } else {
+                await tx.document_file.update({
+                  where: { id: file.id },
+                  data: { is_active: false }
+                });
+              }
+            }
+          }
+        } else if (rejectedVersion.file_path) {
+          // Legacy fallback
+          StorageUtils.archiveRejectedFile(rejectedVersion.file_path);
+        }
+      } else {
+        // Mark old files from this rejected version as inactive in DB (preserving history)
+        await tx.document_file.updateMany({
+          where: { version_id: rejectedVersion.id },
+          data: { is_active: false }
+        });
+      }
+
 
       version = await tx.document_version.update({
         where: { id: rejectedVersion.id },

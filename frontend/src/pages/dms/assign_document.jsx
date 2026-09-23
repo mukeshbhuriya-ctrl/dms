@@ -424,6 +424,17 @@ function AssignDocument() {
       cell: (row) => (row.display_version_no === 0 || row.display_version_no) ? `${row.display_version_no}` : "-",
     },
     {
+      id: "transmittal_no",
+      header: "Transmittal No",
+      accessorKey: "transmission_number",
+      filterType: "text",
+      cell: (row) => {
+        const latestVersion = row.versions && row.versions.length > 0 ? row.versions[0] : null;
+        const transmittalNo = latestVersion?.transmission_items?.[0]?.transmission?.transmission_number;
+        return transmittalNo || "-";
+      },
+    },
+    {
       id: "assignee",
       header: "Assigned To",
       accessorKey: "user.name",

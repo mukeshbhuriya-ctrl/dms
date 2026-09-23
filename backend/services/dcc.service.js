@@ -1189,7 +1189,10 @@ class DccService {
                     transmission_items: {
                         orderBy: { transmission: { createdAt: 'desc' } },
                         take: 1,
-                        select: { client_status: true }
+                        select: { 
+                            client_status: true,
+                            transmission: { select: { transmission_number: true } }
+                        }
                     }
                 }
             }
@@ -1281,7 +1284,7 @@ class DccService {
             // Case 2: Last version was internally rejected → overwrite same slot
             const rejectedVersion = !pendingPlaceholder
                 ? await tx.document_version.findFirst({
-                    where: { group_document_id: document_id, status: 'Rejected' },
+                    where: { group_document_id: document_id, status: { in: ['Rejected', 'Uploaded'] } },
                     orderBy: { version_no: 'desc' }
                 })
                 : null;
@@ -1346,6 +1349,16 @@ class DccService {
             }
 
             // 4. Log Activity
+            if (groupDoc.status === 'Pending for Approval') {
+                const lastUpload = await tx.document_activity.findFirst({
+                    where: { group_document_id: document_id, action: 'Uploaded' },
+                    orderBy: { createdAt: 'desc' }
+                });
+                if (lastUpload) {
+                    await tx.document_activity.delete({ where: { id: lastUpload.id } });
+                }
+            }
+
             await ActivityService.logActivity({
                 company_id,
                 group_document_id: document_id,
@@ -1353,9 +1366,11 @@ class DccService {
                 action: groupDoc.status === 'As Built' ? 'As Built Finalized' : 'Uploaded',
                 remarks: groupDoc.status === 'As Built'
                     ? `Final As-Built version ${targetVersionNo} uploaded and automatically approved`
-                    : (rejectedVersion
-                        ? `Version ${targetVersionNo} (Correction) uploaded`
-                        : `Version ${targetVersionNo} uploaded`),
+                    : (groupDoc.status === 'Pending for Approval'
+                        ? `Version ${targetVersionNo} uploaded`
+                        : (rejectedVersion
+                            ? `Version ${targetVersionNo} (Correction) uploaded`
+                            : `Version ${targetVersionNo} uploaded`)),
                 metadata: {
                     version_no: targetVersionNo,
                     is_correction: !!rejectedVersion,

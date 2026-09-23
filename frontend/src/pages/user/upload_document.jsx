@@ -423,7 +423,7 @@ function UploadDocument() {
                                     ) : (
                                         <Upload className="h-4 w-4 mr-2" />
                                     )}
-                                    {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : 'Upload'}
+                                    {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : (row.originalStatus === 'Pending for Approval' || row.originalStatus === 'Uploaded' ? 'Replace' : 'Upload')}
                                 </Button>
                             </AccessControl>
 
