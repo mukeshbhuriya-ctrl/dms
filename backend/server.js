@@ -103,6 +103,9 @@ app.use('/api/ncr', ncrRoutes);
 const adminDashboardRoutes = require('#routes/admin/dashboard.routes.js');
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 
+const qpDashboardRoutes = require('./routes/dashboard/quality_production.routes.js');
+app.use('/api/dashboard/quality-production', qpDashboardRoutes);
+
 const approvalCenterRoutes = require('#routes/admin/approvalCenter.routes.js');
 app.use('/api/admin/approval-center', approvalCenterRoutes);
 

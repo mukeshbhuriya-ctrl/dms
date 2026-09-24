@@ -37,6 +37,7 @@ const IAM_POLICIES = {
         "inspection:dish_end", "inspection:tube_sheet", "inspection:tube_bundle", "inspection:final",
         "qap:quality_assurance_plan",
         "dashboard:job_overview", "reports:management",
+        "dashboard:quality_production",
         "instruments:calibration", "instruments:pressure",
         "maintenance:machine", "maintenance:memo", "maintenance:pm_schedule",
         "work_permit:permit"
@@ -59,6 +60,7 @@ const IAM_POLICIES = {
         "inspection:dish_end", "inspection:tube_sheet", "inspection:tube_bundle", "inspection:final",
         "qap:quality_assurance_plan",
         "dashboard:job_overview", "reports:management",
+        "dashboard:quality_production",
         "instruments:calibration", "instruments:pressure"
       ]
     }

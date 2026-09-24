@@ -24,6 +24,12 @@ export const MENU_CONFIG = [
         required: "dashboard:user:View",
     },
     {
+        title: "Quality / Production Dashboard",
+        icon: LayoutDashboard,
+        path: "/dashboard/quality-production",
+        required: "dashboard:quality_production:View",
+    },
+    {
         title: "Job Overview",
         icon: FileText,
         path: "/admin/job-overview",

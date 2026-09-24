@@ -29,6 +29,7 @@ export const BREADCRUMB_MAP = {
   // ── Dashboards ──
   "/admin/dashboard":           { label: "Dashboard", icon: LayoutDashboard },
   "/user/dashboard":            { label: "Dashboard", icon: LayoutDashboard },
+  "/dashboard/quality-production": { label: "Quality / Production Dashboard", icon: LayoutDashboard },
   "/marketing/dashboard":       { label: "Marketing Dashboard", icon: TrendingUp },
 
   // ── Administration ──

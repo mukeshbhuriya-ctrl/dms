@@ -9,6 +9,7 @@ import {
   SiteAdminCreateCompany,
 } from "@/pages/siteadmin"
 import { UserDashboard, UploadDocument } from "@/pages/user"
+import QualityProductionDashboard from "@/pages/dashboard/quality_production_dashboard.jsx"
 
 import {
   AssignDocument,
@@ -102,6 +103,10 @@ const userRoutes = [
     element: protect(
       <UploadDocument />
     ),
+  },
+  {
+    path: "/dashboard/quality-production",
+    element: protect(<QualityProductionDashboard />),
   },
 ]
 
