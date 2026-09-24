@@ -776,7 +776,7 @@ function CreatePO() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label>PO Document *</Label>
+                        <Label>PO Document</Label>
                         <div className="space-y-4">
                           <Label htmlFor="documentUpload" className="cursor-pointer">
                             <div className="flex items-center gap-2">

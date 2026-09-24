@@ -368,11 +368,6 @@ async function createPo(req, res) {
     } else if (po_doc_url && po_doc_url.trim() !== '') {
       // Use URL from request body if no file uploaded
       finalPoDocUrl = po_doc_url.trim();
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: 'PO document is required. Either upload a file or provide a document URL',
-      });
     }
 
     // Prepare initial po_attachments json array
