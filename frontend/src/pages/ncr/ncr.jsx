@@ -532,8 +532,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
     const [jobs, setJobs] = useState([])
     const [users, setUsers] = useState([])
     const [jobsLoading, setJobsLoading] = useState(true)
-    const [assignedDrawings, setAssignedDrawings] = useState([])
-    const [isDrawingsLoading, setIsDrawingsLoading] = useState(false)
+
     const [formData, setFormData] = useState(defaultFormData)
     const [attachment, setAttachment] = useState(null)
     const [preview, setPreview] = useState(null)
@@ -701,20 +700,16 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
         setFormData((prev) => ({ ...prev, msmNumber: jobId }))
 
         if (!jobId) {
-            setAssignedDrawings([])
             return
         }
 
-        setIsDrawingsLoading(true)
         try {
-            const [ncrRes, jobRes, drawingsRes] = await Promise.all([
+            const [ncrRes, jobRes] = await Promise.all([
                 apiClient.get(`/api/ncr/next-ncr-no/${jobId}`),
-                apiClient.get(`/api/common/jobs/${jobId}`),
-                apiClient.get(`/api/dcr/get-assigned-drawings/${jobId}`).catch(() => ({ success: false, data: [] }))
+                apiClient.get(`/api/common/jobs/${jobId}`)
             ])
 
             const job = jobRes.data || {}
-            setAssignedDrawings(drawingsRes.success ? (drawingsRes.data || []) : [])
 
             setFormData((prev) => ({
                 ...prev,
@@ -728,9 +723,7 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
             }))
         } catch (err) {
             console.error("Failed to fetch job details:", err)
-            toast.error("Failed to fetch job details or assigned drawings")
-        } finally {
-            setIsDrawingsLoading(false)
+            toast.error("Failed to fetch job details")
         }
     }
 
@@ -984,15 +977,13 @@ function FormView({ ncrId, onBack, onSuccess, isViewOnly = false, isOpenMode = f
                         className="bg-muted"
                     />
                 ) : (
-                    <SearchableSelect
-                        options={assignedDrawings.map(doc => ({
-                            label: `${doc.shreno_doc_no} - ${doc.document_name}`,
-                            value: doc.shreno_doc_no
-                        }))}
+                    <Input
+                        id={`${idPrefix}drgNo`}
+                        name="drgNo"
+                        placeholder="Enter Drawing No."
                         value={formData.drgNo}
-                        onValueChange={(val) => handleSelectChange("drgNo", val)}
-                        disabled={isDisabled || isDrawingsLoading || !formData.msmNumber}
-                        placeholder={!formData.msmNumber ? "Select MSN first" : isDrawingsLoading ? "Loading..." : "Select Drawing"}
+                        onChange={handleInputChange}
+                        disabled={isDisabled || !formData.msmNumber}
                     />
                 )}
             </div>
