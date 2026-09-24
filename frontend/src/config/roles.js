@@ -24,7 +24,7 @@ export const MENU_CONFIG = [
         required: "dashboard:user:View",
     },
     {
-        title: "Quality / Production Dashboard",
+        title: "Dashboard",
         icon: LayoutDashboard,
         path: "/dashboard/quality-production",
         required: "dashboard:quality_production:View",

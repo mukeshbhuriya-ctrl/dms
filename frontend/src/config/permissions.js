@@ -2,6 +2,7 @@ export const PERMISSION_MODULES = [
   // Dashboards
   { id: 'dashboard:admin', name: 'Dashboard: Admin', actions: ['View'] },
   { id: 'dashboard:user', name: 'Dashboard: User', actions: ['View'] },
+  { id: 'dashboard:quality_production', name: 'Dashboard: Quality Production', actions: ['View'] },
   { id: 'dashboard:job_overview', name: 'Dashboard: Job Overview', actions: ['View'] },
 
   // Administration

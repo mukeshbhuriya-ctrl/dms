@@ -239,7 +239,7 @@ export default function RoleManagement() {
                         value={formData.name} 
                         onChange={handleInputChange} 
                         required 
-                        disabled={isLoading || editingRole?.is_system_role} 
+                        disabled={isLoading} 
                       />
                     </div>
                     <div className="space-y-2">
@@ -263,7 +263,7 @@ export default function RoleManagement() {
                         placeholder="Role description" 
                         value={formData.description} 
                         onChange={handleInputChange} 
-                        disabled={isLoading || editingRole?.is_system_role} 
+                        disabled={isLoading} 
                       />
                     </div>
                   </div>
@@ -279,7 +279,7 @@ export default function RoleManagement() {
                   <PermissionMatrix 
                     matrixState={policiesToMatrix(formData.policies, [])}
                     onChange={handleMatrixChange}
-                    disabled={isLoading || editingRole?.is_system_role}
+                    disabled={isLoading}
                   />
                 </CardContent>
               </Card>
@@ -288,12 +288,10 @@ export default function RoleManagement() {
                 <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
                   Cancel
                 </Button>
-                {(!editingRole || !editingRole.is_system_role) && (
-                  <Button type="submit" disabled={isLoading}>
-                    <Save className="mr-2 h-4 w-4" />
-                    {isLoading ? "Saving..." : (editingRole ? "Save Changes" : "Create Role")}
-                  </Button>
-                )}
+                <Button type="submit" className="cursor-pointer" disabled={isLoading}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isLoading ? "Saving..." : (editingRole ? "Save Changes" : "Create Role")}
+                </Button>
               </div>
             </form>
           </div>

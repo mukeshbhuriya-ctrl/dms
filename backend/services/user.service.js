@@ -215,11 +215,15 @@ class UserService {
         if (role.company_id !== company_id) throw new Error('Unauthorized');
         
         if (role.is_system_role) {
-            // Only policies can be updated for system roles, or maybe not at all?
-            // Usually system roles can't be renamed, but their policies can be updated.
+            // System roles cannot have their identifier changed (to prevent breaking logic),
+            // but their display name, description, and policies can be updated.
             return prisma.role.update({
                 where: { id },
-                data: { policies: policies || role.policies }
+                data: { 
+                    name: name || role.name,
+                    description: description !== undefined ? description : role.description,
+                    policies: policies || role.policies 
+                }
             });
         }
         return prisma.role.update({

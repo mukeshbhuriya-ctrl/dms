@@ -7,7 +7,7 @@ const IAM_POLICIES = {
       Effect: "Allow",
       Action: ["*"],
       Resource: [
-        "dashboard:user",
+        "dashboard:quality_production",
         "dtn:drawing_transmittal", "dtn:drawing_master",
         "dms:communication_matrix", "dms:vdr", "dms:approver", "dms:transmission", "dms:status",
         "dcr:request",
@@ -26,7 +26,7 @@ const IAM_POLICIES = {
       Effect: "Allow",
       Action: ["*"],
       Resource: [
-        "dashboard:user",
+        "dashboard:quality_production",
         "dtn:drawing_transmittal", "dtn:drawing_master",
         "dms:vdr",
         "dcr:request",
@@ -49,7 +49,7 @@ const IAM_POLICIES = {
       Effect: "Allow",
       Action: ["*"],
       Resource: [
-        "dashboard:user",
+        "dashboard:quality_production",
         "dtn:drawing_transmittal", "dtn:drawing_master",
         "dms:vdr",
         "dcr:request",
@@ -70,7 +70,7 @@ const IAM_POLICIES = {
       Effect: "Allow",
       Action: ["*"],
       Resource: [
-        "dashboard:user",
+        "dashboard:quality_production",
         "dtn:drawing_transmittal", "dtn:drawing_master",
         "dms:vdr",
         "dcr:request",
@@ -88,7 +88,7 @@ const IAM_POLICIES = {
     {
       Effect: "Allow",
       Action: ["*"],
-      Resource: ["dashboard:user", "qap:quality_assurance_plan", "qap:heading_master"]
+      Resource: ["dashboard:quality_production", "qap:quality_assurance_plan", "qap:heading_master"]
     }
   ],
   MARKETING: [
