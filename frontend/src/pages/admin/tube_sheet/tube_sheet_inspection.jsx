@@ -209,6 +209,11 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
     setConfirmDialogOpen(true)
   }
 
+  const activeStatusOptions = useMemo(() => [
+    { label: "Draft", value: "Draft" },
+    { label: "Uploaded", value: "Uploaded" }
+  ], []);
+
   const activeIsActiveOptions = useMemo(() => [
     { label: "Active", value: "true" },
     { label: "Inactive", value: "false" }
@@ -242,6 +247,23 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
       header: "Created",
       accessorKey: "createdAt",
       cell: (row) => new Date(row.createdAt).toLocaleDateString(),
+    },
+    {
+      header: "Status",
+      accessorKey: "status",
+      filterType: "select",
+      isMulti: true,
+      filterOptions: activeStatusOptions,
+      cell: (row) => {
+        let badgeClass = "bg-gray-100 text-gray-800"
+        if (row.status === "Draft") badgeClass = "bg-amber-100 text-amber-800"
+        else if (row.status === "Uploaded") badgeClass = "bg-emerald-100 text-emerald-800"
+        return (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}>
+            {row.status || "Draft"}
+          </span>
+        )
+      }
     },
     {
       header: "Active",
@@ -307,7 +329,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
         );
       },
     },
-  ], [activeClientOptions, activePoOptions, activeMsnOptions, isAdmin, roles, user, activeIsActiveOptions, onEditClick])
+  ], [activeClientOptions, activePoOptions, activeMsnOptions, isAdmin, roles, user, activeStatusOptions, activeIsActiveOptions, onEditClick])
 
   const fetchData = useCallback(async (params) => {
     const queryParams = { ...params };
@@ -623,7 +645,7 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
 
 
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (status = "Draft") => {
     if (!formData.msn) {
       toast.error("Please select an MSN")
       return
@@ -639,6 +661,7 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
       code: formData.code,
       drg_no: formData.drgNo,
       insp_agency: formData.inspAgency,
+      status: status,
       actual_dimension_1_header: actual_dimension_1,
       actual_dimension_2_header: actual_dimension_2,
       items: tableRows.map(r => ({
@@ -699,18 +722,13 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="msn">MSN / JOB NO.:</Label>
-              <Select value={formData.msn} onValueChange={handleMsnChange} disabled={userRole === 'PROD' || isViewMode}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select MSN" />
-                </SelectTrigger>
-                <SelectContent>
-                  {msnOptions.map((msnOption) => (
-                    <SelectItem key={msnOption.id} value={msnOption.id}>
-                      {msnOption.job_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={msnOptions.map((msnOption) => ({ label: msnOption.job_number, value: msnOption.id }))}
+                value={formData.msn}
+                onValueChange={handleMsnChange}
+                placeholder="Select MSN"
+                disabled={userRole === 'PROD' || isViewMode}
+              />
             </div>
 
             <div className="space-y-2">
@@ -1070,8 +1088,13 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
       </Card>
 
       <div className="flex justify-end gap-4 mt-6">
+        {!isViewMode && (!editId || formData.status?.toLowerCase() === 'draft') && (
+          <Button variant="outline" onClick={() => handleSubmit("Draft")} disabled={submitting || userRole === 'PROD'} className="cursor-pointer">
+            Save Draft
+          </Button>
+        )}
         {!isViewMode && (
-          <Button onClick={() => handleSubmit()} disabled={submitting || userRole === 'PROD'} className="cursor-pointer">
+          <Button className="cursor-pointer" onClick={() => handleSubmit("Offered")} disabled={submitting || userRole === 'PROD'}>
             {submitting ? "Saving..." : (editId ? "Update Report" : "Submit Report")}
           </Button>
         )}

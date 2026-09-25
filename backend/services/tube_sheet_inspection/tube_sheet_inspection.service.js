@@ -31,19 +31,36 @@ class TubeSheetInspectionService {
             is_deleted: false
         };
 
-        if (search) {
+        if (user) {
+            const userId = user.id || user.userid;
             where.OR = [
+                { status: { not: 'Draft' } },
+                { AND: [{ status: 'Draft' }, { created_by: userId }] }
+            ];
+        } else {
+            where.status = { not: 'Draft' };
+        }
+
+        if (search) {
+            const searchOr = [
                 { msn: { contains: search, mode: 'insensitive' } },
                 { report_no: { contains: search, mode: 'insensitive' } },
                 { client: { contains: search, mode: 'insensitive' } },
                 { equipment_name: { contains: search, mode: 'insensitive' } }
             ];
+            if (where.OR) {
+                where.AND = where.AND || [];
+                where.AND.push({ OR: searchOr });
+            } else {
+                where.OR = searchOr;
+            }
         }
 
         const cFilters = params.columnFilters || {};
         if (cFilters.msn) where.msn = this._processFilter(cFilters.msn);
         if (cFilters.report_no) where.report_no = this._processFilter(cFilters.report_no);
         if (cFilters.client) where.client = this._processFilter(cFilters.client);
+        if (cFilters.status) where.status = this._processFilter(cFilters.status);
 
         if (cFilters.is_active) {
             const activeStatus = Array.isArray(cFilters.is_active) ? cFilters.is_active : cFilters.is_active.split(',').map(v => v.trim());
@@ -107,7 +124,7 @@ class TubeSheetInspectionService {
     /**
      * Get single report by ID
      */
-    async getById(id, company_id) {
+    async getById(id, company_id, user = null) {
         const report = await prisma.tube_sheet_inspection_report.findFirst({
             where: {
                 id,
@@ -127,6 +144,15 @@ class TubeSheetInspectionService {
             const error = new Error('Report not found');
             error.statusCode = 404;
             throw error;
+        }
+
+        if (report.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || report.created_by !== userId) {
+                const error = new Error("Access denied: You cannot view this draft");
+                error.statusCode = 403;
+                throw error;
+            }
         }
 
         return report;
@@ -159,6 +185,7 @@ class TubeSheetInspectionService {
         const {
             job_id, msn, client, po_no, equipment_name, tag_no,
             code, drg_no, insp_agency, actual_dimension_1_header, actual_dimension_2_header,
+            status,
             items = [], instruments = [], remarks = []
         } = data;
 
@@ -181,6 +208,7 @@ class TubeSheetInspectionService {
                     actual_dimension_1_header,
                     actual_dimension_2_header,
                     created_by: user_id,
+                    status: status || "Draft",
                     
                     items: {
                         create: items.map(item => ({
@@ -223,13 +251,22 @@ class TubeSheetInspectionService {
     /**
      * Update an existing report
      */
-    async update(id, company_id, data) {
+    async update(id, company_id, data, user = null) {
         const {
             items = [], instruments = [], remarks = [],
             ...updateData
         } = data;
 
-        const existing = await this.getById(id, company_id);
+        const existing = await this.getById(id, company_id, user);
+
+        if (existing.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || existing.created_by !== userId) {
+                const error = new Error("Access denied: You cannot edit this draft");
+                error.statusCode = 403;
+                throw error;
+            }
+        }
 
         return await prisma.$transaction(async (tx) => {
             // Delete existing relations
@@ -248,6 +285,7 @@ class TubeSheetInspectionService {
                     insp_agency: updateData.insp_agency,
                     actual_dimension_1_header: updateData.actual_dimension_1_header,
                     actual_dimension_2_header: updateData.actual_dimension_2_header,
+                    ...(updateData.status && { status: updateData.status }),
 
                     items: {
                         create: items.map(item => ({

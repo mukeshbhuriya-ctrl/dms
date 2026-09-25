@@ -28,7 +28,7 @@ class TubeBundleInspectionController {
     async getById(req, res) {
         try {
             const { company_id } = req.user;
-            const report = await TubeBundleInspectionService.getById(req.params.id, company_id);
+            const report = await TubeBundleInspectionService.getById(req.params.id, company_id, req.user);
             res.status(200).json({ success: true, data: report });
         } catch (error) {
             console.error("TubeBundleInspectionController.getById Error:", error);
@@ -63,7 +63,7 @@ class TubeBundleInspectionController {
         try {
             const { company_id } = req.user;
             const user_id = req.user.userid || req.user.id;
-            const report = await TubeBundleInspectionService.update(req.params.id, company_id, user_id, req.body);
+            const report = await TubeBundleInspectionService.update(req.params.id, company_id, user_id, req.body, req.user);
             
             Audit.insert({
                 req,

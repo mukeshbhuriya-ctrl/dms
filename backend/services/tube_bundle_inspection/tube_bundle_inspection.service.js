@@ -31,13 +31,29 @@ class TubeBundleInspectionService {
             is_deleted: false
         };
 
-        if (search) {
+        if (user) {
+            const userId = user.id || user.userid;
             where.OR = [
+                { status: { not: 'Draft' } },
+                { AND: [{ status: 'Draft' }, { created_by: userId }] }
+            ];
+        } else {
+            where.status = { not: 'Draft' };
+        }
+
+        if (search) {
+            const searchOr = [
                 { msn: { contains: search, mode: 'insensitive' } },
                 { report_no: { contains: search, mode: 'insensitive' } },
                 { client: { contains: search, mode: 'insensitive' } },
                 { equipment_name: { contains: search, mode: 'insensitive' } }
             ];
+            if (where.OR) {
+                where.AND = where.AND || [];
+                where.AND.push({ OR: searchOr });
+            } else {
+                where.OR = searchOr;
+            }
         }
 
         const cFilters = params.columnFilters || {};
@@ -111,7 +127,7 @@ class TubeBundleInspectionService {
     /**
      * Get single report by ID
      */
-    async getById(id, company_id) {
+    async getById(id, company_id, user = null) {
         const report = await prisma.tube_bundle_inspection_report.findFirst({
             where: {
                 id,
@@ -135,6 +151,15 @@ class TubeBundleInspectionService {
             const error = new Error('Report not found');
             error.statusCode = 404;
             throw error;
+        }
+
+        if (report.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || report.created_by !== userId) {
+                const error = new Error("Access denied: You cannot view this draft");
+                error.statusCode = 403;
+                throw error;
+            }
         }
 
         return report;
@@ -248,13 +273,22 @@ class TubeBundleInspectionService {
     /**
      * Update an existing report
      */
-    async update(id, company_id, user_id, data) {
+    async update(id, company_id, user_id, data, user = null) {
         const {
             items = [], instruments = [], general_remarks = [],
             ...updateData
         } = data;
 
-        const existing = await this.getById(id, company_id);
+        const existing = await this.getById(id, company_id, user);
+
+        if (existing.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || existing.created_by !== userId) {
+                const error = new Error("Access denied: You cannot edit this draft");
+                error.statusCode = 403;
+                throw error;
+            }
+        }
 
         let qc_engineer_id = existing.qc_engineer_id;
         let production_engineer_id = existing.production_engineer_id;

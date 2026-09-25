@@ -4,22 +4,36 @@ class FinalInspectionService {
     /**
      * Get paginated list of reports
      */
-    async getList(company_id, { page, limit, search, columnFilters }) {
+    async getList(company_id, { page, limit, search, columnFilters }, user = null) {
         const skip = (page - 1) * limit;
 
         let whereClause = { 
             company_id: company_id,
             is_deleted: false
         };
+
+        if (user) {
+            const userId = user.id || user.userid;
+            whereClause.OR = [
+                { status: { not: 'Draft' } },
+                { AND: [{ status: 'Draft' }, { created_by: userId }] }
+            ];
+        } else {
+            whereClause.status = { not: 'Draft' };
+        }
+
         if (search) {
-            whereClause = {
-                ...whereClause,
-                OR: [
-                    { report_no: { contains: search, mode: 'insensitive' } },
-                    { client: { contains: search, mode: 'insensitive' } },
-                    { msn: { contains: search, mode: 'insensitive' } }
-                ]
-            };
+            const searchOr = [
+                { report_no: { contains: search, mode: 'insensitive' } },
+                { client: { contains: search, mode: 'insensitive' } },
+                { msn: { contains: search, mode: 'insensitive' } }
+            ];
+            if (whereClause.OR) {
+                whereClause.AND = whereClause.AND || [];
+                whereClause.AND.push({ OR: searchOr });
+            } else {
+                whereClause.OR = searchOr;
+            }
         }
 
         if (columnFilters) {
@@ -84,8 +98,8 @@ class FinalInspectionService {
     /**
      * Get report by ID with all relations
      */
-    async getById(company_id, id) {
-        return await prisma.final_inspection_report.findFirst({
+    async getById(company_id, id, user = null) {
+        const report = await prisma.final_inspection_report.findFirst({
             where: { id, company_id },
             include: {
                 details: { orderBy: { sr_no: 'asc' } },
@@ -98,6 +112,15 @@ class FinalInspectionService {
                 }
             }
         });
+
+        if (report && report.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || report.created_by !== userId) {
+                throw new Error("Report not found or access denied");
+            }
+        }
+
+        return report;
     }
 
     /**
@@ -136,6 +159,7 @@ class FinalInspectionService {
             drg_no,
             production_engineer_id,
             status,      // Optional status field
+            created_by,  // Optional created_by field
             details,     // array
             nozzles,     // array
             parts,       // array 
@@ -172,6 +196,7 @@ class FinalInspectionService {
                     drg_no,
                     production_engineer_id: production_engineer_id || null,
                     status: status || "Pending",
+                    created_by: created_by || null,
                     details: {
                         create: details?.map(item => ({
                             sr_no: item.sr_no,
@@ -230,7 +255,7 @@ class FinalInspectionService {
     /**
      * Update an existing Final Inspection Report
      */
-    async updateReport(company_id, id, payload) {
+    async updateReport(company_id, id, payload, user = null) {
         const {
             job_id,
             msn,
@@ -256,6 +281,13 @@ class FinalInspectionService {
         });
         if (!existing) throw new Error("Report not found");
 
+        if (existing.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || existing.created_by !== userId) {
+                throw new Error("Access denied: You cannot edit this draft");
+            }
+        }
+
         return await prisma.$transaction(async (tx) => {
             // Delete existing sub-items
             await tx.final_inspection_detail.deleteMany({ where: { report_id: id } });
@@ -278,7 +310,7 @@ class FinalInspectionService {
                     code,
                     drg_no,
                     production_engineer_id: production_engineer_id || null,
-                    status: status || "Pending",
+                    ...(status && { status }),
                     details: {
                         create: details?.map(item => ({
                             sr_no: item.sr_no,

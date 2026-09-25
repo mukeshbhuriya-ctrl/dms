@@ -1686,7 +1686,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
           <>
             <Button
               variant="outline"
-              onClick={() => handleSubmit("draft")}
+              onClick={() => handleSubmit("Draft")}
               disabled={submitting}
               className="cursor-pointer"
             >

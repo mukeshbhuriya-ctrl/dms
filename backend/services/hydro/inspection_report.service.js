@@ -4,22 +4,36 @@ class InspectionReportService {
     /**
      * Get paginated list of reports
      */
-    async getList(company_id, { page, limit, search, columnFilters }) {
+    async getList(company_id, { page, limit, search, columnFilters }, user = null) {
         const skip = (page - 1) * limit;
 
         let whereClause = { 
             company_id: company_id,
             is_deleted: false
         };
+
+        if (user) {
+            const userId = user.id || user.userid;
+            whereClause.OR = [
+                { status: { not: 'Draft' } },
+                { AND: [{ status: 'Draft' }, { created_by: userId }] }
+            ];
+        } else {
+            whereClause.status = { not: 'Draft' };
+        }
+
         if (search) {
-            whereClause = {
-                ...whereClause,
-                OR: [
-                    { report_no: { contains: search, mode: 'insensitive' } },
-                    { client: { contains: search, mode: 'insensitive' } },
-                    { msn: { contains: search, mode: 'insensitive' } }
-                ]
-            };
+            const searchOr = [
+                { report_no: { contains: search, mode: 'insensitive' } },
+                { client: { contains: search, mode: 'insensitive' } },
+                { msn: { contains: search, mode: 'insensitive' } }
+            ];
+            if (whereClause.OR) {
+                whereClause.AND = whereClause.AND || [];
+                whereClause.AND.push({ OR: searchOr });
+            } else {
+                whereClause.OR = searchOr;
+            }
         }
 
         if (columnFilters) {
@@ -85,8 +99,8 @@ class InspectionReportService {
     /**
      * Get report by ID with all relations
      */
-    async getById(company_id, id) {
-        return await prisma.dish_end_inspection_report.findFirst({
+    async getById(company_id, id, user = null) {
+        const report = await prisma.dish_end_inspection_report.findFirst({
             where: { id, company_id },
             include: {
                 items: {
@@ -98,6 +112,15 @@ class InspectionReportService {
                 }
             }
         });
+
+        if (report && report.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || report.created_by !== userId) {
+                throw new Error("Report not found or access denied");
+            }
+        }
+
+        return report;
     }
 
     /**
@@ -137,6 +160,8 @@ class InspectionReportService {
             insp_agency,
             production_engineer_id,
             vendor_dish_end_number,
+            status, // Optional status field
+            created_by, // Optional created_by field
             items, // array of { sr_no, description, as_per_drg, actual, remarks }
             instruments // array of { instrument_id, name, id_no, due_date }
         } = payload;
@@ -169,6 +194,8 @@ class InspectionReportService {
                     code,
                     drg_no,
                     insp_agency,
+                    status: status || "Pending",
+                    created_by: created_by || null,
                     production_engineer_id: production_engineer_id || null,
                     vendor_dish_end_number: vendor_dish_end_number || null,
                     items: {
@@ -198,7 +225,7 @@ class InspectionReportService {
     /**
      * Update an existing Dish End Inspection Report
      */
-    async updateReport(company_id, id, payload) {
+    async updateReport(company_id, id, payload, user = null) {
         const {
             job_id,
             msn,
@@ -212,6 +239,7 @@ class InspectionReportService {
             insp_agency,
             production_engineer_id,
             vendor_dish_end_number,
+            status,
             items, // array of { sr_no, description, as_per_drg, actual, remarks }
             instruments // array of { instrument_id, name, id_no, due_date }
         } = payload;
@@ -221,6 +249,13 @@ class InspectionReportService {
             where: { id, company_id }
         });
         if (!existing) throw new Error("Report not found");
+
+        if (existing.status === 'Draft') {
+            const userId = user?.id || user?.userid;
+            if (!userId || existing.created_by !== userId) {
+                throw new Error("Access denied: You cannot edit this draft");
+            }
+        }
 
         return await prisma.$transaction(async (tx) => {
             // Delete existing items and instruments
@@ -243,6 +278,7 @@ class InspectionReportService {
                     insp_agency,
                     production_engineer_id: production_engineer_id || null,
                     vendor_dish_end_number: vendor_dish_end_number || null,
+                    ...(status && { status }),
                     items: {
                         create: items.map(item => ({
                             sr_no: item.sr_no,

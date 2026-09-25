@@ -994,7 +994,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
 
 
   // Form Submission
-  const handleSubmit = async (newStatus = "draft") => {
+  const handleSubmit = async (newStatus = "Draft") => {
     console.log("Submitting Final Inspection Report with status:", newStatus);
     if (!msn) {
       toast.error("Please select an MSN");
@@ -1116,16 +1116,13 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="msn">MSN / JOB NO:</Label>
-              <Select value={msn} onValueChange={handleMsnChange} disabled={userRole === 'PROD'}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select MSN" />
-                </SelectTrigger>
-                <SelectContent>
-                  {msnOptions.map((opt) => (
-                    <SelectItem key={opt.id} value={opt.id}>{opt.job_number}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={msnOptions.map((opt) => ({ label: opt.job_number, value: opt.id }))}
+                value={msn}
+                onValueChange={handleMsnChange}
+                placeholder="Select MSN"
+                disabled={userRole === 'PROD'}
+              />
             </div>
 
             <div className="space-y-2">
@@ -1860,23 +1857,16 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="productionEngineer">Production Engineer:</Label>
-              <Select value={productionEngineer} onValueChange={setProductionEngineer} disabled={userRole === 'PROD'}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Production Engineer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {productionEngineers.map((engineer) => {
-                    const normalized = normalizeUser(engineer);
-                    return (
-                      <SelectItem key={normalized.id} value={normalized.id}>
-                        <div className="flex flex-col">
-                          <span>{normalized.displayName}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={productionEngineers.map((engineer) => {
+                  const normalized = normalizeUser(engineer);
+                  return { label: normalized.displayName, value: normalized.id };
+                })}
+                value={productionEngineer}
+                onValueChange={setProductionEngineer}
+                placeholder="Select Production Engineer"
+                disabled={userRole === 'PROD'}
+              />
             </div>
           </div>
         </CardContent>
@@ -1893,9 +1883,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
             </Button>
           </>
         ) : (
-          <Button onClick={() => handleSubmit("draft")} disabled={submitting || userRole === 'PROD'}>
-            {submitting ? "Saving..." : (editId ? "Update Report" : "Save & Submit Report")}
-          </Button>
+          <>
+            <Button className="cursor-pointer" variant="outline" onClick={() => handleSubmit("Draft")} disabled={submitting || userRole === 'PROD'}>
+              Save Draft
+            </Button>
+            <Button className="cursor-pointer" onClick={() => handleSubmit("Offered")} disabled={submitting || userRole === 'PROD'}>
+              {submitting ? "Saving..." : (editId ? "Update Report" : "Submit Report")}
+            </Button>
+          </>
         )}
       </div>
 

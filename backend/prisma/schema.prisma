@@ -181,8 +181,10 @@ model user{
   created_transmissions transmission[]
   created_drawing_transmittals drawing_transmittal[]
   uploaded_versions document_version[]
-  assigned_dish_end_reports dish_end_inspection_report[]
-  final_inspection_reports final_inspection_report[]
+  assigned_dish_end_reports dish_end_inspection_report[] @relation("DishEndProductionEngineer")
+  created_dish_end_reports dish_end_inspection_report[] @relation("DishEndCreator")
+  final_inspection_reports final_inspection_report[] @relation("FinalInspectionProductionEngineer")
+  created_final_inspection_reports final_inspection_report[] @relation("FinalInspectionCreator")
   dcr_design_engineer dcr[] @relation("DcrDesignEngineer")
   created_tube_sheet_inspection_reports tube_sheet_inspection_report[]
   created_tube_bundle_inspection_reports tube_bundle_inspection_report[]
@@ -1037,9 +1039,12 @@ model dish_end_inspection_report {
   status          String   @default("Pending")
   approver_remarks String?
 
+  created_by      String?
+
   company   company  @relation(fields: [company_id], references: [id])
   job       job      @relation(fields: [job_id], references: [id])
-  production_engineer user? @relation(fields: [production_engineer_id], references: [id])
+  production_engineer user? @relation("DishEndProductionEngineer", fields: [production_engineer_id], references: [id])
+  creator   user?    @relation("DishEndCreator", fields: [created_by], references: [id])
 
   items       dish_end_inspection_item[]
   instruments dish_end_inspection_instrument[]
@@ -1104,9 +1109,12 @@ model final_inspection_report {
   status          String   @default("Pending")
   approver_remarks String?
 
+  created_by      String?
+
   company   company  @relation(fields: [company_id], references: [id])
   job       job      @relation(fields: [job_id], references: [id])
-  production_engineer user? @relation(fields: [production_engineer_id], references: [id])
+  production_engineer user? @relation("FinalInspectionProductionEngineer", fields: [production_engineer_id], references: [id])
+  creator   user?    @relation("FinalInspectionCreator", fields: [created_by], references: [id])
 
   details     final_inspection_detail[]
   nozzles     final_inspection_nozzle[]
@@ -1809,6 +1817,7 @@ model tube_sheet_inspection_report {
   actual_dimension_2_header  String?
 
   created_by      String?
+  status          String   @default("Draft")
 
   company   company  @relation(fields: [company_id], references: [id])
   job       job      @relation(fields: [job_id], references: [id])

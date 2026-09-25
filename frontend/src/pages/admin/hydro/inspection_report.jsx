@@ -696,9 +696,9 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
 
   // Description options for the table
   const descriptionOptions = [
-    "OD",
+    "INNER DIAMETER",
     "OVALITY (Maximum)",
-    "OUTSIDE CIRCUMFERANCE",
+    "CIRCUMFERANCE",
     "CROWN RADIUS (C.R)",
     "KNUCKLE RADIUS (K.R)",
     "STRAIGHT FACE",
@@ -889,7 +889,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
     }
   }
 
-  const handleSubmit = async (status = "draft") => {
+  const handleSubmit = async (status = "Draft") => {
     if (!msn) {
       toast.error("Please select an MSN")
       return
@@ -961,18 +961,13 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="msn">MSN:</Label>
-              <Select value={msn} onValueChange={handleMsnChange} disabled={userRole === 'PROD'}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select MSN" />
-                </SelectTrigger>
-                <SelectContent>
-                  {msnOptions.map((msnOption) => (
-                    <SelectItem key={msnOption.id} value={msnOption.id}>
-                      {msnOption.job_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={msnOptions.map((msnOption) => ({ label: msnOption.job_number, value: msnOption.id }))}
+                value={msn}
+                onValueChange={handleMsnChange}
+                placeholder="Select MSN"
+                disabled={userRole === 'PROD'}
+              />
             </div>
 
             <div className="space-y-2">
@@ -1270,30 +1265,26 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="productionEngineer">Production Engineer:</Label>
-              <Select value={productionEngineer} onValueChange={setProductionEngineer} disabled={userRole === 'PROD'}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Production Engineer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {productionEngineers.map((engineer) => {
-                    const normalized = normalizeUser(engineer);
-                    return (
-                      <SelectItem key={normalized.id} value={normalized.id}>
-                        <div className="flex flex-col">
-                          <span>{normalized.displayName}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={productionEngineers.map((engineer) => {
+                  const normalized = normalizeUser(engineer);
+                  return { label: normalized.displayName, value: normalized.id };
+                })}
+                value={productionEngineer}
+                onValueChange={setProductionEngineer}
+                placeholder="Select Production Engineer"
+                disabled={userRole === 'PROD'}
+              />
             </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="flex justify-end gap-4 mt-6">
-        <Button onClick={() => handleSubmit("draft")} disabled={submitting || userRole === 'PROD'}>
+        <Button variant="outline" className="cursor-pointer" onClick={() => handleSubmit("Draft")} disabled={submitting || userRole === 'PROD'}>
+          Save Draft
+        </Button>
+        <Button className="cursor-pointer" onClick={() => handleSubmit("Offered")} disabled={submitting || userRole === 'PROD'}>
           {submitting ? "Saving..." : (editId ? "Update Report" : "Submit Report")}
         </Button>
       </div>

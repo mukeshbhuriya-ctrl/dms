@@ -17,7 +17,7 @@ class InspectionReportController {
                 limit: parseInt(limit),
                 search,
                 columnFilters
-            });
+            }, req.user);
 
             res.status(200).json({ success: true, ...result });
         } catch (error) {
@@ -37,7 +37,7 @@ class InspectionReportController {
             if (id === 'next-report-no') return; // Skip if it's the next-report-no route
             if (id === 'list') return; // Skip if it's the list route
 
-            const data = await InspectionReportService.getById(company_id, id);
+            const data = await InspectionReportService.getById(company_id, id, req.user);
             if (!data) {
                 return res.status(404).json({ success: false, message: "Report not found" });
             }
@@ -71,6 +71,7 @@ class InspectionReportController {
         try {
             const { company_id } = req.user;
             const data = req.body;
+            data.created_by = req.user.id || req.user.userid;
 
             const report = await InspectionReportService.createReport(company_id, data);
             
@@ -104,7 +105,7 @@ class InspectionReportController {
             const { id } = req.params;
             const data = req.body;
 
-            const report = await InspectionReportService.updateReport(company_id, id, data);
+            const report = await InspectionReportService.updateReport(company_id, id, data, req.user);
             
             Audit.insert({
                 req,

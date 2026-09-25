@@ -6,11 +6,20 @@ class QualityProductionDashboardController {
       const company_id = req.user.company_id;
 
       // Helper to fetch standardized stats for a table with a 'status' column
-      const fetchModuleStats = async (modelName, statusMapping = {}, hasActiveFields = true) => {
+      const fetchModuleStats = async (modelName, statusMapping = {}, hasActiveFields = true, hasDrafts = true) => {
         const whereClause = { company_id };
         if (hasActiveFields) {
           whereClause.is_active = true;
           whereClause.is_deleted = false;
+        }
+
+        // Apply draft visibility logic if the module supports drafts
+        if (hasDrafts) {
+          const userId = req.user.userid || req.user.id;
+          whereClause.OR = [
+              { status: { not: 'Draft' } },
+              { AND: [{ status: 'Draft' }, { created_by: userId }] }
+          ];
         }
 
         const records = await prisma[modelName].groupBy({
@@ -49,13 +58,13 @@ class QualityProductionDashboardController {
       };
 
       // 1. MHC
-      const mhc = await fetchModuleStats('material_heat_chart', { 'offered': 'pending' });
+      const mhc = await fetchModuleStats('material_heat_chart', { 'offered': 'pending' }, true, false);
 
       // 2. QAP
-      const qap = await fetchModuleStats('quality_assurance_plan', { 'published': 'approved' }, false);
+      const qap = await fetchModuleStats('quality_assurance_plan', { 'published': 'approved' }, false, false);
 
       // 3. Hydrostatic Test
-      const hydrostatic = await fetchModuleStats('hydrostatic_test_report');
+      const hydrostatic = await fetchModuleStats('hydrostatic_test_report', {}, true, false);
 
       // 4. Dish End Inspection
       const dish_end = await fetchModuleStats('dish_end_inspection_report');
@@ -66,11 +75,8 @@ class QualityProductionDashboardController {
       // 6. Final Inspection
       const final_inspection = await fetchModuleStats('final_inspection_report');
 
-      // 7. Tube Sheet Inspection (No status column according to schema, just total count)
-      const tube_sheet_total = await prisma.tube_sheet_inspection_report.count({
-        where: { company_id, is_active: true, is_deleted: false }
-      });
-      const tube_sheet = { total: tube_sheet_total, approved: 0, pending: 0, rejected: 0 };
+      // 7. Tube Sheet Inspection
+      const tube_sheet = await fetchModuleStats('tube_sheet_inspection_report');
 
 
       // 8. Welding Metrics

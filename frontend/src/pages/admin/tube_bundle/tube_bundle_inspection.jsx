@@ -796,7 +796,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
       drg_no: formData.drgNo,
       production_group_id: productionGroupId || null,
       qc_group_id: qcGroupId || null,
-      status: action === "DRAFT" ? "Draft" : (action === "INITIATE" ? "Initiated" : (action === "OFFER" ? "Offered" : (action === "FINALIZE" ? "Approved" : inspectionStatus))),
+      status: action === "Draft" ? "Draft" : (action === "INITIATE" ? "Initiated" : (action === "OFFER" ? "Offered" : (action === "FINALIZE" ? "Approved" : inspectionStatus))),
 
       insp_agency: formData.inspAgency,
       items: tableRows.map(r => ({
@@ -872,18 +872,13 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
 
             <div className="space-y-2">
               <Label htmlFor="msn">MSN / JOB NO.:</Label>
-              <Select value={formData.msn} onValueChange={handleMsnChange} disabled={userRole === 'PROD'}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select MSN" />
-                </SelectTrigger>
-                <SelectContent>
-                  {msnOptions.map((msnOption) => (
-                    <SelectItem key={msnOption.id} value={msnOption.id}>
-                      {msnOption.job_number}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={msnOptions.map((msnOption) => ({ label: msnOption.job_number, value: msnOption.id }))}
+                value={formData.msn}
+                onValueChange={handleMsnChange}
+                placeholder="Select MSN"
+                disabled={userRole === 'PROD'}
+              />
             </div>
 
             <div className="space-y-2">
@@ -1264,7 +1259,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
         {!isView && (
           <>
             {userRole === 'QC' && (s === 'NEW' || s === 'DRAFT') && (
-              <Button type="button" variant="outline" onClick={() => handleSubmit("DRAFT")} disabled={submitting !== null}>
+              <Button type="button" variant="outline" onClick={() => handleSubmit("Draft")} disabled={submitting !== null} className="cursor-pointer">
                 {submitting === "DRAFT" ? "Saving..." : "Save Draft"}
               </Button>
             )}
@@ -1275,9 +1270,14 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
             )}
 
             {userRole === 'PROD' && (s === 'INITIATED' || s === 'PENDING') && (
-              <Button type="button" variant="secondary" onClick={() => handleSubmit("OFFER")} disabled={submitting !== null} className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200">
-                {submitting === "OFFER" ? "Submitting..." : "Submit to QC"}
-              </Button>
+              <>
+                <Button type="button" variant="outline" onClick={() => handleSubmit("Draft")} disabled={submitting !== null} className="cursor-pointer">
+                  {submitting === "SAVE_PROD" ? "Saving..." : "Save Draft"}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => handleSubmit("Offered")} disabled={submitting !== null} className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 cursor-pointer">
+                  {submitting === "OFFER" ? "Submitting..." : "Submit to QC"}
+                </Button>
+              </>
             )}
 
             {userRole === 'QC' && s === 'OFFERED' && (

@@ -28,7 +28,7 @@ class TubeSheetInspectionController {
     async getById(req, res) {
         try {
             const { company_id } = req.user;
-            const report = await TubeSheetInspectionService.getById(req.params.id, company_id);
+            const report = await TubeSheetInspectionService.getById(req.params.id, company_id, req.user);
             res.status(200).json({ success: true, data: report });
         } catch (error) {
             console.error("TubeSheetInspectionController.getById Error:", error);
@@ -62,7 +62,7 @@ class TubeSheetInspectionController {
     async update(req, res) {
         try {
             const { company_id } = req.user;
-            const report = await TubeSheetInspectionService.update(req.params.id, company_id, req.body);
+            const report = await TubeSheetInspectionService.update(req.params.id, company_id, req.body, req.user);
             
             Audit.insert({
                 req,

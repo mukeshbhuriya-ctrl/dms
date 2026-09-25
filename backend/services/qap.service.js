@@ -113,7 +113,7 @@ class QapService {
                     code: currentCode, 
                     shreno_drg_no, customer_drg_no,
                     qap_type: qap_type || "INTERNAL",
-                    status: status || "draft",
+                    status: status || "Draft",
                     remarks,
                     dynamic_columns: dynamic_columns || [],
                     items: {
@@ -263,7 +263,7 @@ class QapService {
                         shreno_drg_no, customer_drg_no,
                         qap_type: qap_type || "INTERNAL",
                         attachments: attachments || [],
-                        status: status || "draft",
+                        status: status || "Draft",
                         remarks,
                         dynamic_columns: dynamic_columns || [],
                         items: {
