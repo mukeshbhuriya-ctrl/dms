@@ -987,7 +987,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="remarks">Remarks {reviewStatus === "Rejected" && <span className="text-destructive">*</span>}</Label>
+              <Label htmlFor="remarks">Remarks</Label>
               <Input
                 id="remarks"
                 value={reviewRemarks}
@@ -1000,7 +1000,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
             <Button
               onClick={submitReview}
-              disabled={isReviewing || (reviewStatus === "Rejected" && !reviewRemarks.trim())}
+              disabled={isReviewing}
               variant={reviewStatus === "Rejected" ? "destructive" : "default"}
             >
               Confirm {reviewStatus}
@@ -1547,7 +1547,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     }
     
     // Check for empty fields before allowing Approval
-    const fieldsToCheck = ["itemNo", "description", "materialSpecification", "size", "quantityUnit", "heatNo", "grnAppApNo", "mtrNo", "manufacturerName", "remarks"];
+    const fieldsToCheck = ["itemNo", "description", "materialSpecification", "size", "quantityUnit", "heatNo", "grnAppApNo", "mtrNo", "manufacturerName"];
     for (const field of fieldsToCheck) {
       if (!row[field]?.toString().trim()) {
         const el = document.getElementById(`${row.id}-${field}`);
@@ -1898,30 +1898,39 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                       </th>
                     )}
                     {[
-                      { label: "ITEM NO./PART NO.", id: "itemNo", searchable: true },
-                      { label: "DESCRIPTION", id: "description", searchable: true },
-                      { label: "MATERIAL SPECIFICATION", id: "materialSpecification", searchable: true },
-                      { label: "SIZE", id: "size", searchable: true },
-                      { label: "QUANTITY / UNIT", id: "quantityUnit", searchable: true },
-                      { label: "HEAT NO. / CAST NO. / PLATE NO.", id: "heatNo", searchable: true },
-                      { label: "GRN/APP/AP NO.", id: "grnAppApNo", searchable: true },
-                      { label: "MTR NO.", id: "mtrNo", searchable: true },
-                      { label: "MANUFACTURER NAME", id: "manufacturerName", searchable: true },
-                      { label: "REMARKS NCR/DCR", id: "remarks", searchable: true },
-                      { label: "QC REVIEW", id: "qcStatus", searchable: false },
-                      { label: "QC REMARKS", id: "qcRemarks", searchable: true },
-                      { label: "PROD. PERSON", id: "prodEngineerName", searchable: true },
-                      { label: "QC REVIEWER", id: "qcReviewerName", searchable: true },
-                      { label: "Action", id: "action", searchable: false },
+                      { label: "ITEM NO./PART NO.", id: "itemNo", searchable: true, minW: 120, sticky: true },
+                      { label: "DESCRIPTION", id: "description", searchable: true, minW: 250, sticky: true },
+                      { label: "MATERIAL SPECIFICATION", id: "materialSpecification", searchable: true, minW: 200, sticky: false },
+                      { label: "SIZE", id: "size", searchable: true, minW: 250, sticky: false },
+                      { label: "QUANTITY / UNIT", id: "quantityUnit", searchable: true, minW: 120, sticky: false },
+                      { label: "HEAT NO. / CAST NO. / PLATE NO.", id: "heatNo", searchable: true, minW: 180, sticky: false },
+                      { label: "GRN/APP/AP NO.", id: "grnAppApNo", searchable: true, minW: 150, sticky: false },
+                      { label: "MTR NO.", id: "mtrNo", searchable: true, minW: 150, sticky: false },
+                      { label: "MANUFACTURER NAME", id: "manufacturerName", searchable: true, minW: 200, sticky: false },
+                      { label: "REMARKS NCR/DCR", id: "remarks", searchable: true, minW: 200, sticky: false },
+                      { label: "QC REVIEW", id: "qcStatus", searchable: false, minW: 240 },
+                      { label: "QC REMARKS", id: "qcRemarks", searchable: true, minW: 200 },
+                      { label: "PROD. PERSON", id: "prodEngineerName", searchable: true, minW: 150 },
+                      { label: "QC REVIEWER", id: "qcReviewerName", searchable: true, minW: 150 },
+                      { label: "Action", id: "action", searchable: false, minW: 80 },
                     ].filter(h => showQcCols || (h.label !== "QC REVIEW" && h.label !== "QC REMARKS" && h.label !== "PROD. PERSON" && h.label !== "QC REVIEWER"))
-                      .map((h, i) => {
+                      .map((h, i, arr) => {
                         const isObj = typeof h === "object";
                         const label = isObj ? h.label : h;
+
+                        let leftOffset = isView ? 48 : 0;
+                        for(let j = 0; j < i; j++) {
+                          if (arr[j].sticky) leftOffset += arr[j].minW;
+                        }
 
                         return (
                           <th
                             key={label}
-                            className={`p-3 text-left font-bold uppercase text-slate-800 text-[10px] tracking-wider whitespace-nowrap border-b-2 border-slate-200 sticky top-0 z-40 bg-slate-100 ${i === 0 ? "sticky left-0 z-[52] min-w-[150px] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
+                            style={{ 
+                              ...(h.sticky ? { left: `${leftOffset}px` } : {}), 
+                              minWidth: h.minW ? `${h.minW}px` : undefined 
+                            }}
+                            className={`p-3 text-left font-bold uppercase text-slate-800 text-[10px] tracking-wider whitespace-nowrap border-b-2 border-slate-200 sticky top-0 z-40 bg-slate-100 ${h.sticky ? "sticky z-[52] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
                               }`}
                           >
                             <div className="flex items-center justify-between gap-2 group relative">
@@ -2062,20 +2071,30 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                 </td>
                               )}
                               {[
-                                { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
-                                { field: "description", placeholder: "Description", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
-                                { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
-                                { field: "size", placeholder: "Size", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
-                                { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit) },
-                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false },
-                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false },
-                                { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked, req: false },
-                                { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked, req: false },
-                                { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked, req: false },
-                              ].map(({ field, placeholder, locked, req }, i) => (
+                                { field: "itemNo", placeholder: "Item No", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 120, sticky: true },
+                                { field: "description", placeholder: "Description", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 250, sticky: true },
+                                { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 200, sticky: false },
+                                { field: "size", placeholder: "Size", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 250, sticky: false },
+                                { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 120, sticky: false },
+                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false, minW: 180, sticky: false },
+                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false, minW: 150, sticky: false },
+                                { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked, req: false, minW: 150, sticky: false },
+                                { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked, req: false, minW: 200, sticky: false },
+                                { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked, req: false, minW: 200, sticky: false },
+                              ].map(({ field, placeholder, locked, req, minW, sticky }, i, arr) => {
+                                let leftOffset = isView ? 48 : 0;
+                                for(let j = 0; j < i; j++) {
+                                  if (arr[j].sticky) leftOffset += arr[j].minW;
+                                }
+
+                                return (
                                 <td
                                   key={field}
-                                  className={`p-2 align-top ${i === 0 ? `sticky left-0 z-20 ${isInGroup ? "bg-slate-100/40 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : "bg-white"}` : ""}`}
+                                  style={{ 
+                                    ...(sticky ? { left: `${leftOffset}px` } : {}), 
+                                    minWidth: minW ? `${minW}px` : undefined 
+                                  }}
+                                  className={`p-2 align-top ${sticky ? `sticky z-[30] ${isInGroup ? "bg-slate-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : "bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"}` : ""}`}
                                 >
                                   <Textarea
                                     id={`${row.id}-${field}`}
@@ -2083,11 +2102,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                     onChange={(e) => handleRowChange(row.id, field, e.target.value)}
                                     placeholder={placeholder}
                                     required={req}
-                                    className={`text-xs min-w-[240px] w-full min-h-[40px] max-h-[120px] py-2 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white" : "border-slate-200 bg-white"} rounded-none`}
+                                    className={`text-xs w-full min-h-[40px] max-h-[120px] py-2 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white" : "border-slate-200 bg-white"} rounded-none`}
                                     disabled={locked}
                                   />
                                 </td>
-                              ))}
+                              )})}
 
                               {/* QC REVIEW */}
                               {showQcCols && (
