@@ -513,6 +513,18 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
       toast.error("Could not generate report. Please try again.");
     }
   }, []);
+
+  const handleDownloadExcel = useCallback(async (id, reportNo) => {
+    const endpoint = `/api/mhc/download-report/${id}?format=excel`;
+    const filename = `MHC_${reportNo.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
+
+    try {
+      await exportApi.download(endpoint, filename, {}, { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Could not generate Excel report. Please try again.");
+    }
+  }, []);
   // Cascading Filter Logic
   const activeClientOptions = useMemo(() => {
     let filtered = activeFilters.records || [];
@@ -672,6 +684,11 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             icon: Download,
             onClick: (e) => { e?.stopPropagation(); handleDownloadPdf(row.id, row.report_no, 'download'); }
         });
+        actions.push({
+            label: "Download Excel",
+            icon: Download,
+            onClick: (e) => { e?.stopPropagation(); handleDownloadExcel(row.id, row.report_no); }
+        });
         
         actions.push({ type: "separator" });
         
@@ -742,7 +759,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
         )
       },
     },
-  ], [isQE, isAdmin, isPE, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions, activeIsActiveOptions, handleDownloadPdf, handleViewClick, onEditClick, onCloneClick]);
+  ], [isQE, isAdmin, isPE, activeClientOptions, activePoOptions, activeMsnOptions, activeStatusOptions, activeIsActiveOptions, handleDownloadPdf, handleDownloadExcel, handleViewClick, onEditClick, onCloneClick]);
 
   const fetchData = useCallback(async (params) => {
     try {
@@ -1444,6 +1461,23 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     }
   };
 
+  const handleDownloadSelectedExcel = async () => {
+    if (selectedItemIds.size === 0) {
+      toast.warn("Please select at least one item to include in the Excel.")
+      return
+    }
+    const itemIds = Array.from(selectedItemIds).join(',')
+    const endpoint = `/api/mhc/download-report/${editId}?itemIds=${itemIds}&format=excel`;
+    const filename = `MHC_${autoFill.reportNo.replace(/[^a-z0-9]/gi, '_')}_Selective.xlsx`;
+
+    try {
+      await exportApi.download(endpoint, filename, {}, { contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error(`Could not generate selective Excel report.`);
+    }
+  };
+
   const handleItemAction = async (item, action) => {
     if (!item.id || String(item.id).startsWith("new-")) {
       toast.warn("Item must be saved before performing this action.")
@@ -1827,6 +1861,18 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                   >
                     <Download className="h-3.5 w-3.5 mr-1" />
                     <span className="text-[10px] font-bold uppercase">PDF</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadSelectedExcel}
+                    className="h-8 px-2 cursor-pointer border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors shadow-none rounded-sm bg-white"
+                    title="Download Selected Excel"
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1" />
+                    <span className="text-[10px] font-bold uppercase">Excel</span>
                   </Button>
                 </div>
               </div>

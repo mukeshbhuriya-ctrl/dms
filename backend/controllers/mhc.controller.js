@@ -2,6 +2,7 @@ const MhcService = require('../services/mhc.service');
 const NotificationService = require('#services/notification.service.js');
 const Audit = require('#utils/audit.js');
 const MhcPdfGenerator = require('../utils/mhcPdfGenerator');
+const MhcExcelGenerator = require('../utils/mhcExcelGenerator');
 const { getCompanyInfo } = require('../utils/companyInfo');
 const EmailService = require('../services/email.service');
 const prisma = require('#prisma');
@@ -445,7 +446,7 @@ class MhcController {
         try {
             const { company_id } = req.user;
             const { id } = req.params;
-            const { itemIds } = req.query; // Comma-separated list of item IDs
+            const { itemIds, format } = req.query; // Comma-separated list of item IDs and format param
 
             // 1. Fetch MHC with current items
             const mhc = await MhcService.getById(company_id, id);
@@ -522,15 +523,24 @@ class MhcController {
             };
 
             // 4. Set Headers for Preview/Download
-            res.setHeader('Content-Type', 'application/pdf');
-            const filename = `MHC_${mhc.report_no.replace(/[^a-z0-9]/gi, '_')}.pdf`;
-            res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+            if (format === 'excel') {
+                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                const filename = `MHC_${mhc.report_no.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
+                res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+                
+                // 5. Generate Excel
+                await MhcExcelGenerator.generateExcel(pdfData, res);
+            } else {
+                res.setHeader('Content-Type', 'application/pdf');
+                const filename = `MHC_${mhc.report_no.replace(/[^a-z0-9]/gi, '_')}.pdf`;
+                res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
 
-            // 5. Fetch company branding
-            const companyInfo = await getCompanyInfo(company_id);
+                // 5. Fetch company branding
+                const companyInfo = await getCompanyInfo(company_id);
 
-            // 6. Generate
-            MhcPdfGenerator.generatePDF(pdfData, res, companyInfo);
+                // 6. Generate PDF
+                MhcPdfGenerator.generatePDF(pdfData, res, companyInfo);
+            }
 
         } catch (error) {
             console.error('MHC downloadReport error:', error);
