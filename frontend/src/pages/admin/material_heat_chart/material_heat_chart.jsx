@@ -672,89 +672,89 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
         const canFinalize = (isAdmin || isQE) && s === "OFFERED"
 
         const actions = [];
-        
+
         actions.push({
-            label: "View",
-            icon: Eye,
-            onClick: () => handleViewClick(row.id)
+          label: "View",
+          icon: Eye,
+          onClick: () => handleViewClick(row.id)
         });
-        
+
         actions.push({
-            label: "Download PDF",
-            icon: Download,
-            onClick: (e) => { e?.stopPropagation(); handleDownloadPdf(row.id, row.report_no, 'download'); }
+          label: "Download PDF",
+          icon: Download,
+          onClick: (e) => { e?.stopPropagation(); handleDownloadPdf(row.id, row.report_no, 'download'); }
         });
         actions.push({
-            label: "Download Excel",
-            icon: Download,
-            onClick: (e) => { e?.stopPropagation(); handleDownloadExcel(row.id, row.report_no); }
+          label: "Download Excel",
+          icon: Download,
+          onClick: (e) => { e?.stopPropagation(); handleDownloadExcel(row.id, row.report_no); }
         });
-        
+
         actions.push({ type: "separator" });
-        
+
         if (canEdit) {
-            actions.push({
-                label: "Clone MHC",
-                icon: Copy,
-                onClick: () => onCloneClick(row.id),
-            });
-            actions.push({
-                label: "Edit MHC",
-                icon: Edit,
-                onClick: () => onEditClick(row.id, false, "INITIATION")
-            });
+          actions.push({
+            label: "Clone MHC",
+            icon: Copy,
+            onClick: () => onCloneClick(row.id),
+          });
+          actions.push({
+            label: "Edit MHC",
+            icon: Edit,
+            onClick: () => onEditClick(row.id, false, "INITIATION")
+          });
         }
-        
+
         if (canOffer) {
-            actions.push({
-                label: "Edit & Continue",
-                icon: ArrowRight,
-                onClick: () => onEditClick(row.id, false, "OFFER"),
-                className: "text-amber-600 hover:text-amber-700 hover:bg-amber-50"
-            });
+          actions.push({
+            label: "Edit & Continue",
+            icon: ArrowRight,
+            onClick: () => onEditClick(row.id, false, "OFFER"),
+            className: "text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+          });
         }
-        
+
         if (canFinalize) {
-            actions.push({
-                label: "Review & Continue",
-                icon: CheckCircle,
-                onClick: () => onEditClick(row.id, false, "REVIEW"),
-                className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-            });
+          actions.push({
+            label: "Review & Continue",
+            icon: CheckCircle,
+            onClick: () => onEditClick(row.id, false, "REVIEW"),
+            className: "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+          });
         }
-        
+
         if (s === "APPROVED" && (isAdmin || isQE)) {
-            actions.push({
-                label: "Revise",
-                icon: Undo,
-                onClick: (e) => {
-                  e?.stopPropagation();
-                  setRevisionMhcId(row.id);
-                  setRevisionRemarks("");
-                  setRevisionDialogOpen(true);
-                }
-            });
+          actions.push({
+            label: "Revise",
+            icon: Undo,
+            onClick: (e) => {
+              e?.stopPropagation();
+              setRevisionMhcId(row.id);
+              setRevisionRemarks("");
+              setRevisionDialogOpen(true);
+            }
+          });
         }
-        
+
         if (isAdmin || isQE) {
-            actions.push({ type: "separator" });
-            actions.push({
-                label: row.is_active ? "Deactivate" : "Activate",
-                icon: row.is_active ? XCircle : CheckCircle2,
-                onClick: () => handleToggleStatus(row),
-                className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-            });
-            actions.push({
-                label: "Archive",
-                icon: Archive,
-                onClick: () => handleDelete(row),
-                className: "text-red-600 hover:text-red-700 hover:bg-red-50"
-            });
+          actions.push({ type: "separator" });
+          actions.push({
+            label: row.is_active ? "Deactivate" : "Activate",
+            icon: row.is_active ? XCircle : CheckCircle2,
+            onClick: () => handleToggleStatus(row),
+            className: row.is_active ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+          });
+          actions.push({
+            label: "Archive",
+            icon: Archive,
+            onClick: () => handleDelete(row),
+            className: "text-red-600 hover:text-red-700 hover:bg-red-50"
+          });
         }
 
         return (
           <div className="flex items-center justify-center">
-             <DataTableRowActions actions={actions} />
+            <DataTableRowActions actions={actions} />
           </div>
         )
       },
@@ -1065,9 +1065,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     client: "",
     poNo: "",
     equipmentName: "",
-    tagNo: "",
   })
-  
+
   const actionRef = useRef(null)
 
   // Equipment Details
@@ -1077,6 +1076,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
     inspectionBy: "",
     projectId: "",
     code: "",
+    tagNo: "",
   })
 
   // Table rows
@@ -1085,7 +1085,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   // Search Filter
   const [activeSearchColumn, setActiveSearchColumn] = useState(null)
   const [columnSearchQueries, setColumnSearchQueries] = useState({})
-  
+
   // Date Range Filter for QC Date
   const [qcDateRange, setQcDateRange] = useState({ from: undefined, to: undefined })
 
@@ -1108,7 +1108,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           if (res.success && res.data) {
             const myQcGroup = res.data.find(g => g.group_type === "QUALITY" || g.type === "QUALITY")
             const myProdGroup = res.data.find(g => g.group_type === "PRODUCTION" || g.type === "PRODUCTION")
-            
+
             if (myQcGroup) {
               setMyQualityGroupId(myQcGroup.id)
               if (!editId) setQcGroupId(myQcGroup.id)
@@ -1147,7 +1147,6 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               client: cloneId ? "" : data.client,
               poNo: cloneId ? "" : data.po_no,
               equipmentName: cloneId ? "" : (data.equipment_name || ""),
-              tagNo: cloneId ? "" : (data.tag_no || ""),
             })
             setFormData({
               shrenoDrgNo: cloneId ? "" : (data.shreno_drg_no || ""),
@@ -1155,6 +1154,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               inspectionBy: cloneId ? "" : (data.inspection_by || ""),
               projectId: cloneId ? "" : (data.project_id || ""),
               code: cloneId ? "" : (data.code || ""),
+              tagNo: cloneId ? "" : (data.tag_no || ""),
             })
             setQcGroupId(data.qc_group_id || "")
             setProductionGroupId(data.production_group_id || "")
@@ -1187,7 +1187,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                 parentHeadingId: cloneId ? undefined : item.parent_heading_id,
               })))
             }
-      }
+          }
         })
     }
   }, [editId, cloneId, isQE])
@@ -1229,12 +1229,12 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           client: job.customer?.customer_name || "",
           poNo: job.po?.po_number || "",
           equipmentName: job.equipement_name || "",
-          tagNo: job.tag_number || "",
         })
         setFormData(prev => ({
           ...prev,
           projectId: job.project_id || "",
           code: job.code || "",
+          tagNo: job.tag_number || "",
         }))
       }
     } catch (err) {
@@ -1244,12 +1244,12 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         client: "",
         poNo: "",
         equipmentName: "",
-        tagNo: "",
       })
       setFormData(prev => ({
         ...prev,
         projectId: "",
         code: "",
+        tagNo: "",
       }))
     }
   }
@@ -1337,11 +1337,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const filteredTableRows = useMemo(() => {
     const hasActiveQueries = Object.values(columnSearchQueries).some(q => q && q.trim());
     if (!hasActiveQueries && (!isView || !qcDateRange?.from)) return tableRows;
-    
+
     const matchedItemIds = new Set();
-    const matchedHeadingIds = new Set(); 
-    const neededHeadingIds = new Set(); 
-    
+    const matchedHeadingIds = new Set();
+    const neededHeadingIds = new Set();
+
     let currentHeadingId = null;
 
     tableRows.forEach(row => {
@@ -1350,61 +1350,61 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         if (hasActiveQueries) {
           let headingMatches = false;
           for (const q of Object.values(columnSearchQueries)) {
-             if (q && q.trim() && row.headingText?.toLowerCase().includes(q.toLowerCase().trim())) {
-                 headingMatches = true;
-                 break;
-             }
+            if (q && q.trim() && row.headingText?.toLowerCase().includes(q.toLowerCase().trim())) {
+              headingMatches = true;
+              break;
+            }
           }
           if (headingMatches) {
             matchedHeadingIds.add(row.id);
           }
         }
       } else {
-        const isUnsavedEmptyRow = (String(row.id).startsWith("new-") || String(row.id).startsWith("row-")) && 
-                                  !row.itemNo && !row.description && !row.materialSpecification && 
-                                  !row.size && !row.quantityUnit && !row.heatNo && !row.grnAppApNo && 
-                                  !row.mtrNo && !row.manufacturerName && !row.remarks;
-                                  
+        const isUnsavedEmptyRow = (String(row.id).startsWith("new-") || String(row.id).startsWith("row-")) &&
+          !row.itemNo && !row.description && !row.materialSpecification &&
+          !row.size && !row.quantityUnit && !row.heatNo && !row.grnAppApNo &&
+          !row.mtrNo && !row.manufacturerName && !row.remarks;
+
         let textMatches = true;
         if (hasActiveQueries && !isUnsavedEmptyRow) {
           for (const [colId, q] of Object.entries(columnSearchQueries)) {
-             if (q && q.trim()) {
-                 const queryStr = q.toLowerCase().trim();
-                 const cellValue = row[colId]?.toString().toLowerCase() || "";
-                 if (!cellValue.includes(queryStr)) {
-                     textMatches = false;
-                     break;
-                 }
-             }
+            if (q && q.trim()) {
+              const queryStr = q.toLowerCase().trim();
+              const cellValue = row[colId]?.toString().toLowerCase() || "";
+              if (!cellValue.includes(queryStr)) {
+                textMatches = false;
+                break;
+              }
+            }
           }
         }
-        
+
         let dateMatches = true;
         if (isView && qcDateRange?.from) {
-           if (!row.qcDate) {
-             dateMatches = false;
-           } else {
-             const rowDate = new Date(row.qcDate);
-             const start = startOfDay(qcDateRange.from);
-             const end = qcDateRange.to ? endOfDay(qcDateRange.to) : endOfDay(qcDateRange.from);
-             if (rowDate < start || rowDate > end) dateMatches = false;
-           }
+          if (!row.qcDate) {
+            dateMatches = false;
+          } else {
+            const rowDate = new Date(row.qcDate);
+            const start = startOfDay(qcDateRange.from);
+            const end = qcDateRange.to ? endOfDay(qcDateRange.to) : endOfDay(qcDateRange.from);
+            if (rowDate < start || rowDate > end) dateMatches = false;
+          }
         }
 
         if (textMatches && dateMatches) {
-           matchedItemIds.add(row.id);
-           if (currentHeadingId) neededHeadingIds.add(currentHeadingId);
-           if (row.parentHeadingId) neededHeadingIds.add(row.parentHeadingId);
+          matchedItemIds.add(row.id);
+          if (currentHeadingId) neededHeadingIds.add(currentHeadingId);
+          if (row.parentHeadingId) neededHeadingIds.add(row.parentHeadingId);
         }
       }
     });
 
     return tableRows.filter(row => {
-       if (row.isHeading) {
-          if (!hasActiveQueries) return neededHeadingIds.has(row.id);
-          return matchedHeadingIds.has(row.id) || neededHeadingIds.has(row.id);
-       }
-       return matchedItemIds.has(row.id);
+      if (row.isHeading) {
+        if (!hasActiveQueries) return neededHeadingIds.has(row.id);
+        return matchedHeadingIds.has(row.id) || neededHeadingIds.has(row.id);
+      }
+      return matchedItemIds.has(row.id);
     });
   }, [tableRows, columnSearchQueries, qcDateRange, isView]);
 
@@ -1420,7 +1420,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const toggleSelectAll = () => {
     const selectable = filteredTableRows.filter(r => !r.isHeading && r.id && !String(r.id).startsWith("new-"));
     const allSelected = selectable.length > 0 && selectable.every(r => selectedItemIds.has(r.id));
-    
+
     setSelectedItemIds(prev => {
       const next = new Set(prev);
       if (allSelected) {
@@ -1545,7 +1545,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       handleRowChange(row.id, "qcStatus", "Pending");
       return;
     }
-    
+
     // Check for empty fields before allowing Approval
     const fieldsToCheck = ["itemNo", "description", "materialSpecification", "size", "quantityUnit", "heatNo", "grnAppApNo", "mtrNo", "manufacturerName"];
     for (const field of fieldsToCheck) {
@@ -1559,14 +1559,14 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             el.setCustomValidity("");
             el.removeEventListener('input', onInput);
           }, { once: true });
-          
+
           // Also clear it if they focus out or later
           setTimeout(() => el.setCustomValidity(""), 3000);
         }
         return; // Block the approval state change
       }
     }
-    
+
     handleRowChange(row.id, "qcStatus", "Approved");
   };
 
@@ -1617,6 +1617,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
       inspection_by: formData.inspectionBy || null,
       project_id: formData.projectId || null,
       code: formData.code || null,
+      tag_no: formData.tagNo || null,
       production_group_id: production_group_id || null,
       qc_group_id: qc_group_id || null,
       items,
@@ -1723,7 +1724,6 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
               { label: "CLIENT:", value: autoFill.client },
               { label: "PO. NO.:", value: autoFill.poNo },
               { label: "EQUIPMENT NAME:", value: autoFill.equipmentName },
-              { label: "TAG NO.:", value: autoFill.tagNo },
             ].map(({ label, value }) => (
               <div key={label} className="space-y-2">
                 <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</Label>
@@ -1732,12 +1732,23 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
             ))}
 
             <div className="space-y-2">
+              <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TAG NO.:</Label>
+              <Input
+                value={formData.tagNo}
+                onChange={e => setFormData({ ...formData, tagNo: e.target.value })}
+                className="h-8 text-xs shadow-none border-slate-300 rounded-sm"
+                placeholder="Enter Tag No..."
+                disabled={isQcInitiationLocked}
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">PROJECT ID:</Label>
               <Input
                 value={formData.projectId}
                 onChange={(e) => setFormData(prev => ({ ...prev, projectId: e.target.value }))}
                 className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none"
-                disabled={isView || (!isAdmin && !isQE)}
+                disabled={isQcInitiationLocked}
                 placeholder="Enter project ID"
               />
             </div>
@@ -1748,7 +1759,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                 value={formData.code}
                 onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
                 className="h-8 text-xs bg-white shadow-none border-slate-200 rounded-none"
-                disabled={isView || (!isAdmin && !isQE)}
+                disabled={isQcInitiationLocked}
                 placeholder="Enter construction code"
               />
             </div>
@@ -1824,11 +1835,11 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                       />
                     </PopoverContent>
                   </Popover>
-                  
+
                   {qcDateRange?.from && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => setQcDateRange({ from: undefined, to: undefined })}
                       className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded"
                       title="Clear Filter"
@@ -1837,7 +1848,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                     </Button>
                   )}
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Button
                     type="button"
@@ -1919,16 +1930,16 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                         const label = isObj ? h.label : h;
 
                         let leftOffset = isView ? 48 : 0;
-                        for(let j = 0; j < i; j++) {
+                        for (let j = 0; j < i; j++) {
                           if (arr[j].sticky) leftOffset += arr[j].minW;
                         }
 
                         return (
                           <th
                             key={label}
-                            style={{ 
-                              ...(h.sticky ? { left: `${leftOffset}px` } : {}), 
-                              minWidth: h.minW ? `${h.minW}px` : undefined 
+                            style={{
+                              ...(h.sticky ? { left: `${leftOffset}px` } : {}),
+                              minWidth: h.minW ? `${h.minW}px` : undefined
                             }}
                             className={`p-3 text-left font-bold uppercase text-slate-800 text-[10px] tracking-wider whitespace-nowrap border-b-2 border-slate-200 sticky top-0 z-40 bg-slate-100 ${h.sticky ? "sticky z-[52] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : ""
                               }`}
@@ -1956,13 +1967,13 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                       }
                                     }}
                                   />
-                                  <button onClick={() => { 
-                                      setActiveSearchColumn(null); 
-                                      setColumnSearchQueries(prev => {
-                                        const next = { ...prev };
-                                        delete next[h.id];
-                                        return next;
-                                      }); 
+                                  <button onClick={() => {
+                                    setActiveSearchColumn(null);
+                                    setColumnSearchQueries(prev => {
+                                      const next = { ...prev };
+                                      delete next[h.id];
+                                      return next;
+                                    });
                                   }}>
                                     <X className="h-3 w-3 text-slate-400 hover:text-rose-500 transition-colors" />
                                   </button>
@@ -2083,30 +2094,31 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                 { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked, req: false, minW: 200, sticky: false },
                               ].map(({ field, placeholder, locked, req, minW, sticky }, i, arr) => {
                                 let leftOffset = isView ? 48 : 0;
-                                for(let j = 0; j < i; j++) {
+                                for (let j = 0; j < i; j++) {
                                   if (arr[j].sticky) leftOffset += arr[j].minW;
                                 }
 
                                 return (
-                                <td
-                                  key={field}
-                                  style={{ 
-                                    ...(sticky ? { left: `${leftOffset}px` } : {}), 
-                                    minWidth: minW ? `${minW}px` : undefined 
-                                  }}
-                                  className={`p-2 align-top ${sticky ? `sticky z-[30] ${isInGroup ? "bg-slate-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : "bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"}` : ""}`}
-                                >
-                                  <Textarea
-                                    id={`${row.id}-${field}`}
-                                    value={row[field]}
-                                    onChange={(e) => handleRowChange(row.id, field, e.target.value)}
-                                    placeholder={placeholder}
-                                    required={req}
-                                    className={`text-xs w-full min-h-[40px] max-h-[120px] py-2 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white" : "border-slate-200 bg-white"} rounded-none`}
-                                    disabled={locked}
-                                  />
-                                </td>
-                              )})}
+                                  <td
+                                    key={field}
+                                    style={{
+                                      ...(sticky ? { left: `${leftOffset}px` } : {}),
+                                      minWidth: minW ? `${minW}px` : undefined
+                                    }}
+                                    className={`p-2 align-top ${sticky ? `sticky z-[30] ${isInGroup ? "bg-slate-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]" : "bg-white shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]"}` : ""}`}
+                                  >
+                                    <Textarea
+                                      id={`${row.id}-${field}`}
+                                      value={row[field]}
+                                      onChange={(e) => handleRowChange(row.id, field, e.target.value)}
+                                      placeholder={placeholder}
+                                      required={req}
+                                      className={`text-xs w-full min-h-[40px] max-h-[120px] py-2 resize-y shadow-none focus-visible:ring-1 ${isInGroup ? "border-slate-300 focus-visible:ring-slate-500 bg-white" : "border-slate-200 bg-white"} rounded-none`}
+                                      disabled={locked}
+                                    />
+                                  </td>
+                                )
+                              })}
 
                               {/* QC REVIEW */}
                               {showQcCols && (
@@ -2464,9 +2476,9 @@ export default function MaterialHeatChart() {
 
   return (
     <PageContainer>{view === "list" ? (
-            <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} onCloneClick={handleCloneClick} />
-          ) : (
-            <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} editContext={editContext} />
-          )}</PageContainer>
+      <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} onCloneClick={handleCloneClick} />
+    ) : (
+      <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} editContext={editContext} />
+    )}</PageContainer>
   )
 }
