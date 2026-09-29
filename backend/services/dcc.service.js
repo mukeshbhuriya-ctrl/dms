@@ -1748,7 +1748,10 @@ class DccService {
             // 3. Update Group Document Status
             await tx.group_document.update({
                 where: { id: document_id },
-                data: { status: status === 'Rejected' ? 'Pending' : 'Approved' }
+                data: { 
+                    status: status === 'Rejected' ? 'Pending' : 'Approved',
+                    last_overdue_email_sent_at: null
+                }
             });
 
             // 4. Log Activity
@@ -2898,7 +2901,7 @@ class DccService {
     /**
      * Assign Document to Job/User
      */
-    async assignDocument(company_id, data) {
+    async assignDocument(company_id, data, performer_id) {
         // data = { customer_id, customer_location_id, po_id, job_ids: [], documents: [], user_id, ... }
         const { job_ids, documents, user_id, customer_id, customer_location_id, po_id } = data;
 
@@ -2950,6 +2953,7 @@ class DccService {
                         group_id: group.id,
                         document_id: document_master_id,
                         user_id: assignedUserId, // User is mandatory in group_document as per schema
+                        document_approver_id: performer_id || null,
 
                         status: 'Pending',
                         upload_due_days: (uploadDueDays || docData.upload_due_days) ? parseInt(uploadDueDays || docData.upload_due_days) : null,
@@ -3473,6 +3477,7 @@ class DccService {
                         group_id: group.id,
                         document_id: documentMaster.id,
                         user_id: assign_user_id,
+                        document_approver_id: performer_id || null,
 
                         status: 'Pending',
                         upload_due_days: upload_due_days ? parseInt(upload_due_days) : null,
@@ -3602,6 +3607,7 @@ class DccService {
                 },
                 include: {
                     user: true,
+                    document_approver: true,
                     document: true,
                     group: { include: { job_group: { include: { job: true } } } },
                     versions: { orderBy: { version_no: 'desc' }, take: 1 }
@@ -3609,7 +3615,7 @@ class DccService {
             });
 
             const uploadOverdueUsers = {}; // userId -> docs[]
-            const uploadOverdueByCompany = {}; // companyId -> docs[]
+            const uploadOverdueByApprover = {}; // email -> docs[]
             const processedUploadDocIds = [];
 
             for (const doc of pendingDocs) {
@@ -3638,8 +3644,10 @@ class DccService {
 
                     uploadOverdueUsers[doc.user_id].docs.push(docDetails);
 
-                    if (!uploadOverdueByCompany[doc.company_id]) uploadOverdueByCompany[doc.company_id] = [];
-                    uploadOverdueByCompany[doc.company_id].push(docDetails);
+                    if (doc.document_approver && doc.document_approver.email) {
+                        if (!uploadOverdueByApprover[doc.document_approver.email]) uploadOverdueByApprover[doc.document_approver.email] = { name: doc.document_approver.name, docs: [] };
+                        uploadOverdueByApprover[doc.document_approver.email].docs.push(docDetails);
+                    }
                     
                     processedUploadDocIds.push(doc.id);
                 }
@@ -3654,24 +3662,11 @@ class DccService {
                 }
             }
 
-            // Send Upload Overdue emails to DCC Admins
-            for (const companyId in uploadOverdueByCompany) {
-                const uploadOverdueDocs = uploadOverdueByCompany[companyId];
-                if (uploadOverdueDocs.length === 0) continue;
-
-                const dccAdmins = await prisma.user.findMany({
-                    where: {
-                        company_id: companyId,
-                        user_roles: { some: { role: { name: { in: ['DCC'] } } } }
-                    }
-                });
-
-                const adminEmails = [...new Set(dccAdmins.map(a => a.email).filter(Boolean))];
-                if (adminEmails.length > 0) {
-                    const toEmails = adminEmails.join(', ');
-                    await EmailService.sendDocumentOverdueNotification(toEmails, 'DCC Team', 'upload', uploadOverdueDocs);
-                    console.log(`[DccService] Upload Overdue email sent to DCC Team (${toEmails}) (Company ${companyId}) (${uploadOverdueDocs.length} items)`);
-                }
+            // Send Upload Overdue emails to Specific Approvers
+            for (const email in uploadOverdueByApprover) {
+                const { name, docs } = uploadOverdueByApprover[email];
+                await EmailService.sendDocumentOverdueNotification(email, name, 'upload', docs);
+                console.log(`[DccService] Upload Overdue email sent to Approver ${email} (${docs.length} items)`);
             }
 
             if (processedUploadDocIds.length > 0) {
@@ -3693,14 +3688,14 @@ class DccService {
                 },
                 include: {
                     user: true,
+                    document_approver: true,
                     document: true,
                     group: { include: { job_group: { include: { job: true } } } },
                     versions: { orderBy: { version_no: 'desc' }, take: 1 }
                 }
             });
 
-            // Group overdue docs by company_id
-            const overdueByCompany = {};
+            const responseOverdueByApprover = {}; // email -> docs[]
             const processedResponseDocIds = [];
 
             for (const doc of submittedDocs) {
@@ -3720,43 +3715,27 @@ class DccService {
                 const daysOverdue = Math.floor(msOverdue / (1000 * 60 * 60 * 24));
 
                 if (daysOverdue > 0) {
-                    if (!overdueByCompany[doc.company_id]) {
-                        overdueByCompany[doc.company_id] = [];
-                    }
-                    overdueByCompany[doc.company_id].push({
+                    const docDetails = {
                         document_name: doc.document.document_name,
                         document_number: doc.shreno_doc_no || doc.client_doc_no || doc.document.document_number,
                         job_number: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
                         assigned_user: doc.user?.name || 'Unknown'
-                    });
+                    };
+
+                    if (doc.document_approver && doc.document_approver.email) {
+                        if (!responseOverdueByApprover[doc.document_approver.email]) responseOverdueByApprover[doc.document_approver.email] = { name: doc.document_approver.name, docs: [] };
+                        responseOverdueByApprover[doc.document_approver.email].docs.push(docDetails);
+                    }
+                    
                     processedResponseDocIds.push(doc.id);
                 }
             }
 
-            // Notify DCC admins PER company
-            for (const companyId in overdueByCompany) {
-                const responseOverdueDocs = overdueByCompany[companyId];
-                if (responseOverdueDocs.length === 0) continue;
-
-                const dccAdmins = await prisma.user.findMany({
-                    where: {
-                        company_id: companyId,
-                        user_roles: {
-                            some: {
-                                role: {
-                                    name: { in: ['DCC'] }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                const adminEmails = [...new Set(dccAdmins.map(a => a.email).filter(Boolean))];
-                if (adminEmails.length > 0) {
-                    const toEmails = adminEmails.join(', ');
-                    await EmailService.sendDocumentOverdueNotification(toEmails, 'DCC Team', 'response', responseOverdueDocs);
-                    console.log(`[DccService] Response Overdue email sent to DCC Team (${toEmails}) (Company ${companyId}) (${responseOverdueDocs.length} items)`);
-                }
+            // Notify specific Approvers
+            for (const email in responseOverdueByApprover) {
+                const { name, docs } = responseOverdueByApprover[email];
+                await EmailService.sendDocumentOverdueNotification(email, name, 'response', docs);
+                console.log(`[DccService] Response Overdue email sent to Approver ${email} (${docs.length} items)`);
             }
 
             if (processedResponseDocIds.length > 0) {

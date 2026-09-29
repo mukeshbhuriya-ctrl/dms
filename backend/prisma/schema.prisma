@@ -181,6 +181,7 @@ model user{
   created_transmissions transmission[]
   created_drawing_transmittals drawing_transmittal[]
   uploaded_versions document_version[]
+  approved_documents group_document[] @relation("DocumentApprover")
   assigned_dish_end_reports dish_end_inspection_report[] @relation("DishEndProductionEngineer")
   created_dish_end_reports dish_end_inspection_report[] @relation("DishEndCreator")
   final_inspection_reports final_inspection_report[] @relation("FinalInspectionProductionEngineer")
@@ -530,11 +531,13 @@ model group_document{
   last_overdue_email_sent_at DateTime?
   is_active  Boolean  @default(true)
   is_deleted Boolean  @default(false)
+  document_approver_id String?
 
   company company @relation(fields: [company_id], references: [id])
   group group @relation(fields: [group_id], references: [id])
   document document_master @relation(fields: [document_id], references: [id])
   user user? @relation(fields: [user_id], references: [id])
+  document_approver user? @relation("DocumentApprover", fields: [document_approver_id], references: [id])
   customer customer @relation(fields: [customer_id], references: [id])
   customer_location customer_location @relation(fields: [customer_location_id], references: [id])
   po po @relation(fields: [po_id], references: [id])

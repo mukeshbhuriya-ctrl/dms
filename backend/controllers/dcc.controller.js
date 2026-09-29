@@ -564,7 +564,8 @@ class DccController {
 
     async assignDocument(req, res) {
         try {
-            const result = await DccService.assignDocument(req.user.company_id, req.body);
+            const performer_id = req.user.userid || req.user.id;
+            const result = await DccService.assignDocument(req.user.company_id, req.body, performer_id);
             res.status(201).json({ success: true, data: result });
         } catch (error) {
             console.error('Assign document error:', error);
