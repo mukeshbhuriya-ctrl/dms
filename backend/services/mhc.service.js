@@ -441,7 +441,7 @@ class MhcService {
                     where: { id: item.id }
                 });
 
-                if (currentItem && currentItem.qc_status === 'Approved' && currentItem.qc_engineer_id) continue;
+                if (!currentItem) continue;
 
                 const newMtrNo = item.mtr_no || null;
                 const newManufacturer = item.manufacturer || null;
@@ -468,6 +468,8 @@ class MhcService {
                                    newGrnAppApNo !== oldGrn ||
                                    (newQcStatus !== 'Pending' && !currentItem.qc_engineer_id);
 
+                const prodChanged = newHeatNo !== oldHeatNo || newGrnAppApNo !== oldGrn || ((newHeatNo || newGrnAppApNo) && !currentItem.production_engineer_id);
+
                 await tx.material_heat_chart_item.update({
                     where: { id: item.id },
                     data: {
@@ -480,7 +482,11 @@ class MhcService {
                         qc_remarks: newQcRemarks,
                         qc_engineer_id: qcChanged ? user_id : currentItem.qc_engineer_id,
                         qc_date: qcChanged ? new Date() : currentItem.qc_date,
-                        action_by_id: qcChanged ? user_id : currentItem.action_by_id
+                        action_by_id: qcChanged ? user_id : currentItem.action_by_id,
+                        ...(prodChanged ? {
+                            production_engineer_id: user_id,
+                            production_date: new Date()
+                        } : {})
                     }
                 });
             }
@@ -536,7 +542,7 @@ class MhcService {
                     where: { id: item.id }
                 });
 
-                if (currentItem && currentItem.qc_status === 'Approved' && currentItem.qc_engineer_id) continue;
+                if (!currentItem) continue;
 
                 const status = item.qc_status || 'Pending';
                 if (status === 'Rejected') hasRejections = true;
@@ -564,6 +570,8 @@ class MhcService {
                                    newGrnAppApNo !== oldGrn ||
                                    (status !== 'Pending' && !currentItem.qc_engineer_id);
 
+                const prodChanged = newHeatNo !== oldHeatNo || newGrnAppApNo !== oldGrn || ((newHeatNo || newGrnAppApNo) && !currentItem.production_engineer_id);
+
                 // Business Rule: A Pending item should NEVER have a QC stamp, even if draft remarks were entered.
                 const shouldClearQcStamp = status === 'Pending';
 
@@ -579,7 +587,11 @@ class MhcService {
                         grn_app_ap_no: newGrnAppApNo,
                         qc_engineer_id: shouldClearQcStamp ? null : (qcChanged ? user_id : currentItem.qc_engineer_id),
                         qc_date: shouldClearQcStamp ? null : (qcChanged ? new Date() : currentItem.qc_date),
-                        action_by_id: qcChanged ? user_id : currentItem.action_by_id
+                        action_by_id: qcChanged ? user_id : currentItem.action_by_id,
+                        ...(prodChanged ? {
+                            production_engineer_id: user_id,
+                            production_date: new Date()
+                        } : {})
                     }
                 });
             }

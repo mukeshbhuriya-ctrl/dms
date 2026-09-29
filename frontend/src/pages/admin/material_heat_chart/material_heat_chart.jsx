@@ -1272,6 +1272,13 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
         if (field === "qcStatus" && String(value).toUpperCase() === "PENDING") {
           updated.qcRemarks = "";
         }
+        
+        // If QC modifies heatNo or grnAppApNo, assign production info to QC immediately for UI feedback
+        if ((field === "heatNo" || field === "grnAppApNo") && (isAdmin || isQE)) {
+          updated.prodEngineerName = user?.name || "";
+          updated.productionDate = new Date().toISOString();
+        }
+
         return updated;
       }
       return r;
@@ -2090,8 +2097,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                 { field: "materialSpecification", placeholder: "Material Spec", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 200, sticky: false },
                                 { field: "size", placeholder: "Size", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 250, sticky: false },
                                 { field: "quantityUnit", placeholder: "Quantity", locked: isQcInitiationLocked, req: !isQcInitiationLocked && (idx === 0 || !!row.itemNo || !!row.description || !!row.materialSpecification || !!row.size || !!row.quantityUnit), minW: 120, sticky: false },
-                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false, minW: 180, sticky: false },
-                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked || String(row.qcStatus || "").toUpperCase() === "APPROVED", req: false, minW: 150, sticky: false },
+                                { field: "heatNo", placeholder: "Heat No", locked: isProdOfferLocked || (String(row.qcStatus || "").toUpperCase() === "APPROVED" && !(isAdmin || isQE)), req: false, minW: 180, sticky: false },
+                                { field: "grnAppApNo", placeholder: "GRN/APP/AP No", locked: isProdOfferLocked || (String(row.qcStatus || "").toUpperCase() === "APPROVED" && !(isAdmin || isQE)), req: false, minW: 150, sticky: false },
                                 { field: "mtrNo", placeholder: "MTR No", locked: isQcFinalLocked, req: false, minW: 150, sticky: false },
                                 { field: "manufacturerName", placeholder: "Manufacturer", locked: isQcFinalLocked, req: false, minW: 200, sticky: false },
                                 { field: "remarks", placeholder: "Remarks", locked: isQcFinalLocked, req: false, minW: 200, sticky: false },
@@ -2275,7 +2282,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                       type="button"
                                       variant="outline"
                                       size="icon"
-                                      className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                                      className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-indigo-50 hover:text-indigo-600 transition-all cursor-pointer"
                                       onClick={() => {
                                         setItemTrailId(row.id);
                                         setItemTrailDialogOpen(true);

@@ -79,7 +79,7 @@ const MhcItemTrail = ({ itemId, open, onOpenChange }) => {
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="sm:max-w-lg overflow-y-auto">
+            <SheetContent className="sm:max-w-lg overflow-y-auto bg-white shadow-2xl z-50">
                 <SheetHeader>
                     <SheetTitle>Item Audit Trail</SheetTitle>
                 </SheetHeader>
