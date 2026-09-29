@@ -20,6 +20,7 @@ router.get('/approved-items/:job_id', MhcController.getApprovedItemsByJob);
 router.get('/approved-items-by-msn/:msn', MhcController.getApprovedItemsByMsn);
 router.get('/get-filters', MhcController.getFilters);
 router.get('/download-report/:id', MhcController.downloadReport);
+router.get('/item/:itemId/history', MhcController.getItemHistory);
 router.get('/:id', MhcController.getById);
 
 // Admin only actions

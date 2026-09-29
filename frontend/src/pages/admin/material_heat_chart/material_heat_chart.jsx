@@ -35,7 +35,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, Search, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw, Copy, Undo } from "lucide-react"
+import { Plus, Trash2, Type, ArrowLeft, FileText, Eye, X, Edit, CheckCircle, XCircle, Download, Printer, Search, AlertCircle, CheckCircle2, Hash, User, Briefcase, Layers, Box, Maximize, Database, ArrowRight, Save, Check, RotateCcw, Copy, Undo, History } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -57,6 +57,7 @@ import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Archive } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import MhcItemTrail from "./MhcItemTrail"
 
 function emptyRow(id) {
   return {
@@ -1050,6 +1051,8 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
   const [myProductionGroupId, setMyProductionGroupId] = useState(null)
 
   const [mhcStatus, setMhcStatus] = useState("Initiated")
+  const [itemTrailDialogOpen, setItemTrailDialogOpen] = useState(false)
+  const [itemTrailId, setItemTrailId] = useState(null)
   const [approverRemarks, setApproverRemarks] = useState("")
   const [submittedAt, setSubmittedAt] = useState(null)
   const [approvedAt, setApprovedAt] = useState(null)
@@ -2231,38 +2234,56 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
                                 </td>
                               )}
                               {/* Actions */}
-                              <td className={`p-2 align-top ${isView ? 'hidden' : ''}`}>
+                              <td className="p-2 align-top">
                                 <div className="flex items-center gap-1.5 h-10">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className={`h-8 w-8 rounded-sm shadow-none border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
-                                    onClick={() => toggleHeading(row.id)}
-                                    disabled={isQcInitiationLocked}
-                                  >
-                                    <Type className={`h-4 w-4 ${row.isHeading ? "stroke-[3px]" : ""}`} />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
-                                    onClick={() => addRowAfter(row.id)}
-                                    disabled={isQcInitiationLocked}
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
-                                    onClick={() => removeRow(row.id)}
-                                    disabled={isQcInitiationLocked}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                  {!isView && (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className={`h-8 w-8 rounded-sm shadow-none border transition-all ${row.isHeading ? "text-amber-700 bg-amber-400 border-amber-500 hover:bg-amber-500 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}
+                                        onClick={() => toggleHeading(row.id)}
+                                        disabled={isQcInitiationLocked}
+                                      >
+                                        <Type className={`h-4 w-4 ${row.isHeading ? "stroke-[3px]" : ""}`} />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-all"
+                                        onClick={() => addRowAfter(row.id)}
+                                        disabled={isQcInitiationLocked}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-destructive/5 hover:text-destructive transition-all"
+                                        onClick={() => removeRow(row.id)}
+                                        disabled={isQcInitiationLocked}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </>
+                                  )}
+                                  {!String(row.id).startsWith("new-") && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8 rounded-sm shadow-none border-muted-foreground/20 hover:bg-indigo-50 hover:text-indigo-600 transition-all"
+                                      onClick={() => {
+                                        setItemTrailId(row.id);
+                                        setItemTrailDialogOpen(true);
+                                      }}
+                                    >
+                                      <History className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -2424,6 +2445,15 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isView =
           </>
         )}
       </div>
+
+      {/* Item Trail Dialog */}
+      {itemTrailId && (
+        <MhcItemTrail 
+          itemId={itemTrailId} 
+          open={itemTrailDialogOpen} 
+          onOpenChange={setItemTrailDialogOpen} 
+        />
+      )}
     </form>
   )
 }

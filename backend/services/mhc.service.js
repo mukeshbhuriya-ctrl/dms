@@ -1239,6 +1239,35 @@ class MhcService {
 
         return { next_report_no: reportNo, next_serial_no: nextSerialNo };
     }
+
+    /**
+     * Get item history by item ID
+     */
+    async getItemHistory(company_id, item_id) {
+        const item = await prisma.material_heat_chart_item.findFirst({
+            where: { id: item_id },
+            select: { parent_item_id: true, id: true }
+        });
+
+        if (!item) throw new Error('Item not found');
+
+        const parentId = item.parent_item_id || item.id;
+
+        return await prisma.material_heat_chart_item.findMany({
+            where: {
+                OR: [
+                    { id: parentId },
+                    { parent_item_id: parentId }
+                ]
+            },
+            orderBy: { version: 'asc' },
+            include: {
+                prod_engineer: { select: { name: true, empid: true } },
+                qc_reviewer: { select: { name: true, empid: true } },
+                action_by: { select: { name: true, empid: true } }
+            }
+        });
+    }
 }
 
 module.exports = new MhcService();

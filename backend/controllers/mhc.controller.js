@@ -624,6 +624,18 @@ class MhcController {
             res.status(400).json({ success: false, message: error.message });
         }
     }
+
+    async getItemHistory(req, res) {
+        try {
+            const { itemId } = req.params;
+            const history = await MhcService.getItemHistory(req.user.company_id, itemId);
+            res.status(200).json({ success: true, data: history });
+        } catch (error) {
+            console.error('MHC getItemHistory error:', error);
+            const status = error.message.includes('not found') ? 404 : 500;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
 }
 
 module.exports = new MhcController();
