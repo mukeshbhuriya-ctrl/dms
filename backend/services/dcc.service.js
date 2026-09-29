@@ -3597,7 +3597,8 @@ class DccService {
                     status: 'Pending',
                     upload_due_days: { not: null },
                     is_active: true,
-                    is_deleted: false
+                    is_deleted: false,
+                    last_overdue_email_sent_at: null
                 },
                 include: {
                     user: true,
@@ -3609,6 +3610,7 @@ class DccService {
 
             const uploadOverdueUsers = {}; // userId -> docs[]
             const uploadOverdueByCompany = {}; // companyId -> docs[]
+            const processedUploadDocIds = [];
 
             for (const doc of pendingDocs) {
                 const latestVersion = doc.versions && doc.versions.length > 0 ? doc.versions[0] : null;
@@ -3624,8 +3626,7 @@ class DccService {
                 const msOverdue = today.getTime() - deadlineDate.getTime();
                 const daysOverdue = Math.floor(msOverdue / (1000 * 60 * 60 * 24));
 
-                // BEST PRACTICE: Only alert on Day 1, Day 3, and then once every 7 days. (Stops daily spam)
-                if (daysOverdue > 0 && (daysOverdue === 1 || daysOverdue === 3 || daysOverdue % 7 === 0)) {
+                if (daysOverdue > 0) {
                     if (!uploadOverdueUsers[doc.user_id]) uploadOverdueUsers[doc.user_id] = { user: doc.user, docs: [] };
 
                     const docDetails = {
@@ -3639,6 +3640,8 @@ class DccService {
 
                     if (!uploadOverdueByCompany[doc.company_id]) uploadOverdueByCompany[doc.company_id] = [];
                     uploadOverdueByCompany[doc.company_id].push(docDetails);
+                    
+                    processedUploadDocIds.push(doc.id);
                 }
             }
 
@@ -3647,7 +3650,7 @@ class DccService {
                 const { user, docs } = uploadOverdueUsers[userId];
                 if (user && user.email) {
                     await EmailService.sendDocumentOverdueNotification(user.email, user.name, 'upload', docs);
-                    console.log(`[DccService] Upload Overdue email sent to User ${user.email} for ${docs.length} items`);
+                    console.log(`[DccService] Upload Overdue email sent to User ${user.email} (${docs.length} items)`);
                 }
             }
 
@@ -3667,8 +3670,16 @@ class DccService {
                 if (adminEmails.length > 0) {
                     const toEmails = adminEmails.join(', ');
                     await EmailService.sendDocumentOverdueNotification(toEmails, 'DCC Team', 'upload', uploadOverdueDocs);
-                    console.log(`[DccService] Upload Overdue email sent to DCC Team (${toEmails}) (Company ${companyId}) for ${uploadOverdueDocs.length} items`);
+                    console.log(`[DccService] Upload Overdue email sent to DCC Team (${toEmails}) (Company ${companyId}) (${uploadOverdueDocs.length} items)`);
                 }
+            }
+
+            if (processedUploadDocIds.length > 0) {
+                await prisma.group_document.updateMany({
+                    where: { id: { in: processedUploadDocIds } },
+                    data: { last_overdue_email_sent_at: new Date() }
+                });
+                console.log(`[DccService] Marked ${processedUploadDocIds.length} upload overdue docs as notified.`);
             }
 
             // 2. Check for RESPONSE OVERDUE (Uploaded docs awaiting approval)
@@ -3677,7 +3688,8 @@ class DccService {
                     status: 'Pending for Approval',
                     response_due_days: { not: null },
                     is_active: true,
-                    is_deleted: false
+                    is_deleted: false,
+                    last_overdue_email_sent_at: null
                 },
                 include: {
                     user: true,
@@ -3689,6 +3701,7 @@ class DccService {
 
             // Group overdue docs by company_id
             const overdueByCompany = {};
+            const processedResponseDocIds = [];
 
             for (const doc of submittedDocs) {
                 const lastVersion = doc.versions[0];
@@ -3706,8 +3719,7 @@ class DccService {
                 const msOverdue = today.getTime() - deadlineDate.getTime();
                 const daysOverdue = Math.floor(msOverdue / (1000 * 60 * 60 * 24));
 
-                // BEST PRACTICE: Only alert on Day 1, Day 3, and then once every 7 days. (Stops daily spam)
-                if (daysOverdue > 0 && (daysOverdue === 1 || daysOverdue === 3 || daysOverdue % 7 === 0)) {
+                if (daysOverdue > 0) {
                     if (!overdueByCompany[doc.company_id]) {
                         overdueByCompany[doc.company_id] = [];
                     }
@@ -3717,6 +3729,7 @@ class DccService {
                         job_number: doc.group?.job_group?.map(jg => jg.job?.job_number).join(', ') || 'N/A',
                         assigned_user: doc.user?.name || 'Unknown'
                     });
+                    processedResponseDocIds.push(doc.id);
                 }
             }
 
@@ -3742,8 +3755,16 @@ class DccService {
                 if (adminEmails.length > 0) {
                     const toEmails = adminEmails.join(', ');
                     await EmailService.sendDocumentOverdueNotification(toEmails, 'DCC Team', 'response', responseOverdueDocs);
-                    console.log(`[DccService] Response Overdue email sent to DCC Team (${toEmails}) (Company ${companyId}) for ${responseOverdueDocs.length} items`);
+                    console.log(`[DccService] Response Overdue email sent to DCC Team (${toEmails}) (Company ${companyId}) (${responseOverdueDocs.length} items)`);
                 }
+            }
+
+            if (processedResponseDocIds.length > 0) {
+                await prisma.group_document.updateMany({
+                    where: { id: { in: processedResponseDocIds } },
+                    data: { last_overdue_email_sent_at: new Date() }
+                });
+                console.log(`[DccService] Marked ${processedResponseDocIds.length} response overdue docs as notified.`);
             }
 
         } catch (error) {

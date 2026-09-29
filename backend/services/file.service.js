@@ -250,10 +250,13 @@ class FileService {
       });
     }
 
-    // Update the document's main status to Pending for Approval
+    // Update the document's main status to Pending for Approval and reset overdue email flag
     await tx.group_document.update({
       where: { id: documentId },
-      data: { status: 'Pending for Approval' }
+      data: { 
+        status: 'Pending for Approval',
+        last_overdue_email_sent_at: null 
+      }
     });
 
     return version;
