@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History } from "lucide-react"
+import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History, ArrowLeft } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
@@ -102,6 +102,10 @@ function ViewWeldingJoints() {
   const [activeFilters, setActiveFilters] = useState({ records: [] });
   const [selectedJointIds, setSelectedJointIds] = useState(new Set());
   const [autoAppliedFilters, setAutoAppliedFilters] = useState(false);
+
+  // Drill-down State
+  const [activeView, setActiveView] = useState("plans"); // 'plans' | 'joints'
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState(null);
 
   useEffect(() => {
     if (selectedJointIds.size === 1) {
@@ -386,6 +390,7 @@ function ViewWeldingJoints() {
         if (columnFilters.msnNumber) params.msn = columnFilters.msnNumber;
         if (columnFilters.jointNo) params.job = columnFilters.jointNo;
         if (columnFilters.jointCategory) params.cat = columnFilters.jointCategory;
+        if (columnFilters.weldPlanNo) params.weldPlanNo = columnFilters.weldPlanNo;
       }
 
       const response = await apiClient.get('/api/wpj/get-all-weld-joints', params);
@@ -409,11 +414,11 @@ function ViewWeldingJoints() {
       const mapData = (item) => ({
         id: item.id,
         msnNumber: item.weld_joint_plan?.job?.job_number || "-",
-        client: item.weld_joint_plan?.job?.customer?.customer_name || "",
+        client: item.weld_joint_plan?.client_name || item.weld_joint_plan?.job?.customer?.customer_name || "",
         poNo: item.weld_joint_plan?.job?.po?.po_number || "",
-        tagNo: item.weld_joint_plan?.job?.tag_number || "",
-        equipment: item.weld_joint_plan?.job?.equipement_name || "",
-        projectsId: item.weld_joint_plan?.job?.project_id || "",
+        tagNo: item.weld_joint_plan?.tag_id || item.weld_joint_plan?.job?.tag_number || "",
+        equipment: item.weld_joint_plan?.equipment_name || item.weld_joint_plan?.job?.equipement_name || "",
+        projectsId: item.weld_joint_plan?.project_id || item.weld_joint_plan?.job?.project_id || "",
         lindeDrgNo: item.weld_joint_plan?.shreno_drg_no || "",
         drgNo: item.weld_joint_plan?.customer_drg_no || "",
         code: item.weld_joint_plan?.job?.code || "",
@@ -428,13 +433,84 @@ function ViewWeldingJoints() {
 
       return {
         data: (response.data || []).map(mapData),
-        meta: response.meta || { total: (response.data || []).length, page: 1, limit: pageSize || 10, totalPages: 1 }
+        meta: response.meta || { total: (response.data || []).length, page: 1, limit: limit || 10, totalPages: 1 }
       }
     } catch (err) {
       console.error("Error fetching welding joints:", err);
       return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
     }
   }, [refreshKey, statusFilter])
+
+  // --- Plans Fetching (Master View) ---
+  const fetchPlansData = useCallback(async ({ page, limit, search, columnFilters }) => {
+    try {
+      const mergedFilters = { ...columnFilters, is_active: ["true"] }; const params = { page, limit, search, columnFilters: JSON.stringify(mergedFilters) };
+      const response = await apiClient.get('/api/wpj/get-weld-joint-plans', params);
+      return {
+        data: response.data || [],
+        meta: response.meta || { total: 0, page: 1, limit: 10, totalPages: 0 }
+      };
+    } catch (err) {
+      console.error("Error fetching plans:", err);
+      return { data: [], meta: { total: 0, page: 1, limit: 10, totalPages: 0 } };
+    }
+  }, [refreshKey]);
+
+  const planColumns = useMemo(() => [
+    {
+      accessorKey: "weld_plan_no",
+      header: "Weld Plan No",
+    },
+    {
+      accessorKey: "job.job_number",
+      header: "Job Number",
+    },
+    {
+      id: "tag_id",
+      header: "Tag ID",
+      cell: (row) => row.tag_id || row.job?.tag_number || "-"
+    },
+    {
+      id: "equipment_name",
+      header: "Equipment Name",
+      cell: (row) => row.equipment_name || row.job?.equipement_name || "-"
+    },
+    {
+      id: "customer_name",
+      header: "Client",
+      cell: (row) => row.client_name || row.job?.customer?.customer_name || "-"
+    },
+    {
+      id: "total_joints",
+      header: "Total Joints",
+      cell: (row) => row._count?.weld_joints || row.weld_joints?.length || 0,
+    },
+    {
+      id: "actions",
+      header: "Action",
+      width: "120px",
+      cell: (row) => (
+        <Button 
+          variant="outline" 
+          size="sm"
+          className="w-full cursor-pointer"
+          onClick={() => {
+            setSelectedPlanDetails(row);
+            setColumnFilters({
+              jointNo: [], jointCategory: [],
+              msnNumber: row.job?.job_number ? [row.job.job_number.toString()] : [],
+              client: [], poNo: [],
+              weldPlanNo: row.weld_plan_no ? [row.weld_plan_no] : []
+            });
+            setActiveView("joints");
+          }}
+        >
+          View Joints <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      )
+    }
+  ], []);
+
 
   const onFilterChange = (newFilters) => {
     setColumnFilters(prev => ({ ...prev, ...newFilters }));
@@ -658,24 +734,54 @@ function ViewWeldingJoints() {
 
   return (
     <>
-
       <PageContainer>
-<div className="flex flex-col gap-4">
-            
-            <ProDataTable
-              columns={columns}
-              fetchData={fetchJointsData}
-              onExport={handleExport}
-              columnFilters={columnFilters}
-              onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
-              refreshKey={refreshKey}
-              globalSearchPlaceholder="Search joint no, job, client..."
-              selectedRows={selectedJointIds}
-              onSelectionChange={handleSelectionChange}
-            />
+        <div className="flex flex-col gap-4">
+          
+          {activeView === "plans" && (
+            <div className="space-y-4">
+              
+              <ProDataTable
+                columns={planColumns}
+                fetchData={fetchPlansData}
+                refreshKey={refreshKey}
+                globalSearchPlaceholder="Search by Plan No, Job, Client..."
+              />
+            </div>
+          )}
 
-          </div>
-</PageContainer>
+          {activeView === "joints" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-4">
+                <h2 className="text-xl font-semibold tracking-tight text-slate-800">
+                  {selectedPlanDetails?.weld_plan_no}
+                </h2>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setActiveView("plans");
+                    setSelectedPlanDetails(null);
+                    setColumnFilters({});
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to List
+                </Button>
+              </div>
+
+              <ProDataTable
+                columns={columns}
+                fetchData={fetchJointsData}
+                onExport={handleExport}
+                columnFilters={columnFilters}
+                onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
+                refreshKey={refreshKey}
+                globalSearchPlaceholder="Search joint no, job, client..."
+                selectedRows={selectedJointIds}
+                onSelectionChange={handleSelectionChange}
+              />
+            </div>
+          )}
+        </div>
+      </PageContainer>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">

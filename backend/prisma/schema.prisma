@@ -554,6 +554,11 @@ model weld_joint_plan {
   company_id          String
   job_id              String
   
+  project_id          String?
+  tag_id              String?
+  client_name         String?
+  equipment_name      String?
+
   shreno_drg_no       String
   customer_drg_no     String?
   code_of_construction String

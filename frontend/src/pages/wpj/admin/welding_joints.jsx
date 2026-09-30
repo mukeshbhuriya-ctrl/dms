@@ -89,10 +89,7 @@ function WeldingJoints() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   // View Modal State
-  const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
-  const [isViewOpen, setIsViewOpen] = useState(false)
-  const [isViewLoading, setIsViewLoading] = useState(false)
-
+      
   // Bulk Import State
   const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
   const [excelData, setExcelData] = useState([]);
@@ -347,29 +344,9 @@ function WeldingJoints() {
     }
   };
 
-  const handleViewClick = async (planId) => {
-    setIsViewLoading(true)
-    setError("")
+  const handleViewClick = (planId) => handleEditClick(planId, "view")
 
-    try {
-      const res = await apiClient.get(`/api/wpj/get-weld-joint-plan/${planId}`)
-
-      if (res.success) {
-        setSelectedPlanDetails(res.data)
-        setIsViewOpen(true)
-      } else {
-        console.error("Failed to fetch plan details", res)
-        setError("Failed to fetch plan details")
-      }
-    } catch (err) {
-      console.error("Error fetching plan details:", err)
-      setError("Error fetching plan details")
-    } finally {
-      setIsViewLoading(false)
-    }
-  }
-
-  const handleEditClick = useCallback(async (planId) => {
+  const handleEditClick = useCallback(async (planId, mode = "edit") => {
     setIsLoading(true)
     setError("")
     setEditingPlanId(planId)
@@ -384,10 +361,10 @@ function WeldingJoints() {
         setFormData({
           weldPlanNo: plan.weld_plan_no,
           jobNo: plan.job?.job_number || "",
-          tagId: plan.job?.tag_number || "",
-          projectId: plan.job?.project_id || "",
-          clientName: plan.job?.customer?.customer_name || "",
-          equipmentName: plan.job?.equipement_name || "",
+          tagId: plan.tag_id || plan.job?.tag_number || "",
+          projectId: plan.project_id || plan.job?.project_id || "",
+          clientName: plan.client_name || plan.job?.customer?.customer_name || "",
+          equipmentName: plan.equipment_name || plan.job?.equipement_name || "",
           shrDrgNo: plan.shreno_drg_no || "",
           customerDrgNumber: plan.customer_drg_no || "",
           codeOfConstruction: plan.code_of_construction || "",
@@ -434,7 +411,7 @@ function WeldingJoints() {
           remarks: "",
         }])
 
-        setView("edit")
+        setView(mode)
       } else {
         setError(responseData.message || "Failed to fetch plan details for editing")
       }
@@ -548,17 +525,25 @@ function WeldingJoints() {
         return uniqueTypes.join(", ") || "-";
       }
     },
-    // {
-    //   accessorKey: "job.project_id",
-    //   header: "Project ID",
-    // },
     {
-      accessorKey: "job.equipement_name",
-      header: "Equipment Name",
+      id: "project_id",
+      header: "Project ID",
+      cell: (row) => row.project_id || row.job?.project_id || "-"
     },
     {
-      accessorKey: "job.customer.customer_name",
+      id: "tag_id",
+      header: "Tag ID",
+      cell: (row) => row.tag_id || row.job?.tag_number || "-"
+    },
+    {
+      id: "equipment_name",
+      header: "Equipment Name",
+      cell: (row) => row.equipment_name || row.job?.equipement_name || "-"
+    },
+    {
+      id: "customer_name",
       header: "Customer",
+      cell: (row) => row.client_name || row.job?.customer?.customer_name || "-"
     },
     {
       accessorKey: "createdAt",
@@ -1004,7 +989,7 @@ function WeldingJoints() {
                           }))}
                           onValueChange={handleJobChange}
                           placeholder="Select job number"
-                          disabled={isLoading || view === "edit"}
+                          disabled={isLoading || view === "edit" || view === "view"}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1029,8 +1014,8 @@ function WeldingJoints() {
                           type="text"
                           placeholder="Auto-filled tag ID"
                           value={formData.tagId}
-                          readOnly
-                          disabled={isLoading}
+                          onChange={handleInputChange}
+                          disabled={isLoading || view === "view"}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1041,7 +1026,8 @@ function WeldingJoints() {
                           type="text"
                           placeholder="project ID"
                           value={formData.projectId}
-                          disabled={isLoading}
+                          onChange={handleInputChange}
+                          disabled={isLoading || view === "view"}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1052,8 +1038,8 @@ function WeldingJoints() {
                           type="text"
                           placeholder="Auto-filled client name"
                           value={formData.clientName}
-                          readOnly
-                          disabled={isLoading}
+                          onChange={handleInputChange}
+                          disabled={isLoading || view === "view"}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1067,9 +1053,9 @@ function WeldingJoints() {
                           type="text"
                           placeholder="Auto-filled equipment name"
                           value={formData.equipmentName}
-                          readOnly
+                          onChange={handleInputChange}
                           required
-                          disabled={isLoading}
+                          disabled={isLoading || view === "view"}
                         />
                       </div>
                     </CardContent>
@@ -1097,7 +1083,7 @@ function WeldingJoints() {
                           value={formData.shrDrgNo}
                           onChange={handleInputChange}
                           required
-                          disabled={isLoading}
+                          disabled={isLoading || view === "view"}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1112,7 +1098,7 @@ function WeldingJoints() {
                           placeholder="Enter customer drawing number (optional)"
                           value={formData.customerDrgNumber}
                           onChange={handleInputChange}
-                          disabled={isLoading}
+                          disabled={isLoading || view === "view"}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1128,7 +1114,7 @@ function WeldingJoints() {
                           value={formData.codeOfConstruction}
                           onChange={handleInputChange}
                           required
-                          disabled={isLoading}
+                          disabled={isLoading || view === "view"}
                         />
                       </div>
                     </CardContent>
@@ -1262,7 +1248,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-full"
                                       required
                                     />
@@ -1277,7 +1263,7 @@ function WeldingJoints() {
                                           value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -1302,7 +1288,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[150px] min-w-[150px]"
                                       required
                                     />
@@ -1319,7 +1305,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
@@ -1335,7 +1321,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
@@ -1350,7 +1336,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
@@ -1365,7 +1351,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[80px] min-w-[80px]"
                                     />
                                   </TableCell>
@@ -1380,7 +1366,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[100px] min-w-[100px]"
                                     />
                                   </TableCell>
@@ -1395,7 +1381,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[110px] min-w-[110px]"
                                     />
                                   </TableCell>
@@ -1410,7 +1396,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[90px] min-w-[90px]"
                                     />
                                   </TableCell>
@@ -1425,7 +1411,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[90px] min-w-[90px]"
                                     />
                                   </TableCell>
@@ -1435,7 +1421,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "backChipReq", value)
                                       }
-                                      disabled={isLoading || row.jointType === "F"}
+                                      disabled={isLoading || view === "view" || row.jointType === "F"}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -1452,7 +1438,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "pwht", value)
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -1469,7 +1455,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "rt", value)
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -1486,7 +1472,7 @@ function WeldingJoints() {
                                       onValueChange={(value) =>
                                         handleTableRowChange(row.id, "pt", value)
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                     >
                                       <SelectTrigger className="w-[70px] min-w-[70px]">
                                         <SelectValue placeholder="-" />
@@ -1508,7 +1494,7 @@ function WeldingJoints() {
                                           e.target.value
                                         )
                                       }
-                                      disabled={isLoading}
+                                      disabled={isLoading || view === "view"}
                                       className="w-[120px] min-w-[120px]"
                                     />
                                   </TableCell>
@@ -1519,7 +1505,7 @@ function WeldingJoints() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => duplicateTableRow(row.id)}
-                                        disabled={isLoading}
+                                        disabled={isLoading || view === "view"}
                                         title="Duplicate Row"
                                       >
                                         <Copy className="h-4 w-4" />
@@ -1529,7 +1515,7 @@ function WeldingJoints() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => removeTableRow(row.id)}
-                                        disabled={isLoading || tableRows.length === 1}
+                                        disabled={isLoading || view === "view" || tableRows.length === 1}
                                         title="Remove Row"
                                       >
                                         <X className="h-4 w-4 text-destructive" />
@@ -1555,7 +1541,7 @@ function WeldingJoints() {
                         type="button"
                         variant="outline"
                         onClick={addTableRow}
-                        disabled={isLoading}
+                        disabled={isLoading || view === "view"}
                       >
                         <Plus className="h-4 w-4 mr-2" /> Add Row
                       </Button>
@@ -1572,13 +1558,11 @@ function WeldingJoints() {
                         handleReset()
                         setView("list")
                       }}
-                      disabled={isLoading}
+                      disabled={isLoading || view === "view"}
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isLoading} className="cursor-pointer">
-                      {isLoading ? (view === 'edit' ? "Updating..." : "Creating...") : view === 'edit' ? "Update Plan" : "Create Plan"}
-                    </Button>
+                    {view !== "view" && <Button type="submit" disabled={isLoading} className="cursor-pointer">{isLoading ? (view === "edit" ? "Updating..." : "Creating...") : view === "edit" ? "Update Plan" : "Create Plan"}</Button>}
 
                   </div>
                 </div>
@@ -1586,127 +1570,7 @@ function WeldingJoints() {
              </div>
             )}
 
-            {/* View Details Modal */}
-            <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-              <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-                <DialogHeader className="mb-4">
-                  <DialogTitle className="text-xl font-bold text-center">Weld Joint Plan Details</DialogTitle>
-                </DialogHeader>
-
-                {selectedPlanDetails && (
-                  <div className="space-y-6">
-                    {/* Job Info Header - Grid layout */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm border p-4 bg-muted/10 rounded-lg">
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-muted-foreground text-xs">Job No:</span>
-                        <span>{selectedPlanDetails.job?.job_number}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-muted-foreground text-xs">Client:</span>
-                        <span>{selectedPlanDetails.job?.customer?.customer_name}</span>
-                      </div>
-                      {/* <div className="flex flex-col">
-                        <span className="font-semibold text-muted-foreground text-xs">Project ID:</span>
-                        <span>{selectedPlanDetails.job?.project_id}</span>
-                      </div> */}
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-muted-foreground text-xs">Equipment:</span>
-                        <span>{selectedPlanDetails.job?.equipement_name}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-muted-foreground text-xs">Drawing No(s):</span>
-                        <span>{selectedPlanDetails.shreno_drg_no}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-muted-foreground text-xs">Weld Plan No:</span>
-                        <span>{selectedPlanDetails.weld_plan_no}</span>
-                      </div>
-                    </div>
-
-                    {/* Technical Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full border-collapse border border-black text-xs text-center font-medium">
-                        <thead>
-                          {/* Row 1: Code of Construction */}
-                          <tr className="bg-white">
-                            <th className="border border-black p-1 text-left font-bold" colSpan={2}>
-                              CODE OF CONSTRUCTION
-                            </th>
-                            <th className="border border-black p-1 text-left font-bold" colSpan={13}>
-                              {selectedPlanDetails.code_of_construction}
-                            </th>
-                          </tr>
-                          {/* Row 2: Main Headers */}
-                          <tr className="bg-gray-50">
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint No</th>
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint Type</th>
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint</th>
-
-                            {/* Thickness Group */}
-                            <th className="border border-black p-2 font-bold" colSpan={2}>Base-Metal Thickness mm</th>
-
-                            {/* Spec Group */}
-                            <th className="border border-black p-2 font-bold" colSpan={2}>Base Metal Specification</th>
-
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Consumable</th>
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>WPS No/PQR No</th>
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Process</th>
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Impact Test</th>
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Back Chip<br/>Req.</th>
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>PWHT</th>
-
-                            <th className="border border-black p-2 font-bold align-middle" colSpan={2}>NDT</th>
-
-                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Remarks</th>
-                          </tr>
-                          {/* Row 3: Sub Headers */}
-                          <tr className="bg-gray-50">
-                            <th className="border border-black p-1 font-bold">Part No. 1</th>
-                            <th className="border border-black p-1 font-bold">Part No. 2</th>
-
-                            <th className="border border-black p-1 font-bold">Part No. 1</th>
-                            <th className="border border-black p-1 font-bold">Part No. 2</th>
-
-                            <th className="border border-black p-1 font-bold">RT</th>
-                            <th className="border border-black p-1 font-bold">PT</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {selectedPlanDetails.weld_joints?.map((joint) => (
-                            <tr key={joint.id} className="hover:bg-muted/5">
-                              <td className="border border-black p-2 whitespace-nowrap">{joint.joint_no}</td>
-                              <td className="border border-black p-2 font-bold">{joint.joint_type}</td>
-                              <td className="border border-black p-2">{joint.joint_description || joint.joint}</td>
-
-                              {/* Thickness */}
-                              <td className="border border-black p-2">{joint.base_metal_thickness_p1}</td>
-                              <td className="border border-black p-2">{joint.base_metal_thickness_p2}</td>
-
-                              {/* Spec */}
-                              <td className="border border-black p-2">{joint.base_metal_spec_p1}</td>
-                              <td className="border border-black p-2">{joint.base_metal_spec_p2}</td>
-
-                              <td className="border border-black p-2">{joint.consumable}</td>
-                              <td className="border border-black p-2">{joint.wps_pqr_no || joint.wpsNoPqrNo}</td>
-                              <td className="border border-black p-2">{joint.process}</td>
-                              <td className="border border-black p-2">{joint.impact_test || joint.impactTest}</td>
-                              <td className="border border-black p-2">{joint.back_chip_req === true ? 'YES' : (joint.back_chip_req === false ? 'NO' : '-')}</td>
-                              <td className="border border-black p-2">{joint.pwht === true ? 'YES' : (joint.pwht === false ? 'NO' : '-')}</td>
-
-                              {/* NDT */}
-                              <td className="border border-black p-2">{joint.rt === true ? 'YES' : (joint.rt === false ? 'NO' : '-')}</td>
-                              <td className="border border-black p-2">{joint.pt === true ? 'YES' : (joint.pt === false ? 'NO' : '-')}</td>
-
-                              <td className="border border-black p-2 min-w-[150px]">{joint.remarks}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
+            
 
             <ImportReviewDialog
                 open={bulkImportDialogOpen}
@@ -1766,3 +1630,5 @@ function WeldingJoints() {
 }
 
 export default WeldingJoints
+
+

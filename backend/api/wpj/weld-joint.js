@@ -76,62 +76,70 @@ async function getjobInfo(req, res) {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-async function createWeldJointPlan(req, res) {
-    try {
-        const {
-            jobNo,
-            shrDrgNo,
-            customerDrgNumber,
-            codeOfConstruction,
-            tableRows
-        } = req.body;
-
-        const company_id = req.user.company_id;
-        const user_id = req.user.userid || req.user.id;
-
-        if (!jobNo) {
-            return res.status(400).json({ success: false, message: 'Job Number is required' });
-        }
-
-        // Find the job to link and get its latest serial number
-        const job = await prisma.job.findFirst({
-            where: {
-                job_number: jobNo,
-                company_id: company_id
-            },
-            include: {
-                weld_joint_plans: {
-                    select: { serial_no: true },
-                    orderBy: { serial_no: 'desc' },
-                    take: 1
-                }
+    async function createWeldJointPlan(req, res) {
+        try {
+            const {
+                jobNo,
+                shrDrgNo,
+                customerDrgNumber,
+                codeOfConstruction,
+                projectId,
+                tagId,
+                clientName,
+                equipmentName,
+                tableRows
+            } = req.body;
+    
+            const company_id = req.user.company_id;
+            const user_id = req.user.userid || req.user.id;
+    
+            if (!jobNo) {
+                return res.status(400).json({ success: false, message: 'Job Number is required' });
             }
-        });
-
-        if (!job) {
-            return res.status(404).json({ success: false, message: 'Job not found' });
-        }
-
-        // Calculate next serial number and weld plan no
-        const lastSerial = job.weld_joint_plans?.[0]?.serial_no || 0;
-        const nextSerial = lastSerial + 1;
-        const generatedWeldPlanNo = `SHR/${job.job_number}/WTP/${nextSerial}`;
-
-        // Create Plan and Joints in transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Create Header
-            const plan = await tx.weld_joint_plan.create({
-                data: {
-                    company_id,
-                    job_id: job.id,
-                    shreno_drg_no: shrDrgNo,
-                    customer_drg_no: customerDrgNumber,
-                    code_of_construction: codeOfConstruction,
-                    created_by: user_id,
-                    weld_plan_no: generatedWeldPlanNo,
-                    serial_no: nextSerial
+    
+            // Find the job to link and get its latest serial number
+            const job = await prisma.job.findFirst({
+                where: {
+                    job_number: jobNo,
+                    company_id: company_id
+                },
+                include: {
+                    weld_joint_plans: {
+                        select: { serial_no: true },
+                        orderBy: { serial_no: 'desc' },
+                        take: 1
+                    }
                 }
             });
+    
+            if (!job) {
+                return res.status(404).json({ success: false, message: 'Job not found' });
+            }
+    
+            // Calculate next serial number and weld plan no
+            const lastSerial = job.weld_joint_plans?.[0]?.serial_no || 0;
+            const nextSerial = lastSerial + 1;
+            const generatedWeldPlanNo = `SHR/${job.job_number}/WTP/${nextSerial}`;
+    
+            // Create Plan and Joints in transaction
+            const result = await prisma.$transaction(async (tx) => {
+                // 1. Create Header
+                const plan = await tx.weld_joint_plan.create({
+                    data: {
+                        company_id,
+                        job_id: job.id,
+                        shreno_drg_no: shrDrgNo,
+                        customer_drg_no: customerDrgNumber,
+                        code_of_construction: codeOfConstruction,
+                        project_id: projectId,
+                        tag_id: tagId,
+                        client_name: clientName,
+                        equipment_name: equipmentName,
+                        created_by: user_id,
+                        weld_plan_no: generatedWeldPlanNo,
+                        serial_no: nextSerial
+                    }
+                });
 
             // 2. Create Joints
             if (tableRows && tableRows.length > 0) {
@@ -386,45 +394,53 @@ async function getAssignedWeldJoints(req, res) {
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
  */
-async function updateWeldJointPlan(req, res) {
-    try {
-        const { id } = req.params;
-        const {
-            shrDrgNo,
-            customerDrgNumber,
-            codeOfConstruction,
-            tableRows
-        } = req.body;
-
-        const company_id = req.user.company_id;
-
-        if (!id) {
-            return res.status(400).json({ success: false, message: 'Plan ID is required' });
-        }
-
-        // Verify plan exists and belongs to company
-        const existingPlan = await prisma.weld_joint_plan.findFirst({
-            where: {
-                id: id,
-                company_id: company_id
+    async function updateWeldJointPlan(req, res) {
+        try {
+            const { id } = req.params;
+            const {
+                shrDrgNo,
+                customerDrgNumber,
+                codeOfConstruction,
+                projectId,
+                tagId,
+                clientName,
+                equipmentName,
+                tableRows
+            } = req.body;
+    
+            const company_id = req.user.company_id;
+    
+            if (!id) {
+                return res.status(400).json({ success: false, message: 'Plan ID is required' });
             }
-        });
-
-        if (!existingPlan) {
-            return res.status(404).json({ success: false, message: 'Weld Joint Plan not found' });
-        }
-
-        // Update Plan and Joints in transaction
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Update Header
-            const updatedPlan = await tx.weld_joint_plan.update({
-                where: { id: id },
-                data: {
-                    shreno_drg_no: shrDrgNo,
-                    customer_drg_no: customerDrgNumber,
-                    code_of_construction: codeOfConstruction,
+    
+            // Verify plan exists and belongs to company
+            const existingPlan = await prisma.weld_joint_plan.findFirst({
+                where: {
+                    id: id,
+                    company_id: company_id
                 }
             });
+    
+            if (!existingPlan) {
+                return res.status(404).json({ success: false, message: 'Weld Joint Plan not found' });
+            }
+    
+            // Update Plan and Joints in transaction
+            const result = await prisma.$transaction(async (tx) => {
+                // 1. Update Header
+                const updatedPlan = await tx.weld_joint_plan.update({
+                    where: { id: id },
+                    data: {
+                        shreno_drg_no: shrDrgNo,
+                        customer_drg_no: customerDrgNumber,
+                        code_of_construction: codeOfConstruction,
+                        project_id: projectId,
+                        tag_id: tagId,
+                        client_name: clientName,
+                        equipment_name: equipmentName,
+                    }
+                });
 
             // 2. Delete Removed Joints
             const incomingIds = tableRows

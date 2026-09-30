@@ -554,16 +554,16 @@ class WeldJointService {
         }
 
         // Column-based filters (Support multi-select)
-        const { client, po, job, cat, msn } = params;
+        const { client, po, job, cat, msn, weldPlanNo } = params;
 
         const handleMultiFilter = (val) => {
             if (!val) return undefined;
-            if (Array.isArray(val)) return { in: val };
+            if (Array.isArray(val)) return val.length > 0 ? { in: val } : undefined;
             if (typeof val === 'string') {
                 if (val.startsWith('[')) {
                     try {
                         const parsed = JSON.parse(val);
-                        if (Array.isArray(parsed)) return { in: parsed };
+                        if (Array.isArray(parsed)) return parsed.length > 0 ? { in: parsed } : undefined;
                     } catch (e) { }
                 }
                 if (val.includes(',')) return { in: val.split(',').map(v => v.trim()) };
@@ -638,6 +638,12 @@ class WeldJointService {
             where.weld_joint_plan = {
                 ...where.weld_joint_plan,
                 job: { ...where.weld_joint_plan?.job, job_number: handleMultiFilter(msn) }
+            };
+        }
+        if (weldPlanNo) {
+            where.weld_joint_plan = {
+                ...where.weld_joint_plan,
+                weld_plan_no: handleMultiFilter(weldPlanNo)
             };
         }
 
@@ -1103,11 +1109,7 @@ class WeldJointService {
                             customer: { select: { customer_name: true } }
                         }
                     },
-                    weld_joints: {
-                        select: {
-                            joint_type: true
-                        }
-                    }
+                    weld_joints: { select: { joint_type: true } }, _count: { select: { weld_joints: true } }
                 },
                 orderBy: { [sortBy]: sortOrder },
                 skip, take
