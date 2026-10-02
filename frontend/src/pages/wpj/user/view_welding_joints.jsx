@@ -22,6 +22,13 @@ import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+
 import { Separator } from "@/components/ui/separator"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -42,6 +49,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
 import WeldJointTrail from "@/components/wpj/WeldJointTrail"
 import ViewStagesSheet from "@/components/wpj/ViewStagesSheet"
+import { useWeldQualityReports } from "./use_weld_quality_reports"
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
 import Stage2 from "@/components/form/ab/stage2"
@@ -112,6 +120,8 @@ function ViewWeldingJoints() {
   // Drill-down State
   const [activeView, setActiveView] = useState("plans"); // 'plans' | 'joints'
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null);
+
+  const { downloadFTR, downloadNFTR, isDownloadingFTR, isDownloadingNFTR } = useWeldQualityReports(selectedPlanDetails?.id);
 
   useEffect(() => {
     if (selectedJointIds.size === 1) {
@@ -794,6 +804,25 @@ function ViewWeldingJoints() {
                 globalSearchPlaceholder="Search joint no, job, client..."
                 selectedRows={selectedJointIds}
                 onSelectionChange={handleSelectionChange}
+                customToolbarActions={
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="h-9 bg-white shadow-none">
+                        Reports <ChevronDown className="ml-2 h-4 w-4 text-slate-500" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={downloadFTR} disabled={isDownloadingFTR} className="cursor-pointer">
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        <span>{isDownloadingFTR ? "Generating FTR..." : "FTR Report"}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={downloadNFTR} disabled={isDownloadingNFTR} className="cursor-pointer">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        <span>{isDownloadingNFTR ? "Generating NFTR..." : "NFTR Report"}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                }
               />
             </div>
           )}

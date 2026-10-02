@@ -414,6 +414,86 @@ async function downloadTravelerSummaryPdf(req, res) {
     }
 }
 
+const getQualityMetricsReport = async (req, res) => {
+    try {
+        const { company_id } = req.user;
+        const { type, plan_id } = req.query; // type = 'FTR' or 'NFTR'
+
+        let rejectedJointsWhere = {
+            weld_joint_plan: { company_id }
+        };
+        if (plan_id) {
+            rejectedJointsWhere.weld_joint_plan.id = plan_id;
+        }
+        rejectedJointsWhere.weld_joint_stages = {
+            some: {
+                OR: [
+                    { status: 'rejected' },
+                    { rejected_at: { not: null } }
+                ]
+            }
+        };
+
+        const rejectedJoints = await prisma.weld_joint.findMany({
+            where: rejectedJointsWhere,
+            select: { id: true }
+        });
+        const rejectedJointIds = rejectedJoints.map(j => j.id);
+
+        let whereClause = { weld_joint: { weld_joint_plan: { company_id } } };
+        
+        if (plan_id) {
+            whereClause.weld_joint.weld_joint_plan.id = plan_id;
+        }
+
+        if (type === 'FTR') {
+            whereClause.weld_joint.id = { notIn: rejectedJointIds };
+            whereClause.status = 'approved';
+        } else if (type === 'NFTR') {
+            whereClause.weld_joint.id = { in: rejectedJointIds };
+        } else {
+            return res.status(400).json({ success: false, message: 'Invalid report type' });
+        }
+
+        const stages = await prisma.weld_joint_stage.findMany({
+            where: whereClause,
+            include: {
+                weld_joint: {
+                    include: {
+                        weld_joint_plan: { select: { weld_plan_no: true, job: { select: { job_number: true } } } }
+                    }
+                },
+                production_engineer: { select: { name: true } },
+                qc_engineer: { select: { name: true } }
+            },
+            orderBy: { updatedAt: 'desc' }
+        });
+
+        const formattedData = stages.map(s => ({
+            'Job No': s.weld_joint?.weld_joint_plan?.job?.job_number || '',
+            'Plan No': s.weld_joint?.weld_joint_plan?.weld_plan_no || '',
+            'Joint No': s.weld_joint?.joint_no || '',
+            'Category': s.weld_joint?.joint_category || '',
+            'Stage Name': s.stage_name,
+            'Status': s.status,
+            'Production Engineer': s.production_engineer?.name || '',
+            'QC Engineer': s.qc_engineer?.name || '',
+            'Submitted At': s.submitted_at,
+            'Approved At': s.approved_at,
+            'Rejected At': s.rejected_at,
+            'Remarks': s.remarks || ''
+        }));
+
+        res.status(200).json({
+            success: true,
+            data: formattedData
+        });
+    } catch (error) {
+        console.error('Error generating quality metrics report:', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -428,5 +508,6 @@ module.exports = {
     togglePlanStatus,
     archivePlan,
     getTravelerSummary,
-    downloadTravelerSummaryPdf
+    downloadTravelerSummaryPdf,
+    getQualityMetricsReport
 };
