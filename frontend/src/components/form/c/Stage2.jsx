@@ -20,7 +20,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage2({ initialData, isReview = false, isUpdate = false, readOnly = false, stage = "stage2" , onSuccess }) {
+function Stage2({ initialData, isReview = false, isUpdate = false, isRejected = false, readOnly = false, stage = "stage2" , onSuccess }) {
 
     const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
 
@@ -531,7 +531,7 @@ await api.post("/api/wpj/update-stage-status", {
                 className="min-w-[150px] shadow-sm hover:translate-y-[-1px] transition-all cursor-pointer"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Saving..." : isUpdate ? "Update Report" : "Submit Report"}
+                {isSubmitting ? "Saving..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
               </Button>
             </div>
           )}

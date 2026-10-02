@@ -18,7 +18,7 @@ import {
 import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 
-function Stage2({ initialData, isReview = false, isUpdate = false, stage = "stage2", onSuccess }) {
+function Stage2({ initialData, isReview = false, isUpdate = false, isRejected = false, stage = "stage2", onSuccess }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
@@ -388,7 +388,7 @@ function Stage2({ initialData, isReview = false, isUpdate = false, stage = "stag
           <div className="mt-6 flex justify-end gap-2 items-center">
             {!isReview ? (
               <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : isUpdate ? "Update Report" : "Submit Report"}
+                {isSubmitting ? "Saving..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
               </Button>
             ) : (
               <>

@@ -20,7 +20,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-const Stage8D = ({ initialData, inspectionData, isReview = false, isUpdate = false, readOnly = false, stage = "stage8", onSuccess  }) => {
+const Stage8D = ({ initialData, inspectionData, isReview = false, isUpdate = false, isRejected = false, readOnly = false, stage = "stage8", onSuccess  }) => {
 
     const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
 
@@ -440,7 +440,7 @@ return (
                         {!isReview && !readOnly && (
                             <div className="mt-6 flex justify-end pb-2">
                                 <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
-                                    {isSubmitting ? "Processing..." : isUpdate ? "Update Report" : "Submit Report"}
+                                    {isSubmitting ? "Processing..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
                                 </Button>
                             </div>
                         )}

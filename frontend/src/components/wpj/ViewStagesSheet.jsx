@@ -49,7 +49,6 @@ const ViewStagesSheet = ({
                                 <div 
                                     key={stage.id} 
                                     className="relative pl-8 group cursor-pointer"
-                                    onClick={() => onSelectStage(stage.id, joint)}
                                 >
                                     <span className="absolute -left-3 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 shadow-sm border border-slate-200 ring-4 ring-slate-50 group-hover:ring-white transition-all">
                                         <StatusIcon className={`h-4 w-4 ${iconColor}`} />

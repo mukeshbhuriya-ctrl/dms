@@ -20,7 +20,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage4({ initialData, inspectionData, isReview = false, isUpdate = false, readOnly = false, stage = "stage4" , onSuccess }) {
+function Stage4({ initialData, inspectionData, isReview = false, isUpdate = false, isRejected = false, readOnly = false, stage = "stage4" , onSuccess }) {
 
     const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
 
@@ -543,7 +543,7 @@ return (
                                 className="min-w-[150px] shadow-sm hover:translate-y-[-1px] transition-all cursor-pointer"
                                 disabled={isSubmitting}
                             >
-                                {isSubmitting ? "Processing..." : isUpdate ? "Update Report" : "Submit Report"}
+                                {isSubmitting ? "Processing..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
                             </Button>
                         </div>
                     )}

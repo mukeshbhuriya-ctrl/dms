@@ -9,7 +9,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = false, readOnly = false, stage = "stage1", onSuccess }) => {
+const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = false, isRejected = false, readOnly = false, stage = "stage1", onSuccess }) => {
 
     const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
 
@@ -541,7 +541,7 @@ await api.post("/api/wpj/update-stage-status", {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Orientation (°)</label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Orientation (Â°)</label>
                                 <Input
                                     value={formData.orientation}
                                     placeholder='Enter Orientation'
@@ -704,7 +704,7 @@ await api.post("/api/wpj/update-stage-status", {
                         {!isReview && !readOnly && (
                             <div className="mt-6 flex justify-end pb-2">
                                 <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
-                                    {isSubmitting ? "Processing..." : isUpdate ? "Update Report" : "Submit Report"}
+                                    {isSubmitting ? "Processing..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
                                 </Button>
                             </div>
                         )}

@@ -848,6 +848,10 @@ function ViewWeldingJoints() {
 
                   const isReadOnly = stageActionIntent === 'readonly';
 
+                  const sPrefix = selectedStage.replace('stage', 's');
+                  const currentStageKey = `${sPrefix}_status`;
+                  const isRejectedStage = selectedJoint.weld_joint_inspection?.[currentStageKey] === 'rejected';
+
                   return (
                     <fieldset disabled={isReadOnly} className={isReadOnly ? "opacity-95" : ""}>
                       <StageComponent
@@ -855,6 +859,7 @@ function ViewWeldingJoints() {
                         inspectionData={selectedJoint.weld_joint_inspection || selectedJoint.inspectionData}
                         isReview={isReviewMode}
                         isUpdate={stageActionIntent === 'update'}
+                        isRejected={isRejectedStage}
                         readOnly={isReadOnly}
                         stage={selectedStage}
                         type={activeConfig.type}
