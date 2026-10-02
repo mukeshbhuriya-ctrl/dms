@@ -608,8 +608,11 @@ function ViewWeldingJoints() {
       accessorKey: "status",
       cell: (row) => {
         if (row.status === 'completed') return <StatusBadge status="completed" label="Completed" />;
+        const config = WELD_STAGES_CONFIG[row.jointCategory] || [];
+        const stageDef = config.find(s => s.id === row.status);
         const shortLabel = row.status.replace('stage', 'Stage ');
-        return <StatusBadge status={row.status} label={shortLabel} />;
+        const fullLabel = stageDef ? `${shortLabel}: ${stageDef.label}` : shortLabel;
+        return <StatusBadge status={row.status} label={fullLabel} />;
       }
     },
     {
