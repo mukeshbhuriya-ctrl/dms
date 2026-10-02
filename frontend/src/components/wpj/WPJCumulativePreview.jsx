@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react"
 import apiClient from "@/api/api.client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Printer, Download, Loader2, CheckCircle2 } from "lucide-react"
+import { Printer, Download, Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 
 /**
  * WPJ Cumulative Preview — Professional Grid Layout
@@ -14,7 +15,7 @@ import { Printer, Download, Loader2, CheckCircle2 } from "lucide-react"
  * All stages are shown in a single continuous table with
  * section headers and inline signature blocks.
  */
-export default function WPJCumulativePreview({ jointId, onDownload }) {
+export default function WPJCumulativePreview({ jointId, onBack, onDownload }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [jointData, setJointData] = useState(null)
@@ -205,29 +206,49 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
 
 
   return (
-    <div className="cumulative-preview-container">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4 print:hidden sticky top-0 bg-background z-10 py-3 border-b">
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="text-sm px-3 py-1">Category {category}</Badge>
-          <span className="text-sm text-muted-foreground">
-            {approvedStages.length} approved stage{approvedStages.length !== 1 ? "s" : ""} shown
+    <Card className="bg-white border-slate-200 shadow-sm rounded-lg overflow-hidden cumulative-preview-container">
+      {/* Sleek Enterprise Toolbar */}
+      <div className="flex items-center justify-between print:hidden sticky top-0 bg-white z-10 px-6 py-4 border-b border-slate-200 shadow-sm">
+        <div className="flex items-center gap-4">
+          <h2 className="text-lg font-bold tracking-tight text-slate-800">
+            Inspection Preview
+          </h2>
+          <Badge variant="outline" className="text-xs px-2 py-0.5 bg-slate-50 text-slate-700 border-slate-200">
+            Category {category}
+          </Badge>
+          <span className="text-sm text-slate-500 hidden md:inline-flex">
+            {joints && joints.length > 0 
+              ? `Joint${joints.length > 1 ? 's' : ''}: ${joints.map(j => j.jointNo || j.joint_no).join(', ')}`
+              : ''}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint} disabled={downloading}>
-            <Printer className="h-4 w-4 mr-2" />
-            {downloading ? "Generating..." : "Print"}
+          <Button variant="outline" size="sm" onClick={handlePrint} disabled={downloading} className="h-8 shadow-none border-slate-200 text-slate-700 bg-white">
+            <Printer className="h-3.5 w-3.5 mr-2" />
+            {downloading ? "Wait..." : "Print"}
           </Button>
-          <Button size="sm" onClick={handleDownload} disabled={downloading}>
-            <Download className="h-4 w-4 mr-2" />
-            {downloading ? "Generating..." : "Download PDF"}
+          <Button size="sm" onClick={handleDownload} disabled={downloading} className="h-8 shadow-none bg-blue-600 hover:bg-blue-700">
+            <Download className="h-3.5 w-3.5 mr-2" />
+            {downloading ? "Wait..." : "PDF"}
           </Button>
+           {onBack && (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={onBack}
+                className="h-8 shadow-none border-slate-200 text-slate-700"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Preview Content */}
-      <div ref={printRef}>
+      <CardContent className="p-4 sm:p-6 overflow-x-auto">
+      <div ref={printRef} className="min-w-[800px]">
         <style>{`
           .wpj-grid-table {
             width: 100%;
@@ -297,7 +318,8 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
           />
         )}
       </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 

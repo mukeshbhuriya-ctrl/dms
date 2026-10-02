@@ -876,28 +876,15 @@ function ViewWeldingJoints() {
           )}
           
           {activeView === "preview" && previewJointId && (
-            <Card className="bg-white border-slate-200 shadow-sm rounded-lg overflow-hidden">
-              <CardContent className="p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-2xl font-bold tracking-tight text-slate-800">
-                    Inspection Preview — Approved Stages
-                  </h2>
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setActiveView("joints");
-                    setPreviewJointId(null);
-                  }}
-                  className="shadow-none rounded-none"
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Joints
-                </Button>
-              </div>
-              <WPJCumulativePreview jointId={previewJointId} />
-              </CardContent>
-            </Card>
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 mb-12">
+              <WPJCumulativePreview 
+                jointId={previewJointId} 
+                onBack={() => {
+                  setActiveView("joints");
+                  setPreviewJointId(null);
+                }}
+              />
+            </div>
           )}
         </div>
       </PageContainer>
