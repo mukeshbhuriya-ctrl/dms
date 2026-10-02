@@ -47,7 +47,7 @@ export const PERMISSION_MODULES = [
 
   // Welding
   { id: 'welding:plan', name: 'Welding: Weld Plan', actions: ['View', 'Create', 'Update', 'Delete'] },
-  { id: 'welding:joints', name: 'Welding: Joints', actions: ['View', 'Create', 'Update', 'Delete'] },
+  { id: 'welding:joints', name: 'Welding: Joints', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
   { id: 'welding:traveler', name: 'Welding: Traveler', actions: ['View', 'Update'] },
 
   // Hydrostatic

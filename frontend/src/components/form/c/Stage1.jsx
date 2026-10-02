@@ -9,7 +9,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-const Stage1C = ({ initialData, isReview = false, readOnly = false, onSuccess }) => {
+const Stage1C = ({ initialData, isReview = false, isUpdate = false, readOnly = false, onSuccess }) => {
 
 
     const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
@@ -423,31 +423,31 @@ await api.post("/api/wpj/update-stage-status", {
       const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
 return (
-        <Card className="w-full">
-            <CardHeader>
-                <CardTitle>Material Identification Marks & Setup</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+        <div className="mb-8">
+            <div className="mb-4 border-b pb-2">
+                <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">Material Identification Marks & Setup</h3>
+            </div>
+            <div>
                 {alert.show && <FormAlert type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />}
 
                 <div className="border rounded-lg p-4 space-y-4">
                     <h3 className="font-semibold text-lg">Basic Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="space-y-2">
-                            <Label>Shreno Manufacturer sr. no.:</Label>
-                            <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Shreno Manufacturer sr. no.</label>
+                            <Input value={initialData?.msnNumber || ""} className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" placeholder="MSN" readOnly />
                         </div>
                         <div className="space-y-2">
-                            <Label>Equipment Name:</Label>
-                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Equipment Name</label>
+                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                         <div className="space-y-2">
-                            <Label>Tag Number:</Label>
-                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Tag Number</label>
+                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                         <div className="space-y-2">
-                            <Label>Drawing No. :</Label>
-                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Drawing No. </label>
+                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                     </div>
                 </div>
@@ -460,14 +460,14 @@ return (
                     {userRole !== 'QC' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed">
                             <div className="space-y-2">
-                                <Label className="text-primary">Part 1 Selection (ITEM NO./PART NO.)</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 1 Selection (ITEM NO./PART NO.)</label>
                                 <Select 
                                     key={`part1-${mhcItems.length}-${selectedPart1}`}
                                     value={selectedPart1} 
                                     onValueChange={(val) => handlePartSelection('part1', val)} 
                                     disabled={isReadOnly}
                                 >
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                         <SelectValue placeholder="Select Part 1" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -480,14 +480,14 @@ return (
                                 </Select>
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-primary">Part 2 Selection (ITEM NO./PART NO.)</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 2 Selection (ITEM NO./PART NO.)</label>
                                 <Select 
                                     key={`part2-${mhcItems.length}-${selectedPart2}`}
                                     value={selectedPart2} 
                                     onValueChange={(val) => handlePartSelection('part2', val)} 
                                     disabled={isReadOnly}
                                 >
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                         <SelectValue placeholder="Select Part 2 (Nozzle)" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -504,11 +504,11 @@ return (
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <Label>Characteristics to be checked</Label>
-                            <Input value={initialData?.jointNo || ""} readOnly className="bg-muted font-bold" />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Characteristics to be checked</label>
+                            <Input value={initialData?.jointNo || ""} readOnly className="bg-slate-50 text-slate-500 font-bold h-8 text-xs shadow-none border-slate-200 rounded-none" />
                         </div>
                         <div className="space-y-2">
-                            <Label>Nozzle Number</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Nozzle Number</label>
                             <Input
                                 value={formData.nozzleNumber}
                                 placeholder='Enter Nozzle Number'
@@ -517,13 +517,13 @@ return (
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Material identification Marks</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Material identification Marks</label>
                             <Select
                                 value={formData.materialIdMarks}
                                 onValueChange={(val) => handleChange('materialIdMarks', val)}
                                 disabled={isReadOnly}
                             >
-                                <SelectTrigger className="w-full">
+                                <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                     <SelectValue placeholder="Select Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -540,7 +540,7 @@ return (
                     <h3 className="font-semibold text-lg">II. Set Up</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                            <Label>Tack Welder</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Tack Welder</label>
                             <Input
                                 value={formData.tackWelder}
                                 placeholder='Enter Tack Welder'
@@ -550,13 +550,13 @@ return (
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Visual Inspection</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Visual Inspection</label>
                             <Select
                                 value={formData.visualInspection}
                                 onValueChange={(val) => handleChange('visualInspection', val)}
                                 disabled={isReadOnly}
                             >
-                                <SelectTrigger className="w-full">
+                                <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                     <SelectValue placeholder="Select Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -567,13 +567,13 @@ return (
                         </div>
 
                         <div className="space-y-2">
-                            <Label>Acceptance of L-Seam RT</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Acceptance of L-Seam RT</label>
                             <Select
                                 value={formData.lSeamRt}
                                 onValueChange={(val) => handleChange('lSeamRt', val)}
                                 disabled={isReadOnly}
                             >
-                                <SelectTrigger className="w-full">
+                                <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                     <SelectValue placeholder="Select Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -587,9 +587,9 @@ return (
 
                     <div className="border p-4 rounded-md space-y-4">
                         <h4 className="font-medium text-sm text-muted-foreground mb-2">Dimensions</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                             <div className="space-y-2">
-                                <Label>Nozzle Size</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Nozzle Size</label>
                                 <Input
                                     value={formData.nozzleSize}
                                     placeholder='Enter Nozzle Size'
@@ -598,7 +598,7 @@ return (
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Total Length</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Total Length</label>
                                 <Input
                                     value={formData.totalLength}
                                     placeholder='Enter Total Length'
@@ -612,11 +612,11 @@ return (
 
                 <div className="space-y-4 pt-4 border-t">
                     <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
                         <div className="space-y-2">
-              <Label htmlFor="productionGroup">Production Group Name:</Label>
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="productionGroup">Production Group Name</label>
               <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
-                <SelectTrigger id="productionGroup" className="w-full">
+                <SelectTrigger id="productionGroup" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                   <SelectValue placeholder="Select Production Group" />
                 </SelectTrigger>
                 <SelectContent>
@@ -630,18 +630,18 @@ return (
             </div>
 
                         <div className="space-y-2">
-                            <Label>Date:</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Date</label>
                             <Input
                                 value={initialData?.inspectionData?.s1_submitted_at ? new Date(initialData.inspectionData.s1_submitted_at).toLocaleDateString() : todayDate}
                                 readOnly
-                                className="bg-muted"
+                                className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label>QC Group Name:</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">QC Group Name</label>
                             <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
-                                <SelectTrigger className="w-full">
+                                <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                     <SelectValue placeholder="Select QC Group" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -656,7 +656,7 @@ return (
                     </div>
 
                     {/* Shared QC Review & Approval Section */}
-                    {!readOnly && (
+                    {true && (
 
                       <QCReviewSection
                         isReview={isReview}
@@ -675,18 +675,20 @@ return (
                     )}
 
                     {!isReview && !readOnly && (
-                        <div className="mt-12 flex justify-end pb-10">
-                            <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                {isSubmitting ? "Processing..." : "Save & Complete Stage 1"}
+                        <div className="mt-6 flex justify-end pb-2">
+                            <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
+                                {isSubmitting ? "Processing..." : isUpdate ? "Update Report" : "Submit Report"}
                             </Button>
                         </div>
                     )}
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     )
 }
 
 export default Stage1C
+
+
 
 

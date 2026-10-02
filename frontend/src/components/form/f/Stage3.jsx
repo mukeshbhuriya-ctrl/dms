@@ -20,7 +20,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage3F({ initialData, inspectionData, isReview = false, readOnly = false, onSuccess }) {
+function Stage3F({ initialData, inspectionData, isReview = false, isUpdate = false, readOnly = false, onSuccess }) {
 
     const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
 
@@ -342,53 +342,53 @@ await api.post("/api/wpj/update-stage-status", {
       const isReadOnly = readOnly || (isReview && userRole !== 'QC');
 
 return (
-        <div className="w-full mx-auto p-6 space-y-6">
+        <div className="w-full space-y-6">
             {alert.show && <FormAlert type={alert.type} message={alert.message} onClose={() => setAlert({ ...alert, show: false })} />}
             <div className="border rounded-lg p-4 space-y-4">
                 <h3 className="font-semibold text-lg">Basic Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="space-y-2">
-                            <Label>Shreno Manufacturer sr. no.:</Label>
-                            <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Shreno Manufacturer sr. no.</label>
+                            <Input value={initialData?.msnNumber || ""} className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" placeholder="MSN" readOnly />
                         </div>
                         <div className="space-y-2">
-                            <Label>Equipment Name:</Label>
-                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Equipment Name</label>
+                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                         <div className="space-y-2">
-                            <Label>Tag Number:</Label>
-                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Tag Number</label>
+                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                         <div className="space-y-2">
-                            <Label>Drawing No. :</Label>
-                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Drawing No. </label>
+                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                     </div>
                 </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Post Weld Heat Treatment (PWHT) {initialData?.pwht && (
+            <div className="mb-8">
+                <div className="mb-4 border-b pb-2">
+                    <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">Post Weld Heat Treatment (PWHT) {initialData?.pwht && (
                         <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                             Yes
                         </span>
-                    )}</CardTitle>
-                </CardHeader>
-                <CardHeader>
-                    <CardTitle>Radiography Testing (RT) {initialData?.pwht && (
+                    )}</h3>
+                </div>
+                <div className="mb-4 border-b pb-2">
+                    <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">Radiography Testing (RT) {initialData?.pwht && (
                         <span className="ml-2 text-xs text-muted-foreground">(After PWHT)</span>
-                    )}</CardTitle>
-                </CardHeader>
+                    )}</h3>
+                </div>
 
-                <CardContent className="space-y-2">
+                <div>
                     <div className="border-b pb-2"></div>
                     <div className="space-y-4">
                         <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
                             <div className="space-y-2">
-              <Label htmlFor="productionGroup">Production Group Name:</Label>
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="productionGroup">Production Group Name</label>
               <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
-                <SelectTrigger id="productionGroup" className="w-full">
+                <SelectTrigger id="productionGroup" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                   <SelectValue placeholder="Select Production Group" />
                 </SelectTrigger>
                 <SelectContent>
@@ -402,18 +402,18 @@ return (
             </div>
 
                             <div className="space-y-2">
-                                <Label>Date:</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Date</label>
                                 <Input
                                     value={inspectionData?.s3_submitted_at ? new Date(inspectionData.s3_submitted_at).toLocaleDateString() : todayDate}
                                     readOnly
-                                    className="bg-muted"
+                                    className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label>QC Group Name:</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">QC Group Name</label>
                                 <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                         <SelectValue placeholder="Select QC Group" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -428,7 +428,7 @@ return (
                         </div>
 
                         {/* Shared QC Review Section */}
-                        {!readOnly && (
+                        {true && (
 
                           <QCReviewSection
                             isReview={isReview}
@@ -447,20 +447,22 @@ return (
                         )}
 
                         {!isReview && !readOnly && (
-                            <div className="mt-12 flex justify-end pb-10">
-                                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : "Save & Complete Stage 3"}
+                            <div className="mt-6 flex justify-end pb-2">
+                                <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
+                                    {isSubmitting ? "Processing..." : isUpdate ? "Update Report" : "Submit Report"}
                                 </Button>
                             </div>
                         )}
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     )
 }
 
 export default Stage3F
+
+
 
 
 

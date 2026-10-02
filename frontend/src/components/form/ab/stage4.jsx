@@ -20,7 +20,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-function Stage4({ initialData, inspectionData, isReview = false, readOnly = false, onSuccess }) {
+function Stage4({ initialData, inspectionData, isReview = false, isUpdate = false, readOnly = false, onSuccess }) {
     
     const [qcGroups, setQcGroups] = useState([]);
     const [productionGroups, setProductionGroups] = useState([]);
@@ -400,72 +400,72 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
     }
 
     return (
-        <div className="w-full mx-auto p-6 space-y-6">
+        <div className="w-full space-y-6">
             <FormAlert type="error" message={error} />
             <FormAlert type="success" message={success} />
-            <Card>
-                <CardHeader>
-          <CardTitle>Basic Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="mb-8">
+                <div className="mb-4 border-b pb-2">
+          <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">Basic Information</h3>
+        </div>
+        <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
             <div className="space-y-2">
-              <Label htmlFor="msn">MSN:</Label>
-              <Input id="msn" name="msn" type="text" value={displayFields?.msn || ""} readOnly className="bg-muted" />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="msn">MSN</label>
+              <Input id="msn" name="msn" type="text" value={displayFields?.msn || ""} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="client">CLIENT:</Label>
-              <Input id="client" name="client" type="text" value={displayFields?.client || ""} readOnly className="bg-muted" />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="client">CLIENT</label>
+              <Input id="client" name="client" type="text" value={displayFields?.client || ""} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="poNo">P.O. NO.:</Label>
-              <Input id="poNo" name="poNo" type="text" value={displayFields?.poNo || ""} readOnly className="bg-muted" />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="poNo">P.O. NO.</label>
+              <Input id="poNo" name="poNo" type="text" value={displayFields?.poNo || ""} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="reportNo">Report No:</Label>
-              <Input id="reportNo" name="reportNo" type="text" value={inputFields?.reportNo || ""} readOnly className="bg-muted" />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="reportNo">Report No</label>
+              <Input id="reportNo" name="reportNo" type="text" value={inputFields?.reportNo || ""} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tagNo">TAG NO.:</Label>
-              <Input id="tagNo" name="tagNo" type="text" value={inputFields?.tagNo || ""} onChange={handleInputChange} placeholder="Enter TAG NO." readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="tagNo">TAG NO.</label>
+              <Input id="tagNo" name="tagNo" type="text" value={inputFields?.tagNo || ""} onChange={handleInputChange} placeholder="Enter TAG NO." readOnly={isReadOnly} className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="equipment">EQUIPMENT:</Label>
-              <Input id="equipment" name="equipment" type="text" value={inputFields?.equipment || ""} onChange={handleInputChange} placeholder="Enter EQUIPMENT" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="equipment">EQUIPMENT</label>
+              <Input id="equipment" name="equipment" type="text" value={inputFields?.equipment || ""} onChange={handleInputChange} placeholder="Enter EQUIPMENT" readOnly={isReadOnly} className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="projectsId">Projects ID:</Label>
-              <Input id="projectsId" name="projectsId" type="text" value={inputFields?.projectsId || ""} onChange={handleInputChange} placeholder="Enter Projects ID" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="projectsId">Projects ID</label>
+              <Input id="projectsId" name="projectsId" type="text" value={inputFields?.projectsId || ""} onChange={handleInputChange} placeholder="Enter Projects ID" readOnly={isReadOnly} className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lindeDrgNo">CLIENT DRG.:</Label>
-              <Input id="lindeDrgNo" name="lindeDrgNo" type="text" value={inputFields?.lindeDrgNo || ""} onChange={handleInputChange} placeholder="Enter CLIENT DRG." readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="lindeDrgNo">CLIENT DRG.</label>
+              <Input id="lindeDrgNo" name="lindeDrgNo" type="text" value={inputFields?.lindeDrgNo || ""} onChange={handleInputChange} placeholder="Enter CLIENT DRG." readOnly={isReadOnly} className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="drgNo">SHRENO DRG NO.:</Label>
-              <Input id="drgNo" name="drgNo" type="text" value={inputFields?.drgNo || ""} onChange={handleInputChange} placeholder="Enter SHRENO DRG NO." readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="drgNo">SHRENO DRG NO.</label>
+              <Input id="drgNo" name="drgNo" type="text" value={inputFields?.drgNo || ""} onChange={handleInputChange} placeholder="Enter SHRENO DRG NO." readOnly={isReadOnly} className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="code">CODE:</Label>
-              <Input id="code" name="code" type="text" value={inputFields?.code || ""} onChange={handleInputChange} placeholder="Enter CODE" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="code">CODE</label>
+              <Input id="code" name="code" type="text" value={inputFields?.code || ""} onChange={handleInputChange} placeholder="Enter CODE" readOnly={isReadOnly} className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}/>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="inspAgency">INSP. AGENCY:</Label>
-              <Input id="inspAgency" name="inspAgency" type="text" value={inputFields?.inspAgency || ""} onChange={handleInputChange} placeholder="Enter INSP. AGENCY" readOnly={isReadOnly} className={isReadOnly ? "bg-muted" : ""} />
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="inspAgency">INSP. AGENCY</label>
+              <Input id="inspAgency" name="inspAgency" type="text" value={inputFields?.inspAgency || ""} onChange={handleInputChange} placeholder="Enter INSP. AGENCY" readOnly={isReadOnly} className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}/>
             </div>
           </div>
-        </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Radiography Testing (RT)</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
+        </div>
+            </div>
+            <div className="mb-8">
+                <div className="mb-4 border-b pb-2">
+                    <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">Radiography Testing (RT)</h3>
+                </div>
+                <div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-              <Label htmlFor="productionGroup">Production Group:</Label>
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="productionGroup">Production Group</label>
               <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
-                <SelectTrigger id="productionGroup" className="w-full">
+                <SelectTrigger id="productionGroup" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                   <SelectValue placeholder="Select Production Group" />
                 </SelectTrigger>
                 <SelectContent>
@@ -479,19 +479,19 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
             </div>
 
                         <div className="space-y-2">
-                            <Label>Date:</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Date</label>
                             <Input
                                 type="text"
                                 value={initialData?.inspectionData?.s4_submitted_at ? new Date(initialData.inspectionData.s4_submitted_at).toLocaleDateString() : todayDate}
                                 readOnly
-                                className="bg-muted"
+                                className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none"
                             />
                         </div>
 
                         <div className="space-y-2">
-                            <Label>QC Group Name:</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">QC Group Name</label>
                             <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview || readOnly}>
-                                <SelectTrigger className="w-full">
+                                <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                     <SelectValue placeholder="Select QC Group" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -507,9 +507,9 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                         <div className="space-y-2">
-                            <Label htmlFor="rtStatus">RT Status:</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="rtStatus">RT Status</label>
                             <Select value={rtStatus} onValueChange={setRtStatus} disabled={isReadOnly}>
-                                <SelectTrigger id="rtStatus" className="w-full">
+                                <SelectTrigger id="rtStatus" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                     <SelectValue placeholder="Select RT Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -521,7 +521,7 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="rtRemark">RT Remark:</Label>
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="rtRemark">RT Remark</label>
                             <Input
                                 id="rtRemark"
                                 type="text"
@@ -532,11 +532,11 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
                             />
                         </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
 
             {/* Shared QC Review & Approval Section */}
-            {!readOnly && (
+            {true && (
               <QCReviewSection
                 isReview={isReview}
                 userRole={userRole}
@@ -553,9 +553,9 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
             )}
 
             {!isReview && !readOnly && (
-                <div className="mt-12 flex justify-end pb-10">
-                    <Button onClick={handleSubmit} disabled={isSubmitting}>
-                        {isSubmitting ? "Processing..." : "Save & Complete Stage 4"}
+                <div className="mt-6 flex justify-end pb-2">
+                    <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
+                        {isSubmitting ? "Processing..." : isUpdate ? "Update Report" : "Submit Report"}
                     </Button>
                 </div>
             )}
@@ -564,6 +564,8 @@ function Stage4({ initialData, inspectionData, isReview = false, readOnly = fals
 }
 
 export default Stage4
+
+
 
 
 

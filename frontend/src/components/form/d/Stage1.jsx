@@ -9,7 +9,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
 
-const Stage1D = ({ initialData, inspectionData, isReview = false, readOnly = false, stage = "stage1", onSuccess }) => {
+const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = false, readOnly = false, stage = "stage1", onSuccess }) => {
 
     const [basicFields, setBasicFields] = useState({ equipment: "", tagNo: "", drgNo: "" });
 
@@ -413,7 +413,7 @@ await api.post("/api/wpj/update-stage-status", {
     }
 
     return (
-        <div className="w-full mx-auto p-6 space-y-6">
+        <div className="w-full space-y-6">
             {alert.show && <FormAlert type={alert.type} message={alert.message} />}
 
             {/* Basic Information Section */}
@@ -421,29 +421,29 @@ await api.post("/api/wpj/update-stage-status", {
                 <h3 className="font-semibold text-lg">Basic Information</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div className="space-y-2">
-                            <Label>Shreno Manufacturer sr. no.:</Label>
-                            <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Shreno Manufacturer sr. no.</label>
+                            <Input value={initialData?.msnNumber || ""} className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" placeholder="MSN" readOnly />
                         </div>
                         <div className="space-y-2">
-                            <Label>Equipment Name:</Label>
-                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Equipment Name</label>
+                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                         <div className="space-y-2">
-                            <Label>Tag Number:</Label>
-                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Tag Number</label>
+                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                         <div className="space-y-2">
-                            <Label>Drawing No. :</Label>
-                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly} />
+                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Drawing No. </label>
+                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
                         </div>
                     </div>
                 </div>
 
-            <Card className="w-full">
-                <CardHeader>
-                    <CardTitle>Material Identification Marks & Setup</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
+            <div className="mb-8">
+                <div className="mb-4 border-b pb-2">
+                    <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">Material Identification Marks & Setup</h3>
+                </div>
+                <div>
                     {/* I. Material Identification Section */}
                     <div className="space-y-4 border-t pt-4">
                         <h3 className="font-semibold text-lg">I. Material Identification</h3>
@@ -452,14 +452,14 @@ await api.post("/api/wpj/update-stage-status", {
                         {userRole !== 'QC' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <Label>Part 1 Selection (ITEM NO./PART NO.)</Label>
+                                    <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Part 1 Selection (ITEM NO./PART NO.)</label>
                                     <Select 
                                         key={`part1-${mhcItems.length}-${selectedPart1}`}
                                         value={selectedPart1} 
                                         onValueChange={(val) => handlePartSelection('part1', val)} 
                                         disabled={isReadOnly}
                                     >
-                                        <SelectTrigger className="w-full">
+                                        <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                             <SelectValue placeholder="Select Part 1" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -472,14 +472,14 @@ await api.post("/api/wpj/update-stage-status", {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Part 2 Selection (ITEM NO./PART NO.)</Label>
+                                    <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Part 2 Selection (ITEM NO./PART NO.)</label>
                                     <Select 
                                         key={`part2-${mhcItems.length}-${selectedPart2}`}
                                         value={selectedPart2} 
                                         onValueChange={(val) => handlePartSelection('part2', val)} 
                                         disabled={isReadOnly}
                                     >
-                                        <SelectTrigger className="w-full">
+                                        <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                             <SelectValue placeholder="Select Part 2 (Nozzle)" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -496,11 +496,11 @@ await api.post("/api/wpj/update-stage-status", {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label>Characteristics to be checked</Label>
-                                <Input value={initialData?.jointNo || ""} readOnly className="bg-muted font-bold" />
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Characteristics to be checked</label>
+                                <Input value={initialData?.jointNo || ""} readOnly className="bg-slate-50 text-slate-500 font-bold h-8 text-xs shadow-none border-slate-200 rounded-none" />
                             </div>
                             <div className="space-y-2">
-                                <Label>Nozzle Number</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Nozzle Number</label>
                                 <Input
                                     value={formData.nozzleNumber}
                                     placeholder='Enter Nozzle Number'
@@ -509,13 +509,13 @@ await api.post("/api/wpj/update-stage-status", {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Material identification Marks</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Material identification Marks</label>
                                 <Select
                                     value={formData.materialIdMarks}
                                     onValueChange={(val) => handleFormChange('materialIdMarks', val)}
                                     disabled={isReadOnly}
                                 >
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                         <SelectValue placeholder="Select Status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -532,7 +532,7 @@ await api.post("/api/wpj/update-stage-status", {
                         <h3 className="font-semibold text-lg">II. Inspection of nozzle opening</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label>Opening Size</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Opening Size</label>
                                 <Input
                                     value={formData.openingSize}
                                     placeholder='Enter Opening Size'
@@ -541,7 +541,7 @@ await api.post("/api/wpj/update-stage-status", {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Orientation (°)</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Orientation (°)</label>
                                 <Input
                                     value={formData.orientation}
                                     placeholder='Enter Orientation'
@@ -550,7 +550,7 @@ await api.post("/api/wpj/update-stage-status", {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Elevation</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Elevation</label>
                                 <Input
                                     value={formData.elevation}
                                     placeholder='Enter Elevation'
@@ -559,7 +559,7 @@ await api.post("/api/wpj/update-stage-status", {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label>Edge Preparation</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Edge Preparation</label>
                                 <Input
                                     value={formData.edgePreparation}
                                     placeholder='Enter Edge Preparation'
@@ -575,7 +575,7 @@ await api.post("/api/wpj/update-stage-status", {
                         <h3 className="font-semibold text-lg">III. Set Up</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
-                                <Label>Tack Welder</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Tack Welder</label>
                                 <Input
                                     value={formData.tackWelder}
                                     placeholder='Enter Tack Welder'
@@ -585,13 +585,13 @@ await api.post("/api/wpj/update-stage-status", {
                             </div>
 
                             <div className="space-y-2">
-                                <Label>Visual Inspection</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Visual Inspection</label>
                                 <Select
                                     value={formData.visualInspection}
                                     onValueChange={(val) => handleFormChange('visualInspection', val)}
                                     disabled={isReadOnly}
                                 >
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                         <SelectValue placeholder="Select Status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -602,13 +602,13 @@ await api.post("/api/wpj/update-stage-status", {
                             </div>
 
                             <div className="space-y-2">
-                                <Label>Acceptance of L-Seam RT</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Acceptance of L-Seam RT</label>
                                 <Select
                                     value={formData.lSeamRt}
                                     onValueChange={(val) => handleFormChange('lSeamRt', val)}
                                     disabled={isReadOnly}
                                 >
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                         <SelectValue placeholder="Select Status" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -622,9 +622,9 @@ await api.post("/api/wpj/update-stage-status", {
 
                         <div className="border p-4 rounded-md space-y-4">
                             <h4 className="font-medium text-sm text-muted-foreground mb-2">Dimensions</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                                 <div className="space-y-2">
-                                    <Label>Nozzle Size</Label>
+                                    <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Nozzle Size</label>
                                     <Input
                                         value={formData.nozzleSize}
                                         placeholder='Enter Nozzle Size'
@@ -633,7 +633,7 @@ await api.post("/api/wpj/update-stage-status", {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Total Length</Label>
+                                    <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Total Length</label>
                                     <Input
                                         value={formData.totalLength}
                                         placeholder='Enter Total Length'
@@ -647,11 +647,11 @@ await api.post("/api/wpj/update-stage-status", {
 
                     <div className="space-y-4 pt-4 border-t">
                         <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
                             <div className="space-y-2">
-              <Label htmlFor="productionGroup">Production Group Name:</Label>
+              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="productionGroup">Production Group Name</label>
               <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
-                <SelectTrigger id="productionGroup" className="w-full">
+                <SelectTrigger id="productionGroup" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                   <SelectValue placeholder="Select Production Group" />
                 </SelectTrigger>
                 <SelectContent>
@@ -664,13 +664,13 @@ await api.post("/api/wpj/update-stage-status", {
               </Select>
             </div>
                             <div className="space-y-2">
-                                <Label>Date:</Label>
-                                <Input value={todayDate} readOnly className="bg-muted" />
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Date</label>
+                                <Input value={todayDate} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
                             </div>
                             <div className="space-y-2">
-                                <Label>QC Group Name:</Label>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">QC Group Name</label>
                                 <Select value={selectedQcGroupId} onValueChange={setSelectedQcGroupId} disabled={isReview}>
-                                    <SelectTrigger className="w-full">
+                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                                         <SelectValue placeholder="Select QC Group" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -683,7 +683,7 @@ await api.post("/api/wpj/update-stage-status", {
                         </div>
 
                         {/* Shared QC Review & Approval Section */}
-                        {!readOnly && (
+                        {true && (
 
                           <QCReviewSection
                             isReview={isReview}
@@ -702,19 +702,21 @@ await api.post("/api/wpj/update-stage-status", {
                         )}
 
                         {!isReview && !readOnly && (
-                            <div className="mt-12 flex justify-end pb-10">
-                                <Button onClick={handleSubmit} disabled={isSubmitting}>
-                                    {isSubmitting ? "Processing..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+                            <div className="mt-6 flex justify-end pb-2">
+                                <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
+                                    {isSubmitting ? "Processing..." : isUpdate ? "Update Report" : "Submit Report"}
                                 </Button>
                             </div>
                         )}
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     )
 }
 
 export default Stage1D
+
+
 
 

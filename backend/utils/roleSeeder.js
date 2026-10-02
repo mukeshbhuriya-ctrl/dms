@@ -128,14 +128,12 @@ async function seedSystemRolesForCompany(companyId, txClient = prisma) {
       });
       seededCount++;
     } else {
-      // Optionally update policies and name if they diverge for system roles
+      // Ensure system roles maintain their identifier and system flag,
+      // but DO NOT overwrite user-modified policies, name, or description.
       await txClient.role.update({
         where: { id: existing.id },
         data: {
-          name: roleDef.name,
           identifier: roleDef.identifier,
-          policies: roleDef.policies,
-          description: roleDef.description,
           is_system_role: true
         }
       });

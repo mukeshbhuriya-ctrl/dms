@@ -1,4 +1,5 @@
 import { PageContainer } from "@/components/layout/PageContainer";
+import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import {
@@ -17,7 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History, ArrowLeft } from "lucide-react"
+import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History, ArrowLeft, CheckCircle2, XCircle, Clock } from "lucide-react"
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
@@ -40,6 +41,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge"
 import { FormAlert } from "@/components/ui/form-alert"
 import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
 import WeldJointTrail from "@/components/wpj/WeldJointTrail"
+import ViewStagesSheet from "@/components/wpj/ViewStagesSheet"
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
 import Stage2 from "@/components/form/ab/stage2"
@@ -77,6 +79,7 @@ import { exportApi } from "@/api/export.api"
 import WELD_STAGES_CONFIG from "@/config/weldStagesConfig"
 
 function ViewWeldingJoints() {
+  const { hasPermission } = useAuth();
   const [userRoles, setUserRoles] = useState([])
   const [userId, setUserId] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -84,11 +87,10 @@ function ViewWeldingJoints() {
   // Dialog State
   const [selectedJoint, setSelectedJoint] = useState(null)
   const [selectedStage, setSelectedStage] = useState(null)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [stageActionIntent, setStageActionIntent] = useState('edit')
   const [downloadError, setDownloadError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
   const [previewJointId, setPreviewJointId] = useState(null)
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [userGroupIds, setUserGroupIds] = useState([])
 
   // Trail Sheet State
@@ -98,6 +100,10 @@ function ViewWeldingJoints() {
   const [trailJointNo, setTrailJointNo] = useState("")
   // Filter States
   const [statusFilter, setStatusFilter] = useState("all")
+  
+  // View Stages Sheet State
+  const [isViewStagesOpen, setIsViewStagesOpen] = useState(false)
+  const [viewStagesJoint, setViewStagesJoint] = useState(null)
   const [columnFilters, setColumnFilters] = useState({})
   const [activeFilters, setActiveFilters] = useState({ records: [] });
   const [selectedJointIds, setSelectedJointIds] = useState(new Set());
@@ -289,12 +295,17 @@ function ViewWeldingJoints() {
   }, [userId])
 
 
-  const isQCOrNDT = userRoles.includes('QC_ENGINEER') || userRoles.includes('NDT_ENGINEER');
 
-  const handleOpenStage = (joint) => {
+  const handleOpenStage = (joint, intent = 'edit') => {
     setSelectedStage(joint.status)
     setSelectedJoint(joint)
-    setIsDialogOpen(true)
+    setStageActionIntent(intent)
+    setActiveView("form")
+  }
+
+  const handleViewStagesClick = (row) => {
+    setViewStagesJoint(row)
+    setIsViewStagesOpen(true)
   }
 
   const getJointCategoryBadge = (category) => {
@@ -621,25 +632,24 @@ function ViewWeldingJoints() {
             };
           }
 
-          if (isQCOrNDT) {
+          const canUpdate = hasPermission('welding:joints', 'Update');
+          const canApprove = hasPermission('welding:joints', 'Approve');
+
+          if (canApprove) {
             if (isPending) {
-              if (isAssignedToMe || userRoles.includes('ADMIN')) {
+              if (!isSubmitted) {
                 return {
-                  label: `Review & Approve ${stageName}`,
-                  icon: Check,
-                  onClick: () => handleOpenStage(mergedJoint),
-                  className: "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-                };
-              }
-              if (hasAssignment) {
-                return {
-                  label: `Assigned to Other ${stageName}`,
-                  disabled: true
+                  label: "Awaiting Production",
+                  icon: Clock,
+                  disabled: true,
+                  className: "text-amber-600 bg-amber-50 opacity-80"
                 };
               }
               return {
-                label: `Approval Pending ${stageName}`,
-                disabled: true
+                label: `Review & Approve`,
+                icon: Check,
+                onClick: () => handleOpenStage(mergedJoint, 'review'),
+                className: "text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
               };
             }
             const currentStageKey = row.status.replace('stage', 's') + '_status';
@@ -652,27 +662,25 @@ function ViewWeldingJoints() {
                 };
             }
             return null;
-          } else {
+          } 
+          
+          if (canUpdate) {
             const showPending = isPending && isSubmitted;
             const currentStageKey = row.status.replace('stage', 's') + '_status';
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
 
-            const isProdOrAdmin = userRoles.includes('PRODUCTION_ENGINEER') || userRoles.includes('ADMIN');
-
             if (showPending) {
-                if (isProdOrAdmin) return null; // Edit action is pushed globally below
-                return {
-                    label: `Approval Pending ${stageName}`,
-                    disabled: true
-                };
+                return null;
             }
 
             return {
               label: isRejected ? `Rejected - Open ${stageName}` : `Open ${stageName}`,
-              onClick: () => handleOpenStage(mergedJoint),
+              onClick: () => handleOpenStage(mergedJoint, isRejected ? 'update' : 'submit'),
               className: isRejected ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-blue-600 hover:text-blue-700 hover:bg-blue-50"
             };
           }
+
+          return null;
         };
 
         const actions = [];
@@ -682,7 +690,7 @@ function ViewWeldingJoints() {
             actions.push({
                 label: "Preview",
                 icon: Eye,
-                onClick: () => { setPreviewJointId(row.id); setIsPreviewOpen(true); }
+                onClick: () => { setPreviewJointId(row.id); setActiveView("preview"); }
             });
         }
         
@@ -696,15 +704,21 @@ function ViewWeldingJoints() {
                 setIsTrailOpen(true);
             }
         });
+
+        actions.push({
+            label: "View Stages",
+            icon: Eye,
+            onClick: () => handleViewStagesClick(mergedJoint)
+        });
         
         const showPending = isPending && isSubmitted;
-        const isProdOrAdmin = userRoles.includes('PRODUCTION_ENGINEER') || userRoles.includes('ADMIN');
+        const canUpdate = hasPermission('welding:joints', 'Update');
         
-        if (showPending && isProdOrAdmin && row.status !== 'completed') {
+        if (showPending && canUpdate && row.status !== 'completed') {
             actions.push({ type: "separator" });
             actions.push({
-                label: `Edit ${stageName}`,
-                onClick: () => handleOpenStage(mergedJoint),
+                label: `Edit`,
+                onClick: () => handleOpenStage(mergedJoint, 'update'),
                 className: "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
             });
         }
@@ -722,7 +736,7 @@ function ViewWeldingJoints() {
         );
       }
     }
-  ], [activeMsnOptions, activeClientOptions, activePoOptions, activeJointNoOptions, activeCatOptions, userGroupIds, userId, handleDownloadReport, handleOpenStage, isQCOrNDT, getStageActionState]);
+  ], [activeMsnOptions, activeClientOptions, activePoOptions, activeJointNoOptions, activeCatOptions, userGroupIds, userId, handleDownloadReport, handleOpenStage, getStageActionState, hasPermission]);
   const handleSelectionChange = (newSelection) => {
     if (newSelection.size > 3) {
       toast.warning("You can only select a maximum of 3 joints for a consolidated report.", { autoClose: 3000, theme: "colored" });
@@ -738,7 +752,7 @@ function ViewWeldingJoints() {
         <div className="flex flex-col gap-4">
           
           {activeView === "plans" && (
-            <div className="space-y-4">
+            <div className="space-y-1">
               
               <ProDataTable
                 columns={planColumns}
@@ -751,7 +765,7 @@ function ViewWeldingJoints() {
 
           {activeView === "joints" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-4">
+              <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-800">
                   {selectedPlanDetails?.weld_plan_no}
                 </h2>
@@ -780,70 +794,112 @@ function ViewWeldingJoints() {
               />
             </div>
           )}
+
+          {activeView === "form" && (
+            <Card className="relative border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white">
+              <div className="bg-blue-500 h-1 w-full"></div>
+              <CardHeader className="bg-white border-b border-slate-100 py-4 flex flex-row items-center justify-between">
+                <div className="flex flex-col gap-1">
+                  <CardTitle className="text-sm font-semibold text-slate-800 capitalize tracking-wide flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-none bg-blue-500 text-white flex items-center justify-center text-[10px]">
+                      {selectedStage ? selectedStage.replace('stage', '') : 'F'}
+                    </span>
+                    {(() => {
+                        const config = WELD_STAGES_CONFIG[selectedJoint?.joint_type]?.find(s => s.id === selectedStage);
+                        const label = config ? config.label : (selectedStage ? `Inspection Report - ${selectedStage}` : "Form");
+                        return <span className="capitalize">{label.toLowerCase()}</span>;
+                    })()}
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Weld Plan: {selectedPlanDetails?.weld_plan_no} / Joint No: {selectedJoint?.jointNo}
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setActiveView("joints");
+                    setSelectedJoint(null);
+                    setSelectedStage(null);
+                  }}
+                  className="shadow-none h-9 text-slate-700 border-slate-200 bg-white"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Back to Joints
+                </Button>
+              </CardHeader>
+              <CardContent className="p-4 md:p-6 bg-white">
+                {(() => {
+                  if (!selectedJoint || !selectedStage || !WELD_STAGES_CONFIG[selectedJoint.joint_type]) return null;
+
+                  let isReviewMode = false;
+                  const canApprove = hasPermission('welding:joints', 'Approve');
+                  if (canApprove && stageActionIntent === 'review') {
+                    const { isPending } = getStageActionState({
+                      ...selectedJoint,
+                      status: selectedStage
+                    });
+                    if (isPending) isReviewMode = true;
+                  }
+
+                  const activeConfig = WELD_STAGES_CONFIG[selectedJoint.joint_type].find(s => s.id === selectedStage);
+                  if (!activeConfig) return null;
+
+                  const StageComponent = componentMap[activeConfig.component];
+                  if (!StageComponent) return <div className="p-4 text-destructive">Component {activeConfig.component} not found</div>;
+
+                  const isReadOnly = stageActionIntent === 'readonly';
+
+                  return (
+                    <fieldset disabled={isReadOnly} className={isReadOnly ? "opacity-95" : ""}>
+                      <StageComponent
+                        initialData={selectedJoint}
+                        inspectionData={selectedJoint.weld_joint_inspection || selectedJoint.inspectionData}
+                        isReview={isReviewMode}
+                        isUpdate={stageActionIntent === 'update'}
+                        readOnly={isReadOnly}
+                        stage={selectedStage}
+                        type={activeConfig.type}
+                        onSuccess={() => {
+                          setActiveView("joints")
+                          setRefreshKey(prev => prev + 1)
+                        }}
+                      />
+                    </fieldset>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
+          
+          {activeView === "preview" && previewJointId && (
+            <Card className="bg-white border-slate-200 shadow-sm rounded-lg overflow-hidden">
+              <CardContent className="p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-4">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-2xl font-bold tracking-tight text-slate-800">
+                    Inspection Preview — Approved Stages
+                  </h2>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setActiveView("joints");
+                    setPreviewJointId(null);
+                  }}
+                  className="shadow-none rounded-none"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Joints
+                </Button>
+              </div>
+              <WPJCumulativePreview jointId={previewJointId} />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </PageContainer>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[90vw] max-w-[95vw] max-h-[90vh] overflow-y-auto">
-
-          <DialogHeader className="p-6">
-            <DialogTitle className="text-xl font-bold">
-              {(() => {
-                const config = WELD_STAGES_CONFIG[selectedJoint?.joint_type]?.find(s => s.id === selectedStage);
-                return config ? config.label : (selectedStage ? `Inspection Report - ${selectedStage}` : "Form");
-              })()}
-            </DialogTitle>
-          </DialogHeader>
-          {(() => {
-            if (!selectedJoint || !selectedStage || !WELD_STAGES_CONFIG[selectedJoint.joint_type]) return null;
-
-            let isReviewMode = false;
-            if (isQCOrNDT) {
-              const { isPending, isAssignedToMe } = getStageActionState({
-                ...selectedJoint,
-                status: selectedStage
-              });
-              if (isPending && isAssignedToMe) isReviewMode = true;
-            }
-
-            const activeConfig = WELD_STAGES_CONFIG[selectedJoint.joint_type].find(s => s.id === selectedStage);
-            if (!activeConfig) return null;
-
-            const StageComponent = componentMap[activeConfig.component];
-            if (!StageComponent) return <div className="p-4 text-destructive">Component {activeConfig.component} not found</div>;
-
-            return (
-              <StageComponent
-                initialData={selectedJoint}
-                inspectionData={selectedJoint.weld_joint_inspection || selectedJoint.inspectionData}
-                isReview={isReviewMode}
-                stage={selectedStage}
-                type={activeConfig.type}
-                onSuccess={() => {
-                  setIsDialogOpen(false)
-                  setRefreshKey(prev => prev + 1)
-                }}
-              />
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
-      {/* Cumulative Preview Dialog */}
-      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="sm:max-w-[95vw] max-w-[98vw] max-h-[95vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Inspection Preview — Approved Stages</DialogTitle>
-          </DialogHeader>
-          {isPreviewOpen && previewJointId && (
-            <WPJCumulativePreview jointId={previewJointId} />
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* Activity Trail Sheet */}
       <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
-        <SheetContent className="sm:max-w-[500px] w-full p-0 overflow-y-auto">
+        <SheetContent className="sm:max-w-2xl w-full p-0 overflow-y-auto bg-white">
           <SheetHeader className="p-6 pb-2 border-b">
             <SheetTitle className="text-xl font-bold flex flex-col gap-1">
               <span>Weld Inspection Trail</span>
@@ -855,6 +911,20 @@ function ViewWeldingJoints() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* View Stages Sheet */}
+      <ViewStagesSheet 
+        open={isViewStagesOpen}
+        onOpenChange={setIsViewStagesOpen}
+        joint={viewStagesJoint}
+        onSelectStage={(stageId, joint) => {
+            setIsViewStagesOpen(false);
+            setSelectedStage(stageId);
+            setSelectedJoint(joint);
+            setStageActionIntent('readonly');
+            setActiveView('form');
+        }}
+      />
     </>
   )
 }

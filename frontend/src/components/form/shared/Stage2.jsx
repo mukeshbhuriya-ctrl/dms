@@ -18,7 +18,7 @@ import {
 import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 
-function Stage2({ initialData, isReview = false, stage = "stage2", onSuccess }) {
+function Stage2({ initialData, isReview = false, isUpdate = false, stage = "stage2", onSuccess }) {
   const [productionEngineerName, setProductionEngineerName] = useState("")
   const [todayDate, setTodayDate] = useState(new Date().toLocaleDateString())
   const [backChipQcEngineer, setBackChipQcEngineer] = useState("")
@@ -301,46 +301,46 @@ function Stage2({ initialData, isReview = false, stage = "stage2", onSuccess }) 
   }
 
   return (
-    <div className="w-full mx-auto p-6 space-y-6">
-      <Card>
-        <CardContent className="space-y-6">
+    <div className="w-full space-y-6">
+      <div className="mb-8">
+        <div>
           {/* Basic Information Section */}
           <div className="border rounded-lg p-4 space-y-4">
             <h3 className="font-semibold text-lg">Basic Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <Label>Shreno Manufacturer sr. no.:</Label>
-                <Input value={initialData?.msnNumber || ""} className="bg-muted" placeholder="MSN" readOnly />
+                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Shreno Manufacturer sr. no.</label>
+                <Input value={initialData?.msnNumber || ""} className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" placeholder="MSN" readOnly />
               </div>
               <div className="space-y-2">
-                <Label>Equipment Name & Tag Number:</Label>
-                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-muted" />
+                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Equipment Name & Tag Number</label>
+                <Input value={`${initialData?.equipment || ""} ${initialData?.tagNo || ""}`} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
               </div>
               <div className="space-y-2">
-                <Label>Drawing no. :</Label>
-                <Input value={initialData?.drgNo || ""} readOnly className="bg-muted" />
+                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Drawing no. </label>
+                <Input value={initialData?.drgNo || ""} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
               </div>
             </div>
           </div>
 
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <div className="mb-4 border-b pb-2">
+            <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">
               Back chip
               {initialData?.back_chip_req && (
                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
                   Yes
                 </span>
               )}
-            </CardTitle>
-          </CardHeader>
+            </h3>
+          </div>
           {/* Back chip Status Update Section */}
           <div className="space-y-4 pt-4 border-t">
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
               <div className="space-y-2">
-                <Label htmlFor="productionGroup">Production Group:</Label>
+                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="productionGroup">Production Group</label>
                 <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
-                  <SelectTrigger id="productionGroup" className="w-full">
+                  <SelectTrigger id="productionGroup" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                     <SelectValue placeholder="Select Production Group" />
                   </SelectTrigger>
                   <SelectContent>
@@ -354,23 +354,23 @@ function Stage2({ initialData, isReview = false, stage = "stage2", onSuccess }) 
               </div>
 
               <div className="space-y-2">
-                <Label>Date:</Label>
+                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Date</label>
                 <Input
                   type="text"
                   value={initialData?.inspectionData?.[`${sPrefix}_submitted_at`] ? new Date(initialData.inspectionData[`${sPrefix}_submitted_at`]).toLocaleDateString() : todayDate}
                   readOnly
-                  className="bg-muted"
+                  className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="backChipQcEngineer">QC Engineer Name:</Label>
+                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="backChipQcEngineer">QC Engineer Name</label>
                 <Select
                   value={backChipQcEngineer}
                   onValueChange={setBackChipQcEngineer}
                   disabled={isReview}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
                     <SelectValue placeholder="Select QC Engineer" />
                   </SelectTrigger>
                   <SelectContent>
@@ -388,7 +388,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2", onSuccess }) 
           <div className="mt-6 flex justify-end gap-2 items-center">
             {!isReview ? (
               <Button onClick={() => handleSubmit()} disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : `Save & Complete ${stage.replace('stage', 'Stage ')}`}
+                {isSubmitting ? "Saving..." : isUpdate ? "Update Report" : "Submit Report"}
               </Button>
             ) : (
               <>
@@ -397,7 +397,7 @@ function Stage2({ initialData, isReview = false, stage = "stage2", onSuccess }) 
                     type="text"
                     value={`Approve Date: ${initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleDateString() : new Date().toLocaleDateString()}`}
                     readOnly
-                    className="bg-muted w-auto min-w-[200px] text-center h-9 font-medium"
+                    className="bg-slate-50 text-slate-500 w-auto min-w-[200px] text-center h-9 font-medium h-8 text-xs shadow-none border-slate-200 rounded-none"
                     placeholder="Approve Date"
                   />
                 )}
@@ -410,12 +410,14 @@ function Stage2({ initialData, isReview = false, stage = "stage2", onSuccess }) 
               </>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
 
 export default Stage2;
+
+
 
 

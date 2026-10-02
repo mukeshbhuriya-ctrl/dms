@@ -234,34 +234,39 @@ export default function WPJCumulativePreview({ jointId, onDownload }) {
             border-collapse: collapse;
             font-size: 13px;
             font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #000;
           }
           .wpj-grid-table th,
           .wpj-grid-table td {
-            border: 1px solid #333;
+            border: 1px solid #000;
             padding: 6px 8px;
             text-align: left;
             vertical-align: middle;
+            color: #000;
           }
           .wpj-grid-table .section-header {
             background: #f8f8f8;
             font-weight: 700;
             text-align: center;
             font-size: 13px;
+            color: #000;
           }
           .wpj-grid-table .label-cell {
             font-weight: 600;
+            color: #000;
           }
           .wpj-grid-table .sig-label {
             font-weight: 600;
             font-size: 12px;
-            color: #333;
+            color: #000;
           }
           .wpj-grid-table .sig-value {
             font-size: 12px;
-            color: #555;
+            color: #000;
           }
           .wpj-grid-table .header-meta td {
             font-size: 12px;
+            color: #000;
           }
         `}</style>
 
@@ -362,10 +367,10 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
               <span style={{ color: "#000080" }}>Shreno Engineering Limited</span>
             </td>
             <td style={{ width: "70%" }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#FF0000", textAlign: "center", paddingBottom: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#000000", textAlign: "center", paddingBottom: 4 }}>
                 SET UP & WELD VISUAL INSPECTION REPORT
               </div>
-              <div style={{ fontWeight: 700, fontSize: 11, color: "#FF0000", textAlign: "center", borderTop: "1px solid #333", paddingTop: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 11, color: "#000000", textAlign: "center", borderTop: "1px solid #333", paddingTop: 4 }}>
                 Report No : <span style={{ color: "#000", fontWeight: 400 }}>{d.reportNo}</span>
               </div>
             </td>
@@ -377,33 +382,33 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
       <table className="wpj-grid-table" style={{ marginBottom: 12 }}>
         <tbody>
           <tr>
-            <td className="label-cell" style={{ width: "15%", color: "#FF0000" }}>MSN:</td>
+            <td className="label-cell" style={{ width: "15%", color: "#000000" }}>MSN:</td>
             <td style={{ width: "35%" }}>{job.job_number || "-"}</td>
-            <td className="label-cell" style={{ width: "15%", color: "#FF0000" }}>TAG NO.:</td>
+            <td className="label-cell" style={{ width: "15%", color: "#000000" }}>TAG NO.:</td>
             <td style={{ width: "35%" }}>{d.tagNo || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell" style={{ color: "#FF0000" }}>CLIENT:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>CLIENT:</td>
             <td>{job.customer?.customer_name || "-"}</td>
-            <td className="label-cell" style={{ color: "#FF0000" }}>EQUIPMENT:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>EQUIPMENT:</td>
             <td>{d.equipment || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell" style={{ color: "#FF0000" }}>Projects ID</td>
+            <td className="label-cell" style={{ color: "#000000" }}>Projects ID</td>
             <td>{d.projectsId || "-"}</td>
-            <td className="label-cell" style={{ color: "#FF0000" }}>DRG No:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>DRG No:</td>
             <td>{d.lindeDrgNo || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell" style={{ color: "#FF0000" }}>P.O. NO.:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>P.O. NO.:</td>
             <td>{job.po?.po_number || "-"}</td>
-            <td className="label-cell" style={{ color: "#FF0000" }}>DRG. NO.:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>DRG. NO.:</td>
             <td>{d.drgNo || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell" style={{ color: "#FF0000" }}>CODE:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>CODE:</td>
             <td>{d.code || "-"}</td>
-            <td className="label-cell" style={{ color: "#FF0000" }}>INSP. AGENCY:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>INSP. AGENCY:</td>
             <td>{d.inspAgency || "TPIA"}</td>
           </tr>
         </tbody>
@@ -421,7 +426,7 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
 
         {/* Joint Number */}
         <tr>
-          <td className="label-cell" style={{ color: "#FF0000" }}>Joint Number</td>
+          <td className="label-cell" style={{ color: "#000000" }}>Joint Number</td>
           <td style={{ fontWeight: 600 }}>{j0.joint_no || "-"}</td>
           <td style={{ fontWeight: 600 }}>{j1.joint_no || "-"}</td>
           <td style={{ fontWeight: 600 }}>{j2.joint_no || "-"}</td>
@@ -449,9 +454,9 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
         {/* Stage 2: Back Chip */}
         {(j0.back_chip_req || j1.back_chip_req || j2.back_chip_req) && (
           <>
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip</td></tr>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>Back chip</td></tr>
             <tr>
-              <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT: YES / No</td>
+              <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Back Chip PT: YES / No</td>
               <td style={{ fontWeight: "bold", color: "#000" }}>{j0.joint_no ? (j0.back_chip_req ? "YES" : "NO") : ""}</td>
               <td style={{ fontWeight: "bold", color: "#000" }}>{j1.joint_no ? (j1.back_chip_req ? "YES" : "NO") : ""}</td>
               <td style={{ fontWeight: "bold", color: "#000" }}>{j2.joint_no ? (j2.back_chip_req ? "YES" : "NO") : ""}</td>
@@ -463,13 +468,13 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
         {/* Stage 3: Weld Visual */}
         <tr><td colSpan={4} className="section-header">Weld Visual Inspection by</td></tr>
         <tr>
-          <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Welder No.</td>
+          <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Welder No.</td>
           <td>{s3[0]?.welderNo || s3[0]?.welderNumber || ""}</td>
           <td>{s3[1]?.welderNo || s3[1]?.welderNumber || ""}</td>
           <td>{s3[2]?.welderNo || s3[2]?.welderNumber || ""}</td>
         </tr>
         <tr>
-          <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Welding process</td>
+          <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Welding process</td>
           <td>{s3[0]?.weldingProcess || ""}</td>
           <td>{s3[1]?.weldingProcess || ""}</td>
           <td>{s3[2]?.weldingProcess || ""}</td>
@@ -495,11 +500,11 @@ function SeamWeldingPreview({ jointData, joints, job, plan, insp, approvedStages
         {/* Stage 6 & 7: PWHT + RT/PT after PWHT */}
         {(j0.pwht || j1.pwht || j2.pwht) && (
           <>
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>PWHT</td></tr>
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>PWHT</td></tr>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
             {hasStage("stage6") && <SignatureRows sigs={s6Sig} qcTitle="NDT Engineer" />}
 
-            <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing - After PWHT</td></tr>
+            <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing - After PWHT</td></tr>
             {hasStage("stage7") && <SignatureRows sigs={s7Sig} qcTitle="NDT Engineer" />}
           </>
         )}
@@ -672,13 +677,13 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
               <span style={{ color: "#000080" }}>Shreno Engineering Limited</span>
             </td>
             <td style={{ width: "70%" }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#FF0000", textAlign: "center", paddingBottom: 4 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#000000", textAlign: "center", paddingBottom: 4 }}>
                 GENERAL INSPECTION REPORT
               </div>
-              <div style={{ fontWeight: 700, fontSize: 12, color: "#FF0000", textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#000000", textAlign: "center" }}>
                 (CHECK SHEET FOR
               </div>
-              <div style={{ fontWeight: 700, fontSize: 12, color: "#FF0000", textAlign: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#000000", textAlign: "center" }}>
                 NOZZLE SET-UP & WELDING INSPECTION)
               </div>
             </td>
@@ -689,15 +694,15 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
       <table className="wpj-grid-table" style={{ marginBottom: 12 }}>
         <tbody className="header-meta">
           <tr>
-            <td className="label-cell" style={{ width: "40%", color: "#FF0000" }}>Shreno Manufacturer sr. no.:</td>
+            <td className="label-cell" style={{ width: "40%", color: "#000000" }}>Shreno Manufacturer sr. no.:</td>
             <td>{job.job_number || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell" style={{ color: "#FF0000" }}>Equipment Name & Tag Number:</td>
+            <td className="label-cell" style={{ color: "#000000" }}>Equipment Name & Tag Number:</td>
             <td>{`${equipment || ""} ${tagNo || ""}`.trim() || "-"}</td>
           </tr>
           <tr>
-            <td className="label-cell" style={{ color: "#FF0000" }}>Drawing no. :</td>
+            <td className="label-cell" style={{ color: "#000000" }}>Drawing no. :</td>
             <td>{drgNo || "-"}</td>
           </tr>
         </tbody>
@@ -713,7 +718,7 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
           </tr>
           <tr>
             <td></td>
-            <td className="label-cell" style={{ color: "#FF0000" }}>Nozzle Number</td>
+            <td className="label-cell" style={{ color: "#000000" }}>Nozzle Number</td>
             <td>{jointData.joint_no || "-"}</td>
             <td></td>
           </tr>
@@ -725,14 +730,14 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
 
           {!isF && jointData.back_chip_req && (
               <>
-                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Back chip</td></tr>
+                <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>Back chip</td></tr>
                 <tr>
-                  <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Back Chip PT</td>
-                  <td style={{ color: "#FF0000", fontWeight: "bold" }}>YES / No</td>
+                  <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Back Chip PT</td>
+                  <td style={{ color: "#000000", fontWeight: "bold" }}>YES / No</td>
                   <td style={{ fontWeight: "bold", color: "#000" }}>{jointData.back_chip_req ? "YES" : "NO"}</td>
                   <td></td>
                 </tr>
-                {hasStage("stage2") && <SignatureRowsRed sig={getSignature("stage2")} qcTitle="QC Engineer" />}
+                {hasStage("stage2") && <SingleSignatureRows sig={getSignature("stage2")} qcTitle="QC Engineer" />}
               </>
             )}
 
@@ -746,16 +751,16 @@ function NozzleReportPreview({ jointData, job, plan, jt, insp, approvedStages, g
           {/* PWHT for C, D, and F */}
             {jointData.pwht && (
               <>
-                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>PWHT</td></tr>
-                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
-                {(hasStage("stage4") && !isD && !isF) && <SignatureRowsRed sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
-                {(hasStage("stage8") && isD) && <SignatureRowsRed sig={getSignature("stage8")} qcTitle="NDT Engineer" />}
-                {(hasStage("stage3") && isF) && <SignatureRowsRed sig={getSignature("stage3")} qcTitle="NDT Engineer" />}
+                <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>PWHT</td></tr>
+                <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>Radiography Testing Requirement (After PWHT)</td></tr>
+                {(hasStage("stage4") && !isD && !isF) && <SingleSignatureRows sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage8") && isD) && <SingleSignatureRows sig={getSignature("stage8")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage3") && isF) && <SingleSignatureRows sig={getSignature("stage3")} qcTitle="NDT Engineer" />}
 
-                <tr><td colSpan={4} className="section-header" style={{ color: "#FF0000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing – After PWHT</td></tr>
-                {(hasStage("stage5") && !isD && !isF) && <SignatureRowsRed sig={getSignature("stage5")} qcTitle="NDT Engineer" />}
-                {(hasStage("stage9") && isD) && <SignatureRowsRed sig={getSignature("stage9")} qcTitle="NDT Engineer" />}
-                {(hasStage("stage4") && isF) && <SignatureRowsRed sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
+                <tr><td colSpan={4} className="section-header" style={{ color: "#000000", textAlign: "center", fontWeight: "bold" }}>Liquid Penetrant Testing – After PWHT</td></tr>
+                {(hasStage("stage5") && !isD && !isF) && <SingleSignatureRows sig={getSignature("stage5")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage9") && isD) && <SingleSignatureRows sig={getSignature("stage9")} qcTitle="NDT Engineer" />}
+                {(hasStage("stage4") && isF) && <SingleSignatureRows sig={getSignature("stage4")} qcTitle="NDT Engineer" />}
               </>
             )}
         </tbody>
@@ -774,10 +779,10 @@ function CharacteristicGroup({ char }) {
           <td style={{ textAlign: "center", fontWeight: 600 }}>
             {rIdx === 0 ? (char.sr === "1b" ? "" : char.sr) : ""}
           </td>
-          <td className="label-cell" style={{ whiteSpace: "pre-wrap", color: "#FF0000" }}>
+          <td className="label-cell" style={{ whiteSpace: "pre-wrap", color: "#000000" }}>
             {rIdx === 0 ? char.title : ""}
           </td>
-          <td style={{ whiteSpace: "pre-wrap", color: "#FF0000", fontWeight: 600 }}>{row.detail}</td>
+          <td style={{ whiteSpace: "pre-wrap", color: "#000000", fontWeight: 600 }}>{row.detail}</td>
           <td>{row.value}</td>
         </tr>
       ))}
@@ -785,14 +790,14 @@ function CharacteristicGroup({ char }) {
         <>
           <tr>
             <td></td>
-            <td className="sig-label" style={{ color: "#FF0000" }}>Engineer Production  Dated Signature</td>
+            <td className="sig-label" style={{ color: "#000000" }}>Engineer Production  Dated Signature</td>
             <td className="sig-value" colSpan={2}>
               {char.sig.prodName} {char.sig.prodDate ? `/ ${char.sig.prodDate}` : ""}
             </td>
           </tr>
           <tr>
             <td></td>
-            <td className="sig-label" style={{ color: "#FF0000" }}>Engineer Shop {char.qcType}  Dated Signature</td>
+            <td className="sig-label" style={{ color: "#000000" }}>Engineer Shop {char.qcType}  Dated Signature</td>
             <td className="sig-value" colSpan={2}>
               {char.sig.qcName} {char.sig.qcDate ? `/ ${char.sig.qcDate}` : ""}
               {char.sig.status === "approved" ? " / Approve" : ""}
@@ -800,7 +805,7 @@ function CharacteristicGroup({ char }) {
           </tr>
           <tr>
             <td></td>
-            <td className="sig-label" style={{ color: "#FF0000" }}>CLIENT / AI /TPIA  Dated Signature</td>
+            <td className="sig-label" style={{ color: "#000000" }}>CLIENT / AI /TPIA  Dated Signature</td>
             <td className="sig-value"></td>
             <td className="sig-value">Yes/No</td>
           </tr>
@@ -820,55 +825,55 @@ function SignatureRows({ sigs, qcTitle }) {
   return (
     <>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Production Engineer: Name</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Production Engineer: Name</td>
         <td>{s0.prodName || ""}</td>
         <td>{s1.prodName || ""}</td>
         <td>{s2.prodName || ""}</td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Date</td>
         <td>{s0.prodDate || ""}</td>
         <td>{s1.prodDate || ""}</td>
         <td>{s2.prodDate || ""}</td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>{qcTitle}: Name</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>{qcTitle}: Name</td>
         <td>{s0.qcName || ""}</td>
         <td>{s1.qcName || ""}</td>
         <td>{s2.qcName || ""}</td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Date</td>
         <td>{s0.qcDate || ""}</td>
         <td>{s1.qcDate || ""}</td>
         <td>{s2.qcDate || ""}</td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Sign</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Sign</td>
         <td>{s0.status === "approved" ? "Approve" : ""}</td>
         <td>{s1.status === "approved" ? "Approve" : ""}</td>
         <td>{s2.status === "approved" ? "Approve" : ""}</td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Remarks</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Remarks</td>
         <td>{s0.remarks || ""}</td>
         <td>{s1.remarks || ""}</td>
         <td>{s2.remarks || ""}</td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>AI / CLIENT / TPIA: Name</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>AI / CLIENT / TPIA: Name</td>
         <td></td>
         <td></td>
         <td></td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Date</td>
         <td></td>
         <td></td>
         <td></td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Sign</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Sign</td>
         <td></td>
         <td></td>
         <td></td>
@@ -880,58 +885,58 @@ function SignatureRows({ sigs, qcTitle }) {
 
 
 
-function SignatureRowsRed({ sig, qcTitle }) {
+function SingleSignatureRows({ sig, qcTitle }) {
   return (
     <>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Production Engineer</td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Name</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Production Engineer</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Name</td>
         <td style={{ fontWeight: 600 }}>{sig.productionEngineerName || sig.prodName || ""}</td>
         <td></td>
       </tr>
       <tr>
         <td></td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Date</td>
         <td style={{ fontWeight: 600 }}>{sig.submissionDate || sig.prodDate || ""}</td>
         <td></td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>{qcTitle}</td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Name</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>{qcTitle}</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Name</td>
         <td style={{ fontWeight: 600 }}>{sig.qcEngineerName || sig.qcName || ""}</td>
         <td></td>
       </tr>
       <tr>
         <td></td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Date</td>
         <td style={{ fontWeight: 600 }}>{sig.qcDate || ""}</td>
         <td></td>
       </tr>
       <tr>
         <td></td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Sign</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Sign</td>
         <td style={{ fontWeight: 600 }}>{(sig.qcStatus === "approved" || sig.status === "approved") ? "Approve" : ""}</td>
         <td></td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>Remarks</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>Remarks</td>
         <td colSpan={3} style={{ fontWeight: 600, whiteSpace: "pre-wrap", color: "#000" }}>{sig.remarks || "-"}</td>
       </tr>
       <tr>
-        <td className="label-cell" style={{ color: "#FF0000", fontWeight: "bold" }}>AI / CLIENT / TPIA</td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Name</td>
+        <td className="label-cell" style={{ color: "#000000", fontWeight: "bold" }}>AI / CLIENT / TPIA</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Name</td>
         <td></td>
         <td></td>
       </tr>
       <tr>
         <td></td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Date</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Date</td>
         <td></td>
         <td></td>
       </tr>
       <tr>
         <td></td>
-        <td style={{ color: "#FF0000", fontWeight: "bold" }}>Sign</td>
+        <td style={{ color: "#000000", fontWeight: "bold" }}>Sign</td>
         <td></td>
         <td></td>
       </tr>

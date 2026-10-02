@@ -452,41 +452,7 @@ class WeldJointService {
             }
         };
 
-        const isAdminOrProd = roles.includes('ADMIN') || roles.includes('PRODUCTION_ENGINEER') || roles.includes('WELD_PLAN_ADMIN');
-        const isQC = roles.includes('QC_ENGINEER') || roles.includes('NDT_ENGINEER');
 
-        if (!isAdminOrProd && isQC) {
-            // Fetch the groups this user belongs to
-            const userGroups = await prisma.user_employee_group.findMany({
-                where: { user_id: userId },
-                select: { employee_group_id: true }
-            });
-            const groupIds = userGroups.map(ug => ug.employee_group_id);
-
-            // Base criteria for QC: MUST be involved in at least one stage (historically or currently)
-            // Or specifically filter based on the requested status.
-
-            if (!status || status === 'all' || status === 'pending' || status === 'rejected') {
-                where.weld_joint_stages = {
-                    some: {
-                        OR: [
-                            { qc_engineer_id: userId },
-                            { qc_group_id: { in: groupIds } }
-                        ],
-                        // For Pending/Rejected we only look at active stages
-                        ...((status === 'pending' || status === 'rejected') && { is_active: true })
-                    }
-                };
-            } else if (status === 'completed') {
-                // For Completed, we look for stages they approved
-                where.weld_joint_stages = {
-                    some: {
-                        qc_engineer_id: userId,
-                        status: 'approved'
-                    }
-                };
-            }
-        }
 
         if (search) {
             where.AND = {
