@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
+import { AlertCircle } from "lucide-react"
 
 const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected = false, readOnly = false, onSuccess }) => {
 
@@ -458,49 +459,65 @@ return (
 
                     {/* MHC Part Selection - Hidden for QC */}
                     {userRole !== 'QC' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 1 Selection (ITEM NO./PART NO.)</label>
-                                <Select 
-                                    key={`part1-${mhcItems.length}-${selectedPart1}`}
-                                    value={selectedPart1} 
-                                    onValueChange={(val) => handlePartSelection('part1', val)} 
-                                    disabled={isReadOnly}
-                                >
-                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
-                                        <SelectValue placeholder="Select Part 1" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {mhcItems.map(item => (
-                                            <SelectItem key={item.id} value={item.id}>
-                                                {item.item_no} {item.description ? `- ${item.description}` : ""}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 2 Selection (ITEM NO./PART NO.)</label>
-                                <Select 
-                                    key={`part2-${mhcItems.length}-${selectedPart2}`}
-                                    value={selectedPart2} 
-                                    onValueChange={(val) => handlePartSelection('part2', val)} 
-                                    disabled={isReadOnly}
-                                >
-                                    <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
-                                        <SelectValue placeholder="Select Part 2 (Nozzle)" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {mhcItems.map(item => (
-                                            <SelectItem key={item.id} value={item.id}>
-                                                {item.item_no} {item.description ? `- ${item.description}` : ""}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
+                        <>
+                            {mhcItems.length === 0 ? (
+                                <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-4 mb-6 flex items-start gap-3">
+                                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                                    <div>
+                                        <h4 className="text-sm font-semibold">MHC Approval Required</h4>
+                                        <p className="text-xs mt-1">
+                                            No approved Material Heat Chart (MHC) items were found for MSN: <strong>{initialData?.msnNumber || 'N/A'}</strong>. 
+                                            Please ensure the MHC is approved before proceeding with material identification.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed mb-6">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 1 Selection (ITEM NO./PART NO.)</label>
+                                        <Select 
+                                            key={`part1-${mhcItems.length}-${selectedPart1}`}
+                                            value={selectedPart1} 
+                                            onValueChange={(val) => handlePartSelection('part1', val)} 
+                                            disabled={isReadOnly}
+                                        >
+                                            <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
+                                                <SelectValue placeholder="" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {mhcItems.map(item => (
+                                                    <SelectItem key={item.id} value={item.id}>
+                                                        {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 2 Selection (ITEM NO./PART NO.)</label>
+                                        <Select 
+                                            key={`part2-${mhcItems.length}-${selectedPart2}`}
+                                            value={selectedPart2} 
+                                            onValueChange={(val) => handlePartSelection('part2', val)} 
+                                            disabled={isReadOnly}
+                                        >
+                                            <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
+                                                <SelectValue placeholder="" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {mhcItems.map(item => (
+                                                    <SelectItem key={item.id} value={item.id}>
+                                                        {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
+
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
@@ -676,7 +693,7 @@ return (
 
                     {!isReview && !readOnly && (
                         <div className="mt-6 flex justify-end pb-2">
-                            <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
+                            <Button onClick={handleSubmit} disabled={isSubmitting || mhcItems.length === 0} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                                 {isSubmitting ? "Processing..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
                             </Button>
                         </div>

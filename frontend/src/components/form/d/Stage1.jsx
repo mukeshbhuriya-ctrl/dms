@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
+import { AlertCircle } from "lucide-react"
 
 const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = false, isRejected = false, readOnly = false, stage = "stage1", onSuccess }) => {
 
@@ -20,7 +21,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = fal
 
     useEffect(() => {
         let info = null;
-        
+
         if (initialData?.weld_joint_report_info) {
             info = initialData.weld_joint_report_info;
         } else if ((inspectionData?.data_json || initialData?.inspectionData?.data_json || initialData?.weld_joint_inspection?.data_json)) {
@@ -35,7 +36,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = fal
                         drg_no: parsedInfo.drgNo
                     };
                 }
-            } catch(e) { console.error("Error parsing data_json", e); }
+            } catch (e) { console.error("Error parsing data_json", e); }
         }
 
         if (info) {
@@ -55,7 +56,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = fal
 
     const sPrefix = stage.replace('stage', 's');
 
-    
+
     const [qcGroups, setQcGroups] = useState([]);
     const [productionGroups, setProductionGroups] = useState([]);
 
@@ -69,11 +70,11 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = fal
                 ]);
                 if (qcRes?.success) setQcGroups(qcRes.data || []);
                 if (prodRes?.success) setProductionGroups(prodRes.data || []);
-                
+
                 if (myGroupsRes?.success && myGroupsRes.data) {
                     const myQcGroup = myGroupsRes.data.find(g => g.group_type === 'QUALITY' || g.type === 'QUALITY');
                     const myProdGroup = myGroupsRes.data.find(g => g.group_type === 'PRODUCTION' || g.type === 'PRODUCTION');
-                    
+
                     // QC Group is intentionally NOT auto-selected based on user request
                     if (myProdGroup) {
                         setSelectedProdGroupId(prev => prev || myProdGroup.id);
@@ -93,7 +94,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = fal
     const [qcRemarks, setQcRemarks] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [userRole, setUserRole] = useState("")
-        const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
+    const [alert, setAlert] = useState({ show: false, type: 'success', message: '' })
     const [mhcItems, setMhcItems] = useState([])
     const [selectedPart1, setSelectedPart1] = useState("")
     const [selectedPart2, setSelectedPart2] = useState("")
@@ -124,7 +125,7 @@ const Stage1D = ({ initialData, inspectionData, isReview = false, isUpdate = fal
                 }
                 const roles = parsed?.payload?.roles || parsed?.payload?.user?.roles || []
                 const roleNames = roles.map(r => (typeof r === 'object' && r.name) ? r.name : r);
-if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
+                if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
                     setUserRole('QC')
                 } else {
                     setUserRole('PROD')
@@ -185,7 +186,7 @@ if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
 
         const desc1 = item1 ? `${item1.item_no || ''} - ${item1.description || ''}`.trim() : "";
         const desc2 = item2 ? `${item2.item_no || ''} - ${item2.description || ''}`.trim() : "";
-        
+
         const size1 = item1?.size || "";
         const size2 = item2?.size || "";
 
@@ -218,8 +219,8 @@ if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
                         setSelectedProdGroupId(inspData[`${sPrefix}_production_group_id`]);
                     } else if (sData.qcGroupId) {
                         setSelectedQcGroupId(sData.qcGroupId);
-            }
-            if (sData.productionGroupId) setSelectedProdGroupId(sData.productionGroupId);
+                    }
+                    if (sData.productionGroupId) setSelectedProdGroupId(sData.productionGroupId);
 
                     setFormData(prev => ({
                         ...prev,
@@ -276,7 +277,7 @@ if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
 
             const currentStageData = {
                 qcGroupId: selectedQcGroupId,
-        productionGroupId: selectedProdGroupId,
+                productionGroupId: selectedProdGroupId,
                 productionEngineerName,
                 submissionDate: todayDate,
                 ...formData
@@ -295,7 +296,7 @@ if (roleNames.some(r => ['QC_ENGINEER', 'NDT_ENGINEER'].includes(r))) {
                     [sPrefix]: currentStageData
                 }
             };
-const payload = {
+            const payload = {
                 jointId: initialData?.id,
                 stage: stage,
                 status: "pending",
@@ -346,7 +347,7 @@ const payload = {
             if (status === 'approved') {
                 const currentStageData = {
                     qcGroupId: selectedQcGroupId,
-        productionGroupId: selectedProdGroupId,
+                    productionGroupId: selectedProdGroupId,
                     productionEngineerName,
                     submissionDate: todayDate,
                     ...formData
@@ -365,7 +366,7 @@ const payload = {
                         [sPrefix]: currentStageData
                     }
                 };
-await api.post("/api/wpj/update-stage-status", {
+                await api.post("/api/wpj/update-stage-status", {
                     jointId: initialData?.id,
                     stage: stage,
                     status: status,
@@ -373,12 +374,12 @@ await api.post("/api/wpj/update-stage-status", {
                     role: 'QC',
                     data: finalData,
                     basicInfo: {
-                    [initialData?.joint_type?.toLowerCase() || 'd']: {
-                        equipment: basicFields.equipment,
-                        tagNo: basicFields.tagNo,
-                        drgNo: basicFields.drgNo
+                        [initialData?.joint_type?.toLowerCase() || 'd']: {
+                            equipment: basicFields.equipment,
+                            tagNo: basicFields.tagNo,
+                            drgNo: basicFields.drgNo
+                        }
                     }
-                }
                 });
             }
 
@@ -419,25 +420,25 @@ await api.post("/api/wpj/update-stage-status", {
             {/* Basic Information Section */}
             <div className="border rounded-lg p-4 space-y-4">
                 <h3 className="font-semibold text-lg">Basic Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Shreno Manufacturer sr. no.</label>
-                            <Input value={initialData?.msnNumber || ""} className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" placeholder="MSN" readOnly />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Equipment Name</label>
-                            <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Tag Number</label>
-                            <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Drawing No. </label>
-                            <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly}  className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"/>
-                        </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Shreno Manufacturer sr. no.</label>
+                        <Input value={initialData?.msnNumber || ""} className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" placeholder="MSN" readOnly />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Equipment Name</label>
+                        <Input name="equipment" value={basicFields.equipment} onChange={handleBasicFieldChange} disabled={isReadOnly} className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Tag Number</label>
+                        <Input name="tagNo" value={basicFields.tagNo} onChange={handleBasicFieldChange} disabled={isReadOnly} className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Drawing No. </label>
+                        <Input name="drgNo" value={basicFields.drgNo} onChange={handleBasicFieldChange} disabled={isReadOnly} className="h-8 text-xs shadow-none border-slate-200 rounded-none bg-white" />
                     </div>
                 </div>
+            </div>
 
             <div className="mb-8">
                 <div className="mb-4 border-b pb-2">
@@ -450,48 +451,63 @@ await api.post("/api/wpj/update-stage-status", {
 
                         {/* MHC Part Selection - Hidden for QC */}
                         {userRole !== 'QC' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Part 1 Selection (ITEM NO./PART NO.)</label>
-                                    <Select 
-                                        key={`part1-${mhcItems.length}-${selectedPart1}`}
-                                        value={selectedPart1} 
-                                        onValueChange={(val) => handlePartSelection('part1', val)} 
-                                        disabled={isReadOnly}
-                                    >
-                                        <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
-                                            <SelectValue placeholder="Select Part 1" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {mhcItems.map(item => (
-                                                <SelectItem key={item.id} value={item.id}>
-                                                    {item.item_no} {item.description ? `- ${item.description}` : ""}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Part 2 Selection (ITEM NO./PART NO.)</label>
-                                    <Select 
-                                        key={`part2-${mhcItems.length}-${selectedPart2}`}
-                                        value={selectedPart2} 
-                                        onValueChange={(val) => handlePartSelection('part2', val)} 
-                                        disabled={isReadOnly}
-                                    >
-                                        <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
-                                            <SelectValue placeholder="Select Part 2 (Nozzle)" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {mhcItems.map(item => (
-                                                <SelectItem key={item.id} value={item.id}>
-                                                    {item.item_no} {item.description ? `- ${item.description}` : ""}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
+                            <>
+                                {mhcItems.length === 0 ? (
+                                    <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-4 mb-6 flex items-start gap-3">
+                                        <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                                        <div>
+                                            <h4 className="text-sm font-semibold">MHC Approval Required</h4>
+                                            <p className="text-xs mt-1">
+                                                No approved Material Heat Chart (MHC) items were found for MSN: <strong>{initialData?.msnNumber || 'N/A'}</strong>.
+                                                Please ensure the MHC is approved before proceeding with material identification.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Part 1 Selection (ITEM NO./PART NO.)</label>
+                                            <Select
+                                                key={`part1-${mhcItems.length}-${selectedPart1}`}
+                                                value={selectedPart1}
+                                                onValueChange={(val) => handlePartSelection('part1', val)}
+                                                disabled={isReadOnly}
+                                            >
+                                                <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
+                                                    <SelectValue placeholder="Select Part 1" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {mhcItems.map(item => (
+                                                        <SelectItem key={item.id} value={item.id}>
+                                                            {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Part 2 Selection (ITEM NO./PART NO.)</label>
+                                            <Select
+                                                key={`part2-${mhcItems.length}-${selectedPart2}`}
+                                                value={selectedPart2}
+                                                onValueChange={(val) => handlePartSelection('part2', val)}
+                                                disabled={isReadOnly}
+                                            >
+                                                <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
+                                                    <SelectValue placeholder="Select Part 2 (Nozzle)" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {mhcItems.map(item => (
+                                                        <SelectItem key={item.id} value={item.id}>
+                                                            {item.item_no} {item.description ? `- ${item.description}` : ""}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -649,20 +665,20 @@ await api.post("/api/wpj/update-stage-status", {
                         <h3 className="font-semibold text-lg">Set Up Inspection by</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
                             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="productionGroup">Production Group Name</label>
-              <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
-                <SelectTrigger id="productionGroup" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
-                  <SelectValue placeholder="Select Production Group" />
-                </SelectTrigger>
-                <SelectContent>
-                  {productionGroups.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                      {group.name?.toUpperCase()}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                                <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider" htmlFor="productionGroup">Production Group Name</label>
+                                <Select value={selectedProdGroupId} onValueChange={setSelectedProdGroupId} disabled={isReview}>
+                                    <SelectTrigger id="productionGroup" className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
+                                        <SelectValue placeholder="Select Production Group" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {productionGroups.map((group) => (
+                                            <SelectItem key={group.id} value={group.id}>
+                                                {group.name?.toUpperCase()}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Date</label>
                                 <Input value={todayDate} readOnly className="bg-slate-50 text-slate-500 h-8 text-xs shadow-none border-slate-200 rounded-none" />
@@ -685,25 +701,25 @@ await api.post("/api/wpj/update-stage-status", {
                         {/* Shared QC Review & Approval Section */}
                         {true && (
 
-                          <QCReviewSection
-                            isReview={isReview}
-                            userRole={userRole}
-                            status={initialData?.inspectionData?.[`${sPrefix}_status`]}
-                            remarks={qcRemarks}
-                            setRemarks={setQcRemarks}
-                            onAction={handleReviewAction}
-                            isSubmitting={isSubmitting}
-                            reviewDate={
-                                initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleString() :
-                                    initialData?.inspectionData?.[`${sPrefix}_rejected_at`] ? new Date(initialData.inspectionData[`${sPrefix}_rejected_at`]).toLocaleString() : ""
-                            }
-                        />
+                            <QCReviewSection
+                                isReview={isReview}
+                                userRole={userRole}
+                                status={initialData?.inspectionData?.[`${sPrefix}_status`]}
+                                remarks={qcRemarks}
+                                setRemarks={setQcRemarks}
+                                onAction={handleReviewAction}
+                                isSubmitting={isSubmitting}
+                                reviewDate={
+                                    initialData?.inspectionData?.[`${sPrefix}_approved_at`] ? new Date(initialData.inspectionData[`${sPrefix}_approved_at`]).toLocaleString() :
+                                        initialData?.inspectionData?.[`${sPrefix}_rejected_at`] ? new Date(initialData.inspectionData[`${sPrefix}_rejected_at`]).toLocaleString() : ""
+                                }
+                            />
 
                         )}
 
                         {!isReview && !readOnly && (
                             <div className="mt-6 flex justify-end pb-2">
-                                <Button onClick={handleSubmit} disabled={isSubmitting} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer">
+                                <Button onClick={handleSubmit} disabled={isSubmitting || mhcItems.length === 0} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                                     {isSubmitting ? "Processing..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
                                 </Button>
                             </div>
