@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import apiClient from '@/api/api.client';
 import { Loader2, AlertCircle, FileText, Activity, ShieldAlert, Layers, BookOpen, LayoutTemplate, Target, Box, FlaskConical, ClipboardCheck, Microscope, TrendingUp, AlertTriangle } from 'lucide-react';
 
@@ -73,10 +74,65 @@ const ModuleCard = ({ title, icon: Icon, stats, showDraft = false, iconClass }) 
   </Card>
 );
 
+const TodayModuleCard = ({ title, stats, icon: Icon, iconClass, pendingLabel = "Submitted", approvedLabel = "Cleared", showDraft = false, draftLabel = "Drafted" }) => {
+  const pendingCount = stats?.today_pending || stats?.today_open_stages || 0;
+  const approvedCount = stats?.today_approved || stats?.today_completed_reports || 0;
+  const rejectedCount = stats?.today_rejected || 0;
+  const draftCount = stats?.today_draft || stats?.today_total_plans || 0;
+
+  const totalActivity = pendingCount + approvedCount + rejectedCount + (showDraft ? draftCount : 0);
+  
+  return (
+    <Card className="relative overflow-hidden border-slate-200/60 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] rounded-xl transition-all duration-300 hover:shadow-lg hover:border-blue-200/60 group bg-white">
+      {/* Subtle top gradient accent based on activity */}
+      <div className={`absolute top-0 left-0 w-full h-1 ${totalActivity > 0 ? 'bg-gradient-to-r from-blue-500 via-indigo-400 to-emerald-400' : 'bg-slate-100'}`} />
+      
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconClass} transition-transform group-hover:scale-110 shadow-sm border border-white/50`}>
+              <Icon className="w-4.5 h-4.5" />
+            </div>
+            <h3 className="text-[14px] font-bold text-slate-800 tracking-tight">{title}</h3>
+          </div>
+          {totalActivity > 0 && (
+             <div className="relative flex h-2.5 w-2.5">
+               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+             </div>
+          )}
+        </div>
+
+        <div className="space-y-2.5">
+           {showDraft && (
+             <div className="flex items-center justify-between group/row">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-slate-700">{draftLabel}</span>
+                <span className="text-[13px] font-extrabold text-slate-700 bg-slate-100/80 px-2.5 py-0.5 rounded-md border border-slate-200/60 min-w-[32px] text-center">{draftCount}</span>
+             </div>
+           )}
+           <div className="flex items-center justify-between group/row">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-blue-600">{pendingLabel}</span>
+              <span className="text-[13px] font-extrabold text-blue-700 bg-blue-50/80 border border-blue-100 px-2.5 py-0.5 rounded-md min-w-[32px] text-center">{pendingCount}</span>
+           </div>
+           <div className="flex items-center justify-between group/row">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-emerald-600">{approvedLabel}</span>
+              <span className="text-[13px] font-extrabold text-emerald-700 bg-emerald-50/80 border border-emerald-100 px-2.5 py-0.5 rounded-md min-w-[32px] text-center">{approvedCount}</span>
+           </div>
+           <div className="flex items-center justify-between group/row">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-red-600">Rejected</span>
+              <span className={`text-[13px] font-extrabold px-2.5 py-0.5 rounded-md min-w-[32px] text-center ${rejectedCount > 0 ? 'text-red-700 bg-red-50/80 border border-red-100' : 'text-slate-400 bg-slate-50 border border-slate-100'}`}>{rejectedCount}</span>
+           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const QualityProductionDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [viewMode, setViewMode] = useState('today');
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -124,9 +180,100 @@ const QualityProductionDashboard = () => {
   return (
     <div className="p-6 space-y-6 bg-[#F8FAF9] h-[calc(100vh-64px)] overflow-y-auto">
       
-      {/* SECTION 1: WELDING */}
-      <div>
-        <h2 className="text-[17px] font-bold text-slate-900 mb-4 tracking-tight">1. Welding Operations Overview</h2>
+      {/* HEADER & TOGGLE */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 className="text-[22px] font-extrabold text-slate-900 tracking-tight leading-tight">
+            {viewMode === 'today' ? "Today's Overview" : "Overall Overview"}
+          </h2>
+          <p className="text-[13px] font-medium text-slate-500 mt-1">
+            {viewMode === 'today' 
+              ? "Real-time workflow activity across all active modules" 
+              : "Monitor all-time workflow activity and inspection metrics"}
+          </p>
+        </div>
+        
+        <div className="w-[180px]">
+          <Select value={viewMode} onValueChange={setViewMode}>
+            <SelectTrigger className="bg-white border-slate-200/60 shadow-sm hover:bg-slate-50 transition-colors h-9 cursor-pointer">
+              <SelectValue placeholder="Select view" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today" className="font-medium cursor-pointer">Today's Overview</SelectItem>
+              <SelectItem value="overall" className="font-medium cursor-pointer">Overall Overview</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {viewMode === 'today' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <TodayModuleCard 
+            title="Welding Operations" 
+            icon={Layers} 
+            stats={welding} 
+            iconClass="bg-[#ECFDF5] text-[#10B981]"
+            pendingLabel="Stages Opened"
+            approvedLabel="Reports Done"
+            showDraft={true}
+            draftLabel="New Plans"
+          />
+          <TodayModuleCard 
+            title="Material Heat Chart" 
+            icon={LayoutTemplate} 
+            stats={mhc} 
+            iconClass="bg-[#FCE7F3] text-[#DB2777]"
+            pendingLabel="Offered"
+            approvedLabel="Approved"
+          />
+          <TodayModuleCard 
+            title="Quality Assurance Plan" 
+            icon={BookOpen} 
+            stats={qap} 
+            iconClass="bg-[#F3E8FF] text-[#9333EA]"
+            pendingLabel="Pending"
+            approvedLabel="Published"
+          />
+          <TodayModuleCard 
+            title="Dish End Inspection" 
+            icon={Target} 
+            stats={dish_end} 
+            iconClass="bg-[#ECFDF5] text-[#059669]"
+            pendingLabel="Pending"
+            approvedLabel="Approved"
+          />
+          <TodayModuleCard 
+            title="Tube Bundle Inspection" 
+            icon={Box} 
+            stats={tube_bundle} 
+            iconClass="bg-[#ECFEFF] text-[#0891B2]"
+            pendingLabel="Pending"
+            approvedLabel="Approved"
+          />
+          <TodayModuleCard 
+            title="Hydrostatic Test" 
+            icon={FlaskConical} 
+            stats={hydrostatic} 
+            iconClass="bg-[#FEF3C7] text-[#D97706]"
+            pendingLabel="Pending"
+            approvedLabel="Approved"
+          />
+          <TodayModuleCard 
+            title="Final Inspection" 
+            icon={ClipboardCheck} 
+            stats={final_inspection} 
+            iconClass="bg-[#FFE4E6] text-[#E11D48]"
+            pendingLabel="Pending"
+            approvedLabel="Approved"
+          />
+        </div>
+      )}
+
+      {viewMode === 'overall' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {/* SECTION 1: WELDING (All Time) */}
+          <div>
+            <h2 className="text-[17px] font-extrabold text-slate-900 mb-5 tracking-tight">Welding Operations Overview <span className="text-slate-400 font-medium text-sm ml-1">(All-Time)</span></h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <MetricCard 
             title="Total Active Plans" 
@@ -169,7 +316,12 @@ const QualityProductionDashboard = () => {
 
       {/* SECTION 2: MODULES */}
       <div>
-        <h2 className="text-[17px] font-bold text-slate-900 mb-4 tracking-tight">2. Quality & Inspection Modules</h2>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center shadow-sm">
+             <Target className="w-4 h-4" />
+          </div>
+          <h2 className="text-[18px] font-extrabold text-slate-900 tracking-tight">Quality & Inspection Modules <span className="text-slate-400 font-medium text-sm ml-1">(All-Time)</span></h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           
           <ModuleCard 
@@ -237,6 +389,8 @@ const QualityProductionDashboard = () => {
 
         </div>
       </div>
+      </div>
+      )}
 
     </div>
   );
