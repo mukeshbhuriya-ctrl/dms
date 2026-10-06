@@ -1,5 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useSearchParams } from "react-router-dom"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
@@ -60,6 +61,20 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   // Cascading Filters State
   const [activeFilters, setActiveFilters] = useState({ records: [] });
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const dateParam = searchParams.get('date');
+    if (statusParam || dateParam) {
+      setColumnFilters(prev => ({
+        ...prev,
+        status: statusParam ? [statusParam] : prev.status,
+        date: dateParam ? [dateParam] : prev.date
+      }));
+      setSearchParams(new URLSearchParams(), { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });

@@ -134,9 +134,12 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Handle Notifications Routing (?id=...)
+  // Handle Notifications & Dashboard Routing (?id=... or ?status=...&date=...)
   useEffect(() => {
     const idParam = searchParams.get('id') || searchParams.get('mhc_id');
+    const statusParam = searchParams.get('status');
+    const dateParam = searchParams.get('date');
+
     if (idParam) {
       const fetchMhcAndFilter = async () => {
         try {
@@ -157,6 +160,13 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
         }
       };
       fetchMhcAndFilter();
+    } else if (statusParam || dateParam) {
+      setColumnFilters(prev => ({
+        ...prev,
+        status: statusParam ? [statusParam] : prev.status,
+        date: dateParam ? [dateParam] : prev.date
+      }));
+      setSearchParams(new URLSearchParams(), { replace: true });
     }
   }, [searchParams, setSearchParams]);
 

@@ -580,6 +580,71 @@ class WeldJointService {
                     // Prisma doesn't support 'in' for Booleans.
                 }
             }
+            if (cFilters.status && !params.status) {
+                params.status = Array.isArray(cFilters.status) ? cFilters.status[0] : cFilters.status;
+            }
+            if (cFilters.date) {
+                const dateValues = Array.isArray(cFilters.date) ? cFilters.date : cFilters.date.split(',').map(v => v.trim());
+                if (dateValues.includes('today')) {
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+                    where.weld_joint_stages = {
+                        ...(where.weld_joint_stages || {}),
+                        some: {
+                            ...(where.weld_joint_stages?.some || {}),
+                            updatedAt: { gte: startOfToday }
+                        }
+                    };
+                }
+            }
+        }
+
+        if (params.date) {
+            const dateValues = Array.isArray(params.date) ? params.date : params.date.split(',').map(v => v.trim());
+            if (dateValues.includes('today')) {
+                const startOfToday = new Date();
+                startOfToday.setHours(0, 0, 0, 0);
+                where.weld_joint_stages = {
+                    ...(where.weld_joint_stages || {}),
+                    some: {
+                        ...(where.weld_joint_stages?.some || {}),
+                        updatedAt: { gte: startOfToday }
+                    }
+                };
+            }
+        }
+
+        // Re-evaluate status if it was set from cFilters.status
+        if (params.status) {
+            const currentStatus = params.status;
+            if (currentStatus === 'completed') {
+                where.weld_joint_stages = {
+                    ...(where.weld_joint_stages || {}),
+                    none: { is_active: true },
+                    some: {
+                        ...(where.weld_joint_stages?.some || {}),
+                        status: 'approved'
+                    }
+                };
+            } else if (currentStatus === 'pending') {
+                where.weld_joint_stages = {
+                    ...(where.weld_joint_stages || {}),
+                    some: {
+                        ...(where.weld_joint_stages?.some || {}),
+                        status: 'pending',
+                        is_active: true
+                    }
+                };
+            } else if (currentStatus === 'rejected') {
+                where.weld_joint_stages = {
+                    ...(where.weld_joint_stages || {}),
+                    some: {
+                        ...(where.weld_joint_stages?.some || {}),
+                        status: 'rejected',
+                        is_active: true
+                    }
+                };
+            }
         }
 
         if (client) {

@@ -1,5 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useCallback, Fragment, useMemo } from "react"
+import { useSearchParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -69,6 +70,20 @@ function ListView({ onCreateClick, onEditClick }) {
 
   const { roles } = useAuth();
   const isAdmin = roles?.includes("ADMIN");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const dateParam = searchParams.get('date');
+    if (statusParam || dateParam) {
+      setColumnFilters(prev => ({
+        ...prev,
+        status: statusParam ? [statusParam] : prev.status,
+        date: dateParam ? [dateParam] : prev.date
+      }));
+      setSearchParams(new URLSearchParams(), { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmData, setConfirmData] = useState({ title: "", description: "", variant: "danger", onConfirm: null });

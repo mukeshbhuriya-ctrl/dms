@@ -310,6 +310,17 @@ class QapService {
             if (filters.is_active && filters.is_active.length === 1) {
                 andConditions.push({ is_active: filters.is_active[0] === 'true' });
             }
+            if (filters.status && filters.status.length > 0) {
+                andConditions.push({ status: { in: filters.status } });
+            }
+            if (filters.date) {
+                const dateValues = Array.isArray(filters.date) ? filters.date : filters.date.split(',').map(v => v.trim());
+                if (dateValues.includes('today')) {
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+                    andConditions.push({ updatedAt: { gte: startOfToday } });
+                }
+            }
 
             if (andConditions.length > 0) {
                 where.AND = andConditions;

@@ -1,6 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { toast } from "react-toastify"
@@ -59,6 +59,20 @@ function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
   const { roles } = useAuth();
   const isAdmin = roles?.includes("ADMIN");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const dateParam = searchParams.get('date');
+    if (statusParam || dateParam) {
+      setColumnFilters(prev => ({
+        ...prev,
+        status: statusParam ? [statusParam] : prev.status,
+        date: dateParam ? [dateParam] : prev.date
+      }));
+      setSearchParams(new URLSearchParams(), { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const [confirmData, setConfirmData] = useState({ isOpen: false, title: "", description: "", confirmText: "", variant: "danger", onConfirm: null, isLoading: false });
 

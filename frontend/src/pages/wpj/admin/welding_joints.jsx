@@ -1,5 +1,6 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useSearchParams } from "react-router-dom"
 import { DataTable } from "@/components/shared/DataTable"
 import ProDataTable from "@/components/shared/ProDataTable"
 
@@ -97,6 +98,20 @@ function WeldingJoints() {
   const [jobMetadata, setJobMetadata] = useState({});
   const [isFetchingMetadata, setIsFetchingMetadata] = useState(false);
   const [columnFilters, setColumnFilters] = useState({ is_active: ['true'] });
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const dateParam = searchParams.get('date');
+    if (statusParam || dateParam) {
+      setColumnFilters(prev => ({
+        ...prev,
+        status: statusParam ? [statusParam] : prev.status,
+        date: dateParam ? [dateParam] : prev.date
+      }));
+      setSearchParams(new URLSearchParams(), { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const { roles } = useAuth();
   const isAdmin = roles?.includes("ADMIN");

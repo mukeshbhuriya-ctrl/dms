@@ -50,6 +50,17 @@ class HydroTestService {
                         where.is_active = activeStatus[0] === 'true';
                     }
                 }
+                if (filters.status) {
+                    handleMultiFilter('status', filters.status);
+                }
+                if (filters.date) {
+                    const dateValues = Array.isArray(filters.date) ? filters.date : filters.date.split(',').map(v => v.trim());
+                    if (dateValues.includes('today')) {
+                        const startOfToday = new Date();
+                        startOfToday.setHours(0, 0, 0, 0);
+                        where.updatedAt = { gte: startOfToday };
+                    }
+                }
             } catch (e) {
                 console.error("Error parsing columnFilters:", e);
             }

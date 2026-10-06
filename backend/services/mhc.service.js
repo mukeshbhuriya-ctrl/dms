@@ -43,6 +43,15 @@ class MhcService {
             }
         }
 
+        if (cFilters.date) {
+            const dateValues = Array.isArray(cFilters.date) ? cFilters.date : cFilters.date.split(',').map(v => v.trim());
+            if (dateValues.includes('today')) {
+                const startOfToday = new Date();
+                startOfToday.setHours(0, 0, 0, 0);
+                where.updatedAt = { gte: startOfToday };
+            }
+        }
+
         // Role-based visibility
         if (user && (user.roles || user.role)) {
             const userRoles = user.roles || user.role;

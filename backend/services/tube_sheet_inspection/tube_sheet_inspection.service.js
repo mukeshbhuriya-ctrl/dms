@@ -60,7 +60,18 @@ class TubeSheetInspectionService {
         if (cFilters.msn) where.msn = this._processFilter(cFilters.msn);
         if (cFilters.report_no) where.report_no = this._processFilter(cFilters.report_no);
         if (cFilters.client) where.client = this._processFilter(cFilters.client);
-        if (cFilters.status) where.status = this._processFilter(cFilters.status);
+        if (cFilters.status) {
+            const statusVals = Array.isArray(cFilters.status) ? cFilters.status : cFilters.status.split(',').map(v => v.trim());
+            if (statusVals.length > 0) where.status = { in: statusVals };
+        }
+        if (cFilters.date) {
+            const dateValues = Array.isArray(cFilters.date) ? cFilters.date : cFilters.date.split(',').map(v => v.trim());
+            if (dateValues.includes('today')) {
+                const startOfToday = new Date();
+                startOfToday.setHours(0, 0, 0, 0);
+                where.updatedAt = { gte: startOfToday };
+            }
+        }
 
         if (cFilters.is_active) {
             const activeStatus = Array.isArray(cFilters.is_active) ? cFilters.is_active : cFilters.is_active.split(',').map(v => v.trim());

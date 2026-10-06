@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import apiClient from '@/api/api.client';
@@ -34,9 +35,18 @@ const MetricCard = ({ title, value, subtitle, subtitleIcon: SubIcon, subtitleCol
     </Card>
   );
 };
+const ModuleCard = ({ title, icon: Icon, stats, showDraft = false, iconClass, modulePath, customStatusMapping = {} }) => {
+  const navigate = useNavigate();
 
-const ModuleCard = ({ title, icon: Icon, stats, showDraft = false, iconClass }) => (
-  <Card className="shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border-slate-200/60 rounded-xl">
+  const handleStatClick = (statKey) => {
+    if (modulePath && statKey !== 'total') {
+      const mappedStatus = customStatusMapping[statKey] || statKey;
+      navigate(`${modulePath}?status=${mappedStatus}`);
+    }
+  };
+
+  return (
+  <Card className="shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border-slate-200/60 rounded-xl hover:shadow-md transition-shadow group bg-white">
     <CardHeader className="pb-4 pt-5 px-5">
       <CardTitle className="text-[15px] font-bold flex items-center gap-3 text-slate-800">
         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconClass}`}>
@@ -51,30 +61,44 @@ const ModuleCard = ({ title, icon: Icon, stats, showDraft = false, iconClass }) 
           <span className="text-slate-500 font-medium">Total Records</span>
           <span className="font-extrabold text-slate-900">{stats?.total || 0}</span>
         </div>
-        <div className="flex justify-between items-center text-[13px]">
-          <span className="text-slate-500 font-medium">Approved</span>
+        <div 
+          onClick={() => handleStatClick('approved')}
+          className="flex justify-between items-center text-[13px] group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+        >
+          <span className="text-slate-500 font-medium group-hover/row:text-slate-700">Approved</span>
           <span className="font-extrabold text-[#059669]">{stats?.approved || 0}</span>
         </div>
-        <div className="flex justify-between items-center text-[13px]">
-          <span className="text-slate-500 font-medium">Pending</span>
+        <div 
+          onClick={() => handleStatClick('pending')}
+          className="flex justify-between items-center text-[13px] group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+        >
+          <span className="text-slate-500 font-medium group-hover/row:text-slate-700">Pending</span>
           <span className="font-extrabold text-[#EA580C]">{stats?.pending || 0}</span>
         </div>
-        <div className="flex justify-between items-center text-[13px]">
-          <span className="text-slate-500 font-medium">Rejected</span>
+        <div 
+          onClick={() => handleStatClick('rejected')}
+          className="flex justify-between items-center text-[13px] group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+        >
+          <span className="text-slate-500 font-medium group-hover/row:text-slate-700">Rejected</span>
           <span className="font-extrabold text-[#DC2626]">{stats?.rejected || 0}</span>
         </div>
         {showDraft && (
-          <div className="flex justify-between items-center text-[13px]">
-            <span className="text-slate-500 font-medium">Draft</span>
+          <div 
+            onClick={() => handleStatClick('draft')}
+            className="flex justify-between items-center text-[13px] group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+          >
+            <span className="text-slate-500 font-medium group-hover/row:text-slate-700">Draft</span>
             <span className="font-extrabold text-slate-400">{stats?.draft || 0}</span>
           </div>
         )}
       </div>
     </CardContent>
   </Card>
-);
+  );
+};
 
-const TodayModuleCard = ({ title, stats, icon: Icon, iconClass, pendingLabel = "Submitted", approvedLabel = "Cleared", showDraft = false, draftLabel = "Drafted" }) => {
+const TodayModuleCard = ({ title, stats, icon: Icon, iconClass, pendingLabel = "Submitted", approvedLabel = "Cleared", showDraft = false, draftLabel = "Drafted", modulePath, customStatusMapping = {} }) => {
+  const navigate = useNavigate();
   const pendingCount = stats?.today_pending || stats?.today_open_stages || 0;
   const approvedCount = stats?.today_approved || stats?.today_completed_reports || 0;
   const rejectedCount = stats?.today_rejected || 0;
@@ -82,6 +106,13 @@ const TodayModuleCard = ({ title, stats, icon: Icon, iconClass, pendingLabel = "
 
   const totalActivity = pendingCount + approvedCount + rejectedCount + (showDraft ? draftCount : 0);
   
+  const handleStatClick = (statKey) => {
+    if (modulePath) {
+      const mappedStatus = customStatusMapping[statKey] || statKey;
+      navigate(`${modulePath}?status=${mappedStatus}&date=today`);
+    }
+  };
+
   return (
     <Card className="relative overflow-hidden border-slate-200/60 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] rounded-xl transition-all duration-300 hover:shadow-lg hover:border-blue-200/60 group bg-white">
       {/* Subtle top gradient accent based on activity */}
@@ -105,20 +136,32 @@ const TodayModuleCard = ({ title, stats, icon: Icon, iconClass, pendingLabel = "
 
         <div className="space-y-2.5">
            {showDraft && (
-             <div className="flex items-center justify-between group/row">
+             <div 
+               onClick={() => handleStatClick('draft')}
+               className="flex items-center justify-between group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+             >
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-slate-700">{draftLabel}</span>
                 <span className="text-[13px] font-extrabold text-slate-700 bg-slate-100/80 px-2.5 py-0.5 rounded-md border border-slate-200/60 min-w-[32px] text-center">{draftCount}</span>
              </div>
            )}
-           <div className="flex items-center justify-between group/row">
+           <div 
+             onClick={() => handleStatClick('pending')}
+             className="flex items-center justify-between group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+           >
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-blue-600">{pendingLabel}</span>
               <span className="text-[13px] font-extrabold text-blue-700 bg-blue-50/80 border border-blue-100 px-2.5 py-0.5 rounded-md min-w-[32px] text-center">{pendingCount}</span>
            </div>
-           <div className="flex items-center justify-between group/row">
+           <div 
+             onClick={() => handleStatClick('approved')}
+             className="flex items-center justify-between group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+           >
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-emerald-600">{approvedLabel}</span>
               <span className="text-[13px] font-extrabold text-emerald-700 bg-emerald-50/80 border border-emerald-100 px-2.5 py-0.5 rounded-md min-w-[32px] text-center">{approvedCount}</span>
            </div>
-           <div className="flex items-center justify-between group/row">
+           <div 
+             onClick={() => handleStatClick('rejected')}
+             className="flex items-center justify-between group/row cursor-pointer hover:bg-slate-50 p-1 -mx-1 rounded transition-colors"
+           >
               <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest transition-colors group-hover/row:text-red-600">Rejected</span>
               <span className={`text-[13px] font-extrabold px-2.5 py-0.5 rounded-md min-w-[32px] text-center ${rejectedCount > 0 ? 'text-red-700 bg-red-50/80 border border-red-100' : 'text-slate-400 bg-slate-50 border border-slate-100'}`}>{rejectedCount}</span>
            </div>
@@ -183,9 +226,17 @@ const QualityProductionDashboard = () => {
       {/* HEADER & TOGGLE */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-[22px] font-extrabold text-slate-900 tracking-tight leading-tight">
-            {viewMode === 'today' ? "Today's Overview" : "Overall Overview"}
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-[22px] font-extrabold text-slate-900 tracking-tight leading-tight">
+              {viewMode === 'today' ? "Today's Overview" : "Overall Overview"}
+            </h2>
+            {viewMode === 'today' && (
+              <div className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </div>
+            )}
+          </div>
           <p className="text-[13px] font-medium text-slate-500 mt-1">
             {viewMode === 'today' 
               ? "Real-time workflow activity across all active modules" 
@@ -217,6 +268,8 @@ const QualityProductionDashboard = () => {
             approvedLabel="Reports Done"
             showDraft={true}
             draftLabel="New Plans"
+            modulePath="/view-weldingjoints"
+            customStatusMapping={{ pending: 'pending', approved: 'completed', draft: 'draft' }}
           />
           <TodayModuleCard 
             title="Material Heat Chart" 
@@ -225,6 +278,8 @@ const QualityProductionDashboard = () => {
             iconClass="bg-[#FCE7F3] text-[#DB2777]"
             pendingLabel="Offered"
             approvedLabel="Approved"
+            modulePath="/material-heat-chart"
+            customStatusMapping={{ pending: 'Offered', approved: 'Approved', rejected: 'Rejected' }}
           />
           <TodayModuleCard 
             title="Quality Assurance Plan" 
@@ -233,6 +288,8 @@ const QualityProductionDashboard = () => {
             iconClass="bg-[#F3E8FF] text-[#9333EA]"
             pendingLabel="Pending"
             approvedLabel="Published"
+            modulePath="/create-qarp"
+            customStatusMapping={{ pending: 'Pending', approved: 'Published', draft: 'draft' }}
           />
           <TodayModuleCard 
             title="Dish End Inspection" 
@@ -241,6 +298,8 @@ const QualityProductionDashboard = () => {
             iconClass="bg-[#ECFDF5] text-[#059669]"
             pendingLabel="Pending"
             approvedLabel="Approved"
+            modulePath="/inspections/dish-end"
+            customStatusMapping={{ pending: 'Pending', approved: 'Approved', draft: 'Draft' }}
           />
           <TodayModuleCard 
             title="Tube Bundle Inspection" 
@@ -249,6 +308,8 @@ const QualityProductionDashboard = () => {
             iconClass="bg-[#ECFEFF] text-[#0891B2]"
             pendingLabel="Pending"
             approvedLabel="Approved"
+            modulePath="/inspections/tube-bundle"
+            customStatusMapping={{ pending: 'Pending', approved: 'Approved', draft: 'Draft' }}
           />
           <TodayModuleCard 
             title="Hydrostatic Test" 
@@ -257,6 +318,8 @@ const QualityProductionDashboard = () => {
             iconClass="bg-[#FEF3C7] text-[#D97706]"
             pendingLabel="Pending"
             approvedLabel="Approved"
+            modulePath="/hydrostatic-pressure-test"
+            customStatusMapping={{ pending: 'pending', approved: 'approved', draft: 'draft' }}
           />
           <TodayModuleCard 
             title="Final Inspection" 
@@ -265,6 +328,8 @@ const QualityProductionDashboard = () => {
             iconClass="bg-[#FFE4E6] text-[#E11D48]"
             pendingLabel="Pending"
             approvedLabel="Approved"
+            modulePath="/inspections/final"
+            customStatusMapping={{ pending: 'pending', approved: 'approved', draft: 'Draft' }}
           />
         </div>
       )}
@@ -330,6 +395,8 @@ const QualityProductionDashboard = () => {
             stats={qap} 
             showDraft={true}
             iconClass="bg-[#F3E8FF] text-[#9333EA]" // Purple
+            modulePath="/create-qarp"
+            customStatusMapping={{ pending: 'Pending', approved: 'Published', draft: 'draft' }}
           />
           
           <ModuleCard 
@@ -337,6 +404,8 @@ const QualityProductionDashboard = () => {
             icon={LayoutTemplate} 
             stats={mhc} 
             iconClass="bg-[#FCE7F3] text-[#DB2777]" // Pink
+            modulePath="/material-heat-chart"
+            customStatusMapping={{ pending: 'Offered', approved: 'Approved', rejected: 'Rejected' }}
           />
           
           <ModuleCard 
@@ -344,6 +413,8 @@ const QualityProductionDashboard = () => {
             icon={Target} 
             stats={dish_end} 
             iconClass="bg-[#ECFDF5] text-[#059669]" // Emerald
+            modulePath="/inspections/dish-end"
+            customStatusMapping={{ pending: 'Pending', approved: 'Approved', draft: 'Draft' }}
           />
 
           <ModuleCard 
@@ -351,6 +422,8 @@ const QualityProductionDashboard = () => {
             icon={Box} 
             stats={tube_bundle} 
             iconClass="bg-[#ECFEFF] text-[#0891B2]" // Cyan
+            modulePath="/inspections/tube-bundle"
+            customStatusMapping={{ pending: 'Pending', approved: 'Approved', draft: 'Draft' }}
           />
 
           <ModuleCard 
@@ -358,6 +431,8 @@ const QualityProductionDashboard = () => {
             icon={FlaskConical} 
             stats={hydrostatic} 
             iconClass="bg-[#FEF3C7] text-[#D97706]" // Amber
+            modulePath="/hydrostatic-pressure-test"
+            customStatusMapping={{ pending: 'pending', approved: 'approved', draft: 'draft' }}
           />
 
           <ModuleCard 
@@ -365,6 +440,8 @@ const QualityProductionDashboard = () => {
             icon={ClipboardCheck} 
             stats={final_inspection} 
             iconClass="bg-[#FFE4E6] text-[#E11D48]" // Rose
+            modulePath="/inspections/final"
+            customStatusMapping={{ pending: 'pending', approved: 'approved', draft: 'Draft' }}
           />
 
           {/* Tube Sheet special card */}

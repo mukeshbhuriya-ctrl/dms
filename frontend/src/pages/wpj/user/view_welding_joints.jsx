@@ -135,6 +135,20 @@ function ViewWeldingJoints() {
   const [activeView, setActiveView] = useState("plans"); // 'plans' | 'joints'
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null);
 
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    const dateParam = searchParams.get('date');
+    if (statusParam || dateParam) {
+      setColumnFilters(prev => ({
+        ...prev,
+        status: statusParam ? [statusParam] : prev.status,
+        date: dateParam ? [dateParam] : prev.date
+      }));
+      setActiveView("joints");
+      setSearchParams(new URLSearchParams(), { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const { downloadFTR, downloadNFTR, isDownloadingFTR, isDownloadingNFTR } = useWeldQualityReports(selectedPlanDetails?.id);
 
   useEffect(() => {
@@ -462,6 +476,13 @@ function ViewWeldingJoints() {
         if (columnFilters.jointNo) params.job = columnFilters.jointNo;
         if (columnFilters.jointCategory) params.cat = columnFilters.jointCategory;
         if (columnFilters.weldPlanNo) params.weldPlanNo = columnFilters.weldPlanNo;
+        if (columnFilters.status) params.status = columnFilters.status;
+        if (columnFilters.date) params.date = columnFilters.date;
+      }
+
+      // Allow columnFilters to override the generic statusFilter if provided
+      if (params.status && Array.isArray(params.status)) {
+        params.status = params.status[0];
       }
 
       const response = await apiClient.get('/api/wpj/get-all-weld-joints', params);

@@ -110,7 +110,7 @@ async function getWeldJoints(req, res) {
         const company_id = req.user.company_id;
         const { 
             page, limit, search, status, sortBy, sortOrder, 
-            client, po, job, cat, msn, columnFilters, weldPlanNo 
+            client, po, job, cat, msn, columnFilters, weldPlanNo, date
         } = req.query;
  
         const result = await weldJointService.findAll(company_id, {
@@ -126,7 +126,8 @@ async function getWeldJoints(req, res) {
             cat,
             msn,
             columnFilters,
-            weldPlanNo
+            weldPlanNo,
+            date
         }, {
             userId: req.user.userid || req.user.id,
             roles: req.user.role

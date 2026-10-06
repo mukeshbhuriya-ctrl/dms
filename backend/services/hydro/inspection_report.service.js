@@ -55,6 +55,18 @@ class InspectionReportService {
                     andConditions.push({ is_active: activeStatus[0] === 'true' });
                 }
             }
+            if (filters.status) {
+                const statusVals = Array.isArray(filters.status) ? filters.status : filters.status.split(',').map(v => v.trim());
+                if (statusVals.length > 0) andConditions.push({ status: { in: statusVals } });
+            }
+            if (filters.date) {
+                const dateValues = Array.isArray(filters.date) ? filters.date : filters.date.split(',').map(v => v.trim());
+                if (dateValues.includes('today')) {
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+                    andConditions.push({ updatedAt: { gte: startOfToday } });
+                }
+            }
 
             if (andConditions.length > 0) {
                 whereClause.AND = andConditions;
