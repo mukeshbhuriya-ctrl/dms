@@ -23,6 +23,7 @@ import { Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { useAuth } from "@/context/AuthContext";
+import { AccessControl } from "@/components/iam/access_control";
 
 function CreateCustomer() {
   const navigate = useNavigate()
@@ -336,7 +337,7 @@ function CreateCustomer() {
                 columns={columns}
                 fetchData={fetchCustomers}
                 onExport={handleExport}
-                onAdd={() => { resetForm(); setView("create"); }}
+                onAdd={hasPermission("admin:customers:Create") ? () => { resetForm(); setView("create"); } : undefined}
                 onAddTooltip="Create Client"
                 refreshKey={refreshKey}
                 columnFilters={columnFilters}
@@ -422,15 +423,18 @@ function CreateCustomer() {
                 <div className="flex justify-end gap-4 mt-6">
                   <Button
                     type="button"
+                    className="cursor-pointer"
                     variant="outline"
                     onClick={() => { resetForm(); setView("list"); }}
                     disabled={isLoading}
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={isLoading}>
-                    {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}
-                  </Button>
+                  <AccessControl required="customer:customer:Create">
+                    <Button type="submit" disabled={isLoading} className="cursor-pointer">
+                      {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Client" : "Create Client")}
+                    </Button>
+                  </AccessControl>
                 </div>
               </form>
             )}

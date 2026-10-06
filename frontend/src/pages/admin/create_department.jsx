@@ -27,6 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import apiClient from "@/api/api.client"
+import { AccessControl } from "@/components/iam/access_control";
 
 function CreateDepartment() {
   const [formData, setFormData] = useState({ name: "", hod_ids: [] })
@@ -360,7 +361,11 @@ function CreateDepartment() {
                   </div>
                   <div className="flex justify-end gap-2">
                     <Button type="button" className="cursor-pointer" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>Cancel</Button>
-                    <Button type="submit" className="cursor-pointer" disabled={isLoading}>{isLoading ? "Saving..." : (editingId ? "Update Department" : "Save Department")}</Button>
+                    <AccessControl required="admin:departments:Create">
+                      <Button type="submit" className="cursor-pointer" disabled={isLoading}>
+                        {isLoading ? "Saving..." : (editingId ? "Update Department" : "Save Department")}
+                      </Button>
+                    </AccessControl>
                   </div>
                 </form>
               </CardContent>

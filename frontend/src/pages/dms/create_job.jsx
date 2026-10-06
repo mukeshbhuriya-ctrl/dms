@@ -29,6 +29,7 @@ import { commonApi } from "@/api/common.api"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { useAuth } from "@/context/AuthContext";
+import { AccessControl } from "@/components/iam/access_control";
 
 function CreateJob() {
   const { hasPermission } = useAuth()
@@ -786,9 +787,11 @@ function CreateJob() {
                     }}>
                       {editingId ? "Cancel" : "Reset"}
                     </Button>
+                    <AccessControl required="job:management:Create">
                     <Button type="submit" disabled={isLoading}>
                       {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Job" : "Create Jobs")}
                     </Button>
+                    </AccessControl>
                   </div>
                 )}
               </div>

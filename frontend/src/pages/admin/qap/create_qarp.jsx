@@ -30,6 +30,7 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/context/AuthContext"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { AccessControl } from "@/components/iam/access_control";
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick, onViewClick, onCloneClick }) {
@@ -1706,6 +1707,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
             >
               {submitting ? "Saving..." : "Save Draft"}
             </Button>
+            <AccessControl required="qap:quality_assurance_plan:Create"> 
             <Button
               onClick={() => handleSubmit("uploaded")}
               disabled={submitting}
@@ -1713,6 +1715,7 @@ function CreateView({ onBack, onSuccess, editId = null, cloneId = null, isReadOn
             >
               {submitting ? "Saving..." : (editId ? "Update" : "Submit")}
             </Button>
+            </AccessControl>
           </>
         )}
       </div>

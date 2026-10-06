@@ -47,6 +47,7 @@ import { useAuth } from "@/context/AuthContext"
 import { toast } from "react-toastify"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { AccessControl } from "@/components/iam/access_control";
 function WeldingJoints() {
   const [formData, setFormData] = useState({
     weldPlanNo: "",
@@ -1577,8 +1578,11 @@ function WeldingJoints() {
                     >
                       Cancel
                     </Button>
-                    {view !== "view" && <Button type="submit" disabled={isLoading} className="cursor-pointer">{isLoading ? (view === "edit" ? "Updating..." : "Creating...") : view === "edit" ? "Update Plan" : "Create Plan"}</Button>}
-
+                    {view !== "view" && 
+                    <AccessControl required={view === "edit" ? "welding:plan:Update" : "welding:plan:Create"}>
+                    <Button type="submit" disabled={isLoading} className="cursor-pointer">{isLoading ? (view === "edit" ? "Updating..." : "Creating...") : view === "edit" ? "Update Plan" : "Create Plan"}</Button>
+                    </AccessControl>
+                    }
                   </div>
                 </div>
               </form>

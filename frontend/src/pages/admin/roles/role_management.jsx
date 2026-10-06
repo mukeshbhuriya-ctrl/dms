@@ -26,6 +26,7 @@ import { MENU_CONFIG } from "@/config/roles"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { AccessControl } from "@/components/iam/access_control"
 
 export default function RoleManagement() {
   const [roles, setRoles] = useState([])
@@ -288,10 +289,12 @@ export default function RoleManagement() {
                 <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
                   Cancel
                 </Button>
-                <Button type="submit" className="cursor-pointer" disabled={isLoading}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isLoading ? "Saving..." : (editingRole ? "Save Changes" : "Create Role")}
-                </Button>
+                <AccessControl required="admin:roles:Create">
+                  <Button type="submit" className="cursor-pointer" disabled={isLoading}>
+                    <Save className="mr-2 h-4 w-4" />
+                    {isLoading ? "Saving..." : (editingRole ? "Save Changes" : "Create Role")}
+                  </Button>
+                </AccessControl>
               </div>
             </form>
           </div>

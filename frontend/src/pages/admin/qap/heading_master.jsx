@@ -26,6 +26,7 @@ import {
     CheckCircle,
     XCircle
 } from "lucide-react"
+import { AccessControl } from "@/components/iam/access_control";
 
 const HeadingMaster = () => {
     const [view, setView] = useState("list") // "list" or "form"
@@ -252,13 +253,15 @@ const HeadingMaster = () => {
                                         >
                                             Cancel
                                         </Button>
-                                        <Button 
-                                            type="submit" 
-                                            disabled={submitting} 
-                                            className="h-10 bg-slate-900 hover:bg-slate-800 text-white px-8 font-semibold"
-                                        >
+                                        <AccessControl required="qap:heading_master:Create">
+                                            <Button 
+                                                type="submit" 
+                                                disabled={submitting} 
+                                                className="h-10 bg-slate-900 hover:bg-slate-800 text-white px-8 font-semibold"
+                                            >
                                             {submitting ? "Saving..." : (editingHeading ? "Update Heading" : "Save Heading")}
                                         </Button>
+                                        </AccessControl>
                                     </div>
                                 </form>
                             </CardContent>

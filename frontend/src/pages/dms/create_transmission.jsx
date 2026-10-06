@@ -56,6 +56,7 @@ import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDi
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { useAuth } from "@/context/AuthContext";
+import { AccessControl } from "@/components/iam/access_control";
 function CreateTransmission() {
   const { hasPermission } = useAuth();
   const navigate = useNavigate();
@@ -1107,6 +1108,7 @@ function CreateTransmission() {
                 <Button variant="outline" className="font-semibold text-slate-600 cursor-pointer" onClick={handleReset}>
                   Discard
                 </Button>
+                <AccessControl required="dms:transmission:Create">
                 <Button 
                   onClick={handleSubmitTransmission} 
                   disabled={isSubmitting || selectedDocuments.length === 0}
@@ -1114,6 +1116,7 @@ function CreateTransmission() {
                 >
                   {isSubmitting ? <><Loader2 className="animate-spin mr-2 h-4 w-4" />Creating...</> : "Create Transmission"}
                 </Button>
+                </AccessControl>
               </div>
             </div>
           )}
@@ -1559,11 +1562,11 @@ const EmailTemplateDrawer = ({
           >
             Reset Form
           </Button>
-          <Button 
-            className="flex-1 h-11 shadow-lg"
-            onClick={handleSaveTemplate}
-            disabled={isSavingTemplate}
-          >
+            <Button 
+              className="flex-1 h-11 shadow-lg"
+              onClick={handleSaveTemplate}
+              disabled={isSavingTemplate}
+            >
             {isSavingTemplate ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Save className="h-4 w-4 mr-2" />}
             {selectedTemplateId ? "Update Template" : "Save Template"}
           </Button>

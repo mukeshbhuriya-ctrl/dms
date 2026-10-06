@@ -5,8 +5,10 @@ import ImportReviewDialog from "@/components/shared/ImportReviewDialog";
 import apiClient from "@/api/api.client";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
+import { useAuth } from "@/context/AuthContext";
 
 export default function CalibrationInstruments() {
+  const { hasPermission } = useAuth();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [importReview, setImportReview] = useState({ isOpen: false, data: [], summary: {} });
 
@@ -243,7 +245,7 @@ export default function CalibrationInstruments() {
 <ProDataTable
           columns={columns}
           fetchData={fetchData}
-          onImport={handleImport}
+          onImport={hasPermission("instruments:calibration:Create") ? handleImport : undefined}
           onDownloadTemplate={handleDownloadTemplate}
           globalSearchPlaceholder="Search by description or SR No..."
           refreshKey={refreshTrigger}

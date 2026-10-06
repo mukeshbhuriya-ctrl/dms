@@ -48,6 +48,7 @@ import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 import { useAuth } from "@/context/AuthContext"
+import { AccessControl } from "@/components/iam/access_control"
 
 // ─── List View ───────────────────────────────────────────────────────────────
 function ListView({ onCreateClick, onEditClick, refreshKey }) {
@@ -1061,6 +1062,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         >
           {savingStatus === "Draft" ? "Saving..." : "Save Draft"}
         </Button>
+        <AccessControl required="dtn:drawing_transmittal:Create">
         <Button
           onClick={() => handleSubmit("Uploaded")}
           disabled={savingStatus !== null}
@@ -1068,6 +1070,7 @@ function CreateView({ onBack, editId, defaultRefNo }) {
         >
           {savingStatus === "Uploaded" ? "Processing..." : "Generate Transmittal"}
         </Button>
+        </AccessControl>
       </div>
 
       <DocumentPreviewDialog

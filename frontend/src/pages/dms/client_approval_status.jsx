@@ -54,6 +54,7 @@ import { DocumentPreviewDialog } from "../../components/shared/DocumentPreviewDi
 import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog";
 import { MultiFileUploadModal } from "../../components/shared/MultiFileUploadModal";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { AccessControl } from "@/components/iam/access_control";
 
 const ClientApprovalStatus = () => {
     const [view, setView] = useState("list"); // 'list' | 'review'
@@ -369,9 +370,11 @@ const ClientApprovalStatus = () => {
             id: "actions",
             header: "ACTION",
             cell: (row) => (
+                <AccessControl required="dms:status:Create">
                 <Button size="sm" variant="outline" className="h-8 hover:bg-slate-100 text-slate-600 font-medium cursor-pointer" onClick={() => handleReviewClick(row)}>
                     <ArrowRight className="w-3.5 h-3.5 mr-2" /> Review
                 </Button>
+                </AccessControl>
             )
         }
     ], [listCustomerOptions, listPoOptions, refreshTrigger]);

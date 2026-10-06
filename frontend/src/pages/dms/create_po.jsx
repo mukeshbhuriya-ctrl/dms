@@ -32,6 +32,7 @@ import { Trash2 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { AccessControl } from "@/components/iam/access_control";
 
 function CreatePO() {
   const { roles, hasPermission } = useAuth()
@@ -919,9 +920,11 @@ function CreatePO() {
                     >
                       {editingId ? "Cancel" : "Reset"}
                     </Button>
+                    <AccessControl required="po:management:Create">
                     <Button type="submit" disabled={isLoading} className="cursor-pointer">
                       {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update PO" : "Create PO")}
                     </Button>
+                    </AccessControl>
                   </div>
                 )}
               </div>

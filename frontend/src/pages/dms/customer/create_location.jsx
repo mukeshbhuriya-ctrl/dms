@@ -29,6 +29,7 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { Badge } from "@/components/ui/badge"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { useAuth } from "@/context/AuthContext";
+import { AccessControl } from "@/components/iam/access_control";
 
 function CreateLocation() {
   const { hasPermission } = useAuth()
@@ -580,9 +581,11 @@ function CreateLocation() {
                       >
                         {editingId ? "Cancel" : "Reset"}
                       </Button>
+                      <AccessControl required="customer:location:Create">
                       <Button type="submit" disabled={isLoading}>
                         {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Location" : "Create Locations")}
                       </Button>
+                      </AccessControl>
                     </div>
                   )}
                 </div>

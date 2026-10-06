@@ -32,7 +32,7 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import PermissionMatrix from "@/components/iam/permission_matrix"
 import { policiesToMatrix, matrixToPolicies } from "@/config/permissions"
-import { MENU_CONFIG } from "@/config/roles"
+import { AccessControl } from "@/components/iam/access_control";
 function CreateUser() {
   const [activeTab, setActiveTab] = useState("details")
   const [formData, setFormData] = useState({
@@ -660,9 +660,11 @@ function CreateUser() {
                   <Button type="button" className="cursor-pointer" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>
                     Cancel
                   </Button>
+                  <AccessControl required="admin:users:Create">
                   <Button type="submit" className="cursor-pointer" disabled={isLoading}>
                     {isLoading ? "Saving..." : "Save Details"}
                   </Button>
+                  </AccessControl>
                 </div>
               </form>
             </div>

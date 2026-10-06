@@ -42,8 +42,10 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { exportApi } from "@/api/export.api"
 import ProDataTable from "../../components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { useAuth } from "@/context/AuthContext";
 
 function DocumentApprover() {
+  const { hasPermission } = useAuth()
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Trail State
@@ -364,7 +366,7 @@ function DocumentApprover() {
           }
         });
         
-        if (isPendingApproval) {
+        if (isPendingApproval && hasPermission("dms:approver:Approve")) {
           actions.push({ type: "separator" });
           actions.push({
             label: "Approve Document",

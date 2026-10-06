@@ -16,6 +16,7 @@ import ProDataTable from "@/components/shared/ProDataTable"
 import { Plus, Mail, ArrowLeft, Edit, X, Copy } from "lucide-react"
 import { poApi } from "@/api/po.api"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { AccessControl } from "@/components/iam/access_control"
 
 function CommunicationMatrix() {
   const [view, setView] = useState("list") // 'list' or 'create'
@@ -474,9 +475,11 @@ function CommunicationMatrix() {
                     >
                       Reset
                     </Button>
-                    <Button className="cursor-pointer" type="submit" disabled={!selectedPoId || isLoading}>
-                      {isLoading ? "Saving..." : "Save Communication Matrix"}
-                    </Button>
+                    <AccessControl required="dms:communication_matrix:Create">
+                      <Button className="cursor-pointer" type="submit" disabled={!selectedPoId || isLoading}>
+                        {isLoading ? "Saving..." : "Save Communication Matrix"}
+                      </Button>
+                    </AccessControl>
                   </div>
                 )}
               </div>

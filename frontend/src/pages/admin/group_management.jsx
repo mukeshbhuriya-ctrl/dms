@@ -34,6 +34,7 @@ import { FormAlert } from "@/components/ui/form-alert"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
+import { AccessControl } from "@/components/iam/access_control";
 
 const MultiSelectFilter = ({ options, value, onChange, placeholder, disabled }) => {
     const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
@@ -635,9 +636,11 @@ function GroupManagement() {
                                             >
                                                 Cancel
                                             </Button>
-                                            <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90">
-                                                {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Group" : "Create Group")}
-                                            </Button>
+                                            <AccessControl required="admin:group_management:Create">
+                                                <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90">
+                                                    {isLoading ? (editingId ? "Updating..." : "Creating...") : (editingId ? "Update Group" : "Create Group")}
+                                                </Button>
+                                            </AccessControl>
                                         </div>
                                     </Card>
                                 </div>

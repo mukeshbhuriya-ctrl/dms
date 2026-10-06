@@ -36,6 +36,7 @@ import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
+import { AccessControl } from "@/components/iam/access_control";
 function emptyRow(id) {
   return {
     id,
@@ -1297,9 +1298,11 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
         <Button variant="outline" onClick={onBack} disabled={submitting}>
           Cancel
         </Button>
+        <AccessControl permission="hydrostatic:test:Create">
         <Button onClick={handleSubmit} disabled={submitting}>
           {submitting ? "Saving…" : "Submit"}
         </Button>
+        </AccessControl>
       </div>
     </div>
   )
