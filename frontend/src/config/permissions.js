@@ -58,12 +58,12 @@ export const PERMISSION_MODULES = [
   { id: 'instruments:pressure', name: 'Instruments: Pressure Gauges', actions: ['View', 'Create', 'Update', 'Delete'] },
 
   // Maintenance
-  { id: 'maintenance:machine', name: 'Maintenance: Machine Master', actions: ['View', 'Create', 'Update', 'Delete'] },
-  { id: 'maintenance:memo', name: 'Maintenance: Memo', actions: ['View', 'Create', 'Update', 'Delete'] },
-  { id: 'maintenance:pm_schedule', name: 'Maintenance: PM Schedule', actions: ['View', 'Create', 'Update', 'Delete'] },
+  // { id: 'maintenance:machine', name: 'Maintenance: Machine Master', actions: ['View', 'Create', 'Update', 'Delete'] },
+  // { id: 'maintenance:memo', name: 'Maintenance: Memo', actions: ['View', 'Create', 'Update', 'Delete'] },
+  // { id: 'maintenance:pm_schedule', name: 'Maintenance: PM Schedule', actions: ['View', 'Create', 'Update', 'Delete'] },
 
   // Work Permits
-  { id: 'work_permit:permit', name: 'Work Permits', actions: ['View', 'Create', 'Update', 'Delete'] },
+  // { id: 'work_permit:permit', name: 'Work Permits', actions: ['View', 'Create', 'Update', 'Delete'] },
 
   // Inspection
   { id: 'inspection:dish_end', name: 'Inspection: Dish End', actions: ['View', 'Update'] },

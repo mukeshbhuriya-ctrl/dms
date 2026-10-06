@@ -163,23 +163,23 @@ export const MENU_CONFIG = [
     },
     
     // ── Maintenance ──
-    {
-        title: "Maintenance",
-        icon: Wrench,
-        items: [
-            { title: "Machine Master", path: "/maintenance/machines", required: "maintenance:machine:View" },
-            { title: "Maintenance Memo", path: "/maintenance/memo", required: "maintenance:memo:View" },
-            { title: "PM Schedule", path: "/maintenance/pm-schedule", required: "maintenance:pm_schedule:View" },
-        ],
-    },
+    // {
+    //     title: "Maintenance",
+    //     icon: Wrench,
+    //     items: [
+    //         { title: "Machine Master", path: "/maintenance/machines", required: "maintenance:machine:View" },
+    //         { title: "Maintenance Memo", path: "/maintenance/memo", required: "maintenance:memo:View" },
+    //         { title: "PM Schedule", path: "/maintenance/pm-schedule", required: "maintenance:pm_schedule:View" },
+    //     ],
+    // },
     
     // ── Work Permits ──
-    {
-        title: "Work Permits",
-        icon: ShieldCheck,
-        path: "/work-permit",
-        required: "work_permit:permit:View",
-    },
+    // {
+    //     title: "Work Permits",
+    //     icon: ShieldCheck,
+    //     path: "/work-permit",
+    //     required: "work_permit:permit:View",
+    // },
     
     // ── Inspection ──
     {
