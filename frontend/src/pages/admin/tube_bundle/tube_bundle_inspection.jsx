@@ -51,7 +51,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
   const [selectedRecord, setSelectedRecord] = useState(null)
   const [error, setError] = useState("")
 
-  const { user, roles } = useAuth()
+  const { user, roles, hasPermission } = useAuth()
   const userRole = (roles?.includes("QC_ENGINEER") || roles?.includes("ADMIN") || roles?.includes("QC")) ? "QC" : (roles?.includes("PRODUCTION_ENGINEER") ? "PROD" : "")
   const isAdmin = roles?.includes("ADMIN");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -353,7 +353,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
             onClick: () => handleViewClick(row.id)
         });
         
-        if (isAdmin || isQE) {
+        if (isAdmin || (isQE && hasPermission("inspection:tube_bundle", "Update"))) {
             const isApproved = status === "approved";
             const isOffered = status === "offered";
             actions.push({
@@ -454,7 +454,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
         columns={columns}
         fetchData={fetchData}
         onExport={handleExport}
-        onAdd={onCreateClick}
+        onAdd={hasPermission("inspection:tube_bundle", "Create") ? onCreateClick : undefined}
         columnFilters={columnFilters}
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshTrigger}
@@ -1289,7 +1289,7 @@ function CreateView({ onBack, onSuccess, editId = null, isView = false }) {
                 <Button type="button" variant="outline" onClick={() => handleSubmit("Draft")} disabled={submitting !== null} className="cursor-pointer">
                   {submitting === "SAVE_PROD" ? "Saving..." : "Save Draft"}
                 </Button>
-                <Button type="button" variant="secondary" onClick={() => handleSubmit("Offered")} disabled={submitting !== null} className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 cursor-pointer">
+                <Button type="button" variant="secondary" onClick={() => handleSubmit("OFFER")} disabled={submitting !== null} className="bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200 cursor-pointer">
                   {submitting === "OFFER" ? "Submitting..." : "Submit to QC"}
                 </Button>
               </>

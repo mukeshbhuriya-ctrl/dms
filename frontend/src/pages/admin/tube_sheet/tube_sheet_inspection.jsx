@@ -50,7 +50,7 @@ import ConfirmDialog from "@/components/shared/ConfirmDialog"
 function ListView({ onCreateClick, onEditClick, onViewClick }) {
   const [error, setError] = useState("")
 
-  const { user, roles } = useAuth()
+  const { user, roles, hasPermission } = useAuth()
   const isAdmin = roles?.includes("ADMIN");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
@@ -306,7 +306,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
             onClick: () => onViewClick(row.id)
         });
         
-        if (isAdmin || isQE) {
+        if (isAdmin || (isQE && hasPermission("inspection:tube_sheet", "Update"))) {
             actions.push({
                 label: "Edit",
                 icon: Edit,
@@ -377,7 +377,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
         columns={columns}
         fetchData={fetchData}
         onExport={handleExport}
-        onAdd={onCreateClick}
+        onAdd={hasPermission("inspection:tube_sheet", "Create") ? onCreateClick : undefined}
         columnFilters={columnFilters}
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshTrigger}
@@ -1109,7 +1109,7 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
           </Button>
         )}
         {!isViewMode && (
-          <Button className="cursor-pointer" onClick={() => handleSubmit("Offered")} disabled={submitting || userRole === 'PROD'}>
+          <Button className="cursor-pointer" onClick={() => handleSubmit("Uploaded")} disabled={submitting || userRole === 'PROD'}>
             {submitting ? "Saving..." : (editId ? "Update Report" : "Submit Report")}
           </Button>
         )}

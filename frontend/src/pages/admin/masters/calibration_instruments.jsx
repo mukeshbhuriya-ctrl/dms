@@ -245,7 +245,7 @@ export default function CalibrationInstruments() {
 <ProDataTable
           columns={columns}
           fetchData={fetchData}
-          onImport={hasPermission("instruments:calibration:Create") ? handleImport : undefined}
+          onImport={hasPermission("instruments:calibration", "Create") ? handleImport : undefined}
           onDownloadTemplate={handleDownloadTemplate}
           globalSearchPlaceholder="Search by description or SR No..."
           refreshKey={refreshTrigger}

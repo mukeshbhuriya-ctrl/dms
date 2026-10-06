@@ -51,7 +51,7 @@ export const PERMISSION_MODULES = [
   { id: 'welding:traveler', name: 'Welding: Traveler', actions: ['View', 'Update'] },
 
   // Hydrostatic
-  { id: 'hydrostatic:test', name: 'HPT: Hydro Pres Test', actions: ['View', 'Update'] },
+  { id: 'hydrostatic:test', name: 'HPT: Hydro Pres Test', actions: ['View', 'Create', 'Update', 'Delete'] },
 
   // Instruments
   { id: 'instruments:calibration', name: 'Instruments: Calibration', actions: ['View', 'Create', 'Update', 'Delete'] },
@@ -66,10 +66,10 @@ export const PERMISSION_MODULES = [
   // { id: 'work_permit:permit', name: 'Work Permits', actions: ['View', 'Create', 'Update', 'Delete'] },
 
   // Inspection
-  { id: 'inspection:dish_end', name: 'Inspection: Dish End', actions: ['View', 'Update'] },
-  { id: 'inspection:final', name: 'Inspection: Final Dimension', actions: ['View', 'Update'] },
-  { id: 'inspection:tube_sheet', name: 'Inspection: Tube Sheet', actions: ['View', 'Update'] },
-  { id: 'inspection:tube_bundle', name: 'Inspection: Tube Bundle', actions: ['View', 'Update'] },
+  { id: 'inspection:dish_end', name: 'Inspection: Dish End', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
+  { id: 'inspection:final', name: 'Inspection: Final Dimension', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
+  { id: 'inspection:tube_sheet', name: 'Inspection: Tube Sheet', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
+  { id: 'inspection:tube_bundle', name: 'Inspection: Tube Bundle', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
 
   // Marketing
   { id: 'marketing:dashboard', name: 'Marketing: Dashboard', actions: ['View'] },

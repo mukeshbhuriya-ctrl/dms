@@ -53,7 +53,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   const [isViewLoading, setIsViewLoading] = useState(false)
   const [error, setError] = useState("")
 
-  const { user, roles } = useAuth()
+  const { user, roles, hasPermission } = useAuth()
   const isAdmin = roles?.includes("ADMIN");
   const isQE = roles?.includes("QE") || roles?.includes("QC_ENGINEER") || roles?.includes("QC");
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -477,7 +477,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
         columns={columns}
         fetchData={fetchData}
         onExport={handleExport}
-        onAdd={onCreateClick}
+        onAdd={hasPermission("inspection:final", "Create") ? onCreateClick : undefined}
         columnFilters={columnFilters}
         onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
         refreshKey={refreshTrigger}
