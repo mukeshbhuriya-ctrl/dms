@@ -3,7 +3,7 @@ import { useState, useMemo, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Pencil, Trash2, Edit, Archive, CheckCircle, XCircle } from "lucide-react"
+import { ArrowLeft, Pencil, Trash2, Edit, Archive, CheckCircle, XCircle, ChevronDown, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import {
   Card,
@@ -22,12 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import apiClient from "@/api/api.client"
 
 function CreateDepartment() {
-  const [formData, setFormData] = useState({ name: "" })
+  const [formData, setFormData] = useState({ name: "", hod_ids: [] })
+  const [users, setUsers] = useState([])
+  const [searchUser, setSearchUser] = useState("")
   const [view, setView] = useState("list")
   const [editingId, setEditingId] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -56,9 +60,21 @@ function CreateDepartment() {
     }
   }, [])
 
+  const fetchUsers = useCallback(async () => {
+    try {
+      const res = await apiClient.get("/api/users/get-users?limit=1000");
+      if (res.success && res.data) {
+        setUsers(res.data);
+      }
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (view === "list") fetchActiveFilters()
-  }, [fetchActiveFilters, view, refreshKey])
+    fetchUsers()
+  }, [fetchActiveFilters, fetchUsers, view, refreshKey])
 
   const nameOptions = useMemo(() => {
     const names = [...new Set((activeFilters.records || []).map(r => r.name))].filter(Boolean).sort()
@@ -79,15 +95,19 @@ function CreateDepartment() {
   }, [])
 
   const resetForm = useCallback(() => {
-    setFormData({ name: "" })
+    setFormData({ name: "", hod_ids: [] })
     setEditingId(null)
+    setSearchUser("")
     setError("")
     setSuccess("")
   }, [])
 
   const handleEdit = (dept) => {
     setEditingId(dept.id)
-    setFormData({ name: dept.name })
+    setFormData({ 
+        name: dept.name,
+        hod_ids: dept.department_hods?.map(h => h.user.id) || []
+    })
     setView("create")
     setError("")
     setSuccess("")
@@ -136,6 +156,23 @@ function CreateDepartment() {
       filterType: "select",
       isMulti: true,
       filterOptions: nameOptions,
+    },
+    {
+      id: "hods",
+      header: "HOD(s)",
+      cell: (row) => {
+          if (!row.department_hods || row.department_hods.length === 0) return <span className="text-muted-foreground text-sm">None</span>;
+          return (
+              <div className="flex flex-wrap gap-1">
+                  {row.department_hods.map(h => (
+                      <Badge key={h.user.id} variant="secondary" className="font-normal">
+                          {h.user.name}
+                      </Badge>
+                  ))}
+              </div>
+          );
+      },
+      enableSorting: false,
     },
     {
       accessorKey: "is_active",
@@ -211,7 +248,7 @@ function CreateDepartment() {
               <div>
                 <p className="text-muted-foreground">Manage organizational units</p>
               </div>
-              <Button variant="outline" onClick={() => { resetForm(); setView("list"); }}>
+              <Button variant="outline" className="cursor-pointer" onClick={() => { resetForm(); setView("list"); }}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
               </Button>
             </div>
@@ -241,22 +278,89 @@ function CreateDepartment() {
                 <CardDescription>Enter the department name</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                   {error && <div className="p-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded">{error}</div>}
                   {success && <div className="p-2 text-sm text-green-600 bg-green-500/10 border border-green-500/20 rounded">{success}</div>}
-                  <div className="space-y-2">
-                    <Label>Department Name</Label>
-                    <Input 
-                      value={formData.name} 
-                      onChange={(e) => setFormData({ name: e.target.value })}
-                      placeholder="e.g. Production, Quality, HR"
-                      required
-                      disabled={isLoading}
-                    />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                    <div className="space-y-2">
+                      <Label>Department Name</Label>
+                      <Input 
+                        value={formData.name} 
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="e.g. Production, Quality, HR"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                    <Label>Heads of Department (HODs)</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between font-normal text-slate-600">
+                                Select HODs...
+                                <ChevronDown className="h-4 w-4 opacity-50" />
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0" align="start">
+                            <div className="p-2 border-b">
+                                <Input 
+                                    placeholder="Search users..." 
+                                    value={searchUser}
+                                    onChange={(e) => setSearchUser(e.target.value)}
+                                    className="h-8 text-sm"
+                                />
+                            </div>
+                            <div className="max-h-[200px] overflow-y-auto p-2 space-y-1">
+                                {users.filter(u => u.name.toLowerCase().includes(searchUser.toLowerCase())).map(u => (
+                                    <div 
+                                        key={u.id}
+                                        className="flex items-center space-x-2 p-2 hover:bg-slate-50 rounded-md cursor-pointer"
+                                        onClick={() => {
+                                            if (formData.hod_ids.includes(u.id)) {
+                                                setFormData({ ...formData, hod_ids: formData.hod_ids.filter(id => id !== u.id) });
+                                            } else {
+                                                setFormData({ ...formData, hod_ids: [...formData.hod_ids, u.id] });
+                                            }
+                                        }}
+                                    >
+                                        <Checkbox 
+                                            checked={formData.hod_ids.includes(u.id)}
+                                            onCheckedChange={() => {}} // Handled by parent div
+                                        />
+                                        <Label className="text-sm font-normal cursor-pointer flex-1">
+                                            {u.name} {u.empid ? `(${u.empid})` : ''}
+                                        </Label>
+                                    </div>
+                                ))}
+                                {users.length === 0 && <p className="text-xs text-muted-foreground text-center p-2">No users found.</p>}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                    {formData.hod_ids.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap pt-2">
+                            {formData.hod_ids.map(id => {
+                                const u = users.find(user => user.id === id);
+                                if (!u) return null;
+                                return (
+                                    <Badge key={id} variant="secondary" className="flex items-center gap-1 bg-slate-100">
+                                        {u.name}
+                                        <X 
+                                            className="h-3 w-3 cursor-pointer text-slate-500 hover:text-slate-800" 
+                                            onClick={() => setFormData({ ...formData, hod_ids: formData.hod_ids.filter(hid => hid !== id) })}
+                                        />
+                                    </Badge>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                  </div>
                   </div>
                   <div className="flex justify-end gap-2">
-                    <Button type="button" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>Cancel</Button>
-                    <Button type="submit" disabled={isLoading}>{isLoading ? "Saving..." : (editingId ? "Update Department" : "Save Department")}</Button>
+                    <Button type="button" className="cursor-pointer" variant="outline" onClick={() => { resetForm(); setView("list"); }} disabled={isLoading}>Cancel</Button>
+                    <Button type="submit" className="cursor-pointer" disabled={isLoading}>{isLoading ? "Saving..." : (editingId ? "Update Department" : "Save Department")}</Button>
                   </div>
                 </form>
               </CardContent>

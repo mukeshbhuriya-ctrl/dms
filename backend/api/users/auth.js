@@ -67,6 +67,7 @@ async function login(req, res) {
           },
         },
         user_settings: true,
+        department_hods: true,
       },
     });
 
@@ -165,7 +166,9 @@ async function login(req, res) {
         id: user.id,
         name: user.name,
         empid: user.empid,
-        mustChangePassword: user.must_change_password
+        mustChangePassword: user.must_change_password,
+        is_hod: user.department_hods && user.department_hods.length > 0,
+        department_hods: user.department_hods || [],
       }
     });
   } catch (error) {
@@ -203,7 +206,8 @@ async function me(req, res) {
           include: {
             role: true
           }
-        }
+        },
+        department_hods: true
       }
     });
 
@@ -244,6 +248,8 @@ async function me(req, res) {
         role: roleNames, // Array of role names
         iamPolicies: iamPolicies,
         functional_tags: user.functional_tags || [],
+        is_hod: user.department_hods && user.department_hods.length > 0,
+        department_hods: user.department_hods || [],
         company: user.company ? {
           id: user.company.id,
           name: user.company.name,
@@ -257,6 +263,7 @@ async function me(req, res) {
       },
       role: roleNames, // Keep for backward compatibility
       name: user.name,
+      is_hod: user.department_hods && user.department_hods.length > 0,
       company: user.company ? {
         name: user.company.name,
         logo_url: user.company.logo_url ? (() => {

@@ -38,7 +38,8 @@ export function AuthProvider({ children }) {
                 permissions: data?.permissions || data?.user?.permissions || [],
                 iamPolicies: data?.iamPolicies || data?.user?.iamPolicies || [],
                 functional_tags: data?.user?.functional_tags || [],
-                company: data?.company || data?.user?.company || null
+                company: data?.company || data?.user?.company || null,
+                is_hod: data?.is_hod || data?.user?.is_hod || false,
             })
             setIsAuthenticated(true)
         } catch {

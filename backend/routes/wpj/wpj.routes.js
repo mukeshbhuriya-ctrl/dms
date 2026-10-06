@@ -1,5 +1,5 @@
 const express = require('express');
-const { getjobInfo, createWeldJointPlan, updateWeldJointPlan, getWeldJointPlanDetails, getAssignedWeldJoints, updateStageStatus, reviewStageStatus, bulkCreateWeldJointPlan } = require('#api/wpj/weld-joint.js');
+const { getjobInfo, createWeldJointPlan, updateWeldJointPlan, getWeldJointPlanDetails, getAssignedWeldJoints, updateStageStatus, reviewStageStatus, bulkCreateWeldJointPlan, requestModification, approveModification, getPendingModifications } = require('#api/wpj/weld-joint.js');
 const { getWeldJoints, getWeldJointPlans, generateStageReport, getWeldJointActiveFilters, getCumulativeData, getReportNo, getJointTrail, getTravelerSummary, downloadTravelerSummaryPdf, getQualityMetricsReport } = require('../../controllers/weldJoint.controller.js');
 const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 
@@ -28,6 +28,11 @@ router.get('/cumulative-data/:jointId', getCumulativeData);
 router.get('/report-no/:jointId', getReportNo);
 router.get('/joint-trail/:jointId', getJointTrail);
 router.get('/generate-report/:jointId/:stage', generateStageReport);
+
+// Modification Request routes
+router.post('/modification-request', requestModification);
+router.post('/modification-request/:id/approve', approveModification);
+router.get('/modification-requests', getPendingModifications);
 
 // Admin Actions for Plans
 const weldJointController = require('../../controllers/weldJoint.controller.js');

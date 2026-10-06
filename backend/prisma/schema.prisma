@@ -80,9 +80,23 @@ model department {
   updatedAt DateTime @updatedAt
 
   users     user[]
+  department_hods department_hod[]
   work_permits work_permit[]
   
   @@unique([company_id, name]) // Ensure department names are unique per company
+}
+
+model department_hod {
+  id            String @id @default(uuid())
+  department_id String
+  user_id       String
+
+  department department @relation(fields: [department_id], references: [id], onDelete: Cascade)
+  user       user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+
+  @@unique([department_id, user_id])
 }
 
 
@@ -221,6 +235,8 @@ model user{
   // Weld Inspection Trail relations
   weld_stage_prod_reports weld_joint_stage[] @relation("WeldStageProdEng")
   weld_stage_qc_reports   weld_joint_stage[] @relation("WeldStageQcEng")
+  weld_stage_mod_requests_created weld_stage_modification_request[] @relation("ModRequestedBy")
+  weld_stage_mod_requests_reviewed weld_stage_modification_request[] @relation("ModReviewedBy")
   notifications notification[]
   audit_logs audit_log[]
 
@@ -231,6 +247,8 @@ model user{
 
   is_active  Boolean  @default(true)
   is_deleted Boolean  @default(false)
+
+  department_hods department_hod[]
 
   // Functional tags for workflow routing
   functional_tags String[] @default([])
@@ -608,6 +626,7 @@ model weld_joint {
   weld_joint_plan weld_joint_plan @relation(fields: [weld_joint_plan_id], references: [id], onDelete: Cascade)
   weld_joint_report_info weld_joint_report_info?
   weld_joint_stages weld_joint_stage[]
+  modification_requests weld_stage_modification_request[]
   
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -2294,4 +2313,24 @@ model work_permit_gas_test {
   tester_name       String
   o2_level          Float
   test_time         DateTime
+}
+
+model weld_stage_modification_request {
+  id              String   @id @default(uuid())
+  weld_joint_id   String
+  weld_joint      weld_joint @relation(fields: [weld_joint_id], references: [id], onDelete: Cascade)
+  
+  stage_name      String   // e.g., "s1", "s2"
+  
+  requested_by    String
+  requester       user     @relation("ModRequestedBy", fields: [requested_by], references: [id])
+  
+  reason          String
+  status          String   @default("pending") // "pending", "approved", "rejected"
+  
+  reviewed_by     String?
+  reviewer        user?    @relation("ModReviewedBy", fields: [reviewed_by], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

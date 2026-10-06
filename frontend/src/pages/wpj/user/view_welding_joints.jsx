@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Popover,
@@ -18,7 +19,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History, ArrowLeft, CheckCircle2, XCircle, Clock } from "lucide-react"
+import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History, ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, FileEdit } from "lucide-react"
+import { toast } from 'react-toastify'
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 
@@ -49,6 +51,9 @@ import { FormAlert } from "@/components/ui/form-alert"
 import WPJCumulativePreview from "@/components/wpj/WPJCumulativePreview"
 import WeldJointTrail from "@/components/wpj/WeldJointTrail"
 import ViewStagesSheet from "@/components/wpj/ViewStagesSheet"
+import ModRequestsSheet from "@/components/wpj/ModRequestsSheet"
+import NewModRequestDialog from "@/components/wpj/NewModRequestDialog"
+
 import { useWeldQualityReports } from "./use_weld_quality_reports"
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
@@ -87,7 +92,8 @@ import { exportApi } from "@/api/export.api"
 import WELD_STAGES_CONFIG from "@/config/weldStagesConfig"
 
 function ViewWeldingJoints() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
+  const IS_HOD = user?.is_hod || false;
   const [userRoles, setUserRoles] = useState([])
   const [userId, setUserId] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
@@ -100,6 +106,14 @@ function ViewWeldingJoints() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [previewJointId, setPreviewJointId] = useState(null)
   const [userGroupIds, setUserGroupIds] = useState([])
+  const [pendingModRequests, setPendingModRequests] = useState([])
+  const [isModRequestsSheetOpen, setIsModRequestsSheetOpen] = useState(false)
+  const [jointModRequestsSheet, setJointModRequestsSheet] = useState({ open: false, joint: null, stageId: null })
+  const [actionLoading, setActionLoading] = useState(null)
+
+  // Request Mod Dialog State
+  
+  
 
   // Trail Sheet State
   const [isTrailOpen, setIsTrailOpen] = useState(false)
@@ -108,7 +122,7 @@ function ViewWeldingJoints() {
   const [trailJointNo, setTrailJointNo] = useState("")
   // Filter States
   const [statusFilter, setStatusFilter] = useState("all")
-  
+
   // View Stages Sheet State
   const [isViewStagesOpen, setIsViewStagesOpen] = useState(false)
   const [viewStagesJoint, setViewStagesJoint] = useState(null)
@@ -158,6 +172,42 @@ function ViewWeldingJoints() {
   useEffect(() => {
     fetchActiveFilters();
   }, [fetchActiveFilters, refreshKey]);
+
+  const fetchPendingMods = useCallback(async () => {
+    try {
+      const res = await apiClient.get('/api/wpj/modification-requests');
+      if (res.success) {
+        setPendingModRequests(res.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching mod requests", err);
+    }
+  }, [hasPermission]);
+
+  useEffect(() => {
+    fetchPendingMods();
+  }, [fetchPendingMods, refreshKey]);
+
+  const handleModAction = async (id, action) => {
+    setActionLoading(id);
+    try {
+      const res = await apiClient.post(`/api/wpj/modification-request/${id}/approve`, {
+        action
+      });
+      if (res.success) {
+        toast.success(`Request ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
+        fetchPendingMods();
+        setRefreshKey(prev => prev + 1);
+      } else {
+        toast.error(res.message || `Failed to ${action} request`);
+      }
+    } catch (error) {
+      console.error(`Error processing modification request action:`, error);
+      toast.error(`Error processing request`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   // Handle Notifications Routing (?joint_id=...)
   useEffect(() => {
@@ -511,8 +561,8 @@ function ViewWeldingJoints() {
       header: "Action",
       width: "120px",
       cell: (row) => (
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           className="w-full cursor-pointer"
           onClick={() => {
@@ -544,17 +594,18 @@ function ViewWeldingJoints() {
       console.error("Export failed:", error)
     }
   };
+
   const handleDownloadReport = async (joint, stage) => {
     let idsToDownload = [joint.id];
-    
+
     if (selectedJointIds.has(joint.id)) {
       idsToDownload = Array.from(selectedJointIds);
     }
-    
+
     if (idsToDownload.length > 3) {
-       console.warn('Max 3 joints can be downloaded together');
-       alert('Max 3 joints can be downloaded together');
-       return;
+      console.warn('Max 3 joints can be downloaded together');
+      alert('Max 3 joints can be downloaded together');
+      return;
     }
 
     setDownloadError('');
@@ -668,22 +719,22 @@ function ViewWeldingJoints() {
             const currentStageKey = row.status.replace('stage', 's') + '_status';
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
             if (isRejected) {
-                return {
-                  label: `Rejected - ${stageName}`,
-                  disabled: true,
-                  className: "text-red-500"
-                };
+              return {
+                label: `Rejected - ${stageName}`,
+                disabled: true,
+                className: "text-red-500"
+              };
             }
             return null;
-          } 
-          
+          }
+
           if (canUpdate) {
             const showPending = isPending && isSubmitted;
             const currentStageKey = row.status.replace('stage', 's') + '_status';
             const isRejected = joint.weld_joint_inspection?.[currentStageKey] === 'rejected';
 
             if (showPending) {
-                return null;
+              return null;
             }
 
             return {
@@ -697,49 +748,51 @@ function ViewWeldingJoints() {
         };
 
         const actions = [];
-        
+
         const hasApprovedStages = row.status !== 'stage1';
         if (hasApprovedStages) {
-            actions.push({
-                label: "Preview",
-                icon: Eye,
-                onClick: () => { setPreviewJointId(row.id); setActiveView("preview"); }
-            });
+          actions.push({
+            label: "Preview",
+            icon: Eye,
+            onClick: () => { setPreviewJointId(row.id); setActiveView("preview"); }
+          });
         }
-        
+
         actions.push({
-            label: "Trail",
-            icon: History,
-            onClick: () => {
-                setTrailJointId(row.id);
-                setTrailJointCategory(row.jointCategory);
-                setTrailJointNo(row.jointNo);
-                setIsTrailOpen(true);
-            }
+          label: "Trail",
+          icon: History,
+          onClick: () => {
+            setTrailJointId(row.id);
+            setTrailJointCategory(row.jointCategory);
+            setTrailJointNo(row.jointNo);
+            setIsTrailOpen(true);
+          }
         });
 
         actions.push({
-            label: "View Stages",
-            icon: Eye,
-            onClick: () => handleViewStagesClick(mergedJoint)
+          label: "View Stages",
+          icon: Eye,
+          onClick: () => handleViewStagesClick(mergedJoint)
         });
-        
+
+
+
         const showPending = isPending && isSubmitted;
         const canUpdate = hasPermission('welding:joints', 'Update');
-        
+
         if (showPending && canUpdate && row.status !== 'completed') {
-            actions.push({ type: "separator" });
-            actions.push({
-                label: `Edit`,
-                onClick: () => handleOpenStage(mergedJoint, 'update'),
-                className: "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-            });
+          actions.push({ type: "separator" });
+          actions.push({
+            label: `Edit`,
+            onClick: () => handleOpenStage(mergedJoint, 'update'),
+            className: "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+          });
         }
-        
+
         const dynamicAction = getDynamicAction();
         if (dynamicAction) {
-            actions.push({ type: "separator" });
-            actions.push(dynamicAction);
+          actions.push({ type: "separator" });
+          actions.push(dynamicAction);
         }
 
         return (
@@ -763,10 +816,10 @@ function ViewWeldingJoints() {
     <>
       <PageContainer>
         <div className="flex flex-col gap-4">
-          
+
           {activeView === "plans" && (
-            <div className="space-y-1">
-              
+            <div className="space-y-4">
+
               <ProDataTable
                 columns={planColumns}
                 fetchData={fetchPlansData}
@@ -776,14 +829,30 @@ function ViewWeldingJoints() {
             </div>
           )}
 
+          {activeView === "modification-requests" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold tracking-tight text-slate-800">
+                  Modification Requests
+                </h2>
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveView("plans")}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" /> Back to Plans
+                </Button>
+              </div>
+            </div>
+          )}
+
           {activeView === "joints" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-800">
                   {selectedPlanDetails?.weld_plan_no}
                 </h2>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setActiveView("plans");
                     setSelectedPlanDetails(null);
@@ -805,23 +874,40 @@ function ViewWeldingJoints() {
                 selectedRows={selectedJointIds}
                 onSelectionChange={handleSelectionChange}
                 customToolbarActions={
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-9 bg-white shadow-none">
-                        Reports <ChevronDown className="ml-2 h-4 w-4 text-slate-500" />
+                  <div className="flex items-center gap-2">
+                    {IS_HOD && (
+                      <Button
+                        variant="outline"
+                        className="h-9 bg-white hover:bg-slate-50 text-slate-700 shadow-none cursor-pointer"
+                        onClick={() => setIsModRequestsSheetOpen(true)}
+                      >
+                        <FileEdit className="mr-2 h-4 w-4" />
+                        Requests
+                        {pendingModRequests.length > 0 && (
+                          <span className="ml-2 bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                            {pendingModRequests.length}
+                          </span>
+                        )}
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onClick={downloadFTR} disabled={isDownloadingFTR} className="cursor-pointer">
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        <span>{isDownloadingFTR ? "Generating FTR..." : "FTR Report"}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={downloadNFTR} disabled={isDownloadingNFTR} className="cursor-pointer">
-                        <XCircle className="mr-2 h-4 w-4" />
-                        <span>{isDownloadingNFTR ? "Generating NFTR..." : "NFTR Report"}</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="h-9 bg-white shadow-none">
+                          Reports <ChevronDown className="ml-2 h-4 w-4 text-slate-500" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={downloadFTR} disabled={isDownloadingFTR} className="cursor-pointer">
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          <span>{isDownloadingFTR ? "Generating FTR..." : "FTR Report"}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={downloadNFTR} disabled={isDownloadingNFTR} className="cursor-pointer">
+                          <XCircle className="mr-2 h-4 w-4" />
+                          <span>{isDownloadingNFTR ? "Generating NFTR..." : "NFTR Report"}</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 }
               />
             </div>
@@ -837,17 +923,17 @@ function ViewWeldingJoints() {
                       {selectedStage ? selectedStage.replace('stage', '') : 'F'}
                     </span>
                     {(() => {
-                        const config = WELD_STAGES_CONFIG[selectedJoint?.joint_type]?.find(s => s.id === selectedStage);
-                        const label = config ? config.label : (selectedStage ? `Inspection Report - ${selectedStage}` : "Form");
-                        return <span className="capitalize">{label.toLowerCase()}</span>;
+                      const config = WELD_STAGES_CONFIG[selectedJoint?.joint_type]?.find(s => s.id === selectedStage);
+                      const label = config ? config.label : (selectedStage ? `Inspection Report - ${selectedStage}` : "Form");
+                      return <span className="capitalize">{label.toLowerCase()}</span>;
                     })()}
                   </CardTitle>
                   <CardDescription className="text-xs">
                     Weld Plan: {selectedPlanDetails?.weld_plan_no} / Joint No: {selectedJoint?.jointNo}
                   </CardDescription>
                 </div>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setActiveView("joints");
                     setSelectedJoint(null);
@@ -906,11 +992,11 @@ function ViewWeldingJoints() {
               </CardContent>
             </Card>
           )}
-          
+
           {activeView === "preview" && previewJointId && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 mb-12">
-              <WPJCumulativePreview 
-                jointId={previewJointId} 
+              <WPJCumulativePreview
+                jointId={previewJointId}
                 onBack={() => {
                   setActiveView("joints");
                   setPreviewJointId(null);
@@ -937,17 +1023,41 @@ function ViewWeldingJoints() {
       </Sheet>
 
       {/* View Stages Sheet */}
-      <ViewStagesSheet 
+      <ViewStagesSheet
         open={isViewStagesOpen}
         onOpenChange={setIsViewStagesOpen}
         joint={viewStagesJoint}
+        canRequestModification={true}
+        pendingModRequests={pendingModRequests}
+        onRequestSubmitted={fetchPendingMods}
         onSelectStage={(stageId, joint) => {
-            setIsViewStagesOpen(false);
-            setSelectedStage(stageId);
-            setSelectedJoint(joint);
-            setStageActionIntent('readonly');
-            setActiveView('form');
+          setIsViewStagesOpen(false);
+          setSelectedStage(stageId);
+          setSelectedJoint(joint);
+          setStageActionIntent('readonly');
+          setActiveView('form');
         }}
+        onRequestMod={(joint, stageId) => {
+          setJointModRequestsSheet({ open: true, joint, stageId });
+        }}
+      />
+
+      <NewModRequestDialog
+        open={jointModRequestsSheet.open}
+        onOpenChange={(open) => setJointModRequestsSheet(prev => ({ ...prev, open }))}
+        joint={jointModRequestsSheet.joint}
+        stageId={jointModRequestsSheet.stageId}
+        onSuccess={() => {
+          setJointModRequestsSheet({ open: false, joint: null, stageId: null });
+          fetchPendingMods();
+        }}
+      />
+      <ModRequestsSheet
+        open={isModRequestsSheetOpen}
+        onOpenChange={setIsModRequestsSheetOpen}
+        requests={pendingModRequests}
+        onAction={handleModAction}
+        actionLoading={actionLoading}
       />
     </>
   )

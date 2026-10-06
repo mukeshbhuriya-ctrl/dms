@@ -4,14 +4,30 @@ import { CheckCircle2, XCircle, Clock, Eye, FileEdit } from "lucide-react";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from 'react-toastify';
 import WELD_STAGES_CONFIG from "@/config/weldStagesConfig";
+import api from '@/api/api.client';
 
-const ViewStagesSheet = ({ 
-    open, 
-    onOpenChange, 
-    joint, 
-    onSelectStage 
+const ViewStagesSheet = ({
+    open,
+    onOpenChange,
+    joint,
+    onSelectStage,
+    canRequestModification,
+    pendingModRequests,
+    onRequestSubmitted,
+    onRequestMod
 }) => {
+    const handleRequestModClick = (e, stageId) => {
+        e.stopPropagation();
+        if (onRequestMod) {
+            onRequestMod(joint, stageId);
+        }
+    };
+
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="sm:max-w-lg w-full p-0 overflow-y-auto bg-white">
@@ -46,8 +62,8 @@ const ViewStagesSheet = ({
                             }
 
                             return (
-                                <div 
-                                    key={stage.id} 
+                                <div
+                                    key={stage.id}
                                     className="relative pl-8 group cursor-pointer"
                                 >
                                     <span className="absolute -left-3 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 shadow-sm border border-slate-200 ring-4 ring-slate-50 group-hover:ring-white transition-all">
@@ -62,14 +78,14 @@ const ViewStagesSheet = ({
                                             <span className="text-xs font-medium text-slate-500">
                                                 {subText}
                                             </span>
-                                            
+
                                             <div className="flex items-center gap-2">
                                                 <TooltipProvider>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
-                                                            <Button 
-                                                                variant="outline" 
-                                                                size="sm" 
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
                                                                 className="h-7 px-2 text-blue-600 border-blue-200 bg-blue-50 hover:bg-blue-100 cursor-pointer"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -85,25 +101,42 @@ const ViewStagesSheet = ({
                                                         </TooltipContent>
                                                     </Tooltip>
 
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button 
-                                                                variant="outline" 
-                                                                size="sm" 
-                                                                className="h-7 px-2 text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100 cursor-pointer"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    // TODO: Handle request modification
-                                                                }}
-                                                            >
-                                                                <FileEdit className="w-3.5 h-3.5 mr-1" />
-                                                                <span className="text-xs">Request</span>
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>Request Modification</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
+                                                    {stageStatus === 'approved' && canRequestModification && (
+                                                        (() => {
+                                                            const isRequested = pendingModRequests?.some(req => req.weld_joint_id === joint.id && req.stage_name === stage.id && req.status === 'pending');
+                                                            if (isRequested) {
+                                                                return (
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        disabled
+                                                                        className="h-7 px-2 text-slate-400 border-slate-200 bg-slate-50 cursor-not-allowed"
+                                                                    >
+                                                                        <Clock className="w-3.5 h-3.5 mr-1" />
+                                                                        <span className="text-xs">Requested</span>
+                                                                    </Button>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="h-7 px-2 text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-100 cursor-pointer"
+                                                                            onClick={(e) => handleRequestModClick(e, stage.id)}
+                                                                        >
+                                                                            <FileEdit className="w-3.5 h-3.5 mr-1" />
+                                                                            <span className="text-xs">Request</span>
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <p>Request Modification</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            );
+                                                        })()
+                                                    )}
                                                 </TooltipProvider>
                                             </div>
                                         </div>

@@ -5,7 +5,7 @@ class DepartmentController {
     // Create Department
     async createDepartment(req, res) {
         try {
-            const { name } = req.body;
+            const { name, hod_ids = [] } = req.body;
             const company_id = req.user.company_id;
 
             if (!name || name.trim() === "") {
@@ -25,7 +25,15 @@ class DepartmentController {
                     // Reactive and update
                     const updated = await prisma.department.update({
                         where: { id: existing.id },
-                        data: { is_deleted: false, is_active: true }
+                        data: { 
+                            is_deleted: false, 
+                            is_active: true,
+                            department_hods: {
+                                deleteMany: {}, // Clear old HODs
+                                create: hod_ids.map(uid => ({ user_id: uid }))
+                            }
+                        },
+                        include: { department_hods: { include: { user: true } } }
                     });
 
                     Audit.insert({
@@ -45,8 +53,12 @@ class DepartmentController {
             const department = await prisma.department.create({
                 data: {
                     name: name.trim(),
-                    company_id
-                }
+                    company_id,
+                    department_hods: {
+                        create: hod_ids.map(uid => ({ user_id: uid }))
+                    }
+                },
+                include: { department_hods: { include: { user: true } } }
             });
 
             Audit.insert({
@@ -113,7 +125,12 @@ class DepartmentController {
                     where,
                     skip,
                     take,
-                    orderBy: { [sortBy]: sortOrder }
+                    orderBy: { [sortBy]: sortOrder },
+                    include: {
+                        department_hods: {
+                            include: { user: { select: { id: true, name: true, empid: true } } }
+                        }
+                    }
                 })
             ]);
 
@@ -153,7 +170,7 @@ class DepartmentController {
     async updateDepartment(req, res) {
         try {
             const { id } = req.params;
-            const { name } = req.body;
+            const { name, hod_ids } = req.body;
             const company_id = req.user.company_id;
 
             if (!name || name.trim() === "") {
@@ -173,9 +190,19 @@ class DepartmentController {
                 return res.status(409).json({ success: false, message: "Department name already exists" });
             }
 
+            const updateData = { name: name.trim(), is_deleted: false };
+            
+            if (Array.isArray(hod_ids)) {
+                updateData.department_hods = {
+                    deleteMany: {},
+                    create: hod_ids.map(uid => ({ user_id: uid }))
+                };
+            }
+
             const department = await prisma.department.update({
                 where: { id },
-                data: { name: name.trim(), is_deleted: false } // ensure not deleted if updating
+                data: updateData,
+                include: { department_hods: { include: { user: true } } }
             });
 
             Audit.insert({
