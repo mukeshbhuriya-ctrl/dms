@@ -48,7 +48,7 @@ export const PERMISSION_MODULES = [
   // Welding
   { id: 'welding:plan', name: 'Welding: Weld Plan', actions: ['View', 'Create', 'Update', 'Delete'] },
   { id: 'welding:joints', name: 'Welding: Joints', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
-  { id: 'welding:traveler', name: 'Welding: Traveler', actions: ['View', 'Update'] },
+  // { id: 'welding:traveler', name: 'Welding: Traveler', actions: ['View', 'Update'] },
 
   // Hydrostatic
   { id: 'hydrostatic:test', name: 'HPT: Hydro Pres Test', actions: ['View', 'Create', 'Update', 'Delete'] },
@@ -68,8 +68,8 @@ export const PERMISSION_MODULES = [
   // Inspection
   { id: 'inspection:dish_end', name: 'Inspection: Dish End', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
   { id: 'inspection:final', name: 'Inspection: Final Dimension', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
-  { id: 'inspection:tube_sheet', name: 'Inspection: Tube Sheet', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
-  { id: 'inspection:tube_bundle', name: 'Inspection: Tube Bundle', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
+  // { id: 'inspection:tube_sheet', name: 'Inspection: Tube Sheet', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
+  // { id: 'inspection:tube_bundle', name: 'Inspection: Tube Bundle', actions: ['View', 'Create', 'Update', 'Delete', 'Approve'] },
 
   // Marketing
   { id: 'marketing:dashboard', name: 'Marketing: Dashboard', actions: ['View'] },

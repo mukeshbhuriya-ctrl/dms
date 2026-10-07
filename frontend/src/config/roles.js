@@ -139,7 +139,7 @@ export const MENU_CONFIG = [
         items: [
             { title: "Weld Plan", path: "/welding-joints", required: "welding:plan:View" },
             { title: "Welding Joints", path: "/view-weldingjoints", required: "welding:joints:View" },
-            { title: "Traveler Welding & NDE", path: "/traveler-welding-nde", required: "welding:traveler:View" },
+            // { title: "Traveler Welding & NDE", path: "/traveler-welding-nde", required: "welding:traveler:View" },
         ],
     },
 
@@ -188,8 +188,8 @@ export const MENU_CONFIG = [
         items: [
             { title: "Dish End", path: "/inspections/dish-end", required: "inspection:dish_end:View" },
             { title: "Final Dimension", path: "/inspections/final", required: "inspection:final:View" },
-            { title: "Tube Sheet", path: "/inspections/tube-sheet", required: "inspection:tube_sheet:View" },
-            { title: "Tube Bundle", path: "/inspections/tube-bundle", required: "inspection:tube_bundle:View" },
+            // { title: "Tube Sheet", path: "/inspections/tube-sheet", required: "inspection:tube_sheet:View" },
+            // { title: "Tube Bundle", path: "/inspections/tube-bundle", required: "inspection:tube_bundle:View" },
         ],
     },
 
