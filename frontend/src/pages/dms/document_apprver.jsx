@@ -366,7 +366,7 @@ function DocumentApprover() {
           }
         });
         
-        if (isPendingApproval && hasPermission("dms:approver:Approve")) {
+        if (isPendingApproval && hasPermission("dms:approver", "Approve")) {
           actions.push({ type: "separator" });
           actions.push({
             label: "Approve Document",
