@@ -18,6 +18,7 @@ router.put('/update/:id', MhcController.update);
 router.get('/next-report-no/:job_id', MhcController.getNextReportNo);
 router.get('/approved-items/:job_id', MhcController.getApprovedItemsByJob);
 router.get('/approved-items-by-msn/:msn', MhcController.getApprovedItemsByMsn);
+router.get('/approved-items-by-msn-equipment', MhcController.getApprovedItemsByMsnAndEquipment);
 router.get('/get-filters', MhcController.getFilters);
 router.get('/download-report/:id', MhcController.downloadReport);
 router.get('/item/:itemId/history', MhcController.getItemHistory);

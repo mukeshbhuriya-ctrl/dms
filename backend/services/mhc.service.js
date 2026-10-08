@@ -1135,6 +1135,42 @@ class MhcService {
         return allItems;
     }
 
+    async getApprovedItemsByMsnAndEquipment(company_id, msn, equipment_name) {
+        if (!msn) throw new Error('msn is required');
+
+        // We fetch the MHC matching msn and equipment_name
+        // We do NOT filter by mhc.status = 'Approved'.
+        // We ONLY want to fetch items that have qc_status = 'Approved'.
+        
+        const whereClause = {
+            company_id,
+            msn: String(msn)
+        };
+        
+        if (equipment_name) {
+            whereClause.equipment_name = String(equipment_name);
+        }
+
+        const charts = await prisma.material_heat_chart.findMany({
+            where: whereClause,
+            include: {
+                items: {
+                    where: { qc_status: 'Approved' },
+                    orderBy: { sort_order: 'asc' }
+                }
+            }
+        });
+
+        const allItems = charts.flatMap(chart =>
+            chart.items.map(item => ({
+                ...item,
+                mhc_report_no: chart.report_no
+            }))
+        );
+
+        return allItems;
+    }
+
     /**
      * Request a full MHC revision
      */

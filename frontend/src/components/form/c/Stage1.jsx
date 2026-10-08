@@ -153,10 +153,11 @@ const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected =
     useEffect(() => {
         const fetchMhcItems = async () => {
             const msn = initialData?.msnNumber;
+            const equipment = basicFields.equipment || initialData?.equipment || "";
             if (!msn || msn === '-') return;
 
             try {
-                const res = await api.get(`/api/mhc/approved-items-by-msn/${msn}`);
+                const res = await api.get(`/api/mhc/approved-items-by-msn-equipment?msn=${msn}&equipment_name=${encodeURIComponent(equipment)}`);
                 if (res.success) {
                     setMhcItems(res.data || []);
                 }
@@ -165,7 +166,7 @@ const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected =
             }
         };
         fetchMhcItems();
-    }, [initialData?.msnNumber]);
+    }, [initialData?.msnNumber, basicFields.equipment, initialData?.equipment]);
 
     const handlePartSelection = (partType, itemId) => {
         if (partType === 'part1') {
@@ -232,6 +233,9 @@ const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected =
                     if (insp.s1_production_group_id && !selectedProdGroupId) setSelectedProdGroupId(insp.s1_production_group_id);
                     else if (s1Data.productionGroupId && !selectedProdGroupId) setSelectedProdGroupId(s1Data.productionGroupId);
 
+                    if (s1Data.mhcPart1ItemId) setSelectedPart1(s1Data.mhcPart1ItemId);
+                    if (s1Data.mhcPart2ItemId) setSelectedPart2(s1Data.mhcPart2ItemId);
+
                 } catch (e) {
                     console.error("Error parsing s1_data", e)
                 }
@@ -274,6 +278,21 @@ const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected =
                 return;
             }
 
+            if (!selectedPart1 || !selectedPart2) {
+                setAlert({ show: true, type: "error", message: "Please select both MHC Part 1 and Part 2" });
+                setIsSubmitting(false);
+                return;
+            }
+
+            const item1 = mhcItems.find(i => i.id === selectedPart1);
+            const item2 = mhcItems.find(i => i.id === selectedPart2);
+
+            if (item1?.item_no !== initialData?.joint_no && item2?.item_no !== initialData?.joint_no) {
+                setAlert({ show: true, type: "error", message: `At least one selected MHC item must match the Weld Joint Number (${initialData?.joint_no})` });
+                setIsSubmitting(false);
+                return;
+            }
+
             const categoryKey = getCategoryKey();
 
             // Fetch existing Stage Data
@@ -289,7 +308,9 @@ const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected =
                 qcGroupId: selectedQcGroupId,
         productionGroupId: selectedProdGroupId,
                 productionEngineerName: productionEngineerName,
-                submissionDate: todayDate
+                submissionDate: todayDate,
+                mhcPart1ItemId: selectedPart1,
+                mhcPart2ItemId: selectedPart2
             };
 
             const stageData = {
@@ -299,7 +320,7 @@ const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected =
                     s1: currentStageInnerData
                 }
             };
-const payload = {
+            const payload = {
                 jointId: initialData?.id,
                 stage: "stage1",
                 status: "pending",
@@ -460,29 +481,17 @@ return (
                     {/* MHC Part Selection - Hidden for QC */}
                     {userRole !== 'QC' && (
                         <>
-                            {mhcItems.length === 0 ? (
-                                <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-md p-4 mb-6 flex items-start gap-3">
-                                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-                                    <div>
-                                        <h4 className="text-sm font-semibold">MHC Approval Required</h4>
-                                        <p className="text-xs mt-1">
-                                            No approved Material Heat Chart (MHC) items were found for MSN: <strong>{initialData?.msnNumber || 'N/A'}</strong>. 
-                                            Please ensure the MHC is approved before proceeding with material identification.
-                                        </p>
-                                    </div>
-                                </div>
-                            ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/30 rounded-lg border border-dashed mb-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 1 Selection (ITEM NO./PART NO.)</label>
+                                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">MHC Part No. 1</label>
                                         <Select 
                                             key={`part1-${mhcItems.length}-${selectedPart1}`}
                                             value={selectedPart1} 
                                             onValueChange={(val) => handlePartSelection('part1', val)} 
-                                            disabled={isReadOnly}
+                                            disabled={isReadOnly || mhcItems.length === 0}
                                         >
                                             <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
-                                                <SelectValue placeholder="" />
+                                                <SelectValue placeholder="Select Part 1" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {mhcItems.map(item => (
@@ -494,15 +503,15 @@ return (
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">Part 2 Selection (ITEM NO./PART NO.)</label>
+                                        <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider text-primary">MHC Part No. 2</label>
                                         <Select 
                                             key={`part2-${mhcItems.length}-${selectedPart2}`}
                                             value={selectedPart2} 
                                             onValueChange={(val) => handlePartSelection('part2', val)} 
-                                            disabled={isReadOnly}
+                                            disabled={isReadOnly || mhcItems.length === 0}
                                         >
                                             <SelectTrigger className="w-full h-8 text-xs shadow-none border-slate-200 rounded-none bg-white">
-                                                <SelectValue placeholder="" />
+                                                <SelectValue placeholder="Select Part 2" />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {mhcItems.map(item => (
@@ -513,8 +522,14 @@ return (
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                    {mhcItems.length === 0 && (
+                                        <div className="col-span-1 md:col-span-2 mt-1">
+                                            <p className="text-xs text-blue-600 italic text-center bg-blue-50 py-2 rounded border border-blue-100">
+                                                No approved MHC items are currently available for this Equipment and Job Number.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
                         </>
                     )}
 
@@ -522,7 +537,7 @@ return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Characteristics to be checked</label>
-                            <Input value={initialData?.jointNo || ""} readOnly className="bg-slate-50 text-slate-500 font-bold h-8 text-xs shadow-none border-slate-200 rounded-none" />
+                            <Input value={initialData?.jointNo || ""} disabled />
                         </div>
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-slate-500 capitalize tracking-wider">Nozzle Number</label>
@@ -693,7 +708,7 @@ return (
 
                     {!isReview && !readOnly && (
                         <div className="mt-6 flex justify-end pb-2">
-                            <Button onClick={handleSubmit} disabled={isSubmitting || mhcItems.length === 0} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                            <Button onClick={handleSubmit} disabled={isSubmitting || !selectedPart1 || !selectedPart2} className="h-8 rounded-none bg-blue-600 hover:bg-blue-700 text-white shadow-none text-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                                 {isSubmitting ? "Processing..." : isUpdate ? (isRejected ? "Resubmit Report" : "Update Report") : "Submit Report"}
                             </Button>
                         </div>

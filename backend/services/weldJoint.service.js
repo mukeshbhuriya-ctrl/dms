@@ -87,6 +87,8 @@ class WeldJointService {
             assignedNdtEngineerId: dbData.assigned_ndt_engineer_id,
             rtStatus: dbData.rt_status,
             rtRemark: dbData.rt_remark,
+            mhcPart1ItemId: dbData.mhc_part1_item_id,
+            mhcPart2ItemId: dbData.mhc_part2_item_id,
         };
     }
 
@@ -125,6 +127,8 @@ class WeldJointService {
             assigned_ndt_engineer_id: camelData.assignedNdtEngineerId,
             rt_status: camelData.rtStatus,
             rt_remark: camelData.rtRemark,
+            mhc_part1_item_id: camelData.mhcPart1ItemId,
+            mhc_part2_item_id: camelData.mhcPart2ItemId,
         };
     }
 

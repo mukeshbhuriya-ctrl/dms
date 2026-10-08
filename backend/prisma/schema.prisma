@@ -716,6 +716,8 @@ model weld_joint_stage_data {
   assigned_ndt_engineer_id String?
   rt_status               String?
   rt_remark               String?
+  mhc_part1_item_id       String?
+  mhc_part2_item_id       String?
 }
 
 model weld_joint_stage_row {

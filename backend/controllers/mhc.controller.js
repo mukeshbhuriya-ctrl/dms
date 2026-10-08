@@ -394,6 +394,21 @@ class MhcController {
         }
     }
 
+    async getApprovedItemsByMsnAndEquipment(req, res) {
+        try {
+            const { msn, equipment_name } = req.query;
+            if (!msn) {
+                return res.status(400).json({ success: false, message: 'msn is required' });
+            }
+            const result = await MhcService.getApprovedItemsByMsnAndEquipment(req.user.company_id, msn, equipment_name);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            console.error('MHC getApprovedItemsByMsnAndEquipment error:', error);
+            const status = error.message.includes('not found') ? 404 : 400;
+            res.status(status).json({ success: false, message: error.message || 'Internal server error' });
+        }
+    }
+
     async toggleStatus(req, res) {
         try {
             const result = await MhcService.toggleStatus(req.user.company_id, req.params.id);
