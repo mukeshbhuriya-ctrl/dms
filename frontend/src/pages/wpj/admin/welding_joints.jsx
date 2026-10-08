@@ -91,7 +91,9 @@ function WeldingJoints() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   // View Modal State
-      
+  const [isViewOpen, setIsViewOpen] = useState(false)
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
+
   // Bulk Import State
   const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
   const [excelData, setExcelData] = useState([]);
@@ -360,8 +362,24 @@ function WeldingJoints() {
     }
   };
 
-  const handleViewClick = (planId) => handleEditClick(planId, "view")
+  const handleViewClick = async (planId) => {
+    setError("")
 
+    try {
+      const res = await apiClient.get(`/api/wpj/get-weld-joint-plan/${planId}`)
+
+      if (res.success) {
+        setSelectedPlanDetails(res.data)
+        setIsViewOpen(true)
+      } else {
+        console.error("Failed to fetch plan details", res)
+        setError("Failed to fetch plan details")
+      }
+    } catch (err) {
+      console.error("Error fetching plan details:", err)
+      setError("Error fetching plan details")
+    }
+  }
   const handleEditClick = useCallback(async (planId, mode = "edit") => {
     setIsLoading(true)
     setError("")
@@ -1589,7 +1607,127 @@ function WeldingJoints() {
              </div>
             )}
 
-            
+            {/* View Details Modal */}
+            <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+              <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
+                <DialogHeader className="mb-4">
+                  <DialogTitle className="text-xl font-bold text-center">Weld Joint Plan Details</DialogTitle>
+                </DialogHeader>
+
+                {selectedPlanDetails && (
+                  <div className="space-y-6">
+                    {/* Job Info Header - Grid layout */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm border p-4 bg-muted/10 rounded-lg">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Job No:</span>
+                        <span>{selectedPlanDetails.job?.job_number}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Client:</span>
+                        <span>{selectedPlanDetails.job?.customer?.customer_name}</span>
+                      </div>
+                      {/* <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Project ID:</span>
+                        <span>{selectedPlanDetails.job?.project_id}</span>
+                      </div> */}
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Equipment:</span>
+                        <span>{selectedPlanDetails.job?.equipement_name}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Drawing No(s):</span>
+                        <span>{selectedPlanDetails.shreno_drg_no}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-muted-foreground text-xs">Weld Plan No:</span>
+                        <span>{selectedPlanDetails.weld_plan_no}</span>
+                      </div>
+                    </div>
+
+                    {/* Technical Table */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-black text-xs text-center font-medium">
+                        <thead>
+                          {/* Row 1: Code of Construction */}
+                          <tr className="bg-white">
+                            <th className="border border-black p-1 text-left font-bold" colSpan={2}>
+                              CODE OF CONSTRUCTION
+                            </th>
+                            <th className="border border-black p-1 text-left font-bold" colSpan={13}>
+                              {selectedPlanDetails.code_of_construction}
+                            </th>
+                          </tr>
+                          {/* Row 2: Main Headers */}
+                          <tr className="bg-gray-50">
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint No</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint Type</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Joint</th>
+
+                            {/* Thickness Group */}
+                            <th className="border border-black p-2 font-bold" colSpan={2}>Base-Metal Thickness mm</th>
+
+                            {/* Spec Group */}
+                            <th className="border border-black p-2 font-bold" colSpan={2}>Base Metal Specification</th>
+
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Consumable</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>WPS No/PQR No</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Process</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Impact Test</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Back Chip<br/>Req.</th>
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>PWHT</th>
+
+                            <th className="border border-black p-2 font-bold align-middle" colSpan={2}>NDT</th>
+
+                            <th className="border border-black p-2 font-bold align-middle" rowSpan={2}>Remarks</th>
+                          </tr>
+                          {/* Row 3: Sub Headers */}
+                          <tr className="bg-gray-50">
+                            <th className="border border-black p-1 font-bold">Part No. 1</th>
+                            <th className="border border-black p-1 font-bold">Part No. 2</th>
+
+                            <th className="border border-black p-1 font-bold">Part No. 1</th>
+                            <th className="border border-black p-1 font-bold">Part No. 2</th>
+
+                            <th className="border border-black p-1 font-bold">RT</th>
+                            <th className="border border-black p-1 font-bold">PT</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedPlanDetails.weld_joints?.map((joint) => (
+                            <tr key={joint.id} className="hover:bg-muted/5">
+                              <td className="border border-black p-2 whitespace-nowrap">{joint.joint_no}</td>
+                              <td className="border border-black p-2 font-bold">{joint.joint_type}</td>
+                              <td className="border border-black p-2">{joint.joint_description || joint.joint}</td>
+
+                              {/* Thickness */}
+                              <td className="border border-black p-2">{joint.base_metal_thickness_p1}</td>
+                              <td className="border border-black p-2">{joint.base_metal_thickness_p2}</td>
+
+                              {/* Spec */}
+                              <td className="border border-black p-2">{joint.base_metal_spec_p1}</td>
+                              <td className="border border-black p-2">{joint.base_metal_spec_p2}</td>
+
+                              <td className="border border-black p-2">{joint.consumable}</td>
+                              <td className="border border-black p-2">{joint.wps_pqr_no || joint.wpsNoPqrNo}</td>
+                              <td className="border border-black p-2">{joint.process}</td>
+                              <td className="border border-black p-2">{joint.impact_test || joint.impactTest}</td>
+                              <td className="border border-black p-2">{joint.back_chip_req === true ? 'YES' : (joint.back_chip_req === false ? 'NO' : '-')}</td>
+                              <td className="border border-black p-2">{joint.pwht === true ? 'YES' : (joint.pwht === false ? 'NO' : '-')}</td>
+
+                              {/* NDT */}
+                              <td className="border border-black p-2">{joint.rt === true ? 'YES' : (joint.rt === false ? 'NO' : '-')}</td>
+                              <td className="border border-black p-2">{joint.pt === true ? 'YES' : (joint.pt === false ? 'NO' : '-')}</td>
+
+                              <td className="border border-black p-2 min-w-[150px]">{joint.remarks}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
 
             <ImportReviewDialog
                 open={bulkImportDialogOpen}
