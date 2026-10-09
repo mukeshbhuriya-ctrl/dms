@@ -821,6 +821,8 @@ class WeldJointService {
             where: { weld_joint_id: jointId, stage_name: stage, is_active: true }
         });
 
+        const previousStatus = stageRecord ? stageRecord.status : null;
+
         const updateData = {
             status,
             ...(production_engineer_id && { production_engineer_id }),
@@ -881,7 +883,9 @@ class WeldJointService {
         }
 
         // 5. Send notification if status changed to pending (Production submitted to QC)
-        if (status === 'pending' && (qc_engineer_id || stagePayload.qcGroupId)) {
+        const isNewAssignment = (status === 'pending' && previousStatus !== 'pending');
+
+        if (isNewAssignment && (qc_engineer_id || stagePayload.qcGroupId)) {
             try {
                 // Background trigger
                 (async () => {
@@ -920,7 +924,9 @@ class WeldJointService {
                     // Send email to all resolved recipients
                     const toArray = Array.from(recipients);
                     if (toArray.length > 0) {
-                        await emailService.sendWeldStageNotification(toArray, emailDetails);
+                        emailService.sendWeldStageNotification(toArray, emailDetails).catch(emailErr => {
+                            console.error("Failed to send stage assignment email:", emailErr);
+                        });
                     }
 
                     // Send System Notifications
@@ -994,6 +1000,8 @@ class WeldJointService {
             where: { weld_joint_id: jointId, stage_name: stage, is_active: true }
         });
 
+        const previousStatus = stageRecord ? stageRecord.status : null;
+
         // 2. Authorization Check: Must be in the assigned QC Group
         if (stageRecord && stageRecord.qc_group_id) {
             const isMember = await prisma.user_employee_group.findFirst({
@@ -1049,8 +1057,9 @@ class WeldJointService {
             });
         }
 
-        // Send notification to Production Engineer (approving/rejecting)
-        if ((status === 'approved' || status === 'rejected') && stageRecord.production_engineer_id) {
+        // Send notification to Production Engineer only if status actually changed
+        const statusChanged = status !== previousStatus;
+        if (statusChanged && (status === 'approved' || status === 'rejected') && stageRecord.production_engineer_id) {
             try {
                 (async () => {
                     const prodUser = await prisma.user.findUnique({ where: { id: stageRecord.production_engineer_id } });
@@ -1060,12 +1069,14 @@ class WeldJointService {
                     const stageLabel = stageConfig ? stageConfig.label : stage;
 
                     if (prodUser && prodUser.email) {
-                        await emailService.sendWeldStageNotification(prodUser.email, {
+                        emailService.sendWeldStageNotification(prodUser.email, {
                             jointNo: stageRecord.weld_joint.joint_no,
                             stageLabel: stageLabel,
                             status: status,
                             engineerName: qcUser ? qcUser.name : 'QC Engineer',
                             actionType: 'review'
+                        }).catch(emailErr => {
+                            console.error("Failed to send stage review email:", emailErr);
                         });
                     }
 

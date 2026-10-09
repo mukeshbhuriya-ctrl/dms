@@ -229,12 +229,15 @@ function ViewWeldingJoints() {
     if (jointIdParam && activeFilters?.records?.length > 0) {
       const match = activeFilters.records.find(r => String(r.id) === jointIdParam);
       if (match) {
+        setSelectedPlanDetails({ weld_plan_no: match.weldPlanNo });
         setColumnFilters(prev => ({
           ...prev,
           msnNumber: match.msn ? [match.msn.toString()] : undefined,
           jointNo: match.joint_no ? [match.joint_no.toString()] : undefined,
-          jointCategory: match.cat ? [match.cat.toString()] : undefined
+          jointCategory: match.cat ? [match.cat.toString()] : undefined,
+          weldPlanNo: match.weldPlanNo ? [match.weldPlanNo] : undefined
         }));
+        setActiveView("joints"); // Automatically switch to joints view
         // Clean URL so user can clear filters normally later
         setSearchParams(new URLSearchParams(), { replace: true });
       }
