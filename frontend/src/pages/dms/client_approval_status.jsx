@@ -456,7 +456,7 @@ const ClientApprovalStatus = () => {
                         onValueChange={(val) => updateRowStatus(row.id, val)}
                         disabled={isSubmitted}
                     >
-                        <SelectTrigger className={`h-8 w-[130px] text-[11px] font-semibold ${
+                        <SelectTrigger className={`h-8 w-[130px] text-[11px] font-semibold cursor-pointer ${
                             isSubmitted 
                             ? (['Approved', 'Final Approved'].includes(update.status) ? 'bg-green-50 text-green-700 border-green-200 opacity-80 cursor-not-allowed'
                               : update.status === 'Commented' ? 'bg-sky-50 text-sky-700 border-sky-200 opacity-80 cursor-not-allowed'
@@ -511,7 +511,7 @@ const ClientApprovalStatus = () => {
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
-                                    className="h-8 border-slate-200 text-slate-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                                    className="h-8 border-slate-200 text-slate-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 cursor-pointer"
                                     onClick={() => {
                                         setActiveFileList(update.existingFiles);
                                         setActiveFileListDocName(`Client Feedback - ${row.systemDocId}`);
@@ -528,7 +528,7 @@ const ClientApprovalStatus = () => {
                             <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className={`h-8 border-slate-200 text-slate-600 ${
+                                className={`h-8 border-slate-200 text-slate-600 cursor-pointer ${
                                     update.files && update.files.length > 0 ? 'bg-blue-50 border-blue-200 font-semibold' : ''
                                 }`}
                                 onClick={() => {
@@ -592,7 +592,7 @@ const ClientApprovalStatus = () => {
                             </Button>
                             <div className="flex gap-1.5 ml-2">
                                 <Button 
-                                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500"
+                                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500 cursor-pointer"
                                     onClick={() => {
                                         const files = row.version?.files || [];
                                         if (files.length > 0) {
@@ -614,7 +614,7 @@ const ClientApprovalStatus = () => {
                                     <Eye className="h-3.5 w-3.5" />
                                 </Button>
                                 <Button 
-                                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500"
+                                    variant="outline" size="sm" className="h-8 w-8 p-0 border-slate-200 text-slate-500 cursor-pointer"
                                     onClick={() => { setActiveDocId(row.group_document_id); setIsTrailOpen(true); }}
                                 >
                                     <History className="h-3.5 w-3.5" />

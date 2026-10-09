@@ -157,7 +157,7 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                                         )
                                                     })}
                                                 </div>
-                                            ) : activity.metadata.file_url ? (
+                                            ) : (activity.metadata.file_url && activity.action !== 'Transmittal Created' && !activity.action.startsWith('Client ')) ? (
                                                 <div className="flex items-center gap-2">
                                                     {onPreview ? (
                                                         <button
@@ -207,12 +207,13 @@ const DocumentTrail = ({ documentId, onPreview }) => {
                                                     rel="noopener noreferrer"
                                                     download
                                                     className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded hover:bg-emerald-100 hover:shadow-sm border border-emerald-200 transition-all cursor-pointer group/fb"
-                                                    title="Download Client Feedback ZIP"
+                                                    title="Download Client Feedback"
                                                 >
                                                     <Download className="w-3.5 h-3.5 mr-1" />
-                                                    <span>Client ZIP</span>
+                                                    <span>Download Feedback</span>
                                                 </a>
                                             )}
+
                                         </div>
                                     )}
                                 </div>

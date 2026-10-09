@@ -2400,6 +2400,7 @@ class DccService {
 
         const result = await prisma.$transaction(async (tx) => {
             const savedFiles = [];
+            let archiveUrl = null;
 
             // 2. Process Files if provided (Store as Feedback Attachments)
             if (files && files.length > 0) {
@@ -2442,9 +2443,31 @@ class DccService {
                         file_url: dbFile.file_url,
                         file_path: dbFile.file_path,
                         file_size: dbFile.file_size,
-                        mime_type: dbFile.mime_type
+                        mime_type: dbFile.mime_type,
+                        absolute_path: targetPath
                     });
                 }
+
+                // Generate ZIP of feedback files
+                const archiver = require('archiver');
+                const feedbackZipName = `Feedback_${docNumber}_Rev${vNo}.zip`;
+                const zipPath = path.join(targetDir, feedbackZipName);
+                const output = fs.createWriteStream(zipPath);
+                const archive = archiver('zip', { zlib: { level: 9 } });
+
+                await new Promise((resolve, reject) => {
+                    output.on('close', resolve);
+                    archive.on('error', reject);
+                    archive.pipe(output);
+                    for (const sf of savedFiles) {
+                        archive.file(sf.absolute_path, { name: sf.original_filename });
+                    }
+                    archive.finalize();
+                });
+
+                const relativeZipPath = StorageUtils.getRelativePath(zipPath);
+                const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+                archiveUrl = `${backendUrl}/api/dcc/document/feedback?filename=${encodeURIComponent(feedbackZipName)}&filepath=${encodeURIComponent(relativeZipPath)}`;
             }
 
             // 3. Update the transmission_document with per-document client status
@@ -2528,7 +2551,7 @@ class DccService {
                     document_name: groupDoc.document.document_name,
                     version_no: reviewedVersion?.version_no,
                     has_file: savedFiles.length > 0,
-                    feedback_url: savedFiles.length > 0 ? savedFiles[0].file_url : null,
+                    feedback_url: archiveUrl,
                     feedback_files: savedFiles,
                     transmission_status: transmissionStatus
                 }
