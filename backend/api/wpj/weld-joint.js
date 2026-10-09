@@ -678,11 +678,11 @@ async function requestModification(req, res) {
                         requesterName: request.requester.name,
                         reason: request.reason
                     });
-                    await emailService.sendMail({
+                    emailService.sendEmail({
                         to: hodEmails.join(','),
                         subject: `New Modification Request for Joint ${request.weld_joint.joint_no}`,
                         html: emailContent
-                    });
+                    }).catch(err => console.error('Background email failed:', err));
                 }
             }
         } catch (emailError) {

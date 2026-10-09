@@ -821,6 +821,36 @@ class WeldJointService {
             where: { weld_joint_id: jointId, stage_name: stage, is_active: true }
         });
 
+        // 3b. Bulletproof Production Engineer Lock
+        if (stageRecord && stageRecord.production_engineer_id) {
+            // Check if the current user making the edit is actually a Production Engineer
+            const actionUser = await prisma.user.findUnique({
+                where: { id: engineerId },
+                include: { user_roles: { include: { role: true } } }
+            });
+            const isProdUser = actionUser?.user_roles?.some(ur => 
+                ur.role.name === 'PRODUCTION_ENGINEER' || 
+                ur.role.name === 'ADMIN'
+            );
+
+            // If the user is NOT a Production Engineer (e.g., they are strictly QC), lock the ID!
+            // If they ARE a Production Engineer, let the ID update to the current engineerId!
+            if (!isProdUser) {
+                production_engineer_id = undefined;
+            }
+            
+            // Scrub the name from the payload so we don't accidentally update the JSON root
+            if (stagePayload.productionEngineerName) {
+                delete stagePayload.productionEngineerName;
+            }
+        } else if (!stageRecord && role !== 'PROD') {
+            // If creating a NEW stage, ONLY PROD can be the production engineer
+            production_engineer_id = undefined;
+            if (stagePayload.productionEngineerName) {
+                delete stagePayload.productionEngineerName;
+            }
+        }
+
         const previousStatus = stageRecord ? stageRecord.status : null;
 
         const updateData = {
