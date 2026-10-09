@@ -100,5 +100,9 @@ export const dccService = {
 
     deleteEmailTemplate: async (id) => {
         return await apiClient.delete(`/api/dcc/email-templates/${id}`);
+    },
+
+    deleteDocumentFile: async (id) => {
+        return await apiClient.delete(`/api/dcc/document-file/${id}`);
     }
 };

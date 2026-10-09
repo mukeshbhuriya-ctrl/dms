@@ -52,7 +52,7 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
-import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog"
+import { MultiFileUploadModal } from "../../components/shared/multi_file_upload_modal"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { useAuth } from "@/context/AuthContext";
@@ -1375,14 +1375,22 @@ function CreateTransmission() {
         isSavingTemplate={isSavingTemplate}
       />
 
-      <FileListPreviewDialog 
+      <MultiFileUploadModal 
         isOpen={isFileListOpen}
         onClose={() => setIsFileListOpen(false)}
-        files={activeFileList}
-        documentName={activeFileListDocName}
-        onPreviewFile={(previewInfo) => {
-            setActivePreviewDoc(previewInfo);
-            setPreviewUrl(previewInfo.previewUrl);
+        title="Attached Files"
+        description={activeFileListDocName}
+        existingFiles={activeFileList}
+        readOnly={true}
+        onPreviewExisting={(previewInfo) => {
+            const fullUrl = previewInfo.file_url?.startsWith('http') ? previewInfo.file_url : `${BACKEND_URL}${previewInfo.file_url}`;
+            setActivePreviewDoc({
+                documentName: previewInfo.original_filename,
+                mimeType: previewInfo.mime_type,
+                filePath: previewInfo.file_path,
+                previewUrl: fullUrl
+            });
+            setPreviewUrl(fullUrl);
             setIsPreviewOpen(true);
         }}
       />

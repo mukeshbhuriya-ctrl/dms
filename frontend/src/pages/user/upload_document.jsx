@@ -42,8 +42,8 @@ import {
     DialogContent,
 } from "@/components/ui/dialog"
 import { DocumentPreviewDialog } from "@/components/shared/DocumentPreviewDialog"
-import { FileListPreviewDialog } from "@/components/shared/FileListPreviewDialog"
-import { MultiFileUploadModal } from "@/components/shared/MultiFileUploadModal"
+
+import { MultiFileUploadModal } from "@/components/shared/multi_file_upload_modal"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 import { AccessControl } from "@/components/iam/access_control";
 import { useAuth } from "@/context/AuthContext";
@@ -171,14 +171,38 @@ function UploadDocument() {
         });
     };
 
-    const handleOpenUploadModal = (docId) => {
-        setUploadingDocId(docId)
+    const [activeExistingFiles, setActiveExistingFiles] = useState([])
+
+    const handleOpenUploadModal = (row) => {
+        setUploadingDocId(row.id)
+        if (row.originalStatus === 'Pending for Approval' || row.originalStatus === 'Uploaded') {
+            setActiveExistingFiles(row.files || [])
+        } else {
+            setActiveExistingFiles([])
+        }
         setIsUploadModalOpen(true)
     }
 
+    const handleDeleteExistingFile = async (fileId) => {
+        try {
+            const res = await dccService.deleteDocumentFile(fileId);
+            if (res.success || res.data) {
+                toast.success("File deleted successfully");
+                setActiveExistingFiles(prev => prev.filter(f => f.id !== fileId));
+                setRefreshTrigger(prev => prev + 1);
+            } else {
+                toast.error(res.message || "Failed to delete file");
+            }
+        } catch (error) {
+            toast.error(error?.response?.data?.message || error.message || "An error occurred while deleting the file");
+        }
+    }
+
     const handleSubmitUpload = async (stagedFiles) => {
-        if (!uploadingDocId || !stagedFiles || stagedFiles.length === 0) {
-            toast.error("Please select at least one file to upload")
+        if (!uploadingDocId) return
+
+        if (!stagedFiles || stagedFiles.length === 0) {
+            setIsUploadModalOpen(false)
             return
         }
 
@@ -189,6 +213,9 @@ function UploadDocument() {
         try {
             const formData = new FormData()
             formData.append('document_id', uploadingDocId)
+            if (activeExistingFiles.length > 0) {
+                formData.append('is_append', 'true')
+            }
             stagedFiles.forEach(f => formData.append('files', f)) // Using Multer array field 'files'
 
             const result = await dccService.uploadDocumentVersion(formData, {
@@ -405,7 +432,7 @@ function UploadDocument() {
                                     variant="outline"
                                     size="sm"
                                     className="border-slate-200 text-slate-600 hover:bg-primary/5 hover:text-primary hover:border-primary/20 cursor-pointer disabled:cursor-not-allowed disabled:bg-transparent disabled:text-slate-400 disabled:border-slate-200"
-                                    onClick={() => handleOpenUploadModal(row.id)}
+                                    onClick={() => handleOpenUploadModal(row)}
                                     disabled={isDisabled || isUploading}
                                 >
                                     {isUploading ? (
@@ -423,7 +450,7 @@ function UploadDocument() {
                                     ) : (
                                         <Upload className="h-4 w-4 mr-2" />
                                     )}
-                                    {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : (row.originalStatus === 'Pending for Approval' || row.originalStatus === 'Uploaded' ? 'Replace' : 'Upload')}
+                                    {isUploading ? (typeof progress === 'number' ? `Uploading... ${progress}%` : 'Uploading...') : (row.originalStatus === 'Pending for Approval' || row.originalStatus === 'Uploaded' ? 'Manage' : 'Upload')}
                                 </Button>
                             </AccessControl>
 
@@ -686,14 +713,22 @@ function UploadDocument() {
             </div>
 
             {/* Shared Document Preview Dialog */}
-            <FileListPreviewDialog
+            <MultiFileUploadModal
                 isOpen={isFileListOpen}
                 onClose={() => setIsFileListOpen(false)}
-                files={activeFileList}
-                documentName={activeFileListDocName}
-                onPreviewFile={(previewInfo) => {
-                    setActivePreviewDoc(previewInfo);
-                    setPreviewUrl(previewInfo.previewUrl);
+                title="Attached Files"
+                description={activeFileListDocName}
+                existingFiles={activeFileList}
+                readOnly={true}
+                onPreviewExisting={(previewInfo) => {
+                    const fullUrl = previewInfo.file_url?.startsWith('http') ? previewInfo.file_url : `${backendUrl}${previewInfo.file_url}`;
+                    setActivePreviewDoc({
+                        documentName: previewInfo.original_filename,
+                        mimeType: previewInfo.mime_type,
+                        filePath: previewInfo.file_path,
+                        previewUrl: fullUrl
+                    });
+                    setPreviewUrl(fullUrl);
                     setIsPreviewOpen(true);
                 }}
             />
@@ -728,6 +763,8 @@ function UploadDocument() {
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onSubmit={handleSubmitUpload}
+                existingFiles={activeExistingFiles}
+                onDeleteExisting={handleDeleteExistingFile}
             />
 
         </PageContainer>

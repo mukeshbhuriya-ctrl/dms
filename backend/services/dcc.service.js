@@ -1252,7 +1252,7 @@ class DccService {
     /**
      * Upload Document Version (Multi-file support)
      */
-    async uploadDocumentVersion(company_id, user_id, document_id, files, remarks) {
+    async uploadDocumentVersion(company_id, user_id, document_id, files, remarks, isAppend = false) {
         if (!files || files.length === 0) throw new Error('Files are required');
 
         const groupDoc = await prisma.group_document.findFirst({
@@ -1314,7 +1314,7 @@ class DccService {
             const storageDataArray = await fileService.processMultipleStorage(files, targetDir);
 
             // 2. Create / update version record in DB
-            const version = await fileService.createNewVersion(tx, document_id, user_id, storageDataArray, remarks);
+            const version = await fileService.createNewVersion(tx, document_id, user_id, storageDataArray, remarks, isAppend);
 
             // 3. Automated Approval for "As Built" documents
             // If the document was in "As Built" state, this upload is the final acknowledgment.
@@ -1349,15 +1349,6 @@ class DccService {
             }
 
             // 4. Log Activity
-            if (groupDoc.status === 'Pending for Approval') {
-                const lastUpload = await tx.document_activity.findFirst({
-                    where: { group_document_id: document_id, action: 'Uploaded' },
-                    orderBy: { createdAt: 'desc' }
-                });
-                if (lastUpload) {
-                    await tx.document_activity.delete({ where: { id: lastUpload.id } });
-                }
-            }
 
             await ActivityService.logActivity({
                 company_id,
@@ -3987,6 +3978,109 @@ class DccService {
         return await prisma.document_file.findFirst({
             where: { id: fileId }
         });
+    }
+
+    async deleteDocumentFile(company_id, user_id, fileId) {
+        const file = await prisma.document_file.findUnique({
+            where: { id: fileId },
+            include: {
+                version: {
+                    include: {
+                        group_document: true,
+                        files: true
+                    }
+                }
+            }
+        });
+
+        if (!file) throw new Error('File not found');
+
+        const groupDoc = file.version.group_document;
+        if (groupDoc.company_id !== company_id) throw new Error('Unauthorized');
+
+        // Allow deletion only if the document is in Uploaded, Pending for Approval, or Pending status
+        if (!['Uploaded', 'Pending for Approval', 'Pending'].includes(groupDoc.status)) {
+            throw new Error(`Cannot delete files when document is in ${groupDoc.status} state.`);
+        }
+
+        const StorageUtils = require('../utils/storage.utils');
+        const fs = require('fs');
+
+        // Delete DB record and physical file in transaction
+        await prisma.$transaction(async (tx) => {
+            let archivedPath = null;
+            // Physical removal
+            if (file.file_path) {
+                try {
+                    archivedPath = StorageUtils.archiveRejectedFile(file.file_path);
+                    if (fs.existsSync(file.file_path)) {
+                        fs.unlinkSync(file.file_path);
+                    }
+                } catch (e) {
+                    console.error('Failed to physically delete file:', e);
+                }
+            }
+
+            // Delete DB record
+            await tx.document_file.delete({ where: { id: fileId } });
+
+            // State Reversion Check: if this was the last file in the version
+            if (file.version.files.length === 1) {
+                await tx.document_version.update({
+                    where: { id: file.version.id },
+                    data: { status: 'Pending' }
+                });
+                await tx.group_document.update({
+                    where: { id: groupDoc.id },
+                    data: { status: 'Pending' }
+                });
+            }
+            
+            // Update the Uploaded activity metadata to point to the archived file path
+            const uploadActivity = await tx.document_activity.findFirst({
+                where: { group_document_id: groupDoc.id, action: 'Uploaded' },
+                orderBy: { createdAt: 'desc' }
+            });
+            
+            if (uploadActivity && uploadActivity.metadata && Array.isArray(uploadActivity.metadata.files)) {
+                let updated = false;
+                const updatedFiles = uploadActivity.metadata.files.map(f => {
+                    if (f.original_filename === file.original_filename && archivedPath) {
+                        f.file_url = `/api/dcc/document/feedback?filepath=${encodeURIComponent(archivedPath.replace(/\\/g, '/'))}`;
+                        f.file_path = archivedPath;
+                        updated = true;
+                    }
+                    return f;
+                });
+                
+                if (updated) {
+                    await tx.document_activity.update({
+                        where: { id: uploadActivity.id },
+                        data: {
+                            metadata: {
+                                ...uploadActivity.metadata,
+                                files: updatedFiles
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Log file deletion activity
+            const ActivityService = require('./activity.service');
+            await ActivityService.logActivity({
+                company_id,
+                group_document_id: groupDoc.id,
+                user_id,
+                action: 'File Removed',
+                remarks: `User removed file '${file.original_filename}' from the upload.`,
+                metadata: { 
+                    file_name: file.original_filename
+                }
+            }, tx);
+        });
+
+        return { success: true };
     }
 
     _getFormattedDocNumber(serial_no) {

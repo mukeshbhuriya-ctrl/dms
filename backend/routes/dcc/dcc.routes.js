@@ -59,6 +59,7 @@ router.get('/document/:documentId/download', authenticateUserOnly, documentContr
 router.get('/document/:documentId/versions', authenticateUserOnly, documentController.getVersionList);
 router.get('/document/:documentId/versions/:versionNumber', authenticateUserOnly, documentController.getSpecificVersion);
 router.get('/file/:fileId/download', authenticateUserOnly, DccController.downloadDocumentFile);
+router.delete('/document-file/:id', authenticateUserOnly, DccController.deleteDocumentFile);
 
 router.get('/get-jobs', DccController.getJobs);
 router.get('/get-manage-job-filters', DccController.getManageJobFilters);

@@ -61,7 +61,7 @@ class FileService {
    *   2. Rejected version (internal correction) → overwrite same version slot
    *   3. Normal re-upload → create new incremented revision
    */
-  async createNewVersion(tx, documentId, userId, filesData, remarks) {
+  async createNewVersion(tx, documentId, userId, filesData, remarks, isAppend = false) {
     // filesData is an array of processed files. Extract the primary (first) file for legacy fallback fields.
     const primaryFile = filesData && filesData.length > 0 ? filesData[0] : null;
     if (!primaryFile) throw new Error('No files provided for document version');
@@ -153,38 +153,41 @@ class FileService {
         data: { is_active: false }
       });
 
-      // If it's a replacement of an unapproved upload, delete the old physical files and DB records
-      if (rejectedVersion.status === 'Uploaded') {
-        const StorageUtils = require('../utils/storage.utils');
-        
-        // Archive all associated document_file records and their physical files
-        if (rejectedVersion.files && rejectedVersion.files.length > 0) {
-          for (const file of rejectedVersion.files) {
-            if (file.file_path) {
-              const archivedPath = StorageUtils.archiveRejectedFile(file.file_path);
-              if (archivedPath) {
-                await tx.document_file.update({
-                  where: { id: file.id },
-                  data: { file_path: archivedPath, is_active: false }
-                });
-              } else {
-                await tx.document_file.update({
-                  where: { id: file.id },
-                  data: { is_active: false }
-                });
+      // If not appending, clear or archive old files
+      if (!isAppend) {
+        // If it's a replacement of an unapproved upload, delete the old physical files and DB records
+        if (rejectedVersion.status === 'Uploaded') {
+          const StorageUtils = require('../utils/storage.utils');
+          
+          // Archive all associated document_file records and their physical files
+          if (rejectedVersion.files && rejectedVersion.files.length > 0) {
+            for (const file of rejectedVersion.files) {
+              if (file.file_path) {
+                const archivedPath = StorageUtils.archiveRejectedFile(file.file_path);
+                if (archivedPath) {
+                  await tx.document_file.update({
+                    where: { id: file.id },
+                    data: { file_path: archivedPath, is_active: false }
+                  });
+                } else {
+                  await tx.document_file.update({
+                    where: { id: file.id },
+                    data: { is_active: false }
+                  });
+                }
               }
             }
+          } else if (rejectedVersion.file_path) {
+            // Legacy fallback
+            StorageUtils.archiveRejectedFile(rejectedVersion.file_path);
           }
-        } else if (rejectedVersion.file_path) {
-          // Legacy fallback
-          StorageUtils.archiveRejectedFile(rejectedVersion.file_path);
+        } else {
+          // Mark old files from this rejected version as inactive in DB (preserving history)
+          await tx.document_file.updateMany({
+            where: { version_id: rejectedVersion.id },
+            data: { is_active: false }
+          });
         }
-      } else {
-        // Mark old files from this rejected version as inactive in DB (preserving history)
-        await tx.document_file.updateMany({
-          where: { version_id: rejectedVersion.id },
-          data: { is_active: false }
-        });
       }
 
 

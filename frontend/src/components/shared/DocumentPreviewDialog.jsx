@@ -1,8 +1,8 @@
 import React from "react";
 import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, Download } from "lucide-react";
 import { toast } from "react-toastify";
@@ -38,8 +38,8 @@ export function DocumentPreviewDialog({
     /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(activePreviewDoc?.documentName || '');
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="sm:max-w-6xl w-[98vw] h-[95vh] p-0 overflow-hidden border-none shadow-2xl">
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent side="right" showCloseButton={false} className="sm:max-w-[85vw] w-full p-0 overflow-hidden border-none shadow-2xl">
         {/* Prominent Action Buttons */}
         <div className="absolute top-4 right-4 z-[100] flex items-center gap-3">
           {previewUrl && (
@@ -56,7 +56,7 @@ export function DocumentPreviewDialog({
           )}
           <button
             onClick={() => onOpenChange(false)}
-            className="p-2 bg-white/80 hover:bg-white text-slate-800 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 group border border-slate-200 flex"
+            className="p-2 bg-white/80 hover:bg-white text-slate-800 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 group border border-slate-200 flex cursor-pointer"
             title="Close Preview"
           >
             <Plus className="h-6 w-6 rotate-45 transform transition-transform group-hover:rotate-[135deg]" />
@@ -106,7 +106,7 @@ export function DocumentPreviewDialog({
             </div>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

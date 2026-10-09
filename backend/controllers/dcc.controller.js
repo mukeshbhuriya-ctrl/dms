@@ -506,7 +506,8 @@ class DccController {
         try {
             // Middleware attaches userid
             const userId = req.user.userid || req.user.id;
-            const result = await DccService.uploadDocumentVersion(req.user.company_id, userId, req.body.document_id, req.files, req.body.remarks);
+            const isAppend = req.body.is_append === 'true' || req.body.is_append === true;
+            const result = await DccService.uploadDocumentVersion(req.user.company_id, userId, req.body.document_id, req.files, req.body.remarks, isAppend);
             res.status(201).json({ success: true, data: result });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
@@ -1187,6 +1188,29 @@ class DccController {
             });
 
             res.status(200).json({ success: true, data: result, message: 'Revision request rejected successfully' });
+        } catch (error) {
+            res.status(400).json({ success: false, message: error.message });
+        }
+    }
+
+    async deleteDocumentFile(req, res) {
+        try {
+            const userId = req.user.userid || req.user.id;
+            const fileId = req.params.id;
+            
+            const result = await DccService.deleteDocumentFile(req.user.company_id, userId, fileId);
+
+            Audit.insert({
+                req,
+                company_id: req.user.company_id,
+                user_id: userId,
+                action: 'deleted',
+                module: 'Document File',
+                description: `Deleted document file ID: ${fileId}`,
+                metadata: { target_file_id: fileId },
+            });
+
+            res.status(200).json({ success: true, data: result, message: 'File deleted successfully' });
         } catch (error) {
             res.status(400).json({ success: false, message: error.message });
         }

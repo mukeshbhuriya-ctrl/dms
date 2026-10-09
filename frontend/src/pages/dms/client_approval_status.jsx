@@ -51,8 +51,8 @@ import ProDataTable from "@/components/shared/ProDataTable";
 import { exportApi } from "@/api/export.api";
 import DocumentTrail from "../../components/dms/DocumentTrail";
 import { DocumentPreviewDialog } from "../../components/shared/DocumentPreviewDialog";
-import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog";
-import { MultiFileUploadModal } from "../../components/shared/MultiFileUploadModal";
+
+import { MultiFileUploadModal } from "../../components/shared/multi_file_upload_modal";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { AccessControl } from "@/components/iam/access_control";
 
@@ -712,14 +712,22 @@ const ClientApprovalStatus = () => {
                     </SheetContent>
                 </Sheet>
 
-                <FileListPreviewDialog 
+                <MultiFileUploadModal 
                     isOpen={isFileListOpen}
                     onClose={() => setIsFileListOpen(false)}
-                    files={activeFileList}
-                    documentName={activeFileListDocName}
-                    onPreviewFile={(previewInfo) => {
-                        setActivePreviewDoc(previewInfo);
-                        setPreviewUrl(previewInfo.previewUrl);
+                    title="Attached Files"
+                    description={activeFileListDocName}
+                    existingFiles={activeFileList}
+                    readOnly={true}
+                    onPreviewExisting={(previewInfo) => {
+                        const fullUrl = previewInfo.file_url?.startsWith('http') ? previewInfo.file_url : `${backendUrl}${previewInfo.file_url}`;
+                        setActivePreviewDoc({
+                            documentName: previewInfo.original_filename,
+                            mimeType: previewInfo.mime_type,
+                            filePath: previewInfo.file_path,
+                            previewUrl: fullUrl
+                        });
+                        setPreviewUrl(fullUrl);
                         setIsPreviewOpen(true);
                     }}
                 />

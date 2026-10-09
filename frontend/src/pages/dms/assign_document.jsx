@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/popover"
 import DocumentTrail from "../../components/dms/DocumentTrail"
 import { DocumentPreviewDialog } from "../../components/shared/DocumentPreviewDialog"
-import { FileListPreviewDialog } from "../../components/shared/FileListPreviewDialog"
+import { MultiFileUploadModal } from "../../components/shared/multi_file_upload_modal"
 import ProDataTable from "../../components/shared/ProDataTable"
 import { SearchableSelect } from "../../components/shared/SearchableSelect"
 import apiClient from "../../api/api.client"
@@ -119,6 +119,7 @@ function AssignDocument() {
   const [isFileListOpen, setIsFileListOpen] = useState(false)
   const [activeFileList, setActiveFileList] = useState([])
   const [activeFileListDocName, setActiveFileListDocName] = useState("")
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   const [assignments, setAssignments] = useState([
     {
@@ -1786,14 +1787,22 @@ function AssignDocument() {
             </SheetContent>
           </Sheet>
 
-          <FileListPreviewDialog 
+          <MultiFileUploadModal 
             isOpen={isFileListOpen}
             onClose={() => setIsFileListOpen(false)}
-            files={activeFileList}
-            documentName={activeFileListDocName}
-            onPreviewFile={(previewInfo) => {
-                setActivePreviewDoc(previewInfo);
-                setPreviewUrl(previewInfo.previewUrl);
+            title="Attached Files"
+            description={activeFileListDocName}
+            existingFiles={activeFileList}
+            readOnly={true}
+            onPreviewExisting={(previewInfo) => {
+                const fullUrl = previewInfo.file_url?.startsWith('http') ? previewInfo.file_url : `${backendUrl}${previewInfo.file_url}`;
+                setActivePreviewDoc({
+                    documentName: previewInfo.original_filename,
+                    mimeType: previewInfo.mime_type,
+                    filePath: previewInfo.file_path,
+                    previewUrl: fullUrl
+                });
+                setPreviewUrl(fullUrl);
                 setIsPreviewOpen(true);
             }}
           />
