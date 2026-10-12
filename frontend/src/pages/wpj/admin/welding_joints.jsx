@@ -948,8 +948,8 @@ function WeldingJoints() {
 
   return (
     <>
-        <PageContainer>
-<div className={view === "list" ? "flex-1 flex flex-col w-full overflow-x-hidden" : "w-full"}>
+        <PageContainer scrollable={view !== "list"}>
+          <div className={view === "list" ? "flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden" : "w-full"}>
 
 
             {error && (
@@ -965,7 +965,7 @@ function WeldingJoints() {
             )}
 
             {view === "list" ? (
-              <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden">
                 <ProDataTable
                   columns={columns}
                   fetchData={fetchPlans}

@@ -458,9 +458,8 @@ function CreateUser() {
   };
 
   return (
-    <>
-      <main className="flex-1 flex flex-col overflow-auto p-6">
-        <div className="w-full flex-1 flex flex-col">
+    <PageContainer scrollable={view !== "list"}>
+      <div className="w-full flex-1 flex flex-col min-h-0 h-full">
 
           {view !== "list" && (
             <div className="flex justify-end items-center mb-4">
@@ -759,9 +758,8 @@ function CreateUser() {
             isLoading={isResetting}
           />
 
-        </div>
-      </main>
-    </>
+      </div>
+    </PageContainer>
   )
 }
 

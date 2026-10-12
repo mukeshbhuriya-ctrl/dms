@@ -345,9 +345,8 @@ function SendDocumentToClient() {
   const isSent = transmittalStatus === 'Sent';
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <main className="flex-1 min-h-0 overflow-auto p-6 flex flex-col">
-        <div className="flex-1 flex flex-col w-full">
+    <PageContainer scrollable={true}>
+      <div className="flex-1 flex flex-col w-full min-h-0">
 
           {/* Selection Section */}
           <Card className="mb-6">
@@ -658,9 +657,8 @@ function SendDocumentToClient() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </main>
-    </div>
+      </div>
+    </PageContainer>
   )
 }
 

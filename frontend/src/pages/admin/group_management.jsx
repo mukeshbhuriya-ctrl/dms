@@ -513,8 +513,8 @@ function GroupManagement() {
 
     return (
         <>
-            <main className="flex-1 flex flex-col overflow-auto p-6">
-                <div className="w-full flex-1 flex flex-col">
+            <PageContainer scrollable={view === "create" || view === "edit"}>
+                <div className="w-full flex-1 flex flex-col min-h-0 h-full">
                     {view !== "list" && (
                     <div className="flex justify-end items-center mb-4">
                         <div className="flex gap-2">
@@ -648,7 +648,7 @@ function GroupManagement() {
                         </div>
                     )}
                 </div>
-            </main>
+            </PageContainer>
 
           {/* Dialogs */}
           <ConfirmDialog

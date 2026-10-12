@@ -526,9 +526,9 @@ export default function CreateWorkPermit() {
   ], [navigate])
 
   return (
-    <PageContainer>
+    <PageContainer scrollable={view !== "list"}>
       {view === "list" ? (
-        <div className="h-[calc(100vh-160px)]">
+        <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden">
           <ProDataTable
             columns={columns}
             fetchData={fetchListData}

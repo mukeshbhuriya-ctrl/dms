@@ -498,9 +498,7 @@ function AdminDashboard() {
   };
 
   return (
-    <>
-
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">
+    <PageContainer scrollable={true}>
         {isLoading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, idx) => (
@@ -710,8 +708,7 @@ function AdminDashboard() {
             </Card>
           </div>
         )}
-      </main>
-    </>
+    </PageContainer>
   );
 }
 

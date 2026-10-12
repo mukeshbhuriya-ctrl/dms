@@ -997,9 +997,9 @@ function CreateTransmission() {
 
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
+    <PageContainer scrollable={view !== 'list'}>
       {view !== 'list' && (
-        <div className="flex justify-end mb-4 px-4">
+        <div className="flex justify-end mb-1">
           <Button variant="outline" onClick={() => {
               setView('list');
               setActiveTransmission(null);
@@ -1015,8 +1015,7 @@ function CreateTransmission() {
           </Button>
         </div>
       )}
-      <main className="flex-1 flex flex-col overflow-hidden bg-slate-50/30">
-        <div className="flex-1 flex flex-col w-full overflow-hidden p-4 pt-4">
+      <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
 
           {/* Content Section */}
           {view === 'list' ? (
@@ -1121,7 +1120,6 @@ function CreateTransmission() {
             </div>
           )}
         </div>
-      </main>
 
       {/* Send Mail Dialog */}
       <Dialog open={isSendMailDialogOpen} onOpenChange={setIsSendMailDialogOpen}>
@@ -1411,7 +1409,7 @@ function CreateTransmission() {
         confirmText="Delete"
         variant="danger"
       />
-    </div>
+    </PageContainer>
   )
 }
 

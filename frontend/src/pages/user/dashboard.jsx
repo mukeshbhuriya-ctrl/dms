@@ -153,8 +153,8 @@ function UserDashboard() {
   const recentActivities = statsData?.recentActivities || []
 
   return (
-    <>
-      <div className="flex flex-1 flex-col gap-6 p-6 overflow-auto custom-scrollbar">
+    <PageContainer scrollable={true}>
+      <div className="flex flex-col gap-6">
 
         {/* Internal Workflow Section */}
         <div className="space-y-4">
@@ -273,7 +273,7 @@ function UserDashboard() {
           </Card>
         </div>
       </div>
-    </>
+    </PageContainer>
   )
 }
 

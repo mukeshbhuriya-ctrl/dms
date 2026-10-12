@@ -119,7 +119,7 @@ export default function RfqDashboard() {
     ];
 
     return (
-        <PageContainer>
+        <PageContainer scrollable={true}>
             {/* Filters Bar */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-5 bg-white border-b border-slate-200 shadow-sm rounded-lg mb-6">
                 <div className="flex flex-col gap-1.5 w-full">

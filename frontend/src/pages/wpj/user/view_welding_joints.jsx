@@ -1,4 +1,5 @@
 import { PageContainer } from "@/components/layout/PageContainer";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
@@ -112,8 +113,8 @@ function ViewWeldingJoints() {
   const [actionLoading, setActionLoading] = useState(null)
 
   // Request Mod Dialog State
-  
-  
+
+
 
   // Trail Sheet State
   const [isTrailOpen, setIsTrailOpen] = useState(false)
@@ -838,11 +839,11 @@ function ViewWeldingJoints() {
 
   return (
     <>
-      <PageContainer>
-        <div className="flex flex-col gap-4">
+      <PageContainer scrollable={false}>
+        <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden">
 
           {activeView === "plans" && (
-            <div className="space-y-4">
+            <div className="flex-1 min-h-0 flex flex-col h-full w-full">
 
               <ProDataTable
                 columns={planColumns}
@@ -870,8 +871,8 @@ function ViewWeldingJoints() {
           )}
 
           {activeView === "joints" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
+            <div className="flex-1 min-h-0 flex flex-col h-full w-full gap-4">
+              <div className="flex items-center justify-between shrink-0">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-800">
                   {selectedPlanDetails?.weld_plan_no}
                 </h2>
@@ -938,9 +939,9 @@ function ViewWeldingJoints() {
           )}
 
           {activeView === "form" && (
-            <Card className="relative border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white">
-              <div className="bg-blue-500 h-1 w-full"></div>
-              <CardHeader className="bg-white border-b border-slate-100 py-4 flex flex-row items-center justify-between">
+            <Card className="flex-1 min-h-0 flex flex-col h-full relative border border-slate-200 shadow-none rounded-none overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white">
+              <div className="bg-blue-500 h-1 w-full shrink-0"></div>
+              <CardHeader className="bg-white border-b border-slate-100 py-4 flex flex-row items-center justify-between shrink-0 shadow-xs">
                 <div className="flex flex-col gap-1">
                   <CardTitle className="text-sm font-semibold text-slate-800 capitalize tracking-wide flex items-center gap-2">
                     <span className="h-5 w-5 rounded-none bg-blue-500 text-white flex items-center justify-center text-[10px]">
@@ -963,12 +964,12 @@ function ViewWeldingJoints() {
                     setSelectedJoint(null);
                     setSelectedStage(null);
                   }}
-                  className="shadow-none h-9 text-slate-700 border-slate-200 bg-white"
+                  className="shadow-none h-9 text-slate-700 border-slate-200 bg-white cursor-pointer"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back to Joints
                 </Button>
               </CardHeader>
-              <CardContent className="p-4 md:p-6 bg-white">
+              <CardContent className="p-4 md:p-6 bg-white flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                 {(() => {
                   if (!selectedJoint || !selectedStage || !WELD_STAGES_CONFIG[selectedJoint.joint_type]) return null;
 
@@ -995,7 +996,7 @@ function ViewWeldingJoints() {
                   const isRejectedStage = selectedJoint.weld_joint_inspection?.[currentStageKey] === 'rejected';
 
                   return (
-                    <fieldset disabled={isReadOnly} className={isReadOnly ? "opacity-95" : ""}>
+                    <fieldset disabled={isReadOnly} className={cn("w-full", isReadOnly ? "opacity-95" : "")}>
                       <StageComponent
                         initialData={selectedJoint}
                         inspectionData={selectedJoint.weld_joint_inspection || selectedJoint.inspectionData}
@@ -1018,7 +1019,7 @@ function ViewWeldingJoints() {
           )}
 
           {activeView === "preview" && previewJointId && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 mb-12">
+            <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
               <WPJCumulativePreview
                 jointId={previewJointId}
                 onBack={() => {

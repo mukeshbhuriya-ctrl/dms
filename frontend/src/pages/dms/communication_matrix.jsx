@@ -304,9 +304,7 @@ function CommunicationMatrix() {
   }
 
   return (
-    <PageContainer 
-      className={view === "list" ? "overflow-hidden" : "overflow-y-auto"} 
-    >
+    <PageContainer scrollable={view !== "list"}>
       {view !== "list" && (
         <div className="flex justify-end mb-4 shrink-0">
           <Button className="cursor-pointer" variant="outline" onClick={() => {
@@ -317,9 +315,9 @@ function CommunicationMatrix() {
           </Button>
         </div>
       )}
-      <div className={`w-full flex-1 min-h-0 flex flex-col ${view === "list" ? "overflow-hidden" : ""}`}>
+      <div className="w-full flex-1 min-h-0 flex flex-col">
         {view === "list" ? (
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden">
               <ProDataTable
                 columns={columns}
                 fetchData={fetchPos}

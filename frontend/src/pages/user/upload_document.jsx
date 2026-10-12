@@ -676,8 +676,8 @@ function UploadDocument() {
     }
 
     return (
-        <PageContainer className="overflow-hidden">
-            <div className="flex-1 min-h-0 flex flex-col w-full overflow-hidden">
+        <PageContainer>
+            <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden">
                 <ProDataTable
                     columns={columns}
                     fetchData={fetchDocumentsWrapper}

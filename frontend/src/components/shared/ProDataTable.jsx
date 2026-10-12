@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react"
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import {
   Table,
   TableBody,
@@ -41,8 +41,10 @@ import {
   ChevronDown, 
   Check,
   Upload,
-  FileText
+  FileText,
+  SlidersHorizontal
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 /**
  * Utility to resolve nested object paths (e.g., "group.name")
@@ -53,15 +55,39 @@ const resolvePath = (obj, path) => {
 }
 
 /**
- * MultiSelectFilter - Compact inline select for headers
+ * Density configurations for row sizing and spacing
+ */
+const DENSITY_CONFIG = {
+  compact: {
+    label: "Compact",
+    rowHeight: "h-8 min-h-[32px]",
+    cellPadding: "py-1 px-3",
+    fontSize: "text-[11px]",
+  },
+  standard: {
+    label: "Standard",
+    rowHeight: "h-10 min-h-[40px]",
+    cellPadding: "py-2 px-3",
+    fontSize: "text-xs",
+  },
+  relaxed: {
+    label: "Relaxed",
+    rowHeight: "h-12 min-h-[48px]",
+    cellPadding: "py-3 px-3",
+    fontSize: "text-xs",
+  },
+}
+
+/**
+ * MultiSelectFilter - Popover filter for multiple selection options
  */
 const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
   const selectedValues = Array.isArray(value) ? value : (value ? [value] : []);
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredOptions = options.filter(opt => 
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredOptions = (options || []).filter(opt => 
+    String(opt.label || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const toggleOption = (val) => {
@@ -72,7 +98,7 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
   };
 
   const clearFilters = (e) => {
-    e.stopPropagation();
+    e?.stopPropagation?.();
     onChange([]);
     setSearchTerm("");
   };
@@ -81,60 +107,62 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button 
-          variant="outline" 
+          variant="ghost" 
           size="sm" 
-          className="!h-7 py-0 min-h-[28px] text-[10px] font-normal w-full min-w-[90px] justify-between px-2 bg-white border-slate-300 shadow-none"
+          className={cn(
+            "h-6 px-1.5 text-[10px] font-medium transition-colors rounded-xs",
+            selectedValues.length > 0 
+              ? "bg-blue-50 text-blue-600 hover:bg-blue-100" 
+              : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/60"
+          )}
+          title={`Filter by ${placeholder}`}
         >
-          <div className="flex items-center gap-1 truncate mr-1">
-            {selectedValues.length === 0 ? (
-              <span className="text-slate-400 capitalize">{placeholder}</span>
-            ) : (
-                <div className="flex items-center gap-1">
-                    <span className="font-bold text-blue-600 bg-blue-50 px-1 rounded-sm">
-                        {selectedValues.length}
-                    </span>
-                    <span className="truncate normal-case">{options.find(o => o.value === selectedValues[0])?.label}</span>
-                    {selectedValues.length > 1 && <span className="text-slate-400">...</span>}
-                </div>
-            )}
-          </div>
-          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+          <Filter className="h-3 w-3 shrink-0" />
+          {selectedValues.length > 0 && (
+            <span className="ml-1 text-[9px] font-bold bg-blue-600 text-white rounded-full px-1 min-w-[14px] h-[14px] inline-flex items-center justify-center">
+              {selectedValues.length}
+            </span>
+          )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[180px] p-0" align="start">
-        <div className="flex flex-col max-h-[250px]">
-          <div className="p-2 border-b">
+      <PopoverContent className="w-[200px] p-0 shadow-lg" align="start">
+        <div className="flex flex-col max-h-[260px]">
+          <div className="p-2 border-b bg-slate-50/50">
             <div className="relative">
-                <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
-                <Input
-                    placeholder="Search..."
-                    className="h-8 pl-8 text-xs shadow-none border-none focus-visible:ring-0"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                placeholder="Search options..."
+                className="h-7 pl-7 text-xs shadow-none bg-white border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-400"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-1 custom-scrollbar">
-            {filteredOptions.map((opt) => (
-              <div
-                key={opt.value}
-                className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-100 rounded-sm cursor-pointer"
-                onClick={() => toggleOption(opt.value)}
-              >
-                <Checkbox checked={selectedValues.includes(opt.value)} className="h-3.5 w-3.5" />
-                <span className="text-xs text-slate-700">{opt.label}</span>
-              </div>
-            ))}
+            {filteredOptions.length === 0 ? (
+              <p className="text-center text-[11px] text-slate-400 py-3">No options</p>
+            ) : (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt.value}
+                  className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-100 rounded-xs cursor-pointer select-none"
+                  onClick={() => toggleOption(opt.value)}
+                >
+                  <Checkbox checked={selectedValues.includes(opt.value)} className="h-3.5 w-3.5" />
+                  <span className="text-xs text-slate-700 truncate">{opt.label}</span>
+                </div>
+              ))
+            )}
           </div>
           {selectedValues.length > 0 && (
-            <div className="p-1.5 border-t bg-slate-50">
+            <div className="p-1.5 border-t bg-slate-50 flex items-center justify-between">
               <Button 
                 variant="ghost" 
                 size="sm" 
                 onClick={clearFilters}
-                className="w-full h-7 text-[10px] text-red-600 hover:text-red-700 hover:bg-red-50"
+                className="w-full h-7 text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50"
               >
-                Clear All
+                Clear All ({selectedValues.length})
               </Button>
             </div>
           )}
@@ -145,10 +173,241 @@ const MultiSelectFilter = ({ options, value, onChange, placeholder }) => {
 };
 
 /**
- * TableSettings - Gear menu for sticky column management
+ * TextFilterPopover - Fixed-dimension text filter popover (prevents column width jumps)
  */
-const TableSettings = ({ columns, stickyColumns, setStickyColumns }) => {
-  const [open, setOpen] = useState(false)
+const TextFilterPopover = ({ value, onChange, placeholder }) => {
+  const [open, setOpen] = useState(false);
+  const [tempVal, setTempVal] = useState(value || "");
+  const hasFilter = Boolean(value);
+
+  useEffect(() => {
+    setTempVal(value || "");
+  }, [value]);
+
+  const handleApply = (e) => {
+    e?.preventDefault?.();
+    onChange(tempVal);
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    setTempVal("");
+    onChange("");
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className={cn(
+            "h-6 px-1.5 text-[10px] font-medium transition-colors rounded-xs",
+            hasFilter 
+              ? "bg-blue-50 text-blue-600 hover:bg-blue-100" 
+              : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/60"
+          )}
+          title={`Filter by ${placeholder}`}
+        >
+          <Search className="h-3 w-3 shrink-0" />
+          {hasFilter && (
+            <span className="ml-1 w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-2.5 shadow-lg" align="start">
+        <form onSubmit={handleApply} className="space-y-2">
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+            Filter {placeholder}
+          </p>
+          <Input
+            autoFocus
+            placeholder={`Contains text...`}
+            value={tempVal}
+            onChange={(e) => setTempVal(e.target.value)}
+            className="h-8 text-xs bg-white border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none"
+          />
+          <div className="flex items-center justify-between pt-1 gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleClear}
+              className="h-7 text-[11px] text-slate-500 hover:text-red-600 px-2 shadow-none"
+            >
+              Clear
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-7 text-[11px] bg-slate-800 text-white hover:bg-slate-700 px-3 shadow-none"
+            >
+              Apply
+            </Button>
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+/**
+ * DateFilterPopover - Fixed-dimension date filter popover
+ */
+const DateFilterPopover = ({ value, onChange, placeholder }) => {
+  const [open, setOpen] = useState(false);
+  const [tempVal, setTempVal] = useState(value || "");
+  const hasFilter = Boolean(value);
+
+  useEffect(() => {
+    setTempVal(value || "");
+  }, [value]);
+
+  const handleApply = (e) => {
+    e?.preventDefault?.();
+    onChange(tempVal);
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    setTempVal("");
+    onChange("");
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className={cn(
+            "h-6 px-1.5 text-[10px] font-medium transition-colors rounded-xs",
+            hasFilter 
+              ? "bg-blue-50 text-blue-600 hover:bg-blue-100" 
+              : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/60"
+          )}
+          title={`Filter date for ${placeholder}`}
+        >
+          <Calendar className="h-3 w-3 shrink-0" />
+          {hasFilter && (
+            <span className="ml-1 w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-2.5 shadow-lg" align="start">
+        <form onSubmit={handleApply} className="space-y-2">
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+            Filter {placeholder}
+          </p>
+          <Input
+            type="date"
+            autoFocus
+            value={tempVal}
+            onChange={(e) => setTempVal(e.target.value)}
+            className="h-8 text-xs bg-white border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none"
+          />
+          <div className="flex items-center justify-between pt-1 gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleClear}
+              className="h-7 text-[11px] text-slate-500 hover:text-red-600 px-2 shadow-none"
+            >
+              Clear
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              className="h-7 text-[11px] bg-slate-800 text-white hover:bg-slate-700 px-3 shadow-none"
+            >
+              Apply
+            </Button>
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+/**
+ * SingleSelectFilterPopover - Fixed-dimension single select filter
+ */
+const SingleSelectFilterPopover = ({ options, value, onChange, placeholder }) => {
+  const [open, setOpen] = useState(false);
+  const hasFilter = Boolean(value && value !== "all");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className={cn(
+            "h-6 px-1.5 text-[10px] font-medium transition-colors rounded-xs",
+            hasFilter 
+              ? "bg-blue-50 text-blue-600 hover:bg-blue-100" 
+              : "text-slate-400 hover:text-slate-600 hover:bg-slate-200/60"
+          )}
+          title={`Filter by ${placeholder}`}
+        >
+          <Filter className="h-3 w-3 shrink-0" />
+          {hasFilter && (
+            <span className="ml-1 w-1.5 h-1.5 rounded-full bg-blue-600 inline-block" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-2 shadow-lg" align="start">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold text-slate-600 uppercase tracking-wider px-1">
+            Filter {placeholder}
+          </p>
+          <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-0.5">
+            <div
+              className={cn(
+                "px-2 py-1.5 rounded-xs text-xs cursor-pointer transition-colors",
+                !hasFilter ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-slate-100 text-slate-600"
+              )}
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+            >
+              All {placeholder}
+            </div>
+            {(options || []).map((opt) => {
+              const isSelected = String(value) === String(opt.value);
+              return (
+                <div
+                  key={opt.value}
+                  className={cn(
+                    "px-2 py-1.5 rounded-xs text-xs cursor-pointer flex items-center justify-between transition-colors",
+                    isSelected ? "bg-blue-50 text-blue-700 font-semibold" : "hover:bg-slate-100 text-slate-700"
+                  )}
+                  onClick={() => {
+                    onChange(String(opt.value));
+                    setOpen(false);
+                  }}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected && <Check className="h-3 w-3 text-blue-600 shrink-0 ml-1" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+/**
+ * TableSettings - Settings for sticky column and row density
+ */
+const TableSettings = ({ columns, stickyColumns, setStickyColumns, density, setDensity }) => {
+  const [open, setOpen] = useState(false);
 
   const toggleSticky = (colId) => {
     setStickyColumns(prev => {
@@ -156,57 +415,85 @@ const TableSettings = ({ columns, stickyColumns, setStickyColumns }) => {
       if (isCurrentlySticky) {
         return prev.filter(id => id !== colId);
       }
-      // Max 3 columns can be sticky
       if (prev.length >= 3) {
         return prev;
       }
       return [...prev, colId];
     });
-  }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200 text-slate-600 shadow-none">
-           <Settings2 className="h-4 w-4" />
+        <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200 text-slate-600 shadow-none hover:bg-slate-50 shrink-0">
+          <Settings2 className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-0" align="end">
-        <div className="p-3 border-b bg-slate-50">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Table Settings</h4>
+      <PopoverContent className="w-60 p-0 shadow-lg" align="end">
+        <div className="p-3 border-b bg-slate-50/70">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-600">Table Settings</h4>
         </div>
-        <div className="max-h-[300px] overflow-y-auto custom-scrollbar p-1">
-          <p className="px-2 py-1.5 text-[10px] font-semibold text-slate-400 uppercase">Sticky Columns</p>
-          <div className="space-y-0.5 pb-1">
+        
+        {/* Row Density Settings */}
+        <div className="p-3 border-b">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Row Density</p>
+          <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded-md">
+            {Object.keys(DENSITY_CONFIG).map((dKey) => (
+              <button
+                key={dKey}
+                type="button"
+                onClick={() => setDensity(dKey)}
+                className={cn(
+                  "py-1 text-[11px] font-medium rounded-xs transition-colors",
+                  density === dKey
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-500 hover:text-slate-800"
+                )}
+              >
+                {DENSITY_CONFIG[dKey].label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sticky Columns Settings */}
+        <div className="p-2">
+          <div className="flex items-center justify-between px-1 mb-1">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Sticky Columns</p>
+            <span className="text-[10px] text-slate-400">Max 3</span>
+          </div>
+          <div className="max-h-[220px] overflow-y-auto custom-scrollbar space-y-0.5">
             {columns.map(col => {
               const id = col.id || col.accessorKey;
               if (!id) return null;
+              const isChecked = stickyColumns.includes(id);
               return (
                 <div 
                   key={id} 
-                  className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-50 rounded cursor-pointer"
+                  className="flex items-center space-x-2 px-2 py-1.5 hover:bg-slate-50 rounded-xs cursor-pointer select-none"
                   onClick={() => toggleSticky(id)}
                 >
-                  <Checkbox checked={stickyColumns.includes(id)} className="h-4 w-4" />
-                  <span className="text-xs text-slate-700">{col.header}</span>
+                  <Checkbox checked={isChecked} className="h-3.5 w-3.5" />
+                  <span className="text-xs text-slate-700 truncate">{col.header}</span>
                 </div>
-              )
+              );
             })}
           </div>
         </div>
       </PopoverContent>
     </Popover>
-  )
-}
+  );
+};
 
-/**
- * ProDataTable - The "Ideal Table" shared component
- */
 const DEFAULT_COLUMN_FILTERS = {};
 const DEFAULT_TOP_FILTERS = [];
 
+/**
+ * ProDataTable - Enterprise Data Grid Component
+ * Guaranteed strict viewport containment, 2D sticky layering, and responsive layout.
+ */
 const ProDataTable = ({
-  columns,
+  columns = [],
   fetchData,
   onAdd,
   onExport,
@@ -224,7 +511,11 @@ const ProDataTable = ({
   onSelectionChange,
   showSelectionColumn = true,
   lockActiveFilters = false,
-  customToolbarActions
+  customToolbarActions,
+  // Row Density & Viewport Props
+  density: propDensity,
+  emptyMessage = "No records found.",
+  className = "",
 }) => {
   const [data, setData] = useState([]);
   const [meta, setMeta] = useState({});
@@ -234,11 +525,17 @@ const ProDataTable = ({
     const saved = localStorage.getItem("table_page_size");
     return saved ? parseInt(saved) : 10;
   });
+  const [density, setDensity] = useState(() => {
+    if (propDensity) return propDensity;
+    const saved = localStorage.getItem("table_density");
+    return saved && DENSITY_CONFIG[saved] ? saved : "standard";
+  });
+
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [internalSelectedRows, setInternalSelectedRows] = useState(new Set());
   const [stickyColumns, setStickyColumns] = useState(initialStickyColumns);
-  const [activeHeaderFilters, setActiveHeaderFilters] = useState(new Set());
+  const [isMobile, setIsMobile] = useState(false);
 
   // Use controlled or internal selection
   const selectedRows = controlledSelectedRows || internalSelectedRows;
@@ -248,45 +545,76 @@ const ProDataTable = ({
   const headerRefs = useRef({});
   const isFirstRender = useRef(true);
 
-  // Measure actual header widths for sticky positioning
+  // Monitor screen size for mobile responsiveness
   useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Save density preference
+  const handleDensityChange = (newDensity) => {
+    setDensity(newDensity);
+    localStorage.setItem("table_density", newDensity);
+  };
+
+  // Measure actual header widths for sticky horizontal positioning
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const calculateOffsets = () => {
       const newOffsets = {};
       let currentOffset = showSelectionColumn ? 40 : 0;
       
-      // Calculate based on the order in processedColumns to match rendered DOM
+      // On small mobile screens, limit sticky columns to avoid covering the whole screen
+      const activeStickyCols = isMobile ? stickyColumns.slice(0, 1) : stickyColumns;
+
       const stickyColIds = columns
         .map(c => c.id || c.accessorKey)
-        .filter(id => stickyColumns.includes(id));
+        .filter(id => activeStickyCols.includes(id));
       
-      // We must follow the hoisted order
       stickyColIds.forEach((id) => {
         newOffsets[id] = currentOffset;
         const el = headerRefs.current[id];
         if (el) {
           currentOffset += el.getBoundingClientRect().width;
         } else {
-          currentOffset += 150; // Fallback for safety
+          currentOffset += 130;
         }
       });
-      setStickyOffsets(newOffsets);
+
+      setStickyOffsets(prev => {
+        const hasChanged = Object.keys(newOffsets).some(k => newOffsets[k] !== prev[k]) ||
+                           Object.keys(prev).some(k => !(k in newOffsets));
+        return hasChanged ? newOffsets : prev;
+      });
+    };
+
+    calculateOffsets();
+
+    const observer = new ResizeObserver(() => {
+      calculateOffsets();
     });
 
-    // Observe all sticky header elements
     stickyColumns.forEach(id => {
       if (headerRefs.current[id]) observer.observe(headerRefs.current[id]);
     });
 
     return () => observer.disconnect();
-  }, [stickyColumns, showSelectionColumn, columns, data, loading]); // also re-run when data loads as it impacts widths
+  }, [stickyColumns, showSelectionColumn, columns, isMobile]);
 
-  const processedColumns = React.useMemo(() => {
+  // Process columns with sticky offsets and sort hoisted sticky columns to the front
+  const processedColumns = useMemo(() => {
+    const activeStickyCols = isMobile ? stickyColumns.slice(0, 1) : stickyColumns;
     const sticky = [];
     const nonSticky = [];
     
     columns.forEach(col => {
       const id = col.id || col.accessorKey;
-      if (stickyColumns.includes(id)) {
+      if (activeStickyCols.includes(id)) {
         sticky.push(col);
       } else {
         nonSticky.push(col);
@@ -297,12 +625,12 @@ const ProDataTable = ({
     
     return sorted.map(col => {
       const colId = col.id || col.accessorKey;
-      const isSticky = stickyColumns.includes(colId);
+      const isSticky = activeStickyCols.includes(colId);
       const offset = stickyOffsets[colId] || 0;
       
       return { ...col, isSticky, stickyOffset: offset };
     });
-  }, [columns, stickyColumns, showSelectionColumn, stickyOffsets]);
+  }, [columns, stickyColumns, stickyOffsets, isMobile]);
 
   // Debounce global search
   useEffect(() => {
@@ -310,7 +638,7 @@ const ProDataTable = ({
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
       setPage(1);
-    }, 500);
+    }, 400);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -381,40 +709,36 @@ const ProDataTable = ({
     }
   };
 
-  const toggleHeaderFilter = (columnId) => {
-    setActiveHeaderFilters(prev => {
-      const next = new Set(prev);
-      if (next.has(columnId)) next.delete(columnId);
-      else next.add(columnId);
-      return next;
-    });
-  };
+  const densityConfig = DENSITY_CONFIG[density] || DENSITY_CONFIG.standard;
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden space-y-2.5 w-full">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-xs transition-all focus-within:max-w-sm">
+    <div className={cn("flex flex-col flex-1 h-full min-h-0 w-full overflow-hidden space-y-2.5", className)}>
+      {/* ── Toolbar ── */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 shrink-0 w-full">
+        {/* Search Input */}
+        <div className="relative flex-1 min-w-[200px] max-w-xs transition-all focus-within:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder={globalSearchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 bg-white border-slate-200 focus-visible:ring-1 text-xs rounded-md shadow-none"
+            className="pl-9 h-9 bg-white border-slate-200 focus-visible:ring-1 focus-visible:ring-blue-500 text-xs rounded-md shadow-none"
           />
         </div>
 
-        <div className="flex items-center gap-1.5">
+        {/* Action Controls & Filters */}
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           {customToolbarActions && (
-            <div className="flex items-center mr-2">
+            <div className="flex items-center mr-1">
               {customToolbarActions}
             </div>
           )}
+
           <TooltipProvider>
             {/* Top-Right Dropdown Filters */}
             {topFilters.map((tf, i) => (
               <Select key={i} value={tf.value} onValueChange={tf.onChange}>
-                <SelectTrigger className="w-[140px] h-9 bg-white border-slate-200 text-xs font-semibold shadow-none">
+                <SelectTrigger className="w-[130px] sm:w-[140px] h-9 bg-white border-slate-200 text-xs font-semibold shadow-none">
                   <SelectValue placeholder={tf.placeholder} />
                 </SelectTrigger>
                 <SelectContent>
@@ -439,14 +763,16 @@ const ProDataTable = ({
             <TableSettings 
               columns={columns} 
               stickyColumns={stickyColumns} 
-              setStickyColumns={setStickyColumns} 
+              setStickyColumns={setStickyColumns}
+              density={density}
+              setDensity={handleDensityChange}
             />
 
             {onAdd && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button onClick={onAdd} className="h-9 w-9 bg-slate-800 text-white hover:bg-slate-700 shadow-none ml-1">
-                    <Plus className="h-5 w-5" />
+                  <Button onClick={onAdd} className="h-9 w-9 bg-slate-800 text-white hover:bg-slate-700 shadow-none ml-0.5">
+                    <Plus className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent><p className="text-xs">{onAddTooltip}</p></TooltipContent>
@@ -456,7 +782,7 @@ const ProDataTable = ({
             {onDownloadTemplate && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" onClick={onDownloadTemplate} className="h-9 w-9 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none ml-1">
+                  <Button variant="outline" size="icon" onClick={onDownloadTemplate} className="h-9 w-9 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-none ml-0.5">
                     <FileText className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -473,7 +799,7 @@ const ProDataTable = ({
                     input.accept = '.xlsx, .xls';
                     input.onchange = (e) => onImport(e.target.files[0]);
                     input.click();
-                  }} className="h-9 w-9 border-slate-200 bg-white text-green-600 hover:bg-green-50 shadow-none ml-1">
+                  }} className="h-9 w-9 border-slate-200 bg-white text-emerald-600 hover:bg-emerald-50 shadow-none ml-0.5">
                     <Upload className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -484,116 +810,82 @@ const ProDataTable = ({
         </div>
       </div>
 
-      {/* Grid */}
-      <div className="rounded border bg-white relative flex flex-col flex-1 min-h-0 overflow-hidden w-full">
-        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar bg-white w-full">
-          <Table className="relative border-separate border-spacing-0 w-max min-w-full">
-            <TableHeader className="z-20 bg-slate-100 border-b border-slate-200">
+      {/* ── Stable Table Grid Container (Scrollable Inside Only) ── */}
+      <div className="rounded-md border border-slate-200 bg-white relative flex flex-col flex-1 min-h-0 w-full overflow-hidden shadow-2xs">
+        <div className="flex-1 min-h-0 w-full overflow-auto custom-scrollbar overscroll-contain bg-white">
+          <Table className="relative border-separate border-spacing-0 w-full min-w-max text-left">
+            <TableHeader className="bg-slate-100 border-b border-slate-200 sticky top-0 z-30">
               <TableRow className="hover:bg-transparent h-9 border-none">
                 {showSelectionColumn && (
-                  <TableHead className="w-[40px] sticky top-0 left-0 z-50 !bg-slate-100 border-r border-slate-200 px-0 text-center h-9">
+                  <TableHead 
+                    className="w-[40px] min-w-[40px] max-w-[40px] sticky top-0 left-0 border-r border-b border-slate-200 px-0 text-center h-9 bg-slate-100 shadow-[1px_0_0_0_#e2e8f0]"
+                    style={{ zIndex: 50, left: 0 }}
+                  >
+                    <div className="flex items-center justify-center h-full w-full">
                       <Checkbox
                         checked={selectedRows.size === data.length && data.length > 0}
                         onCheckedChange={() => toggleAll()}
                         className="h-3.5 w-3.5"
                       />
+                    </div>
                   </TableHead>
                 )}
                 {processedColumns.map((col, idx) => {
                   const columnId = col.id || col.accessorKey;
                   const isSticky = col.isSticky;
-                  const stickyClass = isSticky ? "sticky z-40 !bg-slate-100 border-r border-slate-200" : "";
-                  const hasFilter = Array.isArray(columnFilters[columnId]) 
-                    ? columnFilters[columnId].length > 0 
-                    : !!(columnFilters[columnId]);
-                    
-                  const isFilterOpen = activeHeaderFilters.has(columnId) || (lockActiveFilters && hasFilter);
+                  const stickyClass = isSticky ? "sticky border-r border-slate-200 shadow-[1px_0_0_0_#e2e8f0]" : "";
+                  const colFilterVal = columnFilters[columnId];
 
                   return (
                     <TableHead 
                       key={columnId || idx} 
                       ref={el => headerRefs.current[columnId] = el}
-                      className={`${col.className || ""} ${stickyClass} sticky top-0 h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase text-slate-700 tracking-wider transition-all`}
+                      className={cn(
+                        col.className,
+                        stickyClass,
+                        "sticky top-0 h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase text-slate-700 tracking-wider bg-slate-100 border-b border-slate-200 transition-colors"
+                      )}
                       style={{ 
                         width: col.width || 'auto',
+                        minWidth: col.width || (col.filterType ? '110px' : '70px'),
+                        maxWidth: col.maxWidth || 'auto',
                         left: isSticky ? `${col.stickyOffset}px` : 'auto',
-                        backgroundColor: '#f1f5f9',
-                        zIndex: isSticky ? 50 : 20
+                        zIndex: isSticky ? 50 : 30
                       }}
                     >
-                      <div className="flex items-center justify-between gap-1 h-full py-1">
-                        {!isFilterOpen ? (
-                          <>
-                            <span className="truncate">{col.header}</span>
-                            {col.filterType && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => toggleHeaderFilter(columnId)}
-                                className={`h-6 w-6 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 ${hasFilter ? 'text-blue-600' : ''}`}
-                              >
-                                {col.filterType === 'select' ? <Filter className="h-3 w-3" /> : col.filterType === 'date' ? <Calendar className="h-3 w-3" /> : <Search className="h-3 w-3" />}
-                              </Button>
-                            )}
-                          </>
-                        ) : (
-                          <div className="flex items-center gap-1 w-full animate-in fade-in duration-200">
-                             {col.filterType === 'select' ? (
-                               col.isMulti ? (
+                      <div className="flex items-center justify-between gap-1.5 h-full py-1">
+                        <span className="truncate">{col.header}</span>
+                        {col.filterType && (
+                          <div className="shrink-0">
+                            {col.filterType === 'select' ? (
+                              col.isMulti ? (
                                 <MultiSelectFilter
                                   options={col.filterOptions || []}
-                                  value={columnFilters[columnId]}
+                                  value={colFilterVal}
                                   onChange={(val) => onFilterChange({ [columnId]: val })}
                                   placeholder={col.header}
                                 />
-                               ) : (
-                                <Select
-                                  value={columnFilters[columnId] || "all"}
-                                  onValueChange={(val) => onFilterChange({ [columnId]: val === 'all' ? "" : val })}
-                                >
-                                  <SelectTrigger className="!h-7 py-0 min-h-[28px] text-[10px] w-full bg-white border-slate-300 shadow-none ring-0 focus:ring-1 focus:ring-blue-400 font-normal">
-                                    <SelectValue placeholder={`All ${col.header}`} />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[250px]">
-                                    <SelectItem value="all" className="text-xs italic text-slate-400 font-normal">All {col.header}</SelectItem>
-                                    {col.filterOptions?.map((opt, i) => (
-                                      <SelectItem key={`${opt.value}-${i}`} value={opt.value.toString()} className="text-xs font-normal">{opt.label}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                               )
-                             ) : col.filterType === 'date' ? (
-                              <div className="relative flex-1">
-                                <Input
-                                  type="date"
-                                  autoFocus
-                                  value={columnFilters[columnId] || ""}
-                                  onChange={(e) => onFilterChange({ [columnId]: e.target.value })}
-                                  className="!h-7 py-0 min-h-[28px] text-[10px] px-2 bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none font-normal"
+                              ) : (
+                                <SingleSelectFilterPopover
+                                  options={col.filterOptions || []}
+                                  value={colFilterVal}
+                                  onChange={(val) => onFilterChange({ [columnId]: val })}
+                                  placeholder={col.header}
                                 />
-                              </div>
-                             ) : (
-                              <div className="relative flex-1">
-                                <Input
-                                  autoFocus
-                                  placeholder={`Filter ${col.header}...`}
-                                  value={columnFilters[columnId] || ""}
-                                  onChange={(e) => onFilterChange({ [columnId]: e.target.value })}
-                                  className="!h-7 py-0 min-h-[28px] text-[10px] px-2 bg-white border-slate-300 focus-visible:ring-1 focus-visible:ring-blue-400 shadow-none normal-case font-normal"
-                                />
-                              </div>
+                              )
+                            ) : col.filterType === 'date' ? (
+                              <DateFilterPopover
+                                value={colFilterVal}
+                                onChange={(val) => onFilterChange({ [columnId]: val })}
+                                placeholder={col.header}
+                              />
+                            ) : (
+                              <TextFilterPopover
+                                value={colFilterVal}
+                                onChange={(val) => onFilterChange({ [columnId]: val })}
+                                placeholder={col.header}
+                              />
                             )}
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={() => {
-                                if (columnFilters[columnId]) onFilterChange({ [columnId]: "" });
-                                toggleHeaderFilter(columnId);
-                              }}
-                              className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
                           </div>
                         )}
                       </div>
@@ -602,59 +894,77 @@ const ProDataTable = ({
                 })}
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {loading ? (
-                Array.from({ length: 7 }).map((_, rIdx) => (
-                  <TableRow key={`skeleton-${rIdx}`} className="h-10 hover:bg-transparent border-b border-slate-100">
+                Array.from({ length: 8 }).map((_, rIdx) => (
+                  <TableRow key={`skeleton-${rIdx}`} className={cn("hover:bg-transparent border-b border-slate-100", densityConfig.rowHeight)}>
                     {showSelectionColumn && (
-                      <TableCell className="w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-40 border-r border-slate-100 p-0 h-10 bg-white">
+                      <TableCell 
+                        className="w-[40px] min-w-[40px] max-w-[40px] sticky left-0 border-r border-b border-slate-100 p-0 bg-white"
+                        style={{ zIndex: 20, left: 0 }}
+                      >
                          <div className="flex items-center justify-center h-full w-full">
                              <div className="h-3.5 w-3.5 rounded-sm bg-slate-200 animate-pulse" />
                          </div>
                       </TableCell>
                     )}
-                    {columns.map((col, idx) => {
-                        const columnId = col.id || col.accessorKey || String(idx);
-                        const isSticky = stickyColumns.includes(columnId);
-                        const stickyClass = isSticky ? 'sticky z-20 shadow-[1px_0_0_0_#f1f5f9]' : '';
-                        
-                        // Pseudo-randomize width a bit for visual variety
-                        const widths = ['w-16', 'w-20', 'w-24', 'w-28', 'w-32'];
-                        const randomWidth = widths[(rIdx + idx) % widths.length];
+                    {processedColumns.map((col, idx) => {
+                      const columnId = col.id || col.accessorKey || String(idx);
+                      const isSticky = col.isSticky;
+                      const stickyClass = isSticky ? 'sticky border-r border-slate-100 shadow-[1px_0_0_0_#f1f5f9]' : '';
+                      const widths = ['w-16', 'w-24', 'w-28', 'w-32', 'w-20'];
+                      const randomWidth = widths[(rIdx + idx) % widths.length];
 
-                        return (
-                          <TableCell 
-                            key={columnId || idx}
-                            className={`p-2.5 px-3 whitespace-nowrap border-r border-slate-50/50 ${stickyClass} ${col.className || ""}`}
-                            style={{
-                              left: isSticky ? `${col.stickyOffset}px` : 'auto',
-                              backgroundColor: isSticky ? 'white' : 'transparent'
-                            }}
-                          >
-                            <div className={`h-3.5 ${randomWidth} bg-slate-200/70 rounded-[4px] animate-pulse`} />
-                          </TableCell>
-                        )
+                      return (
+                        <TableCell 
+                          key={columnId || idx}
+                          className={cn(
+                            "p-2.5 px-3 whitespace-nowrap border-b border-slate-100/60",
+                            stickyClass,
+                            col.className,
+                            isSticky ? "bg-white" : "bg-transparent"
+                          )}
+                          style={{
+                            width: col.width || 'auto',
+                            left: isSticky ? `${col.stickyOffset}px` : 'auto',
+                            zIndex: isSticky ? 20 : 1
+                          }}
+                        >
+                          <div className={`h-3.5 ${randomWidth} bg-slate-200/70 rounded-[4px] animate-pulse`} />
+                        </TableCell>
+                      );
                     })}
                   </TableRow>
                 ))
               ) : data.length ? (
                 data.map((row, rIdx) => {
-                const isSelected = selectedRows.has(row.id);
+                  const isSelected = selectedRows.has(row.id);
                   return (
                     <TableRow 
-                      key={rIdx} 
-                      className={`h-8 transition-colors group ${isSelected ? 'bg-[#e0f2fe] hover:bg-[#bae6fd]' : 'hover:bg-slate-50/50'}`}
+                      key={row.id || rIdx} 
+                      className={cn(
+                        "transition-colors group",
+                        densityConfig.rowHeight,
+                        isSelected ? "bg-sky-50/80 hover:bg-sky-100/90" : "hover:bg-slate-50/70"
+                      )}
                     >
                       {showSelectionColumn && (
                         <TableCell 
-                          className={`w-[40px] min-w-[40px] max-w-[40px] sticky left-0 z-40 border-r border-slate-100 p-0 h-8 transition-colors`}
-                          style={{
-                            backgroundColor: isSelected ? '#bae6fd' : 'white',
-                            zIndex: 40
-                          }}
+                          className={cn(
+                            "w-[40px] min-w-[40px] max-w-[40px] sticky left-0 border-r border-b border-slate-100 p-0 transition-colors",
+                            isSelected 
+                              ? "bg-sky-100 group-hover:bg-sky-200" 
+                              : "bg-white group-hover:bg-slate-50"
+                          )}
+                          style={{ zIndex: 20, left: 0 }}
                         >
                           <div className="flex items-center justify-center h-full w-full">
-                            <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(row.id)} className="h-3.5 w-3.5" />
+                            <Checkbox 
+                              checked={isSelected} 
+                              onCheckedChange={() => toggleRow(row.id)} 
+                              className="h-3.5 w-3.5" 
+                            />
                           </div>
                         </TableCell>
                       )}
@@ -662,21 +972,46 @@ const ProDataTable = ({
                         const columnId = col.id || col.accessorKey;
                         const isSticky = col.isSticky;
                         const stickyClass = isSticky 
-                          ? `sticky z-30 border-r border-slate-100 ${isSelected ? '!bg-[#bae6fd] group-hover:!bg-[#7dd3fc]' : '!bg-white group-hover:!bg-slate-50'}` 
+                          ? "sticky border-r border-slate-100 shadow-[1px_0_0_0_#f1f5f9]" 
                           : "";
                         
+                        const rawContent = col.cell ? col.cell(row, rIdx) : resolvePath(row, col.accessorKey);
+
                         return (
                           <TableCell 
                             key={columnId || cIdx} 
-                            className={`${col.className || ""} ${stickyClass} py-0 px-3 h-8 text-[11px] font-medium text-slate-600 truncate border-b border-slate-100/60 transition-colors`}
+                            className={cn(
+                              col.className,
+                              stickyClass,
+                              densityConfig.cellPadding,
+                              densityConfig.fontSize,
+                              "font-medium text-slate-700 border-b border-slate-100/70 transition-colors align-middle",
+                              isSelected 
+                                ? "bg-sky-100 group-hover:bg-sky-200" 
+                                : isSticky 
+                                  ? "bg-white group-hover:bg-slate-50" 
+                                  : "bg-transparent group-hover:bg-slate-50/40"
+                            )}
                             style={{
                               width: col.width || 'auto',
+                              minWidth: col.width || (col.filterType ? '110px' : '70px'),
+                              maxWidth: col.maxWidth || 'auto',
                               left: isSticky ? `${col.stickyOffset}px` : 'auto',
-                              backgroundColor: isSelected ? '#bae6fd' : 'white',
-                              zIndex: isSticky ? 40 : 1
+                              zIndex: isSticky ? 20 : 1
                             }}
                           >
-                            {col.cell ? col.cell(row, rIdx) : resolvePath(row, col.accessorKey)}
+                            <div className="flex items-center min-w-0 max-w-full h-full overflow-hidden">
+                              {col.cell ? (
+                                rawContent
+                              ) : (
+                                <span 
+                                  className="truncate block w-full text-slate-700" 
+                                  title={typeof rawContent === 'string' || typeof rawContent === 'number' ? String(rawContent) : undefined}
+                                >
+                                  {rawContent !== undefined && rawContent !== null && rawContent !== "" ? rawContent : "-"}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                         );
                       })}
@@ -684,40 +1019,68 @@ const ProDataTable = ({
                   );
                 })
               ) : (
-                <TableRow><TableCell colSpan={columns.length + (showSelectionColumn ? 1 : 0)} className="h-24 text-center text-slate-400 font-medium whitespace-nowrap">No records found.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell 
+                    colSpan={columns.length + (showSelectionColumn ? 1 : 0)} 
+                    className="h-32 text-center text-slate-400 font-medium whitespace-nowrap"
+                  >
+                    {emptyMessage}
+                  </TableCell>
+                </TableRow>
               )}
             </TableBody>
           </Table>
         </div>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between py-2 px-3 border-t bg-slate-50/50 rounded-b-md">
+      {/* ── Responsive Pagination Footer ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 py-2 px-3 border border-slate-200 bg-slate-50/80 rounded-md shrink-0 w-full">
+        {/* Rows per page */}
         <div className="flex items-center gap-2">
-          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Rows per page</p>
-          <Select value={pageSize.toString()} onValueChange={(val) => { setPageSize(parseInt(val)); setPage(1); }}>
-            <SelectTrigger className="h-7 w-[65px] bg-white border-slate-200 text-xs">
-                <SelectValue placeholder={pageSize} />
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Rows</p>
+          <Select 
+            value={pageSize.toString()} 
+            onValueChange={(val) => { 
+              setPageSize(parseInt(val)); 
+              setPage(1); 
+            }}
+          >
+            <SelectTrigger className="h-7 w-[68px] bg-white border-slate-200 text-xs shadow-none">
+              <SelectValue placeholder={pageSize} />
             </SelectTrigger>
             <SelectContent side="top">
-                {[5, 10, 20, 50, 100].map(sz => (
-                  <SelectItem key={sz} value={sz.toString()} className="text-xs">{sz}</SelectItem>
-                ))}
+              {[5, 10, 20, 50, 100].map(sz => (
+                <SelectItem key={sz} value={sz.toString()} className="text-xs">{sz}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-        <div className="flex items-center gap-6">
-            <div className="text-[11px] font-medium text-slate-500">
-                Page <span className="text-slate-900">{meta.page || 1}</span> of <span className="text-slate-900">{meta.totalPages || 1}</span> (<span className="text-slate-900">{meta.total || 0}</span> items)
-            </div>
-            <div className="flex items-center gap-1.5">
-                <Button variant="ghost" size="sm" className="h-8 px-2.5 text-slate-600 hover:bg-slate-200" onClick={() => setPage(page - 1)} disabled={page <= 1 || loading}>
-                    <ChevronLeft className="h-3.5 w-3.5 mr-1" /> <span className="text-xs">Prev</span>
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 px-2.5 text-slate-600 hover:bg-slate-200" onClick={() => setPage(page + 1)} disabled={page >= (meta.totalPages || 1) || loading}>
-                    <span className="text-xs">Next</span> <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                </Button>
-            </div>
+
+        {/* Page status & controls */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          <div className="text-[11px] font-medium text-slate-500">
+            Page <span className="text-slate-900 font-semibold">{meta.page || 1}</span> of <span className="text-slate-900 font-semibold">{meta.totalPages || 1}</span> (<span className="text-slate-900 font-semibold">{meta.total || 0}</span> items)
+          </div>
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 px-2.5 bg-white border-slate-200 text-slate-600 hover:bg-slate-100 shadow-none disabled:opacity-50" 
+              onClick={() => setPage(page - 1)} 
+              disabled={page <= 1 || loading}
+            >
+              <ChevronLeft className="h-3.5 w-3.5 mr-0.5" /> <span className="text-xs">Prev</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 px-2.5 bg-white border-slate-200 text-slate-600 hover:bg-slate-100 shadow-none disabled:opacity-50" 
+              onClick={() => setPage(page + 1)} 
+              disabled={page >= (meta.totalPages || 1) || loading}
+            >
+              <span className="text-xs">Next</span> <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+            </Button>
+          </div>
         </div>
       </div>
     </div>

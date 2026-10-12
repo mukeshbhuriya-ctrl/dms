@@ -174,23 +174,19 @@ function AuditLogs() {
   }
 
   return (
-    <>
-      <main className="flex-1 flex flex-col overflow-auto p-6">
-        <div className="w-full flex-1 flex flex-col">
-          <ProDataTable
-            columns={columns}
-            fetchData={fetchData}
-            onExport={handleExport}
-            refreshKey={refreshKey}
-            columnFilters={columnFilters}
-            onFilterChange={(newFilters) => setColumnFilters((prev) => ({ ...prev, ...newFilters }))}
-            globalSearchPlaceholder="Search..."
-            showSelectionColumn={false}
-            initialStickyColumns={["createdAt"]}
-          />
-        </div>
-      </main>
-    </>
+    <PageContainer>
+      <ProDataTable
+        columns={columns}
+        fetchData={fetchData}
+        onExport={handleExport}
+        refreshKey={refreshKey}
+        columnFilters={columnFilters}
+        onFilterChange={(newFilters) => setColumnFilters((prev) => ({ ...prev, ...newFilters }))}
+        globalSearchPlaceholder="Search..."
+        showSelectionColumn={false}
+        initialStickyColumns={["createdAt"]}
+      />
+    </PageContainer>
   )
 }
 

@@ -444,8 +444,8 @@ export default function JobOverview() {
   );
 
   return (
-    <>
-      <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6">
+    <PageContainer scrollable={true}>
+      <div className="space-y-6">
         {selectionBar}
 
         {!selectedJobId ? (
@@ -836,7 +836,7 @@ export default function JobOverview() {
             </div>
           </div>
         ) : null}
-      </main>
-    </>
+      </div>
+    </PageContainer>
   );
 }

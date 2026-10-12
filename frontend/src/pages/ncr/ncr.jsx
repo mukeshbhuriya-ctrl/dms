@@ -492,7 +492,7 @@ function ListView({ onCreateClick, onViewClick, onOpenClick }) {
     };
 
     return (
-        <div>
+        <div className="flex-1 min-h-0 flex flex-col h-full w-full">
 
             {error && (
                 <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -1563,7 +1563,7 @@ function CreateNCR() {
 
     return (
         <>
-            <PageContainer>
+            <PageContainer scrollable={view !== "list"}>
 {view === "list" ? (
                         <ListView
                             onCreateClick={() => { setViewNcrId(null); setView("create") }}

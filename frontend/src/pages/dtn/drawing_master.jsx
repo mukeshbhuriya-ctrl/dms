@@ -314,22 +314,20 @@ export default function DrawingMaster() {
    ]
 
    return (
-      <div className="flex h-screen flex-col w-full bg-slate-50/20 overflow-hidden text-slate-900">
-         <main className="flex-1 flex flex-col overflow-hidden">
+      <PageContainer scrollable={view !== "summary"}>
             {view === "summary" ? (
-               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500 overflow-hidden p-4 md:p-8">
+               <div className="flex-1 min-h-0 flex flex-col w-full animate-in fade-in overflow-hidden">
                   <ProDataTable
                      columns={summaryColumns}
                      fetchData={fetchMasterSummaries}
                      showSearch={true}
                      globalSearchPlaceholder="Quick search projects..."
-                     className="border border-slate-200 shadow-sm rounded-md overflow-hidden bg-white"
                      columnFilters={columnFilters}
                      onFilterChange={(newFilters) => setColumnFilters(prev => ({ ...prev, ...newFilters }))}
                   />
                </div>
             ) : (
-               <div className="flex-1 flex flex-col w-full max-w-[1600px] mx-auto animate-in fade-in duration-500 overflow-auto p-4 md:p-8">
+               <div className="flex-1 min-h-0 flex flex-col w-full animate-in fade-in duration-500 overflow-auto">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0">
                      <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
@@ -445,7 +443,6 @@ export default function DrawingMaster() {
                   </Card>
                </div>
             )}
-         </main>
 
          {/* Trail Sidebar Drawer */}
          <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
@@ -471,6 +468,6 @@ export default function DrawingMaster() {
             previewUrl={previewUrl}
             activePreviewDoc={activePreviewDoc}
          />
-      </div>
+      </PageContainer>
    )
 }

@@ -441,7 +441,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
 
 
   return (
-    <div>
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full">
 
 
       {error && (
@@ -1338,7 +1338,7 @@ function TubeBundleInspection() {
 
   return (
     <>
-      <PageContainer>
+      <PageContainer scrollable={view !== "list"}>
 {view === "list" ? (
             <ListView
               onCreateClick={() => {

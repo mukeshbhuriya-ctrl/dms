@@ -198,7 +198,7 @@ function ListView({ onInitiateClick, onViewClick, onEditClick, refreshListKey })
   ], [onViewClick, user]);
 
   return (
-    <div className="h-full flex flex-col pt-4">
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full">
       <ProDataTable
         columns={columns}
         fetchData={fetchData}
@@ -912,6 +912,7 @@ export function MaintenanceMemo() {
 
   return (
     <PageContainer
+      scrollable={view !== "list"}
       title={view === "list" ? "Maintenance Memos" : ""}
       description={view === "list" ? "Track and resolve maintenance requests." : ""}
       breadcrumb={[

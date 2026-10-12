@@ -179,7 +179,7 @@ function ListView({ onCreateClick, onEditClick, onViewClick }) {
   ], [onEditClick, user]);
 
   return (
-    <div className="h-full flex flex-col pt-4">
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full">
       <ProDataTable
         columns={columns}
         fetchData={fetchPlans}
@@ -710,6 +710,7 @@ export function PreventiveMaintenance() {
 
   return (
     <PageContainer
+      scrollable={view !== "list"}
       title={view === "list" ? "Preventive Maintenance Plans" : activePlan ? `Edit ${activePlan.year} Schedule` : "Create Schedule"}
       description="Manage yearly preventive maintenance schedules using the tabular matrix."
       breadcrumb={breadcrumb}

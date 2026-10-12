@@ -121,19 +121,15 @@ export function ApprovalCenter() {
   ], []);
 
   return (
-    <>
-      <main className="flex-1 flex flex-col overflow-auto p-6">
-        <div className="w-full flex-1 flex flex-col">
-          <ProDataTable
-            key={statusFilter}
-            columns={columns}
-            fetchData={fetchRequests}
-            topFilters={topFilters}
-            globalSearchPlaceholder="Search requests..."
-          />
-        </div>
-      </main>
-    </>
+    <PageContainer>
+      <ProDataTable
+        key={statusFilter}
+        columns={columns}
+        fetchData={fetchRequests}
+        topFilters={topFilters}
+        globalSearchPlaceholder="Search requests..."
+      />
+    </PageContainer>
   );
 }
 

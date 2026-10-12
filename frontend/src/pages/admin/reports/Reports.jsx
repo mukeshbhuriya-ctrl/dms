@@ -1,6 +1,5 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import React, { useState, useEffect, useRef } from 'react';
-;
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -206,7 +205,7 @@ const Reports = () => {
   return (
     <>
 
-        <PageContainer>
+        <PageContainer scrollable={true}>
 {/* Simple Tab Switcher */}
             <div className="flex items-center gap-2 border-b border-gray-200">
               {categories.map((cat) => (

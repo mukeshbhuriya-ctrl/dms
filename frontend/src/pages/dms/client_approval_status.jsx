@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useRef } from "react";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -628,10 +629,9 @@ const ClientApprovalStatus = () => {
     ], [rowUpdates, backendUrl]);
 
     return (
-        <div className="flex h-screen flex-col overflow-hidden">
-
-            <main className={`flex-1 min-h-0 p-6 flex flex-col ${view === "list" ? "overflow-hidden" : "overflow-auto"}`}>
-                <div className={`flex-1 min-h-0 flex flex-col w-full max-w-[1700px] mx-auto ${view === "list" ? "overflow-hidden" : ""}`}>
+        <>
+            <PageContainer scrollable={view !== "list"}>
+            <div className="flex-1 min-h-0 flex flex-col w-full h-full max-w-[1700px] mx-auto">
 
                     {view === 'review' && (
                         <>
@@ -691,7 +691,7 @@ const ClientApprovalStatus = () => {
                         />
                     </div>
                 </div>
-            </main>
+            </PageContainer>
 
             <Sheet open={isTrailOpen} onOpenChange={setIsTrailOpen}>
                     <SheetContent className="sm:max-w-xl overflow-y-auto border-none shadow-2xl">
@@ -755,7 +755,7 @@ const ClientApprovalStatus = () => {
                     title="Upload Feedback Files"
                     description="Select or drag comments, stamped files, or notes for this document."
                 />
-        </div>
+        </>
     );
 };
 

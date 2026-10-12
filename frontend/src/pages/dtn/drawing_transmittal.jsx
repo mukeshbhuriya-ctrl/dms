@@ -312,7 +312,7 @@ function ListView({ onCreateClick, onEditClick, refreshKey }) {
   ], [onEditClick, handleExport, activeCustomerOptions, activePoOptions, activeJobOptions])
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden w-full">
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full overflow-hidden">
 
       <ProDataTable
         fetchData={fetchDtns}
@@ -1105,7 +1105,7 @@ export default function DrawingTransmittal() {
   }, [])
 
   return (
-    <PageContainer>
+    <PageContainer scrollable={view !== "list"}>
       {view === "list" ? (
         <ListView
           onCreateClick={handleCreate}

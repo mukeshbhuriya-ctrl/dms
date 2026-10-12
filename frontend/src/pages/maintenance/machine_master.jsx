@@ -253,7 +253,7 @@ function ListView({ onCreateClick }) {
   };
 
   return (
-    <div className="h-full flex flex-col pt-4">
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full">
       <ProDataTable
         columns={columns}
         fetchData={fetchData}
@@ -534,6 +534,7 @@ export function MachineMaster() {
 
   return (
     <PageContainer
+      scrollable={view !== "list"}
       title={view === "list" ? "Machine Master" : ""}
       description={view === "list" ? "Manage factory machines and equipment for maintenance." : ""}
       breadcrumb={[

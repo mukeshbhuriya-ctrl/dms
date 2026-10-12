@@ -196,10 +196,7 @@ const HeadingMaster = () => {
     ], [])
 
     return (
-        <div className="flex flex-col h-screen bg-slate-50/30">
-            {/* App Header */}
-            {/* Main Content Area */}
-            <PageContainer>
+        <PageContainer scrollable={view === "form"}>
 {/* Page Header Section */}{view === "form" && (
                         <div className="flex justify-end mb-4">
                             <Button variant="outline" onClick={handleBackToList} className="h-9 gap-2">
@@ -267,8 +264,6 @@ const HeadingMaster = () => {
                             </CardContent>
                         </Card>
                     )}
-</PageContainer>
-
             <ConfirmDialog
                 isOpen={confirmData.isOpen}
                 title={confirmData.title}
@@ -279,7 +274,7 @@ const HeadingMaster = () => {
                 onCancel={() => setConfirmData({ isOpen: false })}
                 isLoading={confirmData.isLoading}
             />
-        </div>
+        </PageContainer>
     )
 }
 

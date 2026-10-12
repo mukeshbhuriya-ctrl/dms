@@ -368,7 +368,7 @@ function ListView({ onCreateClick, onEditClick }) {
   };
 
   return (
-    <div>
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full">
       {error && (
         <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
@@ -1337,7 +1337,7 @@ function HydroPresText() {
   }
 
   return (
-    <PageContainer>{successMsg && (
+    <PageContainer scrollable={view !== "list"}>{successMsg && (
               <div className="mb-4 rounded-md border border-green-500 bg-green-50 px-4 py-3 text-sm text-green-700 flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 {successMsg}

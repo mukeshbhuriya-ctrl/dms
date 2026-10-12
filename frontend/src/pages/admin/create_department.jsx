@@ -241,9 +241,8 @@ function CreateDepartment() {
   }
 
   return (
-    <>
-      <main className="flex-1 flex flex-col p-6 overflow-auto">
-        <div className="w-full flex-1 flex flex-col">
+    <PageContainer scrollable={view !== "list"}>
+      <div className="w-full flex-1 flex flex-col min-h-0 h-full">
           {view !== "list" && (
             <div className="flex justify-between items-center mb-6">
               <div>
@@ -394,9 +393,8 @@ function CreateDepartment() {
             variant="warning"
             isLoading={isToggling}
           />
-        </div>
-      </main>
-    </>
+      </div>
+    </PageContainer>
   )
 }
 

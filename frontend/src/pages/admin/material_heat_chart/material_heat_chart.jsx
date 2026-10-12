@@ -796,7 +796,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   };
 
   return (
-    <div>
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full">
       <ProDataTable
         columns={columns}
         fetchData={fetchData}
@@ -2522,10 +2522,12 @@ export default function MaterialHeatChart() {
   }
 
   return (
-    <PageContainer>{view === "list" ? (
-      <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} onCloneClick={handleCloneClick} />
-    ) : (
-      <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} editContext={editContext} />
-    )}</PageContainer>
+    <PageContainer scrollable={view !== "list"}>
+      {view === "list" ? (
+        <ListView onCreateClick={handleCreateClick} onEditClick={handleEditClick} onCloneClick={handleCloneClick} />
+      ) : (
+        <CreateView onBack={() => setView("list")} onSuccess={handleSuccess} editId={editId} cloneId={cloneId} isView={isReadOnly} editContext={editContext} />
+      )}
+    </PageContainer>
   )
 }

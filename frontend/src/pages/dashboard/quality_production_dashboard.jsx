@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useNavigate } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -198,30 +199,35 @@ const QualityProductionDashboard = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-64px)]">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
+      <PageContainer>
+        <div className="flex flex-1 h-full items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        </div>
+      </PageContainer>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6 h-[calc(100vh-64px)] flex justify-center items-start pt-10">
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 text-red-600 p-4 flex gap-3 max-w-lg">
-          <AlertCircle className="h-5 w-5 mt-0.5" />
-          <div>
-            <h3 className="font-bold">Error</h3>
-            <p className="text-sm mt-1">{error}</p>
+      <PageContainer>
+        <div className="flex flex-1 h-full items-center justify-center p-6">
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 text-red-600 p-4 flex gap-3 max-w-lg">
+            <AlertCircle className="h-5 w-5 mt-0.5" />
+            <div>
+              <h3 className="font-bold">Error</h3>
+              <p className="text-sm mt-1">{error}</p>
+            </div>
           </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   const { mhc, qap, hydrostatic, dish_end, tube_bundle, final_inspection, tube_sheet, welding } = data || {};
 
   return (
-    <div className="p-6 space-y-6 bg-[#F8FAF9] h-[calc(100vh-64px)] overflow-y-auto">
+    <PageContainer scrollable={true}>
+      <div className="space-y-6">
       
       {/* HEADER & TOGGLE */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
@@ -469,7 +475,8 @@ const QualityProductionDashboard = () => {
       </div>
       )}
 
-    </div>
+      </div>
+    </PageContainer>
   );
 };
 

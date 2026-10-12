@@ -464,7 +464,7 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
   };
 
   return (
-    <div>
+    <div className="flex-1 min-h-0 flex flex-col h-full w-full">
       
 
       {error && (
@@ -1939,7 +1939,7 @@ export default function FinalInspectionReports() {
 
   return (
     <>
-      <PageContainer>
+      <PageContainer scrollable={view !== "list"}>
 {view === "list" ? (
             <ListView
               onCreateClick={() => {

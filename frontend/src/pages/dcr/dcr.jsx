@@ -1002,7 +1002,7 @@ function CreateDCR() {
 
   return (
     <>
-      <PageContainer>
+      <PageContainer scrollable={view !== "list"}>
         {view !== "list" && (
           <div className="flex justify-end items-center mb-4">
             <div className="flex gap-2">

@@ -222,8 +222,8 @@ function RfqLookupManager() {
 
     return (
         <>
-            <PageContainer>
-<div className="flex-1 flex flex-col w-full">
+            <PageContainer scrollable={view !== "list"}>
+                <div className="flex-1 min-h-0 flex flex-col h-full w-full">
                     {view !== "list" && (<div className="flex justify-end mb-4"><div><Button variant="outline" onClick={() => setView("list")}>
                                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to List
                             </Button>

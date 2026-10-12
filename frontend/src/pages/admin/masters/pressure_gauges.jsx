@@ -238,10 +238,8 @@ export default function PressureGauges() {
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50">
-
-      <PageContainer>
-<ProDataTable
+    <PageContainer>
+      <ProDataTable
           columns={columns}
           fetchData={fetchData}
           onImport={hasPermission("instruments:pressure", "Create") ? handleImport : undefined}
@@ -249,7 +247,6 @@ export default function PressureGauges() {
           globalSearchPlaceholder="Search by description or SR No..."
           refreshKey={refreshTrigger}
         />
-</PageContainer>
 
       <ImportReviewDialog
         open={importReview.isOpen}
@@ -276,6 +273,6 @@ export default function PressureGauges() {
         ]}
         onConfirm={handleConfirmImport}
       />
-    </div>
+    </PageContainer>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { PageContainer } from "@/components/layout/PageContainer"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -193,8 +194,8 @@ export default function RoleManagement() {
   ], [])
 
   return (
-    <main className="flex-1 flex flex-col overflow-auto p-6">
-      <div className="w-full flex-1 flex flex-col">
+    <PageContainer scrollable={view !== "list"}>
+      <div className="w-full flex-1 flex flex-col min-h-0 h-full">
         {view === "list" ? (
           <>            
             <ProDataTable
@@ -311,6 +312,6 @@ export default function RoleManagement() {
           isLoading={isDeleting}
         />
       </div>
-    </main>
+    </PageContainer>
   )
 }

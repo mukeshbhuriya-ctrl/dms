@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { TableVirtuoso } from "react-virtuoso";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -117,7 +118,7 @@ export default function TravelerWeldingNDE() {
   };
 
   return (
-    <div>
+    <PageContainer scrollable={true}>
       
       <div className="p-6">
         <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -395,6 +396,6 @@ export default function TravelerWeldingNDE() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PageContainer>
   );
 }
