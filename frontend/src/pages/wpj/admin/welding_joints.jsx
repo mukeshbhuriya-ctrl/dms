@@ -93,6 +93,7 @@ function WeldingJoints() {
   // View Modal State
   const [isViewOpen, setIsViewOpen] = useState(false)
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null)
+  const [downloadingPlanId, setDownloadingPlanId] = useState(null)
 
   // Bulk Import State
   const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
@@ -380,6 +381,26 @@ function WeldingJoints() {
       setError("Error fetching plan details")
     }
   }
+
+  const handleDownloadPlanPdf = async (planId, weldPlanNo) => {
+    setDownloadingPlanId(planId)
+    try {
+      const blob = await apiClient.get(`/api/wpj/weld-joint-plan/${planId}/pdf`, {}, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      const safePlanNo = (weldPlanNo || `Plan_${planId}`).replace(/[^a-zA-Z0-9_-]/g, '_')
+      link.setAttribute('download', `Weld_Plan_${safePlanNo}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Failed to download Weld Plan PDF:", err)
+    } finally {
+      setDownloadingPlanId(null)
+    }
+  }
   const handleEditClick = useCallback(async (planId, mode = "edit") => {
     setIsLoading(true)
     setError("")
@@ -608,6 +629,13 @@ function WeldingJoints() {
             icon: Eye,
             onClick: () => handleViewClick(row.id)
         });
+
+        actions.push({
+            label: downloadingPlanId === row.id ? "Downloading..." : "Download PDF",
+            icon: Download,
+            onClick: () => handleDownloadPlanPdf(row.id, row.weld_plan_no),
+            disabled: downloadingPlanId === row.id
+        });
         
         actions.push({
             label: "Edit",
@@ -644,7 +672,7 @@ function WeldingJoints() {
         );
       },
     },
-  ], [handleEditClick, handleCloneClick])
+  ], [handleEditClick, handleCloneClick, handleDownloadPlanPdf, downloadingPlanId])
 
   const fetchPlans = useCallback(async ({ page, limit, search, sorting }) => {
     try {
@@ -1610,8 +1638,20 @@ function WeldingJoints() {
             {/* View Details Modal */}
             <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
               <DialogContent className="sm:max-w-[95vw] w-full max-h-[95vh] overflow-y-auto p-6">
-                <DialogHeader className="mb-4">
-                  <DialogTitle className="text-xl font-bold text-center">Weld Joint Plan Details</DialogTitle>
+                <DialogHeader className="mb-4 flex flex-row items-center justify-between pr-8">
+                  <DialogTitle className="text-xl font-bold">Weld Joint Plan Details</DialogTitle>
+                  {selectedPlanDetails && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadPlanPdf(selectedPlanDetails.id, selectedPlanDetails.weld_plan_no)}
+                      disabled={downloadingPlanId === selectedPlanDetails.id}
+                      className="h-8 shadow-none bg-white border-slate-200 text-slate-700 cursor-pointer"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      {downloadingPlanId === selectedPlanDetails.id ? "Downloading..." : "Download PDF"}
+                    </Button>
+                  )}
                 </DialogHeader>
 
                 {selectedPlanDetails && (

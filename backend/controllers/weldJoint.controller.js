@@ -3,6 +3,7 @@ const pdfGenerator = require('#utils/pdfGenerator');
 const pdfGeneratorCD = require('#utils/pdfGeneratorCD');
 const pdfGeneratorF = require('#utils/pdfGeneratorF');
 const travelerPdfGenerator = require('../utils/travelerPdfGenerator');
+const weldPlanPdfGenerator = require('../utils/weldPlanPdfGenerator');
 const prisma = require('#prisma');
 const Audit = require('#utils/audit.js');
 const { extractStageData } = require('../utils/weldJointData');
@@ -495,6 +496,69 @@ const getQualityMetricsReport = async (req, res) => {
     }
 };
 
+async function downloadWeldJointPlanPdf(req, res) {
+    try {
+        const { id } = req.params;
+        const company_id = req.user?.company_id;
+
+        const plan = await prisma.weld_joint_plan.findFirst({
+            where: {
+                id: id,
+                ...(company_id ? { company_id } : {})
+            },
+            include: {
+                job: {
+                    select: {
+                        job_number: true,
+                        tag_number: true,
+                        project_id: true,
+                        equipement_name: true,
+                        customer: {
+                            select: {
+                                customer_name: true
+                            }
+                        }
+                    }
+                },
+                weld_joints: {
+                    orderBy: {
+                        joint_no: 'asc'
+                    }
+                },
+                creator: {
+                    select: {
+                        name: true
+                    }
+                }
+            }
+        });
+
+        if (!plan) {
+            return res.status(404).json({
+                success: false,
+                message: 'Weld Joint Plan not found'
+            });
+        }
+
+        const companyInfo = await getCompanyInfo(company_id);
+
+        const filename = `Weld_Plan_${(plan.weld_plan_no || id).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        weldPlanPdfGenerator.generatePDF(plan, res, companyInfo);
+    } catch (error) {
+        console.error('Download weld joint plan pdf error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                success: false,
+                message: 'Internal server error',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+            });
+        }
+    }
+}
+
 module.exports = {
     getWeldJoints,
     getWeldJointActiveFilters,
@@ -510,5 +574,6 @@ module.exports = {
     archivePlan,
     getTravelerSummary,
     downloadTravelerSummaryPdf,
-    getQualityMetricsReport
+    getQualityMetricsReport,
+    downloadWeldJointPlanPdf
 };

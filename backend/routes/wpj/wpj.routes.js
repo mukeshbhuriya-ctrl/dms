@@ -1,6 +1,6 @@
 const express = require('express');
 const { getjobInfo, createWeldJointPlan, updateWeldJointPlan, getWeldJointPlanDetails, getAssignedWeldJoints, updateStageStatus, reviewStageStatus, bulkCreateWeldJointPlan, requestModification, approveModification, getPendingModifications } = require('#api/wpj/weld-joint.js');
-const { getWeldJoints, getWeldJointPlans, generateStageReport, getWeldJointActiveFilters, getCumulativeData, getReportNo, getJointTrail, getTravelerSummary, downloadTravelerSummaryPdf, getQualityMetricsReport } = require('../../controllers/weldJoint.controller.js');
+const { getWeldJoints, getWeldJointPlans, generateStageReport, getWeldJointActiveFilters, getCumulativeData, getReportNo, getJointTrail, getTravelerSummary, downloadTravelerSummaryPdf, getQualityMetricsReport, downloadWeldJointPlanPdf } = require('../../controllers/weldJoint.controller.js');
 const { authenticateUser, authenticateUserOnly } = require('#api/middleware/user.middleware.js');
 
 const router = express.Router();
@@ -15,6 +15,8 @@ router.post('/bulk-create', bulkCreateWeldJointPlan);
 router.put('/update-weld-joint-plan/:id', updateWeldJointPlan);
 router.get('/get-weld-joint-plans', getWeldJointPlans);
 router.get('/get-weld-joint-plan/:id', getWeldJointPlanDetails);
+router.get('/get-weld-joint-plan/:id/pdf', downloadWeldJointPlanPdf);
+router.get('/weld-joint-plan/:id/pdf', downloadWeldJointPlanPdf);
 
 router.get('/get-all-weld-joints', getWeldJoints);
 router.get('/traveler-summary', getTravelerSummary);
