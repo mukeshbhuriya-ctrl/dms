@@ -5,10 +5,12 @@ const path = require('path');
 class FinalInspectionPdfGenerator {
     constructor() {
         this.colors = {
-            red: '#FF0000',
             black: '#000000',
             white: '#FFFFFF',
-            green: '#92D050' // From ss1/ss2
+            grey: '#E2E8F0',
+            headerBg: '#F1F5F9',
+            zebraBg: '#F8FAFC',
+            border: '#000000'
         };
         this.fonts = {
             regular: 'Helvetica',
@@ -16,321 +18,712 @@ class FinalInspectionPdfGenerator {
         };
     }
 
-    drawLogoAndTitle(doc, x, y, width, height, companyInfo) {
-        const logoBoxW = 160;
-        const titleBoxW = width - logoBoxW;
-        
-        doc.lineWidth(0.5).strokeColor(this.colors.black);
-        doc.rect(x, y, logoBoxW, height).stroke();
-        doc.rect(x + logoBoxW, y, titleBoxW, height).stroke();
-
-        // Logo Section
-        doc.rect(x, y, logoBoxW, height).stroke();
-        const logoPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
-        if (fs.existsSync(logoPath)) {
-            try {
-                doc.image(logoPath, x + 5, y + 10, { height: 30 });
-            } catch (e) {
-                const altLogo = path.join(process.cwd(), 'backend', 'public', 'logo.png');
-                if (fs.existsSync(altLogo)) doc.image(altLogo, x + 5, y + 10, { height: 30 });
-            }
-        }
-        doc.font(this.fonts.bold).fontSize(10).fillColor('#005596')
-            .text(companyInfo?.name || 'Shreno Engineering Limited', x + 38, y + 15, { width: logoBoxW - 40, align: 'left' });
-
-        doc.font(this.fonts.bold).fontSize(15).fillColor(this.colors.black)
-            .text('FINAL INSPECTION REPORT', x + logoBoxW, y + 25, { width: titleBoxW, align: 'center' });
+    formatText(text) {
+        if (text === null || text === undefined || text === '') return '-';
+        return String(text).trim();
     }
 
-    generatePDF(data, res, companyInfo) {
-        const doc = new PDFDocument({ margin: 25, size: 'A4' });
-        doc.pipe(res);
+    drawBox(doc, x, y, width, height, lineWidth = 0.5, fillColor = null) {
+        doc.lineWidth(lineWidth).strokeColor(this.colors.border);
+        if (fillColor) {
+            doc.rect(x, y, width, height).fillAndStroke(fillColor, this.colors.border);
+        } else {
+            doc.rect(x, y, width, height).stroke();
+        }
+    }
 
-        const startX = 40;
-        const startY = 40;
-        const width = doc.page.width - 80;
-        const height = doc.page.height - 80;
+    drawLine(doc, x1, y1, x2, y2, lineWidth = 0.5) {
+        doc.lineWidth(lineWidth).strokeColor(this.colors.border).moveTo(x1, y1).lineTo(x2, y2).stroke();
+    }
 
-        // Outer Border
-        doc.lineWidth(1).strokeColor(this.colors.black).rect(startX, startY, width, height).stroke();
+    drawMainHeader(doc, x, y, width, data, companyInfo) {
+        const headerH = 50;
+        const logoBoxW = 180;
+        const titleBoxW = width - logoBoxW;
 
-        let curY = startY;
+        this.drawBox(doc, x, y, width, headerH, 1);
 
-        // 1. Header Section
-        const headerH = 65;
-        this.drawLogoAndTitle(doc, startX, curY, width, headerH, companyInfo);
-        curY += headerH;
+        // 1. Logo Section
+        const logoPath = path.resolve(__dirname, '..', 'assets', 'shreno-logo.png');
+        let logoDrawn = false;
+        if (fs.existsSync(logoPath)) {
+            try {
+                doc.image(logoPath, x + 8, y + 6, {
+                    fit: [logoBoxW - 16, headerH - 12],
+                    align: 'center',
+                    valign: 'center'
+                });
+                logoDrawn = true;
+            } catch (e) {
+                console.error('Failed to load primary logo in finalInspectionPdfGenerator:', e);
+            }
+        }
+        if (!logoDrawn) {
+            const altPath = companyInfo?.logoPath || path.join(process.cwd(), 'frontend', 'public', 'lego_logo.png');
+            if (fs.existsSync(altPath)) {
+                try {
+                    doc.image(altPath, x + 8, y + 6, {
+                        fit: [logoBoxW - 16, headerH - 12],
+                        align: 'center',
+                        valign: 'center'
+                    });
+                    logoDrawn = true;
+                } catch (e) { }
+            }
+        }
+        if (!logoDrawn) {
+            const compName = companyInfo?.name || 'SHRENO ENGINEERING LIMITED';
+            const compFontSize = compName.length > 32 ? 8 : (compName.length > 25 ? 9 : 10);
+            doc.font(this.fonts.bold).fontSize(compFontSize).fillColor(this.colors.black)
+                .text(compName, x + 5, y + 18, { width: logoBoxW - 10, align: 'center' });
+        }
+        this.drawLine(doc, x + logoBoxW, y, x + logoBoxW, y + headerH, 1);
 
-        // 2. Info Grid Section
-        const rowH = 18;
-        doc.fontSize(9);
+        // 2. Title Section
+        const titleX = x + logoBoxW;
+        doc.font(this.fonts.bold).fontSize(14).fillColor(this.colors.black)
+            .text('FINAL INSPECTION REPORT', titleX, y + 12, { width: titleBoxW, align: 'center' });
+        doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black)
+            .text('Final Dimension & Geometric Inspection Schedule', titleX, y + 30, { width: titleBoxW, align: 'center' });
 
-        // --- ROW 1: MSN, TAG NO, DATE (3 columns) ---
-        doc.rect(startX, curY, width, rowH).stroke();
+        return y + headerH;
+    }
+
+    drawCompactHeader(doc, x, y, width, data, companyInfo) {
+        const compactH = 34;
+        this.drawBox(doc, x, y, width, compactH, 0.8, this.colors.headerBg);
+
+        // Left: Company name
+        doc.font(this.fonts.bold).fontSize(9.5).fillColor(this.colors.black)
+            .text(companyInfo?.name || 'SHRENO ENGINEERING LIMITED', x + 8, y + 11, { width: 190, align: 'left' });
+
+        // Center: Title
+        doc.font(this.fonts.bold).fontSize(10.5).fillColor(this.colors.black)
+            .text('FINAL INSPECTION REPORT', x + 200, y + 10, { width: width - 390, align: 'center' });
+
+        // Right: Report / MSN info
+        const rNo = this.formatText(data.report_no || data.msn);
+        doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black)
+            .text(`Report No: ${rNo}`, x + width - 180, y + 6, { width: 172, align: 'right' })
+            .font(this.fonts.regular).fontSize(6.5).fillColor(this.colors.black)
+            .text(`MSN: ${this.formatText(data.msn)}`, x + width - 180, y + 18, { width: 172, align: 'right' });
+
+        return y + compactH;
+    }
+
+    drawInfoGrid(doc, x, y, width, data) {
+        let curY = y;
+
+        // Row 1: MSN, TAG NO, DATE (3 columns)
         const col3W = width / 3;
-        const labelW = 45; // Width of red label boxes
-
-        // col 1 (MSN)
-        doc.rect(startX, curY, labelW, rowH).stroke();
-        doc.font(this.fonts.bold).fillColor(this.colors.red).text('MSN:', startX + 5, curY + 5);
-        doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(data.msn || '-'), startX + labelW + 5, curY + 5);
-        doc.moveTo(startX + col3W, curY).lineTo(startX + col3W, curY + rowH).stroke();
-
-        // col 2 (TAG NO)
-        const startCol2 = startX + col3W;
-        doc.rect(startCol2, curY, labelW + 10, rowH).stroke();
-        doc.font(this.fonts.bold).fillColor(this.colors.red).text('TAG NO.:', startCol2 + 5, curY + 5);
-        doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(data.tag_no || '-'), startCol2 + labelW + 15, curY + 5);
-        doc.moveTo(startX + 2 * col3W, curY).lineTo(startX + 2 * col3W, curY + rowH).stroke();
-
-        // col 3 (DATE)
-        const startCol3 = startX + 2 * col3W;
-        doc.rect(startCol3, curY, labelW, rowH).stroke();
-        doc.font(this.fonts.bold).fillColor(this.colors.red).text('DATE:', startCol3 + 5, curY + 5);
-        const reportDate = data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-';
-        doc.font(this.fonts.regular).fillColor(this.colors.black).text(reportDate, startCol3 + labelW + 5, curY + 5);
-        
-        curY += rowH;
-
-        // --- REMAINING ROWS: (2 columns each) ---
-        const col2W = width / 2;
-        const infoRows = [
-            { l1: 'CLIENT:', v1: data.client, l2: 'DRG. NO.:', v2: data.drg_no },
-            { l1: 'P.O. NO.:', v1: data.po_no, l2: 'EQUIPMENT:', v2: data.equipment_name },
-            { l1: 'CODE:', v1: data.code, l2: 'QAP CLAUSE:', v2: data.qap_clause || '-' }
+        const row1Data = [
+            { label: 'MSN:', val: this.formatText(data.msn) },
+            { label: 'TAG NO.:', val: this.formatText(data.tag_no) },
+            { label: 'DATE:', val: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-' }
         ];
 
-        infoRows.forEach(row => {
-            doc.rect(startX, curY, width, rowH).stroke();
-            doc.moveTo(startX + col2W, curY).lineTo(startX + col2W, curY + rowH).stroke();
-            
-            // Col 1
-            doc.rect(startX, curY, labelW, rowH).stroke();
-            doc.font(this.fonts.bold).fillColor(this.colors.red).text(row.l1, startX + 5, curY + 5);
-            doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(row.v1 || '-'), startX + labelW + 5, curY + 5);
-            
-            // Col 2
-            const startC2 = startX + col2W;
-            doc.rect(startC2, curY, labelW + 20, rowH).stroke();
-            doc.font(this.fonts.bold).fillColor(this.colors.red).text(row.l2, startC2 + 5, curY + 5);
-            doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(row.v2 || '-'), startC2 + labelW + 25, curY + 5);
-            
+        let maxH1 = 10;
+        const lblW3 = 52;
+        const valW3 = col3W - lblW3 - 8;
+        row1Data.forEach(col => {
+            doc.font(this.fonts.regular).fontSize(7.5);
+            const h = doc.heightOfString(col.val, { width: valW3, lineGap: 1 });
+            if (h > maxH1) maxH1 = h;
+        });
+        const r1H = Math.max(18, maxH1 + 7);
+
+        this.drawBox(doc, x, curY, width, r1H, 0.8);
+        this.drawLine(doc, x + col3W, curY, x + col3W, curY + r1H, 0.5);
+        this.drawLine(doc, x + (2 * col3W), curY, x + (2 * col3W), curY + r1H, 0.5);
+
+        row1Data.forEach((col, idx) => {
+            const startColX = x + (idx * col3W);
+            doc.font(this.fonts.bold).fontSize(7.5).fillColor(this.colors.black)
+                .text(col.label, startColX + 5, curY + 4.5, { width: lblW3, align: 'left' });
+            doc.font(this.fonts.regular).fontSize(7.5).fillColor(this.colors.black)
+                .text(col.val, startColX + lblW3 + 2, curY + 4.5, { width: valW3, align: 'left', lineBreak: true, lineGap: 1 });
+        });
+        curY += r1H;
+
+        // Rows 2, 3, 4: (2 columns each)
+        const col2W = width / 2;
+        const lblW2 = 68;
+        const valW2 = col2W - lblW2 - 8;
+
+        const infoRows2 = [
+            [
+                { label: 'CLIENT:', val: this.formatText(data.client) },
+                { label: 'DRG. NO.:', val: this.formatText(data.drg_no) }
+            ],
+            [
+                { label: 'P.O. NO.:', val: this.formatText(data.po_no) },
+                { label: 'EQUIPMENT:', val: this.formatText(data.equipment_name) }
+            ],
+            [
+                { label: 'CODE:', val: this.formatText(data.code) },
+                { label: 'QAP CLAUSE:', val: this.formatText(data.qap_clause) }
+            ]
+        ];
+
+        infoRows2.forEach(row => {
+            let maxH = 10;
+            row.forEach(col => {
+                doc.font(this.fonts.regular).fontSize(7.5);
+                const h = doc.heightOfString(col.val, { width: valW2, lineGap: 1 });
+                if (h > maxH) maxH = h;
+            });
+            const rowH = Math.max(18, maxH + 7);
+
+            this.drawBox(doc, x, curY, width, rowH, 0.8);
+            this.drawLine(doc, x + col2W, curY, x + col2W, curY + rowH, 0.5);
+
+            row.forEach((col, idx) => {
+                const startColX = x + (idx * col2W);
+                doc.font(this.fonts.bold).fontSize(7.5).fillColor(this.colors.black)
+                    .text(col.label, startColX + 5, curY + 4.5, { width: lblW2, align: 'left' });
+                doc.font(this.fonts.regular).fontSize(7.5).fillColor(this.colors.black)
+                    .text(col.val, startColX + lblW2 + 2, curY + 4.5, { width: valW2, align: 'left', lineBreak: true, lineGap: 1 });
+            });
+
             curY += rowH;
         });
 
-        // 3. FINAL DIMENSION REPORT Table
-        const greenHeaderH = 18;
-        doc.rect(startX, curY, width, greenHeaderH).fillAndStroke(this.colors.green, this.colors.black);
-        doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text('FINAL DIMENSION REPORT', startX, curY + 5, { width: width, align: 'center' });
-        curY += greenHeaderH;
+        return curY;
+    }
 
-        const c1 = 40, c2 = 180, c3 = 120, c4 = 100, c5 = width - c1 - c2 - c3 - c4;
-        doc.rect(startX, curY, width, greenHeaderH).fillAndStroke(this.colors.green, this.colors.black);
-        doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.red);
-        doc.text('SR NO.', startX, curY + 5, { width: c1, align: 'center' });
-        doc.text('DESCRIPTION', startX + c1, curY + 5, { width: c2, align: 'center' });
-        doc.text('REQUIRED', startX + c1 + c2, curY + 5, { width: c3, align: 'center' });
-        doc.text('ACTUAL', startX + c1 + c2 + c3, curY + 5, { width: c4, align: 'center' });
-        doc.text('REMARKS', startX + c1 + c2 + c3 + c4, curY + 5, { width: c5, align: 'center' });
-        curY += greenHeaderH;
+    drawSectionBanner(doc, x, y, width, title) {
+        const bannerH = 16;
+        this.drawBox(doc, x, y, width, bannerH, 0.8, this.colors.headerBg);
+        doc.font(this.fonts.bold).fontSize(8.5).fillColor(this.colors.black)
+            .text(title, x, y + 4, { width: width, align: 'center' });
+        return y + bannerH;
+    }
 
-        if (data.details && data.details.length > 0) {
-            data.details.forEach((item, i) => {
-                doc.rect(startX, curY, width, 15).stroke();
-                // Vertical lines
-                [c1, c1 + c2, c1 + c2 + c3, c1 + c2 + c3 + c4].forEach(x => {
-                    doc.moveTo(startX + x, curY).lineTo(startX + x, curY + 15).stroke();
-                });
-                doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black);
-                doc.text(String(item.sr_no || (i + 1)), startX, curY + 4, { width: c1, align: 'center' });
-                doc.font(this.fonts.bold).fillColor(this.colors.red).text(String(item.description || ''), startX + c1 + 5, curY + 4, { width: c2 - 10 });
-                doc.font(this.fonts.regular).fillColor(this.colors.black).text(String(item.required || ''), startX + c1 + c2 + 5, curY + 4, { width: c3 - 10, align: 'center' });
-                doc.text(String(item.actual || ''), startX + c1 + c2 + c3 + 5, curY + 4, { width: c4 - 10, align: 'center' });
-                doc.text(String(item.remarks || ''), startX + c1 + c2 + c3 + c4 + 5, curY + 4, { width: c5 - 10, align: 'center' });
-                curY += 15;
-            });
-        }
-
-        // 4. NOZZLE DETAILS Table
-        doc.rect(startX, curY, width, greenHeaderH).fillAndStroke(this.colors.green, this.colors.black);
-        doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text('NOZZLE DETAILS', startX, curY + 5, { width: width, align: 'center' });
-        curY += greenHeaderH;
-
-        const nc1 = 50, nc2 = 80, nc3 = 50, nc4 = 60, nc5 = 60, nc6 = 60, nc7 = 60, nc8 = width - nc1 - nc2 - nc3 - nc4 - nc5 - nc6 - nc7;
-
-        // Multi-level Header
-        doc.rect(startX, curY, width, 30).fillAndStroke(this.colors.green, this.colors.black);
-        doc.fontSize(7).font(this.fonts.bold).fillColor(this.colors.red);
-        doc.text('NOZZLE MARK', startX, curY + 10, { width: nc1, align: 'center' });
-        doc.text('ORIENTATION', startX + nc1, curY + 10, { width: nc2, align: 'center' });
-        doc.text('SIZE', startX + nc1 + nc2, curY + 10, { width: nc3, align: 'center' });
-
-        doc.text('DIMENSION AS PER APRROVED DRAWING', startX + nc1 + nc2 + nc3, curY + 5, { width: nc4 + nc5 + nc6, align: 'center' });
-        doc.text('DIMENSION AT ACTUAL MEASURE', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 5, { width: nc7 + nc8, align: 'center' });
-
-        doc.fontSize(6);
-        doc.text('LOCATION', startX + nc1 + nc2 + nc3, curY + 18, { width: nc4, align: 'center' });
-        doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4, curY + 18, { width: nc5, align: 'center' });
-        doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5, curY + 18, { width: nc6, align: 'center' });
-        doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 18, { width: nc7, align: 'center' });
-        doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7, curY + 18, { width: nc8, align: 'center' });
-
-        // Vertical lines for header
-        [nc1, nc1 + nc2, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
-            doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 30).stroke();
+    generatePDF(data, res, companyInfo) {
+        const doc = new PDFDocument({
+            margins: {
+                top: 30,
+                bottom: 25,
+                left: 30,
+                right: 30
+            },
+            size: 'A4',
+            layout: 'portrait',
+            bufferPages: true,
+            autoFirstPage: true
         });
-        curY += 30;
 
-        if (data.nozzles && data.nozzles.length > 0) {
-            data.nozzles.forEach(nz => {
-                doc.rect(startX, curY, width, 15).stroke();
-                [nc1, nc1 + nc2, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
-                    doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 15).stroke();
+        doc.pipe(res);
+
+        const startX = 30;
+        const width = doc.page.width - 60; // 535.28 pt
+        const bottomLineY = doc.page.height - 40; // 801.89 pt
+        const maxY = bottomLineY - 10; // 791.89 pt
+
+        let curY = 30;
+
+        // Page 1 Header & Info Grid
+        curY = this.drawMainHeader(doc, startX, curY, width, data, companyInfo);
+        curY += 5;
+        curY = this.drawInfoGrid(doc, startX, curY, width, data);
+        curY += 6;
+
+        const checkPageBreak = (neededH, redrawHeaderCallback) => {
+            if (curY + neededH > maxY) {
+                doc.addPage({
+                    margins: { top: 30, bottom: 25, left: 30, right: 30 },
+                    size: 'A4',
+                    layout: 'portrait'
                 });
-                doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
-                doc.text(nz.nozzle_mark || '', startX, curY + 4, { width: nc1, align: 'center' });
-                doc.text(nz.orientation || '', startX + nc1, curY + 4, { width: nc2, align: 'center' });
-                doc.text(nz.size || '', startX + nc1 + nc2, curY + 4, { width: nc3, align: 'center' });
-                doc.text(nz.location || '', startX + nc1 + nc2 + nc3, curY + 4, { width: nc4, align: 'center' });
-                doc.text(nz.elevation_approved || '', startX + nc1 + nc2 + nc3 + nc4, curY + 4, { width: nc5, align: 'center' });
-                doc.text(nz.projection_approved || '', startX + nc1 + nc2 + nc3 + nc4 + nc5, curY + 4, { width: nc6, align: 'center' });
-                doc.text(nz.elevation_actual || '', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 4, { width: nc7, align: 'center' });
-                doc.text(nz.projection_actual || '', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7, curY + 4, { width: nc8, align: 'center' });
-                curY += 15;
-            });
-        }
-
-        // 5. PART DETAILS Table (Similar structure)
-        doc.rect(startX, curY, width, greenHeaderH).fillAndStroke(this.colors.green, this.colors.black);
-        doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.red).text('PART DETAILS', startX, curY + 5, { width: width, align: 'center' });
-        curY += greenHeaderH;
-
-        doc.rect(startX, curY, width, 30).fillAndStroke(this.colors.green, this.colors.black);
-        doc.fontSize(7).font(this.fonts.bold).fillColor(this.colors.red);
-        doc.text('PART NO', startX, curY + 10, { width: nc1, align: 'center' });
-        doc.text('DESCRIPTION', startX + nc1, curY + 10, { width: nc2 + nc3, align: 'center' });
-        doc.text('DIMENSION AS PER APRROVED DRAWING', startX + nc1 + nc2 + nc3, curY + 5, { width: nc4 + nc5 + nc6, align: 'center' });
-        doc.text('DIMENSION AT ACTUAL MEASURE', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 5, { width: nc7 + nc8, align: 'center' });
-
-        doc.fontSize(6);
-        doc.text('ORIENTATION', startX + nc1 + nc2 + nc3, curY + 18, { width: nc4, align: 'center' });
-        doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4, curY + 18, { width: nc5, align: 'center' });
-        doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5, curY + 18, { width: nc6, align: 'center' });
-        doc.text('ELEVATION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 18, { width: nc7, align: 'center' });
-        doc.text('PROJECTION', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7, curY + 18, { width: nc8, align: 'center' });
-
-        [nc1, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
-            doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 30).stroke();
-        });
-        curY += 30;
-
-        if (data.parts && data.parts.length > 0) {
-            data.parts.forEach(pt => {
-                doc.rect(startX, curY, width, 15).stroke();
-                [nc1, nc1 + nc2 + nc3, nc1 + nc2 + nc3 + nc4, nc1 + nc2 + nc3 + nc4 + nc5, nc1 + nc2 + nc3 + nc4 + nc5 + nc6, nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7].forEach(lx => {
-                    doc.moveTo(startX + lx, curY).lineTo(startX + lx, curY + 15).stroke();
-                });
-                doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
-                doc.text(pt.part_no || '', startX, curY + 4, { width: nc1, align: 'center' });
-                doc.text(pt.description || '', startX + nc1, curY + 4, { width: nc2 + nc3, align: 'center' });
-                doc.text(pt.orientation_approved || '', startX + nc1 + nc2 + nc3, curY + 4, { width: nc4, align: 'center' });
-                doc.text(pt.elevation_approved || '', startX + nc1 + nc2 + nc3 + nc4, curY + 4, { width: nc5, align: 'center' });
-                doc.text(pt.projection_approved || '', startX + nc1 + nc2 + nc3 + nc4 + nc5, curY + 4, { width: nc6, align: 'center' });
-                doc.text(pt.elevation_actual || '', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6, curY + 4, { width: nc7, align: 'center' });
-                doc.text(pt.projection_actual || '', startX + nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7, curY + 4, { width: nc8, align: 'center' });
-                curY += 15;
-            });
-        }
-
-        // 6. Remarks section
-        doc.rect(startX, curY, width, 15).fillAndStroke(this.colors.green, this.colors.black);
-        doc.font(this.fonts.bold).fontSize(8).fillColor(this.colors.red).text('REMARK:', startX + 5, curY + 4);
-        curY += 15;
-
-        const idxColW = 35;
-        if (data.remarks && data.remarks.length > 0) {
-            data.remarks.forEach((rem, idx) => {
-                const textWidth = width - idxColW - 10;
-                doc.fontSize(7).font(this.fonts.regular);
-                const textHeight = Math.max(15, doc.heightOfString(rem.text, { width: textWidth }) + 8);
-                
-                // Row Box
-                doc.rect(startX, curY, width, textHeight).stroke();
-                
-                // Vertical Line
-                doc.moveTo(startX + idxColW, curY).lineTo(startX + idxColW, curY + textHeight).stroke();
-                
-                // Index
-                doc.font(this.fonts.regular).fillColor(this.colors.black);
-                const idxH = doc.currentLineHeight();
-                doc.text(String(idx + 1), startX, curY + (textHeight - idxH) / 2, { width: idxColW, align: 'center' });
-                
-                // Remark Text
-                doc.fillColor(this.colors.red);
-                const actualTextH = doc.heightOfString(rem.text, { width: textWidth });
-                doc.text(rem.text, startX + idxColW + 5, curY + (textHeight - actualTextH) / 2, { width: textWidth });
-                
-                curY += textHeight;
-            });
-        }
-
-        // 7. Instruments
-        doc.fontSize(8).font(this.fonts.bold).fillColor(this.colors.red).text('INSTRUMENT CALIBRATION DETAILS:', startX, curY + 5);
-        curY += 15;
-
-        const iColW = width / 4;
-        const iRowH = 15;
-
-        // Header Row: 1, 2, 3
-        doc.rect(startX, curY, width, iRowH).stroke();
-        [1, 2, 3].forEach(num => {
-            const ix = startX + num * iColW;
-            doc.moveTo(ix, curY).lineTo(ix, curY + iRowH).stroke();
-            doc.font(this.fonts.bold).fillColor(this.colors.black).text(String(num), ix, curY + 4, { width: iColW, align: 'center' });
-        });
-        curY += iRowH;
-
-        ['NAME:', 'ID NO. / SR NO.:', 'DUE DATE:'].forEach((lbl, lIdx) => {
-            doc.rect(startX, curY, width, iRowH).stroke();
-            
-            // Vertical lines for each column
-            [1, 2, 3].forEach(num => {
-                const ix = startX + num * iColW;
-                doc.moveTo(ix, curY).lineTo(ix, curY + iRowH).stroke();
-            });
-
-            doc.font(this.fonts.bold).fillColor(this.colors.red).text(lbl, startX + 5, curY + 4);
-            if (data.instruments) {
-                data.instruments.slice(0, 3).forEach((inst, i) => {
-                    const fields = ['name', 'id_no', 'due_date'];
-                    let val = String(inst[fields[lIdx]] || '');
-                    if (fields[lIdx] === 'due_date' && val) {
-                        try { val = new Date(val).toLocaleDateString('en-GB'); } catch(e){}
-                    }
-                    doc.font(this.fonts.regular).fillColor(this.colors.black).text(val, startX + iColW * (i + 1), curY + 4, { width: iColW, align: 'center' });
-                });
+                curY = 30;
+                curY = this.drawCompactHeader(doc, startX, curY, width, data, companyInfo);
+                curY += 6;
+                if (redrawHeaderCallback) {
+                    curY = redrawHeaderCallback(curY);
+                }
             }
-            curY += iRowH;
+        };
+
+        // ═════════════════════════════════════════════════════════════════════
+        // 1. FINAL DIMENSION REPORT TABLE
+        // ═════════════════════════════════════════════════════════════════════
+        const dimCols = [
+            { id: 'sr_no', label: 'SR NO.', w: 35, align: 'center' },
+            { id: 'description', label: 'DESCRIPTION', w: 175, align: 'left' },
+            { id: 'required', label: 'REQUIRED', w: 90, align: 'center' },
+            { id: 'actual', label: 'ACTUAL', w: 90, align: 'center' },
+            { id: 'remarks', label: 'REMARKS', w: width - (35 + 175 + 90 + 90), align: 'left' }
+        ];
+
+        const drawDimHeader = (y) => {
+            y = this.drawSectionBanner(doc, startX, y, width, 'FINAL DIMENSION REPORT');
+            const headerH = 15;
+            this.drawBox(doc, startX, y, width, headerH, 0.8, this.colors.headerBg);
+
+            let tx = startX;
+            dimCols.forEach((col, idx) => {
+                if (idx < dimCols.length - 1) {
+                    this.drawLine(doc, tx + col.w, y, tx + col.w, y + headerH, 0.5);
+                }
+                doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black)
+                    .text(col.label, tx + 1, y + 4.5, { width: col.w - 2, align: 'center' });
+                tx += col.w;
+            });
+            return y + headerH;
+        };
+
+        checkPageBreak(35, drawDimHeader);
+        if (curY === 30) {
+            // Already drawn via callback
+        } else {
+            curY = drawDimHeader(curY);
+        }
+
+        const details = data.details || [];
+        if (details.length === 0) {
+            const emptyH = 18;
+            this.drawBox(doc, startX, curY, width, emptyH, 0.4);
+            doc.font(this.fonts.regular).fontSize(7.5).fillColor(this.colors.black)
+                .text('No dimension records available.', startX, curY + 5, { width: width, align: 'center' });
+            curY += emptyH;
+        } else {
+            details.forEach((item, idx) => {
+                const cellValues = [
+                    String(item.sr_no || (idx + 1)),
+                    this.formatText(item.description),
+                    this.formatText(item.required),
+                    this.formatText(item.actual),
+                    this.formatText(item.remarks)
+                ];
+
+                let maxH = 8;
+                dimCols.forEach((col, cIdx) => {
+                    const paddingX = col.align === 'center' ? 2 : 4;
+                    doc.font(cIdx === 1 ? this.fonts.bold : this.fonts.regular).fontSize(7);
+                    const h = doc.heightOfString(cellValues[cIdx], { width: col.w - (paddingX * 2), lineGap: 1 });
+                    if (h > maxH) maxH = h;
+                });
+                const rowH = Math.max(16, maxH + 7);
+
+                checkPageBreak(rowH, drawDimHeader);
+
+                const rowBg = idx % 2 === 1 ? this.colors.zebraBg : null;
+                this.drawBox(doc, startX, curY, width, rowH, 0.4, rowBg);
+
+                let tx = startX;
+                dimCols.forEach((col, cIdx) => {
+                    if (cIdx < dimCols.length - 1) {
+                        this.drawLine(doc, tx + col.w, curY, tx + col.w, curY + rowH, 0.4);
+                    }
+                    const paddingX = col.align === 'center' ? 2 : 4;
+                    const font = cIdx === 1 ? this.fonts.bold : this.fonts.regular;
+                    doc.font(font).fontSize(7).fillColor(this.colors.black)
+                        .text(cellValues[cIdx], tx + paddingX, curY + 3.5, {
+                            width: col.w - (paddingX * 2),
+                            align: col.align,
+                            lineBreak: true,
+                            lineGap: 1
+                        });
+                    tx += col.w;
+                });
+
+                curY += rowH;
+            });
+        }
+        curY += 6;
+
+        // ═════════════════════════════════════════════════════════════════════
+        // 2. NOZZLE DETAILS TABLE
+        // ═════════════════════════════════════════════════════════════════════
+        const nc1 = 38, nc2 = 65, nc3 = 100, nc4 = 75, nc5 = 65, nc6 = 52, nc7 = 70;
+        const nc8 = width - (nc1 + nc2 + nc3 + nc4 + nc5 + nc6 + nc7);
+        const nozzleCols = [
+            { id: 'nozzle_mark', label: 'NOZZLE MARK', w: nc1, align: 'center' },
+            { id: 'orientation', label: 'ORIENTATION', w: nc2, align: 'center' },
+            { id: 'size', label: 'SIZE', w: nc3, align: 'left' },
+            { id: 'location', label: 'LOCATION', w: nc4, align: 'left' },
+            { id: 'elevation_approved', label: 'ELEVATION', w: nc5, align: 'center' },
+            { id: 'projection_approved', label: 'PROJECTION', w: nc6, align: 'center' },
+            { id: 'elevation_actual', label: 'ELEVATION', w: nc7, align: 'center' },
+            { id: 'projection_actual', label: 'PROJECTION', w: nc8, align: 'center' }
+        ];
+
+        const drawNozzleHeader = (y) => {
+            y = this.drawSectionBanner(doc, startX, y, width, 'NOZZLE DETAILS');
+            const hTop = 14;
+            const hSub = 13;
+            const totalH = hTop + hSub;
+
+            this.drawBox(doc, startX, y, width, totalH, 0.8, this.colors.headerBg);
+
+            // Standalone columns
+            let tx = startX;
+            [
+                { label: 'NOZZLE\nMARK', w: nc1 },
+                { label: 'ORIENTATION', w: nc2 },
+                { label: 'SIZE', w: nc3 }
+            ].forEach(col => {
+                this.drawLine(doc, tx + col.w, y, tx + col.w, y + totalH, 0.5);
+                doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+                    .text(col.label, tx + 1, y + 8, { width: col.w - 2, align: 'center', lineGap: 1 });
+                tx += col.w;
+            });
+
+            // Group: APPROVED DRAWING
+            const appW = nc4 + nc5 + nc6;
+            this.drawLine(doc, tx, y + hTop, tx + appW, y + hTop, 0.5);
+            this.drawLine(doc, tx + appW, y, tx + appW, y + totalH, 0.5);
+            doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+                .text('DIMENSION AS PER APPROVED DRAWING', tx, y + 3.5, { width: appW, align: 'center' });
+
+            this.drawLine(doc, tx + nc4, y + hTop, tx + nc4, y + totalH, 0.5);
+            this.drawLine(doc, tx + nc4 + nc5, y + hTop, tx + nc4 + nc5, y + totalH, 0.5);
+            doc.fontSize(6)
+                .text('LOCATION', tx, y + hTop + 3.5, { width: nc4, align: 'center' })
+                .text('ELEVATION', tx + nc4, y + hTop + 3.5, { width: nc5, align: 'center' })
+                .text('PROJECTION', tx + nc4 + nc5, y + hTop + 3.5, { width: nc6, align: 'center' });
+
+            // Group: ACTUAL MEASURE
+            const actX = tx + appW;
+            const actW = nc7 + nc8;
+            this.drawLine(doc, actX, y + hTop, actX + actW, y + hTop, 0.5);
+            doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+                .text('DIMENSION AT ACTUAL MEASURE', actX, y + 3.5, { width: actW, align: 'center' });
+
+            this.drawLine(doc, actX + nc7, y + hTop, actX + nc7, y + totalH, 0.5);
+            doc.fontSize(6)
+                .text('ELEVATION', actX, y + hTop + 3.5, { width: nc7, align: 'center' })
+                .text('PROJECTION', actX + nc7, y + hTop + 3.5, { width: nc8, align: 'center' });
+
+            return y + totalH;
+        };
+
+        checkPageBreak(45, drawNozzleHeader);
+        curY = drawNozzleHeader(curY);
+
+        const nozzles = data.nozzles || [];
+        if (nozzles.length === 0) {
+            const emptyH = 18;
+            this.drawBox(doc, startX, curY, width, emptyH, 0.4);
+            doc.font(this.fonts.regular).fontSize(7.5).fillColor(this.colors.black)
+                .text('No nozzle records available.', startX, curY + 5, { width: width, align: 'center' });
+            curY += emptyH;
+        } else {
+            nozzles.forEach((nz, idx) => {
+                const cellValues = [
+                    this.formatText(nz.nozzle_mark),
+                    this.formatText(nz.orientation),
+                    this.formatText(nz.size),
+                    this.formatText(nz.location),
+                    this.formatText(nz.elevation_approved),
+                    this.formatText(nz.projection_approved),
+                    this.formatText(nz.elevation_actual),
+                    this.formatText(nz.projection_actual)
+                ];
+
+                let maxH = 8;
+                nozzleCols.forEach((col, cIdx) => {
+                    const paddingX = col.align === 'center' ? 2 : 4;
+                    doc.font(cIdx === 0 ? this.fonts.bold : this.fonts.regular).fontSize(6.5);
+                    const h = doc.heightOfString(cellValues[cIdx], { width: col.w - (paddingX * 2), lineGap: 1 });
+                    if (h > maxH) maxH = h;
+                });
+                const rowH = Math.max(16, maxH + 7);
+
+                checkPageBreak(rowH, drawNozzleHeader);
+
+                const rowBg = idx % 2 === 1 ? this.colors.zebraBg : null;
+                this.drawBox(doc, startX, curY, width, rowH, 0.4, rowBg);
+
+                let tx = startX;
+                nozzleCols.forEach((col, cIdx) => {
+                    if (cIdx < nozzleCols.length - 1) {
+                        this.drawLine(doc, tx + col.w, curY, tx + col.w, curY + rowH, 0.4);
+                    }
+                    const paddingX = col.align === 'center' ? 2 : 4;
+                    const font = cIdx === 0 ? this.fonts.bold : this.fonts.regular;
+                    doc.font(font).fontSize(6.5).fillColor(this.colors.black)
+                        .text(cellValues[cIdx], tx + paddingX, curY + 3.5, {
+                            width: col.w - (paddingX * 2),
+                            align: col.align,
+                            lineBreak: true,
+                            lineGap: 1
+                        });
+                    tx += col.w;
+                });
+
+                curY += rowH;
+            });
+        }
+        curY += 6;
+
+        // ═════════════════════════════════════════════════════════════════════
+        // 3. PART DETAILS TABLE
+        // ═════════════════════════════════════════════════════════════════════
+        const pc1 = 55, pc2 = 175, pc3 = 65, pc4 = 60, pc5 = 50, pc6 = 65;
+        const pc7 = width - (pc1 + pc2 + pc3 + pc4 + pc5 + pc6);
+        const partCols = [
+            { id: 'part_no', label: 'PART NO', w: pc1, align: 'center' },
+            { id: 'description', label: 'DESCRIPTION', w: pc2, align: 'left' },
+            { id: 'orientation_approved', label: 'ORIENTATION', w: pc3, align: 'center' },
+            { id: 'elevation_approved', label: 'ELEVATION', w: pc4, align: 'center' },
+            { id: 'projection_approved', label: 'PROJECTION', w: pc5, align: 'center' },
+            { id: 'elevation_actual', label: 'ELEVATION', w: pc6, align: 'center' },
+            { id: 'projection_actual', label: 'PROJECTION', w: pc7, align: 'center' }
+        ];
+
+        const drawPartHeader = (y) => {
+            y = this.drawSectionBanner(doc, startX, y, width, 'PART DETAILS');
+            const hTop = 14;
+            const hSub = 13;
+            const totalH = hTop + hSub;
+
+            this.drawBox(doc, startX, y, width, totalH, 0.8, this.colors.headerBg);
+
+            // Standalone columns
+            let tx = startX;
+            [
+                { label: 'PART NO', w: pc1 },
+                { label: 'DESCRIPTION', w: pc2 }
+            ].forEach(col => {
+                this.drawLine(doc, tx + col.w, y, tx + col.w, y + totalH, 0.5);
+                doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+                    .text(col.label, tx + 1, y + 8, { width: col.w - 2, align: 'center', lineGap: 1 });
+                tx += col.w;
+            });
+
+            // Group: APPROVED DRAWING
+            const appW = pc3 + pc4 + pc5;
+            this.drawLine(doc, tx, y + hTop, tx + appW, y + hTop, 0.5);
+            this.drawLine(doc, tx + appW, y, tx + appW, y + totalH, 0.5);
+            doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+                .text('DIMENSION AS PER APPROVED DRAWING', tx, y + 3.5, { width: appW, align: 'center' });
+
+            this.drawLine(doc, tx + pc3, y + hTop, tx + pc3, y + totalH, 0.5);
+            this.drawLine(doc, tx + pc3 + pc4, y + hTop, tx + pc3 + pc4, y + totalH, 0.5);
+            doc.fontSize(6)
+                .text('ORIENTATION', tx, y + hTop + 3.5, { width: pc3, align: 'center' })
+                .text('ELEVATION', tx + pc3, y + hTop + 3.5, { width: pc4, align: 'center' })
+                .text('PROJECTION', tx + pc3 + pc4, y + hTop + 3.5, { width: pc5, align: 'center' });
+
+            // Group: ACTUAL MEASURE
+            const actX = tx + appW;
+            const actW = pc6 + pc7;
+            this.drawLine(doc, actX, y + hTop, actX + actW, y + hTop, 0.5);
+            doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+                .text('DIMENSION AT ACTUAL MEASURE', actX, y + 3.5, { width: actW, align: 'center' });
+
+            this.drawLine(doc, actX + pc6, y + hTop, actX + pc6, y + totalH, 0.5);
+            doc.fontSize(6)
+                .text('ELEVATION', actX, y + hTop + 3.5, { width: pc6, align: 'center' })
+                .text('PROJECTION', actX + pc6, y + hTop + 3.5, { width: pc7, align: 'center' });
+
+            return y + totalH;
+        };
+
+        checkPageBreak(45, drawPartHeader);
+        curY = drawPartHeader(curY);
+
+        const parts = data.parts || [];
+        if (parts.length === 0) {
+            const emptyH = 18;
+            this.drawBox(doc, startX, curY, width, emptyH, 0.4);
+            doc.font(this.fonts.regular).fontSize(7.5).fillColor(this.colors.black)
+                .text('No part records available.', startX, curY + 5, { width: width, align: 'center' });
+            curY += emptyH;
+        } else {
+            parts.forEach((pt, idx) => {
+                const cellValues = [
+                    this.formatText(pt.part_no),
+                    this.formatText(pt.description),
+                    this.formatText(pt.orientation_approved),
+                    this.formatText(pt.elevation_approved),
+                    this.formatText(pt.projection_approved),
+                    this.formatText(pt.elevation_actual),
+                    this.formatText(pt.projection_actual)
+                ];
+
+                let maxH = 8;
+                partCols.forEach((col, cIdx) => {
+                    const paddingX = col.align === 'center' ? 2 : 4;
+                    doc.font(cIdx === 0 ? this.fonts.bold : this.fonts.regular).fontSize(6.5);
+                    const h = doc.heightOfString(cellValues[cIdx], { width: col.w - (paddingX * 2), lineGap: 1 });
+                    if (h > maxH) maxH = h;
+                });
+                const rowH = Math.max(16, maxH + 7);
+
+                checkPageBreak(rowH, drawPartHeader);
+
+                const rowBg = idx % 2 === 1 ? this.colors.zebraBg : null;
+                this.drawBox(doc, startX, curY, width, rowH, 0.4, rowBg);
+
+                let tx = startX;
+                partCols.forEach((col, cIdx) => {
+                    if (cIdx < partCols.length - 1) {
+                        this.drawLine(doc, tx + col.w, curY, tx + col.w, curY + rowH, 0.4);
+                    }
+                    const paddingX = col.align === 'center' ? 2 : 4;
+                    const font = cIdx === 0 ? this.fonts.bold : this.fonts.regular;
+                    doc.font(font).fontSize(6.5).fillColor(this.colors.black)
+                        .text(cellValues[cIdx], tx + paddingX, curY + 3.5, {
+                            width: col.w - (paddingX * 2),
+                            align: col.align,
+                            lineBreak: true,
+                            lineGap: 1
+                        });
+                    tx += col.w;
+                });
+
+                curY += rowH;
+            });
+        }
+        curY += 6;
+
+        // ═════════════════════════════════════════════════════════════════════
+        // 4. REMARKS SECTION
+        // ═════════════════════════════════════════════════════════════════════
+        const drawRemarksHeader = (y) => {
+            return this.drawSectionBanner(doc, startX, y, width, 'REMARKS');
+        };
+
+        const remarks = data.remarks || [];
+        if (remarks.length > 0) {
+            checkPageBreak(35, drawRemarksHeader);
+            curY = drawRemarksHeader(curY);
+
+            const idxW = 35;
+            const textW = width - idxW;
+
+            remarks.forEach((rem, idx) => {
+                const remText = this.formatText(rem.text);
+                doc.font(this.fonts.regular).fontSize(7);
+                const textH = doc.heightOfString(remText, { width: textW - 8, lineGap: 1 });
+                const rowH = Math.max(16, textH + 7);
+
+                checkPageBreak(rowH, drawRemarksHeader);
+
+                this.drawBox(doc, startX, curY, width, rowH, 0.4);
+                this.drawLine(doc, startX + idxW, curY, startX + idxW, curY + rowH, 0.4);
+
+                doc.font(this.fonts.bold).fontSize(7).fillColor(this.colors.black)
+                    .text(String(idx + 1), startX, curY + 4, { width: idxW, align: 'center' });
+
+                doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black)
+                    .text(remText, startX + idxW + 4, curY + 4, { width: textW - 8, align: 'left', lineBreak: true, lineGap: 1 });
+
+                curY += rowH;
+            });
+            curY += 6;
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // 5. INSTRUMENT CALIBRATION DETAILS
+        // ═════════════════════════════════════════════════════════════════════
+        const drawInstHeader = (y) => {
+            return this.drawSectionBanner(doc, startX, y, width, 'INSTRUMENT CALIBRATION DETAILS');
+        };
+
+        checkPageBreak(65, drawInstHeader);
+        curY = drawInstHeader(curY);
+
+        const lblColW = 145;
+        const instColW = (width - lblColW) / 3;
+
+        // Instruments sub-header
+        const instHeadH = 14;
+        this.drawBox(doc, startX, curY, width, instHeadH, 0.5, this.colors.headerBg);
+        this.drawLine(doc, startX + lblColW, curY, startX + lblColW, curY + instHeadH, 0.5);
+        this.drawLine(doc, startX + lblColW + instColW, curY, startX + lblColW + instColW, curY + instHeadH, 0.5);
+        this.drawLine(doc, startX + lblColW + (2 * instColW), curY, startX + lblColW + (2 * instColW), curY + instHeadH, 0.5);
+
+        doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+            .text('PARAMETER', startX + 5, curY + 4, { width: lblColW - 10, align: 'left' })
+            .text('1', startX + lblColW, curY + 4, { width: instColW, align: 'center' })
+            .text('2', startX + lblColW + instColW, curY + 4, { width: instColW, align: 'center' })
+            .text('3', startX + lblColW + (2 * instColW), curY + 4, { width: instColW, align: 'center' });
+        curY += instHeadH;
+
+        const instruments = (data.instruments || []).slice(0, 3);
+        const instRows = [
+            { label: 'INSTRUMENT NAME:', field: 'name' },
+            { label: 'ID NO. / SR NO.:', field: 'id_no' },
+            { label: 'CALIBRATION DUE DATE:', field: 'due_date' }
+        ];
+
+        instRows.forEach(iRow => {
+            const rowH = 15;
+            this.drawBox(doc, startX, curY, width, rowH, 0.4);
+            this.drawLine(doc, startX + lblColW, curY, startX + lblColW, curY + rowH, 0.4);
+            this.drawLine(doc, startX + lblColW + instColW, curY, startX + lblColW + instColW, curY + rowH, 0.4);
+            this.drawLine(doc, startX + lblColW + (2 * instColW), curY, startX + lblColW + (2 * instColW), curY + rowH, 0.4);
+
+            doc.font(this.fonts.bold).fontSize(6.5).fillColor(this.colors.black)
+                .text(iRow.label, startX + 5, curY + 4, { width: lblColW - 10, align: 'left' });
+
+            [0, 1, 2].forEach(colIdx => {
+                const inst = instruments[colIdx];
+                let val = '-';
+                if (inst) {
+                    val = inst[iRow.field] || '-';
+                    if (iRow.field === 'due_date' && val !== '-') {
+                        try { val = new Date(val).toLocaleDateString('en-GB'); } catch (e) { }
+                    }
+                }
+                const cellX = startX + lblColW + (colIdx * instColW);
+                doc.font(this.fonts.regular).fontSize(6.5).fillColor(this.colors.black)
+                    .text(String(val), cellX + 2, curY + 4, { width: instColW - 4, align: 'center' });
+            });
+
+            curY += rowH;
         });
+        curY += 8;
 
-        // 8. Signatures
+        // ═════════════════════════════════════════════════════════════════════
+        // 6. SIGNATURES SECTION (Original 3-column layout)
+        // ═════════════════════════════════════════════════════════════════════
+        const minSigH = 65;
+        if (curY + 10 + minSigH > bottomLineY) {
+            doc.addPage({
+                margins: { top: 30, bottom: 25, left: 30, right: 30 },
+                size: 'A4',
+                layout: 'portrait'
+            });
+            curY = 30;
+            curY = this.drawCompactHeader(doc, startX, curY, width, data, companyInfo);
+        }
+
         const sigY = curY + 10;
-        const sigH = (startY + height) - sigY;
-        doc.rect(startX, sigY, width, sigH).stroke();
+        const sigH = bottomLineY - sigY;
         const sigW = width / 3;
-        doc.moveTo(startX + sigW, sigY).lineTo(startX + sigW, startY + height).stroke();
-        doc.moveTo(startX + 2 * sigW, sigY).lineTo(startX + 2 * sigW, startY + height).stroke();
 
-        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.red);
-        doc.text('SEL QC', startX, startY + height - 20, { width: sigW, align: 'center' });
-        doc.text('AI / TPI', startX + sigW, startY + height - 20, { width: sigW, align: 'center' });
-        doc.text('CLIENT', startX + 2 * sigW, startY + height - 20, { width: sigW, align: 'center' });
+        doc.lineWidth(0.5).strokeColor(this.colors.border);
+        doc.rect(startX, sigY, width, sigH).stroke();
+        doc.moveTo(startX + sigW, sigY).lineTo(startX + sigW, bottomLineY).stroke();
+        doc.moveTo(startX + 2 * sigW, sigY).lineTo(startX + 2 * sigW, bottomLineY).stroke();
 
-        // Footer
-        doc.fontSize(7).fillColor(this.colors.black).font(this.fonts.regular);
-        doc.text('EXHIBIT 10/3', startX, startY + height + 5);
-        doc.text('GENERAL INSPECTION REPORT', startX, startY + height + 5, { width: width, align: 'center' });
-        doc.text('REV.: R1', startX + width - 60, startY + height + 5);
+        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black);
+        doc.text('SEL QC', startX, bottomLineY - 20, { width: sigW, align: 'center' });
+        doc.text('AI / TPI', startX + sigW, bottomLineY - 20, { width: sigW, align: 'center' });
+        doc.text('CLIENT', startX + 2 * sigW, bottomLineY - 20, { width: sigW, align: 'center' });
+
+        // ═════════════════════════════════════════════════════════════════════
+        // 7. FOOTER (Original layout on all pages)
+        // ═════════════════════════════════════════════════════════════════════
+        const range = doc.bufferedPageRange();
+        for (let i = range.start; i < range.start + range.count; i++) {
+            doc.switchToPage(i);
+            const originalBottomMargin = doc.page.margins.bottom;
+            doc.page.margins.bottom = 0;
+
+            const footerY = bottomLineY + 5;
+
+            doc.fontSize(7).fillColor(this.colors.black).font(this.fonts.regular);
+            doc.text('EXHIBIT 10/3', startX, footerY, { lineBreak: false });
+            doc.text('GENERAL INSPECTION REPORT', startX, footerY, { width: width, align: 'center', lineBreak: false });
+            doc.text('REV.: R1', startX + width - 60, footerY, { lineBreak: false });
+
+            doc.page.margins.bottom = originalBottomMargin;
+        }
 
         doc.end();
     }
