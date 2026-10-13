@@ -441,6 +441,7 @@ const getQualityMetricsReport = async (req, res) => {
             select: { id: true }
         });
         const rejectedJointIds = rejectedJoints.map(j => j.id);
+        const rejectedJointSet = new Set(rejectedJointIds);
 
         let whereClause = { weld_joint: { weld_joint_plan: { company_id } } };
         
@@ -448,11 +449,23 @@ const getQualityMetricsReport = async (req, res) => {
             whereClause.weld_joint.weld_joint_plan.id = plan_id;
         }
 
-        if (type === 'FTR') {
+        const normalizedType = (type || 'ALL').toUpperCase();
+
+        if (normalizedType === 'FTR') {
             whereClause.weld_joint.id = { notIn: rejectedJointIds };
             whereClause.status = 'approved';
-        } else if (type === 'NFTR') {
+        } else if (normalizedType === 'NFTR') {
             whereClause.weld_joint.id = { in: rejectedJointIds };
+        } else if (normalizedType === 'ALL') {
+            whereClause.OR = [
+                {
+                    weld_joint: { id: { notIn: rejectedJointIds } },
+                    status: 'approved'
+                },
+                {
+                    weld_joint: { id: { in: rejectedJointIds } }
+                }
+            ];
         } else {
             return res.status(400).json({ success: false, message: 'Invalid report type' });
         }
@@ -471,20 +484,25 @@ const getQualityMetricsReport = async (req, res) => {
             orderBy: { updatedAt: 'desc' }
         });
 
-        const formattedData = stages.map(s => ({
-            'Job No': s.weld_joint?.weld_joint_plan?.job?.job_number || '',
-            'Plan No': s.weld_joint?.weld_joint_plan?.weld_plan_no || '',
-            'Joint No': s.weld_joint?.joint_no || '',
-            'Category': s.weld_joint?.joint_category || '',
-            'Stage Name': s.stage_name,
-            'Status': s.status,
-            'Production Engineer': s.production_engineer?.name || '',
-            'QC Engineer': s.qc_engineer?.name || '',
-            'Submitted At': s.submitted_at,
-            'Approved At': s.approved_at,
-            'Rejected At': s.rejected_at,
-            'Remarks': s.remarks || ''
-        }));
+        const formattedData = stages.map(s => {
+            const isNFTR = rejectedJointSet.has(s.weld_joint_id);
+            return {
+                id: s.id,
+                'Type': isNFTR ? 'NFTR' : 'FTR',
+                'Job No': s.weld_joint?.weld_joint_plan?.job?.job_number || '',
+                'Plan No': s.weld_joint?.weld_joint_plan?.weld_plan_no || '',
+                'Joint No': s.weld_joint?.joint_no || '',
+                'Category': s.weld_joint?.joint_type || s.weld_joint?.joint_category || '',
+                'Stage Name': s.stage_name,
+                'Status': s.status,
+                'Production Engineer': s.production_engineer?.name || '',
+                'QC Engineer': s.qc_engineer?.name || '',
+                'Submitted At': s.submitted_at,
+                'Approved At': s.approved_at,
+                'Rejected At': s.rejected_at,
+                'Remarks': s.remarks || ''
+            };
+        });
 
         res.status(200).json({
             success: true,

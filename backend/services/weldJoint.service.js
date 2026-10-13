@@ -1185,7 +1185,21 @@ class WeldJointService {
                             customer: { select: { customer_name: true } }
                         }
                     },
-                    weld_joints: { select: { joint_type: true } }, _count: { select: { weld_joints: true } }
+                    weld_joints: {
+                        select: {
+                            id: true,
+                            joint_type: true,
+                            weld_joint_stages: {
+                                select: {
+                                    id: true,
+                                    status: true,
+                                    rejected_at: true,
+                                    is_active: true
+                                }
+                            }
+                        }
+                    },
+                    _count: { select: { weld_joints: true } }
                 },
                 orderBy: { [sortBy]: sortOrder },
                 skip, take
@@ -1193,7 +1207,31 @@ class WeldJointService {
             prisma.weld_joint_plan.count({ where })
         ]);
 
-        return { data: plans, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
+        const enrichedPlans = plans.map(p => {
+            let ftr_count = 0;
+            let nftr_count = 0;
+
+            (p.weld_joints || []).forEach(j => {
+                const stages = j.weld_joint_stages || [];
+                const hasRejection = stages.some(s => s.status === 'rejected' || s.rejected_at !== null);
+                const hasApproved = stages.some(s => s.status === 'approved');
+
+                if (hasRejection) {
+                    nftr_count++;
+                } else if (hasApproved) {
+                    ftr_count++;
+                }
+            });
+
+            return {
+                ...p,
+                ftr_count,
+                nftr_count,
+                weld_joints: p.weld_joints.map(j => ({ id: j.id, joint_type: j.joint_type }))
+            };
+        });
+
+        return { data: enrichedPlans, meta: { total, page: parseInt(page), limit: take, totalPages: Math.ceil(total / take) } };
     }
 
     async getActiveFilters(company_id) {

@@ -1242,7 +1242,14 @@ class ExportService {
                         customer: { select: { customer_name: true } }
                     }
                 },
-                weld_joints: { orderBy: { createdAt: 'asc' } },
+                weld_joints: { 
+                    include: { 
+                        weld_joint_stages: { 
+                            select: { status: true, rejected_at: true } 
+                        } 
+                    },
+                    orderBy: { createdAt: 'asc' } 
+                },
                 creator: { select: { name: true } }
             },
             orderBy: { createdAt: 'desc' }
@@ -1255,6 +1262,16 @@ class ExportService {
         const flatData = plans.map(p => {
             const joints = p.weld_joints || [];
 
+            let ftr_count = 0;
+            let nftr_count = 0;
+            joints.forEach(j => {
+                const stages = j.weld_joint_stages || [];
+                const hasRejection = stages.some(s => s.status === 'rejected' || s.rejected_at !== null);
+                const hasApproved = stages.some(s => s.status === 'approved');
+                if (hasRejection) nftr_count++;
+                else if (hasApproved) ftr_count++;
+            });
+
             return {
                 weld_plan_no: p.weld_plan_no || 'N/A',
                 job_no: p.job?.job_number || 'N/A',
@@ -1265,6 +1282,10 @@ class ExportService {
                 shr_drg_no: p.shreno_drg_no || 'N/A',
                 customer_drg_no: p.customer_drg_no || 'N/A',
                 code_of_construction: p.code_of_construction || 'N/A',
+                total_joints: joints.length,
+                ftr_joints: ftr_count,
+                nftr_joints: nftr_count,
+                ftr_nftr: `${ftr_count} / ${nftr_count}`,
                 created_by: p.creator?.name || 'N/A',
                 created_at: p.createdAt.toLocaleString(),
 
@@ -1301,6 +1322,10 @@ class ExportService {
             { header: 'SHRENO DRG NO', key: 'shr_drg_no', width: 20 },
             { header: 'CUSTOMER DRG NO', key: 'customer_drg_no', width: 20 },
             { header: 'CODE OF CONSTRUCTION', key: 'code_of_construction', width: 20 },
+            { header: 'TOTAL JOINTS', key: 'total_joints', width: 14 },
+            { header: 'FTR JOINTS', key: 'ftr_joints', width: 14 },
+            { header: 'NFTR JOINTS', key: 'nftr_joints', width: 14 },
+            { header: 'FTR / NFTR', key: 'ftr_nftr', width: 14 },
 
             { header: 'JOINT NO', key: 'joint_no', width: 15 },
             { header: 'JOINT TYPE', key: 'joint_type', width: 12 },

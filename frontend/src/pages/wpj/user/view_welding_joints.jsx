@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History, ArrowLeft, CheckCircle2, XCircle, Clock, Loader2, FileEdit } from "lucide-react"
+import { Search, Download, X, ChevronDown, ChevronLeft, ChevronRight, Check, Eye, History, ArrowLeft, Clock, Loader2, FileEdit, FileText } from "lucide-react"
 import { toast } from 'react-toastify'
 import ProDataTable from "@/components/shared/ProDataTable"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
@@ -54,8 +54,8 @@ import WeldJointTrail from "@/components/wpj/WeldJointTrail"
 import ViewStagesSheet from "@/components/wpj/ViewStagesSheet"
 import ModRequestsSheet from "@/components/wpj/ModRequestsSheet"
 import NewModRequestDialog from "@/components/wpj/NewModRequestDialog"
+import FtrNftrReportView from "@/components/wpj/ftr_nftr_report_view"
 
-import { useWeldQualityReports } from "./use_weld_quality_reports"
 // AB Components
 import Stage1 from "@/components/form/ab/stage1"
 import Stage2 from "@/components/form/ab/stage2"
@@ -133,7 +133,7 @@ function ViewWeldingJoints() {
   const [autoAppliedFilters, setAutoAppliedFilters] = useState(false);
 
   // Drill-down State
-  const [activeView, setActiveView] = useState("plans"); // 'plans' | 'joints'
+  const [activeView, setActiveView] = useState("plans"); // 'plans' | 'joints' | 'quality-metrics'
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null);
 
   useEffect(() => {
@@ -149,8 +149,6 @@ function ViewWeldingJoints() {
       setSearchParams(new URLSearchParams(), { replace: true });
     }
   }, [searchParams, setSearchParams]);
-
-  const { downloadFTR, downloadNFTR, isDownloadingFTR, isDownloadingNFTR } = useWeldQualityReports(selectedPlanDetails?.id);
 
   useEffect(() => {
     if (selectedJointIds.size === 1) {
@@ -552,6 +550,21 @@ function ViewWeldingJoints() {
     }
   }, [refreshKey]);
 
+  const handleOpenQualityMetrics = useCallback((plan) => {
+    setSelectedPlanDetails(plan);
+    setActiveView("quality-metrics");
+  }, []);
+
+  const handlePlansExport = useCallback(async () => {
+    try {
+      await exportApi.exportModule('weld_joint_plan', 'Weld_Joint_Plans_Export.xlsx');
+      toast.success("Plans exported successfully!", { theme: "colored" });
+    } catch (error) {
+      console.error("Export plans failed:", error);
+      toast.error("Failed to export plans", { theme: "colored" });
+    }
+  }, []);
+
   const planColumns = useMemo(() => [
     {
       accessorKey: "weld_plan_no",
@@ -582,6 +595,22 @@ function ViewWeldingJoints() {
       cell: (row) => row._count?.weld_joints || row.weld_joints?.length || 0,
     },
     {
+      id: "ftr_nftr",
+      header: "FTR / NFTR",
+      cell: (row) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleOpenQualityMetrics(row)}
+          className="h-8 px-2.5 text-xs font-medium gap-1.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border-slate-200 cursor-pointer shadow-none"
+          title="Click to view FTR / NFTR quality report"
+        >
+          <FileText className="h-3.5 w-3.5 text-slate-500" />
+          FTR / NFTR
+        </Button>
+      )
+    },
+    {
       id: "actions",
       header: "Action",
       width: "120px",
@@ -605,8 +634,7 @@ function ViewWeldingJoints() {
         </Button>
       )
     }
-  ], []);
-
+  ], [handleOpenQualityMetrics]);
 
   const onFilterChange = (newFilters) => {
     setColumnFilters(prev => ({ ...prev, ...newFilters }));
@@ -848,10 +876,22 @@ function ViewWeldingJoints() {
               <ProDataTable
                 columns={planColumns}
                 fetchData={fetchPlansData}
+                onExport={handlePlansExport}
                 refreshKey={refreshKey}
                 globalSearchPlaceholder="Search by Plan No, Job, Client..."
               />
             </div>
+          )}
+
+          {activeView === "quality-metrics" && (
+            <FtrNftrReportView
+              selectedPlanDetails={selectedPlanDetails}
+              onBack={() => {
+                setActiveView("plans");
+                setSelectedPlanDetails(null);
+              }}
+              refreshKey={refreshKey}
+            />
           )}
 
           {activeView === "modification-requests" && (
@@ -915,23 +955,6 @@ function ViewWeldingJoints() {
                         )}
                       </Button>
                     )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="h-9 bg-white shadow-none">
-                          Reports <ChevronDown className="ml-2 h-4 w-4 text-slate-500" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={downloadFTR} disabled={isDownloadingFTR} className="cursor-pointer">
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          <span>{isDownloadingFTR ? "Generating FTR..." : "FTR Report"}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={downloadNFTR} disabled={isDownloadingNFTR} className="cursor-pointer">
-                          <XCircle className="mr-2 h-4 w-4" />
-                          <span>{isDownloadingNFTR ? "Generating NFTR..." : "NFTR Report"}</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 }
               />
