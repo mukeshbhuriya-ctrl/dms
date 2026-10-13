@@ -23,6 +23,28 @@ class FinalInspectionPdfGenerator {
         return String(text).trim();
     }
 
+    formatDate(val) {
+        if (!val || val === '-' || val === 'null' || val === 'undefined') return '-';
+        if (typeof val === 'string') {
+            const s = val.trim();
+            if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(s)) {
+                return s.replace(/\//g, '-');
+            }
+            if (/^\d{4}[-/]\d{2}[-/]\d{2}/.test(s)) {
+                const parts = s.split('T')[0].split(/[-/]/);
+                if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+        }
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const mon = String(d.getMonth() + 1).padStart(2, '0');
+            const yr = d.getFullYear();
+            return `${day}-${mon}-${yr}`;
+        }
+        return String(val);
+    }
+
     drawBox(doc, x, y, width, height, lineWidth = 0.5, fillColor = null) {
         doc.lineWidth(lineWidth).strokeColor(this.colors.border);
         if (fillColor) {
@@ -82,9 +104,7 @@ class FinalInspectionPdfGenerator {
         // 2. Title Section
         const titleX = x + logoBoxW;
         doc.font(this.fonts.bold).fontSize(14).fillColor(this.colors.black)
-            .text('FINAL INSPECTION REPORT', titleX, y + 12, { width: titleBoxW, align: 'center' });
-        doc.font(this.fonts.regular).fontSize(8).fillColor(this.colors.black)
-            .text('Final Dimension & Geometric Inspection Schedule', titleX, y + 30, { width: titleBoxW, align: 'center' });
+            .text('FINAL INSPECTION REPORT', titleX, y + 18, { width: titleBoxW, align: 'center' });
 
         return y + headerH;
     }
@@ -119,7 +139,7 @@ class FinalInspectionPdfGenerator {
         const row1Data = [
             { label: 'MSN:', val: this.formatText(data.msn) },
             { label: 'TAG NO.:', val: this.formatText(data.tag_no) },
-            { label: 'DATE:', val: data.createdAt ? new Date(data.createdAt).toLocaleDateString('en-GB') : '-' }
+            { label: 'DATE:', val: this.formatDate(data.report_date || data.createdAt) }
         ];
 
         let maxH1 = 10;
@@ -619,18 +639,55 @@ class FinalInspectionPdfGenerator {
         // ═════════════════════════════════════════════════════════════════════
         // 5. INSTRUMENT CALIBRATION DETAILS
         // ═════════════════════════════════════════════════════════════════════
-        const drawInstHeader = (y) => {
-            return this.drawSectionBanner(doc, startX, y, width, 'INSTRUMENT CALIBRATION DETAILS');
-        };
-
-        checkPageBreak(65, drawInstHeader);
-        curY = drawInstHeader(curY);
+        const instBannerH = 16;
+        const instHeadH = 14;
+        const instruments = (data.instruments || []).slice(0, 3);
+        const instRows = [
+            { label: 'INSTRUMENT NAME:', field: 'name' },
+            { label: 'ID NO. / SR NO.:', field: 'id_no' },
+            { label: 'CALIBRATION DUE DATE:', field: 'due_date' }
+        ];
 
         const lblColW = 145;
         const instColW = (width - lblColW) / 3;
 
+        const instRowHeights = instRows.map(iRow => {
+            let maxH = 8;
+            [0, 1, 2].forEach(colIdx => {
+                const inst = instruments[colIdx];
+                let val = '-';
+                if (inst) {
+                    val = inst[iRow.field] || '-';
+                    if (iRow.field === 'due_date' && val !== '-') {
+                        val = this.formatDate(val);
+                    }
+                }
+                doc.font(this.fonts.regular).fontSize(6.5);
+                const h = doc.heightOfString(String(val), { width: instColW - 4, lineGap: 1 });
+                if (h > maxH) maxH = h;
+            });
+            return Math.max(15, maxH + 6);
+        });
+
+        const totalInstH = instBannerH + instHeadH + instRowHeights.reduce((a, b) => a + b, 0);
+        const sigH = 90; // Clean, fixed standard signature block height (~90pt)
+
+        // If instruments don't fit on this page, or if remaining space is too tight for instruments + signature,
+        // break cleanly to new page so instrument table is never fragmented
+        if (curY + totalInstH > maxY || (curY + totalInstH + 10 + sigH > bottomLineY && curY > 200)) {
+            doc.addPage({
+                margins: { top: 30, bottom: 25, left: 30, right: 30 },
+                size: 'A4',
+                layout: 'portrait'
+            });
+            curY = 30;
+            curY = this.drawCompactHeader(doc, startX, curY, width, data, companyInfo);
+            curY += 6;
+        }
+
+        curY = this.drawSectionBanner(doc, startX, curY, width, 'INSTRUMENT CALIBRATION DETAILS');
+
         // Instruments sub-header
-        const instHeadH = 14;
         this.drawBox(doc, startX, curY, width, instHeadH, 0.5, this.colors.headerBg);
         this.drawLine(doc, startX + lblColW, curY, startX + lblColW, curY + instHeadH, 0.5);
         this.drawLine(doc, startX + lblColW + instColW, curY, startX + lblColW + instColW, curY + instHeadH, 0.5);
@@ -643,15 +700,8 @@ class FinalInspectionPdfGenerator {
             .text('3', startX + lblColW + (2 * instColW), curY + 4, { width: instColW, align: 'center' });
         curY += instHeadH;
 
-        const instruments = (data.instruments || []).slice(0, 3);
-        const instRows = [
-            { label: 'INSTRUMENT NAME:', field: 'name' },
-            { label: 'ID NO. / SR NO.:', field: 'id_no' },
-            { label: 'CALIBRATION DUE DATE:', field: 'due_date' }
-        ];
-
-        instRows.forEach(iRow => {
-            const rowH = 15;
+        instRows.forEach((iRow, rIdx) => {
+            const rowH = instRowHeights[rIdx];
             this.drawBox(doc, startX, curY, width, rowH, 0.4);
             this.drawLine(doc, startX + lblColW, curY, startX + lblColW, curY + rowH, 0.4);
             this.drawLine(doc, startX + lblColW + instColW, curY, startX + lblColW + instColW, curY + rowH, 0.4);
@@ -666,12 +716,12 @@ class FinalInspectionPdfGenerator {
                 if (inst) {
                     val = inst[iRow.field] || '-';
                     if (iRow.field === 'due_date' && val !== '-') {
-                        try { val = new Date(val).toLocaleDateString('en-GB'); } catch (e) { }
+                        val = this.formatDate(val);
                     }
                 }
                 const cellX = startX + lblColW + (colIdx * instColW);
                 doc.font(this.fonts.regular).fontSize(6.5).fillColor(this.colors.black)
-                    .text(String(val), cellX + 2, curY + 4, { width: instColW - 4, align: 'center' });
+                    .text(String(val), cellX + 2, curY + 4, { width: instColW - 4, align: 'center', lineBreak: true, lineGap: 1 });
             });
 
             curY += rowH;
@@ -679,10 +729,9 @@ class FinalInspectionPdfGenerator {
         curY += 8;
 
         // ═════════════════════════════════════════════════════════════════════
-        // 6. SIGNATURES SECTION (Original 3-column layout)
+        // 6. SIGNATURES SECTION (Original 3-column layout, docked to bottom)
         // ═════════════════════════════════════════════════════════════════════
-        const minSigH = 65;
-        if (curY + 10 + minSigH > bottomLineY) {
+        if (curY + 10 + sigH > bottomLineY) {
             doc.addPage({
                 margins: { top: 30, bottom: 25, left: 30, right: 30 },
                 size: 'A4',
@@ -692,8 +741,7 @@ class FinalInspectionPdfGenerator {
             curY = this.drawCompactHeader(doc, startX, curY, width, data, companyInfo);
         }
 
-        const sigY = curY + 10;
-        const sigH = bottomLineY - sigY;
+        const sigY = bottomLineY - sigH;
         const sigW = width / 3;
 
         doc.lineWidth(0.5).strokeColor(this.colors.border);
@@ -701,13 +749,14 @@ class FinalInspectionPdfGenerator {
         doc.moveTo(startX + sigW, sigY).lineTo(startX + sigW, bottomLineY).stroke();
         doc.moveTo(startX + 2 * sigW, sigY).lineTo(startX + 2 * sigW, bottomLineY).stroke();
 
-        doc.font(this.fonts.bold).fontSize(10).fillColor(this.colors.black);
-        doc.text('SEL QC', startX, bottomLineY - 20, { width: sigW, align: 'center' });
-        doc.text('AI / TPI', startX + sigW, bottomLineY - 20, { width: sigW, align: 'center' });
-        doc.text('CLIENT', startX + 2 * sigW, bottomLineY - 20, { width: sigW, align: 'center' });
+        doc.font(this.fonts.bold).fontSize(9.5).fillColor(this.colors.black);
+        const sigLabelY = bottomLineY - 18;
+        doc.text('SEL QC', startX, sigLabelY, { width: sigW, align: 'center' });
+        doc.text('AI / TPI', startX + sigW, sigLabelY, { width: sigW, align: 'center' });
+        doc.text('CLIENT', startX + 2 * sigW, sigLabelY, { width: sigW, align: 'center' });
 
         // ═════════════════════════════════════════════════════════════════════
-        // 7. FOOTER (Original layout on all pages)
+        // 7. FOOTER (Original layout on all pages with page numbers)
         // ═════════════════════════════════════════════════════════════════════
         const range = doc.bufferedPageRange();
         for (let i = range.start; i < range.start + range.count; i++) {
@@ -720,7 +769,7 @@ class FinalInspectionPdfGenerator {
             doc.fontSize(7).fillColor(this.colors.black).font(this.fonts.regular);
             doc.text('EXHIBIT 10/3', startX, footerY, { lineBreak: false });
             doc.text('GENERAL INSPECTION REPORT', startX, footerY, { width: width, align: 'center', lineBreak: false });
-            doc.text('REV.: R1', startX + width - 60, footerY, { lineBreak: false });
+            doc.text(`REV.: R1   Page ${i + 1} of ${range.count}`, startX, footerY, { width: width, align: 'right', lineBreak: false });
 
             doc.page.margins.bottom = originalBottomMargin;
         }

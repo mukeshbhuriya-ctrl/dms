@@ -266,7 +266,7 @@ class DishEndPdfGenerator {
         });
 
         const totalInstH = instTitleH + instSRH + instRowHeights.reduce((a, b) => a + b, 0);
-        const sigH = 75; // Clean, increased height signature block (~75pt)
+        const sigH = 90; // Clean, increased height signature block (~90pt)
         const totalBottomBundleH = noteH + totalInstH + sigH;
 
         // 5. Table Rows
@@ -394,7 +394,7 @@ class DishEndPdfGenerator {
 
         doc.font(this.fonts.bold).fontSize(9).fillColor(this.colors.black);
         const sigLabelY = sigY + sigH - 18;
-        doc.text('Production ENGINEER', startX, sigLabelY, { width: sigW, align: 'center' });
+        doc.text('Production Engineer', startX, sigLabelY, { width: sigW, align: 'center' });
         doc.text('QC Engineer', startX + sigW, sigLabelY, { width: sigW, align: 'center' });
         doc.text('TPIA/AI/CLIENT', startX + 2 * sigW, sigLabelY, { width: sigW, align: 'center' });
 
@@ -409,7 +409,7 @@ class DishEndPdfGenerator {
             doc.font(this.fonts.regular).fontSize(7).fillColor(this.colors.black);
             doc.text('EXHIBIT 10/3', startX, footY, { lineBreak: false });
             doc.text('GENERAL INSPECTION REPORT', startX, footY, { width: width, align: 'center', lineBreak: false });
-            doc.text('REV.: R1', startX + width - 60, footY, { lineBreak: false });
+            doc.text(`REV.: R1   Page ${i + 1} of ${range.count}`, startX, footY, { width: width, align: 'right', lineBreak: false });
 
             doc.page.margins.bottom = originalBottomMargin;
         }
