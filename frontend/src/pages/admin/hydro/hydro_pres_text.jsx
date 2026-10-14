@@ -35,6 +35,7 @@ import { toast } from "react-toastify"
 import { Switch } from "@/components/ui/switch"
 import ConfirmDialog from "@/components/shared/ConfirmDialog"
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { cn, isInstrumentOverdue } from "@/lib/utils"
 import { DataTableRowActions } from "@/components/shared/DataTableRowActions"
 import { AccessControl } from "@/components/iam/access_control";
 function emptyRow(id) {
@@ -794,6 +795,15 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
         [`${gaugeType}_calib_date`]: selected.calib_date,
         [`${gaugeType}_due_date`]: selected.due_date
       } : row));
+    } else {
+      setTableRows(tableRows.map(row => row.id === rowId ? {
+        ...row,
+        [`${gaugeType}_instrument_id`]: "",
+        [`${gaugeType}_range`]: "",
+        [`${gaugeType}_id_no`]: "",
+        [`${gaugeType}_calib_date`]: "",
+        [`${gaugeType}_due_date`]: ""
+      } : row));
     }
   }
 
@@ -1100,9 +1110,12 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {tableRows.map((row) => (
-                    <Fragment key={row.id}>
-                      <tr className="border-b">
+                  {tableRows.map((row) => {
+                    const isPg1Overdue = isInstrumentOverdue(row.pg1_due_date || masterInstruments.find(i => i.id === row.pg1_instrument_id)?.due_date);
+                    const isPg2Overdue = isInstrumentOverdue(row.pg2_due_date || masterInstruments.find(i => i.id === row.pg2_instrument_id)?.due_date);
+                    return (
+                      <Fragment key={row.id}>
+                        <tr className="border-b">
                         <td className="border border-border p-1 align-top" rowSpan={2}>
                           <Textarea
                             value={row.particulars}
@@ -1170,8 +1183,19 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                             value={row.pg1_due_date}
                             readOnly
                             placeholder="Due Date"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9 bg-muted"
+                            title={isPg1Overdue ? "Instrument calibration is overdue" : undefined}
+                            className={cn(
+                              "w-full text-xs h-9 bg-muted focus-visible:ring-1",
+                              isPg1Overdue
+                                ? "border border-red-500 text-red-600 font-medium focus-visible:border-red-500"
+                                : "border-0"
+                            )}
                           />
+                          {isPg1Overdue && (
+                            <span className="text-[10px] text-red-500 font-medium mt-1 block leading-tight">
+                              Instrument due date has exceeded
+                            </span>
+                          )}
                         </td>
 
                         <td className="border border-border p-1 align-top" rowSpan={2}>
@@ -1238,12 +1262,24 @@ function FormView({ onBack, onSuccess, isEdit, editId }) {
                             value={row.pg2_due_date}
                             readOnly
                             placeholder="Due Date"
-                            className="w-full text-xs border-0 focus-visible:ring-1 h-9 bg-muted"
+                            title={isPg2Overdue ? "Instrument calibration is overdue" : undefined}
+                            className={cn(
+                              "w-full text-xs h-9 bg-muted focus-visible:ring-1",
+                              isPg2Overdue
+                                ? "border border-red-500 text-red-600 font-medium focus-visible:border-red-500"
+                                : "border-0"
+                            )}
                           />
+                          {isPg2Overdue && (
+                            <span className="text-[10px] text-red-500 font-medium mt-1 block leading-tight">
+                              Instrument due date has exceeded
+                            </span>
+                          )}
                         </td>
                       </tr>
                     </Fragment>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

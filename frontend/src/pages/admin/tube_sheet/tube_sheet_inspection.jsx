@@ -5,6 +5,7 @@ import apiClient from "@/api/api.client"
 import { exportApi } from "@/api/export.api"
 
 import { SearchableSelect } from "@/components/shared/SearchableSelect"
+import { cn, isInstrumentOverdue } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -426,7 +427,7 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
       .then((res) => {
         let data = Array.isArray(res) ? res : (res.data || []);
         const mapped = data.map(item => ({
-          id: item.id,
+          id: item.id.toString(),
           name: `${item.equipment_desc || ''}${item.range ? ` / ${item.range}` : ''}`.trim(),
           id_no: item.serial_no || '',
           due_date: item.due_date ? new Date(item.due_date).toLocaleDateString('en-GB').replace(/\//g, '-') : ''
@@ -636,6 +637,14 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
         name: selected.name,
         idNo: selected.id_no,
         dueDate: selected.due_date
+      } : row));
+    } else {
+      setInstrumentRows(instrumentRows.map(row => row.id === rowId ? {
+        ...row,
+        instrument_id: "",
+        name: "",
+        idNo: "",
+        dueDate: ""
       } : row));
     }
   }
@@ -989,49 +998,63 @@ function CreateView({ onBack, onSuccess, editId = null, isViewMode = false }) {
               </TableHeader>
               <TableBody>
                 {instrumentRows.length > 0 ? (
-                  instrumentRows.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <SearchableSelect
-                          options={masterInstruments.map(inst => ({ value: inst.id.toString(), label: inst.name }))}
-                          value={masterInstruments.find(i => i.name === row.name)?.id?.toString() || ""}
-                          onValueChange={(val) => handleInstrumentSelect(row.id, val)}
-                          placeholder="Select Instrument"
-                          disabled={userRole === 'PROD' || isViewMode}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="text"
-                          value={row.idNo}
-                          readOnly
-                          className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="text"
-                          value={row.dueDate}
-                          readOnly
-                          className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {!isViewMode && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeInstrumentRow(row.id)}
-                            disabled={instrumentRows.length === 1 || userRole === 'PROD'}
-                            title="Remove Row"
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  instrumentRows.map((row) => {
+                    const isOverdue = isInstrumentOverdue(row.dueDate || masterInstruments.find(i => i.id.toString() === row.instrument_id?.toString() || i.name === row.name)?.due_date);
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell className="align-top">
+                          <SearchableSelect
+                            options={masterInstruments.map(inst => ({ value: inst.id.toString(), label: inst.name }))}
+                            value={masterInstruments.find(i => i.name === row.name)?.id?.toString() || row.instrument_id?.toString() || ""}
+                            onValueChange={(val) => handleInstrumentSelect(row.id, val)}
+                            placeholder="Select Instrument"
+                            disabled={userRole === 'PROD' || isViewMode}
+                          />
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <Input
+                            type="text"
+                            value={row.idNo}
+                            readOnly
+                            className="w-full text-xs border-0 focus-visible:ring-0 bg-muted"
+                          />
+                        </TableCell>
+                        <TableCell className="align-top">
+                          <Input
+                            type="text"
+                            value={row.dueDate}
+                            readOnly
+                            title={isOverdue ? "Instrument calibration is overdue" : undefined}
+                            className={cn(
+                              "w-full text-xs focus-visible:ring-0 bg-muted",
+                              isOverdue
+                                ? "border border-red-500 text-red-600 font-medium focus-visible:border-red-500"
+                                : "border-0"
+                            )}
+                          />
+                          {isOverdue && (
+                            <span className="text-[11px] text-red-500 font-medium mt-1 block leading-tight">
+                              Instrument due date has exceeded
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="align-top">
+                          {!isViewMode && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeInstrumentRow(row.id)}
+                              disabled={instrumentRows.length === 1 || userRole === 'PROD'}
+                              title="Remove Row"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center">
