@@ -284,15 +284,6 @@ const Stage1C = ({ initialData, isReview = false, isUpdate = false, isRejected =
                 return;
             }
 
-            const item1 = mhcItems.find(i => i.id === selectedPart1);
-            const item2 = mhcItems.find(i => i.id === selectedPart2);
-
-            if (item1?.item_no !== initialData?.joint_no && item2?.item_no !== initialData?.joint_no) {
-                setAlert({ show: true, type: "error", message: `At least one selected MHC item must match the Weld Joint Number (${initialData?.joint_no})` });
-                setIsSubmitting(false);
-                return;
-            }
-
             const categoryKey = getCategoryKey();
 
             // Fetch existing Stage Data
