@@ -406,14 +406,12 @@ function ListView({ onCreateClick, onEditClick, onCloneClick }) {
             });
         }
         
-        if (status === "approved" || isAdmin || isAssignedPE) {
-            actions.push({ type: "separator" });
-            actions.push({
-                label: "Download PDF",
-                icon: Download,
-                onClick: () => handleDownload(row.id, row.report_no)
-            });
-        }
+        actions.push({ type: "separator" });
+        actions.push({
+            label: "Download PDF",
+            icon: Download,
+            onClick: () => handleDownload(row.id, row.report_no)
+        });
         
         if (isAdmin) {
             actions.push({ type: "separator" });
