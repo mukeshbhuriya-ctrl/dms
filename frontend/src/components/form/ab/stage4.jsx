@@ -19,6 +19,7 @@ import {
 import { FormAlert } from "@/components/ui/form-alert"
 import api from "@/api/api.client"
 import QCReviewSection from "@/components/wpj/QCReviewSection"
+import { Plus, Trash2 } from "lucide-react"
 
 function Stage4({ initialData, inspectionData, isReview = false, isUpdate = false, isRejected = false, readOnly = false, onSuccess }) {
     
@@ -63,6 +64,39 @@ function Stage4({ initialData, inspectionData, isReview = false, isUpdate = fals
     const [userRole, setUserRole] = useState("")
     const [rtStatus, setRtStatus] = useState("")
     const [rtRemark, setRtRemark] = useState("")
+    const [rtRequiredQty, setRtRequiredQty] = useState("")
+    const [rtOkayQty, setRtOkayQty] = useState("")
+    const [rtRejectQty, setRtRejectQty] = useState("")
+    const [rtTrials, setRtTrials] = useState([
+        { id: 1, value: "" },
+        { id: 2, value: "" }
+    ])
+
+    const getOrdinalWord = (n) => {
+        const ordinals = [
+            "First", "Second", "Third", "Fourth", "Fifth",
+            "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
+            "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth"
+        ];
+        return ordinals[n - 1] || `${n}th`;
+    };
+
+    const handleAddTrial = () => {
+        setRtTrials(prev => [
+            ...prev,
+            { id: Date.now(), value: "" }
+        ]);
+    };
+
+    const handleRemoveTrial = (indexToRemove) => {
+        setRtTrials(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    };
+
+    const handleTrialChange = (index, value) => {
+        setRtTrials(prev => prev.map((trial, idx) => 
+            idx === index ? { ...trial, value } : trial
+        ));
+    };
 
     // Basic Info State
     const [displayFields, setDisplayFields] = useState({
@@ -229,6 +263,20 @@ function Stage4({ initialData, inspectionData, isReview = false, isUpdate = fals
 
                     if (s4Data?.rtStatus) setRtStatus(s4Data.rtStatus);
                     if (s4Data?.rtRemark) setRtRemark(s4Data.rtRemark);
+                    if (s4Data?.rtRequiredQty !== undefined) setRtRequiredQty(s4Data.rtRequiredQty);
+                    if (s4Data?.rtOkayQty !== undefined) setRtOkayQty(s4Data.rtOkayQty);
+                    if (s4Data?.rtRejectQty !== undefined) setRtRejectQty(s4Data.rtRejectQty);
+                    if (Array.isArray(s4Data?.rtTrials) && s4Data.rtTrials.length > 0) {
+                        const formatted = s4Data.rtTrials.map((t, idx) => 
+                            typeof t === 'object' && t !== null 
+                                ? { id: t.id || idx + 1, value: t.value || "" } 
+                                : { id: idx + 1, value: String(t || "") }
+                        );
+                        while (formatted.length < 2) {
+                            formatted.push({ id: formatted.length + 1, value: "" });
+                        }
+                        setRtTrials(formatted);
+                    }
                 } catch (e) { }
             }
         }
@@ -276,7 +324,11 @@ function Stage4({ initialData, inspectionData, isReview = false, isUpdate = fals
                 productionEngineerName,
                 submissionDate: todayDate,
                 rtStatus,
-                rtRemark
+                rtRemark,
+                rtRequiredQty,
+                rtOkayQty,
+                rtRejectQty,
+                rtTrials
             };
 
             const finalData = {
@@ -348,7 +400,11 @@ function Stage4({ initialData, inspectionData, isReview = false, isUpdate = fals
                     productionEngineerName,
                     submissionDate: todayDate,
                     rtStatus,
-                    rtRemark
+                    rtRemark,
+                    rtRequiredQty,
+                    rtOkayQty,
+                    rtRejectQty,
+                    rtTrials
                 };
                 const finalData = {
                     ...existingData,
@@ -529,8 +585,119 @@ function Stage4({ initialData, inspectionData, isReview = false, isUpdate = fals
                                 onChange={(e) => setRtRemark(e.target.value)}
                                 placeholder="Enter RT Remark"
                                 disabled={isReadOnly}
+                                className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}
                             />
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* RT Quantity Section */}
+            <div className="mb-8">
+                <div className="flex items-center justify-between mb-4 border-b pb-2">
+                    <h3 className="text-sm font-bold text-slate-800 capitalize tracking-wider">
+                        RT Quantity
+                    </h3>
+                </div>
+
+                <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {/* RT Required QTY */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" htmlFor="rtRequiredQty">
+                                RT Required QTY
+                            </label>
+                            <Input
+                                id="rtRequiredQty"
+                                type="text"
+                                value={rtRequiredQty}
+                                onChange={(e) => setRtRequiredQty(e.target.value)}
+                                placeholder="Enter RT Required QTY"
+                                disabled={isReadOnly}
+                                className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}
+                            />
+                        </div>
+
+                        {/* RT OKAY */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" htmlFor="rtOkayQty">
+                                RT OKAY
+                            </label>
+                            <Input
+                                id="rtOkayQty"
+                                type="text"
+                                value={rtOkayQty}
+                                onChange={(e) => setRtOkayQty(e.target.value)}
+                                placeholder="Enter RT OKAY"
+                                disabled={isReadOnly}
+                                className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}
+                            />
+                        </div>
+
+                        {/* RT REJECT QTY */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" htmlFor="rtRejectQty">
+                                RT REJECT QTY
+                            </label>
+                            <Input
+                                id="rtRejectQty"
+                                type="text"
+                                value={rtRejectQty}
+                                onChange={(e) => setRtRejectQty(e.target.value)}
+                                placeholder="Enter RT REJECT QTY"
+                                disabled={isReadOnly}
+                                className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}
+                            />
+                        </div>
+
+                        {/* Dynamic Trial Fields */}
+                        {rtTrials.map((trial, index) => {
+                            const trialName = getOrdinalWord(index + 1);
+                            return (
+                                <div key={trial.id || index} className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider" htmlFor={`rtTrial_${index}`}>
+                                            {`RT Accepted ${trialName} Trial QTY`}
+                                        </label>
+                                        {index >= 2 && !isReadOnly && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveTrial(index)}
+                                                className="text-red-500 hover:text-red-700 p-0.5 rounded transition-colors cursor-pointer"
+                                                title={`Remove ${trialName} Trial`}
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <Input
+                                        id={`rtTrial_${index}`}
+                                        type="text"
+                                        value={trial.value || ""}
+                                        onChange={(e) => handleTrialChange(index, e.target.value)}
+                                        placeholder={`Enter ${trialName} Trial QTY`}
+                                        disabled={isReadOnly}
+                                        className={isReadOnly ? "bg-muted h-8 text-xs shadow-none border-slate-200 rounded-none" : "h-8 text-xs shadow-none border-slate-200 rounded-none bg-white"}
+                                    />
+                                </div>
+                            );
+                        })}
+
+                        {/* Inline Add Trial card if not read-only */}
+                        {!isReadOnly && (
+                            <div className="space-y-2 flex flex-col justify-end">
+                                <label className="text-[10px] font-bold text-transparent select-none hidden sm:block">Action</label>
+                                <button
+                                    type="button"
+                                    onClick={handleAddTrial}
+                                    className="h-8 border border-dashed border-blue-400 text-blue-600 hover:bg-blue-50/70 hover:border-blue-600 flex items-center justify-center gap-1.5 text-xs font-medium transition-colors cursor-pointer rounded-none"
+                                    title="Add Next Trial"
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Add {getOrdinalWord(rtTrials.length + 1)} Trial</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

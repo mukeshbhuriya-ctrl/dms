@@ -10,4 +10,8 @@ router.get('/overview', AdminDashboardController.getOverview);
 router.get('/alerts', AdminDashboardController.getAlerts);
 router.get('/trends', AdminDashboardController.getTrends);
 
+router.get('/dms/upload-analytics', AdminDashboardController.getDmsUploadAnalytics);
+router.get('/dms/upload-records', AdminDashboardController.getDmsUploadRecords);
+router.get('/dms/export-upload-records', AdminDashboardController.exportDmsUploadRecords);
+
 module.exports = router;

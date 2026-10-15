@@ -2,7 +2,6 @@ import App from "@/App"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import SiteAdminRoute from "@/components/SiteAdminRoute"
 import AppLayout from "@/components/layout/AppLayout"
-
 import {
   SiteAdminLogin,
   SiteAdminDashboard,
@@ -33,7 +32,8 @@ import {
   FinalInspectionReports,
   Reports,
   AuditLogs,
-  ApprovalCenter
+  ApprovalCenter,
+  DmsUploadAnalytics
 } from "@/pages/admin"
 import { TubeSheetInspection } from "@/pages/admin/tube_sheet"
 import { TubeBundleInspection } from "@/pages/admin/tube_bundle"
@@ -167,6 +167,14 @@ const adminRoutes = [
   {
     path: "/admin/dashboard",
     element: protect(<AdminDashboard />),
+  },
+  {
+    path: "/admin/dms-upload-dashboard",
+    element: protect(<DmsUploadAnalytics />),
+  },
+  {
+    path: "/admin/dms-upload-records",
+    element: protect(<DmsUploadAnalytics defaultView="records" />),
   },
   {
     path: "/approval-center",

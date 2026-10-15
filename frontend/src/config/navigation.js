@@ -28,6 +28,8 @@ import {
 export const BREADCRUMB_MAP = {
   // ── Dashboards ──
   "/admin/dashboard":           { label: "Dashboard", icon: LayoutDashboard },
+  "/admin/dms-upload-dashboard": { label: "DMS Documents Upload Analytics", icon: BarChart3 },
+  "/admin/dms-upload-records":   { label: "DMS Documents Upload Records", icon: FileText },
   "/user/dashboard":            { label: "Dashboard", icon: LayoutDashboard },
   "/dashboard/quality-production": { label: "Dashboard", icon: LayoutDashboard },
   "/marketing/dashboard":       { label: "Marketing Dashboard", icon: TrendingUp },

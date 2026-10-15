@@ -1,7 +1,9 @@
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
+import DmsUploadAnalytics from "./dms_upload_analytics";
+
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   AlertTriangle,
@@ -96,10 +98,15 @@ function statusTone(status) {
   return "border-slate-200 bg-slate-100 text-slate-600";
 }
 
-function KpiCard({ title, value, description, Icon }) {
+function KpiCard({ title, value, description, Icon, onClick }) {
   const IconComponent = Icon;
   return (
-    <Card className="border-slate-200 shadow-sm">
+    <Card
+      onClick={onClick}
+      className={`border-slate-200 shadow-sm ${
+        onClick ? "cursor-pointer transition-all hover:border-blue-400 hover:shadow-md hover:bg-slate-50/50" : ""
+      }`}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-sm font-semibold text-slate-700">{title}</CardTitle>
@@ -299,6 +306,8 @@ function RecentJobsCard({ jobs, onOpen }) {
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get("tab") || "overview";
 
   const [overview, setOverview] = useState(null);
   const [alerts, setAlerts] = useState(null);
@@ -444,8 +453,9 @@ function AdminDashboard() {
       {
         title: "DMS Assignments",
         value: overview.dms?.assignedDocuments,
-        description: "Assigned document records",
+        description: "Assigned docs • Click for SLA Dashboard",
         Icon: FileStack,
+        onClick: () => setSearchParams({ tab: "dms" }),
       },
       {
         title: "Transmissions",
@@ -499,28 +509,68 @@ function AdminDashboard() {
 
   return (
     <PageContainer scrollable={true}>
-        {isLoading ? (
+      {/* ── Top Dashboard Navigation Tabs ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-3 mb-6 gap-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={currentTab === "overview" ? "default" : "outline"}
+            size="sm"
+            className="text-xs h-9 px-4 font-semibold gap-2"
+            onClick={() => setSearchParams({ tab: "overview" })}
+          >
+            <Gauge className="w-4 h-4" />
+            System Overview
+          </Button>
+          <Button
+            variant={currentTab === "dms" ? "default" : "outline"}
+            size="sm"
+            className={`text-xs h-9 px-4 font-semibold gap-2 ${
+              currentTab !== "dms" ? "bg-white text-blue-700 border-blue-200 hover:bg-blue-50" : ""
+            }`}
+            onClick={() => setSearchParams({ tab: "dms" })}
+          >
+            <FileStack className="w-4 h-4" />
+            DMS Documents Upload Analytics
+          </Button>
+        </div>
+        {currentTab === "overview" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 px-3 text-xs gap-1.5 bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+            onClick={onManualRefresh}
+            disabled={isRefreshing || isLoading}
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            Refresh Overview
+          </Button>
+        )}
+      </div>
+
+      {currentTab === "dms" ? (
+        <DmsUploadAnalytics />
+      ) : isLoading ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <Card key={idx} className="border-slate-200">
+              <CardContent className="h-28 animate-pulse rounded-md bg-slate-100" />
+            </Card>
+          ))}
+        </div>
+      ) : !overview ? (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle>Dashboard data unavailable</CardTitle>
+            <CardDescription>Unable to fetch overview data from backend.</CardDescription>
+          </CardHeader>
+        </Card>
+      ) : (
+        <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, idx) => (
-              <Card key={idx} className="border-slate-200">
-                <CardContent className="h-28 animate-pulse rounded-md bg-slate-100" />
-              </Card>
+            {topKpis.map((item) => (
+              <KpiCard key={item.title} {...item} />
             ))}
           </div>
-        ) : !overview ? (
-          <Card className="border-red-200">
-            <CardHeader>
-              <CardTitle>Dashboard data unavailable</CardTitle>
-              <CardDescription>Unable to fetch overview data from backend.</CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {topKpis.map((item) => (
-                <KpiCard key={item.title} {...item} />
-              ))}
-            </div>
             <Card className="border-slate-200 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -559,6 +609,18 @@ function AdminDashboard() {
                   <StatusRow title="Version Status" values={overview.dms?.versionStatus} />
                   <StatusRow title="Transmission Status" values={overview.dms?.transmissionStatus} />
                   <StatusRow title="Client Status" values={overview.dms?.transmissionDocumentClientStatus} />
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Track month-wise uploads and on-time SLA metrics</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50 font-medium"
+                      onClick={() => setSearchParams({ tab: "dms" })}
+                    >
+                      DMS Documents Upload Analytics
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
 
