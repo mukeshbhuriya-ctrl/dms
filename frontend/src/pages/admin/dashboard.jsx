@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import DmsUploadAnalytics from "./dms_upload_analytics";
 import UserManagementAnalytics from "./user_analytics";
+import NcrAnalytics from "./ncr_analytics";
 
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
@@ -17,6 +18,7 @@ import {
   Clock3,
   ExternalLink,
   FileStack,
+  FileWarning,
   FolderGit2,
   Gauge,
   GitBranch,
@@ -544,6 +546,17 @@ function AdminDashboard() {
             <Users className="w-4 h-4" />
             User Activity & Analytics
           </Button>
+          <Button
+            variant={currentTab === "ncr" ? "default" : "outline"}
+            size="sm"
+            className={`text-xs h-9 px-4 font-semibold gap-2 cursor-pointer ${
+              currentTab !== "ncr" ? "bg-white text-amber-700 border-amber-200 hover:bg-amber-50" : ""
+            }`}
+            onClick={() => setSearchParams({ tab: "ncr" })}
+          >
+            <FileWarning className="w-4 h-4" />
+            NCR Analytics
+          </Button>
         </div>
         {currentTab === "overview" && (
           <Button
@@ -563,6 +576,8 @@ function AdminDashboard() {
         <DmsUploadAnalytics />
       ) : currentTab === "users" ? (
         <UserManagementAnalytics />
+      ) : currentTab === "ncr" ? (
+        <NcrAnalytics />
       ) : isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, idx) => (
