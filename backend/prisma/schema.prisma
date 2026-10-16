@@ -64,6 +64,7 @@ model company{
   maintenance_memos maintenance_memo[]
   preventive_maintenance_plans preventive_maintenance_plan[]
   work_permits work_permit[]
+  user_login_activities user_login_activity[]
 }
 
 model department {
@@ -265,6 +266,10 @@ model user{
   wp_approvers           work_permit[] @relation("WpApprover")
   wp_safety_officers     work_permit[] @relation("WpSafety")
   wp_history_actions     work_permit_history[]
+
+  last_login_at          DateTime?
+  last_activity_at       DateTime?
+  login_activities       user_login_activity[]
 }
 
 model user_roles{
@@ -1779,6 +1784,39 @@ model audit_log {
   @@index([company_id, module])
   @@index([company_id, user_id])
   @@index([company_id, action])
+}
+
+// -------------------------------------------------------------
+// User Login & Session Activity
+// -------------------------------------------------------------
+
+model user_login_activity {
+  id               String    @id @default(uuid())
+  company_id       String
+  user_id          String?
+  employee_id      String
+  user_name        String?
+  department_id    String?
+  department_name  String?
+  role_names       String[]  @default([])
+  login_at         DateTime  @default(now())
+  logout_at        DateTime?
+  session_duration Int?      // Duration in seconds
+  status           String    // "SUCCESS" | "FAILED" | "ACCOUNT_LOCKED"
+  failure_reason   String?   // "INVALID_CREDENTIALS" | "ACCOUNT_DEACTIVATED" | "USER_NOT_FOUND"
+  ip_address       String?
+  user_agent       String?
+
+  company          company   @relation(fields: [company_id], references: [id])
+  user             user?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([company_id, login_at(sort: Desc)])
+  @@index([company_id, user_id])
+  @@index([company_id, status])
+  @@index([company_id, department_id])
 }
 
 model client_reviewed_document_file {

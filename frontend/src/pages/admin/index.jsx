@@ -8,4 +8,5 @@ export { default as Reports } from "./reports/Reports"
 export { default as AuditLogs } from "./audit_logs"
 export { default as ApprovalCenter } from "./approval_center/approver_center"
 export { default as DmsUploadAnalytics } from "./dms_upload_analytics"
+export { default as UserManagementAnalytics } from "./user_analytics"
 

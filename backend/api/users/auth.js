@@ -38,7 +38,8 @@ async function login(req, res) {
   try {
     const { employeeId, password } = req.body;
 
-
+    const ip_address = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || req.ip || null;
+    const user_agent = req.headers['user-agent'] ? req.headers['user-agent'].substring(0, 500) : null;
 
     // Validate input
     if (!employeeId || !password) {
@@ -48,13 +49,18 @@ async function login(req, res) {
       });
     }
 
+    const trimmedEmpId = employeeId.trim();
+
     // Find user by employee ID
     const user = await prisma.user.findFirst({
       where: { 
-        empid: employeeId.trim(),
+        empid: trimmedEmpId,
         is_deleted: false 
       },
       include: {
+        department: {
+          select: { id: true, name: true },
+        },
         user_roles: {
           include: {
             role: {
@@ -73,6 +79,26 @@ async function login(req, res) {
 
     // Check if user exists
     if (!user) {
+      const anyUser = await prisma.user.findFirst({
+        where: { empid: trimmedEmpId },
+        select: { id: true, company_id: true, name: true, department_id: true },
+      });
+      if (anyUser) {
+        await prisma.user_login_activity.create({
+          data: {
+            company_id: anyUser.company_id,
+            user_id: anyUser.id,
+            employee_id: trimmedEmpId,
+            user_name: anyUser.name,
+            department_id: anyUser.department_id,
+            status: 'FAILED',
+            failure_reason: 'USER_DELETED_OR_INACTIVE',
+            ip_address,
+            user_agent,
+          },
+        }).catch(() => {});
+      }
+
       return res.status(401).json({
         success: false,
         message: 'Invalid employee ID or password',
@@ -81,6 +107,21 @@ async function login(req, res) {
 
     // Check if user is active
     if (!user.is_active) {
+      await prisma.user_login_activity.create({
+        data: {
+          company_id: user.company_id,
+          user_id: user.id,
+          employee_id: user.empid,
+          user_name: user.name,
+          department_id: user.department_id,
+          department_name: user.department?.name || null,
+          status: 'FAILED',
+          failure_reason: 'ACCOUNT_DEACTIVATED',
+          ip_address,
+          user_agent,
+        },
+      }).catch(() => {});
+
       return res.status(403).json({
         success: false,
         message: 'Your account is deactivated. Please contact administrator.',
@@ -91,6 +132,21 @@ async function login(req, res) {
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
+      await prisma.user_login_activity.create({
+        data: {
+          company_id: user.company_id,
+          user_id: user.id,
+          employee_id: user.empid,
+          user_name: user.name,
+          department_id: user.department_id,
+          department_name: user.department?.name || null,
+          status: 'FAILED',
+          failure_reason: 'INVALID_CREDENTIALS',
+          ip_address,
+          user_agent,
+        },
+      }).catch(() => {});
+
       return res.status(401).json({
         success: false,
         message: 'Invalid employee ID or password',
@@ -102,6 +158,33 @@ async function login(req, res) {
       id: userRole.role.id,
       name: userRole.role.name,
     }));
+    const roleNames = roles.map((r) => r.name);
+
+    // Record successful login activity & update last_login_at
+    let loginActivity = null;
+    try {
+      loginActivity = await prisma.user_login_activity.create({
+        data: {
+          company_id: user.company_id,
+          user_id: user.id,
+          employee_id: user.empid,
+          user_name: user.name,
+          department_id: user.department_id,
+          department_name: user.department?.name || null,
+          role_names: roleNames,
+          status: 'SUCCESS',
+          ip_address,
+          user_agent,
+        },
+      });
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { last_login_at: new Date() },
+      });
+    } catch (actErr) {
+      console.error('Failed to record login activity:', actErr);
+    }
 
     // Generate encrypted JWT token using JOSE
     const JWT_SECRET = process.env.JWT_SECRET;
@@ -119,7 +202,7 @@ async function login(req, res) {
       {
         userid: user.id,
         company_id: user.company_id,
-        role: roles.map((r) => r.name), // Array of role names like ["OC", "Production"]
+        role: roleNames, // Array of role names like ["OC", "Production"]
       },
       JWT_SECRET,
       JWT_EXPIRES_IN,

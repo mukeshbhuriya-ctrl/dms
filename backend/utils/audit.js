@@ -114,6 +114,14 @@ class Audit {
           user_agent: userAgent,
         },
       });
+
+      // Update user's last_activity_at asynchronously
+      if (user_id) {
+        prisma.user.update({
+          where: { id: user_id },
+          data: { last_activity_at: new Date() }
+        }).catch(() => {});
+      }
     } catch (error) {
       // Fire-and-forget — NEVER block the main workflow
       console.error('[Audit] Failed to persist audit log:', error.message);

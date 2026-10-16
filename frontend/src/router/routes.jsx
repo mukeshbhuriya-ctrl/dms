@@ -33,7 +33,8 @@ import {
   Reports,
   AuditLogs,
   ApprovalCenter,
-  DmsUploadAnalytics
+  DmsUploadAnalytics,
+  UserManagementAnalytics,
 } from "@/pages/admin"
 import { TubeSheetInspection } from "@/pages/admin/tube_sheet"
 import { TubeBundleInspection } from "@/pages/admin/tube_bundle"
@@ -175,6 +176,18 @@ const adminRoutes = [
   {
     path: "/admin/dms-upload-records",
     element: protect(<DmsUploadAnalytics defaultView="records" />),
+  },
+  {
+    path: "/admin/user-analytics",
+    element: protect(<UserManagementAnalytics />),
+  },
+  {
+    path: "/admin/user-login-records",
+    element: protect(<UserManagementAnalytics defaultView="logins" />),
+  },
+  {
+    path: "/admin/user-activity-records",
+    element: protect(<UserManagementAnalytics defaultView="productivity" />),
   },
   {
     path: "/approval-center",

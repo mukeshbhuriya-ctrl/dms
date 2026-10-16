@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import DmsUploadAnalytics from "./dms_upload_analytics";
+import UserManagementAnalytics from "./user_analytics";
 
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
@@ -515,7 +516,7 @@ function AdminDashboard() {
           <Button
             variant={currentTab === "overview" ? "default" : "outline"}
             size="sm"
-            className="text-xs h-9 px-4 font-semibold gap-2"
+            className="text-xs h-9 px-4 font-semibold gap-2 cursor-pointer"
             onClick={() => setSearchParams({ tab: "overview" })}
           >
             <Gauge className="w-4 h-4" />
@@ -524,13 +525,24 @@ function AdminDashboard() {
           <Button
             variant={currentTab === "dms" ? "default" : "outline"}
             size="sm"
-            className={`text-xs h-9 px-4 font-semibold gap-2 ${
+            className={`text-xs h-9 px-4 font-semibold gap-2 cursor-pointer ${
               currentTab !== "dms" ? "bg-white text-blue-700 border-blue-200 hover:bg-blue-50" : ""
             }`}
             onClick={() => setSearchParams({ tab: "dms" })}
           >
             <FileStack className="w-4 h-4" />
             DMS Documents Upload Analytics
+          </Button>
+          <Button
+            variant={currentTab === "users" ? "default" : "outline"}
+            size="sm"
+            className={`text-xs h-9 px-4 font-semibold gap-2 cursor-pointer ${
+              currentTab !== "users" ? "bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50" : ""
+            }`}
+            onClick={() => setSearchParams({ tab: "users" })}
+          >
+            <Users className="w-4 h-4" />
+            User Activity & Analytics
           </Button>
         </div>
         {currentTab === "overview" && (
@@ -549,6 +561,8 @@ function AdminDashboard() {
 
       {currentTab === "dms" ? (
         <DmsUploadAnalytics />
+      ) : currentTab === "users" ? (
+        <UserManagementAnalytics />
       ) : isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, idx) => (

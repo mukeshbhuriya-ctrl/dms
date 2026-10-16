@@ -39,6 +39,9 @@ export const BREADCRUMB_MAP = {
   "/departments":               { label: "Departments", parent: "Administration", icon: Building2 },
   "/group-management":          { label: "Group Management", parent: "Administration", icon: Settings },
   "/admin/audit-logs":          { label: "Audit Logs", parent: "Administration", icon: ScrollText },
+  "/admin/user-analytics":      { label: "User Analytics", parent: "Administration", icon: BarChart3 },
+  "/admin/user-login-records":   { label: "User Login Activity Records", parent: "Administration", icon: ScrollText },
+  "/admin/user-activity-records":{ label: "User Productivity & Audit Records", parent: "Administration", icon: ScrollText },
   "/approval-center":           { label: "Approval Center", parent: "Administration", icon: ShieldCheck },
 
   // ── Job & PO ──

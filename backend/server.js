@@ -112,6 +112,9 @@ app.use('/api/admin/approval-center', approvalCenterRoutes);
 const auditLogRoutes = require('#routes/admin/auditLog.routes.js');
 app.use('/api/admin/audit-logs', auditLogRoutes);
 
+const userAnalyticsRoutes = require('#routes/admin/user_analytics.routes.js');
+app.use('/api/admin/user-analytics', userAnalyticsRoutes);
+
 const jobOverviewRoutes = require('#routes/admin/job360.routes.js');
 app.use('/api/admin/job-360', jobOverviewRoutes);
 
