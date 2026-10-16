@@ -281,7 +281,7 @@ export default function NcrRecordsTable({
       },
       {
         accessorKey: "turnaroundDays",
-        header: "Turnaround",
+        header: "Time Taken",
         enableSorting: true,
         cell: (row) => {
           const item = resolveRow(row);

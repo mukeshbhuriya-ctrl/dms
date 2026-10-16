@@ -518,7 +518,7 @@ class NcrAnalyticsService {
       { header: 'Design Review', key: 'design_status', width: 16 },
       { header: 'Welding Review', key: 'welding_status', width: 16 },
       { header: 'Quality Review', key: 'quality_status', width: 16 },
-      { header: 'Turnaround (Days)', key: 'turnaroundDays', width: 18 },
+      { header: 'Time Taken (Days)', key: 'turnaroundDays', width: 18 },
     ];
 
     const headerRow = sheet.getRow(1);

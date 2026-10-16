@@ -158,55 +158,52 @@ export default function NcrAnalytics({ defaultView = "analytics" }) {
   // VIEW 3: Clean, Minimal Analytics Dashboard with Industry-Standard Date Range Filter
   return (
     <div className="space-y-4">
-      {/* ── Header with Industry-Standard Date Filter & Controls ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3.5 rounded-lg border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-            <FileWarning className="w-4.5 h-4.5" />
+      {/* ── Minimal Header Toolbar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-1">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-md bg-amber-50 text-amber-600 flex items-center justify-center">
+            <FileWarning className="w-4 h-4" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
-              NCR Analytics
-            </h2>
-            <p className="text-xs text-slate-500">
-              Non-conformance reports, resolution velocity, and monthly trend analysis.
-            </p>
-          </div>
+          <h2 className="text-sm font-bold text-slate-800 tracking-tight">
+            Month-Wise NCR Analytics
+          </h2>
         </div>
 
-        {/* Controls: Date Range Preset, Custom Date Pickers, Refresh, View All Records */}
+        {/* Controls: Date Range Preset, Custom Date Pickers, Refresh */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Calendar Preset Dropdown */}
-          <Select value={preset} onValueChange={handlePresetChange}>
-            <SelectTrigger className="w-[155px] h-9 bg-white border-slate-300 text-xs font-semibold shadow-xs">
-              <Calendar className="w-4 h-4 mr-1 text-slate-500" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PRESET_RANGES.map((r) => (
-                <SelectItem key={r.id} value={r.id} className="text-xs">
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <Select value={preset} onValueChange={handlePresetChange}>
+              <SelectTrigger className="h-7 w-[135px] text-xs bg-transparent border-0 shadow-none focus:ring-0 p-0 font-medium text-slate-700">
+                <SelectValue placeholder="Select Range" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRESET_RANGES.map((r) => (
+                  <SelectItem key={r.id} value={r.id} className="text-xs">
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Custom Date Range Pickers (shown when Custom Date Range is selected) */}
           {preset === "CUSTOM" && (
-            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-md border border-slate-300">
-              <span className="text-[11px] font-medium text-slate-400">From:</span>
+            <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-xs">
+              <span className="text-[11px] text-slate-400">From:</span>
               <Input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-7 w-[125px] text-xs px-1 border-0 focus-visible:ring-0 shadow-none"
+                className="h-6 text-xs w-[115px] p-0 border-0 focus-visible:ring-0 shadow-none"
               />
-              <span className="text-[11px] font-medium text-slate-400">To:</span>
+              <span className="text-[11px] text-slate-400">To:</span>
               <Input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="h-7 w-[125px] text-xs px-1 border-0 focus-visible:ring-0 shadow-none"
+                className="h-6 text-xs w-[115px] p-0 border-0 focus-visible:ring-0 shadow-none"
               />
             </div>
           )}
@@ -217,26 +214,10 @@ export default function NcrAnalytics({ defaultView = "analytics" }) {
             size="sm"
             onClick={fetchOverview}
             disabled={isLoading}
-            className="h-9 px-3 text-xs gap-1.5 bg-white border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer shadow-xs"
-            title="Refresh analytics data"
+            className="h-8 w-8 p-0 text-xs text-slate-600 bg-white hover:bg-slate-50 border-slate-200 shadow-xs cursor-pointer"
+            title="Refresh Overview"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span>Refresh</span>
-          </Button>
-
-          {/* View All Records Button */}
-          <Button
-            size="sm"
-            onClick={() => navigateToLedger({ status: "ALL", month: "ALL" })}
-            className="h-9 px-3.5 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs cursor-pointer"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>View All Records</span>
-            {kpis.totalRaised !== undefined && (
-              <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-blue-500 text-[10px] text-white font-semibold">
-                {kpis.totalRaised}
-              </span>
-            )}
           </Button>
         </div>
       </div>

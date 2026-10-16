@@ -48,7 +48,7 @@ export default function NcrAnalyticsKpis({
     },
     {
       id: "TURNAROUND",
-      title: "Avg Resolution Time",
+      title: "Avg Time Taken",
       value: `${avgTurnaroundDays} Days`,
       subtitle: "From logged to closed",
       icon: Clock,
